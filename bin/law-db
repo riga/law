@@ -17,10 +17,6 @@ import law.util
 from law.config import Config
 
 
-def expand(path):
-    return os.path.expandvars(os.path.expanduser(path))
-
-
 def main():
     # parse arguments
     parser = ArgumentParser(description="law-db update tool")
@@ -32,10 +28,14 @@ def main():
     # determine paths to lookup
     lookup = [p.strip() for p in Config.instance().keys("paths")]
     if args.p and "PYTHONPATH" in os.environ:
-        lookup.extend(expand(p.strip()) for p in os.environ["PYTHONPATH"].split(":") if p.strip())
+        lookup.extend(p.strip() for p in os.environ["PYTHONPATH"].split(":"))
 
     # loop through paths, import everything to load tasks
     for path in lookup:
+        path = str(os.path.expandvars(os.path.expanduser(path)))
+        if not path:
+            continue
+
         for base, dirnames, filenames in os.walk(path):
             for filename in filenames:
                 filebase, fileext = os.path.splitext(filename)
@@ -50,20 +50,26 @@ def main():
                 while modparts:
                     modid = modparts.pop() + (modid and ".") + modid
                     try:
-                        __import__(modid, globals(), locals(), [str(filebase)], -1)
+                        mod = __import__(modid, globals(), locals())
                         break
-                    except ImportError:
+                    except ImportError as e:
                         continue
 
     # determine data to write: "module_id:task_family:param param ..."
-    processed = []
-    lines = []
-    for cls in luigi.Task.__subclasses__():
-        key = (cls.__module__, cls.task_family)
-        if key in processed:
-            continue
-        processed.append(key)
+    seen_families = []
+    task_classes = []
+    lookup = [luigi.Task]
+    while lookup:
+        cls = lookup.pop(0)
+        lookup.extend(cls.__subclasses__())
 
+        if cls.task_family in seen_families:
+            continue
+        seen_families.append(cls.task_family)
+
+        task_classes.append(cls)
+
+    def dbline(cls):
         # determine parameters
         params = ["workers", "local-scheduler", "help"]
         for attr in dir(cls):
@@ -71,13 +77,13 @@ def main():
             if isinstance(member, luigi.Parameter) and attr not in getattr(cls, "_exclude_db", set()):
                 params.append(attr)
 
-        lines.append(list(key) + [" ".join(params)])
+        return cls.__module__ + ":" + cls.task_family + ":" + " ".join(params)
 
     # write the db file
     dbfile = Config.instance().get("core", "dbfile")
     with open(dbfile, "w") as f:
-        for line in lines:
-            f.write(":".join(line) + "\n")
+        for cls in task_classes:
+            f.write(dbline(cls) + "\n")
 
 
 if __name__ == "__main__":
