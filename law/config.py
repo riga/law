@@ -36,7 +36,7 @@ class Parser(ConfigParser):
     def get_default(self, section, option, default=_no_default, cast=None):
         if default != _no_default and not self.has_option(section, option):
             return default
-        value = super(Parser, self).get(section, option)
+        value = self.get(section, option)
         if cast is not None:
             value = cast(value)
         return value
