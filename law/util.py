@@ -4,11 +4,14 @@
 Helpful utility functions.
 """
 
-__all__ = ["abort", "colored"]
+
+__all__ = ["abort", "colored", "query_choice", "multi_fnmatch", "make_list"]
 
 
 import os
 import sys
+import types
+from fnmatch import fnmatch
 
 
 def abort(msg=None, exitCode=1):
@@ -17,7 +20,6 @@ def abort(msg=None, exitCode=1):
     """
     if msg is not None:
         print(msg)
-    print(colored("abort", "red"))
     sys.exit(exitCode)
 
 
@@ -69,3 +71,62 @@ def colored(msg, color=None, background=None, style=None, force=False):
     style = ";".join(str(styles.get(s, styles["none"])) for s in style)
 
     return "\033[%s;%s;%sm%s\033[0m" % (style, background, color, msg)
+
+
+def query_choice(msg, choices, default=None, descriptions=None, lower=True):
+    """
+    Interactively query a choice from the prompt until the input matches one of the *choices*. The
+    prompt can be configured using *msg* and *descriptions*, which, if set, must have the same
+    length as *choices*. When *default* is not *None* it must be one of the choices and is used when
+    the input is empty. When *lower* is *True*, the input is compared to the choices in lower case.
+    """
+    choices = _choices = [str(c) for c in choices]
+    if lower:
+        _choices = [c.lower() for c in choices]
+
+    if default is not None:
+        if default not in choices:
+            raise Exception("default must be one of the choices")
+
+    hints = [(choice if choice != default else choice + "*") for choice in choices]
+    if descriptions is not None:
+        if len(descriptions) != len(choices):
+            raise ValueError("length of descriptions must match length of choices")
+        hints = ["%s(%s)" % tpl for tpl in zip(hints, descriptions)]
+    msg += " [%s] " % "/".join(hints)
+
+    choice = None
+    while choice not in _choices:
+        if choice is not None:
+            print("unknown choice: '%s'\n" % choice)
+        choice = raw_input(msg)
+        if default is not None and choice == "":
+            choice = default
+        if lower:
+            choice = choice.lower()
+
+    return choice
+
+
+def multi_fnmatch(name, patterns, mode=any):
+    """
+    Compares *name* to multiple *patterns* and returns *True* in case of at least one match (*mode*
+    = *any*, the default), or in case all patterns matched (*mode* = *all*). Otherwise, *False* is
+    returned.
+    """
+    return mode(fnmatch(name, pattern) for pattern in patterns)
+
+
+def make_list(obj, cast=True):
+    """
+    Converts an object *obj* to a list and returns it. Objects of types *tuple* and *set* are
+    converted if *cast* is *True*. Otherwise, and for all other types, *obj* is put in a new list.
+    """
+    if isinstance(obj, list):
+        return list(obj)
+    if isinstance(obj, types.GeneratorType):
+        return list(obj)
+    if isinstance(obj, (tuple, set)) and cast:
+        return list(obj)
+    else:
+        return [obj]
