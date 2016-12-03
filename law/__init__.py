@@ -15,3 +15,12 @@ __status__     = "Development"
 __version__    = "0.0.2"
 
 __all__ = []
+
+
+import law.parameter
+
+from law.target.local import LocalFileSystem, LocalFileTarget, LocalDirectoryTarget
+
+import law.decorator
+
+from law.task.base import Task
