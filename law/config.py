@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 
 """
-law Config file interface.
+law Config interface.
 """
+
 
 __all__ = ["Config"]
 
 
 import os
+import tempfile
 
 try:
     # python 3
@@ -48,9 +50,10 @@ class Config(object):
 
     _defaults = {
         "core": {
-            "dbfile": os.environ.get("LAW_DB_FILE", os.path.expandvars("$HOME/.law/db"))
+            "dbfile": os.environ.get("LAW_DB_FILE", os.path.expandvars("$HOME/.law/db")),
+            "target_tmp_dir": tempfile.gettempdir(),
         },
-        "paths": {}
+        "paths": {},
     }
 
     _no_value = object()
@@ -80,7 +83,7 @@ class Config(object):
         self._parser.update(self._defaults, overwrite=False)
 
     def get(self, section, option, default=_no_default, cast=None):
-        return self._parser.get_default(section, option, default=_no_default, cast=None)
+        return self._parser.get_default(section, option, default=default, cast=None)
 
     def items(self, section):
         return self._parser.items(section)
