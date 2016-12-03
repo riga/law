@@ -58,7 +58,7 @@ def main():
     # determine data to write: "module_id:task_family:param param ..."
     seen_families = []
     task_classes = []
-    lookup = [luigi.Task]
+    lookup = [law.Task]
     while lookup:
         cls = lookup.pop(0)
         lookup.extend(cls.__subclasses__())
@@ -67,15 +67,18 @@ def main():
             continue
         seen_families.append(cls.task_family)
 
-        task_classes.append(cls)
+        if not cls._exclude_db:
+            task_classes.append(cls)
 
     def dbline(cls):
         # determine parameters
         params = ["workers", "local-scheduler", "help"]
         for attr in dir(cls):
             member = getattr(cls, attr)
-            if isinstance(member, luigi.Parameter) and attr not in getattr(cls, "_exclude_db", set()):
-                params.append(attr)
+            if isinstance(member, luigi.Parameter):
+                exclude = getattr(cls, "_exclude_params_db", set())
+                if not law.util.multi_fnmatch(attr, exclude, any):
+                    params.append(attr.replace("_", "-"))
 
         return cls.__module__ + ":" + cls.task_family + ":" + " ".join(params)
 
