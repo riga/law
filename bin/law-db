@@ -1,0 +1,84 @@
+#!/usr/bin/env python
+
+"""
+law-db command line tool to update the db file by searching for tasks in modules within the python
+path.
+"""
+
+
+import os
+import sys
+from argparse import ArgumentParser
+
+import luigi
+
+import law
+import law.util
+from law.config import Config
+
+
+def expand(path):
+    return os.path.expandvars(os.path.expanduser(path))
+
+
+def main():
+    # parse arguments
+    parser = ArgumentParser(description="law-db update tool")
+
+    parser.add_argument("-p", action="store_true", help="also look in PYTHONPATH")
+
+    args = parser.parse_args()
+
+    # determine paths to lookup
+    lookup = [p.strip() for p in Config.instance().keys("paths")]
+    if args.p and "PYTHONPATH" in os.environ:
+        lookup.extend(expand(p.strip()) for p in os.environ["PYTHONPATH"].split(":") if p.strip())
+
+    # loop through paths, import everything to load tasks
+    for path in lookup:
+        for base, dirnames, filenames in os.walk(path):
+            for filename in filenames:
+                filebase, fileext = os.path.splitext(filename)
+                if fileext != ".py" or filebase == "__main__":
+                    continue
+                fullpath = os.path.join(base, filename)
+                # try to find a matching path in sys.path to be able to import it
+                modparts = os.path.join(base, filebase).strip("/").split("/")
+                if modparts[-1] == "__init__":
+                    modparts.pop()
+                modid = ""
+                while modparts:
+                    modid = modparts.pop() + (modid and ".") + modid
+                    try:
+                        __import__(modid, globals(), locals(), [str(filebase)], -1)
+                        break
+                    except ImportError:
+                        continue
+
+    # determine data to write: "module_id:task_family:param param ..."
+    processed = []
+    lines = []
+    for cls in luigi.Task.__subclasses__():
+        key = (cls.__module__, cls.task_family)
+        if key in processed:
+            continue
+        processed.append(key)
+
+        # determine parameters
+        params = ["workers", "local-scheduler", "help"]
+        for attr in dir(cls):
+            member = getattr(cls, attr)
+            if isinstance(member, luigi.Parameter) and attr not in getattr(cls, "_exclude_db", set()):
+                params.append(attr)
+
+        lines.append(list(key) + [" ".join(params)])
+
+    # write the db file
+    dbfile = Config.instance().get("core", "dbfile")
+    with open(dbfile, "w") as f:
+        for line in lines:
+            f.write(":".join(line) + "\n")
+
+
+if __name__ == "__main__":
+    main()
