@@ -2,7 +2,9 @@
 
 __law_complete() {
 	local db_file="$LAW_db_file"
-	[ -z "$db_file" ] && db_file="$HOME/.law/db"
+	if [ -z "$db_file" ]; then
+		db_file="$HOME/.law/db"
+	fi
 
 	local cur="${COMP_WORDS[COMP_CWORD]}"
 
@@ -10,35 +12,39 @@ __law_complete() {
 		local task_family="${COMP_WORDS[1]}"
 	fi
 
-	# grep parameters are different for mac and linux
-	local grepParams="-Po"
-	[ "$( uname -s )" = "Darwin" ] && grepParams="-Eo"
+	_grep() {
+		if [ "$( uname -s )" != "Darwin" ]; then
+			grep -Po $@
+		else
+			perl -nle "print $& if m{$1}" "${@:2}"
+		fi
+	}
 
 	case $COMP_CWORD in
 		1)
-			COMPREPLY=( $( compgen -W "$( grep $grepParams "[^\:]+\:\K(.+)(?=\:.+)" "$db_file" )" "${cur}" ) )
+			COMPREPLY=( $( compgen -W "$( _grep "[^\:]+\:\K(.+)(?=\:.+)" "$db_file" )" "${cur}" ) )
 			;;
 		*)
 			local inp="${cur##-}"
 			inp="${inp##-}"
-			COMPREPLY=( $( compgen -W "$( grep $grepParams -m 1 "[^\:]+\:$task_family\:\K.+" "$db_file" )" -P "--" -- "$inp" ) )
+			COMPREPLY=( $( compgen -W "$( _grep "[^\:]+\:$task_family\:\K.+" "$db_file" )" -P "--" -- "$inp" ) )
 
 			if [ "${#COMPREPLY[@]}" = "0" ] && [ "${cur:0:2}" = "--" ]; then
-				local tasks=( $( grep $grepParams "[^\:]+\:\K$inp[^\:]*(?=\:.+)" "$db_file" ) )
+				local tasks=( $( _grep "[^\:]+\:\K$inp[^\:]*(?=\:.+)" "$db_file" ) )
 
-				if [[ "$( echo $inp | grep $grepParams "\K[^\.]+$" )" != *"-"* ]] && [ "${#tasks[@]}" -gt "1" ]; then
+				if [[ "$( echo $inp | _grep "\K[^\.]+$" )" != *"-"* ]] && [ "${#tasks[@]}" -gt "1" ]; then
 					COMPREPLY=( $( compgen -W "$( echo ${tasks[@]} )" -P "--" -S "-" -- "$inp" ) )
 				else
-					local task="$( echo $inp | grep $grepParams ".*(?=\-[^\.]*)" )"
-					local curparam="$( echo $inp | grep $grepParams ".+\-\K[^\.]+$" )"
+					local task="$( echo $inp | _grep ".*(?=\-[^\.]*)" )"
+					local curparam="$( echo $inp | _grep ".+\-\K[^\.]+$" )"
 
-					[[ "$( echo $inp | grep $grepParams "\K[^\.]+$" )" != *"-"* ]] && task="${tasks[0]}"
+					[[ "$( echo $inp | _grep "\K[^\.]+$" )" != *"-"* ]] && task="${tasks[0]}"
 					[ "$( echo ${task:${#task}-1} )" == "-" ] && task="${task:0:${#task}-1}"
 
-					local params=( $( grep $grepParams "[^\:]\:$task\:\K.*" "$db_file" ) )
+					local params=( $( _grep "[^\:]\:$task\:\K.*" "$db_file" ) )
 					local words=()
 					for param in "${params[@]}"; do
-						if [ -z "$curparam" ] || [ ! -z "$( echo "$param" | grep $grepParams "^$curparam" )" ]; then
+						if [ -z "$curparam" ] || [ ! -z "$( echo "$param" | _grep "^$curparam" )" ]; then
 							words+=("$task-$param")
 						fi
 					done
