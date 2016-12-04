@@ -14,13 +14,20 @@ __license__    = "MIT"
 __status__     = "Development"
 __version__    = "0.0.2"
 
-__all__ = []
+__all__ = ["LocalFileSystem, LocalFileTarget, LocalDirectoryTarget",
+           "Task"]
 
+
+import atexit
 
 import law.parameter
-
 from law.target.local import LocalFileSystem, LocalFileTarget, LocalDirectoryTarget
-
 import law.decorator
-
 from law.task.base import Task
+
+
+# register exit function
+def exit():
+    pass
+
+atexit.register(exit)
