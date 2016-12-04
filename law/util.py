@@ -12,7 +12,7 @@ import os
 import sys
 import types
 import re
-from fnmatch
+import fnmatch
 
 
 def printerr(*args, **kwargs):
