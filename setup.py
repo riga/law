@@ -50,13 +50,18 @@ setup(
     description      = law.__doc__.strip(),
     license          = law.__license__,
     url              = law.__contact__,
-    py_modules       = [law.__name__],
     keywords         = keywords,
     classifiers      = classifiers,
     long_description = long_description,
-    data_files       = ["LICENSE", "requirements.txt"],
     install_requires = install_requires,
+    zip_safe         = False,
+    packages         = ["law", "law.task", "law.target", "law.scripts", "law.examples"],
+    data_files       = ["LICENSE", "requirements.txt", "README.md", "completion.sh"],
     entry_points     = {
-        "console_scripts": []
+        "console_scripts": [
+            "law = law.scripts._law:main",
+            "law_db = law.scripts._law_db:main",
+            "law_completion = law.scripts._law_completion:main"
+        ]
     }
 )

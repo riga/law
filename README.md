@@ -18,3 +18,10 @@ Config:
 	- `db_file`: The path to the db file. Defaults to `$HOME/.law/db`
 	- `target_tmp_dir`: The directory where tmp targets are stored. Defaults to ` tempfile.gettempdir()`.
 - `paths`: Listing of paths to look for tasks when creating the db file.
+
+
+Enable bash completion:
+
+```
+source `law-completion`
+```

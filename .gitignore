@@ -5,6 +5,7 @@
 *.DS_Store
 *.pkl
 dist
+build
+law.egg-info
 MANIFEST
 docs/_build
-*.egg*

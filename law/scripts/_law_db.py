@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 """
 law-db command line tool to update the db file by searching for tasks in modules within the python
