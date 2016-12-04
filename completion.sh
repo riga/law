@@ -1,7 +1,7 @@
 # bash completion function that is registered for the law executable
 
 __law_complete() {
-	local db_file="$LAW_db_file"
+	local db_file="$LAW_DB_FILE"
 	if [ -z "$db_file" ]; then
 		db_file="$HOME/.law/db"
 	fi
