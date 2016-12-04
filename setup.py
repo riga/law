@@ -55,7 +55,8 @@ setup(
     long_description = long_description,
     install_requires = install_requires,
     zip_safe         = False,
-    packages         = ["law", "law.task", "law.target", "law.scripts", "law.examples"],
+    packages         = ["law", "law.task", "law.target", "law.compat", "law.scripts",
+                        "law.examples"],
     data_files       = ["LICENSE", "requirements.txt", "README.md", "completion.sh"],
     entry_points     = {
         "console_scripts": [
