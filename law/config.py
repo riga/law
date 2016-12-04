@@ -50,13 +50,13 @@ class Config(object):
 
     _defaults = {
         "core": {
-            "dbfile": os.environ.get("LAW_DB_FILE", os.path.expandvars("$HOME/.law/db")),
+            "db_file": os.environ.get("LAW_DB_FILE", os.path.expandvars("$HOME/.law/db")),
             "target_tmp_dir": tempfile.gettempdir(),
         },
         "paths": {},
     }
 
-    _no_value = object()
+    _config_file_order = ("$LAW_CONFIG_FILE", "$HOME/.law/config", "etc/law/config")
 
     @classmethod
     def instance(cls, config_file=None):
@@ -67,16 +67,11 @@ class Config(object):
     def __init__(self, config_file=None):
         super(Config, self).__init__()
 
-        if config_file is None:
-            config_file = os.environ.get("LAW_CONFIG_FILE", None)
-
-        if config_file is None:
-            config_file = os.path.expandvars("$HOME/.law/config")
-            if not os.path.isfile(config_file):
-                config_file = None
-
-        if config_file is None:
-            config_file = "etc/law/config"
+        for _config_file in (config_file or "",) + self._config_file_order:
+            _config_file = os.path.expandvars(os.path.expanduser(_config_file))
+            if os.path.isfile(_config_file):
+                config_file = _config_file
+                break
 
         self._parser = Parser(allow_no_value=True)
         self._parser.read(config_file)

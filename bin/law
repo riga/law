@@ -26,7 +26,7 @@ def main():
     args = parser.parse_args(sys.argv[1:2])
 
     # read the module id for that task family from the db file
-    dbfile = Config.instance().get("core", "dbfile")
+    dbfile = Config.instance().get("core", "db_file")
     with open(dbfile, "r") as f:
         for line in f.readlines():
             line = line.strip()

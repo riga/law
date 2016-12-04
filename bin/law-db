@@ -83,7 +83,9 @@ def main():
         return cls.__module__ + ":" + cls.task_family + ":" + " ".join(params)
 
     # write the db file
-    dbfile = Config.instance().get("core", "dbfile")
+    dbfile = Config.instance().get("core", "db_file")
+    if not os.path.exists(os.path.dirname(dbfile)):
+        os.makedirs(os.path.dirname(dbfile))
     with open(dbfile, "w") as f:
         for cls in task_classes:
             f.write(dbline(cls) + "\n")
