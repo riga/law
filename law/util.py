@@ -5,7 +5,7 @@ Helpful utility functions.
 """
 
 
-__all__ = ["abort", "colored", "query_choice", "multi_fnmatch", "make_list"]
+__all__ = ["printerr", "abort", "colored", "query_choice", "multi_fnmatch", "make_list"]
 
 
 import os
@@ -14,13 +14,26 @@ import types
 from fnmatch import fnmatch
 
 
-def abort(msg=None, exitCode=1):
+def printerr(*args, **kwargs):
+    """ printerr(*args, flush=False)
+    Same as *print*, but outputs to stderr. If *flush* is *True*, stderr is flushed after printing.
     """
-    Aborts the process (*sys.exit*) with an *exitCode*. If *msg* is not *None*, it is printed first.
+    sys.stderr.write(str(args) + "\n")
+    if kwargs.get("flush", False):
+        sys.stderr.flush()
+
+
+def abort(msg=None, exitcode=1):
+    """
+    Aborts the process (*sys.exit*) with an *exitcode*. If *msg* is not *None*, it is printed first
+    to stdout if *exitcode* is 0 or *None*, and to stderr otherwise.
     """
     if msg is not None:
-        print(msg)
-    sys.exit(exitCode)
+        if exitcode in (None, 0):
+            print(msg)
+        else:
+            printerr(msg)
+    sys.exit(exitcode)
 
 
 colors = {
