@@ -116,7 +116,7 @@ class BaseTask(luigi.Task):
                 continue
             raw = replace.get(name, getattr(self, name))
             val = param.serialize(raw)
-            arg = "--%s" % name
+            arg = "--%s" % name.replace("_", "-")
             if isinstance(param, luigi.BoolParameter):
                 if raw:
                     args.append(arg)
