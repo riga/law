@@ -150,32 +150,31 @@ class Task(BaseTask):
     def __new__(cls, *args, **kwargs):
         inst = super(Task, cls).__new__(cls, *args, **kwargs)
 
+        func = None
+        _kwargs = None
+
         print_deps = kwargs.get("print_deps", EMPTY_INT)
         if print_deps != EMPTY_INT:
-            inst.__init__(*args, **kwargs)
-            try:
-                inst._print_deps(max_depth=print_deps)
-            except KeyboardInterrupt:
-                print("\naborted")
-            sys.exit(0)
+            func = inst._print_deps
+            _kwargs = {"max_depth": print_deps}
 
         print_status = kwargs.get("print_status", EMPTY_INT)
         if print_status != EMPTY_INT:
-            inst.__init__(*args, **kwargs)
-            try:
-                inst._print_status(max_depth=print_status)
-            except KeyboardInterrupt:
-                print("\naborted")
-            sys.exit(0)
+            func = inst._print_status
+            _kwargs = {"max_depth": print_status}
 
         purge_output = kwargs.get("purge_output", EMPTY_INT)
         if purge_output != EMPTY_INT:
+            func = inst._purge_output
+            _kwargs = {"max_depth": purge_output}
+
+        if func:
             inst.__init__(*args, **kwargs)
             try:
-                inst._purge_output(max_depth=purge_output)
+                func(**_kwargs)
             except KeyboardInterrupt:
                 print("\naborted")
-            sys.exit(0)
+            law.util.abort(exitcode=0)
 
         return inst
 
