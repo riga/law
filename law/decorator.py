@@ -29,7 +29,7 @@ import functools
 import luigi
 
 import law
-from law.parameter import EMPTY_STR
+from law.parameter import NO_STR
 
 
 def factory(**default_opts):
@@ -61,14 +61,14 @@ def log(fn, opts, self, *args, **kwargs):
     """
     task = get_task(self)
     orig = task.log
-    log  = task.log if task.log != EMPTY_STR else task.log_file
+    log  = task.log if task.log != NO_STR else task.log_file
 
     if log == "-" or not log:
         return fn(self, *args, **kwargs)
     else:
         target = LocalFileTarget(log)
         target.touch()
-        mode = "a+" if orig != EMPTY_STR else "w"
+        mode = "a+" if orig != NO_STR else "w"
         with open(log, mode, 1) as f:
             sys.stdout = f
             sys.stderr = f

@@ -68,7 +68,7 @@ def main():
             continue
         seen_families.append(cls.task_family)
 
-        skip = cls._exclude_db or not six.callable(getattr(cls, "run", None)) \
+        skip = cls.exclude_db or not six.callable(getattr(cls, "run", None)) \
                or getattr(cls.run, "__isabstractmethod__", False)
         if not skip:
             task_classes.append(cls)
@@ -80,7 +80,7 @@ def main():
             member = getattr(cls, attr)
             if isinstance(member, luigi.Parameter):
                 exclude = getattr(cls, "_exclude_params_db", set())
-                if not law.util.multi_fnmatch(attr, exclude, any):
+                if not law.util.multi_match(attr, exclude, any):
                     params.append(attr.replace("_", "-"))
 
         return cls.__module__ + ":" + cls.task_family + ":" + " ".join(params)

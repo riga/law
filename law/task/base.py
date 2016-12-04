@@ -5,7 +5,7 @@ Custom luigi base task definitions.
 """
 
 
-__all__ = ["Task", "WrapperTask", "Proxy", "getreqs"]
+__all__ = ["Task", "WrapperTask", "ProxyTask", "getreqs"]
 
 
 import os
@@ -20,21 +20,21 @@ import luigi
 import luigi.util
 import six
 
-from law.parameter import EMPTY_STR, EMPTY_INT
-from law.util import colored, query_choice, multi_fnmatch
+from law.parameter import NO_STR, NO_INT, TaskInstanceParameter
+from law.util import colored, query_choice, multi_match
 
 
 class BaseTask(luigi.Task):
 
-    task_name = luigi.Parameter(default=EMPTY_STR,
+    task_name = luigi.Parameter(default=NO_STR,
         description="an optional task name, default: <className>")
 
-    _exclude_db = True
+    exclude_db = True
 
-    _exclude_params_db = {"taskName"}
-    _exclude_params_req = {"taskName"}
-    _exclude_params_req_receive = set()
-    _exclude_params_req_transfer = set()
+    exclude_params_db = {"taskName"}
+    exclude_params_req = {"taskName"}
+    exclude_params_req_receive = set()
+    exclude_params_req_transfer = set()
 
     @classmethod
     def get_param_values(cls, *args, **kwargs):
@@ -64,11 +64,11 @@ class BaseTask(luigi.Task):
             _exclude = {_exclude}
         # also use this class' req and req_receive sets
         # and the req and req_transfer sets of the instance's class
-        _exclude.update(cls._exclude_params_req, cls._exclude_params_req_receive)
-        _exclude.update(inst._exclude_params_req, inst._exclude_params_req_transfer)
+        _exclude.update(cls.exclude_params_req, cls.exclude_params_req_receive)
+        _exclude.update(inst.exclude_params_req, inst.exclude_params_req_transfer)
         # remove excluded parameters
         for name in list(params.keys()):
-            if multi_fnmatch(name, _exclude, any):
+            if multi_match(name, _exclude, any):
                 del params[name]
 
         # add kwargs
@@ -86,7 +86,7 @@ class BaseTask(luigi.Task):
         super(BaseTask, self).__init__(*args, **kwargs)
 
         # set default task_name
-        if self.task_name == EMPTY_STR:
+        if self.task_name == NO_STR:
             self.task_name = self.__class__.__name__
 
     def complete(self):
@@ -121,7 +121,7 @@ class BaseTask(luigi.Task):
 
         args = []
         for name, param in self.get_params():
-            if multi_fnmatch(name, exclude, any):
+            if multi_match(name, exclude, any):
                 continue
             raw = replace.get(name, getattr(self, name))
             val = param.serialize(raw)
@@ -143,21 +143,21 @@ class BaseTask(luigi.Task):
 
 class Task(BaseTask):
 
-    log = luigi.Parameter(default=EMPTY_STR, significant=False,
+    log = luigi.Parameter(default=NO_STR, significant=False,
         description="a custom log file, default: <task.log_file>")
-    print_deps = luigi.IntParameter(default=EMPTY_INT, significant=False,
+    print_deps = luigi.IntParameter(default=NO_INT, significant=False,
         description="print task dependencies, do not run any task, the passed number sets the "
-        "recursion depth where 0 means non-recursive, default: EMPTY_INT")
-    print_status = luigi.IntParameter(default=EMPTY_INT, significant=False,
+        "recursion depth where 0 means non-recursive, default: NO_INT")
+    print_status = luigi.IntParameter(default=NO_INT, significant=False,
         description="print the task status, do not run any task, the passed numbers sets the "
-        "recursion depth where 0 means non-recursive, default: EMPTY_INT")
-    purge_output = luigi.IntParameter(default=EMPTY_INT, significant=False,
+        "recursion depth where 0 means non-recursive, default: NO_INT")
+    purge_output = luigi.IntParameter(default=NO_INT, significant=False,
         description="purge all outputs, do not run any task, the passed number sets the recursion "
-        "depth where 0 means non-recursive, default: EMPTY_INT")
+        "depth where 0 means non-recursive, default: NO_INT")
 
-    _exclude_db = False
+    exclude_db = False
 
-    _exclude_params_req = BaseTask._exclude_params_req \
+    exclude_params_req = BaseTask.exclude_params_req \
         | {"print_deps", "print_status", "purge_output"}
 
     def __new__(cls, *args, **kwargs):
@@ -166,18 +166,18 @@ class Task(BaseTask):
         func = None
         _kwargs = None
 
-        print_deps = kwargs.get("print_deps", EMPTY_INT)
-        if print_deps != EMPTY_INT:
+        print_deps = kwargs.get("print_deps", NO_INT)
+        if print_deps != NO_INT:
             func = inst._print_deps
             _kwargs = {"max_depth": print_deps}
 
-        print_status = kwargs.get("print_status", EMPTY_INT)
-        if print_status != EMPTY_INT:
+        print_status = kwargs.get("print_status", NO_INT)
+        if print_status != NO_INT:
             func = inst._print_status
             _kwargs = {"max_depth": print_status}
 
-        purge_output = kwargs.get("purge_output", EMPTY_INT)
-        if purge_output != EMPTY_INT:
+        purge_output = kwargs.get("purge_output", NO_INT)
+        if purge_output != NO_INT:
             func = inst._purge_output
             _kwargs = {"max_depth": purge_output}
 
@@ -317,13 +317,16 @@ class Task(BaseTask):
 
 class WrapperTask(BaseTask):
 
-    _exclude_db = False
+    exclude_db = False
 
     run = None
 
 
-class Proxy(BaseTask):
-    pass
+class ProxyTask(BaseTask):
+
+    task = TaskInstanceParameter()
+
+    exclude_params_req = BaseTask.exclude_params_req | {"task"}
 
 
 def getreqs(struct):

@@ -5,13 +5,14 @@ Helpful utility functions.
 """
 
 
-__all__ = ["printerr", "abort", "colored", "query_choice", "multi_fnmatch", "make_list"]
+__all__ = ["printerr", "abort", "colored", "query_choice", "multi_match", "make_list"]
 
 
 import os
 import sys
 import types
-from fnmatch import fnmatch
+import re
+from fnmatch
 
 
 def printerr(*args, **kwargs):
@@ -121,13 +122,16 @@ def query_choice(msg, choices, default=None, descriptions=None, lower=True):
     return choice
 
 
-def multi_fnmatch(name, patterns, mode=any):
+def multi_match(name, patterns, mode=any, regex=False):
     """
     Compares *name* to multiple *patterns* and returns *True* in case of at least one match (*mode*
     = *any*, the default), or in case all patterns matched (*mode* = *all*). Otherwise, *False* is
-    returned.
+    returned. When *regex* is *True*, *re.match* is used instead of *fnmatch.fnmatch*.
     """
-    return mode(fnmatch(name, pattern) for pattern in patterns)
+    if not regex:
+        return mode(fnmatch.fnmatch(name, pattern) for pattern in patterns)
+    else:
+        return mode(re.match(pattern, name) for pattern in patternss)
 
 
 def make_list(obj, cast=True):

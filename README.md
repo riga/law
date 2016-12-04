@@ -27,18 +27,19 @@ This should also install [luigi](https://pypi.python.org/pypi/luigi) and [six](h
 
 ## TODO
 
-##### Environment variables
-
-- `LAW_CONFIG_FILE`
-- `LAW_DB_FILE`
-
-
 ##### Config
 
 - `core`:
 	- `db_file`: The path to the db file. Defaults to `$HOME/.law/db`
 	- `target_tmp_dir`: The directory where tmp targets are stored. Defaults to ` tempfile.gettempdir()`.
 - `paths`: Listing of paths to look for tasks when creating the db file.
+
+
+##### Environment variables
+
+- `LAW_CONFIG_FILE`
+- `LAW_DB_FILE`
+- `LAW_SANDBOX`
 
 
 ##### Enable bash completion
