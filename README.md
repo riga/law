@@ -40,6 +40,7 @@ This should also install [luigi](https://pypi.python.org/pypi/luigi) and [six](h
 - `LAW_CONFIG_FILE`
 - `LAW_DB_FILE`
 - `LAW_SANDBOX`
+- `LAW_SANDBOX_SWITCHED`
 
 
 ##### Enable bash completion
