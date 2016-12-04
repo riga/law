@@ -67,7 +67,7 @@ def main():
             continue
         seen_families.append(cls.task_family)
 
-        if not cls._exclude_db:
+        if (hasattr(cls, "run") or issubclass(cls, luigi.WrapperTask)) and not cls._exclude_db:
             task_classes.append(cls)
 
     def dbline(cls):
