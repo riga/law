@@ -5,7 +5,7 @@ Custom luigi base task definitions.
 """
 
 
-__all__ = ["Task", "Proxy", "getreqs"]
+__all__ = ["Task", "WrapperTask", "Proxy", "getreqs"]
 
 
 import os
@@ -14,9 +14,11 @@ import inspect
 import gc
 from socket import gethostname
 from collections import OrderedDict
+from abc import abstractmethod
 
 import luigi
 import luigi.util
+import six
 
 from law.parameter import EMPTY_STR, EMPTY_INT
 from law.util import colored, query_choice, multi_fnmatch
@@ -37,11 +39,12 @@ class BaseTask(luigi.Task):
     @classmethod
     def get_param_values(cls, *args, **kwargs):
         values = super(BaseTask, cls).get_param_values(*args, **kwargs)
-        return cls.modify_param_values(OrderedDict(values)).items()
+        if six.callable(cls.modify_param_values):
+            return cls.modify_param_values(OrderedDict(values)).items()
+        else:
+            return values
 
-    @classmethod
-    def modify_param_values(cls, values):
-        return values
+    modify_param_values = None
 
     @classmethod
     def req(cls, *args, **kwargs):
@@ -64,7 +67,7 @@ class BaseTask(luigi.Task):
         _exclude.update(cls._exclude_params_req, cls._exclude_params_req_receive)
         _exclude.update(inst._exclude_params_req, inst._exclude_params_req_transfer)
         # remove excluded parameters
-        for name in params.keys():
+        for name in list(params.keys()):
             if multi_fnmatch(name, _exclude, any):
                 del params[name]
 
@@ -72,6 +75,12 @@ class BaseTask(luigi.Task):
         params.update(kwargs)
 
         return params
+
+    @staticmethod
+    def resource_name(name, host=None):
+        if host is None:
+            host = gethostname().partition(".")[0]
+        return "%s_%s" % (host, name)
 
     def __init__(self, *args, **kwargs):
         super(BaseTask, self).__init__(*args, **kwargs)
@@ -126,6 +135,10 @@ class BaseTask(luigi.Task):
                 args.extend([arg, "'%s'" % val])
 
         return args
+
+    @abstractmethod
+    def run(self):
+        pass
 
 
 class Task(BaseTask):
@@ -184,12 +197,6 @@ class Task(BaseTask):
         # cache for messages published to the scheduler
         self._message_cache = []
         self._message_cache_size = 10
-
-    @staticmethod
-    def resource_name(name, host=None):
-        if host is None:
-            host = gethostname().partition(".")[0]
-        return "%s_%s" % (host, name)
 
     @property
     def log_file(self):
@@ -308,6 +315,13 @@ class Task(BaseTask):
         print("")
 
 
+class WrapperTask(BaseTask):
+
+    _exclude_db = False
+
+    run = None
+
+
 class Proxy(BaseTask):
     pass
 
@@ -318,7 +332,7 @@ def getreqs(struct):
         return struct.requires()
     elif isinstance(struct, dict):
         r = struct.__class__()
-        for k, v in struct.items():
+        for k, v in six.iteritems(struct):
             r[k] = getreqs(v)
         return r
     else:

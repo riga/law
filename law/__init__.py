@@ -15,7 +15,7 @@ __status__     = "Development"
 __version__    = "0.0.3"
 
 __all__ = ["LocalFileSystem, LocalFileTarget, LocalDirectoryTarget",
-           "Task"]
+           "Task", "WrapperTask"]
 
 
 import atexit
@@ -23,7 +23,7 @@ import atexit
 import law.parameter
 from law.target.local import LocalFileSystem, LocalFileTarget, LocalDirectoryTarget
 import law.decorator
-from law.task.base import Task
+from law.task.base import Task, WrapperTask
 
 
 # register exit function

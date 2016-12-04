@@ -11,6 +11,7 @@ import sys
 from argparse import ArgumentParser
 
 import luigi
+import six
 
 import law
 import law.util
@@ -67,7 +68,9 @@ def main():
             continue
         seen_families.append(cls.task_family)
 
-        if (hasattr(cls, "run") or issubclass(cls, luigi.WrapperTask)) and not cls._exclude_db:
+        skip = cls._exclude_db or not six.callable(getattr(cls, "run", None)) \
+               or getattr(cls.run, "__isabstractmethod__", False)
+        if not skip:
             task_classes.append(cls)
 
     def dbline(cls):
