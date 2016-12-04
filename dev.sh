@@ -22,4 +22,12 @@ law_clean() {
 }
 export -f law_clean
 
+if [ ! -f "$HOME/.law/config" ]; then
+	mkdir -p "$HOME/.law"
+	cat >"$HOME/.law/config" <<EOL
+[paths]
+\$LAW_DEV_BASE/law/examples
+EOL
+fi
+
 source "$LAW_DEV_BASE/completion.sh"
