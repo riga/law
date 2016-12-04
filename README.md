@@ -46,7 +46,7 @@ This should also install [luigi](https://pypi.python.org/pypi/luigi) and [six](h
 ##### Enable bash completion
 
 ```bash
-source `law-completion`
+source `law_completion`
 ```
 
 ## Development
