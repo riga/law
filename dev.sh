@@ -2,7 +2,7 @@
 
 export LAW_DEV_BASE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && /bin/pwd )"
 
-export PYTHONPATH="$base:$PYTHONPATH"
+export PYTHONPATH="$LAW_DEV_BASE:$PYTHONPATH"
 
 law() {
 	python "$LAW_DEV_BASE/law/scripts/_law.py" "$@"
