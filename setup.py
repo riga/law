@@ -2,6 +2,7 @@
 
 
 import os
+import sys
 from subprocess import Popen, PIPE
 from setuptools import setup
 
@@ -11,7 +12,7 @@ import law
 thisdir = os.path.dirname(os.path.abspath(__file__))
 
 readme = os.path.join(thisdir, "README.md")
-if os.path.isfile(readme):
+if os.path.isfile(readme) and "sdist" in sys.argv:
     cmd = "pandoc --from=markdown --to=rst " + readme
     p = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
     out, err = p.communicate()
