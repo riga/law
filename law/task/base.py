@@ -20,6 +20,7 @@ import luigi
 import luigi.util
 import six
 
+import law
 from law.parameter import NO_STR, NO_INT, TaskInstanceParameter
 from law.util import colored, query_choice, multi_match
 
@@ -160,39 +161,34 @@ class Task(BaseTask):
     exclude_params_req = BaseTask.exclude_params_req \
         | {"print_deps", "print_status", "purge_output"}
 
-    def __new__(cls, *args, **kwargs):
-        inst = super(Task, cls).__new__(cls, *args, **kwargs)
+    def __init__(self, *args, **kwargs):
+        super(Task, self).__init__(*args, **kwargs)
 
+        # check interactive parameters first
         func = None
         _kwargs = None
 
         print_deps = kwargs.get("print_deps", NO_INT)
         if print_deps != NO_INT:
-            func = inst._print_deps
+            func = self._print_deps
             _kwargs = {"max_depth": print_deps}
 
         print_status = kwargs.get("print_status", NO_INT)
         if print_status != NO_INT:
-            func = inst._print_status
+            func = self._print_status
             _kwargs = {"max_depth": print_status}
 
         purge_output = kwargs.get("purge_output", NO_INT)
         if purge_output != NO_INT:
-            func = inst._purge_output
+            func = self._purge_output
             _kwargs = {"max_depth": purge_output}
 
         if func:
-            inst.__init__(*args, **kwargs)
             try:
                 func(**_kwargs)
             except KeyboardInterrupt:
                 print("\naborted")
             law.util.abort(exitcode=0)
-
-        return inst
-
-    def __init__(self, *args, **kwargs):
-        super(Task, self).__init__(*args, **kwargs)
 
         # cache for messages published to the scheduler
         self._message_cache = []
@@ -239,7 +235,7 @@ class Task(BaseTask):
     def _print_status(self, max_depth=0):
         print("print status with max_depth %s\n" % max_depth)
 
-        col_depth = raw_input("target collection depth? [0*, int] ")
+        col_depth = six.moves.input("target collection depth? [0*, int] ")
         col_depth = 0 if col_depth == "" else int(col_depth)
         print("")
 
@@ -311,7 +307,7 @@ class Task(BaseTask):
 
                     outp.remove()
 
-                    print(tpl[0] + "  removed")
+                    print(tpl[0] + "  " + law.util.colored("removed", "red", style="bright"))
         print("")
 
 

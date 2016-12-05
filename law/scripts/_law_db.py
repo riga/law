@@ -8,6 +8,7 @@ path.
 
 import os
 import sys
+from importlib import import_module
 from argparse import ArgumentParser
 
 import luigi
@@ -51,10 +52,9 @@ def main():
                 while modparts:
                     modid = modparts.pop() + (modid and ".") + modid
                     try:
-                        mod = __import__(modid, globals(), locals())
-                        break
+                        mod = import_module(modid)
                     except ImportError as e:
-                        continue
+                        pass
 
     # determine data to write: "module_id:task_family:param param ..."
     seen_families = []

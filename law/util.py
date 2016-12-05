@@ -14,6 +14,8 @@ import types
 import re
 import fnmatch
 
+import six
+
 
 def printerr(*args, **kwargs):
     """ printerr(*args, flush=False)
@@ -113,7 +115,7 @@ def query_choice(msg, choices, default=None, descriptions=None, lower=True):
     while choice not in _choices:
         if choice is not None:
             print("unknown choice: '%s'\n" % choice)
-        choice = raw_input(msg)
+        choice = six.moves.input(msg)
         if default is not None and choice == "":
             choice = default
         if lower:
