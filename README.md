@@ -59,6 +59,11 @@ source `law_completion`
 
 ```bash
 docker run -ti -p 8082:8082 riga/law
+git pull && law_db
+
+# or when passing a local checkout as a volume
+
+docker run -ti -p 8082:8082 -v /path/to/law:/root/law riga/law
 ```
 
 For particular tags, see [riga/law on DockerHub](https://hub.docker.com/r/riga/law/).
