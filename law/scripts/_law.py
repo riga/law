@@ -40,7 +40,7 @@ def main():
             law.util.abort("task family '%s' not found" % args.task_family)
 
     # import the module and run luigi
-    __import__(mid, globals(), locals(), [], -1)
+    __import__(mid, globals(), locals())
     luigi_run([args.task_family] + sys.argv[2:])
 
 

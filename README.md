@@ -58,7 +58,7 @@ source `law_completion`
 #### Developing with Docker
 
 ```bash
-docker run -ti --rm -p 8082:8082 riga/law
+docker run -ti -p 8082:8082 riga/law
 ```
 
 For particular tags, see [riga/law on DockerHub](https://hub.docker.com/r/riga/law/).
