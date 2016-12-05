@@ -54,13 +54,21 @@ source `law_completion`
 - Source hosted at [GitHub](https://github.com/riga/law)
 - Report issues, questions, feature requests on [GitHub Issues](https://github.com/riga/law/issues)
 
-To start developing, simply load the `dev.sh`:
+
+#### Developing with Docker
+
+```bash
+docker run -ti --rm -p 8082:8082 riga/law
+```
+
+For particular tags, see [riga/law on DockerHub](https://hub.docker.com/r/riga/law/).
+
+
+#### Developing without Docker
 
 ```bash
 source dev.sh
 ```
-
-In the future, there might be a docker image for development.
 
 
 ## Authors
