@@ -10,12 +10,12 @@ frequencies and publishes the result to the scheduler.
 """
 
 
-import urllib
 import json
 import time
 import random
 from collections import defaultdict
 
+from six.moves import urllib
 import luigi
 import law
 
@@ -50,7 +50,7 @@ class FetchLoremIpsum(LoremIpsumBase):
         self.wait()
 
         with self.output().localize() as t:
-            urllib.urlretrieve(URL % self.version, t.path)
+            urllib.request.urlretrieve(URL % self.version, t.path)
 
         # this is the same as
         #
