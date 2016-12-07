@@ -93,8 +93,7 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
         tpl = (self.__class__.__name__, self.path, hex(id(self)))
         return "%s(path=%s, %s)" % tpl
 
-    @property
-    def color_repr(self):
+    def colored_repr(self):
         tpl = (colored(self.__class__.__name__, "cyan"), colored(self.path, style="bright"),
                hex(id(self)))
         return "%s(path=%s, %s)" % tpl

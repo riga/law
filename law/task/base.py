@@ -198,8 +198,7 @@ class Task(BaseTask):
     def log_file(self):
         return "-"
 
-    @property
-    def color_repr(self):
+    def colored_repr(self):
         params = self.get_params()
         param_values = self.get_param_values(params, [], self.param_kwargs)
 
@@ -229,7 +228,7 @@ class Task(BaseTask):
     def _print_deps(self, max_depth=0):
         print("print deps with max_depth %s\n" % max_depth)
         for task, _, depth in self.walk_deps(max_depth=max_depth, order="pre"):
-            print(depth * "|   " + "> " + task.color_repr)
+            print(depth * "|   " + "> " + task.colored_repr())
         print("")
 
     def _print_status(self, max_depth=0):
@@ -242,7 +241,7 @@ class Task(BaseTask):
         done = []
 
         for task, _, depth in self.walk_deps(max_depth=max_depth, order="pre"):
-            tpl = (depth * "|   ", task.color_repr)
+            tpl = (depth * "|   ", task.colored_repr())
             print("%s> check status of %s" % tpl)
 
             if task in done:
@@ -251,7 +250,7 @@ class Task(BaseTask):
                 done.append(task)
 
                 for outp in luigi.task.flatten(task.output()):
-                    tpl = ((depth + 1) * "|   ", outp.color_repr)
+                    tpl = ((depth + 1) * "|   ", outp.colored_repr())
                     print("%s- check %s" % tpl)
 
                     status_lines = outp.status_text(max_depth=col_depth).split("\n")
@@ -278,7 +277,7 @@ class Task(BaseTask):
         done = []
 
         for task, _, depth in self.walk_deps(max_depth=max_depth, order="pre"):
-            tpl = (depth * "|   ", task.color_repr)
+            tpl = (depth * "|   ", task.colored_repr())
             print("%s> remove output of %s" % tpl)
 
             if mode == "i":
@@ -293,7 +292,7 @@ class Task(BaseTask):
                 done.append(task)
 
                 for outp in luigi.task.flatten(task.output()):
-                    tpl = ((depth + 1) * "|   ", outp.color_repr)
+                    tpl = ((depth + 1) * "|   ", outp.colored_repr())
                     print("%s- remove %s" % tpl)
 
                     if mode == "d":

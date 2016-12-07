@@ -14,14 +14,17 @@ __license__    = "MIT"
 __status__     = "Development"
 __version__    = "0.0.3"
 
-__all__ = ["LocalFileSystem, LocalFileTarget, LocalDirectoryTarget",
-           "Task", "WrapperTask"]
+__all__ = ["Task", "WrapperTask",
+           "LocalFileSystem, LocalFileTarget, LocalDirectoryTarget",
+           "TargetCollection", "SiblingTargetCollection"]
 
 
 import atexit
 
+import law.util
 import law.parameter
 from law.target.local import LocalFileSystem, LocalFileTarget, LocalDirectoryTarget
+from law.target.collection import TargetCollection, SiblingTargetCollection
 import law.decorator
 from law.task.base import Task, WrapperTask
 

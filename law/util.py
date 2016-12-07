@@ -5,7 +5,7 @@ Helpful utility functions.
 """
 
 
-__all__ = ["printerr", "abort", "colored", "query_choice", "multi_match", "make_list"]
+__all__ = ["printerr", "abort", "colored", "query_choice", "multi_match", "make_list", "flatten"]
 
 
 import os
@@ -149,3 +149,20 @@ def make_list(obj, cast=True):
         return list(obj)
     else:
         return [obj]
+
+
+def flatten(struct):
+    """
+    Flattens and returns a complex structured object *struct*.
+    """
+    if isinstance(struct, types.GeneratorType):
+        return flatten(list(struct))
+    elif isinstance(struct, dict):
+        return flatten(struct.values())
+    elif isinstance(struct, (list, tuple, set)):
+        objs = []
+        for obj in struct:
+            objs.extend(flatten(obj))
+        return objs
+    else:
+        return [struct]
