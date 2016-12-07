@@ -160,6 +160,7 @@ class LocalDirectoryTarget(LocalTarget, FileSystemDirectoryTarget):
         FileSystemDirectoryTarget.__init__(self, self.path, exists=exists)
 
         if unpack is not None:
+            self.unpack(unpack)
 
     def touch(self, mode=0o0770, recursive=True):
         self.fs.mkdir(self.path, mode=mode, recursive=recursive, silent=True)
