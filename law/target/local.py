@@ -14,6 +14,8 @@ import shutil
 import glob
 import tempfile
 import random
+import zipfile
+import tarfile
 from contextlib import contextmanager
 
 import luigi
@@ -153,8 +155,35 @@ class LocalFileTarget(LocalTarget, FileSystemFileTarget):
 
 class LocalDirectoryTarget(LocalTarget, FileSystemDirectoryTarget):
 
+    def __init__(self, path=None, format=None, is_tmp=False, exists=None, unpack=None):
+        LocalTarget.__init__(self, path=path, format=format, is_tmp=is_tmp, exists=exists)
+        FileSystemDirectoryTarget.__init__(self, self.path, exists=exists)
+
+        if unpack is not None:
+
     def touch(self, mode=0o0770, recursive=True):
         self.fs.mkdir(self.path, mode=mode, recursive=recursive, silent=True)
+
+    def unpack(self, path, mode=0o0770):
+        path = os.path.expandvars(os.path.expanduser(path))
+
+        readmode = "r"
+        if path.endswith(".zip"):
+            ctx = zipfile.ZipFile
+        elif path.endswith(".tar.gz") or path.endswith(".tgz"):
+            ctx = tarfile.open
+            readmode += ":gz"
+        elif path.endswith(".tbz2") or path.endswith(".bz2"):
+            ctx = tarfile.open
+            readmode += ":bz2"
+        else:
+            raise ValueError("unknown archive type in file " + str(path))
+
+        if not self.exists():
+            self.touch(mode=mode)
+
+        with ctx(path, readmode) as f:
+            f.extractall(self.path)
 
 
 LocalTarget.file_class = LocalFileTarget
