@@ -27,6 +27,8 @@ from law.target.local import LocalFileSystem, LocalFileTarget, LocalDirectoryTar
 from law.target.collection import TargetCollection, SiblingTargetCollection
 import law.decorator
 from law.task.base import Task, WrapperTask
+import law.task.sandbox
+import law.task.workflow
 
 
 # register exit function

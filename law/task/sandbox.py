@@ -13,6 +13,8 @@ import os
 from abc import abstractmethod
 from subprocess import PIPE
 
+import luigi
+
 from law.task.base import Task, ProxyTask
 import law.util
 

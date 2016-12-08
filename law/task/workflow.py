@@ -13,13 +13,13 @@ from collections import OrderedDict
 import luigi
 
 import law
-from law.task.base import Task, Proxy
+from law.task.base import Task, ProxyTask
 from law.target.collection import TargetCollection, SiblingTargetCollection
 from law.parameter import NO_STR, NO_INT
 from law.compat.lru_cache import lru_cache
 
 
-class WorkflowProxy(Proxy):
+class WorkflowProxy(ProxyTask):
 
     workflow_type = None
 
