@@ -11,12 +11,8 @@ __all__ = ["Config"]
 import os
 import tempfile
 
-try:
-    # python 3
-    from configparser import ConfigParser
-except ImportError:
-    # python 2
-    from ConfigParser import ConfigParser
+import six
+from six.moves.configparser import ConfigParser
 
 
 class Config(ConfigParser):
@@ -40,7 +36,7 @@ class Config(ConfigParser):
         return cls._instance
 
     def __init__(self, config_file="", skip_fallbacks=False):
-        super(Config, self).__init__(allow_no_value=True)
+        ConfigParser.__init__(self, allow_no_value=True) # old-style
 
         files = (config_file,)
         if not skip_fallbacks:
