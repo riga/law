@@ -21,7 +21,7 @@ class DockerSandbox(Sandbox):
 
     def cmd(self, task, task_cmd):
         # get args for the docker command as configured in the task
-        docker_args = getattr(task, "docker_args", ["--rm"]):
+        docker_args = getattr(task, "docker_args", ["--rm"])
         if isinstance(docker_args, (list, tuple)):
             docker_args = " ".join(str(arg) for arg in docker_args)
 
