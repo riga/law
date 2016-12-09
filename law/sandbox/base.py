@@ -8,10 +8,10 @@ Abstract defintions that enable task sandboxing.
 __all__ = ["Sandbox", "SandboxTask"]
 
 
-import sys
 import os
+import sys
 from abc import abstractmethod
-from subprocess import PIPE
+from subprocess import Popen
 
 import luigi
 
@@ -20,6 +20,7 @@ import law.util
 
 
 _current_sandbox = os.environ.get("LAW_SANDBOX", "")
+
 _switched_sandbox = os.environ.get("LAW_SANDBOX_SWITCHED", "") == "1"
 
 
@@ -45,16 +46,16 @@ class Sandbox(object):
     def new(cls, key):
         _type, name = cls.split_key(key)
 
-        # loop recursively through subclasses and find class with matching _type
-        classes = [cls.__subclasses__()]
+        # loop recursively through subclasses and find class with matching sandbox_type
+        classes = list(cls.__subclasses__())
         while classes:
             _cls = classes.pop(0)
-            if getattr(_cls, "_type", None) == _type:
+            if getattr(_cls, "sandbox_type", None) == _type:
                 return _cls(name)
             else:
                 classes.extend(_cls.__subclasses__())
 
-        raise Exception("no Sandbox task with type '%s' found" % _type)
+        raise Exception("no Sandbox with type '%s' found" % _type)
 
     def __init__(self, name):
         super(Sandbox, self).__init__()
@@ -63,15 +64,26 @@ class Sandbox(object):
 
     @property
     def key(self):
-        return self.join_key(self._type, self.name)
+        return self.join_key(self.sandbox_type, self.name)
 
     @property
     def env(self):
-        raise NotImplementedError()
+        return None
 
     @abstractmethod
-    def cmd(self, task):
+    def cmd(self, task, task_cmd):
         pass
+
+    def run(self, cmd, stdout=None, stderr=None):
+        if stdout is None:
+            stdout = sys.stdout
+        if stderr is None:
+            stderr = sys.stderr
+
+        p = Popen(cmd, stdout=stdout, stderr=stderr, shell=True, env=self.env)
+        out, err = p.communicate()
+
+        return p.returncode, out, err
 
 
 class SandboxProxy(ProxyTask):
@@ -88,30 +100,30 @@ class SandboxProxy(ProxyTask):
 
         # some tweaks
         cmd.append("--local-scheduler") # TODO: this way, scheduler features are not accessible
-        cmd.insert(0, "LAW_SANDBOX_SWITCHED=1")
 
         return " ".join(cmd)
 
     def run(self):
-        # combine sandbox and task commands
-        cmd = self.task.sandbox_inst.cmd(self.task) % self.task_cmd()
+        # create the actual command to run
+        task_cmd = "LAW_SANDBOX_SWITCHED=1 " + self.task_cmd()
+        cmd = self.task.sandbox_inst.cmd(self.task, task_cmd)
 
         # some prints
         print("")
         print((" entering sandbox '%s' " % self.task.sandbox_inst.key).center(80, "="))
         print("")
-        print("sandbox command:\n'%s'\n" % cmd)
+        print("sandbox command:\n%s\n" % cmd)
 
-        # run it
-        p = Popen(cmd, stdout=sys.stdout, stderr=sys.stderr, shell=True) # TODO: pass env?
-        p.communicate()
+        # execute it
+        code, out, err = self.task.sandbox_inst.run(cmd)
 
         # finalize
         print("")
         print((" leaving sandbox '%s' " % self.task.sandbox_inst.key).center(80, "="))
         print("")
-        if p.returncode != 0:
-            raise Exception("sandboxing failed")
+
+        if code != 0:
+            raise Exception("Sandbox '%s' failed" % self.task.sandbox_inst.key)
 
 
 class SandboxTask(Task):
@@ -119,11 +131,9 @@ class SandboxTask(Task):
     sandbox = luigi.Parameter(default=_current_sandbox, significant=False,
         description="name of the sandbox to run the task in, default: $LAW_SANDBOX")
 
-    sandbox_proxy_cls = SandboxProxy
-    valid_sandboxes = []
-    force_sandbox = None
+    force_sandbox = False
 
-    exclude_db = True
+    valid_sandboxes = ["*"]
 
     exclude_params_sandbox = {"task_name", "print_deps", "print_status", "purge_output", "sandbox"}
 
@@ -134,9 +144,9 @@ class SandboxTask(Task):
         if _switched_sandbox:
             self.effective_sandbox = _current_sandbox
         else:
-            # is a switch to a sandbox forced?
+            # is the switch forced?
             if self.force_sandbox:
-                self.effective_sandbox = self.force_sandbox
+                self.effective_sandbox = self.sandbox
 
             # can we run in the requestd sandbox?
             elif law.util.multi_match(self.sandbox, self.valid_sandboxes, any):
@@ -149,23 +159,22 @@ class SandboxTask(Task):
                     raise Exception("cannot determine sandbox to switch from '%s' in task '%s'" \
                                     % (self.sandbox, self))
 
-        self.sandbox_inst = Sandbox.new(self.effective_sandbox)
-
         if not self.sandboxed:
-            self.sandbox_proxy = self.sandbox_proxy_class(task=self)
+            self.sandbox_inst = Sandbox.new(self.effective_sandbox)
+            self.sandbox_proxy = SandboxProxy(task=self)
         else:
+            self.sandbox_inst = None
             self.sandbox_proxy = None
 
     @property
     def sandboxed(self):
-        return _switched_sandbox or (not self.force_sandbox \
-                                     and self.effective_sandbox == _current_sandbox)
+        return self.effective_sandbox == _current_sandbox
 
     def fallback_sandbox(self, sandbox):
         return None
 
     def __getattribute__(self, attr):
-        if attr == "deps" and self.sandboxed:
+        if attr == "deps" and _switched_sandbox:
             return lambda: []
         if attr == "run" and not self.sandboxed:
             return self.sandbox_proxy.run
@@ -174,4 +183,4 @@ class SandboxTask(Task):
 
     @property
     def env(self):
-        return self.sandbox_inst.env
+        return os.environ if self.sandboxed else self.sandbox_inst.env
