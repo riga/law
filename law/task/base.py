@@ -32,8 +32,8 @@ class BaseTask(luigi.Task):
 
     exclude_db = True
 
-    exclude_params_db = {"taskName"}
-    exclude_params_req = {"taskName"}
+    exclude_params_db = {"task_name"}
+    exclude_params_req = {"task_name"}
     exclude_params_req_receive = set()
     exclude_params_req_transfer = set()
 

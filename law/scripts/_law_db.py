@@ -79,7 +79,7 @@ def main():
         for attr in dir(cls):
             member = getattr(cls, attr)
             if isinstance(member, luigi.Parameter):
-                exclude = getattr(cls, "_exclude_params_db", set())
+                exclude = getattr(cls, "exclude_params_db", set())
                 if not law.util.multi_match(attr, exclude, any):
                     params.append(attr.replace("_", "-"))
 

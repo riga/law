@@ -22,7 +22,7 @@ import law
 
 URL = "http://www.loremipsum.de/downloads/version%i.txt"
 
-luigi.namespace("loremipsum")
+luigi.namespace("example.loremipsum")
 
 
 class LoremIpsumBase(law.Task):
@@ -44,7 +44,7 @@ class FetchLoremIpsum(LoremIpsumBase):
             raise ValueError("version must be in the range of 1 to 6")
 
     def output(self):
-        return law.LocalFileTarget("loremipsum/data_%i.txt" % self.version)
+        return law.LocalFileTarget("data/loremipsum/data_%i.txt" % self.version)
 
     def run(self):
         self.wait()
@@ -70,7 +70,7 @@ class CountChars(LoremIpsumBase):
         return FetchLoremIpsum.req(self)
 
     def output(self):
-        return law.LocalFileTarget("loremipsum/chars_%i.json" % self.version)
+        return law.LocalFileTarget("data/loremipsum/chars_%i.json" % self.version)
 
     def run(self):
         self.wait()
@@ -100,7 +100,7 @@ class MergeCounts(LoremIpsumBase):
         return [CountChars.req(self, version=i) for i in range(1, 7)]
 
     def output(self):
-        return law.LocalFileTarget("loremipsum/chars_merged.json")
+        return law.LocalFileTarget("data/loremipsum/chars_merged.json")
 
     def run(self):
         self.wait()
@@ -125,7 +125,7 @@ class ShowFrequencies(LoremIpsumBase):
         return MergeCounts.req(self)
 
     def output(self):
-        return law.LocalFileTarget("loremipsum/char_frequencies.txt")
+        return law.LocalFileTarget("data/loremipsum/char_frequencies.txt")
 
     def run(self):
         self.wait()
@@ -149,3 +149,6 @@ class ShowFrequencies(LoremIpsumBase):
 
         # also send as message to publisher
         self.publish_message(content)
+
+
+luigi.namespace()

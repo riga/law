@@ -14,7 +14,7 @@ __license__    = "MIT"
 __status__     = "Development"
 __version__    = "0.0.3"
 
-__all__ = ["Task", "WrapperTask",
+__all__ = ["Task", "WrapperTask", "SandboxTask",
            "LocalFileSystem, LocalFileTarget, LocalDirectoryTarget",
            "TargetCollection", "SiblingTargetCollection"]
 
@@ -27,8 +27,9 @@ from law.target.local import LocalFileSystem, LocalFileTarget, LocalDirectoryTar
 from law.target.collection import TargetCollection, SiblingTargetCollection
 import law.decorator
 from law.task.base import Task, WrapperTask
-import law.task.sandbox
-import law.task.workflow
+from law.sandbox.base import SandboxTask
+import law.sandbox.docker
+import law.workflow
 
 
 # register exit function
