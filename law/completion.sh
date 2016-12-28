@@ -8,8 +8,12 @@ __law_complete() {
 
 	local cur="${COMP_WORDS[COMP_CWORD]}"
 
-	if [ "$COMP_CWORD" -gt "1" ]; then
-		local task_family="${COMP_WORDS[1]}"
+	if [ "$COMP_CWORD" -gt "1" ] && [ "${COMP_WORDS[1]}" != "run" ]; then
+		return
+	fi
+
+	if [ "$COMP_CWORD" -gt "2" ]; then
+		local task_family="${COMP_WORDS[2]}"
 	fi
 
 	_grep() {
@@ -22,6 +26,9 @@ __law_complete() {
 
 	case $COMP_CWORD in
 		1)
+			COMPREPLY=( $( compgen -W "run db completion" "${cur}" ) )
+			;;
+		2)
 			COMPREPLY=( $( compgen -W "$( _grep "[^\:]+\:\K(.+)(?=\:.+)" "$db_file" )" "${cur}" ) )
 			;;
 		*)
