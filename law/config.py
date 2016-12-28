@@ -43,7 +43,12 @@ class Config(ConfigParser):
             files += self._config_files
 
         # read from files
-        self.read(os.path.expandvars(os.path.expanduser(f)) for f in files)
+        self.config_file = None
+        for f in files:
+            f = os.path.expandvars(os.path.expanduser(f))
+            if os.path.isfile(f):
+                self.read(f)
+                self.config_file = f
 
         # maybe inherit
         if self.has_section("core") and self.has_option("core", "inherit_config"):
