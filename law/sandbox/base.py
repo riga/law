@@ -92,8 +92,8 @@ class SandboxProxy(ProxyTask):
         return None
 
     def task_cmd(self):
-        # start with "law <task_family>"
-        cmd = ["law", self.task.task_family]
+        # start with "law run <task_family>"
+        cmd = ["law", "run", self.task.task_family]
 
         # add cli args, exclude some parameters
         cmd.extend(self.task.cli_args(exclude=self.task.exclude_params_sandbox))
@@ -105,7 +105,7 @@ class SandboxProxy(ProxyTask):
 
     def run(self):
         # create the actual command to run
-        task_cmd = "LAW_SANDBOX_SWITCHED=1 " + self.task_cmd()
+        task_cmd = "export LAW_SANDBOX_SWITCHED=1; law db -p && " + self.task_cmd()
         cmd = self.task.sandbox_inst.cmd(self.task, task_cmd)
 
         # some prints
