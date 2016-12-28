@@ -5,8 +5,10 @@ import os
 import sys
 from subprocess import Popen, PIPE
 from setuptools import setup
+from setuptools.command.install import install as _install
 
 import law
+from law.util import which
 
 
 thisdir = os.path.dirname(os.path.abspath(__file__))
@@ -43,6 +45,17 @@ install_requires = []
 with open(os.path.join(thisdir, "requirements.txt"), "r") as f:
     install_requires.extend(line.strip() for line in f.readlines() if line.strip())
 
+# workaround to change the installed law script to _not_ use pkg_resources
+class install(_install):
+    def run(self):
+        _install.run(self) # old-style
+
+        with open(os.path.join(thisdir, "bin", "law")) as f:
+            lines = f.readlines()
+        with open(which("law"), "w") as f:
+            f.write("".join(lines))
+
+
 setup(
     name             = law.__name__,
     version          = law.__version__,
@@ -56,14 +69,13 @@ setup(
     long_description = long_description,
     install_requires = install_requires,
     zip_safe         = False,
-    packages         = ["law", "law.task", "law.target", "law.compat", "law.scripts",
-                        "law.examples"],
-    data_files       = ["LICENSE", "requirements.txt", "README.md", "completion.sh"],
+    packages         = ["law", "law.task", "law.target", "law.sandbox", "law.workflow",
+                        "law.compat", "law.scripts", "law.examples"],
+    package_data     = {"": ["LICENSE", "requirements.txt", "README.md", "completion.sh"]},
+    cmdclass         = {"install": install},
     entry_points     = {
         "console_scripts": [
-            "law = law.scripts._law:main",
-            "law_db = law.scripts._law_db:main",
-            "law_completion = law.scripts._law_completion:main"
+            "law = law.scripts.cli:main"
         ]
     }
 )
