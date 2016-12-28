@@ -5,7 +5,8 @@ Helpful utility functions.
 """
 
 
-__all__ = ["printerr", "abort", "colored", "query_choice", "multi_match", "make_list", "flatten"]
+__all__ = ["printerr", "abort", "colored", "query_choice", "multi_match", "make_list", "flatten",
+           "which"]
 
 
 import os
@@ -166,3 +167,24 @@ def flatten(struct):
         return objs
     else:
         return [struct]
+
+
+def which(prog):
+    """
+    Pythonic ``which`` implementation. Returns the path to an executable *prog* by searching in
+    *PATH*, or *None* when it could not be found.
+    """
+    executable = lambda path: os.path.isfile(path) and os.access(path, os.X_OK)
+
+    # prog can also be a path
+    dirname, basename = os.path.split(prog)
+    if dirname:
+        if executable(prog):
+            return prog
+    elif "PATH" in os.environ:
+        for search_path in os.environ["PATH"].split(os.pathsep):
+            path = os.path.join(search_path.strip('"'), prog)
+            if executable(path):
+                return path
+
+    return None
