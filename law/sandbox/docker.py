@@ -61,7 +61,14 @@ class DockerSandbox(Sandbox):
 
         # update paths in task_cmd
         for name, paths in pathvars.items():
-            task_cmd = ("export %s=$%s:%s; " % (name, name, ":".join(paths))) + task_cmd
+            task_cmd = "export %s=$%s:%s; " % (name, name, ":".join(paths)) + task_cmd
+
+        # forward the luigi config file
+        for p in luigi.configuration.LuigiConfigParser._config_paths[::-1]:
+            if os.path.exists(p):
+                docker_args.extend(["-v", "%s:%s" % (p, dst("luigi.cfg"))])
+                task_cmd = "export LUIGI_CONFIG_PATH=%s; " % dst("luigi.cfg") + task_cmd
+                break
 
         # prevent python from writing byte code files
         task_cmd = "export PYTHONDONTWRITEBYTECODE=1; " + task_cmd
