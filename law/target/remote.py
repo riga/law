@@ -820,6 +820,8 @@ atexit.register(RemoteCache.cleanup)
 
 class RemoteTarget(FileSystemTarget):
 
+    fs = None
+
     def __init__(self, path, fs, exists=None):
         if not isinstance(fs, RemoteFileSystem):
             raise ValueError("fs is not a RemoteFileSystem instance")
@@ -983,6 +985,10 @@ class RemoteDirectoryTarget(RemoteTarget, FileSystemDirectoryTarget):
             self.chmod(mode, retry=retry)
         finally:
             del tmp
+
+
+RemoteTarget.file_class = RemoteFileTarget
+RemoteTarget.directory_class = RemoteDirectoryTarget
 
 
 class RemoteFileProxy(object):
