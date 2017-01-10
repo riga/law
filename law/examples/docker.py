@@ -60,5 +60,7 @@ class BinNumbers(law.SandboxTask):
         with self.output().open("w") as f:
             f.write("\n".join(str(b) for b in bins) + "\n")
 
+        self.set_status_message("done")
+
 
 luigi.namespace()

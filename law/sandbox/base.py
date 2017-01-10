@@ -98,14 +98,13 @@ class SandboxProxy(ProxyTask):
         # add cli args, exclude some parameters
         cmd.extend(self.task.cli_args(exclude=self.task.exclude_params_sandbox))
 
-        # some tweaks
-        cmd.append("--local-scheduler") # TODO: this way, scheduler features are not accessible
-
         return " ".join(cmd)
 
     def run(self):
         # create the actual command to run
-        task_cmd = "export LAW_SANDBOX_SWITCHED=1; law db -p && " + self.task_cmd()
+        task_cmd = "export LAW_SANDBOX_SWITCHED=1; "
+        task_cmd += "export LAW_SANDBOX_WORKER_ID=\"%s\"; " % self.task.worker_id
+        task_cmd += "law db -p && " + self.task_cmd()
         cmd = self.task.sandbox_inst.cmd(self.task, task_cmd)
 
         # some prints
@@ -123,7 +122,8 @@ class SandboxProxy(ProxyTask):
         print("")
 
         if code != 0:
-            raise Exception("Sandbox '%s' failed" % self.task.sandbox_inst.key)
+            raise Exception("Sandbox '%s' failed with exit code %i" \
+                            % (self.task.sandbox_inst.key, code))
 
 
 class SandboxTask(Task):
@@ -174,8 +174,6 @@ class SandboxTask(Task):
         return None
 
     def __getattribute__(self, attr):
-        if attr == "deps" and _switched_sandbox:
-            return lambda: []
         if attr == "run" and not self.sandboxed:
             return self.sandbox_proxy.run
         else:
