@@ -205,8 +205,6 @@ class RemoteFileSystem(FileSystem):
         stat, chmod, unlink, rmdir, mkdir, mkdir_rec, listdir, filecopy
     """
 
-    SCHEME_CRE = re.compile("^[a-zA-Z]+$")
-
     def __init__(self, base, bases=None, gfal_options=None, transfer_config=None,
                  reset_context=False, retry=0, retry_delay=0, permissions=True, threads=0,
                  validate_copy=False, cache_config=None):
@@ -270,7 +268,7 @@ class RemoteFileSystem(FileSystem):
 
     def get_scheme(self, path):
         scheme = urlparse.urlparse(path).scheme
-        return scheme if self.SCHEME_CRE.match(scheme) else None
+        return scheme if re.match("^[a-zA-Z]+$", scheme) else None
 
     def add_scheme(self, path, scheme):
         return path if self.get_scheme(path) else "%s://%s" % (scheme, path)
