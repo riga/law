@@ -4,15 +4,12 @@ export LAW_DEV_BASE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && /bin/pwd )"
 
 export PYTHONPATH="$LAW_DEV_BASE:$PYTHONPATH"
 
+export LUIGI_CONFIG_PATH="$LAW_DEV_BASE/law/examples/luigi.cfg"
+
 law() {
-	python "$LAW_DEV_BASE/law/scripts/_law.py" "$@"
+	python "$LAW_DEV_BASE/law/scripts/cli.py" "$@"
 }
 export -f law
-
-law_db() {
-	python "$LAW_DEV_BASE/law/scripts/_law_db.py" "$@"
-}
-export -f law_db
 
 law_clean() {
 	rm -rf "$LAW_DEV_BASE/build"
@@ -30,4 +27,4 @@ if [ ! -f "$HOME/.law/config" ]; then
 EOL
 fi
 
-source "$LAW_DEV_BASE/completion.sh"
+source "$LAW_DEV_BASE/law/completion.sh"
