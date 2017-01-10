@@ -19,8 +19,12 @@ __all__ = ["Task", "WrapperTask", "SandboxTask",
            "TargetCollection", "SiblingTargetCollection"]
 
 
-import atexit
+# patches
+from law.patches import patch_all
+patch_all()
 
+
+# provisioning imports
 import law.util
 import law.parameter
 from law.target.local import LocalFileSystem, LocalFileTarget, LocalDirectoryTarget
@@ -33,6 +37,8 @@ import law.workflow
 
 
 # register exit function
+import atexit
+
 def exit():
     pass
 
