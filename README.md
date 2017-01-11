@@ -59,7 +59,7 @@ source `law_completion`
 
 ```bash
 docker run -ti -p 8082:8082 riga/law
-git pull && law_db
+git pull && law db
 
 # or when passing a local checkout as a volume
 
@@ -73,6 +73,7 @@ For particular tags, see [riga/law on DockerHub](https://hub.docker.com/r/riga/l
 
 ```bash
 source dev.sh
+law db
 ```
 
 

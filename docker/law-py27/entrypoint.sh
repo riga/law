@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 
 luigid --background &
-bash --init-file <(echo "source dev.sh; law_db")
+bash --init-file <(echo "source dev.sh; law db")
