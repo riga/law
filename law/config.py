@@ -60,6 +60,12 @@ class Config(ConfigParser):
     def optionxform(self, option):
         return option
 
+    def get_default(self, section, option, default=None):
+        if self.has_option(section, option):
+            return self.get(section, option)
+        else:
+            return default
+
     def update(self, data, overwrite=True):
         for section, _data in data.items():
             if not self.has_section(section):
