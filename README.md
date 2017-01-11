@@ -35,15 +35,17 @@ This should also install [luigi](https://pypi.python.org/pypi/luigi) and [six](h
 - `target`:
 	- `gfal2_log_level`: The log level of the gfal2 handler, a string describing a python log level. Defaults to `"INFO"`.
 	- `default_dropbox`: The section of the dropbox config to use by default. Defaults to `"dropbox"`.
+	- `default_dcache`: The section of the dcache config to use by default. Defaults to `"dcache"`.
 - `paths`: Listing of paths to look for tasks when creating the db file.
 
 
-###### Example Dropbox target config
+###### Example remote target configs
 
 ```
 [target]
 
 default_dropbox: my_dropbox
+default_dcache: my_dcache
 
 
 [my_dropbox]
@@ -52,6 +54,12 @@ base: ...
 app_key: ...
 app_secret: ...
 access_token: ...
+
+
+[my_dache]
+
+base: ...
+base_listdir: ... (optional)
 ```
 
 

@@ -16,12 +16,12 @@ import fnmatch
 import tempfile
 import weakref
 import urlparse
-import random
 import math
 import re
 import functools
 import atexit
 import gc
+from random import choice
 from contextlib import contextmanager
 from multiprocessing.pool import ThreadPool
 
@@ -146,8 +146,12 @@ class Gfal2Context(object):
                 del self._contexts[pid]
             gc.collect()
 
-    def url(self, rpath, cmd=None):
-        base = random.choice(self.bases.get(cmd, self.base))
+    def url(self, rpath, cmd=None, random=True):
+        bases = self.bases.get(cmd, self.base)
+        if not random or len(bases) == 1:
+            base = bases[0]
+        else:
+            base = choice(bases)
         return os.path.join(base, rpath.strip("/"))
 
     @retry

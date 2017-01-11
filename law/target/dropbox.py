@@ -21,7 +21,7 @@ class DropboxFileSystem(RemoteFileSystem):
     default = None
 
     def __init__(self, base=None, app_key=None, app_secret=None, access_token=None,
-                 config_file="$LAW_DROPBOX_CONFIG_FILE", config_section="dropbox", **kwargs):
+                 config_file="$LAW_DROPBOX_CONFIG_FILE", config_section=None, **kwargs):
         config = self.create_config(base=base, app_key=app_key, app_secret=app_secret,
                                     access_token=access_token, config_file=config_file,
                                     config_section=config_section)
@@ -37,10 +37,11 @@ class DropboxFileSystem(RemoteFileSystem):
             ]
         }
 
-        # configure the remote file system with defaults
+        # default configs
         kwargs.setdefault("retry", 1)
-        kwargs.setdefault("retry_delay", 10)
+        kwargs.setdefault("retry_delay", 5)
         kwargs.setdefault("transfer_config", {"checksum_check": False})
+        kwargs.setdefault("validate_copy", False)
         kwargs.setdefault("cache_config", {})
 
         base = str("dropbox://dropbox.com/" + config["base"].strip("/"))
@@ -78,6 +79,9 @@ class DropboxFileSystem(RemoteFileSystem):
         else:
             if config_section is None:
                 config_section = Config.instance().get("target", "default_dropbox")
+
+            if not Config.instance().has_section("config_section"):
+                return None
 
             config = dict(Config.instance().items(config_section))
             validate(config)

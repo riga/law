@@ -26,7 +26,8 @@ class Config(ConfigParser):
         },
         "target": {
             "gfal2_log_level": "INFO",
-            "default_dropbox": "dropbox"
+            "default_dropbox": "dropbox",
+            "default_dcache": "dcache"
         },
         "paths": {}
     }
