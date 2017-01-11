@@ -31,8 +31,28 @@ This should also install [luigi](https://pypi.python.org/pypi/luigi) and [six](h
 
 - `core`:
 	- `db_file`: The path to the db file. Defaults to `$HOME/.law/db`
-	- `target_tmp_dir`: The directory where tmp targets are stored. Defaults to ` tempfile.gettempdir()`.
+	- `target_tmp_dir`: The directory where tmp targets are stored. Defaults to `tempfile.gettempdir()`.
+- `target`:
+	- `gfal2_log_level`: The log level of the gfal2 handler, a string describing a python log level. Defaults to `"INFO"`.
+	- `default_dropbox`: The section of the dropbox config to use by default. Defaults to `"dropbox"`.
 - `paths`: Listing of paths to look for tasks when creating the db file.
+
+
+###### Example Dropbox target config
+
+```
+[target]
+
+default_dropbox: my_dropbox
+
+
+[my_dropbox]
+
+base: ...
+app_key: ...
+app_secret: ...
+access_token: ...
+```
 
 
 ##### Environment variables
@@ -41,6 +61,8 @@ This should also install [luigi](https://pypi.python.org/pypi/luigi) and [six](h
 - `LAW_DB_FILE`
 - `LAW_SANDBOX`
 - `LAW_SANDBOX_SWITCHED`
+- `LAW_SANDBOX_WORKER_ID`
+- `LAW_DROPBOX_CONFIG_FILE`
 
 
 ##### Enable bash completion
@@ -64,6 +86,9 @@ git pull && law db
 # or when passing a local checkout as a volume
 
 docker run -ti -p 8082:8082 -v /path/to/law:/root/law riga/law
+
+# the config can be passed as well by adding (e.g.)
+-v $HOME/.law/config:/root/.law/config
 ```
 
 For particular tags, see [riga/law on DockerHub](https://hub.docker.com/r/riga/law/).

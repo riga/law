@@ -24,7 +24,11 @@ class Config(ConfigParser):
             "db_file": os.environ.get("LAW_DB_FILE", os.path.expandvars("$HOME/.law/db")),
             "target_tmp_dir": tempfile.gettempdir(),
         },
-        "paths": {},
+        "target": {
+            "gfal2_log_level": "INFO",
+            "default_dropbox": "dropbox"
+        },
+        "paths": {}
     }
 
     _config_files = ("$LAW_CONFIG_FILE", "$HOME/.law/config", "etc/law/config")

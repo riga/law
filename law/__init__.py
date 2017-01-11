@@ -16,6 +16,7 @@ __version__    = "0.0.3"
 
 __all__ = ["Task", "WrapperTask", "SandboxTask",
            "LocalFileSystem, LocalFileTarget, LocalDirectoryTarget",
+           "DropboxFileSystem", "DropboxFileTarget", "DropboxDirectoryTarget",
            "TargetCollection", "SiblingTargetCollection"]
 
 
@@ -28,6 +29,7 @@ patch_all()
 import law.util
 import law.parameter
 from law.target.local import LocalFileSystem, LocalFileTarget, LocalDirectoryTarget
+from law.target.dropbox import DropboxFileSystem, DropboxFileTarget, DropboxDirectoryTarget
 from law.target.collection import TargetCollection, SiblingTargetCollection
 import law.decorator
 from law.task.base import Task, WrapperTask
