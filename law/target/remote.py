@@ -25,6 +25,7 @@ import gc
 from contextlib import contextmanager
 from multiprocessing.pool import ThreadPool
 
+from law.config import Config
 from law.target.file import FileSystem, FileSystemTarget, FileSystemFileTarget, \
                             FileSystemDirectoryTarget
 from law.target.local import LocalFileTarget, LocalDirectoryTarget
@@ -33,16 +34,20 @@ from law.util import make_list
 
 try:
     import gfal2
-
     HAS_GFAL2 = True
 
-except ImportError:
+    # configure gfal2 logging
+    import logging
+    logger = logging.getLogger("gfal2")
+    logger.addHandler(logging.StreamHandler())
+    level = Config.instance().get("target", "gfal2_log_level")
+    logger.setLevel(getattr(logging, level, logging.NOTSET))
 
+except ImportError:
     class gfal2Dummy(object):
-        def __getattr__(self, key):
+        def __getattr__(self, attr):
             raise Exception("trying to access 'gfal2.%s', but gfal2 is not installed" % attr)
     gfal2 = gfal2Dummy()
-
     HAS_GFAL2 = False
 
 
@@ -55,10 +60,9 @@ def retry(func):
 
         delay = kwargs.pop("retry_delay", None)
         if delay is None:
-            delay = self.delay
+            delay = self.retry_delay
 
         attempt = 0
-
         try:
             while True:
                 try:
@@ -416,7 +420,7 @@ class RemoteFileSystem(FileSystem):
         lpath = lpath if lpath is None else os.path.abspath(lpath)
 
         if cache:
-            cpath = self.cache.cachepath(rpath)
+            cpath = self.cache.cache_path(rpath)
             full_cpath = self.addScheme(cpath, "file")
 
             with self.cache.require_lock(rpath):
@@ -508,7 +512,7 @@ class RemoteFileSystem(FileSystem):
             self.copy(full_lpath, rurl, **kwargs)
             rstat = self.stat(rpath)
         else:
-            cpath = self.cache.cachepath(rpath)
+            cpath = self.cache.cache_path(rpath)
             full_cpath = self.add_scheme(cpath, "file")
 
             with self.cache.require_lock(rpath):
