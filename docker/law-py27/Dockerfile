@@ -1,4 +1,4 @@
-FROM centos:centos7
+FROM cern/cc7-base
 
 # environment variables
 ENV WORKDIR /root/law
@@ -8,11 +8,16 @@ COPY entrypoint.sh /root/entrypoint.sh
 
 # install software
 RUN yum -y update; yum clean all
-RUN yum -y install epel-release; yum clean all
-RUN yum -y install which nano screen wget git; yum clean all
+RUN yum -y install which nano screen wget git cmake curl-devel json-c-devel gcc-c++; yum clean all
+RUN yum -y install gfal2-all gfal2-devel gfal2-python; yum clean all
+RUN git clone https://github.com/cern-it-sdc-id/gfal2-dropbox.git; \
+    cd gfal2-dropbox; \
+    mkdir build && cd build; \
+    cmake .. && make && make install;
+
+# install python software
 RUN yum -y install install python-setuptools; yum clean all
 RUN easy_install pip
-RUN yum -y install gfal2-all gfal2-python; yum clean all
 
 # install python packages
 RUN pip install luigi six
