@@ -15,7 +15,6 @@ import time
 import fnmatch
 import tempfile
 import weakref
-import urlparse
 import math
 import re
 import functools
@@ -24,6 +23,9 @@ import gc
 from random import choice
 from contextlib import contextmanager
 from multiprocessing.pool import ThreadPool
+
+import six
+from six.moves.urllib_parse import urlparse
 
 from law.config import Config
 from law.target.file import FileSystem, FileSystemTarget, FileSystemFileTarget, \
@@ -275,7 +277,7 @@ class RemoteFileSystem(FileSystem):
         return super(RemoteFileSystem, self).basename(self.abspath(rpath))
 
     def get_scheme(self, path):
-        scheme = urlparse.urlparse(path).scheme
+        scheme = urlparse(path).scheme
         return scheme if re.match("^[a-zA-Z]+$", scheme) else None
 
     def add_scheme(self, path, scheme):
