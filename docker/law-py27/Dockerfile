@@ -11,9 +11,9 @@ RUN yum -y update; yum clean all
 RUN yum -y install which nano screen wget git cmake curl-devel json-c-devel openssl-devel gcc-c++; yum clean all
 RUN yum -y install gfal2-all gfal2-devel gfal2-python; yum clean all
 RUN git clone https://github.com/cern-it-sdc-id/gfal2-dropbox.git; \
-    cd gfal2-dropbox; \
-    mkdir build && cd build; \
-    cmake .. && make && make install;
+    cd gfal2-dropbox; mkdir build && cd build; \
+    cmake .. -DPLUGIN_INSTALL_DIR=/usr/lib64/gfal2-plugins && make && make install; \
+    cd ../..; rm -rf gfal2-dropbox
 
 # install python software
 RUN yum -y install install python-setuptools; yum clean all
