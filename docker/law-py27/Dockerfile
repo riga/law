@@ -8,7 +8,7 @@ COPY entrypoint.sh /root/entrypoint.sh
 
 # install software
 RUN yum -y update; yum clean all
-RUN yum -y install which nano screen wget git cmake curl-devel json-c-devel gcc-c++; yum clean all
+RUN yum -y install which nano screen wget git cmake curl-devel json-c-devel openssl-devel gcc-c++; yum clean all
 RUN yum -y install gfal2-all gfal2-devel gfal2-python; yum clean all
 RUN git clone https://github.com/cern-it-sdc-id/gfal2-dropbox.git; \
     cd gfal2-dropbox; \
