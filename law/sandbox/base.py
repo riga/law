@@ -101,6 +101,9 @@ class SandboxProxy(ProxyTask):
         return " ".join(cmd)
 
     def run(self):
+        # before_run hook
+        self.task.before_run()
+
         # create the actual command to run
         task_cmd = "export LAW_SANDBOX_SWITCHED=1; "
         task_cmd += "export LAW_SANDBOX_WORKER_ID=\"%s\"; " % self.task.worker_id
@@ -124,6 +127,9 @@ class SandboxProxy(ProxyTask):
         if code != 0:
             raise Exception("Sandbox '%s' failed with exit code %i" \
                             % (self.task.sandbox_inst.key, code))
+
+        # after_run hook
+        self.task.after_run()
 
 
 class SandboxTask(Task):
@@ -182,3 +188,9 @@ class SandboxTask(Task):
     @property
     def env(self):
         return os.environ if self.sandboxed else self.sandbox_inst.env
+
+    def before_run(self):
+        pass
+
+    def after_run(self):
+        pass
