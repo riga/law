@@ -1,15 +1,16 @@
-language: python
 sudo: required
 
-matrix:
-  include:
-    - os: linux
-      dist: trusty
-      python: "2.7"
-    - os: linux
-      dist: trusty
-      python: "3.5"
+dist: stretch
 
-install: pip install -r requirements.txt
+language: python
 
-script: python -m unittest tests
+python:
+  - "2.7"
+  - "3.5"
+  - "3.6"
+
+install:
+  - pip install -r requirements.txt
+
+script:
+  - python -m unittest tests

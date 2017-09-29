@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
 
 export LAW_DEV_BASE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && /bin/pwd )"
-
 export PYTHONPATH="$LAW_DEV_BASE:$PYTHONPATH"
-
 export LUIGI_CONFIG_PATH="$LAW_DEV_BASE/law/examples/luigi.cfg"
 
 law() {

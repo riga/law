@@ -1,13 +1,14 @@
 *.sublime-project
 *.sublime-workspace
 *.pyc
-__pycache__
 *.log
 *.DS_Store
 *.pkl
+*.egg-info
+MANIFEST
+__pycache__
 dist
 build
 law.egg-info
-MANIFEST
 docs/_build
 data
