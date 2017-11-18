@@ -29,7 +29,7 @@ class Config(ConfigParser):
             "default_dropbox": "dropbox",
             "default_dcache": "dcache"
         },
-        "paths": {}
+        "modules": {}
     }
 
     _config_files = ("$LAW_CONFIG_FILE", "$HOME/.law/config", "etc/law/config")

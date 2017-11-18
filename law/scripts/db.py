@@ -12,7 +12,7 @@ from importlib import import_module
 import luigi
 import six
 
-import law
+from law.task.base import Task
 from law.config import Config
 from law.util import multi_match
 
@@ -57,7 +57,7 @@ def execute(args):
     # determine tasks to write into the db file
     seen_families = []
     task_classes = []
-    lookup = [law.Task]
+    lookup = [Task]
     while lookup:
         cls = lookup.pop(0)
         lookup.extend(cls.__subclasses__())

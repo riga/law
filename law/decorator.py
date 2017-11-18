@@ -29,7 +29,6 @@ import functools
 
 import luigi
 
-import law
 from law.parameter import NO_STR
 
 

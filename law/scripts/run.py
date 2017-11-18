@@ -10,7 +10,6 @@ import sys
 
 from luigi.cmdline import luigi_run
 
-import law
 from law.config import Config
 from law.util import abort
 

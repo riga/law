@@ -14,7 +14,6 @@ from abc import abstractmethod
 
 import luigi
 
-import law
 from law.task.base import Task, ProxyTask
 from law.target.collection import TargetCollection, SiblingTargetCollection
 from law.parameter import NO_STR, NO_INT, CSVParameter

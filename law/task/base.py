@@ -19,9 +19,8 @@ import luigi
 import luigi.util
 import six
 
-import law
 from law.parameter import NO_STR, NO_INT, TaskInstanceParameter, CSVParameter
-from law.util import colored, query_choice, multi_match
+from law.util import abort, colored, query_choice, multi_match
 
 
 class BaseRegister(luigi.task_register.Register):
@@ -158,7 +157,7 @@ class Register(BaseRegister):
                     getattr(inst, "_" + param)(*value)
                 except KeyboardInterrupt:
                     print("\naborted")
-                law.util.abort("", exitcode=0)
+                abort("", exitcode=0)
 
         return inst
 
@@ -347,4 +346,4 @@ def remove_task_output(task, max_depth=0, mode=None):
                         continue
 
                 outp.remove()
-                print(offset + "  " + law.util.colored("removed", "red", style="bright"))
+                print(offset + "  " + colored("removed", "red", style="bright"))
