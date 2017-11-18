@@ -12,7 +12,7 @@ import law
 
 def setup_parser(sub_parsers):
     sub_parsers.add_parser("completion", prog="law completion",
-                       description="law completion file lookup")
+        description="law completion file lookup")
 
 
 def execute(args):
