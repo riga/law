@@ -51,7 +51,7 @@ colors = {
 }
 
 backgrounds = {
-    "none"  : 40,
+    "none"  : 49,
     "red"   : 41,
     "green" : 42,
     "yellow": 43,
@@ -87,7 +87,7 @@ def colored(msg, color=None, background=None, style=None, force=False):
         style = (style,)
     style = ";".join(str(styles.get(s, styles["none"])) for s in style)
 
-    return "\033[%s;%s;%sm%s\033[0m" % (style, background, color, msg)
+    return "\033[{};{};{}m{}\033[0m".format(style, background, color, msg)
 
 
 def query_choice(msg, choices, default=None, descriptions=None, lower=True):
@@ -109,13 +109,13 @@ def query_choice(msg, choices, default=None, descriptions=None, lower=True):
     if descriptions is not None:
         if len(descriptions) != len(choices):
             raise ValueError("length of descriptions must match length of choices")
-        hints = ["%s(%s)" % tpl for tpl in zip(hints, descriptions)]
-    msg += " [%s] " % "/".join(hints)
+        hints = ["{}({})".format(*tpl) for tpl in zip(hints, descriptions)]
+    msg += " [{}] ".format(", ".join(hints))
 
     choice = None
     while choice not in _choices:
         if choice is not None:
-            print("unknown choice: '%s'\n" % choice)
+            print("invalid choice: '{}'\n".format(choice))
         choice = six.moves.input(msg)
         if default is not None and choice == "":
             choice = default
