@@ -19,10 +19,11 @@ def patch_all():
     global _patched
 
     if not _patched:
+        _patched = True
+
         patch_worker_factory()
         patch_worker_add_task()
         patch_task_process_run()
-        _patched = True
 
 
 def patch_worker_factory():

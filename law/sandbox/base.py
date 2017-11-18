@@ -141,7 +141,7 @@ class SandboxTask(Task):
 
     valid_sandboxes = ["*"]
 
-    exclude_params_sandbox = {"task_name", "print_deps", "print_status", "purge_output", "sandbox"}
+    exclude_params_sandbox = {"print_deps", "print_status", "purge_output", "sandbox"}
 
     def __init__(self, *args, **kwargs):
         super(SandboxTask, self).__init__(*args, **kwargs)

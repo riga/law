@@ -90,13 +90,11 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
         luigi.target.FileSystemTarget.__init__(self, path)
 
     def __repr__(self):
-        tpl = (self.__class__.__name__, self.path, hex(id(self)))
-        return "%s(path=%s, %s)" % tpl
+        return "{}(path={}, {})".format(self.__class__.__name__, self.path, hex(id(self)))
 
     def colored_repr(self):
-        tpl = (colored(self.__class__.__name__, "cyan"), colored(self.path, style="bright"),
-               hex(id(self)))
-        return "%s(path=%s, %s)" % tpl
+        return "{}({}={})".format(colored(self.__class__.__name__, "cyan"),
+            colored("path", "blue", style="bright"), self.path)
 
     def exists(self, ignore_custom=False):
         if not ignore_custom and self.custom_exists is not None:

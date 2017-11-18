@@ -14,7 +14,7 @@ __license__    = "MIT"
 __status__     = "Development"
 __version__    = "0.0.3"
 
-__all__ = ["Task", "WrapperTask", "SandboxTask",
+__all__ = ["Task", "WrapperTask", "SandboxTask", "LocalWorkflow",
            "LocalFileSystem, LocalFileTarget, LocalDirectoryTarget",
            "DropboxFileSystem", "DropboxFileTarget", "DropboxDirectoryTarget",
            "DCacheFileSystem", "DCacheFileTarget", "DCacheDirectoryTarget",
@@ -37,7 +37,7 @@ import law.decorator
 from law.task.base import Task, WrapperTask
 from law.sandbox.base import SandboxTask
 import law.sandbox.docker
-import law.workflow
+from law.workflow.local import LocalWorkflow
 
 
 # register exit function
