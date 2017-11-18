@@ -7,22 +7,23 @@ Example usage:
 
 .. code-block:: python
 
-   class MyTask(BaseTask):
+    class MyTask(BaseTask):
 
-       @log
-       @safe_output(skip=KeyboardInterrupt)
-       def run(self):
-           pass
+        @log
+        @safe_output(skip=KeyboardInterrupt)
+        def run(self):
+            pass
 
 The usage of a decorator without invocation (e.g. ``@log``) is equivalent to the one *with*
 invocation (``@log()``). Default arguments are applied in either case.
 """
 
 
-__all__ = ["log", "safe_output"]
+__all__ = ["log", "safe_output", "delay"]
 
 
 import sys
+import time
 import traceback
 import functools
 
@@ -97,3 +98,11 @@ def safe_output(fn, opts, self, *args, **kwargs):
             for outp in luigi.task.flatten(self.output()):
                 outp.remove()
         raise
+
+
+def delay(fn, opts, self, *args, **kwargs):
+    """ delay(t=5)
+    Wraps a bound method of a task and delays its execution by *t* seconds.
+    """
+    time.sleep(opts["t"])
+    return fn(self, *args, **kwargs)
