@@ -10,20 +10,22 @@ __all__ = ["Sandbox", "SandboxTask"]
 
 import os
 import sys
-from abc import abstractmethod
+from abc import ABCMeta, abstractmethod, abstractproperty
 from subprocess import Popen
 
 import luigi
+import six
 
 from law.task.base import Task, ProxyTask
-import law.util
+from law.util import multi_match
 
 
 _current_sandbox = os.environ.get("LAW_SANDBOX", "")
 
-_switched_sandbox = os.environ.get("LAW_SANDBOX_SWITCHED", "") == "1"
+_sandbox_switched = os.environ.get("LAW_SANDBOX_SWITCHED", "") == "1"
 
 
+@six.add_metaclass(ABCMeta)
 class Sandbox(object):
 
     delimiter = "::"
@@ -32,7 +34,7 @@ class Sandbox(object):
     def split_key(key):
         parts = str(key).split(Sandbox.delimiter, 1)
         if len(parts) != 2 or any(p == "" for p in parts):
-            raise ValueError("invalid sandbox key '%s'" % key)
+            raise ValueError("invalid sandbox key '{}'".format(key))
 
         return tuple(parts)
 
@@ -55,7 +57,7 @@ class Sandbox(object):
             else:
                 classes.extend(_cls.__subclasses__())
 
-        raise Exception("no Sandbox with type '%s' found" % _type)
+        raise Exception("no Sandbox with type '{}' found".format(_type))
 
     def __init__(self, name):
         super(Sandbox, self).__init__()
@@ -66,9 +68,9 @@ class Sandbox(object):
     def key(self):
         return self.join_key(self.sandbox_type, self.name)
 
-    @property
+    @abstractproperty
     def env(self):
-        return None
+        pass
 
     @abstractmethod
     def cmd(self, task, task_cmd):
@@ -106,27 +108,27 @@ class SandboxProxy(ProxyTask):
 
         # create the actual command to run
         task_cmd = "export LAW_SANDBOX_SWITCHED=1; "
-        task_cmd += "export LAW_SANDBOX_WORKER_ID=\"%s\"; " % self.task.worker_id
-        task_cmd += "law db -p && " + self.task_cmd()
+        task_cmd += "export LAW_SANDBOX_WORKER_ID=\"{}\"; ".format(self.task.worker_id)
+        task_cmd += "law db && " + self.task_cmd()
         cmd = self.task.sandbox_inst.cmd(self.task, task_cmd)
 
-        # some prints
+        # some logs
         print("")
-        print((" entering sandbox '%s' " % self.task.sandbox_inst.key).center(80, "="))
+        print(" entering sandbox '{}' ".format(self.task.sandbox_inst.key).center(80, "="))
         print("")
-        print("sandbox command:\n%s\n" % cmd)
+        print("sandbox command:\n{}\n".format(cmd))
 
         # execute it
         code, out, err = self.task.sandbox_inst.run(cmd)
 
         # finalize
         print("")
-        print((" leaving sandbox '%s' " % self.task.sandbox_inst.key).center(80, "="))
+        print(" leaving sandbox '{}' ".format(self.task.sandbox_inst.key).center(80, "="))
         print("")
 
         if code != 0:
-            raise Exception("Sandbox '%s' failed with exit code %i" \
-                            % (self.task.sandbox_inst.key, code))
+            raise Exception("Sandbox '{}' failed with exit code {}".format(
+                self.task.sandbox_inst.key, code))
 
         # after_run hook
         self.task.after_run()
@@ -134,8 +136,8 @@ class SandboxProxy(ProxyTask):
 
 class SandboxTask(Task):
 
-    sandbox = luigi.Parameter(default=_current_sandbox, significant=False,
-        description="name of the sandbox to run the task in, default: $LAW_SANDBOX")
+    sandbox = luigi.Parameter(default=_current_sandbox, significant=False, description="name of "
+        "the sandbox to run the task in, default: $LAW_SANDBOX")
 
     force_sandbox = False
 
@@ -147,7 +149,7 @@ class SandboxTask(Task):
         super(SandboxTask, self).__init__(*args, **kwargs)
 
         # check if the task execution must be sandboxed
-        if _switched_sandbox:
+        if _sandbox_switched:
             self.effective_sandbox = _current_sandbox
         else:
             # is the switch forced?
@@ -155,7 +157,7 @@ class SandboxTask(Task):
                 self.effective_sandbox = self.sandbox
 
             # can we run in the requestd sandbox?
-            elif law.util.multi_match(self.sandbox, self.valid_sandboxes, any):
+            elif multi_match(self.sandbox, self.valid_sandboxes, any):
                 self.effective_sandbox = self.sandbox
 
             # we have to fallback

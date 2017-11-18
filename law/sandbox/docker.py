@@ -11,10 +11,9 @@ __all__ = ["DockerSandbox"]
 import os
 from collections import defaultdict
 
-import six
 import luigi
+import six
 
-import law
 from law.sandbox.base import Sandbox
 from law.util import which, make_list
 
