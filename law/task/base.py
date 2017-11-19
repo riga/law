@@ -165,8 +165,8 @@ class Register(BaseRegister):
 @six.add_metaclass(Register)
 class Task(BaseTask):
 
-    log = luigi.Parameter(default=NO_STR, significant=False, description="a custom log file, "
-        "default: <task.log_file>")
+    log_file = luigi.Parameter(default=NO_STR, significant=False, description="a custom log file, "
+        "default: <task.default_log_file>")
     print_deps = CSVParameter(cls=luigi.IntParameter, default=[], significant=False,
         description="print task dependencies, do not run any task, the passed numbers set the "
         "recursion depth (0 means non-recursive)")
@@ -190,7 +190,7 @@ class Task(BaseTask):
         self._message_cache_size = 10
 
     @property
-    def log_file(self):
+    def default_log_file(self):
         return "-"
 
     def publish_message(self, *args):

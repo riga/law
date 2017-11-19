@@ -30,6 +30,7 @@ import functools
 import luigi
 
 from law.parameter import NO_STR
+from law.target.local import LocalFileTarget
 
 
 def factory(**default_opts):
@@ -60,8 +61,8 @@ def log(fn, opts, self, *args, **kwargs):
     redirected.
     """
     task = get_task(self)
-    orig = task.log
-    log  = task.log if task.log != NO_STR else task.log_file
+    orig = task.log_file
+    log  = task.log_file if task.log_file != NO_STR else task.default_log_file
 
     if log == "-" or not log:
         return fn(self, *args, **kwargs)
@@ -78,7 +79,6 @@ def log(fn, opts, self, *args, **kwargs):
                 traceback.print_exc(file=f)
                 raise e
             finally:
-                target.chmod(0o0660, silent=True)
                 sys.stdout = sys.__stdout__
                 sys.stderr = sys.__stderr__
         return ret
