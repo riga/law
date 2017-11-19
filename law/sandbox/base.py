@@ -17,7 +17,7 @@ import luigi
 import six
 
 from law.task.base import Task, ProxyTask
-from law.util import multi_match
+from law.util import make_list, multi_match
 
 
 _current_sandbox = os.environ.get("LAW_SANDBOX", "")
@@ -68,6 +68,13 @@ class Sandbox(object):
     def key(self):
         return self.join_key(self.sandbox_type, self.name)
 
+    def task_target(self, task):
+        return "{}.{}".format(task.__module__, task.__class__.__name__)
+
+    @property
+    def use_local_scheduler(self):
+        return True
+
     @abstractproperty
     def env(self):
         pass
@@ -94,8 +101,8 @@ class SandboxProxy(ProxyTask):
         return None
 
     def task_cmd(self):
-        # start with "law run <task_family>"
-        cmd = ["law", "run", self.task.task_family]
+        # start with "law run <task_target>"
+        cmd = ["law", "run", self.task.sandbox_inst.task_target(self.task)]
 
         # add cli args, exclude some parameters
         cmd.extend(self.task.cli_args(exclude=self.task.exclude_params_sandbox))
@@ -109,7 +116,9 @@ class SandboxProxy(ProxyTask):
         # create the actual command to run
         task_cmd = "export LAW_SANDBOX_SWITCHED=1; "
         task_cmd += "export LAW_SANDBOX_WORKER_ID=\"{}\"; ".format(self.task.worker_id)
-        task_cmd += "law db && " + self.task_cmd()
+        task_cmd += self.task_cmd()
+        if self.task.sandbox_inst.use_local_scheduler:
+            task_cmd += " --local-scheduler"
         cmd = self.task.sandbox_inst.cmd(self.task, task_cmd)
 
         # some logs
@@ -143,7 +152,7 @@ class SandboxTask(Task):
 
     valid_sandboxes = ["*"]
 
-    exclude_params_sandbox = {"print_deps", "print_status", "purge_output", "sandbox"}
+    exclude_params_sandbox = {"print_deps", "print_status", "remove_output", "sandbox"}
 
     def __init__(self, *args, **kwargs):
         super(SandboxTask, self).__init__(*args, **kwargs)
@@ -156,7 +165,7 @@ class SandboxTask(Task):
             if self.force_sandbox:
                 self.effective_sandbox = self.sandbox
 
-            # can we run in the requestd sandbox?
+            # can we run in the requested sandbox?
             elif multi_match(self.sandbox, self.valid_sandboxes, any):
                 self.effective_sandbox = self.sandbox
 

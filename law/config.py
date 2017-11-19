@@ -27,12 +27,18 @@ class Config(ConfigParser):
         "target": {
             "gfal2_log_level": "INFO",
             "default_dropbox": "dropbox",
-            "default_dcache": "dcache"
+            "default_dcache": "dcache",
         },
-        "modules": {}
+        "modules": {},
+        "docker": {
+            "forward_dir": "/law_forward",
+            "python_dir": "py",
+            "bin_dir": "bin",
+        },
+        "docker_volumes": {},
     }
 
-    _config_files = ("$LAW_CONFIG_FILE", "$HOME/.law/config", "etc/law/config")
+    _config_files = ["$LAW_CONFIG_FILE", "$HOME/.law/config", "etc/law/config"]
 
     @classmethod
     def instance(cls, config_file=""):
@@ -43,7 +49,7 @@ class Config(ConfigParser):
     def __init__(self, config_file="", skip_fallbacks=False):
         ConfigParser.__init__(self, allow_no_value=True) # old-style
 
-        files = (config_file,)
+        files = [config_file]
         if not skip_fallbacks:
             files += self._config_files
 
@@ -54,6 +60,7 @@ class Config(ConfigParser):
             if os.path.isfile(f):
                 self.read(f)
                 self.config_file = f
+                break
 
         # maybe inherit
         if self.has_section("core") and self.has_option("core", "inherit_config"):
