@@ -39,13 +39,13 @@ class CSVParameter(luigi.Parameter):
         self.inst = cls()
 
     def parse(self, inp):
-        if inp == NO_STR:
-            return NO_STR
+        if not inp:
+            return []
         else:
             return [self.inst.parse(elem) for elem in inp.split(",")]
 
     def serialize(self, value):
-        if value == NO_STR:
-            return NO_STR
+        if not value:
+            return ""
         else:
             return ",".join(str(self.inst.serialize(elem)) for elem in value)

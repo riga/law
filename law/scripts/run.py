@@ -10,6 +10,7 @@ import sys
 
 from luigi.cmdline import luigi_run
 
+from law.task.base import Task
 from law.config import Config
 from law.util import abort
 
@@ -23,14 +24,35 @@ def setup_parser(sub_parsers):
 
 
 def execute(args):
-    # read task info from the db file
-    info = read_task_from_db(args.task_family)
-    if not info:
-        abort("task family '{}' not found".format(args.task_family))
+    task_family = None
+
+    # try to infer the task module from the passed task family and import it
+    parts = args.task_family.rsplit(".", 1)
+    if len(parts) == 2:
+        modid, cls_name = parts
+        try:
+            mod = __import__(modid, globals(), locals(), [cls_name])
+            if hasattr(mod, cls_name):
+                task_cls = getattr(mod, cls_name)
+                if not issubclass(task_cls, Task):
+                    abort("object '{}' is not a Task".format(args.task_family))
+                task_family = task_cls.task_family
+        except ImportError as e:
+            pass
+
+    # read task info from the db file and import it
+    if task_family is None:
+        info = read_task_from_db(args.task_family)
+        if not info:
+            abort("task family '{}' not found in db".format(args.task_family))
+        modid, task_family, _ = info
+        try:
+            __import__(modid, globals(), locals())
+        except ImportError:
+            abort("could not import module '{}'".format(modid))
 
     # import the module and run luigi
-    __import__(info[0], globals(), locals())
-    luigi_run([args.task_family] + sys.argv[3:])
+    luigi_run([task_family] + sys.argv[3:])
 
 
 def read_task_from_db(task_family, dbfile=None):
