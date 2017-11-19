@@ -5,8 +5,8 @@ Helpful utility functions.
 """
 
 
-__all__ = ["printerr", "abort", "colored", "query_choice", "multi_match", "make_list", "flatten",
-           "which"]
+__all__ = ["law_base", "printerr", "abort", "colored", "query_choice", "multi_match", "make_list",
+           "flatten", "which"]
 
 
 import os
@@ -16,6 +16,14 @@ import re
 import fnmatch
 
 import six
+
+
+def law_base(*paths):
+    """
+    Returns the law installation directory, optionally joined with *paths*.
+    """
+    base = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base, *paths)
 
 
 def printerr(*args, **kwargs):
