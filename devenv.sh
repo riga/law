@@ -27,8 +27,8 @@ action() {
 	if [ ! -f "$HOME/.law/config" ]; then
 		mkdir -p "$HOME/.law"
 		cat >"$HOME/.law/config" <<EOL
-[paths]
-\$LAW_DEV_BASE/law/examples
+[modules]
+law.examples
 EOL
 	fi
 

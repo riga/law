@@ -21,9 +21,21 @@ def patch_all():
     if not _patched:
         _patched = True
 
+        patch_task_process_run()
         patch_worker_factory()
         patch_worker_add_task()
-        patch_task_process_run()
+
+
+def patch_task_process_run():
+    _run_get_new_deps = luigi.worker.TaskProcess._run_get_new_deps
+
+    def run_get_new_deps(self, *args, **kwargs):
+        self.task.worker_id = self.worker_id
+        res = _run_get_new_deps(self, *args, **kwargs)
+        self.task.worker_id = None
+        return res
+
+    luigi.worker.TaskProcess._run_get_new_deps = run_get_new_deps
 
 
 def patch_worker_factory():
@@ -45,15 +57,3 @@ def patch_worker_add_task():
         return _add_task(self, *args, **kwargs)
 
     luigi.worker.Worker._add_task = add_task
-
-
-def patch_task_process_run():
-    _run_get_new_deps = luigi.worker.TaskProcess._run_get_new_deps
-
-    def run_get_new_deps(self, *args, **kwargs):
-        self.task.worker_id = self.worker_id
-        res = _run_get_new_deps(self, *args, **kwargs)
-        self.task.worker_id = None
-        return res
-
-    luigi.worker.TaskProcess._run_get_new_deps = run_get_new_deps

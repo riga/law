@@ -89,6 +89,8 @@ source `law_completion`
 
 #### Developing with Docker
 
+*Note*: Due to a change to the base image `cern/cc7-base` the current docker images do not compile. This will be fixed soon.
+
 ```bash
 docker run -ti -p 8082:8082 riga/law
 git pull && law db

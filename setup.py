@@ -3,6 +3,7 @@
 
 import os
 import sys
+import warnings
 from subprocess import Popen, PIPE
 from setuptools import setup
 from setuptools.command.install import install as _install
@@ -19,7 +20,7 @@ if os.path.isfile(readme) and "sdist" in sys.argv:
     p = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
     out, err = p.communicate()
     if p.returncode != 0:
-        raise Exception("pandoc conversion failed: " + err)
+        warnings.warn("pandoc conversion failed: " + err)
     long_description = out
 else:
     long_description = ""
@@ -55,7 +56,6 @@ class install(_install):
         with open(which("law"), "w") as f:
             f.write("".join(lines))
 
-
 setup(
     name             = law.__name__,
     version          = law.__version__,
@@ -70,7 +70,7 @@ setup(
     install_requires = install_requires,
     zip_safe         = False,
     packages         = ["law", "law.task", "law.target", "law.sandbox", "law.workflow",
-                        "law.compat", "law.scripts", "law.examples"],
+                        "law.scripts", "law.examples"],
     package_data     = {"": ["LICENSE", "requirements.txt", "README.md", "completion.sh"]},
     cmdclass         = {"install": install},
     entry_points     = {
