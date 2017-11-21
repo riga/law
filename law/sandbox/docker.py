@@ -59,15 +59,6 @@ class DockerSandbox(Sandbox):
         # environment variables to set
         env = OrderedDict()
 
-        # pass user variables
-        sandbox_user = task.sandbox_user
-        if sandbox_user:
-            if not isinstance(sandbox_user, (tuple, list)) or len(sandbox_user) != 2:
-                raise Exception("sandbox_user must return 2-tuple")
-            name, uid = sandbox_user
-            env["USER"] = os.path.expandvars(name)
-            env["UID"] = os.path.expandvars(uid)
-
         # prevent python from writing byte code files
         env["PYTHONDONTWRITEBYTECODE"] = "1"
 
@@ -124,9 +115,26 @@ class DockerSandbox(Sandbox):
         for tpl in env.items():
             pre_cmds.append("export {}={}".format(*tpl))
 
-        # build the final command
-        cmd = "docker run {docker_args} {image} bash -c '{pre_cmd}; {task_cmd}'".format(
-            task_cmd=task_cmd, pre_cmd="; ".join(pre_cmds), image=self.image,
-            docker_args=" ".join(docker_args))
+        # build the final command which may run as a certain user
+        sandbox_user = task.sandbox_user
+        user_name = None
+        user_id = None
+        if sandbox_user:
+            if not isinstance(sandbox_user, (tuple, list)) or len(sandbox_user) != 2:
+                raise Exception("sandbox_user must return 2-tuple")
+            user_name, user_id = sandbox_user
+
+            # escape the task command
+            task_cmd = task_cmd.replace("\"", r"\"")
+
+            # we cannot assume that the user account exist, so create it
+            cmd_template = "docker run {docker_args} {image} bash -c '"
+                "useradd -m {name} -u {uid}; chown -R {name}:{name} .; su {name} -m -c \""
+                "{pre_cmd}; {task_cmd}\"'"
+        else:
+            cmd_template = "docker run {docker_args} {image} bash -c '{pre_cmd}; {task_cmd}'"
+
+        cmd = cmd_template.format(task_cmd=task_cmd, pre_cmd="; ".join(pre_cmds), image=self.image,
+            docker_args=" ".join(docker_args), name=user_name, uid=user_id)
 
         return cmd

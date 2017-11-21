@@ -10,6 +10,7 @@ __all__ = ["Sandbox", "SandboxTask"]
 
 import os
 import sys
+import getpass
 from abc import ABCMeta, abstractmethod, abstractproperty
 from subprocess import Popen
 
@@ -173,8 +174,8 @@ class SandboxTask(Task):
             else:
                 self.effective_sandbox = self.fallback_sandbox(self.sandbox)
                 if self.effective_sandbox is None:
-                    raise Exception("cannot determine sandbox to switch from '%s' in task '%s'" \
-                                    % (self.sandbox, self))
+                    raise Exception("cannot determine fallback sandbox for {} in task {}".format(
+                        self.sandbox, self))
 
         if not self.sandboxed:
             self.sandbox_inst = Sandbox.new(self.effective_sandbox)
@@ -192,7 +193,7 @@ class SandboxTask(Task):
 
     @property
     def sandbox_user(self):
-        return ("$USER", "$UID")
+        return (getpass.getuser(), os.getuid())
 
     def __getattribute__(self, attr):
         if attr == "run" and not self.sandboxed:

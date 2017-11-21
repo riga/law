@@ -135,7 +135,7 @@ class BaseTask(luigi.Task):
             elif isinstance(param, (luigi.IntParameter, luigi.FloatParameter)):
                 args.extend([arg, str(val)])
             else:
-                args.extend([arg, "'{}'".format(val)])
+                args.extend([arg, "\"{}\"".format(val)])
 
         return args
 
