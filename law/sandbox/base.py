@@ -193,7 +193,7 @@ class SandboxTask(Task):
 
     @property
     def sandbox_user(self):
-        return (getpass.getuser(), os.getuid())
+        return (os.getuid(), os.getgid())
 
     def __getattribute__(self, attr):
         if attr == "run" and not self.sandboxed:
