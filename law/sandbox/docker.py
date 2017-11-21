@@ -59,8 +59,17 @@ class DockerSandbox(Sandbox):
         # environment variables to set
         env = OrderedDict()
 
+        # pass user variables
+        sandbox_user = task.sandbox_user
+        if sandbox_user:
+            if not isinstance(sandbox_user, (tuple, list)) or len(sandbox_user) != 2:
+                raise Exception("sandbox_user must return 2-tuple")
+            name, uid = sandbox_user
+            env["USER"] = os.path.expandvars(name)
+            env["UID"] = os.path.expandvars(uid)
+
         # prevent python from writing byte code files
-        env["PYTHONDONTWRITEBYTECODE"] = "1";
+        env["PYTHONDONTWRITEBYTECODE"] = "1"
 
         # adjust path variables
         env["PATH"] = os.pathsep.join(["$PATH", dst("bin"), dst(python_dir, "law", "scripts")])

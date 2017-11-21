@@ -190,6 +190,10 @@ class SandboxTask(Task):
     def fallback_sandbox(self, sandbox):
         return None
 
+    @property
+    def sandbox_user(self):
+        return ("$USER", "$UID")
+
     def __getattribute__(self, attr):
         if attr == "run" and not self.sandboxed:
             return self.sandbox_proxy.run
