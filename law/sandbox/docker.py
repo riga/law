@@ -128,8 +128,8 @@ class DockerSandbox(Sandbox):
             task_cmd = task_cmd.replace("\"", r"\"")
 
             # we cannot assume that the user account exist, so create it
-            cmd_template = "docker run {docker_args} {image} bash -c '"
-                "useradd -m {name} -u {uid}; chown -R {name}:{name} .; su {name} -m -c \""
+            cmd_template = "docker run {docker_args} {image} bash -c '" \
+                "useradd -m {name} -u {uid}; chown -R {name}:{name} .; su {name} -m -c \"" \
                 "{pre_cmd}; {task_cmd}\"'"
         else:
             cmd_template = "docker run {docker_args} {image} bash -c '{pre_cmd}; {task_cmd}'"
