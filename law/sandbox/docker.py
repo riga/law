@@ -54,7 +54,11 @@ class DockerSandbox(Sandbox):
 
         # helper for adding a volume
         def add_vol(*vol):
+            src = vol[0]
             docker_args.extend(["-v", ":".join(vol)])
+            # ensure that source directories exist
+            if not os.path.isfile(src) and not os.path.exists(src):
+                os.makedirs(src)
 
         # environment variables to set
         env = OrderedDict()
@@ -117,24 +121,13 @@ class DockerSandbox(Sandbox):
 
         # build the final command which may run as a certain user
         sandbox_user = task.sandbox_user
-        user_name = None
-        user_id = None
         if sandbox_user:
             if not isinstance(sandbox_user, (tuple, list)) or len(sandbox_user) != 2:
                 raise Exception("sandbox_user must return 2-tuple")
-            user_name, user_id = sandbox_user
+            docker_args.append("-u={}:{}".format(*sandbox_user))
 
-            # escape the task command
-            task_cmd = task_cmd.replace("\"", r"\"")
-
-            # we cannot assume that the user account exist, so create it
-            cmd_template = "docker run {docker_args} {image} bash -c '" \
-                "useradd -m {name} -u {uid}; chown -R {name}:{name} .; su {name} -m -c \"" \
-                "{pre_cmd}; {task_cmd}\"'"
-        else:
-            cmd_template = "docker run {docker_args} {image} bash -c '{pre_cmd}; {task_cmd}'"
-
-        cmd = cmd_template.format(task_cmd=task_cmd, pre_cmd="; ".join(pre_cmds), image=self.image,
-            docker_args=" ".join(docker_args), name=user_name, uid=user_id)
+        cmd = "docker run {docker_args} {image} bash -c '{pre_cmd}; {task_cmd}'".format(
+            task_cmd=task_cmd, pre_cmd="; ".join(pre_cmds), image=self.image,
+            docker_args=" ".join(docker_args))
 
         return cmd
