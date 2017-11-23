@@ -22,9 +22,10 @@ class Config(ConfigParser):
     _default_config = {
         "core": {
             "db_file": os.environ.get("LAW_DB_FILE", os.path.expandvars("$HOME/.law/db")),
-            "target_tmp_dir": tempfile.gettempdir(),
         },
         "target": {
+            "tmp_dir": tempfile.gettempdir(),
+            "tmp_dir_mode": 0o0770,
             "gfal2_log_level": "INFO",
             "default_dropbox": "dropbox",
             "default_dcache": "dcache",

@@ -22,14 +22,27 @@ from law.util import colored
 class FileSystem(luigi.target.FileSystem):
 
     def __repr__(self):
-        tpl = (self.__class__.__name__, hex(id(self)))
-        return "%s(%s)" % tpl
+        return "{}({})".format(self.__class__.__name__, hex(id(self)))
 
     def dirname(self, path):
         return os.path.dirname(path) if path != "/" else None
 
     def basename(self, path):
         return os.path.basename(path) if path != "/" else "/"
+
+    def ext(self, path, n=1):
+        if n < 1:
+            return ""
+
+        # split the path
+        parts = path.split(".")
+
+        # empty extension in the trivial case or use the last n parts except for the first one
+        if len(parts) == 1:
+            return ""
+        else:
+            ext = parts[max(-n, -len(parts) + 1):]
+            return ".".join(ext)
 
     @abstractmethod
     def abspath(self, path):
@@ -44,7 +57,7 @@ class FileSystem(luigi.target.FileSystem):
         pass
 
     @abstractmethod
-    def chmod(self, path, mode, recursive=False):
+    def chmod(self, path, mode):
         pass
 
     @abstractmethod
@@ -56,7 +69,7 @@ class FileSystem(luigi.target.FileSystem):
         pass
 
     @abstractmethod
-    def mkdir(self, path, mode=0o0770, recursive=True):
+    def mkdir(self, path, mode=None, recursive=True):
         pass
 
     @abstractmethod
@@ -72,11 +85,19 @@ class FileSystem(luigi.target.FileSystem):
         pass
 
     @abstractmethod
-    def put(self, srcpath, dstpath):
+    def copy(self, src, dst, dir_mode=None):
         pass
 
     @abstractmethod
-    def fetch(self, srcpath, dstpath):
+    def move(self, src, dst, dir_mode=None):
+        pass
+
+    @abstractmethod
+    def put(self, src, dst, dir_mode=None):
+        pass
+
+    @abstractmethod
+    def fetch(self, src, dst, dir_mode=None):
         pass
 
 
@@ -85,8 +106,8 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
     file_class = None
     directory_class = None
 
-    def __init__(self, path, exists=None):
-        Target.__init__(self, exists=exists)
+    def __init__(self, path):
+        Target.__init__(self)
         luigi.target.FileSystemTarget.__init__(self, path)
 
     def __repr__(self):
@@ -97,9 +118,6 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
             colored("path", "blue", style="bright"), self.path)
 
     def exists(self, ignore_custom=False):
-        if not ignore_custom and self.custom_exists is not None:
-            return self.custom_exists(self)
-
         return self.fs.exists(self.path)
 
     @property
@@ -119,36 +137,45 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
     def basename(self):
         return self.fs.basename(self.path)
 
-    def chmod(self, mode, silent=False, **kwargs):
-        if not silent or self.exists():
-            self.fs.chmod(self.path, mode, **kwargs)
+    def chmod(self, mode, silent=False):
+        if mode is not None and (not silent or self.exists()):
+            self.fs.chmod(self.path, mode)
 
     @abstractproperty
     def fs(self):
         pass
 
     @abstractmethod
-    def touch(self, mode):
+    def fetch(self, dst, dir_mode=None):
         pass
 
     @abstractmethod
-    def fetch(self):
-        pass
-
-    @abstractmethod
-    def put(self):
-        pass
-
-    @abstractmethod
-    @contextmanager
-    def localize(self, mode=0o0660):
+    def put(self, dst, dir_mode=None):
         pass
 
 
 class FileSystemFileTarget(FileSystemTarget):
 
-    def remove(self, silent=True, **kwargs):
-        self.fs.remove(self.path, recursive=False, silent=silent, **kwargs)
+    def remove(self, silent=True):
+        self.fs.remove(self.path, recursive=False, silent=silent)
+
+    def copy(self, dst, dir_mode=None):
+        self.fs.copy(self.path, get_path(dst), dir_mode=dir_mode)
+
+    def move(self, dst, dir_mode=None):
+        self.fs.move(self.path, get_path(dst), dir_mode=dir_mode)
+
+    def ext(self, n=1):
+        return self.fs.ext(self.path, n=n)
+
+    @abstractmethod
+    def touch(self, content=" ", mode=None, parent_mode=None):
+        pass
+
+    @abstractmethod
+    @contextmanager
+    def localize(self, skip_parent=False, mode=None, parent_mode=None):
+        pass
 
 
 class FileSystemDirectoryTarget(FileSystemTarget):
@@ -164,7 +191,7 @@ class FileSystemDirectoryTarget(FileSystemTarget):
         elif type == "d":
             cls = self.__class__
         elif not self.fs.exists(path):
-            raise Exception("cannot guess type of non-existing '%s', use the type argument" % path)
+            raise Exception("cannot guess type of non-existing '{}'".format(path))
         elif self.fs.isdir(path):
             cls = self.__class__
         else:
@@ -172,19 +199,30 @@ class FileSystemDirectoryTarget(FileSystemTarget):
 
         return cls(path)
 
-    def remove(self, recursive=True, silent=True, **kwargs):
+    def remove(self, recursive=True, silent=True):
         if not silent or self.exists():
-            self.fs.remove(self.path, recursive=recursive, silent=silent, **kwargs)
+            self.fs.remove(self.path, recursive=recursive, silent=silent)
 
-    def listdir(self, pattern=None, type=None, **kwargs):
-        return self.fs.listdir(self.path, pattern=pattern, type=type, **kwargs)
+    def listdir(self, pattern=None, type=None):
+        return self.fs.listdir(self.path, pattern=pattern, type=type)
 
-    def glob(self, pattern, **kwargs):
-        return self.fs.glob(pattern, cwd=self.path, **kwargs)
+    def glob(self, pattern):
+        return self.fs.glob(pattern, cwd=self.path)
 
-    def walk(self, **kwargs):
-        return self.fs.walk(self.path, **kwargs)
+    def walk(self):
+        return self.fs.walk(self.path)
+
+    @abstractmethod
+    def touch(self, mode=None, recursive=True):
+        pass
 
 
 FileSystemTarget.file_class = FileSystemFileTarget
 FileSystemTarget.directory_class = FileSystemDirectoryTarget
+
+
+def get_path(target):
+    if isinstance(target, FileSystemTarget):
+        return target.path
+    else:
+        return target

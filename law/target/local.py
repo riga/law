@@ -19,9 +19,10 @@ import tarfile
 from contextlib import contextmanager
 
 import luigi
+import six
 
 from law.target.file import FileSystem, FileSystemTarget, FileSystemFileTarget, \
-                            FileSystemDirectoryTarget
+    FileSystemDirectoryTarget, get_path
 from law.config import Config
 from law.util import make_list
 
@@ -38,7 +39,8 @@ class LocalFileSystem(FileSystem):
         return os.stat(path)
 
     def chmod(self, path, mode):
-        os.chmod(path, mode)
+        if mode is not None:
+            os.chmod(path, mode)
 
     def remove(self, path, recursive=True, silent=True):
         if not silent or self.exists(path):
@@ -53,26 +55,34 @@ class LocalFileSystem(FileSystem):
     def isdir(self, path):
         return os.path.isdir(path)
 
-    def mkdir(self, path, mode=0o0770, recursive=True, silent=True):
+    def mkdir(self, path, mode=None, recursive=True, silent=True):
         if not self.exists(path) or not silent:
-            if recursive:
-                try:
-                    orig = os.umask(0)
-                    os.makedirs(path, mode)
-                finally:
+            # the mode passed to os.mkdir or os.makedirs is ignored on some systems, so the strategy
+            # here is to disable the process' current umask, create the directories and use chmod
+            if mode is not None:
+                orig = os.umask(0)
+
+            try:
+                args = (path, mode) if mode is None else (path,)
+                (os.makedirs if recursive else os.mkdir)(*args)
+                self.chmod(path, mode)
+            finally:
+                if mode is not None:
                     os.umask(orig)
-            else:
-                os.mkdir(path, mode)
-                self.chmod(path, mode, recursive=False)
 
     def listdir(self, path, pattern=None, type=None):
         elems = os.listdir(path)
+
+        # apply pattern filter
         if pattern is not None:
             elems = fnmatch.filter(elems, pattern)
+
+        # apply type filter
         if type == "f":
             elems = [elem for elem in elems if os.path.isfile(os.path.join(path, elem))]
         elif type == "d":
             elems = [elem for elem in elems if os.path.isdir(os.path.join(path, elem))]
+
         return elems
 
     def walk(self, path):
@@ -90,84 +100,161 @@ class LocalFileSystem(FileSystem):
 
         return elems
 
-    def put(self, srcpath, dstpath):
-        srcpaths = make_list(srcpath)
-        dstpaths = make_list(dstpath)
+    def copy(self, src, dst, dir_mode=None):
+        # ensure we deal with lists of same size
+        srcs = make_list(src)
+        dsts = make_list(dst)
+        if len(srcs) != len(dsts):
+            raise ValueError("src(s) and dst(s) must have equal lengths")
 
-        if len(srcpaths) != len(dstpaths):
-            raise ValueError("srcpath(s) and dstpath(s) must have equal lengths")
+        for src, dst in six.moves.zip(srcs, dsts):
+            if not self.exists(src):
+                raise IOError("cannot copy non-existing file or directory '{}'".format(src))
+            else:
+                # create missing dirs
+                dst_dir = self.dirname(dst)
+                if dst_dir and not os.path.exists(dst_dir):
+                    self.mkdir(dst_dir, dir_mode=dir_mode, recursive=True)
 
-        for srcpath, dstpath in zip(srcpaths, dstpaths):
-            shutil.copy2(srcpath, dstpath)
+                # handle directories or files
+                if self.isdir(src):
+                    # copy the entire tree
+                    shutil.copytree(src, dst)
+                else:
+                    # copy the file
+                    shutil.copy2(src, dst)
 
-    def fetch(self, srcpath, dstpath):
-        self.put(dstpath, srcpath)
+    def move(self, src, dst, dir_mode=None):
+        # ensure we deal with lists of same size
+        srcs = make_list(src)
+        dsts = make_list(dst)
+        if len(srcs) != len(dsts):
+            raise ValueError("src(s) and dst(s) must have equal lengths")
+
+        for src, dst in six.moves.zip(srcs, dsts):
+            if not self.exists(src):
+                raise IOError("cannot move non-existing file or directory '{}'".format(src))
+            else:
+                # create missing dirs
+                dst_dir = self.dirname(dst)
+                if dst_dir and not os.path.exists(dst_dir):
+                    self.mkdir(dst_dir, dir_mode=dir_mode, recursive=True)
+
+                # simply move
+                shutil.move(src, dst)
+
+    def put(self, src, dst, dir_mode=None):
+        self.copy(src, dst, dir_mode=dir_mode)
+
+    def fetch(self, src, dst, dir_mode=None):
+        self.copy(src, dst, dir_mode=dir_mode)
+
+
+_default_local_fs = LocalFileSystem()
 
 
 class LocalTarget(FileSystemTarget, luigi.LocalTarget):
 
-    fs = LocalFileSystem()
+    fs = _default_local_fs
 
-    def __init__(self, path=None, format=None, is_tmp=False, exists=None):
+    def __init__(self, path=None, format=None, is_tmp=False):
         # handle tmp paths manually since luigi uses the env tmp dir
         if not path:
             if not is_tmp:
-                raise Exception("path or is_tmp must be set")
-            base = Config.instance().get("core", "target_tmp_dir")
-            base = os.path.expandvars(os.path.expanduser(base))
-            if not self.fs.exists(base):
-                self.fs.mkdir(base, mode=0o0777)
+                raise Exception("either path or is_tmp must be set")
+
+            # get the tmp dir from the config and ensure it exists
+            tmp_dir = Config.instance().get("target", "tmp_dir")
+            tmp_dir = os.path.expandvars(os.path.expanduser(tmp_dir))
+            if not self.fs.exists(tmp_dir):
+                mode = Config.instance().get("target", "tmp_dir_mode")
+                _default_local_fs.mkdir(tmp_dir, mode=mode)
+
+            # create a random path
             while True:
-                path = os.path.join(base, "luigi-tmp-%09d" % random.randint(0, 999999999))
-                if not os.path.exists(path):
+                path = os.path.join(tmp_dir, "luigi-tmp-%09d" % (random.randint(0, 999999999,)))
+                if not _default_local_fs.exists(path):
                     break
 
+            # is_tmp might be an extension
+            if isinstance(is_tmp, six.string_types):
+                if is_tmp[0] != ".":
+                    is_tmp = "." + is_tmp
+                path += is_tmp
+        else:
+            path = _default_local_fs.abspath(os.path.expandvars(os.path.expanduser(path)))
+
         luigi.LocalTarget.__init__(self, path=path, format=format, is_tmp=is_tmp)
-        FileSystemTarget.__init__(self, self.path, exists=exists)
+        FileSystemTarget.__init__(self, self.path)
 
-        self.path = self.fs.abspath(os.path.expandvars(os.path.expanduser(self.path)))
-
-    def fetch(self, *args, **kwargs):
+    def fetch(self, dst, dir_mode=None):
         return self.path
 
-    def put(self, *args, **kwargs):
+    def put(self, dst, dir_mode=None):
         return self.path
-
-    @contextmanager
-    def localize(self, skip_parent=False, mode=0o0660, **kwargs):
-        if not skip_parent:
-            self.parent.touch()
-        yield self
-        self.chmod(mode)
 
 
 class LocalFileTarget(LocalTarget, FileSystemFileTarget):
 
-    def touch(self, content=" ", mode=0o0660):
+    def touch(self, content=" ", mode=None, parent_mode=None):
+        # create the parent
         parent = self.parent
         if parent is not None:
-            parent.touch()
+            parent.touch(mode=parent_mode)
+
+        # create the file via open and write content
         with self.open("w") as f:
             if content:
                 f.write(content)
-        self.fs.chmod(self.path, mode)
+
+        self.chmod(mode)
+
+    @contextmanager
+    def localize(self, skip_parent=False, mode=None, parent_mode=None, **kwargs):
+        """ localize(self, skip_parent=False, mode=None, parent_mode=None, local_tmp=True)
+        """
+        local_tmp = kwargs.get("local_tmp", True)
+
+        # create the parent
+        if not skip_parent:
+            self.parent.touch(mode=parent_mode)
+
+        if local_tmp:
+            # create a temporary copy
+            tmp = self.__class__(is_tmp=self.ext() or True)
+            self.copy(tmp)
+
+            # yield the copy
+            try:
+                yield tmp
+            except:
+                tmp.remove()
+                raise
+
+            # finally move back again
+            tmp.move(self, dir_mode=parent_mode)
+        else:
+            # just yield
+            yield self
+
+        self.chmod(mode)
 
 
 class LocalDirectoryTarget(LocalTarget, FileSystemDirectoryTarget):
 
-    def __init__(self, path=None, format=None, is_tmp=False, exists=None, unpack=None):
-        LocalTarget.__init__(self, path=path, format=format, is_tmp=is_tmp, exists=exists)
-        FileSystemDirectoryTarget.__init__(self, self.path, exists=exists)
+    def __init__(self, path=None, format=None, is_tmp=False, unpack=None):
+        LocalTarget.__init__(self, path=path, format=format, is_tmp=is_tmp)
+        FileSystemDirectoryTarget.__init__(self, self.path)
 
         if unpack is not None:
             self.unpack(unpack)
 
-    def touch(self, mode=0o0770, recursive=True):
+    def touch(self, mode=None, recursive=True):
         self.fs.mkdir(self.path, mode=mode, recursive=recursive, silent=True)
 
-    def unpack(self, path, mode=0o0770):
+    def unpack(self, path, mode=None):
+        # check the archive type and read mode
         path = os.path.expandvars(os.path.expanduser(path))
-
         readmode = "r"
         if path.endswith(".zip"):
             ctx = zipfile.ZipFile
@@ -178,11 +265,12 @@ class LocalDirectoryTarget(LocalTarget, FileSystemDirectoryTarget):
             ctx = tarfile.open
             readmode += ":bz2"
         else:
-            raise ValueError("unknown archive type in file " + str(path))
+            raise ValueError("cannot guess archive type to unpack from '{}'".format(path))
 
-        if not self.exists():
-            self.touch(mode=mode)
+        # create the dir
+        self.touch(mode=mode)
 
+        # extract
         with ctx(path, readmode) as f:
             f.extractall(self.path)
 

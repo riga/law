@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Collection-like targets.
+Collections that wrap multiple targets.
 """
 
 
@@ -10,37 +10,38 @@ __all__ = ["TargetCollection", "SiblingTargetCollection"]
 
 import six
 
-import law
 from law.target.base import Target
 from law.util import colored, flatten
 
 
 class TargetCollection(Target):
 
-    def __init__(self, targets, threshold=1.0, **kwargs):
+    def __init__(self, targets, threshold=1.0):
         if not isinstance(targets, (list, tuple, dict)):
             raise TypeError("invalid targets, must be of type: list, tuple, dict")
 
-        super(TargetCollection, self).__init__(**kwargs)
+        super(TargetCollection, self).__init__()
 
-        self.targets   = targets
+        # store targets and threshold
+        self.targets = targets
         self.threshold = threshold
 
-        _flatten = lambda v: flatten(v.flat_targets if isinstance(v, TargetCollection) else v)
+        # collections might wrap other collections, so we need to store flat targets for the
+        # current structure
+        _flatten = lambda v: flatten(v._flat_targets if isinstance(v, TargetCollection) else v)
         if isinstance(targets, (list, tuple)):
             gen = (_flatten(v) for v in targets)
         else: # dict
             gen = ((k, _flatten(v)) for k, v in targets.items())
-        self.flat_targets = targets.__class__(gen)
+        self._flat_targets = targets.__class__(gen)
 
     def __repr__(self):
-        tpl = (self.__class__.__name__, len(self), self.threshold, hex(id(self)))
-        return "%s(len=%s, threshold=%s, %s)" % tpl
+        return "<{}(len={}, threshold={}) at {}>".format(self.__class__.__name__, len(self),
+            self.threshold, hex(id(self)))
 
     def colored_repr(self):
-        tpl = (colored(self.__class__.__name__, "cyan"), colored(len(self), style="bright"),
-               colored(self.threshold, style="bright"), hex(id(self)))
-        return "%s(len=%s, threshold=%s, %s)" % tpl
+        return "{}(len={}, threshold={})".format(colored(self.__class__.__name__, "cyan"),
+            colored(len(self), style="bright"), colored(self.threshold, style="bright"))
 
     def __len__(self):
         return len(self.targets)
@@ -49,39 +50,20 @@ class TargetCollection(Target):
         return self.targets[key]
 
     def __iter__(self):
-        raise TypeError("'%s' object is not iterable" % self.__class__.__name__)
+        raise TypeError("'{}' object is not iterable".format(self.__class__.__name__))
 
     def remove(self, silent=True):
-        for target in flatten(self.flat_targets):
+        for target in flatten(self._flat_targets):
             target.remove(silent=silent)
-
-    def iter(self, force=False):
-        """
-        If *force* is *True*, iterates through all targets. If *force* is *False*, iterates though
-        all targets if the collection itself exists, or only through existing targets otherwise.
-        """
-        exists = force or self.exists()
-
-        if isinstance(self.targets, (list, tuple)):
-            for i, targets in enumerate(self.flat_targets):
-                if exists or all(t.exists() for t in targets):
-                    yield i, self.targets[i]
-        else: # dict
-            for key, targets in self.flat_targets.items():
-                if exists or all(t.exists() for t in targets):
-                    yield key, self.targets[key]
 
     def _iter_flat(self, keys=False):
         if isinstance(self.targets, (list, tuple)):
-            it = enumerate(self.flat_targets)
+            it = enumerate(self._flat_targets) if keys else self._flat_targets
         else:
-            it = six.iteritems(self.flat_targets)
+            it = six.iteritems(self._flat_targets) if keys else six.itervalues(self._flat_targets)
 
-        for key, targets in it:
-            if keys:
-                yield key, targets
-            else:
-                yield targets
+        for obj in it:
+            yield obj
 
     def _threshold(self):
         if self.threshold < 0:
@@ -91,10 +73,7 @@ class TargetCollection(Target):
         else:
             return min(len(self), self.threshold)
 
-    def exists(self, ignore_custom=False):
-        if not ignore_custom and self.custom_exists is not None:
-            return self.custom_exists(self)
-
+    def exists(self):
         threshold = self._threshold()
 
         # trivial case
@@ -103,8 +82,8 @@ class TargetCollection(Target):
 
         # simple counting with early stopping criteria for both success and fail
         n = 0
-        for i, targets in enumerate(self._iter_flat()):
-            if all(t.exists(ignore_custom=ignore_custom) for t in targets):
+        for i, targets in enumerate(self._iter_flat(keys=False)):
+            if all(t.exists() for t in targets):
                 n += 1
                 if n >= threshold:
                     return True
@@ -114,32 +93,28 @@ class TargetCollection(Target):
 
         return False
 
-    def count(self, existing=True, **kwargs):
+    def count(self, existing=True):
         # simple counting
         n = 0
-        for targets in self._iter_flat():
-            if all(t.exists(**kwargs) for t in targets):
+        for targets in self._iter_flat(keys=False):
+            if all(t.exists() for t in targets):
                 n += 1
 
         return n if existing else len(self) - n
 
-    def status_text(self, max_depth=0, ignore_custom=False, **kwargs):
-        """ status_text(max_depth=0, ignore_custom=True, colored=True)
-        """
-        _colored = kwargs.get("colored", True)
-
-        count = self.count(ignore_custom=ignore_custom)
+    def status_text(self, max_depth=0, color=True):
+        count = self.count()
         exists = count >= self._nMin()
 
         if exists:
             text = "existent"
-            if _colored:
-                text = colored(text, "green", style="bright")
+            _color = "green"
         else:
             text = "absent"
-            if _colored:
-                text = colored(text, "red", style="bright")
-        text = "%s (%s/%s)" % (text, count, len(self))
+            _color = "red"
+
+        text = colored(text, _color, style="bright") if color else text
+        text += " ({}/{})".format(count, len(self))
 
         if max_depth > 0:
             if isinstance(self.targets, (list, tuple)):
@@ -148,12 +123,12 @@ class TargetCollection(Target):
                 gen = six.iteritems(self.targets)
 
             for key, target in gen:
-                text += "\n%s: " % key
+                text += "\n{}: ".format(key)
 
                 if isinstance(target, TargetCollection):
                     text += "\n  ".join(target.status_text(max_depth - 1).split("\n"))
                 elif isinstance(target, Target):
-                    text += "%s (%s)" % (target.status_text(colored=_colored), target.colored_repr())
+                    text += "{} ({})".format(target.status_text(color=color), target.colored_repr())
 
         return text
 
@@ -163,30 +138,28 @@ class SiblingTargetCollection(TargetCollection):
     def __init__(self, *args, **kwargs):
         super(SiblingTargetCollection, self).__init__(*args, **kwargs)
 
+        # store the directory
         if isinstance(self.targets, (list, tuple)):
-            self.dir = self.flat_targets[0][0].parent
+            self.dir = self._flat_targets[0][0].parent
         else: # dict
-            self.dir = self.flat_targets.values()[0][0].parent
+            self.dir = list(self._flat_targets.values())[0][0].parent
 
-    def exists(self, ignore_custom=False):
-        if not ignore_custom and self.custom_exists is not None:
-            return self.custom_exists(self)
-
+    def exists(self, i):
         threshold = self._threshold()
+
+        # check the dir
+        if not self.dir.exists():
+            return False
 
         # trivial case
         if threshold == 0:
             return True
 
-        # check the dir
-        if not self.dir.exists(ignore_custom=ignore_custom):
-            return False
-
         # get all elements of the contained directory
         # simple counting with early stopping criteria for both success and fail
         elems = self.dir.listdir()
         n = 0
-        for i, targets in enumerate(self._iter_flat()):
+        for i, targets in enumerate(self._iter_flat(keys=False)):
             if all(t.basename in elems for t in targets):
                 n += 1
                 if n >= threshold:
@@ -197,9 +170,9 @@ class SiblingTargetCollection(TargetCollection):
 
         return False
 
-    def count(self, existing=True, **kwargs):
+    def count(self, existing=True):
         # trivial case when the contained directory does not exist
-        if not self.dir.exists(**kwargs):
+        if not self.dir.exists():
             return 0
 
         # get all elements of the contained directory

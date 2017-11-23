@@ -117,7 +117,7 @@ class DockerSandbox(Sandbox):
         # build commands to add env variables
         pre_cmds = []
         for tpl in env.items():
-            pre_cmds.append("export {}={}".format(*tpl))
+            pre_cmds.append("export {}=\"{}\"".format(*tpl))
 
         # build the final command which may run as a certain user
         sandbox_user = task.sandbox_user

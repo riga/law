@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Custom luigi base target.
+Custom base target definition.
 """
 
 
@@ -18,37 +18,24 @@ from law.util import colored
 
 class Target(luigi.target.Target):
 
-    def __init__(self, exists=None):
-        self.custom_exists = exists
-
-        luigi.target.Target.__init__(self)
-
     def __repr__(self):
-        tpl = (self.__class__.__name__, hex(id(self)))
-        return "<%s at %s>" % tpl
+        return "<{} at {}>".format(self.__class__.__name__, hex(id(self)))
 
     def colored_repr(self):
-        tpl = (colored(self.__class__.__name__, "cyan"), hex(id(self)))
-        return "%s(%s)" % tpl
+        return "{}({})".format(colored(self.__class__.__name__, "cyan"), hex(id(self)))
 
-    def status_text(self, max_depth=0, ignore_custom=True, **kwargs):
-        """ status_text(max_depth=0, ignore_custom=True, colored=True)
-        """
-        _colored = kwargs.get("colored", True)
-
-        if self.exists(ignore_custom=ignore_custom):
+    def status_text(self, max_depth=0, color=True):
+        if self.exists():
             text = "existent"
-            if _colored:
-                text = colored(text, "green", style="bright")
-            return text
+            _color = "green"
         else:
             text = "absent"
-            if _colored:
-                text = colored(text, "red", style="bright")
-            return text
+            _color = "red"
+
+        return colored(text, _color, style="bright") if color else text
 
     @abstractmethod
-    def exists(self, ignore_custom=False):
+    def exists(self):
         pass
 
     @abstractmethod
