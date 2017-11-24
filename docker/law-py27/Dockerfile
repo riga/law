@@ -32,12 +32,6 @@ RUN git clone https://github.com/cern-it-sdc-id/gfal2-dropbox.git && \
     cmake .. -DCMAKE_INSTALL_PREFIX=/usr && make && make install && \
     cd ../.. && rm -rf gfal2-dropbox
 
-# grid software, TODO: this should be moved out of the base image
-RUN rpm -Uvh https://repo.grid.iu.edu/osg/3.4/osg-3.4-el7-release-latest.rpm
-RUN rpm --import https://repo.grid.iu.edu/osg/3.4/RPM-GPG-KEY-OSG
-RUN yum -y update; yum clean all
-RUN yum -y install CERN-CA-certs osg-ca-certs osg-voms voms-clients; yum clean all
-
 # python software
 RUN yum -y install install python-setuptools; yum clean all
 RUN easy_install pip

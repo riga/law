@@ -1,4 +1,4 @@
-FROM riga/law-py27
+FROM riga/law:py27
 
 # labels
 LABEL name="law-py27-wlcg"
