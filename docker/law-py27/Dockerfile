@@ -1,7 +1,7 @@
 FROM centos:7
 
 # labels
-LABEL name="law_py27"
+LABEL name="law-py27"
 LABEL version="0.0.3"
 
 # copy files
