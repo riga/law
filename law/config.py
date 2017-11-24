@@ -25,7 +25,7 @@ class Config(ConfigParser):
         },
         "target": {
             "tmp_dir": tempfile.gettempdir(),
-            "tmp_dir_mode": 0o0770,
+            "tmp_dir_permission": 0o0770,
             "gfal2_log_level": "INFO",
             "default_dropbox": "dropbox",
             "default_dcache": "dcache",

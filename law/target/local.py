@@ -23,6 +23,7 @@ import six
 
 from law.target.file import FileSystem, FileSystemTarget, FileSystemFileTarget, \
     FileSystemDirectoryTarget, get_path
+from law.target.formatter import find_formatter
 from law.config import Config
 from law.util import make_list
 
@@ -38,9 +39,9 @@ class LocalFileSystem(FileSystem):
     def stat(self, path):
         return os.stat(path)
 
-    def chmod(self, path, mode):
-        if mode is not None:
-            os.chmod(path, mode)
+    def chmod(self, path, perm):
+        if perm is not None:
+            os.chmod(path, perm)
 
     def remove(self, path, recursive=True, silent=True):
         if not silent or self.exists(path):
@@ -55,19 +56,19 @@ class LocalFileSystem(FileSystem):
     def isdir(self, path):
         return os.path.isdir(path)
 
-    def mkdir(self, path, mode=None, recursive=True, silent=True):
+    def mkdir(self, path, perm=None, recursive=True, silent=True):
         if not self.exists(path) or not silent:
             # the mode passed to os.mkdir or os.makedirs is ignored on some systems, so the strategy
             # here is to disable the process' current umask, create the directories and use chmod
-            if mode is not None:
+            if perm is not None:
                 orig = os.umask(0)
 
             try:
-                args = (path, mode) if mode is None else (path,)
+                args = (path,) if perm is None else (path, perm)
                 (os.makedirs if recursive else os.mkdir)(*args)
-                self.chmod(path, mode)
+                self.chmod(path, perm)
             finally:
-                if mode is not None:
+                if perm is not None:
                     os.umask(orig)
 
     def listdir(self, path, pattern=None, type=None):
@@ -100,7 +101,7 @@ class LocalFileSystem(FileSystem):
 
         return elems
 
-    def copy(self, src, dst, dir_mode=None):
+    def copy(self, src, dst, dir_perm=None):
         # ensure we deal with lists of same size
         srcs = make_list(src)
         dsts = make_list(dst)
@@ -114,7 +115,7 @@ class LocalFileSystem(FileSystem):
                 # create missing dirs
                 dst_dir = self.dirname(dst)
                 if dst_dir and not os.path.exists(dst_dir):
-                    self.mkdir(dst_dir, dir_mode=dir_mode, recursive=True)
+                    self.mkdir(dst_dir, dir_perm=dir_perm, recursive=True)
 
                 # handle directories or files
                 if self.isdir(src):
@@ -124,7 +125,7 @@ class LocalFileSystem(FileSystem):
                     # copy the file
                     shutil.copy2(src, dst)
 
-    def move(self, src, dst, dir_mode=None):
+    def move(self, src, dst, dir_perm=None):
         # ensure we deal with lists of same size
         srcs = make_list(src)
         dsts = make_list(dst)
@@ -138,16 +139,22 @@ class LocalFileSystem(FileSystem):
                 # create missing dirs
                 dst_dir = self.dirname(dst)
                 if dst_dir and not os.path.exists(dst_dir):
-                    self.mkdir(dst_dir, dir_mode=dir_mode, recursive=True)
+                    self.mkdir(dst_dir, perm=dir_perm, recursive=True)
 
                 # simply move
                 shutil.move(src, dst)
 
-    def put(self, src, dst, dir_mode=None):
-        self.copy(src, dst, dir_mode=dir_mode)
+    def put(self, src, dst, dir_perm=None):
+        self.copy(src, dst, dir_perm=dir_perm)
 
-    def fetch(self, src, dst, dir_mode=None):
-        self.copy(src, dst, dir_mode=dir_mode)
+    def fetch(self, src, dst, dir_perm=None):
+        self.copy(src, dst, dir_perm=dir_perm)
+
+    def load(self, path, formatter, *args, **kwargs):
+        return find_formatter(path, formatter).load(path, *args, **kwargs)
+
+    def dump(self, path, formatter, *args, **kwargs):
+        return find_formatter(path, formatter).dump(path, *args, **kwargs)
 
 
 _default_local_fs = LocalFileSystem()
@@ -167,8 +174,8 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
             tmp_dir = Config.instance().get("target", "tmp_dir")
             tmp_dir = os.path.expandvars(os.path.expanduser(tmp_dir))
             if not self.fs.exists(tmp_dir):
-                mode = Config.instance().get("target", "tmp_dir_mode")
-                _default_local_fs.mkdir(tmp_dir, mode=mode)
+                perm = Config.instance().get("target", "tmp_dir_permission")
+                _default_local_fs.mkdir(tmp_dir, perm=perm)
 
             # create a random path
             while True:
@@ -187,57 +194,86 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
         luigi.LocalTarget.__init__(self, path=path, format=format, is_tmp=is_tmp)
         FileSystemTarget.__init__(self, self.path)
 
-    def fetch(self, dst, dir_mode=None):
+    def fetch(self, dst, dir_perm=None):
         return self.path
 
-    def put(self, dst, dir_mode=None):
+    def put(self, dst, dir_perm=None):
         return self.path
+
+    def load(self, formatter, *args, **kwargs):
+        return self.fs.load(self.path, formatter, *args, **kwargs)
+
+    def dump(self, formatter, *args, **kwargs):
+        return self.fs.dump(self.path, formatter, *args, **kwargs)
+
+    @contextmanager
+    def localize(self, mode="r", perm=None, parent_perm=None, skip_copy=False, **kwargs):
+        """ localize(mode="r", perm=None, parent_perm=None, skip_copy=False, tmp=True)
+        """
+        _tmp = kwargs.get("_tmp", True)
+
+        if mode == "r":
+            if _tmp:
+                # create a temporary target
+                tmp = self.__class__(is_tmp=self.ext() or True)
+
+                # always copy
+                self.copy(tmp)
+
+                # yield the copy
+                try:
+                    yield tmp
+                finally:
+                    tmp.remove()
+            else:
+                # simply yield
+                yield self
+
+        elif mode == "w":
+            if _tmp:
+                # create a temporary target
+                tmp = self.__class__(is_tmp=self.ext() or True)
+
+                # copy when existing
+                if not skip_copy and self.exists():
+                    self.copy(tmp)
+
+                # yield the copy
+                try:
+                    yield tmp
+
+                    # move back again
+                    if tmp.exists():
+                        tmp.move(self, dir_perm=parent_perm)
+                finally:
+                    tmp.remove()
+            else:
+                # create the parent dir
+                self.parent.touch(perm=parent_perm)
+
+                # simply yield
+                yield self
+
+            self.chmod(perm)
+
+        else:
+            raise Exception("unknown file open mode '{}'".format(mode))
 
 
 class LocalFileTarget(LocalTarget, FileSystemFileTarget):
 
-    def touch(self, content=" ", mode=None, parent_mode=None):
+    def touch(self, content=" ", perm=None, parent_perm=None):
         # create the parent
         parent = self.parent
         if parent is not None:
-            parent.touch(mode=parent_mode)
+            parent.touch(perm=parent_perm)
 
         # create the file via open and write content
         with self.open("w") as f:
             if content:
                 f.write(content)
 
-        self.chmod(mode)
-
-    @contextmanager
-    def localize(self, skip_parent=False, mode=None, parent_mode=None, **kwargs):
-        """ localize(self, skip_parent=False, mode=None, parent_mode=None, local_tmp=True)
-        """
-        local_tmp = kwargs.get("local_tmp", True)
-
-        # create the parent
-        if not skip_parent:
-            self.parent.touch(mode=parent_mode)
-
-        if local_tmp:
-            # create a temporary copy
-            tmp = self.__class__(is_tmp=self.ext() or True)
-            self.copy(tmp)
-
-            # yield the copy
-            try:
-                yield tmp
-            except:
-                tmp.remove()
-                raise
-
-            # finally move back again
-            tmp.move(self, dir_mode=parent_mode)
-        else:
-            # just yield
-            yield self
-
-        self.chmod(mode)
+        self.chmod(perm)
 
 
 class LocalDirectoryTarget(LocalTarget, FileSystemDirectoryTarget):
@@ -249,30 +285,8 @@ class LocalDirectoryTarget(LocalTarget, FileSystemDirectoryTarget):
         if unpack is not None:
             self.unpack(unpack)
 
-    def touch(self, mode=None, recursive=True):
-        self.fs.mkdir(self.path, mode=mode, recursive=recursive, silent=True)
-
-    def unpack(self, path, mode=None):
-        # check the archive type and read mode
-        path = os.path.expandvars(os.path.expanduser(path))
-        readmode = "r"
-        if path.endswith(".zip"):
-            ctx = zipfile.ZipFile
-        elif path.endswith(".tar.gz") or path.endswith(".tgz"):
-            ctx = tarfile.open
-            readmode += ":gz"
-        elif path.endswith(".tbz2") or path.endswith(".bz2"):
-            ctx = tarfile.open
-            readmode += ":bz2"
-        else:
-            raise ValueError("cannot guess archive type to unpack from '{}'".format(path))
-
-        # create the dir
-        self.touch(mode=mode)
-
-        # extract
-        with ctx(path, readmode) as f:
-            f.extractall(self.path)
+    def touch(self, perm=None, recursive=True):
+        self.fs.mkdir(self.path, perm=perm, recursive=recursive, silent=True)
 
 
 LocalTarget.file_class = LocalFileTarget

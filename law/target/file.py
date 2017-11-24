@@ -57,7 +57,7 @@ class FileSystem(luigi.target.FileSystem):
         pass
 
     @abstractmethod
-    def chmod(self, path, mode):
+    def chmod(self, path, perm):
         pass
 
     @abstractmethod
@@ -69,7 +69,7 @@ class FileSystem(luigi.target.FileSystem):
         pass
 
     @abstractmethod
-    def mkdir(self, path, mode=None, recursive=True):
+    def mkdir(self, path, perm=None, recursive=True):
         pass
 
     @abstractmethod
@@ -85,19 +85,27 @@ class FileSystem(luigi.target.FileSystem):
         pass
 
     @abstractmethod
-    def copy(self, src, dst, dir_mode=None):
+    def copy(self, src, dst, dir_perm=None):
         pass
 
     @abstractmethod
-    def move(self, src, dst, dir_mode=None):
+    def move(self, src, dst, dir_perm=None):
         pass
 
     @abstractmethod
-    def put(self, src, dst, dir_mode=None):
+    def put(self, src, dst, dir_perm=None):
         pass
 
     @abstractmethod
-    def fetch(self, src, dst, dir_mode=None):
+    def fetch(self, src, dst, dir_perm=None):
+        pass
+
+    @abstractmethod
+    def load(self, path, formatter, *args, **kwargs):
+        pass
+
+    @abstractmethod
+    def dump(self, path, formatter, *args, **kwargs):
         pass
 
 
@@ -137,20 +145,43 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
     def basename(self):
         return self.fs.basename(self.path)
 
-    def chmod(self, mode, silent=False):
-        if mode is not None and (not silent or self.exists()):
-            self.fs.chmod(self.path, mode)
+    def chmod(self, perm, silent=False):
+        if perm is not None and (not silent or self.exists()):
+            self.fs.chmod(self.path, perm)
+
+    def copy(self, dst, dir_perm=None):
+        self.fs.copy(self.path, get_path(dst), dir_perm=dir_perm)
+
+    def move(self, dst, dir_perm=None):
+        self.fs.move(self.path, get_path(dst), dir_perm=dir_perm)
 
     @abstractproperty
     def fs(self):
         pass
 
-    @abstractmethod
-    def fetch(self, dst, dir_mode=None):
+    @abstractproperty
+    def ext(self, n=1):
         pass
 
     @abstractmethod
-    def put(self, dst, dir_mode=None):
+    def fetch(self, dst, dir_perm=None):
+        pass
+
+    @abstractmethod
+    def put(self, dst, dir_perm=None):
+        pass
+
+    @abstractmethod
+    def load(self, formatter, *args, **kwargs):
+        pass
+
+    @abstractmethod
+    def dump(self, formatter, *args, **kwargs):
+        pass
+
+    @abstractmethod
+    @contextmanager
+    def localize(self, mode="r", perm=None, parent_perm=None, skip_copy=False):
         pass
 
 
@@ -159,22 +190,11 @@ class FileSystemFileTarget(FileSystemTarget):
     def remove(self, silent=True):
         self.fs.remove(self.path, recursive=False, silent=silent)
 
-    def copy(self, dst, dir_mode=None):
-        self.fs.copy(self.path, get_path(dst), dir_mode=dir_mode)
-
-    def move(self, dst, dir_mode=None):
-        self.fs.move(self.path, get_path(dst), dir_mode=dir_mode)
-
     def ext(self, n=1):
         return self.fs.ext(self.path, n=n)
 
     @abstractmethod
-    def touch(self, content=" ", mode=None, parent_mode=None):
-        pass
-
-    @abstractmethod
-    @contextmanager
-    def localize(self, skip_parent=False, mode=None, parent_mode=None):
+    def touch(self, content=" ", perm=None, parent_perm=None):
         pass
 
 
@@ -203,6 +223,9 @@ class FileSystemDirectoryTarget(FileSystemTarget):
         if not silent or self.exists():
             self.fs.remove(self.path, recursive=recursive, silent=silent)
 
+    def ext(self, n=1):
+        return ""
+
     def listdir(self, pattern=None, type=None):
         return self.fs.listdir(self.path, pattern=pattern, type=type)
 
@@ -213,7 +236,7 @@ class FileSystemDirectoryTarget(FileSystemTarget):
         return self.fs.walk(self.path)
 
     @abstractmethod
-    def touch(self, mode=None, recursive=True):
+    def touch(self, perm=None, recursive=True):
         pass
 
 
