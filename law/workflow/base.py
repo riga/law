@@ -107,11 +107,12 @@ class Workflow(Task):
             self._reset_branch_params()
             self._reduce_branch_map()
 
-    def __getattribute__(self, attr):
-        if attr in _forward_attrs and self.is_workflow():
-            return getattr(self.workflow_proxy, attr)
-        else:
-            return super(Workflow, self).__getattribute__(attr)
+    def __getattribute__(self, attr, proxy=True):
+        if proxy:
+            if attr in _forward_attrs and self.is_workflow():
+                return getattr(self.workflow_proxy, attr)
+
+        return super(Workflow, self).__getattribute__(attr)
 
     def is_branch(self):
         return self.branch != NO_INT
