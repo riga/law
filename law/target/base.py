@@ -41,3 +41,7 @@ class Target(luigi.target.Target):
     @abstractmethod
     def remove(self, silent=True):
         pass
+
+    @abstractproperty
+    def hash(self):
+        pass

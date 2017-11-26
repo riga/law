@@ -24,11 +24,17 @@ class FileSystem(luigi.target.FileSystem):
     def __repr__(self):
         return "{}({})".format(self.__class__.__name__, hex(id(self)))
 
+    def hash(self, path, l=8):
+        return str(hash(self.__class__.__name__ + self.abspath(path)))[-l:]
+
     def dirname(self, path):
         return os.path.dirname(path) if path != "/" else None
 
     def basename(self, path):
         return os.path.basename(path) if path != "/" else "/"
+
+    def unique_basename(self, path, l=8):
+        return self.hash(path, l=l) + "_" + self.basename(path)
 
     def ext(self, path, n=1):
         if n < 1:
@@ -69,7 +75,7 @@ class FileSystem(luigi.target.FileSystem):
         pass
 
     @abstractmethod
-    def mkdir(self, path, perm=None, recursive=True):
+    def mkdir(self, path, perm=None, recursive=True, silent=True):
         pass
 
     @abstractmethod
@@ -125,6 +131,10 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
         return "{}({}={})".format(colored(self.__class__.__name__, "cyan"),
             colored("path", "blue", style="bright"), self.path)
 
+    @property
+    def hash(self):
+        return self.fs.hash(self.path)
+
     def exists(self, ignore_custom=False):
         return self.fs.exists(self.path)
 
@@ -144,6 +154,10 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
     @property
     def basename(self):
         return self.fs.basename(self.path)
+
+    @property
+    def unique_basename(self):
+        return self.fs.unique_basename(self.path)
 
     def chmod(self, perm, silent=False):
         if perm is not None and (not silent or self.exists()):
