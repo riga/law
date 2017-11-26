@@ -99,14 +99,6 @@ class FileSystem(luigi.target.FileSystem):
         pass
 
     @abstractmethod
-    def put(self, src, dst, dir_perm=None):
-        pass
-
-    @abstractmethod
-    def fetch(self, src, dst, dir_perm=None):
-        pass
-
-    @abstractmethod
     def load(self, path, formatter, *args, **kwargs):
         pass
 
@@ -178,14 +170,6 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
         pass
 
     @abstractmethod
-    def fetch(self, dst, dir_perm=None):
-        pass
-
-    @abstractmethod
-    def put(self, dst, dir_perm=None):
-        pass
-
-    @abstractmethod
     def load(self, formatter, *args, **kwargs):
         pass
 
@@ -201,24 +185,37 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
 
 class FileSystemFileTarget(FileSystemTarget):
 
+    type = "f"
+
     def remove(self, silent=True):
         self.fs.remove(self.path, recursive=False, silent=silent)
 
     def ext(self, n=1):
         return self.fs.ext(self.path, n=n)
 
-    @abstractmethod
     def touch(self, content=" ", perm=None, parent_perm=None):
-        pass
+        # create the parent
+        parent = self.parent
+        if parent is not None:
+            parent.touch(perm=parent_perm)
+
+        # create the file via open and write content
+        with self.open("w") as f:
+            if content:
+                f.write(content)
+
+        self.chmod(perm)
 
 
 class FileSystemDirectoryTarget(FileSystemTarget):
+
+    type = "d"
 
     def child(self, path, type=None):
         if type not in (None, "f", "d"):
             raise ValueError("invalid child type, use 'f' or 'd'")
 
-        path = os.path.join(self.path, path)
+        path = os.path.join(self.path, get_path(path))
 
         if type == "f":
             cls = self.file_class
@@ -249,9 +246,8 @@ class FileSystemDirectoryTarget(FileSystemTarget):
     def walk(self):
         return self.fs.walk(self.path)
 
-    @abstractmethod
     def touch(self, perm=None, recursive=True):
-        pass
+        self.fs.mkdir(self.path, perm=perm, recursive=recursive, silent=True)
 
 
 FileSystemTarget.file_class = FileSystemFileTarget
@@ -259,7 +255,4 @@ FileSystemTarget.directory_class = FileSystemDirectoryTarget
 
 
 def get_path(target):
-    if isinstance(target, FileSystemTarget):
-        return target.path
-    else:
-        return target
+    return target.path if isinstance(target, FileSystemTarget) else target

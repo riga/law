@@ -144,12 +144,6 @@ class LocalFileSystem(FileSystem):
                 # simply move
                 shutil.move(src, dst)
 
-    def put(self, src, dst, dir_perm=None):
-        self.copy(src, dst, dir_perm=dir_perm)
-
-    def fetch(self, src, dst, dir_perm=None):
-        self.copy(src, dst, dir_perm=dir_perm)
-
     def load(self, path, formatter, *args, **kwargs):
         return find_formatter(path, formatter).load(path, *args, **kwargs)
 
@@ -172,7 +166,7 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
 
             # get the tmp dir from the config and ensure it exists
             tmp_dir = Config.instance().get("target", "tmp_dir")
-            tmp_dir = os.path.expandvars(os.path.expanduser(tmp_dir))
+            tmp_dir = os.path.realpath(os.path.expandvars(os.path.expanduser(tmp_dir)))
             if not self.fs.exists(tmp_dir):
                 perm = Config.instance().get("target", "tmp_dir_permission")
                 _default_local_fs.mkdir(tmp_dir, perm=perm)
@@ -194,12 +188,6 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
         luigi.LocalTarget.__init__(self, path=path, format=format, is_tmp=is_tmp)
         FileSystemTarget.__init__(self, self.path)
 
-    def fetch(self, dst, dir_perm=None):
-        return self.path
-
-    def put(self, dst, dir_perm=None):
-        return self.path
-
     def load(self, formatter, *args, **kwargs):
         return self.fs.load(self.path, formatter, *args, **kwargs)
 
@@ -208,12 +196,16 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
 
     @contextmanager
     def localize(self, mode="r", perm=None, parent_perm=None, skip_copy=False, **kwargs):
-        """ localize(mode="r", perm=None, parent_perm=None, skip_copy=False, tmp=True)
+        """ localize(mode="r", perm=None, parent_perm=None, skip_copy=False, is_tmp=None)
         """
-        _tmp = kwargs.get("_tmp", True)
+        if mode not in ("r", "w"):
+            raise Exception("unknown mode '{}', use r or w".format(mode))
+
+        # get the is_tmp value, which defaults to True for write, and to False for read mode
+        is_tmp = kwargs.get("is_tmp", mode == "w")
 
         if mode == "r":
-            if _tmp:
+            if is_tmp:
                 # create a temporary target
                 tmp = self.__class__(is_tmp=self.ext() or True)
 
@@ -229,8 +221,8 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
                 # simply yield
                 yield self
 
-        elif mode == "w":
-            if _tmp:
+        else:
+            if is_tmp:
                 # create a temporary target
                 tmp = self.__class__(is_tmp=self.ext() or True)
 
@@ -256,37 +248,15 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
 
             self.chmod(perm)
 
-        else:
-            raise Exception("unknown file open mode '{}'".format(mode))
-
 
 class LocalFileTarget(LocalTarget, FileSystemFileTarget):
 
-    def touch(self, content=" ", perm=None, parent_perm=None):
-        # create the parent
-        parent = self.parent
-        if parent is not None:
-            parent.touch(perm=parent_perm)
-
-        # create the file via open and write content
-        with self.open("w") as f:
-            if content:
-                f.write(content)
-
-        self.chmod(perm)
+    pass
 
 
 class LocalDirectoryTarget(LocalTarget, FileSystemDirectoryTarget):
 
-    def __init__(self, path=None, format=None, is_tmp=False, unpack=None):
-        LocalTarget.__init__(self, path=path, format=format, is_tmp=is_tmp)
-        FileSystemDirectoryTarget.__init__(self, self.path)
-
-        if unpack is not None:
-            self.unpack(unpack)
-
-    def touch(self, perm=None, recursive=True):
-        self.fs.mkdir(self.path, perm=perm, recursive=recursive, silent=True)
+    pass
 
 
 LocalTarget.file_class = LocalFileTarget
