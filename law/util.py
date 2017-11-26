@@ -14,6 +14,8 @@ import sys
 import types
 import re
 import fnmatch
+import tempfile
+from contextlib import contextmanager
 
 import six
 
@@ -196,3 +198,17 @@ def which(prog):
                 return path
 
     return None
+@contextmanager
+def tmpfile(*args, **kwargs):
+    fileno, path = tempfile.mkstemp(*args, **kwargs)
+
+    # create the file
+    with open(path, "w") as f:
+        f.write("")
+
+    # yield it
+    try:
+        yield fileno, path
+    finally:
+        if os.path.exists(path):
+            os.remove(path)

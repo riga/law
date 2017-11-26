@@ -11,6 +11,7 @@ __all__ = ["DockerSandbox"]
 import os
 from collections import OrderedDict
 from fnmatch import fnmatch
+from subprocess import Popen, PIPE, STDOUT
 
 import luigi
 import six
@@ -18,7 +19,7 @@ import six
 import law
 from law.sandbox.base import Sandbox
 from law.config import Config
-from law.util import law_base, make_list
+from law.util import law_base, make_list, tmpfile
 
 
 class DockerSandbox(Sandbox):
@@ -27,14 +28,49 @@ class DockerSandbox(Sandbox):
 
     default_docker_args = ["--rm"]
 
+    # env cache per image
+    _envs = {}
+
     @property
     def image(self):
         return self.name
 
     @property
     def env(self):
-        # TODO: this must be the container env, not the local one!
-        return os.environ
+        # strategy: create a tempfile, forward it to a container, let python dump its full env,
+        # close the container and load the env file
+        if self.image not in self._envs:
+            with tmpfile() as tmp:
+                tmp_path = os.path.realpath(tmp[1])
+                env_path = os.path.join("/tmp", str(hash(tmp_path))[-8:])
+
+                cmd = "docker run --rm -v {0}:{1} riga/law_example_base python -c \"" \
+                    "import os,pickle;pickle.dump(os.environ,open('{1}','w'))\""
+                cmd = cmd.format(tmp_path, env_path)
+
+                p = Popen(cmd, shell=True, executable="/bin/bash", stdout=PIPE, stderr=STDOUT)
+                out, _ = p.communicate()
+                if p.returncode != 0:
+                    raise Exception("docker sandbox env loading failed: " + str(out))
+
+                with open(tmp_path, "r") as f:
+                    env = six.moves.cPickle.load(f)
+
+            # add env variables defined in the config
+            cfg = Config.instance()
+            section = "docker_env_" + self.image
+            section = section if cfg.has_section(section) else "docker_env"
+            for name, value in cfg.items(section):
+                if "*" in name or "?" in name:
+                    names = [key for key in os.environ.keys() if fnmatch(key, name)]
+                else:
+                    names = [name]
+                for name in names:
+                    env[name] = value if value is not None else os.environ.get(name, "")
+
+            self._envs[self.image] = env
+
+        return self._envs[self.image]
 
     def cmd(self, task, task_cmd):
         cfg = Config.instance()
