@@ -35,7 +35,10 @@ class Config(ConfigParser):
             "forward_dir": "/law_forward",
             "python_dir": "py",
             "bin_dir": "bin",
+            "stagein_dir": "stagein",
+            "stageout_dir": "stageout",
         },
+        "docker_env": {},
         "docker_volumes": {},
     }
 
