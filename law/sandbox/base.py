@@ -19,8 +19,7 @@ import six
 
 from law.task.base import Task, ProxyTask
 from law.target.local import LocalDirectoryTarget
-from law.util import colored, flatten, make_list, multi_match, mask_struct, map_struct, \
-    interruptable_popen
+from law.util import colored, multi_match, mask_struct, map_struct, interruptable_popen
 
 
 _current_sandbox = os.environ.get("LAW_SANDBOX", "")

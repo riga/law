@@ -25,7 +25,6 @@ from law.target.file import FileSystem, FileSystemTarget, FileSystemFileTarget, 
     FileSystemDirectoryTarget, get_path
 from law.target.formatter import find_formatter
 from law.config import Config
-from law.util import make_list
 
 
 class LocalFileSystem(FileSystem):
@@ -36,14 +35,14 @@ class LocalFileSystem(FileSystem):
     def exists(self, path):
         return os.path.exists(path)
 
-    def stat(self, path):
+    def stat(self, path, **kwargs):
         return os.stat(path)
 
-    def chmod(self, path, perm):
-        if perm is not None:
+    def chmod(self, path, perm, silent=True, **kwargs):
+        if perm is not None and (not silent or self.exists(path)):
             os.chmod(path, perm)
 
-    def remove(self, path, recursive=True, silent=True):
+    def remove(self, path, recursive=True, silent=True, **kwargs):
         if not silent or self.exists(path):
             if self.isdir(path):
                 if recursive:
@@ -53,10 +52,7 @@ class LocalFileSystem(FileSystem):
             else:
                 os.remove(path)
 
-    def isdir(self, path):
-        return os.path.isdir(path)
-
-    def mkdir(self, path, perm=None, recursive=True, silent=True):
+    def mkdir(self, path, perm=None, recursive=True, silent=True, **kwargs):
         if not self.exists(path) or not silent:
             # the mode passed to os.mkdir or os.makedirs is ignored on some systems, so the strategy
             # here is to disable the process' current umask, create the directories and use chmod
@@ -71,7 +67,7 @@ class LocalFileSystem(FileSystem):
                 if perm is not None:
                     os.umask(orig)
 
-    def listdir(self, path, pattern=None, type=None):
+    def listdir(self, path, pattern=None, type=None, **kwargs):
         elems = os.listdir(path)
 
         # apply pattern filter
@@ -80,69 +76,60 @@ class LocalFileSystem(FileSystem):
 
         # apply type filter
         if type == "f":
-            elems = [elem for elem in elems if os.path.isfile(os.path.join(path, elem))]
+            elems = [e for e in elems if not self.isdir(os.path.join(path, e))]
         elif type == "d":
-            elems = [elem for elem in elems if os.path.isdir(os.path.join(path, elem))]
+            elems = [e for e in elems if self.isdir(os.path.join(path, e))]
 
         return elems
 
-    def walk(self, path):
+    def walk(self, path, **kwargs):
         return os.walk(path)
 
-    def glob(self, pattern, cwd=None):
+    def glob(self, pattern, cwd=None, **kwargs):
         if cwd is not None:
-            origin = os.getcwd()
-            os.chdir(cwd)
+            pattern = os.path.join(cwd, pattern)
 
         elems = glob.glob(pattern)
 
+        # cut the cwd if there was any
         if cwd is not None:
-            os.chdir(origin)
+            elems = [os.path.relpath(e, cwd) for e in elems]
 
         return elems
 
-    def copy(self, src, dst, dir_perm=None):
-        # ensure we deal with lists of same size
-        srcs = make_list(src)
-        dsts = make_list(dst)
-        if len(srcs) != len(dsts):
-            raise ValueError("src(s) and dst(s) must have equal lengths")
+    def copy(self, src, dst, dir_perm=None, **kwargs):
+        # dst might be an existing directory
+        if self.isdir(dst):
+            dst = os.path.join(dst, os.path.basename(src))
+        else:
+            # create missing dirs
+            dst_dir = self.dirname(dst)
+            if dst_dir and not self.exists(dst_dir):
+                self.mkdir(dst_dir, dir_perm=dir_perm, recursive=True)
 
-        for src, dst in six.moves.zip(srcs, dsts):
-            if not self.exists(src):
-                raise IOError("cannot copy non-existing file or directory '{}'".format(src))
-            else:
-                # create missing dirs
-                dst_dir = self.dirname(dst)
-                if dst_dir and not os.path.exists(dst_dir):
-                    self.mkdir(dst_dir, dir_perm=dir_perm, recursive=True)
+        # copy the file
+        shutil.copy2(src, dst)
 
-                # handle directories or files
-                if self.isdir(src):
-                    # copy the entire tree
-                    shutil.copytree(src, dst)
-                else:
-                    # copy the file
-                    shutil.copy2(src, dst)
+        return dst
 
-    def move(self, src, dst, dir_perm=None):
-        # ensure we deal with lists of same size
-        srcs = make_list(src)
-        dsts = make_list(dst)
-        if len(srcs) != len(dsts):
-            raise ValueError("src(s) and dst(s) must have equal lengths")
+    def move(self, src, dst, dir_perm=None, **kwargs):
+        # dst might be an existing directory
+        if self.isdir(dst):
+            # add src basename to dst
+            dst = os.path.join(dst, os.path.basename(src))
+        else:
+            # create missing dirs
+            dst_dir = self.dirname(dst)
+            if dst_dir and not self.exists(dst_dir):
+                self.mkdir(dst_dir, dir_perm=dir_perm, recursive=True)
 
-        for src, dst in six.moves.zip(srcs, dsts):
-            if not self.exists(src):
-                raise IOError("cannot move non-existing file or directory '{}'".format(src))
-            else:
-                # create missing dirs
-                dst_dir = self.dirname(dst)
-                if dst_dir and not os.path.exists(dst_dir):
-                    self.mkdir(dst_dir, perm=dir_perm, recursive=True)
+        # simply move
+        shutil.move(src, dst)
 
-                # simply move
-                shutil.move(src, dst)
+        return dst
+
+    def open(self, path, mode, **kwargs):
+        return open(path, mode)
 
     def load(self, path, formatter, *args, **kwargs):
         return find_formatter(path, formatter).load(path, *args, **kwargs)
@@ -158,7 +145,7 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
 
     fs = _default_local_fs
 
-    def __init__(self, path=None, format=None, is_tmp=False):
+    def __init__(self, path=None, is_tmp=False):
         # handle tmp paths manually since luigi uses the env tmp dir
         if not path:
             if not is_tmp:
@@ -185,29 +172,27 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
         else:
             path = _default_local_fs.abspath(os.path.expandvars(os.path.expanduser(path)))
 
-        luigi.LocalTarget.__init__(self, path=path, format=format, is_tmp=is_tmp)
+        luigi.LocalTarget.__init__(self, path=path, is_tmp=is_tmp)
         FileSystemTarget.__init__(self, self.path)
 
-    def load(self, formatter, *args, **kwargs):
-        return self.fs.load(self.path, formatter, *args, **kwargs)
 
-    def dump(self, formatter, *args, **kwargs):
-        return self.fs.dump(self.path, formatter, *args, **kwargs)
+class LocalFileTarget(LocalTarget, FileSystemFileTarget):
 
     @contextmanager
-    def localize(self, mode="r", perm=None, parent_perm=None, skip_copy=False, **kwargs):
-        """ localize(mode="r", perm=None, parent_perm=None, skip_copy=False, is_tmp=None)
+    def localize(self, mode="r", perm=None, parent_perm=None, **kwargs):
+        """ localize(mode="r", perm=None, parent_perm=None, skip_copy=False, is_tmp=None, **kwargs)
         """
         if mode not in ("r", "w"):
             raise Exception("unknown mode '{}', use r or w".format(mode))
 
-        # get the is_tmp value, which defaults to True for write, and to False for read mode
-        is_tmp = kwargs.get("is_tmp", mode == "w")
+        # get additional arguments
+        skip_copy = kwargs.pop("skip_copy", False)
+        is_tmp = kwargs.pop("is_tmp", mode == "w")
 
         if mode == "r":
             if is_tmp:
                 # create a temporary target
-                tmp = self.__class__(is_tmp=self.ext() or True)
+                tmp = self.__class__(is_tmp=self.ext(n=0) or True)
 
                 # always copy
                 self.copy(tmp)
@@ -224,7 +209,7 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
         else:
             if is_tmp:
                 # create a temporary target
-                tmp = self.__class__(is_tmp=self.ext() or True)
+                tmp = self.__class__(is_tmp=self.ext(n=0) or True)
 
                 # copy when existing
                 if not skip_copy and self.exists():
@@ -247,11 +232,6 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
                 yield self
 
             self.chmod(perm)
-
-
-class LocalFileTarget(LocalTarget, FileSystemFileTarget):
-
-    pass
 
 
 class LocalDirectoryTarget(LocalTarget, FileSystemDirectoryTarget):
