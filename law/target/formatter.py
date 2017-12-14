@@ -71,6 +71,25 @@ class Formatter(object):
         raise NotImplementedError
 
 
+class TextFormatter(Formatter):
+
+    name = "text"
+
+    @classmethod
+    def accepts(cls, path):
+        return get_path(path).endswith(".txt")
+
+    @classmethod
+    def load(cls, path, *args, **kwargs):
+        with open(get_path(path), "r") as f:
+            return f.read()
+
+    @classmethod
+    def dump(cls, path, content, *args, **kwargs):
+        with open(get_path(path), "w") as f:
+            f.write(content)
+
+
 class JSONFormatter(Formatter):
 
     name = "json"
@@ -88,27 +107,6 @@ class JSONFormatter(Formatter):
     def dump(cls, path, obj, *args, **kwargs):
         with open(get_path(path), "w") as f:
             return json.dump(obj, f, *args, **kwargs)
-
-
-class ROOTFormatter(Formatter):
-
-    name = "root"
-
-    @classmethod
-    def accepts(cls, path):
-        return get_path(path).endswith(".root")
-
-    @classmethod
-    @contextmanager
-    def load(cls, path, *args, **kwargs):
-        import ROOT
-
-        tfile = ROOT.TFile.Open(get_path(path), *args, **kwargs)
-        try:
-            yield tfile
-        finally:
-            if tfile.IsOpen():
-                tfile.Close()
 
 
 class ZipFormatter(Formatter):
@@ -205,6 +203,60 @@ class TarFormatter(Formatter):
             else:
                 for elem in os.listdir(src):
                     f.add(os.path.join(src, elem), elem)
+
+
+class NumpyFormatter(Formatter):
+
+    name = "numpy"
+
+    @classmethod
+    def accepts(cls, path):
+        path = get_path(path)
+        return path.endswith(".npy") or path.endswith(".npz") or path.endswith(".txt")
+
+    @classmethod
+    def load(cls, path, *args, **kwargs):
+        import numpy as np
+
+        path = get_path(path)
+        func = np.loadtxt if path.endswith(".txt") else np.load
+        return func(path, *args, **kwargs)
+
+    @classmethod
+    def dump(cls, path, *args, **kwargs):
+        import numpy as np
+
+        path = get_path(path)
+
+        if path.endswith(".txt"):
+            func = np.savetxt
+        elif path.endswith(".npz"):
+            func = np.savez
+        else:
+            func = np.save
+
+        func(path, *args, **kwargs)
+
+
+class ROOTFormatter(Formatter):
+
+    name = "root"
+
+    @classmethod
+    def accepts(cls, path):
+        return get_path(path).endswith(".root")
+
+    @classmethod
+    @contextmanager
+    def load(cls, path, *args, **kwargs):
+        import ROOT
+
+        tfile = ROOT.TFile.Open(get_path(path), *args, **kwargs)
+        try:
+            yield tfile
+        finally:
+            if tfile.IsOpen():
+                tfile.Close()
 
 
 # trailing imports
