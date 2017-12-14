@@ -530,7 +530,7 @@ class RemoteFileSystem(FileSystem):
 
     def __del__(self):
         # cleanup the cache
-        if self.cache:
+        if getattr(self, "cache", None):
             self.cache.cleanup()
 
     def __repr__(self):

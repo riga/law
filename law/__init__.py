@@ -17,8 +17,9 @@ __version__    = "0.0.3"
 __all__ = ["Task", "WrapperTask", "SandboxTask", "LocalWorkflow",
            "LocalFileSystem, LocalFileTarget, LocalDirectoryTarget",
            "DropboxFileSystem", "DropboxFileTarget", "DropboxDirectoryTarget",
-           # "DCacheFileSystem", "DCacheFileTarget", "DCacheDirectoryTarget",
-           "TargetCollection", "SiblingTargetCollection"]
+           "DCacheFileSystem", "DCacheFileTarget", "DCacheDirectoryTarget",
+           "TargetCollection", "SiblingTargetCollection",
+           "NO_STR", "NO_INT", "NO_FLOAT", "TaskInstanceParameter", "CSVParameter"]
 
 
 # patches
@@ -28,10 +29,10 @@ patch_all()
 
 # provisioning imports
 import law.util
-import law.parameter
+from law.parameter import NO_STR, NO_INT, NO_FLOAT, TaskInstanceParameter, CSVParameter
 from law.target.local import LocalFileSystem, LocalFileTarget, LocalDirectoryTarget
 from law.target.dropbox import DropboxFileSystem, DropboxFileTarget, DropboxDirectoryTarget
-# from law.target.dcache import DCacheFileSystem, DCacheFileTarget, DCacheDirectoryTarget
+from law.target.dcache import DCacheFileSystem, DCacheFileTarget, DCacheDirectoryTarget
 from law.target.collection import TargetCollection, SiblingTargetCollection
 import law.decorator
 from law.task.base import Task, WrapperTask
