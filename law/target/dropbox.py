@@ -9,7 +9,6 @@ __all__ = ["DropboxFileSystem", "DropboxFileTarget", "DropboxDirectoryTarget"]
 
 
 import os
-import json
 
 from law.config import Config
 from law.target.remote import RemoteFileSystem, RemoteTarget, RemoteTarget, RemoteFileTarget, \
@@ -22,11 +21,11 @@ class DropboxFileSystem(RemoteFileSystem):
 
     def __init__(self, config=None, base=None, app_key=None, app_secret=None, access_token=None,
             **kwargs):
-        # build gfal dropbox options
+        # prepare the gfal options
         # resolution order: config, key+secret+token, default dropbox section
         if not config and not app_key and not app_secret and not access_token:
             config = Config.instance().get("target", "default_dropbox")
-        if config:
+        if config and Config.instance().has_section(config):
             opts = dict(Config.instance().items(config))
             if base is None and "base" in opts:
                 base = opts["base"]
@@ -50,13 +49,13 @@ class DropboxFileSystem(RemoteFileSystem):
         kwargs.setdefault("transfer_config", {"checksum_check": False})
         kwargs.setdefault("validate_copy", False)
         kwargs.setdefault("cache_config", {})
+        kwargs.setdefault("permissions", False)
 
         base_url = "dropbox://dropbox.com/" + base.strip("/")
-        super(DropboxFileSystem, self).__init__(base_url, permissions=False,
-            gfal_options=gfal_options, **kwargs)
+        super(DropboxFileSystem, self).__init__(base_url, gfal_options=gfal_options, **kwargs)
 
 
-# try to set a default dropbox fs
+# try to set the default fs instance
 try:
     DropboxFileSystem.default_instance = DropboxFileSystem()
 except:

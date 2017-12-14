@@ -907,6 +907,9 @@ class RemoteTarget(FileSystemTarget):
 
         self._path = self.fs.abspath(path)
 
+    def url(self, *args, **kwargs):
+        return self.fs.gfal.url(self.path, *args, **kwargs)
+
 
 class RemoteFileTarget(RemoteTarget, FileSystemFileTarget):
 
