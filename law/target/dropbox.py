@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Dropbox remote file system and targets.
+Dropbox file system and targets.
 """
 
 
@@ -12,29 +12,36 @@ import os
 import json
 
 from law.config import Config
-from law.target.remote import RemoteFileSystem, RemoteTarget, RemoteFileTarget, RemoteFileTarget, \
-                              RemoteDirectoryTarget
+from law.target.remote import RemoteFileSystem, RemoteTarget, RemoteTarget, RemoteFileTarget, \
+    RemoteDirectoryTarget
 
 
 class DropboxFileSystem(RemoteFileSystem):
 
-    default = None
+    default_instance = None
 
-    def __init__(self, base=None, app_key=None, app_secret=None, access_token=None,
-                 config_file="$LAW_DROPBOX_CONFIG_FILE", config_section=None, **kwargs):
-        config = self.create_config(base=base, app_key=app_key, app_secret=app_secret,
-                                    access_token=access_token, config_file=config_file,
-                                    config_section=config_section)
-        if config is None:
-            raise Exception("could not create a valid dropbox config")
+    def __init__(self, config=None, base=None, app_key=None, app_secret=None, access_token=None,
+            **kwargs):
+        # build gfal dropbox options
+        # resolution order: config, key+secret+token, default dropbox section
+        if not config and not app_key and not app_secret and not access_token:
+            config = Config.instance().get("target", "default_dropbox")
+        if config:
+            opts = dict(Config.instance().items(config))
+            if base is None and "base" in opts:
+                base = opts["base"]
+        elif app_key and app_secret and access_token:
+            opts = {"app_key": app_key, "app_secret": app_secret, "access_token": access_token}
+        else:
+            raise Exception("invalid arguments, set either config, app_key+app_secret+access_token "
+                "or the target.default_dropbox option in your law config")
+
+        if base is None:
+            raise Exception("no base directory set")
 
         gfal_options = {
             "integer": [("DROPBOX", "OAUTH", 2)],
-            "string" : [
-                ("DROPBOX", "APP_KEY", str(config["app_key"])),
-                ("DROPBOX", "APP_SECRET", str(config["app_secret"])),
-                ("DROPBOX", "ACCESS_TOKEN", str(config["access_token"]))
-            ]
+            "string" : [("DROPBOX", key.upper(), str(value)) for key, value in opts.items()],
         }
 
         # default configs
@@ -44,69 +51,33 @@ class DropboxFileSystem(RemoteFileSystem):
         kwargs.setdefault("validate_copy", False)
         kwargs.setdefault("cache_config", {})
 
-        base = str("dropbox://dropbox.com/" + config["base"].strip("/"))
-
-        super(DropboxFileSystem, self).__init__(base, permissions=False, gfal_options=gfal_options,
-                                                **kwargs)
-
-    @staticmethod
-    def create_config(base=None, app_key=None, app_secret=None, access_token=None,
-                      config_file="$LAW_DROPBOX_CONFIG_FILE", config_section=None):
-        if config_file is not None:
-            config_file = os.path.expandvars(os.path.expanduser(config_file))
-
-        _config = {"base": base, "app_key": app_key, "app_secret": app_secret,
-                   "access_token": access_token}
-
-        def validate(config):
-            missing_keys = [key for key in _config if key not in config]
-            if missing_keys:
-                raise Exception("dropbox config misses key(s) '%s'" % ",".join(missing_keys))
-
-        if any(value is not None for value in _config.values()):
-            for key, value in _config.items():
-                if value is None:
-                    raise Exception("%s must not be None when at least one of %s isn't" \
-                                    % (key, ",".join(_config.keys())))
-            return _config
-
-        elif config_file is not None and os.path.exists(config_file):
-            with open(config_file, "r") as f:
-                config = json.load(f)
-            validate(config)
-            return config
-
-        else:
-            if config_section is None:
-                config_section = Config.instance().get("target", "default_dropbox")
-
-            if not Config.instance().has_section("config_section"):
-                return None
-
-            config = dict(Config.instance().items(config_section))
-            validate(config)
-            return config
+        base_url = "dropbox://dropbox.com/" + base.strip("/")
+        super(DropboxFileSystem, self).__init__(base_url, permissions=False,
+            gfal_options=gfal_options, **kwargs)
 
 
-# set a default dropbox fs when a default config is available
-if DropboxFileSystem.create_config():
-    DropboxFileSystem.default = DropboxFileSystem()
+# try to set a default dropbox fs
+try:
+    DropboxFileSystem.default_instance = DropboxFileSystem()
+except:
+    pass
 
 
 class DropboxTarget(RemoteTarget):
 
-    def __init__(self, path, fs=None, exists=None):
-        if fs is None:
-            fs = DropboxFileSystem.default
-
-        RemoteTarget.__init__(self, path, fs, exists=exists)
+    def __init__(self, path, fs=DropboxFileSystem.default_instance):
+        """ __init__(path, fs=DropboxFileSystem.default_instance)
+        """
+        RemoteTarget.__init__(self, path, fs)
 
 
 class DropboxFileTarget(DropboxTarget, RemoteFileTarget):
+
     pass
 
 
 class DropboxDirectoryTarget(DropboxTarget, RemoteDirectoryTarget):
+
     pass
 
 
