@@ -12,6 +12,7 @@ import os
 from collections import OrderedDict
 from fnmatch import fnmatch
 from subprocess import PIPE, STDOUT
+from uuid import uuid4
 
 import luigi
 import six
@@ -73,6 +74,9 @@ class DockerSandbox(Sandbox):
         # get args for the docker command as configured in the task
         # TODO: this looks pretty random
         docker_args = make_list(getattr(self.task, "docker_args", self.default_docker_args))
+
+        # container name
+        docker_args.append("--name '{}_{}'".format(self.task.task_id, str(uuid4())[:8]))
 
         # helper to build forwarded paths
         section = "docker_" + self.image
@@ -162,7 +166,7 @@ class DockerSandbox(Sandbox):
                 raise Exception("sandbox_user must return 2-tuple")
             docker_args.append("-u={}:{}".format(*sandbox_user))
 
-        cmd = "docker run {docker_args} {image} bash -c '{pre_cmd}; {proxy_cmd}'".format(
+        cmd = "docker run {docker_args} {image} bash -l -c '{pre_cmd}; {proxy_cmd}'".format(
             proxy_cmd=proxy_cmd, pre_cmd="; ".join(pre_cmds), image=self.image,
             docker_args=" ".join(docker_args))
 
