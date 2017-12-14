@@ -25,9 +25,10 @@ from contextlib import contextmanager
 
 import six
 
+from law.config import Config
 from law.target.file import FileSystem, FileSystemTarget, FileSystemFileTarget, \
     FileSystemDirectoryTarget
-from law.target.local import _default_local_fs, LocalFileTarget
+from law.target.local import LocalFileSystem, LocalFileTarget
 from law.target.formatter import find_formatter
 from law.util import make_list
 
@@ -45,7 +46,9 @@ try:
         logger = logging.getLogger("gfal2")
         logger.addHandler(logging.StreamHandler())
         level = Config.instance().get("target", "gfal2_log_level")
-        logger.setLevel(getattr(logging, level, logging.NOTSET))
+        if isinstance(level, six.string_types):
+            level = getattr(logging, level, logging.WARNING)
+        logger.setLevel(level)
 
 except ImportError:
     HAS_GFAL2 = False
@@ -421,6 +424,9 @@ class RemoteCache(object):
             if cpath in self._locked_cpaths:
                 self._locked_cpaths.remove(cpath)
 
+    def lock(self, rpath):
+        return self._lock(self.cache_path(rpath))
+
     def allocate(self, size):
         with self._lock_global():
             # determine stats and current cache size
@@ -500,7 +506,7 @@ atexit.register(RemoteCache.cleanup_all)
 
 class RemoteFileSystem(FileSystem):
 
-    _local_fs = _default_local_fs
+    _local_fs = LocalFileSystem.default_instance
 
     def __init__(self, base, bases=None, gfal_options=None, transfer_config=None,
                  atomic_contexts=False, retry=0, retry_delay=0, permissions=True,
@@ -599,7 +605,7 @@ class RemoteFileSystem(FileSystem):
 
         # apply pattern filter
         if pattern is not None:
-            # elems = fnmatch.filter(elems, pattern)
+            elems = fnmatch.filter(elems, pattern)
 
         # apply type filter
         if type == "f":
@@ -609,14 +615,19 @@ class RemoteFileSystem(FileSystem):
 
         return elems
 
-    def walk(self, path, **kwargs):
-        # mimic os.walk, although this can get quite expensive and slow
-        search_dirs = [self.abspath(path)]
-        while len(search_dirs):
-            search_dir = search_dirs.pop(0)
+    def walk(self, path, max_depth=-1, **kwargs):
+        # mimic os.walk with a max_depth and yield the current depth
+        search_dirs = [(self.abspath(path), 0)]
+        while search_dirs:
+            (search_dir, depth) = search_dirs.pop(0)
+
+            # check depth
+            if max_depth >= 0 and depth > max_depth:
+                continue
 
             # find dirs and files
-            dirs, files = [], []
+            dirs = []
+            files = []
             for elem in self.listdir(search_dir, **kwargs):
                 if self.isdir(os.path.join(search_dir, elem), **kwargs):
                     dirs.append(elem)
@@ -624,58 +635,44 @@ class RemoteFileSystem(FileSystem):
                     files.append(elem)
 
             # yield everything
-            yield (search_dir, dirs, files)
+            yield (search_dir, dirs, files, depth)
 
             # use dirs to update search dirs
-            search_dirs.extend(os.path.join(search_dir, d) for d in dirs)
+            search_dirs.extend((os.path.join(search_dir, d), depth + 1) for d in dirs)
 
     def glob(self, pattern, cwd=None, **kwargs):
-        # depending on how deep the pattern is, this can get quite expensive and slow
-        pattern = pattern.strip("/")
-        if not pattern:
-            return []
-
         # helper to check if a string represents a pattern
         def is_pattern(s):
             return "*" in s or "?" in s
 
         # prepare pattern
         if cwd is not None:
-            cwd = cwd.strip("/")
             pattern = os.path.join(cwd, pattern)
 
-        # split pattern and determine the search path, i.e. the leading part that does not
+        # split the pattern to determine the search path, i.e. the leading part that does not
         # contain any glob chars, e.g. "foo/bar/test*/baz*" -> "foo/bar"
-        parts = pattern.split("/")
-        search_path = []
-        for part in parts:
-            if not is_pattern(part):
-                search_path.append(part)
+        search_dir = []
+        patterns = []
+        for part in pattern.split("/"):
+            if not patterns and not is_pattern(part):
+                search_dir.append(part)
             else:
-                break
-        search_path = "/".join(search_path)
+                patterns.append(part)
+        search_dir = self.abspath("/".join(search_dir))
 
         # walk trough the search path and use fnmatch for comparison
         elems = []
-        last_level = len(parts) - 1
-        for root, dirs, files in self.walk(search_path, **kwargs):
-            # get the current level
-            level = root.count("/") + (0 if root == search_path else 1)
+        max_depth = len(patterns) - 1
+        for root, dirs, files, depth in self.walk(search_dir, max_depth=max_depth, **kwargs):
+            # get the current pattern
+            pattern = patterns[depth]
 
-            # stop when the required depth is reached
-            if level > last_level:
-                continue
-
-            # get the current part
-            part = parts[level]
-
-            # when we are still below the last level, use the part to filter dirs
-            if level < last_level:
-                dirs[:] = fnmatch.filter(dirs, part)
-
-            # when we are the last level, use the part find files and directories to select
+            # when we are still below the max depth, filter dirs
+            # otherwise, filter files and dirs to select
+            if depth < max_depth:
+                dirs[:] = fnmatch.filter(dirs, pattern)
             else:
-                elems += [os.path.join(root, e) for e in fnmatch.filter(dirs + files, part)]
+                elems += [os.path.join(root, e) for e in fnmatch.filter(dirs + files, pattern)]
 
         # cut the cwd if there was any
         if cwd is not None:
@@ -743,7 +740,7 @@ class RemoteFileSystem(FileSystem):
                 # allocate cache space and copy to cache
                 lstat = self._local_fs.stat(self._local_fs.remove_scheme(src))
                 self.cache.allocate(lstat.st_size)
-                full_cdst = self.add_scheme(cdst, "file")
+                full_cdst = self.add_scheme(self.cache.cache_path(dst), "file")
                 with self.cache.lock(dst):
                     self._atomic_copy(src, full_cdst, validate=False)
                     self.cache.touch(dst, (int(time.time()), rstat.st_mtime))
@@ -757,7 +754,7 @@ class RemoteFileSystem(FileSystem):
                 rstat = self.stat(src, **kwargs)
                 full_csrc = self.add_scheme(self.cache.cache_path(src), "file")
                 with self.cache.lock(src):
-                    if src in self.cache: and abs(self.cache.mtime(src) - rstat.st_mtime) > 1:
+                    if src in self.cache and abs(self.cache.mtime(src) - rstat.st_mtime) > 1:
                         self.cache.remove(src, lock=False)
                     if src not in self.cache:
                         self.cache.allocate(rstat.st_size)
@@ -834,13 +831,20 @@ class RemoteFileSystem(FileSystem):
         if mode == "r":
             if cache:
                 lpath = self._cached_copy(path, None, cache=True, **kwargs)
+                lpath = self.remove_scheme(lpath)
             else:
                 tmp = LocalFileTarget(is_tmp=self.ext(path, n=0) or True)
                 lpath = tmp.path
-                self._cached_copy(path, self.add_scheme(lpath, "file"), cache=False, **kwargs)
 
+                self._cached_copy(path, self.add_scheme(lpath, "file"), cache=False, **kwargs)
             try:
-                yield lpath if yield_path else open(lpath, "r")
+                if yield_path:
+                    yield lpath
+                else:
+                    f = open(lpath, "r")
+                    yield f
+                    if not f.closed:
+                        f.close()
             finally:
                 if not cache:
                     del tmp
@@ -850,7 +854,13 @@ class RemoteFileSystem(FileSystem):
             lpath = tmp.path
 
             try:
-                yield lpath if yield_path else open(lpath, "w")
+                if yield_path:
+                    yield lpath
+                else:
+                    f = open(lpath, "w")
+                    yield f
+                    if not f.closed:
+                        f.close()
 
                 if tmp.exists():
                     self._cached_copy(self.add_scheme(lpath, "file"), path, cache=cache, **kwargs)

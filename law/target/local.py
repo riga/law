@@ -29,6 +29,8 @@ from law.config import Config
 
 class LocalFileSystem(FileSystem):
 
+    default_instance = None
+
     def abspath(self, path):
         return os.path.abspath(path)
 
@@ -82,8 +84,30 @@ class LocalFileSystem(FileSystem):
 
         return elems
 
-    def walk(self, path, **kwargs):
-        return os.walk(path)
+    def walk(self, path, max_depth=-1, **kwargs):
+        # mimic os.walk with a max_depth and yield the current depth
+        search_dirs = [(path, 0)]
+        while search_dirs:
+            (search_dir, depth) = search_dirs.pop(0)
+
+            # check depth
+            if max_depth >= 0 and depth > max_depth:
+                continue
+
+            # find dirs and files
+            dirs = []
+            files = []
+            for elem in self.listdir(search_dir):
+                if self.isdir(os.path.join(search_dir, elem)):
+                    dirs.append(elem)
+                else:
+                    files.append(elem)
+
+            # yield everything
+            yield (search_dir, dirs, files, depth)
+
+            # use dirs to update search dirs
+            search_dirs.extend((os.path.join(search_dir, d), depth + 1) for d in dirs)
 
     def glob(self, pattern, cwd=None, **kwargs):
         if cwd is not None:
@@ -138,12 +162,12 @@ class LocalFileSystem(FileSystem):
         return find_formatter(path, formatter).dump(path, *args, **kwargs)
 
 
-_default_local_fs = LocalFileSystem()
+LocalFileSystem.default_instance = LocalFileSystem()
 
 
 class LocalTarget(FileSystemTarget, luigi.LocalTarget):
 
-    fs = _default_local_fs
+    fs = LocalFileSystem.default_instance
 
     def __init__(self, path=None, is_tmp=False):
         # handle tmp paths manually since luigi uses the env tmp dir
@@ -156,12 +180,12 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
             tmp_dir = os.path.realpath(os.path.expandvars(os.path.expanduser(tmp_dir)))
             if not self.fs.exists(tmp_dir):
                 perm = Config.instance().get("target", "tmp_dir_permission")
-                _default_local_fs.mkdir(tmp_dir, perm=perm)
+                self.fs.mkdir(tmp_dir, perm=perm)
 
             # create a random path
             while True:
                 path = os.path.join(tmp_dir, "luigi-tmp-%09d" % (random.randint(0, 999999999,)))
-                if not _default_local_fs.exists(path):
+                if not self.fs.exists(path):
                     break
 
             # is_tmp might be an extension
@@ -170,7 +194,7 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
                     is_tmp = "." + is_tmp
                 path += is_tmp
         else:
-            path = _default_local_fs.abspath(os.path.expandvars(os.path.expanduser(path)))
+            path = self.fs.abspath(os.path.expandvars(os.path.expanduser(path)))
 
         luigi.LocalTarget.__init__(self, path=path, is_tmp=is_tmp)
         FileSystemTarget.__init__(self, self.path)

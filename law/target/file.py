@@ -65,6 +65,10 @@ class FileSystem(luigi.target.FileSystem):
     def isdir(self, path, **kwargs):
         return stat.S_ISDIR(self.stat(path, **kwargs).st_mode)
 
+    @abstractproperty
+    def default_instance(self):
+        pass
+
     @abstractmethod
     def abspath(self, path):
         pass
@@ -94,7 +98,7 @@ class FileSystem(luigi.target.FileSystem):
         pass
 
     @abstractmethod
-    def walk(self, path, **kwargs):
+    def walk(self, path, max_depth=-1, **kwargs):
         pass
 
     @abstractmethod
@@ -189,18 +193,18 @@ class FileSystemFileTarget(FileSystemTarget):
     def ext(self, n=1):
         return self.fs.ext(self.path, n=n)
 
-    def touch(self, content=" ", perm=None, parent_perm=None):
+    def touch(self, content=" ", perm=None, parent_perm=None, **kwargs):
         # create the parent
         parent = self.parent
         if parent is not None:
-            parent.touch(perm=parent_perm)
+            parent.touch(perm=parent_perm, **kwargs)
 
         # create the file via open and write content
-        with self.open("w") as f:
+        with self.open("w", **kwargs) as f:
             if content:
                 f.write(content)
 
-        self.chmod(perm)
+        self.chmod(perm, **kwargs)
 
     def copy_to(self, dst, dir_perm=None, **kwargs):
         return self.fs.copy(self.path, get_path(dst), dir_perm=dir_perm, **kwargs)
@@ -234,6 +238,8 @@ class FileSystemFileTarget(FileSystemTarget):
 class FileSystemDirectoryTarget(FileSystemTarget):
 
     type = "d"
+
+    open = None
 
     def child(self, path, type=None):
         if type not in (None, "f", "d"):
