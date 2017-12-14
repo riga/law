@@ -22,7 +22,7 @@ from law.target.local import LocalDirectoryTarget
 from law.util import colored, multi_match, mask_struct, map_struct, interruptable_popen
 
 
-_current_sandbox = os.environ.get("LAW_SANDBOX", "")
+_current_sandbox = os.environ.get("LAW_SANDBOX", "").split(",")
 
 _sandbox_switched = os.environ.get("LAW_SANDBOX_SWITCHED", "") == "1"
 
@@ -237,7 +237,7 @@ class SandboxProxy(ProxyTask):
 
 class SandboxTask(Task):
 
-    sandbox = luigi.Parameter(default=_current_sandbox, significant=False, description="name of "
+    sandbox = luigi.Parameter(default=_current_sandbox[0], significant=False, description="name of "
         "the sandbox to run the task in, default: $LAW_SANDBOX")
 
     force_sandbox = False
@@ -251,7 +251,7 @@ class SandboxTask(Task):
 
         # check if the task execution must be sandboxed
         if _sandbox_switched:
-            self.effective_sandbox = _current_sandbox
+            self.effective_sandbox = _current_sandbox[0]
         else:
             # is the switch forced?
             if self.force_sandbox:
@@ -277,7 +277,7 @@ class SandboxTask(Task):
 
     @property
     def sandboxed(self):
-        return self.effective_sandbox == _current_sandbox
+        return self.effective_sandbox in _current_sandbox
 
     @property
     def sandbox_user(self):

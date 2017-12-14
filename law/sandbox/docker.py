@@ -101,6 +101,7 @@ class DockerSandbox(Sandbox):
         env = OrderedDict()
 
         # sandboxing variables
+        env["LAW_SANDBOX"] = self.key
         env["LAW_SANDBOX_SWITCHED"] = "1"
         if not self.use_local_scheduler:
             env["LAW_SANDBOX_WORKER_ID"] = "{}".format(self.task.worker_id)

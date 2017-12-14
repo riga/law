@@ -7,13 +7,14 @@ LABEL version="0.0.3"
 # copy files
 COPY entrypoint.sh /root/entrypoint.sh
 
-# workdor
+# workdir
 WORKDIR /root/law
 
 # expose ports
 EXPOSE 8082
 
 # basic environment variables
+ENV LAW_SANDBOX docker::riga/law,docker::riga/law:latest,docker::riga/law:py27
 ENV WORKDIR /root/law
 
 # prepare yum

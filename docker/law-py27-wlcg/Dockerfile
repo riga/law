@@ -4,6 +4,9 @@ FROM riga/law:py27
 LABEL name="law-py27-wlcg"
 LABEL version="0.0.1"
 
+# basic environment variables
+ENV LAW_SANDBOX docker::riga/law:py27-wlcg
+
 # prepare yum
 RUN yum -y update; yum clean all
 
