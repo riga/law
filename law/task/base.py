@@ -276,13 +276,14 @@ def print_task_deps(task, max_depth=1):
 
 
 def print_task_status(task, max_depth=0, target_depth=0):
-    print("print task status with max_depth {} and target_depth {}\n".format(
+    print("print task status with max_depth {} and target_depth {}".format(
         max_depth, target_depth))
 
     done = []
     ind = "|   "
     for dep, _, depth in task.walk_deps(max_depth=max_depth, order="pre"):
         offset = depth * ind
+        print(offset)
         print("{}> check status of {}".format(offset, dep.colored_repr()))
         offset += ind
 
@@ -302,7 +303,7 @@ def print_task_status(task, max_depth=0, target_depth=0):
 
 
 def remove_task_output(task, max_depth=0, mode=None):
-    print("remove task output with max_depth {}\n".format(max_depth))
+    print("remove task output with max_depth {}".format(max_depth))
 
     # determine the mode, i.e., all, dry, interactive
     modes = ["i", "a", "d"]
@@ -322,6 +323,7 @@ def remove_task_output(task, max_depth=0, mode=None):
     ind = "|   "
     for dep, _, depth in task.walk_deps(max_depth=max_depth, order="pre"):
         offset = depth * ind
+        print(offset)
         print("{}> remove output of {}".format(offset, dep.colored_repr()))
         offset += ind
 
