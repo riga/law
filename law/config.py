@@ -22,6 +22,7 @@ class Config(ConfigParser):
     _default_config = {
         "core": {
             "db_file": os.environ.get("LAW_DB_FILE", os.path.expandvars("$HOME/.law/db")),
+            "software_dir": "$HOME/.law/software",
             "inherit_configs": "",
             "extend_configs": "",
         },

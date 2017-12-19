@@ -20,6 +20,7 @@ import six
 import law
 from law.sandbox.base import Sandbox
 from law.config import Config
+from law.scripts.software import deps as law_deps
 from law.util import law_base, make_list, tmp_file, interruptable_popen
 
 
@@ -90,12 +91,21 @@ class DockerSandbox(Sandbox):
             return os.path.join(forward_dir, *(str(arg) for arg in args))
 
         # helper for adding a volume
+        vol_srcs = []
         def add_vol(*vol):
             src = vol[0]
-            docker_args.extend(["-v", ":".join(vol)])
+
+            # make sure, the same source directory is not mounted twice
+            if src in vol_srcs:
+                return
+            vol_srcs.append(src)
+
             # ensure that source directories exist
             if not os.path.isfile(src) and not os.path.exists(src):
                 os.makedirs(src)
+
+            # store the volume
+            docker_args.extend(["-v", ":".join(vol)])
 
         # environment variables to set
         env = OrderedDict()
@@ -120,16 +130,15 @@ class DockerSandbox(Sandbox):
         env["PYTHONPATH"] = os.pathsep.join(["$PYTHONPATH", dst(python_dir)])
 
         # forward python directories of law and dependencies
-        for mod in (law, luigi, six):
-            path = mod.__file__
-            dirname = os.path.dirname(path)
-            name, ext = os.path.splitext(os.path.basename(path))
+        for mod in law_deps:
+            path = os.path.dirname(mod.__file__)
+            name, ext = os.path.splitext(os.path.basename(mod.__file__))
             if name == "__init__":
-                vsrc = dirname
-                vdst = dst(python_dir, os.path.basename(dirname))
+                vsrc = path
+                vdst = dst(python_dir, os.path.basename(path))
             else:
-                vsrc = os.path.join(dirname, name) + ".py"
-                vdst = dst(python_dir, name) + ".py"
+                vsrc = os.path.join(path, name + ".py")
+                vdst = dst(python_dir, name + ".py")
             add_vol(vsrc, vdst)
 
         # forward the luigi config file

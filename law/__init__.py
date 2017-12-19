@@ -5,14 +5,14 @@ High-level extension layer for Luigi analysis workflows.
 """
 
 
-__author__     = "Marcel Rieger"
-__email__      = "python-law@googlegroups.com"
-__copyright__  = "Copyright 2016, Marcel Rieger"
-__credits__    = ["Marcel Rieger"]
-__contact__    = "https://github.com/riga/law"
-__license__    = "MIT"
-__status__     = "Development"
-__version__    = "0.0.3"
+__author__ = "Marcel Rieger"
+__email__ = "python-law@googlegroups.com"
+__copyright__ = "Copyright 2016, Marcel Rieger"
+__credits__ = ["Marcel Rieger"]
+__contact__ = "https://github.com/riga/law"
+__license__ = "MIT"
+__status__ = "Development"
+__version__ = "0.0.3"
 
 __all__ = ["Task", "WrapperTask", "SandboxTask", "LocalWorkflow",
            "LocalFileSystem, LocalFileTarget, LocalDirectoryTarget",
@@ -22,7 +22,12 @@ __all__ = ["Task", "WrapperTask", "SandboxTask", "LocalWorkflow",
            "NO_STR", "NO_INT", "NO_FLOAT", "TaskInstanceParameter", "CSVParameter"]
 
 
-# patches
+# use cached software
+from law.scripts.software import use_software_cache
+use_software_cache(reload_deps=True)
+
+
+# luigi patches
 from law.patches import patch_all
 patch_all()
 
