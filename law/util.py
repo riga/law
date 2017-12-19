@@ -6,7 +6,8 @@ Helpful utility functions.
 
 
 __all__ = ["law_base", "printerr", "abort", "colored", "query_choice", "multi_match", "make_list",
-           "flatten", "which", "map_struct", "mask_struct", "tmp_file", "interruptable_popen"]
+           "flatten", "which", "map_struct", "mask_struct", "tmp_file", "interruptable_popen",
+           "create_hash"]
 
 
 import os
@@ -17,6 +18,7 @@ import fnmatch
 import tempfile
 import subprocess
 import signal
+import hashlib
 from contextlib import contextmanager
 
 import six
@@ -361,3 +363,12 @@ def interruptable_popen(*args, **kwargs):
         raise
 
     return p.returncode, out, err
+
+
+def create_hash(inp, l=10, algo="sha256"):
+    """
+    Takes an input *inp* and creates a hash based on an algorithm *algo*. For valid algorithms, see
+    python's hashlib. *l* corresponds to the maximum length of the returned hash. Internally, the
+    string representation of *inp* is used.
+    """
+    return getattr(hashlib, algo)(str(inp)).hexdigest()[:l]
