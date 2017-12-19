@@ -197,7 +197,6 @@ class SandboxProxy(ProxyTask):
 
         # map output files to local local targets in tmp_dir
         def map_target(target):
-            print "prepare stageout", target, make_staged_target(tmp_dir, target)
             return make_staged_target(tmp_dir, target)
         stage_outputs = map_struct(map_target, outputs)
 
@@ -208,7 +207,6 @@ class SandboxProxy(ProxyTask):
         # and move them to their proper location
         def find_and_move(target):
             tmp_target = make_staged_target(stageout_info.stage_dir, target)
-            print "try to move", tmp_target, "to", target
             if tmp_target.exists():
                 tmp_target.move(target)
 

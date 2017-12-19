@@ -8,11 +8,14 @@
 import os
 import sys
 
+import luigi
 from luigi.cmdline import luigi_run
+import six
 
+import law
 from law.task.base import Task
 from law.config import Config
-from law.util import abort
+from law.util import abort, create_hash
 
 
 def setup_parser(sub_parsers):
@@ -55,13 +58,13 @@ def execute(args):
     luigi_run([task_family] + sys.argv[3:])
 
 
-def read_task_from_db(task_family, dbfile=None):
+def read_task_from_db(task_family, db_file=None):
     # read task information from the db file given a task family
-    if dbfile is None:
-        dbfile = Config.instance().get("core", "db_file")
+    if db_file is None:
+        db_file = Config.instance().get("core", "db_file")
 
     # open and go through lines
-    with open(dbfile, "r") as f:
+    with open(db_file, "r") as f:
         for line in f.readlines():
             line = line.strip()
             try:

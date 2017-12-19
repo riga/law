@@ -24,7 +24,7 @@ __law_complete() {
 
 	# complete the subcommand
 	if [ "$COMP_CWORD" = "1" ]; then
-		COMPREPLY=( $( compgen -W "run db completion" "${cur}" ) )
+		COMPREPLY=( $( compgen -W "run db config software completion" "${cur}" ) )
 		return
 	fi
 
@@ -40,18 +40,18 @@ __law_complete() {
 		# parameters
 		local inp="${cur##-}"
 		inp="${inp##-}"
-		COMPREPLY=( $( compgen -W "$( _grep "[^\:]+\:$task_family\:\K.+" "$db_file" )" -P "--" -- "$inp" ) )
+		COMPREPLY=( $( compgen -W "$( _grep "[^\:]+\:$task_family\:\K.+" "$db_file" )" -P "--" -- "${inp}" ) )
 
 		if [ "${#COMPREPLY[@]}" = "0" ] && [ "${cur:0:2}" = "--" ]; then
-			local tasks=( $( _grep "[^\:]+\:\K$inp[^\:]*(?=\:.+)" "$db_file" ) )
+			local tasks=( $( _grep "[^\:]+\:\K${inp}[^\:]*(?=\:.+)" "$db_file" ) )
 
-			if [[ "$( echo $inp | _grep "\K[^\.]+$" )" != *"-"* ]] && [ "${#tasks[@]}" -gt "1" ]; then
-				COMPREPLY=( $( compgen -W "$( echo ${tasks[@]} )" -P "--" -S "-" -- "$inp" ) )
+			if [[ "$( echo ${inp} | _grep "\K[^\.]+$" )" != *"-"* ]] && [ "${#tasks[@]}" -gt "1" ]; then
+				COMPREPLY=( $( compgen -W "$( echo ${tasks[@]} )" -P "--" -S "-" -- "${inp}" ) )
 			else
-				local task="$( echo $inp | _grep ".*(?=\-[^\.]*)" )"
-				local curparam="$( echo $inp | _grep ".+\-\K[^\.]+$" )"
+				local task="$( echo ${inp} | _grep ".*(?=\-[^\.]*)" )"
+				local curparam="$( echo ${inp} | _grep ".+\-\K[^\.]+$" )"
 
-				[[ "$( echo $inp | _grep "\K[^\.]+$" )" != *"-"* ]] && task="${tasks[0]}"
+				[[ "$( echo ${inp} | _grep "\K[^\.]+$" )" != *"-"* ]] && task="${tasks[0]}"
 				[ "$( echo ${task:${#task}-1} )" == "-" ] && task="${task:0:${#task}-1}"
 
 				local params=( $( _grep "[^\:]\:$task\:\K.*" "$db_file" ) )
@@ -63,10 +63,26 @@ __law_complete() {
 				done
 				unset param
 
-				COMPREPLY=( $( compgen -W "$( echo ${words[@]} )" -P "--" -- "$inp" ) )
+				COMPREPLY=( $( compgen -W "$( echo ${words[@]} )" -P "--" -- "${inp}" ) )
 			fi
 
 		fi
+	fi
+
+	# complete db
+	if [ "${COMP_WORDS[1]}" = "db" ]; then
+		local words=( modules remove verbose help )
+		local inp="${cur##-}"
+		inp="${inp##-}"
+		COMPREPLY=( $( compgen -W "$( echo ${words[@]} )" -P "--" -- "${inp}" ) )
+	fi
+
+	# complete software
+	if [ "${COMP_WORDS[1]}" = "software" ]; then
+		local words=( remove help )
+		local inp="${cur##-}"
+		inp="${inp##-}"
+		COMPREPLY=( $( compgen -W "$( echo ${words[@]} )" -P "--" -- "${inp}" ) )
 	fi
 }
 export -f __law_complete

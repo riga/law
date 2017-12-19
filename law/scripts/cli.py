@@ -11,7 +11,7 @@ from importlib import import_module
 from argparse import ArgumentParser
 
 
-progs = ["run", "db", "completion"]
+progs = ["run", "db", "config", "software", "completion"]
 forward_progs = ["run"]
 
 

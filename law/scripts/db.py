@@ -24,10 +24,18 @@ def setup_parser(sub_parsers):
     parser = sub_parsers.add_parser("db", prog="law db", description="law db file updater")
 
     parser.add_argument("--modules", "-m", nargs="+", help="additional modules to traverse")
+    parser.add_argument("--remove", "-r", action="store_true", help="just remove the db file")
     parser.add_argument("--verbose", "-v", action="store_true", help="verbose output")
 
 
 def execute(args):
+    # just remove the db file?
+    if args.remove:
+        db_file = Config.instance().get("core", "db_file")
+        if os.path.exists(db_file):
+            os.remove(db_file)
+        return
+
     # get modules to lookup
     lookup = [m.strip() for m in Config.instance().keys("modules")]
     if args.modules:
@@ -95,11 +103,11 @@ def execute(args):
         return "{}:{}:{}".format(cls.__module__, cls.task_family, " ".join(params))
 
     # write the db file
-    dbfile = Config.instance().get("core", "db_file")
-    if not os.path.exists(os.path.dirname(dbfile)):
-        os.makedirs(os.path.dirname(dbfile))
+    db_file = Config.instance().get("core", "db_file")
+    if not os.path.exists(os.path.dirname(db_file)):
+        os.makedirs(os.path.dirname(db_file))
 
-    with open(dbfile, "w") as f:
+    with open(db_file, "w") as f:
         for cls in task_classes:
             f.write(dbline(cls) + "\n")
 
