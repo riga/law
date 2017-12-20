@@ -15,8 +15,11 @@ from abc import abstractmethod
 import luigi
 
 from law.task.base import Task, ProxyTask
-from law.target.collection import TargetCollection, SiblingTargetCollection
+from law.target.collection import TargetCollection, SiblingFileCollection
 from law.parameter import NO_STR, NO_INT, CSVParameter
+
+
+_forward_attrs = ("requires", "output", "run")
 
 
 class WorkflowProxy(ProxyTask):
@@ -24,13 +27,15 @@ class WorkflowProxy(ProxyTask):
     workflow_type = None
 
     def requires(self):
-        return self.task.workflow_requires()
+        reqs = OrderedDict()
+        reqs.update(self.task.workflow_requires())
+        return reqs
 
     def output(self):
         if self.task.target_collection_cls is not None:
             cls = self.task.target_collection_cls
         elif self.task.outputs_siblings:
-            cls = SiblingTargetCollection
+            cls = SiblingFileCollection
         else:
             cls = TargetCollection
 
@@ -50,8 +55,6 @@ class WorkflowProxy(ProxyTask):
 
         return min(acceptance, n - tolerance) / float(n)
 
-
-_forward_attrs = ("requires", "output", "run")
 
 class Workflow(Task):
 
@@ -92,8 +95,8 @@ class Workflow(Task):
             for cls in classes:
                 if not issubclass(cls, Workflow):
                     continue
-                if self.workflow in (NO_STR, cls.workflow_proxy_class.workflow_type):
-                    self.workflow_proxy = cls.workflow_proxy_class(task=self)
+                if self.workflow in (NO_STR, cls.workflow_proxy_cls.workflow_type):
+                    self.workflow_proxy = cls.workflow_proxy_cls(task=self)
                     break
             else:
                 raise ValueError("unknown workflow type {}".format(self.workflow))
@@ -101,11 +104,6 @@ class Workflow(Task):
             # cached branch-related attributes
             self._branch_map = None
             self._branch_tasks = None
-
-            # initially create the branch map
-            self.branch_map
-            self._reset_branch_params()
-            self._reduce_branch_map()
 
     def __getattribute__(self, attr, proxy=True):
         if proxy:
@@ -126,7 +124,7 @@ class Workflow(Task):
         else:
             return self.__class__.req(self, branch=branch)
 
-    def as_workfow(self):
+    def as_workflow(self):
         if self.is_workflow():
             return self
         else:
@@ -136,12 +134,12 @@ class Workflow(Task):
     def create_branch_map(self):
         pass
 
-    def _reset_branch_params(self, n_branches=None):
+    def _reset_branch_boundaries(self, n_branches=None):
         if n_branches is None:
-            n_branches = len(self.branch_map)
+            n_branches = len(self._branch_map)
 
         # reset start_branch
-        self.start_branch = max(0, min(n_branches, self.startBranch))
+        self.start_branch = max(0, min(n_branches, self.start_branch))
 
         # reset end_branch
         if self.end_branch < 0:
@@ -150,25 +148,35 @@ class Workflow(Task):
 
     def _reduce_branch_map(self):
         # reduce by start/end bBranch
-        for b in list(self.branchMap.keys()):
+        for b in list(self._branch_map.keys()):
             if not (self.start_branch <= b < self.end_branch):
-                del self.branch_map[b]
+                del self._branch_map[b]
 
         # reduce by branches
         if self.branches:
-            for b in list(self.branch_map.keys()):
+            for b in list(self._branch_map.keys()):
                 if b not in self.branches:
-                    del self.branch_map[b]
+                    del self._branch_map[b]
 
-    @property
-    def branch_map(self):
+    def get_branch_map(self, reset_boundaries=True, reduce=True):
         if self.is_branch():
-            return self.workflow_proxy.branch_map
+            return self.workflow_proxy.get_branch_map(reset_boundaries=reset_boundaries,
+                reduce=reduce)
         else:
             if self._branch_map is None:
                 self._branch_map = self.create_branch_map()
 
+                # post-process
+                if reset_boundaries:
+                    self._reset_branch_boundaries()
+                if reduce:
+                    self._reduce_branch_map()
+
             return self._branch_map
+
+    @property
+    def branch_map(self):
+        return self.get_branch_map()
 
     def get_branch_tasks(self):
         if self.is_branch():
@@ -194,4 +202,7 @@ class Workflow(Task):
         return OrderedDict()
 
     def workflow_input(self):
+        if self.is_branch():
+            raise Exception("calls to workflow_input are forbidden for branch tasks")
+
         return luigi.task.getpaths(self.workflow_proxy.requires())
