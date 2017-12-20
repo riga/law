@@ -18,7 +18,7 @@ import luigi
 import luigi.task
 
 from law.target.base import Target
-from law.util import colored
+from law.util import colored, create_hash
 
 
 class FileSystem(luigi.target.FileSystem):
@@ -26,8 +26,8 @@ class FileSystem(luigi.target.FileSystem):
     def __repr__(self):
         return "{}({})".format(self.__class__.__name__, hex(id(self)))
 
-    def hash(self, path, l=8):
-        return str(abs(hash(self.__class__.__name__ + self.abspath(path))))[-l:]
+    def hash(self, path, l=10):
+        return create_hash(self.__class__.__name__ + self.abspath(path))
 
     def dirname(self, path):
         return os.path.dirname(path) if path != "/" else None
@@ -35,7 +35,7 @@ class FileSystem(luigi.target.FileSystem):
     def basename(self, path):
         return os.path.basename(path) if path != "/" else "/"
 
-    def unique_basename(self, path, l=8):
+    def unique_basename(self, path, l=10):
         return self.hash(path, l=l) + "_" + self.basename(path)
 
     def ext(self, path, n=1):
