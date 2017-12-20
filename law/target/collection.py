@@ -5,19 +5,24 @@ Collections that wrap multiple targets.
 """
 
 
-__all__ = ["TargetCollection", "SiblingTargetCollection"]
+__all__ = ["TargetCollection", "SiblingFileCollection"]
 
+
+import types
 
 import six
 
 from law.target.base import Target
-from law.util import colored, flatten
+from law.target.file import FileSystemTarget
+from law.util import colored, flatten, create_hash
 
 
 class TargetCollection(Target):
 
     def __init__(self, targets, threshold=1.0):
-        if not isinstance(targets, (list, tuple, dict)):
+        if isinstance(targets, types.GeneratorType):
+            targets = list(targets)
+        elif not isinstance(targets, (list, tuple, dict)):
             raise TypeError("invalid targets, must be of type: list, tuple, dict")
 
         super(TargetCollection, self).__init__()
@@ -26,14 +31,8 @@ class TargetCollection(Target):
         self.targets = targets
         self.threshold = threshold
 
-        # collections might wrap other collections, so we need to store flat targets for the
-        # current structure
-        _flatten = lambda v: flatten(v._flat_targets if isinstance(v, TargetCollection) else v)
-        if isinstance(targets, (list, tuple)):
-            gen = (_flatten(v) for v in targets)
-        else: # dict
-            gen = ((k, _flatten(v)) for k, v in targets.items())
-        self._flat_targets = targets.__class__(gen)
+        # store flat targets for simplified iterations
+        self._flat_targets = flatten(self.targets)
 
     def __repr__(self):
         return "<{}(len={}, threshold={}) at {}>".format(self.__class__.__name__, len(self),
@@ -52,18 +51,14 @@ class TargetCollection(Target):
     def __iter__(self):
         raise TypeError("'{}' object is not iterable".format(self.__class__.__name__))
 
+    @property
+    def hash(self):
+        target_hashes = "".join(target.hash for target in self._flat_targets)
+        return create_hash(self.__class__.__name__ + target_hashes)
+
     def remove(self, silent=True):
-        for target in flatten(self._flat_targets):
+        for target in self._flat_targets:
             target.remove(silent=silent)
-
-    def _iter_flat(self, keys=False):
-        if isinstance(self.targets, (list, tuple)):
-            it = enumerate(self._flat_targets) if keys else self._flat_targets
-        else:
-            it = six.iteritems(self._flat_targets) if keys else six.itervalues(self._flat_targets)
-
-        for obj in it:
-            yield obj
 
     def _threshold(self):
         if self.threshold < 0:
@@ -82,8 +77,8 @@ class TargetCollection(Target):
 
         # simple counting with early stopping criteria for both success and fail
         n = 0
-        for i, targets in enumerate(self._iter_flat(keys=False)):
-            if all(t.exists() for t in targets):
+        for i, target in enumerate(self._flat_targets):
+            if target.exists():
                 n += 1
                 if n >= threshold:
                     return True
@@ -96,15 +91,15 @@ class TargetCollection(Target):
     def count(self, existing=True):
         # simple counting
         n = 0
-        for targets in self._iter_flat(keys=False):
-            if all(t.exists() for t in targets):
+        for target in self._flat_targets:
+            if target.exists():
                 n += 1
 
         return n if existing else len(self) - n
 
     def status_text(self, max_depth=0, color=True):
         count = self.count()
-        exists = count >= self._nMin()
+        exists = count >= self._threshold()
 
         if exists:
             text = "existent"
@@ -126,25 +121,33 @@ class TargetCollection(Target):
                 text += "\n{}: ".format(key)
 
                 if isinstance(target, TargetCollection):
-                    text += "\n  ".join(target.status_text(max_depth - 1).split("\n"))
+                    text += "\n  ".join(target.status_text(max_depth - 1, color=color).split("\n"))
                 elif isinstance(target, Target):
                     text += "{} ({})".format(target.status_text(color=color), target.colored_repr())
 
         return text
 
 
-class SiblingTargetCollection(TargetCollection):
+class SiblingFileCollection(TargetCollection):
 
     def __init__(self, *args, **kwargs):
-        super(SiblingTargetCollection, self).__init__(*args, **kwargs)
+        super(SiblingFileCollection, self).__init__(*args, **kwargs)
 
-        # store the directory
-        if isinstance(self.targets, (list, tuple)):
-            self.dir = self._flat_targets[0][0].parent
-        else: # dict
-            self.dir = list(self._flat_targets.values())[0][0].parent
+        # check if all targets are file system targets or nested SiblingFileCollection's
+        # (it's the user's responsibility to pass targets that are really in the same directory)
+        for target in self._flat_targets:
+            if not isinstance(target, (FileSystemTarget, SiblingFileCollection)):
+                raise TypeError("SiblingFileCollection's only wrap FileSystemTarget's and "
+                    "other SiblingFileCollection's, got {}".format(target.__class__))
 
-    def exists(self, i):
+        # find the first target and store its directory
+        first_target = self._flat_targets[0]
+        if isinstance(first_target, FileSystemTarget):
+            self.dir = first_target.parent
+        else: # SiblingFileCollection
+            self.dir = first_target.dir
+
+    def exists(self, basenames=None):
         threshold = self._threshold()
 
         # check the dir
@@ -155,32 +158,45 @@ class SiblingTargetCollection(TargetCollection):
         if threshold == 0:
             return True
 
-        # get all elements of the contained directory
-        # simple counting with early stopping criteria for both success and fail
-        elems = self.dir.listdir()
-        n = 0
-        for i, targets in enumerate(self._iter_flat(keys=False)):
-            if all(t.basename in elems for t in targets):
-                n += 1
-                if n >= threshold:
-                    return True
+        # get the basenames of all elements of the directory
+        if basenames is None:
+            basenames = self.dir.listdir()
 
-            if n + (len(self) - i - 1) < threshold:
+        # simple counting with early stopping criteria for both success and fail
+        n = 0
+        for i, target in enumerate(self._flat_targets):
+            if isinstance(target, FileSystemTarget):
+                if target.basename in basenames:
+                    n += 1
+            else: # SiblingFileCollection
+                if target.exists(basenames=basenames):
+                    n += 1
+
+            # we might be done here
+            if n >= threshold:
+                return True
+            elif n + (len(self) - i - 1) < threshold:
                 return False
 
         return False
 
-    def count(self, existing=True):
+    def count(self, existing=True, basenames=None):
         # trivial case when the contained directory does not exist
         if not self.dir.exists():
             return 0
 
-        # get all elements of the contained directory
+        # get the basenames of all elements of the directory
+        if basenames is None:
+            basenames = self.dir.listdir()
+
         # simple counting
-        elems = self.dir.listdir()
         n = 0
-        for targets in self._iter_flat():
-            if all(t.basename in elems for t in targets):
-                n += 1
+        for target in self._flat_targets:
+            if isinstance(target, FileSystemTarget):
+                if target.basename in basenames:
+                    n += 1
+            else: # SiblingFileCollection
+                if target.exists(basenames=basenames):
+                    n += 1
 
         return n if existing else len(self) - n
