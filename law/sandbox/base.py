@@ -19,6 +19,7 @@ import six
 
 from law.task.base import Task, ProxyTask
 from law.target.local import LocalDirectoryTarget
+from law.parser import global_cmdline_args
 from law.util import colored, multi_match, mask_struct, map_struct, interruptable_popen
 
 
@@ -89,9 +90,12 @@ class Sandbox(object):
     def key(self):
         return self.join_key(self.sandbox_type, self.name)
 
-    @property
-    def use_local_scheduler(self):
-        return True
+    def scheduler_on_host(self):
+        config = luigi.interface.core()
+        return multi_match(config.scheduler_host, ["0.0.0.0", "127.0.0.1", "localhost"])
+
+    def force_local_scheduler(self):
+        return False
 
     @abstractproperty
     def env(self):
@@ -127,11 +131,10 @@ class SandboxProxy(ProxyTask):
         # add cli args, exclude some parameters
         cmd.extend(self.task.cli_args(exclude=self.task.exclude_params_sandbox))
 
-        # local scheduler
-        if self.sandbox_inst.use_local_scheduler:
-            cmd.append("--local-scheduler")
+        # add global args
+        cmd.extend(global_cmdline_args())
 
-        return " ".join(cmd)
+        return cmd
 
     def run(self):
         # before_run hook
@@ -154,7 +157,7 @@ class SandboxProxy(ProxyTask):
         cmd = self.sandbox_inst.cmd(self.proxy_cmd())
 
         # run with log section before and after actual run call
-        with self.run_log(cmd):
+        with self._run_log(cmd):
             code, out, err = self.sandbox_inst.run(cmd)
             if code != 0:
                 raise Exception("Sandbox '{}' failed with exit code {}".format(
@@ -213,7 +216,7 @@ class SandboxProxy(ProxyTask):
         map_struct(find_and_move, stageout_info.targets)
 
     @contextmanager
-    def run_log(self, cmd=None, color="pink"):
+    def _run_log(self, cmd=None, color="pink"):
         # start banner
         print("")
         line = " entering sandbox '{}' ".format(self.sandbox_inst.key).center(100, "=")

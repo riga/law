@@ -64,11 +64,11 @@ def patch_worker_add_task():
 
 def patch_cmdline_parser():
     # store original functions
-    CmdlineParser__init__ = luigi.cmdline_parser.CmdlineParser.__init__
+    _init = luigi.cmdline_parser.CmdlineParser.__init__
 
     # patch init
     def __init__(self, cmdline_args):
-        CmdlineParser__init__(self, cmdline_args)
+        _init(self, cmdline_args)
         self.cmdline_args = cmdline_args
 
     luigi.cmdline_parser.CmdlineParser.__init__ = __init__

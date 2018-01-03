@@ -81,7 +81,7 @@ class DockerSandbox(Sandbox):
         docker_args = make_list(getattr(self.task, "docker_args", self.default_docker_args))
 
         # container name
-        docker_args.append("--name '{}_{}'".format(self.task.task_id, str(uuid4())[:8]))
+        docker_args.extend(["--name", "'{}_{}'".format(self.task.task_id, str(uuid4())[:8])])
 
         # helper to build forwarded paths
         section = "docker_" + self.image
@@ -117,8 +117,6 @@ class DockerSandbox(Sandbox):
         # sandboxing variables
         env["LAW_SANDBOX"] = self.key
         env["LAW_SANDBOX_SWITCHED"] = "1"
-        if not self.use_local_scheduler:
-            env["LAW_SANDBOX_WORKER_ID"] = "{}".format(self.task.worker_id)
         if self.stagein_info:
             env["LAW_SANDBOX_STAGEIN_DIR"] = "{}".format(dst(stagein_dir))
             add_vol(self.stagein_info.stage_dir.path, dst(stagein_dir))
@@ -168,20 +166,33 @@ class DockerSandbox(Sandbox):
                 cdir = cdir.replace("${PY}", dst(python_dir)).replace("${BIN}", dst(bin_dir))
                 add_vol(hdir, cdir)
 
-        # build commands to add env variables
-        pre_cmds = []
-        for tpl in env.items():
-            pre_cmds.append("export {}=\"{}\"".format(*tpl))
-
-        # build the final command which may run as a certain user
+        # the command may run as a certain user
         sandbox_user = self.task.sandbox_user
         if sandbox_user:
             if not isinstance(sandbox_user, (tuple, list)) or len(sandbox_user) != 2:
                 raise Exception("sandbox_user must return 2-tuple")
             docker_args.append("-u={}:{}".format(*sandbox_user))
 
+        # handle scheduling within the container
+        ls_flag = "--local-scheduler"
+        if self.force_local_scheduler() and ls_flag not in proxy_cmd:
+            proxy_cmd.append(ls_flag)
+        if ls_flag not in proxy_cmd:
+            env["LAW_SANDBOX_WORKER_ID"] = "{}".format(self.task.worker_id)
+            # when the scheduler runs on the host system, we need to set the network interace to the
+            # host system and set the correct luigi scheduler host as seen by the container
+            if self.scheduler_on_host():
+                docker_args.extend(["--net", "host"])
+                proxy_cmd.extend(["--scheduler-host", "\"{}\"".format(self.get_host_ip())])
+
+        # build commands to add env variables
+        pre_cmds = []
+        for tpl in env.items():
+            pre_cmds.append("export {}=\"{}\"".format(*tpl))
+
+        # build the final command
         cmd = "docker run {docker_args} {image} bash -l -c '{pre_cmd}; {proxy_cmd}'".format(
-            proxy_cmd=proxy_cmd, pre_cmd="; ".join(pre_cmds), image=self.image,
+            proxy_cmd=" ".join(proxy_cmd), pre_cmd="; ".join(pre_cmds), image=self.image,
             docker_args=" ".join(docker_args))
 
         return cmd
@@ -228,3 +239,8 @@ class DockerSandbox(Sandbox):
             return task_vol_getter(self.image)
         else:
             return {}
+
+    def get_host_ip(self):
+        # the ip should be identical across docker versions
+        # but might be changed by overriding this function
+        return "192.168.65.1"
