@@ -167,15 +167,13 @@ class Task(BaseTask):
 
     log_file = luigi.Parameter(default=NO_STR, significant=False, description="a custom log file, "
         "default: <task.default_log_file>")
-    print_deps = CSVParameter(cls=luigi.IntParameter, default=[], significant=False,
-        description="print task dependencies, do not run any task, the passed numbers set the "
-        "recursion depth (0 means non-recursive)")
-    print_status = CSVParameter(cls=luigi.IntParameter, default=[], significant=False,
-        description="print the task status, do not run any task, the passed numbers set the "
-        "recursion depth (0 means non-recursive) and optionally the collection depth")
-    remove_output = CSVParameter(cls=luigi.IntParameter, default=[], significant=False,
-        description="remove all outputs, do not run any task, the passed number sets the recursion "
-        "depth (0 means non-recursive)")
+    print_deps = CSVParameter(default=[], significant=False, description="print task dependencies, "
+        "do not run any task, the passed numbers set the recursion depth (0 means non-recursive)")
+    print_status = CSVParameter(default=[], significant=False, description="print the task status, "
+        "do not run any task, the passed numbers set the recursion depth (0 means non-recursive) "
+        "and optionally the collection depth")
+    remove_output = CSVParameter(default=[], significant=False, description="remove all outputs, "
+        "do not run any task, the passed number sets the recursion depth (0 means non-recursive)")
 
     interactive_params = ["print_deps", "print_status", "remove_output"]
 
@@ -268,6 +266,8 @@ def getreqs(struct):
 
 
 def print_task_deps(task, max_depth=1):
+    max_depth = int(max_depth)
+
     print("print task dependencies with max_depth {}\n".format(max_depth))
 
     ind = "|   "
@@ -276,6 +276,9 @@ def print_task_deps(task, max_depth=1):
 
 
 def print_task_status(task, max_depth=0, target_depth=0):
+    max_depth = int(max_depth)
+    target_depth = int(target_depth)
+
     print("print task status with max_depth {} and target_depth {}".format(
         max_depth, target_depth))
 
@@ -303,6 +306,8 @@ def print_task_status(task, max_depth=0, target_depth=0):
 
 
 def remove_task_output(task, max_depth=0, mode=None):
+    max_depth = int(max_depth)
+
     print("remove task output with max_depth {}".format(max_depth))
 
     # determine the mode, i.e., all, dry, interactive
@@ -317,7 +322,7 @@ def remove_task_output(task, max_depth=0, mode=None):
     if mode not in modes:
         raise Exception("unknown removal mode '{}'".format(mode))
     mode_name = mode_names[modes.index(mode)]
-    print("selected " + colored(mode_name + " mode", "blue", style="bright") + "\n")
+    print("selected " + colored(mode_name + " mode", "blue", style="bright"))
 
     done = []
     ind = "|   "
