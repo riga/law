@@ -10,7 +10,7 @@ __all__ = ["Task", "WrapperTask", "ProxyTask", "getreqs"]
 
 import os
 import sys
-import inspect
+from argparse import ArgumentParser
 from socket import gethostname
 from collections import OrderedDict
 from abc import abstractmethod
@@ -20,7 +20,8 @@ import luigi.util
 import six
 
 from law.parameter import NO_STR, NO_INT, TaskInstanceParameter, CSVParameter
-from law.util import abort, colored, query_choice, multi_match
+from law.parser import global_cmdline_values
+from law.util import abort, colored, make_list, query_choice, multi_match
 
 
 class BaseRegister(luigi.task_register.Register):
@@ -37,6 +38,9 @@ class BaseRegister(luigi.task_register.Register):
                     params |= base_params
 
         return super(BaseRegister, metacls).__new__(metacls, classname, bases, classdict)
+
+
+_common_params_cache = {}
 
 
 @six.add_metaclass(BaseRegister)
@@ -69,17 +73,12 @@ class BaseTask(luigi.Task):
         return cls(**cls.req_params(*args, **kwargs))
 
     @classmethod
-    def req_params(cls, inst, _exclude=None, **kwargs):
+    def req_params(cls, inst, _exclude=None, _prefer_cli=None, **kwargs):
         # common/intersection params
-        params = luigi.util.common_params(inst, cls)
+        params = cls._common_params(cls, inst)
 
         # determine parameters to exclude
-        if _exclude is None:
-            _exclude = set()
-        elif isinstance(_exclude, (list, tuple)):
-            _exclude = set(_exclude)
-        elif not isinstance(_exclude, set):
-            _exclude = {_exclude}
+        _exclude = set() if _exclude is None else set(make_list(_exclude))
 
         # also use this class' req and req_get sets
         # and the req and req_pass sets of the instance's class
@@ -94,7 +93,27 @@ class BaseTask(luigi.Task):
         # add kwargs
         params.update(kwargs)
 
+        # remove params that are preferably set via cli class arguments
+        if _prefer_cli:
+            cls_args = []
+            prefix = cls.task_family + "_"
+            for key in global_cmdline_values().keys():
+                if key.startswith(prefix):
+                    cls_args.append(key[len(prefix):])
+            for name in make_list(_prefer_cli):
+                if name in params and name in cls_args:
+                    del params[name]
+
         return params
+
+    @staticmethod
+    def _common_params(cls, inst):
+        key = tuple(sorted([inst.__class__, cls]))
+
+        if key not in _common_params_cache:
+            _common_params_cache[key] = luigi.util.common_params(inst, cls)
+
+        return _common_params_cache[key]
 
     def walk_deps(self, max_depth=-1, order="level"):
         # see https://en.wikipedia.org/wiki/Tree_traversal
@@ -193,8 +212,6 @@ class Task(BaseTask):
 
     def publish_message(self, *args):
         msg = " ".join(str(arg) for arg in args)
-
-        # simple print
         print(msg)
 
         # add to message cache and handle overflow

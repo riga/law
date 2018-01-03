@@ -4,6 +4,7 @@
 Luigi patches.
 """
 
+
 __all__ = ["patch_all"]
 
 
@@ -18,12 +19,14 @@ _patched = False
 def patch_all():
     global _patched
 
-    if not _patched:
-        _patched = True
+    if _patched:
+        return
+    _patched = True
 
-        patch_task_process_run()
-        patch_worker_factory()
-        patch_worker_add_task()
+    patch_task_process_run()
+    patch_worker_factory()
+    patch_worker_add_task()
+    patch_cmdline_parser()
 
 
 def patch_task_process_run():
@@ -57,3 +60,15 @@ def patch_worker_add_task():
         return _add_task(self, *args, **kwargs)
 
     luigi.worker.Worker._add_task = add_task
+
+
+def patch_cmdline_parser():
+    # store original functions
+    CmdlineParser__init__ = luigi.cmdline_parser.CmdlineParser.__init__
+
+    # patch init
+    def __init__(self, cmdline_args):
+        CmdlineParser__init__(self, cmdline_args)
+        self.cmdline_args = cmdline_args
+
+    luigi.cmdline_parser.CmdlineParser.__init__ = __init__
