@@ -5,7 +5,8 @@ Custom luigi file system and target objects.
 """
 
 
-__all__ = ["FileSystem", "FileSystemFileTarget", "FileSystemDirectoryTarget"]
+__all__ = ["FileSystem", "FileSystemFileTarget", "FileSystemDirectoryTarget",
+           "get_path", "get_scheme", "add_scheme", "remove_scheme"]
 
 
 import os
@@ -47,20 +48,6 @@ class FileSystem(luigi.target.FileSystem):
             return ""
         else:
             return ".".join(parts[1:][min(-n, 0):])
-
-    def get_scheme(self, path):
-        # ftp://path/to/file -> ftp
-        # /path/to/file -> None
-        return six.moves.urllib_parse.urlparse(path).scheme or None
-
-    def add_scheme(self, path, scheme):
-        # adds a scheme to a path, if it does not already contain one
-        return "{}://{}".format(scheme, path) if not self.get_scheme(path) else path
-
-    def remove_scheme(self, path):
-        # ftp://path/to/file -> /path/to/file
-        # /path/to/file -> /path/to/file
-        return six.moves.urllib_parse.urlparse(path).path or None
 
     def isdir(self, path, **kwargs):
         return stat.S_ISDIR(self.stat(path, **kwargs).st_mode)
@@ -279,3 +266,17 @@ FileSystemTarget.directory_class = FileSystemDirectoryTarget
 
 def get_path(target):
     return target.path if isinstance(target, FileSystemTarget) else target
+
+def get_scheme(path):
+    # ftp://path/to/file -> ftp
+    # /path/to/file -> None
+    return six.moves.urllib_parse.urlparse(path).scheme or None
+
+def add_scheme(path, scheme):
+    # adds a scheme to a path, if it does not already contain one
+    return "{}://{}".format(scheme, path) if not get_scheme(path) else path
+
+def remove_scheme(path):
+    # ftp://path/to/file -> /path/to/file
+    # /path/to/file -> /path/to/file
+    return six.moves.urllib_parse.urlparse(path).path or None

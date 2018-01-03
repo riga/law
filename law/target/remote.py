@@ -27,7 +27,7 @@ import six
 
 from law.config import Config
 from law.target.file import FileSystem, FileSystemTarget, FileSystemFileTarget, \
-    FileSystemDirectoryTarget
+    FileSystemDirectoryTarget, get_path, get_scheme, add_scheme, remove_scheme
 from law.target.local import LocalFileSystem, LocalFileTarget
 from law.target.formatter import find_formatter
 from law.util import make_list
@@ -189,8 +189,9 @@ class GFALInterface(object):
 
     @retry
     def chmod(self, path, perm):
-        with self.context() as ctx:
-            return ctx.chmod(self.url(path, "chmod"), perm)
+        if perm:
+            with self.context() as ctx:
+                return ctx.chmod(self.url(path, "chmod"), perm)
 
     @retry
     def unlink(self, path):
@@ -205,12 +206,12 @@ class GFALInterface(object):
     @retry
     def mkdir(self, path, perm):
         with self.context() as ctx:
-            return ctx.mkdir(self.url(path, "mkdir"), perm)
+            return ctx.mkdir(self.url(path, "mkdir"), perm or 0o0660)
 
     @retry
     def mkdir_rec(self, path, perm):
         with self.context() as ctx:
-            return ctx.mkdir_rec(self.url(path, "mkdir_rec"), perm)
+            return ctx.mkdir_rec(self.url(path, "mkdir_rec"), perm or 0o0660)
 
     @retry
     def listdir(self, path):
@@ -537,7 +538,7 @@ class RemoteFileSystem(FileSystem):
         return "{}(base={}, {})".format(self.__class__.__name__, self.gfal.base[0], hex(id(self)))
 
     def is_local(self, path):
-        return self.get_scheme(path) == "file"
+        return get_scheme(path) == "file"
 
     def hash(self, path, l=8):
         return str(abs(hash(self.__class__.__name__ + self.gfal.base[0] + self.abspath(path))))[-l:]
@@ -545,7 +546,7 @@ class RemoteFileSystem(FileSystem):
     def abspath(self, path):
         # due to the dynamic definition of remote bases, path is supposed to be already absolute
         # just handle leading and trailing slashes when there is not scheme
-        return ("/" + path.strip("/")) if not self.get_scheme(path) else path
+        return ("/" + path.strip("/")) if not get_scheme(path) else path
 
     def dirname(self, path):
         return super(RemoteFileSystem, self).dirname(self.abspath(path))
@@ -738,9 +739,9 @@ class RemoteFileSystem(FileSystem):
                     self.cache.remove(dst)
 
                 # allocate cache space and copy to cache
-                lstat = self._local_fs.stat(self._local_fs.remove_scheme(src))
+                lstat = self._local_fs.stat(remove_scheme(src))
                 self.cache.allocate(lstat.st_size)
-                full_cdst = self.add_scheme(self.cache.cache_path(dst), "file")
+                full_cdst = add_scheme(self.cache.cache_path(dst), "file")
                 with self.cache.lock(dst):
                     self._atomic_copy(src, full_cdst, validate=False)
                     self.cache.touch(dst, (int(time.time()), rstat.st_mtime))
@@ -752,7 +753,7 @@ class RemoteFileSystem(FileSystem):
 
                 # check if cached and up to date
                 rstat = self.stat(src, **kwargs)
-                full_csrc = self.add_scheme(self.cache.cache_path(src), "file")
+                full_csrc = add_scheme(self.cache.cache_path(src), "file")
                 with self.cache.lock(src):
                     if src in self.cache and abs(self.cache.mtime(src) - rstat.st_mtime) > 1:
                         self.cache.remove(src, lock=False)
@@ -831,12 +832,12 @@ class RemoteFileSystem(FileSystem):
         if mode == "r":
             if cache:
                 lpath = self._cached_copy(path, None, cache=True, **kwargs)
-                lpath = self.remove_scheme(lpath)
+                lpath = remove_scheme(lpath)
             else:
                 tmp = LocalFileTarget(is_tmp=self.ext(path, n=0) or True)
                 lpath = tmp.path
 
-                self._cached_copy(path, self.add_scheme(lpath, "file"), cache=False, **kwargs)
+                self._cached_copy(path, add_scheme(lpath, "file"), cache=False, **kwargs)
             try:
                 if yield_path:
                     yield lpath
@@ -863,7 +864,7 @@ class RemoteFileSystem(FileSystem):
                         f.close()
 
                 if tmp.exists():
-                    self._cached_copy(self.add_scheme(lpath, "file"), path, cache=cache, **kwargs)
+                    self._cached_copy(add_scheme(lpath, "file"), path, cache=cache, **kwargs)
             finally:
                 del tmp
 
@@ -885,7 +886,7 @@ class RemoteTarget(FileSystemTarget):
 
     def __init__(self, path, fs):
         if not isinstance(fs, RemoteFileSystem):
-            raise TypeError("fs must be a {} instance".format(RemoteFileSystem))
+            raise TypeError("fs must be a {} instance, is {}".format(RemoteFileSystem, fs))
 
         self.fs = fs
         self._path = None
@@ -915,22 +916,22 @@ class RemoteFileTarget(RemoteTarget, FileSystemFileTarget):
 
     def copy_to_local(self, dst=None, dir_perm=None, **kwargs):
         if dst:
-            dst = self.fs.add_scheme(get_path(dst), "file")
+            dst = add_scheme(get_path(dst), "file")
         return super(RemoteFileTarget, self).copy_to(dst, dir_perm=dir_perm, **kwargs)
 
     def copy_from_local(self, src=None, dir_perm=None, **kwargs):
         if src:
-            src = self.fs.add_scheme(get_path(src), "file")
+            src = add_scheme(get_path(src), "file")
         return super(RemoteFileTarget, self).copy_from(src, dir_perm=dir_perm, **kwargs)
 
     def move_to_local(self, dst=None, dir_perm=None, **kwargs):
         if dst:
-            dst = self.fs.add_scheme(get_path(dst), "file")
+            dst = add_scheme(get_path(dst), "file")
         return super(RemoteFileTarget, self).move_to(dst, dir_perm=dir_perm, **kwargs)
 
     def move_from_local(self, src=None, dir_perm=None, **kwargs):
         if src:
-            src = self.fs.add_scheme(get_path(src), "file")
+            src = add_scheme(get_path(src), "file")
         return super(RemoteFileTarget, self).move_from(src, dir_perm=dir_perm, **kwargs)
 
     @contextmanager
