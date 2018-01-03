@@ -7,7 +7,7 @@ Example usage:
 
 .. code-block:: python
 
-    class MyTask(BaseTask):
+    class MyTask(law.Task):
 
         @log
         @safe_output(skip=KeyboardInterrupt)
@@ -26,6 +26,7 @@ import sys
 import time
 import traceback
 import functools
+import random
 
 import luigi
 
@@ -54,54 +55,65 @@ def get_task(task):
 
 
 @factory()
-def log(fn, opts, self, *args, **kwargs):
+def log(fn, opts, task, *args, **kwargs):
     """ log()
     Wraps a bound method of a task and redirects output of both stdin and stdout to the file
     defined by the tasks's *log* parameter. It its value is ``"-"`` or *None*, the output is not
     redirected.
     """
-    task = get_task(self)
+    task = get_task(task)
     orig = task.log_file
-    log  = task.log_file if task.log_file != NO_STR else task.default_log_file
+    log = task.log_file if task.log_file != NO_STR else task.default_log_file
 
     if log == "-" or not log:
-        return fn(self, *args, **kwargs)
+        return fn(task, *args, **kwargs)
     else:
-        target = LocalFileTarget(log)
-        target.touch()
-        mode = "a+" if orig != NO_STR else "w"
-        with open(log, mode, 1) as f:
+        # use the local target functionality to create the parent directory
+        LocalFileTarget(log).parent.touch()
+        with open(log, "a", 1) as f:
             sys.stdout = f
             sys.stderr = f
             try:
-                ret = fn(self, *args, **kwargs)
+                ret = fn(task, *args, **kwargs)
             except Exception as e:
                 traceback.print_exc(file=f)
                 raise e
             finally:
                 sys.stdout = sys.__stdout__
                 sys.stderr = sys.__stderr__
+                f.flush()
         return ret
 
 
 @factory(skip=None)
-def safe_output(fn, opts, self, *args, **kwargs):
+def safe_output(fn, opts, task, *args, **kwargs):
     """ safe_output(skip=None)
     Wraps a bound method of a task and guards its execution. If an exception occurs, and it is not
     an instance of *skip*, the task's output is removed prior to the actual raising.
     """
     try:
-        return fn(self, *args, **kwargs)
+        return fn(task, *args, **kwargs)
     except Exception as e:
         if opts["skip"] is None or not isinstance(e, opts["skip"]):
-            for outp in luigi.task.flatten(self.output()):
+            for outp in luigi.task.flatten(task.output()):
                 outp.remove()
         raise
 
 
-def delay(fn, opts, self, *args, **kwargs):
-    """ delay(t=5)
+@factory(t=5, stddev=0, pdf="gauss")
+def delay(fn, opts, task, *args, **kwargs):
+    """ delay(t=5, stddev=0., pdf="gauss")
     Wraps a bound method of a task and delays its execution by *t* seconds.
     """
-    time.sleep(opts["t"])
-    return fn(self, *args, **kwargs)
+    if opts["stddev"] <= 0:
+        t = opts["t"]
+    elif opts["pdf"] == "gauss":
+        t = random.gauss(opts["t"], opts["stddev"])
+    elif opts["pdf"] == "uniform":
+        t = random.uniform(opts["t"], opts["stddev"])
+    else:
+        raise ValueError("unknown delay decorator pdf '{}'".format(opts["pdf"]))
+
+    time.sleep(t)
+
+    return fn(task, *args, **kwargs)
