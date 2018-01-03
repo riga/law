@@ -38,6 +38,10 @@ class DockerSandbox(Sandbox):
         return self.name
 
     @property
+    def tag(self):
+        return None if ":" not in self.image else self.image.split(":", 1)[1]
+
+    @property
     def env(self):
         # strategy: create a tempfile, forward it to a container, let python dump its full env,
         # close the container and load the env file
@@ -46,9 +50,9 @@ class DockerSandbox(Sandbox):
                 tmp_path = os.path.realpath(tmp[1])
                 env_path = os.path.join("/tmp", str(hash(tmp_path))[-8:])
 
-                cmd = "docker run --rm -v {0}:{1} riga/law_example_base python -c \"" \
-                    "import os,pickle;pickle.dump(os.environ,open('{1}','w'))\""
-                cmd = cmd.format(tmp_path, env_path)
+                cmd = "docker run --rm -v {1}:{2} {0} python -c \"" \
+                    "import os,pickle;pickle.dump(os.environ,open('{2}','w'))\""
+                cmd = cmd.format(self.image, tmp_path, env_path)
 
                 returncode, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
                     stdout=PIPE, stderr=STDOUT)
