@@ -213,6 +213,7 @@ class Task(BaseTask):
     def publish_message(self, *args):
         msg = " ".join(str(arg) for arg in args)
         print(msg)
+        sys.stdout.flush()
 
         # add to message cache and handle overflow
         self._message_cache.append(msg)
