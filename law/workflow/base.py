@@ -83,8 +83,9 @@ class Workflow(Task):
     outputs_siblings = False
 
     exclude_db = True
-    exclude_params_branching = {"workflow", "acceptance", "tolerance", "pilot", "branch",
-        "start_branch", "end_branch", "branches"}
+    exclude_params_branch = {"workflow", "acceptance", "tolerance", "pilot", "start_branch",
+        "end_branch", "branches"}
+    exclude_params_workflow = {"branch"}
 
     def __init__(self, *args, **kwargs):
         super(Workflow, self).__init__(*args, **kwargs)
@@ -111,6 +112,17 @@ class Workflow(Task):
                 return getattr(self.workflow_proxy, attr)
 
         return super(Workflow, self).__getattribute__(attr)
+
+    def cli_args(self, exclude=None, replace=None):
+        if exclude is None:
+            exclude = set()
+
+        if self.is_branch():
+            exclude |= self.exclude_params_branch
+        else:
+            exclude |= self.exclude_params_workflow
+
+        return super(Workflow, self).cli_args(exclude=exclude, replace=replace)
 
     def is_branch(self):
         return self.branch != NO_INT
@@ -190,7 +202,7 @@ class Workflow(Task):
                 self._branch_tasks = OrderedDict()
                 for b in branch_map:
                     self._branch_tasks[b] = self.__class__.req(self, branch=b,
-                        _exclude=self.exclude_params_branching)
+                        _exclude=self.exclude_params_branch)
                 gc.collect()
 
             return self._branch_tasks
