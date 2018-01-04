@@ -79,13 +79,13 @@ class DockerSandbox(Sandbox):
 
         # get args for the docker command as configured in the task
         # TODO: this looks pretty random
-        docker_args = make_list(getattr(self.task, "docker_args", self.default_docker_args))
+        args = make_list(getattr(self.task, "docker_args", self.default_docker_args))
 
         # container name
-        docker_args.extend(["--name", "'{}_{}'".format(self.task.task_id, str(uuid4())[:8])])
+        args.extend(["--name", "'{}_{}'".format(self.task.task_id, str(uuid4())[:8])])
 
         # container hostname
-        docker_args.extend(["--hostname", "'{}'".format(gethostname())])
+        args.extend(["--hostname", "'{}'".format(gethostname())])
 
         # helper to build forwarded paths
         section = "docker_" + self.image
@@ -98,22 +98,22 @@ class DockerSandbox(Sandbox):
         def dst(*args):
             return os.path.join(forward_dir, *(str(arg) for arg in args))
 
-        # helper for adding a volume
-        vol_srcs = []
-        def add_vol(*vol):
+        # helper for mounting a volume
+        volume_srcs = []
+        def mount(*vol):
             src = vol[0]
 
             # make sure, the same source directory is not mounted twice
-            if src in vol_srcs:
+            if src in volume_srcs:
                 return
-            vol_srcs.append(src)
+            volume_srcs.append(src)
 
             # ensure that source directories exist
             if not os.path.isfile(src) and not os.path.exists(src):
                 os.makedirs(src)
 
-            # store the volume
-            docker_args.extend(["-v", ":".join(vol)])
+            # store the mount point
+            args.extend(["-v", ":".join(vol)])
 
         # environment variables to set
         env = OrderedDict()
@@ -123,10 +123,10 @@ class DockerSandbox(Sandbox):
         env["LAW_SANDBOX_SWITCHED"] = "1"
         if self.stagein_info:
             env["LAW_SANDBOX_STAGEIN_DIR"] = "{}".format(dst(stagein_dir))
-            add_vol(self.stagein_info.stage_dir.path, dst(stagein_dir))
+            mount(self.stagein_info.stage_dir.path, dst(stagein_dir))
         if self.stageout_info:
             env["LAW_SANDBOX_STAGEOUT_DIR"] = "{}".format(dst(stageout_dir))
-            add_vol(self.stageout_info.stage_dir.path, dst(stageout_dir))
+            mount(self.stageout_info.stage_dir.path, dst(stageout_dir))
 
         # prevent python from writing byte code files
         env["PYTHONDONTWRITEBYTECODE"] = "1"
@@ -145,12 +145,12 @@ class DockerSandbox(Sandbox):
             else:
                 vsrc = os.path.join(path, name + ".py")
                 vdst = dst(python_dir, name + ".py")
-            add_vol(vsrc, vdst)
+            mount(vsrc, vdst)
 
         # forward the luigi config file
         for p in luigi.configuration.LuigiConfigParser._config_paths[::-1]:
             if os.path.exists(p):
-                add_vol(p, dst("luigi.cfg"))
+                mount(p, dst("luigi.cfg"))
                 env["LUIGI_CONFIG_PATH"] = dst("luigi.cfg")
                 break
 
@@ -165,17 +165,17 @@ class DockerSandbox(Sandbox):
         vol_mapping = {"${PY}": dst(python_dir), "${BIN}": dst(bin_dir)}
         for hdir, cdir in six.iteritems(vols):
             if not cdir:
-                add_vol(hdir)
+                mount(hdir)
             else:
                 cdir = cdir.replace("${PY}", dst(python_dir)).replace("${BIN}", dst(bin_dir))
-                add_vol(hdir, cdir)
+                mount(hdir, cdir)
 
         # the command may run as a certain user
         sandbox_user = self.task.sandbox_user
         if sandbox_user:
             if not isinstance(sandbox_user, (tuple, list)) or len(sandbox_user) != 2:
                 raise Exception("sandbox_user must return 2-tuple")
-            docker_args.append("-u={}:{}".format(*sandbox_user))
+            args.append("-u={}:{}".format(*sandbox_user))
 
         # handle scheduling within the container
         ls_flag = "--local-scheduler"
@@ -189,7 +189,7 @@ class DockerSandbox(Sandbox):
             # when the scheduler runs on the host system, we need to set the network interace to the
             # host system and set the correct luigi scheduler host as seen by the container
             if self.scheduler_on_host():
-                docker_args.extend(["--net", "host"])
+                args.extend(["--net", "host"])
                 proxy_cmd.extend(["--scheduler-host", "\"{}\"".format(self.get_host_ip())])
 
         # build commands to add env variables
@@ -198,9 +198,9 @@ class DockerSandbox(Sandbox):
             pre_cmds.append("export {}=\"{}\"".format(*tpl))
 
         # build the final command
-        cmd = "docker run {docker_args} {image} bash -l -c '{pre_cmd}; {proxy_cmd}'".format(
-            proxy_cmd=" ".join(proxy_cmd), pre_cmd="; ".join(pre_cmds), image=self.image,
-            docker_args=" ".join(docker_args))
+        cmd = "docker run {args} {image} bash -l -c '{pre_cmd}; {proxy_cmd}'".format(
+            args=" ".join(args), image=self.image, pre_cmd="; ".join(pre_cmds),
+            proxy_cmd=" ".join(proxy_cmd))
 
         return cmd
 
