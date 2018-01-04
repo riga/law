@@ -182,7 +182,10 @@ class DockerSandbox(Sandbox):
         if self.force_local_scheduler() and ls_flag not in proxy_cmd:
             proxy_cmd.append(ls_flag)
         if ls_flag not in proxy_cmd:
-            env["LAW_SANDBOX_WORKER_ID"] = "{}".format(self.task.worker_id)
+            if getattr(self.task, "_worker_id", None):
+                env["LAW_SANDBOX_WORKER_ID"] = self.task._worker_id
+            if getattr(self.task, "_worker_task", None):
+                env["LAW_SANDBOX_WORKER_TASK"] = self.task._worker_task
             # when the scheduler runs on the host system, we need to set the network interace to the
             # host system and set the correct luigi scheduler host as seen by the container
             if self.scheduler_on_host():
