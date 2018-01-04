@@ -34,6 +34,7 @@ class Config(ConfigParser):
             "default_dcache": "dcache",
         },
         "modules": {},
+        "bash_env": {},
         "docker": {
             "forward_dir": "/law_forward",
             "python_dir": "py",
@@ -43,7 +44,15 @@ class Config(ConfigParser):
         },
         "docker_env": {},
         "docker_volumes": {},
-        "bash_env": {},
+        "singularity": {
+            "forward_dir": "/law_forward",
+            "python_dir": "py",
+            "bin_dir": "bin",
+            "stagein_dir": "stagein",
+            "stageout_dir": "stageout",
+        },
+        "singularity_env": {},
+        "singularity_volumes": {},
     }
 
     _config_files = ["$LAW_CONFIG_FILE", "$HOME/.law/config", "etc/law/config"]
