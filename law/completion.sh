@@ -61,9 +61,6 @@ __law_complete() {
 				[[ "$( echo $inp | _grep "\K[^\.]+$" )" != *"-"* ]] && task="${tasks[0]}"
 				[ "$( echo ${task:${#task}-1} )" == "-" ] && task="${task:0:${#task}-1}"
 
-				echo "task2: $task"
-				echo
-
 				local params=( $( _grep "[^\:]\:$task\:\K.*" "$db_file" ) )
 				local words=()
 				for param in "${params[@]}"; do
