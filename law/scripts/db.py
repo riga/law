@@ -17,9 +17,6 @@ from law.config import Config
 from law.util import multi_match
 
 
-common_params = ["workers", "local-scheduler", "help", "log-level"]
-
-
 def setup_parser(sub_parsers):
     parser = sub_parsers.add_parser("db", prog="law db", description="law db file updater")
 
@@ -95,9 +92,6 @@ def execute(args):
                 if not multi_match(attr, exclude, any):
                     params.append(attr.replace("_", "-"))
 
-        # add common parameters
-        params += common_params
-
         # build and return the line
         # format: "module_id:task_family:param param ..."
         return "{}:{}:{}".format(cls.__module__, cls.task_family, " ".join(params))
@@ -111,4 +105,4 @@ def execute(args):
         for cls in task_classes:
             f.write(dbline(cls) + "\n")
 
-    print("written {} task(s) to db".format(len(task_classes)))
+    print("written {} task(s) to db file {}".format(len(task_classes), db_file))
