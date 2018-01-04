@@ -286,6 +286,8 @@ class SandboxTask(Task):
 
     def __getattribute__(self, attr, proxy=True):
         if proxy:
+            if attr == "deps" and self.sandboxed:
+                return lambda: []
             if attr == "run" and not self.sandboxed:
                 return self.sandbox_proxy.run
             elif attr == "inputs" and _sandbox_stagein_dir and self.sandboxed:
