@@ -107,7 +107,7 @@ class Config(ConfigParser):
 
             for option, value in _data.items():
                 if overwrite_options or not self.has_option(section, option):
-                    self.set(section, option, value)
+                    self.set(section, option, str(value))
 
     def include(self, filename, *args, **kwargs):
         p = self.__class__(filename, skip_defaults=True, skip_fallbacks=True)
