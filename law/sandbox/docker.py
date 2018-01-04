@@ -13,6 +13,7 @@ from collections import OrderedDict
 from fnmatch import fnmatch
 from subprocess import PIPE, STDOUT
 from uuid import uuid4
+from socket import gethostname
 
 import luigi
 import six
@@ -82,6 +83,9 @@ class DockerSandbox(Sandbox):
 
         # container name
         docker_args.extend(["--name", "'{}_{}'".format(self.task.task_id, str(uuid4())[:8])])
+
+        # container hostname
+        docker_args.extend(["--hostname", "'{}'".format(gethostname())])
 
         # helper to build forwarded paths
         section = "docker_" + self.image
