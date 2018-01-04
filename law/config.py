@@ -43,6 +43,7 @@ class Config(ConfigParser):
         },
         "docker_env": {},
         "docker_volumes": {},
+        "bash_env": {},
     }
 
     _config_files = ["$LAW_CONFIG_FILE", "$HOME/.law/config", "etc/law/config"]
