@@ -22,7 +22,7 @@ import law
 from law.sandbox.base import Sandbox
 from law.config import Config
 from law.scripts.software import deps as law_deps
-from law.util import law_base, make_list, tmp_file, interruptable_popen
+from law.util import make_list, tmp_file, interruptable_popen
 
 
 class DockerSandbox(Sandbox):
@@ -205,21 +205,10 @@ class DockerSandbox(Sandbox):
         return cmd
 
     def get_config_env(self):
-        cfg = Config.instance()
-        env = {}
+        return super(DockerSandbox, self).get_config_env("docker_env_" + self.image, "docker_env")
 
-        section = "docker_env_" + self.image
-        section = section if cfg.has_section(section) else "docker_env"
-
-        for name, value in cfg.items(section):
-            if "*" in name or "?" in name:
-                names = [key for key in os.environ.keys() if fnmatch(key, name)]
-            else:
-                names = [name]
-            for name in names:
-                env[name] = value if value is not None else os.environ.get(name, "")
-
-        return env
+    def get_task_env(self):
+        return super(DockerSandbox, self).get_task_env("get_docker_env")
 
     def get_config_volumes(self):
         cfg = Config.instance()
@@ -232,13 +221,6 @@ class DockerSandbox(Sandbox):
             vols[os.path.expandvars(os.path.expanduser(hdir))] = cdir
 
         return vols
-
-    def get_task_env(self):
-        task_env_getter = getattr(self.task, "get_docker_env", None)
-        if callable(task_env_getter):
-            return task_env_getter(self.image)
-        else:
-            return {}
 
     def get_task_volumes(self):
         task_vol_getter = getattr(self.task, "get_docker_volumes", None)

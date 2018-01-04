@@ -13,12 +13,14 @@ import sys
 import getpass
 from abc import ABCMeta, abstractmethod, abstractproperty
 from contextlib import contextmanager
+from fnmatch import fnmatch
 
 import luigi
 import six
 
 from law.task.base import Task, ProxyTask
 from law.target.local import LocalDirectoryTarget
+from law.config import Config
 from law.parser import global_cmdline_args
 from law.util import colored, multi_match, mask_struct, map_struct, interruptable_popen
 
@@ -113,6 +115,29 @@ class Sandbox(object):
 
         return interruptable_popen(cmd, shell=True, executable="/bin/bash", stdout=stdout,
             stderr=stderr, env=self.env)
+
+    def get_config_env(self, section, default_section):
+        cfg = Config.instance()
+        env = {}
+
+        section = section if cfg.has_section(section) else default_section
+
+        for name, value in cfg.items(section):
+            if "*" in name or "?" in name:
+                names = [key for key in os.environ.keys() if fnmatch(key, name)]
+            else:
+                names = [name]
+            for name in names:
+                env[name] = value if value is not None else os.environ.get(name, "")
+
+        return env
+
+    def get_task_env(self, getter, *args, **kwargs):
+        task_env_getter = getattr(self.task, getter, None)
+        if callable(task_env_getter):
+            return task_env_getter(*args, **kwargs)
+        else:
+            return {}
 
 
 class SandboxProxy(ProxyTask):
