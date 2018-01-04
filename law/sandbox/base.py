@@ -139,6 +139,24 @@ class Sandbox(object):
         else:
             return {}
 
+    def get_config_volumes(self, section, default_section):
+        cfg = Config.instance()
+        vols = {}
+
+        section = section if cfg.has_section(section) else default_section
+
+        for hdir, cdir in cfg.items(section):
+            vols[os.path.expandvars(os.path.expanduser(hdir))] = cdir
+
+        return vols
+
+    def get_task_volumes(self, getter, *args, **kwargs):
+        task_vol_getter = getattr(self.task, getter, None)
+        if callable(task_vol_getter):
+            return task_vol_getter(*args, **kwargs)
+        else:
+            return {}
+
 
 class SandboxProxy(ProxyTask):
 

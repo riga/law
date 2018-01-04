@@ -211,23 +211,11 @@ class DockerSandbox(Sandbox):
         return super(DockerSandbox, self).get_task_env("get_docker_env")
 
     def get_config_volumes(self):
-        cfg = Config.instance()
-        vols = {}
-
-        section = "docker_volumes_" + self.image
-        section = section if cfg.has_section(section) else "docker_volumes"
-
-        for hdir, cdir in cfg.items(section):
-            vols[os.path.expandvars(os.path.expanduser(hdir))] = cdir
-
-        return vols
+        return super(DockerSandbox, self).get_config_volumes("docker_volumes_" + self.image,
+            "docker_volumes")
 
     def get_task_volumes(self):
-        task_vol_getter = getattr(self.task, "get_docker_volumes", None)
-        if callable(task_vol_getter):
-            return task_vol_getter(self.image)
-        else:
-            return {}
+        return super(DockerSandbox, self).get_task_volumes("get_docker_volumes")
 
     def get_host_ip(self):
         # the ip should be identical across docker versions
