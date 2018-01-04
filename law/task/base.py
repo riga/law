@@ -40,9 +40,6 @@ class BaseRegister(luigi.task_register.Register):
         return super(BaseRegister, metacls).__new__(metacls, classname, bases, classdict)
 
 
-_common_params_cache = {}
-
-
 @six.add_metaclass(BaseRegister)
 class BaseTask(luigi.Task):
 
@@ -75,7 +72,7 @@ class BaseTask(luigi.Task):
     @classmethod
     def req_params(cls, inst, _exclude=None, _prefer_cli=None, **kwargs):
         # common/intersection params
-        params = cls._common_params(cls, inst)
+        params = luigi.util.common_params(inst, cls)
 
         # determine parameters to exclude
         _exclude = set() if _exclude is None else set(make_list(_exclude))
@@ -105,15 +102,6 @@ class BaseTask(luigi.Task):
                     del params[name]
 
         return params
-
-    @staticmethod
-    def _common_params(cls, inst):
-        key = tuple(sorted([inst.__class__, cls]))
-
-        if key not in _common_params_cache:
-            _common_params_cache[key] = luigi.util.common_params(inst, cls)
-
-        return _common_params_cache[key]
 
     def walk_deps(self, max_depth=-1, order="level"):
         # see https://en.wikipedia.org/wiki/Tree_traversal
