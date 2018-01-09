@@ -6,7 +6,7 @@ Custom luigi file system and target objects.
 
 
 __all__ = ["FileSystem", "FileSystemFileTarget", "FileSystemDirectoryTarget",
-           "get_path", "get_scheme", "add_scheme", "remove_scheme"]
+           "get_path", "get_scheme", "has_scheme", "add_scheme", "remove_scheme"]
 
 
 import os
@@ -31,7 +31,7 @@ class FileSystem(luigi.target.FileSystem):
         return create_hash(self.__class__.__name__ + self.abspath(path))
 
     def dirname(self, path):
-        return os.path.dirname(path) if path != "/" else None
+        return os.path.dirname(self.abspath(path)) if path != "/" else None
 
     def basename(self, path):
         return os.path.basename(path) if path != "/" else "/"
@@ -283,14 +283,21 @@ FileSystemTarget.directory_class = FileSystemDirectoryTarget
 def get_path(target):
     return target.path if isinstance(target, FileSystemTarget) else target
 
+
 def get_scheme(path):
     # ftp://path/to/file -> ftp
     # /path/to/file -> None
     return six.moves.urllib_parse.urlparse(path).scheme or None
 
+
+def has_scheme(path):
+    return get_scheme(path) is not None
+
+
 def add_scheme(path, scheme):
     # adds a scheme to a path, if it does not already contain one
-    return "{}://{}".format(scheme, path) if not get_scheme(path) else path
+    return "{}://{}".format(scheme, path) if not has_scheme(path) else path
+
 
 def remove_scheme(path):
     # ftp://path/to/file -> /path/to/file

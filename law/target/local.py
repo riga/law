@@ -22,7 +22,7 @@ import luigi
 import six
 
 from law.target.file import FileSystem, FileSystemTarget, FileSystemFileTarget, \
-    FileSystemDirectoryTarget, get_path
+    FileSystemDirectoryTarget, get_path, get_scheme, remove_scheme
 from law.target.formatter import find_formatter
 from law.config import Config
 
@@ -31,20 +31,24 @@ class LocalFileSystem(FileSystem):
 
     default_instance = None
 
+    def _unscheme(self, path):
+        return remove_scheme(path) if get_scheme(path) == "file" else path
+
     def abspath(self, path):
-        return os.path.abspath(path)
+        return os.path.abspath(self._unscheme(path))
 
     def exists(self, path):
-        return os.path.exists(path)
+        return os.path.exists(self._unscheme(path))
 
     def stat(self, path, **kwargs):
-        return os.stat(path)
+        return os.stat(self._unscheme(path))
 
     def chmod(self, path, perm, silent=True, **kwargs):
         if perm is not None and (not silent or self.exists(path)):
-            os.chmod(path, perm)
+            os.chmod(self._unscheme(path), perm)
 
     def remove(self, path, recursive=True, silent=True, **kwargs):
+        path = self._unscheme(path)
         if not silent or self.exists(path):
             if self.isdir(path):
                 if recursive:
@@ -62,7 +66,9 @@ class LocalFileSystem(FileSystem):
                 orig = os.umask(0)
 
             try:
-                args = (path,) if perm is None else (path, perm)
+                args = (self._unscheme(path),)
+                if perm is not None:
+                    args += (perm,)
                 (os.makedirs if recursive else os.mkdir)(*args)
                 self.chmod(path, perm)
             finally:
@@ -70,6 +76,7 @@ class LocalFileSystem(FileSystem):
                     os.umask(orig)
 
     def listdir(self, path, pattern=None, type=None, **kwargs):
+        path = self._unscheme(path)
         elems = os.listdir(path)
 
         # apply pattern filter
@@ -86,7 +93,7 @@ class LocalFileSystem(FileSystem):
 
     def walk(self, path, max_depth=-1, **kwargs):
         # mimic os.walk with a max_depth and yield the current depth
-        search_dirs = [(path, 0)]
+        search_dirs = [(self._unscheme(path), 0)]
         while search_dirs:
             (search_dir, depth) = search_dirs.pop(0)
 
@@ -110,7 +117,10 @@ class LocalFileSystem(FileSystem):
             search_dirs.extend((os.path.join(search_dir, d), depth + 1) for d in dirs)
 
     def glob(self, pattern, cwd=None, **kwargs):
+        pattern = self._unscheme(pattern)
+
         if cwd is not None:
+            cwd = self._unscheme(cwd)
             pattern = os.path.join(cwd, pattern)
 
         elems = glob.glob(pattern)
@@ -122,6 +132,9 @@ class LocalFileSystem(FileSystem):
         return elems
 
     def copy(self, src, dst, dir_perm=None, **kwargs):
+        src = self._unscheme(src)
+        dst = self._unscheme(dst)
+
         # dst might be an existing directory
         if self.isdir(dst):
             dst = os.path.join(dst, os.path.basename(src))
@@ -137,6 +150,9 @@ class LocalFileSystem(FileSystem):
         return dst
 
     def move(self, src, dst, dir_perm=None, **kwargs):
+        src = self._unscheme(src)
+        dst = self._unscheme(dst)
+
         # dst might be an existing directory
         if self.isdir(dst):
             # add src basename to dst
@@ -153,13 +169,13 @@ class LocalFileSystem(FileSystem):
         return dst
 
     def open(self, path, mode, **kwargs):
-        return open(path, mode)
+        return open(self._unscheme(path), mode)
 
     def load(self, path, formatter, *args, **kwargs):
-        return find_formatter(path, formatter).load(path, *args, **kwargs)
+        return find_formatter(path, formatter).load(self._unscheme(path), *args, **kwargs)
 
     def dump(self, path, formatter, *args, **kwargs):
-        return find_formatter(path, formatter).dump(path, *args, **kwargs)
+        return find_formatter(path, formatter).dump(self._unscheme(path), *args, **kwargs)
 
 
 LocalFileSystem.default_instance = LocalFileSystem()
@@ -194,7 +210,7 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
                     is_tmp = "." + is_tmp
                 path += is_tmp
         else:
-            path = self.fs.abspath(os.path.expandvars(os.path.expanduser(path)))
+            path = self.fs.abspath(os.path.expandvars(os.path.expanduser(remove_scheme(path))))
 
         luigi.LocalTarget.__init__(self, path=path, is_tmp=is_tmp)
         FileSystemTarget.__init__(self, self.path)

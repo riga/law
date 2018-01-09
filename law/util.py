@@ -7,7 +7,7 @@ Helpful utility functions.
 
 __all__ = ["law_base", "printerr", "abort", "colored", "query_choice", "multi_match", "make_list",
            "flatten", "which", "map_struct", "mask_struct", "tmp_file", "interruptable_popen",
-           "create_hash"]
+           "create_hash", "copy_no_perm"]
 
 
 import os
@@ -19,6 +19,7 @@ import tempfile
 import subprocess
 import signal
 import hashlib
+import shutil
 from contextlib import contextmanager
 
 import six
@@ -372,3 +373,13 @@ def create_hash(inp, l=10, algo="sha256"):
     string representation of *inp* is used.
     """
     return getattr(hashlib, algo)(str(inp)).hexdigest()[:l]
+
+
+def copy_no_perm(src, dst):
+    """
+    Copies a file from *src* to *dst* including meta data except for permission bits.
+    """
+    shutil.copy(src, dst)
+    perm = os.stat(dst).st_mode
+    shutil.copystat(src, dst)
+    os.chmod(dst, perm)

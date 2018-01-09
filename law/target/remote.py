@@ -27,10 +27,10 @@ import six
 
 from law.config import Config
 from law.target.file import FileSystem, FileSystemTarget, FileSystemFileTarget, \
-    FileSystemDirectoryTarget, get_path, get_scheme, add_scheme, remove_scheme
+    FileSystemDirectoryTarget, get_path, get_scheme, has_scheme, add_scheme, remove_scheme
 from law.target.local import LocalFileSystem, LocalFileTarget
 from law.target.formatter import find_formatter
-from law.util import make_list
+from law.util import make_list, copy_no_perm
 
 try:
     import gfal2
@@ -59,6 +59,9 @@ except ImportError:
             raise Exception("trying to access 'gfal2.{}', but gfal2 is not installed".format(attr))
 
     gfal2 = gfal2Dummy()
+
+
+_local_fs = LocalFileSystem.default_instance
 
 
 def retry(func):
@@ -206,12 +209,12 @@ class GFALInterface(object):
     @retry
     def mkdir(self, path, perm):
         with self.context() as ctx:
-            return ctx.mkdir(self.url(path, "mkdir"), perm or 0o0660)
+            return ctx.mkdir(self.url(path, "mkdir"), perm or 0o0770)
 
     @retry
     def mkdir_rec(self, path, perm):
         with self.context() as ctx:
-            return ctx.mkdir_rec(self.url(path, "mkdir_rec"), perm or 0o0660)
+            return ctx.mkdir_rec(self.url(path, "mkdir_rec"), perm or 0o0770)
 
     @retry
     def listdir(self, path):
@@ -507,8 +510,6 @@ atexit.register(RemoteCache.cleanup_all)
 
 class RemoteFileSystem(FileSystem):
 
-    _local_fs = LocalFileSystem.default_instance
-
     def __init__(self, base, bases=None, gfal_options=None, transfer_config=None,
                  atomic_contexts=False, retry=0, retry_delay=0, permissions=True,
                  validate_copy=False, cache_config=None):
@@ -692,7 +693,7 @@ class RemoteFileSystem(FileSystem):
         self.gfal.filecopy(src, dst, **kwargs)
 
         if validate:
-            fs = self if not self.is_local(dst) else self._local_fs
+            fs = self if not self.is_local(dst) else _local_fs
             if not fs.exists(dst):
                 raise Exception("validation failed after copying {} to {}".format(src, dst))
 
@@ -722,8 +723,10 @@ class RemoteFileSystem(FileSystem):
             raise Exception("copy destination must not be empty when caching is disabled")
 
         # paths including scheme and base
-        full_src = self.gfal.url(src, cmd="filecopy")
-        full_dst = self.gfal.url(dst, cmd="filecopy") if dst else None
+        full_src = src if has_scheme(src) else self.gfal.url(src, cmd="filecopy")
+        full_dst = None
+        if dst:
+            full_dst = dst if has_scheme(dst) else self.gfal.url(dst, cmd="filecopy")
 
         if cache:
             # handle 3 cases: lr, rl, rc
@@ -739,7 +742,7 @@ class RemoteFileSystem(FileSystem):
                     self.cache.remove(dst)
 
                 # allocate cache space and copy to cache
-                lstat = self._local_fs.stat(remove_scheme(src))
+                lstat = _local_fs.stat(src)
                 self.cache.allocate(lstat.st_size)
                 full_cdst = add_scheme(self.cache.cache_path(dst), "file")
                 with self.cache.lock(dst):
@@ -766,9 +769,9 @@ class RemoteFileSystem(FileSystem):
 
                 if mode == "rc":
                     return full_csrc
-                else:
-                    # copy to local
-                    self._atomic_copy(full_csrc, full_dst, validate=False)
+                else: # rl
+                    # copy to local without permission bits
+                    copy_no_perm(remove_scheme(full_csrc), remove_scheme(full_dst))
                     return dst
 
         else:
@@ -781,14 +784,14 @@ class RemoteFileSystem(FileSystem):
         # dst might be an existing directory
         if dst:
             if self.is_local(dst):
-                if self._local_fs.isdir(dst):
+                if _local_fs.exists(dst) and _local_fs.isdir(dst):
                     # add src basename to dst
                     dst = os.path.join(dst, os.path.basename(src))
                 else:
                     # create missing dirs
-                    dst_dir = self._local_fs.dirname(dst)
-                    if dst_dir and not self._local_fs.exists(dst_dir):
-                        self._local_fs.mkdir(dst_dir, dir_perm=dir_perm, recursive=True)
+                    dst_dir = _local_fs.dirname(dst)
+                    if dst_dir and not _local_fs.exists(dst_dir):
+                        _local_fs.mkdir(dst_dir, dir_perm=dir_perm, recursive=True)
             else:
                 rstat = self.exists(dst, stat=True)
                 if rstat and stat.S_ISDIR(rstat.st_mode):
@@ -812,7 +815,7 @@ class RemoteFileSystem(FileSystem):
 
         # remove the src
         if self.is_local(src):
-            self._local_fs.remove(src)
+            _local_fs.remove(src)
         else:
             self.remove(src, **kwargs)
 
@@ -916,22 +919,20 @@ class RemoteFileTarget(RemoteTarget, FileSystemFileTarget):
 
     def copy_to_local(self, dst=None, dir_perm=None, **kwargs):
         if dst:
-            dst = add_scheme(get_path(dst), "file")
+            dst = add_scheme(_local_fs.abspath(get_path(dst)), "file")
         return super(RemoteFileTarget, self).copy_to(dst, dir_perm=dir_perm, **kwargs)
 
     def copy_from_local(self, src=None, dir_perm=None, **kwargs):
-        if src:
-            src = add_scheme(get_path(src), "file")
+        src = add_scheme(_local_fs.abspath(get_path(src)), "file")
         return super(RemoteFileTarget, self).copy_from(src, dir_perm=dir_perm, **kwargs)
 
     def move_to_local(self, dst=None, dir_perm=None, **kwargs):
         if dst:
-            dst = add_scheme(get_path(dst), "file")
+            dst = add_scheme(_local_fs.abspath(get_path(dst)), "file")
         return super(RemoteFileTarget, self).move_to(dst, dir_perm=dir_perm, **kwargs)
 
     def move_from_local(self, src=None, dir_perm=None, **kwargs):
-        if src:
-            src = add_scheme(get_path(src), "file")
+        src = add_scheme(_local_fs.abspath(get_path(src)), "file")
         return super(RemoteFileTarget, self).move_from(src, dir_perm=dir_perm, **kwargs)
 
     @contextmanager
@@ -950,8 +951,7 @@ class RemoteFileTarget(RemoteTarget, FileSystemFileTarget):
                 yield tmp
 
                 if tmp.exists():
-                    self.copy_from_local(tmp, dir_perm=dir_perm, **kwargs)
-                    self.fs.copy(self.fs())
+                    self.copy_from_local(tmp, dir_perm=parent_perm, **kwargs)
                     self.chmod(perm)
             finally:
                 del tmp

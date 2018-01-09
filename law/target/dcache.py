@@ -41,7 +41,7 @@ class DCacheFileSystem(RemoteFileSystem):
         kwargs.setdefault("transfer_config", {"checksum_check": False})
         kwargs.setdefault("validate_copy", False)
         kwargs.setdefault("cache_config", {})
-        kwargs.setdefault("reset_context", True)
+        kwargs.setdefault("atomic_contexts", True)
         kwargs.setdefault("permissions", False)
 
         super(DCacheFileSystem, self).__init__(base, bases, **kwargs)
