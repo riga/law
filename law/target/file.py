@@ -193,6 +193,17 @@ class FileSystemFileTarget(FileSystemTarget):
 
         self.chmod(perm, **kwargs)
 
+    def open(self, mode, **kwargs):
+        return self.fs.open(self.path, mode, **kwargs)
+
+    def load(self, *args, **kwargs):
+        formatter = kwargs.pop("_formatter" if "_formatter" in kwargs else "formatter", "auto")
+        return self.fs.load(self.path, formatter, *args, **kwargs)
+
+    def dump(self, *args, **kwargs):
+        formatter = kwargs.pop("_formatter" if "_formatter" in kwargs else "formatter", "auto")
+        return self.fs.dump(self.path, formatter, *args, **kwargs)
+
     def copy_to(self, dst, dir_perm=None, **kwargs):
         return self.fs.copy(self.path, get_path(dst), dir_perm=dir_perm, **kwargs)
 
@@ -205,16 +216,21 @@ class FileSystemFileTarget(FileSystemTarget):
     def move_from(self, src, dir_perm=None, **kwargs):
         return self.fs.move(get_path(src), self.path, dir_perm=dir_perm, **kwargs)
 
-    def open(self, mode, **kwargs):
-        return self.fs.open(self.path, mode, **kwargs)
+    @abstractmethod
+    def copy_to_local(self, *args, **kwargs):
+        pass
 
-    def load(self, *args, **kwargs):
-        formatter = kwargs.pop("_formatter" if "_formatter" in kwargs else "formatter", "auto")
-        return self.fs.load(self.path, formatter, *args, **kwargs)
+    @abstractmethod
+    def copy_from_local(self, *args, **kwargs):
+        pass
 
-    def dump(self, *args, **kwargs):
-        formatter = kwargs.pop("_formatter" if "_formatter" in kwargs else "formatter", "auto")
-        return self.fs.dump(self.path, formatter, *args, **kwargs)
+    @abstractmethod
+    def move_to_local(self, *args, **kwargs):
+        pass
+
+    @abstractmethod
+    def move_from_local(self, *args, **kwargs):
+        pass
 
     @abstractmethod
     @contextmanager

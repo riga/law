@@ -202,6 +202,18 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
 
 class LocalFileTarget(LocalTarget, FileSystemFileTarget):
 
+    def copy_to_local(self, *args, **kwargs):
+        return self.copy_to(*args, **kwargs)
+
+    def copy_from_local(self, *args, **kwargs):
+        return self.copy_from_local(*args, **kwargs)
+
+    def move_to_local(self, *args, **kwargs):
+        return self.move_to_local(*args, **kwargs)
+
+    def move_from_local(self, *args, **kwargs):
+        return self.move_from_local(*args, **kwargs)
+
     @contextmanager
     def localize(self, mode="r", perm=None, parent_perm=None, **kwargs):
         """ localize(mode="r", perm=None, parent_perm=None, skip_copy=False, is_tmp=None, **kwargs)
