@@ -45,6 +45,7 @@ from law.sandbox.base import SandboxTask
 import law.sandbox.docker
 import law.sandbox.bash
 from law.workflow.local import LocalWorkflow
+import law.job.base
 
 
 # register exit function
