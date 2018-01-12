@@ -7,7 +7,7 @@ Helpful utility functions.
 
 __all__ = ["law_base", "printerr", "abort", "colored", "query_choice", "multi_match", "make_list",
            "flatten", "which", "map_struct", "mask_struct", "tmp_file", "interruptable_popen",
-           "create_hash", "copy_no_perm"]
+           "create_hash", "copy_no_perm", "iter_chunks"]
 
 
 import os
@@ -20,6 +20,7 @@ import subprocess
 import signal
 import hashlib
 import shutil
+import types
 from contextlib import contextmanager
 
 import six
@@ -383,3 +384,33 @@ def copy_no_perm(src, dst):
     perm = os.stat(dst).st_mode
     shutil.copystat(src, dst)
     os.chmod(dst, perm)
+
+
+def iter_chunks(l, size):
+    """
+    Returns a generator containing chunks of *size* of a list, integer or generator *l*. A *size*
+    smaller than 1 results in no chunking at all.
+    """
+    if isinstance(l, six.integer_types):
+        l = six.range(l)
+
+    if isinstance(l, types.GeneratorType):
+        if size < 1:
+            yield list(l)
+        else:
+            chunk = []
+            for elem in l:
+                if len(chunk) < size:
+                    chunk.append(elem)
+                else:
+                    yield chunk
+                    chunk = []
+            if chunk:
+                yield chunk
+
+    else:
+        if size < 1:
+            yield l
+        else:
+            for i in six.moves.range(0, len(l), size):
+                yield l[i:i+size]
