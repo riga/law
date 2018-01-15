@@ -21,7 +21,7 @@ import six
 
 from law.parameter import NO_STR, NO_INT, TaskInstanceParameter, CSVParameter
 from law.parser import global_cmdline_values
-from law.util import abort, colored, make_list, query_choice, multi_match
+from law.util import abort, colored, uncolored, make_list, query_choice, multi_match
 
 
 class BaseRegister(luigi.task_register.Register):
@@ -204,6 +204,7 @@ class Task(BaseTask):
         sys.stdout.flush()
 
         # add to message cache and handle overflow
+        msg = uncolored(msg)
         self._message_cache.append(msg)
         if self._message_cache_size >= 0:
             self._message_cache[:] = self._message_cache[-self._message_cache_size:]

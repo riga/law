@@ -83,8 +83,8 @@ class Workflow(Task):
     outputs_siblings = False
 
     exclude_db = True
-    exclude_params_branch = {"workflow", "acceptance", "tolerance", "pilot", "start_branch",
-        "end_branch", "branches"}
+    exclude_params_branch = {"print_deps", "print_status", "remove_output", "workflow",
+        "acceptance", "tolerance", "pilot", "start_branch", "end_branch", "branches"}
     exclude_params_workflow = {"branch"}
 
     def __init__(self, *args, **kwargs):
