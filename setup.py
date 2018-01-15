@@ -62,7 +62,7 @@ setup(
     description = law.__doc__.strip(),
     license = law.__license__,
     url = law.__contact__,
-    keywords = keywords,
+    keywords = " ".join(keywords),
     classifiers = classifiers,
     long_description = long_description,
     install_requires = install_requires,
@@ -82,7 +82,7 @@ setup(
         "law.examples",
     ],
     package_data = {
-        "": ["LICENSE", "requirements.txt", "README.md"],
+        "": ["LICENSE", "requirements.txt"],
         "law": ["completion.sh"],
         "law.contrib.workflow.glite": ["*.sh"],
     },
