@@ -67,9 +67,9 @@ _local_fs = LocalFileSystem.default_instance
 def retry(func):
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
-        retry = kwargs.pop("retry", None)
-        if retry is None:
-            retry = self.retry
+        retries = kwargs.pop("retries", None)
+        if retries is None:
+            retries = self.retries
 
         delay = kwargs.pop("retry_delay", None)
         if delay is None:
@@ -82,7 +82,7 @@ def retry(func):
                     return func(self, *args, **kwargs)
                 except gfal2.GError as e:
                     attempt += 1
-                    if attempt > retry:
+                    if attempt > retries:
                         raise e
                     else:
                         time.sleep(delay)
@@ -97,7 +97,7 @@ def retry(func):
 class GFALInterface(object):
 
     def __init__(self, base, bases=None, gfal_options=None, transfer_config=None,
-                 atomic_contexts=False, retry=0, retry_delay=0):
+                 atomic_contexts=False, retries=0, retry_delay=0):
         super(GFALInterface, self).__init__()
 
         # cache for gfal context objects and transfer parameters per pid for thread safety
@@ -119,7 +119,7 @@ class GFALInterface(object):
 
         # other configs
         self.atomic_contexts = atomic_contexts
-        self.retry = retry
+        self.retries = retries
         self.retry_delay = retry_delay
 
     def __del__(self):
@@ -511,13 +511,13 @@ atexit.register(RemoteCache.cleanup_all)
 class RemoteFileSystem(FileSystem):
 
     def __init__(self, base, bases=None, gfal_options=None, transfer_config=None,
-                 atomic_contexts=False, retry=0, retry_delay=0, permissions=True,
+                 atomic_contexts=False, retries=0, retry_delay=0, permissions=True,
                  validate_copy=False, cache_config=None):
         super(RemoteFileSystem, self).__init__()
 
         # configure the gfal interface
         self.gfal = GFALInterface(base, bases, gfal_options=gfal_options,
-            transfer_config=transfer_config, atomic_contexts=atomic_contexts, retry=retry,
+            transfer_config=transfer_config, atomic_contexts=atomic_contexts, retries=retries,
             retry_delay=retry_delay)
 
         # store other configs
@@ -579,9 +579,10 @@ class RemoteFileSystem(FileSystem):
             is_dir = self.isdir(path, **kwargs)
         except gfal2.GError:
             # path might not exist
-            if not silent:
+            if silent:
+                return
+            else:
                 raise
-            return
 
         if not is_dir:
             # remove the file

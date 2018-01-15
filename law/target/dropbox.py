@@ -44,7 +44,7 @@ class DropboxFileSystem(RemoteFileSystem):
         }
 
         # default configs
-        kwargs.setdefault("retry", 1)
+        kwargs.setdefault("retries", 1)
         kwargs.setdefault("retry_delay", 5)
         kwargs.setdefault("transfer_config", {"checksum_check": False})
         kwargs.setdefault("validate_copy", False)
