@@ -6,7 +6,7 @@ Helpers for working with the Worldwide LHC Computing Grid.
 
 
 __all__ = ["get_voms_proxy_user", "get_voms_proxy_lifetime", "get_voms_proxy_vo",
-           "renew_voms_proxy", "delegate_voms_proxy_glite"]
+           "renew_voms_proxy", "delegate_voms_proxy_glite", "get_ce_endpoint"]
 
 
 import os
@@ -15,6 +15,8 @@ import re
 import subprocess
 import uuid
 import json
+
+import six
 
 from law.util import interruptable_popen, tmp_file, create_hash
 
@@ -66,15 +68,16 @@ def delegate_voms_proxy_glite(endpoint, stdout=None, stderr=None, cache=True):
         raise Exception("proxy file '{}' does not exist".format(proxy_file))
 
     if cache:
-        if isinstance(cache, str):
+        if isinstance(cache, six.string_types):
             cache_file = cache
         else:
             cache_file = proxy_file + "_delegation_cache.json"
 
         def remove_cache():
             try:
-                os.remove(cache_file)
-            except:
+                if os.path.exists(cache_file):
+                    os.remove(cache_file)
+            except OSError:
                 pass
 
         # create the hash of the proxy file content
@@ -94,6 +97,7 @@ def delegate_voms_proxy_glite(endpoint, stdout=None, stderr=None, cache=True):
         if cache_data.get("hash") != proxy_hash:
             remove_cache()
             cache_data = {}
+
         # proxy already delegated to that endpoint?
         elif endpoint in cache_data.get("ids", []):
             return str(cache_data["ids"][endpoint])
@@ -103,7 +107,7 @@ def delegate_voms_proxy_glite(endpoint, stdout=None, stderr=None, cache=True):
     cmd = ["glite-ce-delegate-proxy", "-e", endpoint, delegation_id]
     code = interruptable_popen(cmd, stdout=stdout, stderr=stderr)[0]
     if code != 0:
-        raise Exception("proxy delegation with glite to endpoint {} failed".format(endpoint))
+        raise Exception("glite proxy delegation to endpoint {} failed".format(endpoint))
 
     if cache:
         # write the id back to the delegation file
@@ -113,3 +117,7 @@ def delegate_voms_proxy_glite(endpoint, stdout=None, stderr=None, cache=True):
             json.dump(cache_data, f, indent=4)
 
     return delegation_id
+
+
+def get_ce_endpoint(ce):
+    return ce.split("/", 1)[0]
