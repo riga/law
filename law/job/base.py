@@ -37,11 +37,6 @@ class JobManager(object):
         UNKNOWN: ({"color": "red", "style": "bright"}, {}),
     }
 
-    def __init__(self):
-        super(JobManager, self).__init__()
-
-        self._last_status_counts = 6 * (0,)
-
     @abstractmethod
     def submit(self, *args, **kwargs):
         pass
@@ -74,29 +69,20 @@ class JobManager(object):
     def query_batch(self, *args, **kwargs):
         pass
 
-    def status_line(self, counts, last_counts=None, timestamp=True, diffs=True, align=False,
+    @classmethod
+    def status_line(cls, counts, last_counts=None, timestamp=True, align=False,
         color=False):
         # check last counts
-        err = "5 or 6 {}status counts expected, got {}"
-        if last_counts:
-            if len(last_counts) == 5:
-                last_counts += (0,)
-            elif len(last_counts) != 6:
-                raise Exception(err.format("last ", len(last_counts)))
-        else:
-            last_counts = self._last_status_counts
+        if last_counts and len(last_counts) != 6:
+            raise Exception("6 last status counts expected, got {}".format(len(last_counts)))
 
         # check current counts
-        show_unknown = True
-        if len(counts) == 5:
-            counts += (0,)
-            show_unknown = False
-        elif len(counts) != 6:
-            raise Exception(err.format("", len(counts)))
+        if len(counts) != 6:
+            raise Exception("6 status counts expected, got {}".format(len(counts)))
 
         # calculate differences
-        if diffs:
-            _diffs = tuple(n - m for n, m in zip(counts, last_counts))
+        if last_counts:
+            diffs = tuple(n - m for n, m in zip(counts, last_counts))
 
         # number formatting
         if isinstance(align, bool) or not isinstance(align, six.integer_types):
@@ -109,21 +95,16 @@ class JobManager(object):
         if timestamp:
             line += "{}: ".format(time.strftime("%H:%M:%S"))
         line += "all: " + count_fmt % sum(counts)
-        for i, (status, count) in enumerate(zip(self.status_names, counts)):
-            if status == self.UNKNOWN and not show_unknown:
-                continue
-
+        for i, (status, count) in enumerate(zip(cls.status_names, counts)):
             count = count_fmt % count
             if color:
                 count = colored(count, style="bright")
             line += ", {}: {}".format(status, count)
 
-            if diffs:
-                diff = diff_fmt % _diffs[i]
+            if last_counts:
+                diff = diff_fmt % diffs[i]
                 if color:
-                    diff = colored(diff, **self.status_diff_colors[status][_diffs[i] < 0])
+                    diff = colored(diff, **cls.status_diff_colors[status][diffs[i] < 0])
                 line += " ({})".format(diff)
-
-        self._last_status_counts = counts
 
         return line
