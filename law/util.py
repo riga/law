@@ -5,9 +5,9 @@ Helpful utility functions.
 """
 
 
-__all__ = ["law_base", "printerr", "abort", "colored", "query_choice", "multi_match", "make_list",
-           "flatten", "which", "map_struct", "mask_struct", "tmp_file", "interruptable_popen",
-           "create_hash", "copy_no_perm", "iter_chunks"]
+__all__ = ["law_base", "printerr", "abort", "colored", "uncolored", "query_choice", "multi_match",
+           "make_list", "flatten", "which", "map_struct", "mask_struct", "tmp_file",
+           "interruptable_popen", "create_hash", "copy_no_perm", "iter_chunks"]
 
 
 import os
@@ -91,6 +91,8 @@ styles = {
     "underline": 4
 }
 
+uncolor_cre = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
+
 def colored(msg, color=None, background=None, style=None, force=False):
     """
     Return the colored version of a string *msg*. *color*'s: red, green, yellow, blue, pink,
@@ -112,6 +114,10 @@ def colored(msg, color=None, background=None, style=None, force=False):
     style = ";".join(str(styles.get(s, styles["none"])) for s in style)
 
     return "\033[{};{};{}m{}\033[0m".format(style, background, color, msg)
+
+
+def uncolored(msg):
+    return uncolor_cre.sub("", msg)
 
 
 def query_choice(msg, choices, default=None, descriptions=None, lower=True):
