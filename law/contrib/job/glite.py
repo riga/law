@@ -12,15 +12,18 @@ import os
 import sys
 import time
 import re
+import random
 import subprocess
 import tempfile
 import shutil
+from fnmatch import fnmatch
 from multiprocessing.pool import ThreadPool
+
+import six
 
 from law.job.base import JobManager
 from law.target.file import add_scheme
-from law.util import interruptable_popen, iter_chunks, make_list
-from law.contrib.util.wlcg import delegate_voms_proxy_glite
+from law.util import interruptable_popen, iter_chunks, make_list, multi_match
 
 
 class GLiteJobManager(JobManager):
@@ -39,13 +42,6 @@ class GLiteJobManager(JobManager):
         self.threads = threads
 
     @classmethod
-    def delegate_proxy(cls, mode, *args, **kwargs):
-        if mode.lower() == "wlcg":
-            return delegate_voms_proxy_glite(*args, **kwargs)
-        else:
-            raise ValueError("unknown delegation mode: {}".format(mode))
-
-    @classmethod
     def map_status(cls, status):
         # see https://wiki.italiangrid.it/twiki/bin/view/CREAM/UserGuide#4_CREAM_job_states
         if status in ("REGISTERED", "PENDING", "IDLE", "HELD"):
@@ -59,11 +55,7 @@ class GLiteJobManager(JobManager):
         else:
             return cls.UNKNOWN
 
-    @property
-    def endpoint(self):
-        return self.ce and self.ce.split("/", 1)[0]
-
-    def submit(self, job_file, ce=None, delegation_id=None, retry=0, retry_delay=1,
+    def submit(self, job_file, ce=None, delegation_id=None, retries=0, retry_delay=5,
         silent=False):
         # default arguments
         ce = ce or self.ce
@@ -73,14 +65,23 @@ class GLiteJobManager(JobManager):
         if not ce:
             raise ValueError("ce must not be empty")
 
-        # build the command
-        cmd = ["glite-ce-job-submit", "-r", ce]
+        # prepare round robin for ces and delegations
+        ce = make_list(ce)
         if delegation_id:
-            cmd += ["-D", delegation_id]
-        cmd += [job_file]
+            delegation_id = make_list(delegation_id)
+            if len(ce) != len(delegation_id):
+                raise Exception("numbers of CEs ({}) and delegation ids ({}) do not match".format(
+                    len(ce), len(delegation_id)))
 
         # define the actual submission in a loop to simplify retries
         while True:
+            # build the command
+            i = random.randint(0, len(ce) - 1)
+            cmd = ["glite-ce-job-submit", "-r", ce[i]]
+            if delegation_id:
+                cmd += ["-D", delegation_id[i]]
+            cmd += [job_file]
+
             # run the command
             # glite prints everything to stdout
             code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=sys.stderr)
@@ -96,8 +97,8 @@ class GLiteJobManager(JobManager):
             if code == 0:
                 return job_id
             else:
-                if retry > 0:
-                    retry -= 1
+                if retries > 0:
+                    retries -= 1
                     time.sleep(retry_delay)
                     continue
                 elif silent:
@@ -105,29 +106,29 @@ class GLiteJobManager(JobManager):
                 else:
                     raise Exception("submission of job '{}' failed:\n{}".format(job_file, out))
 
-    def submit_batch(self, job_files, ce=None, delegation_id=None, retry=0, retry_delay=1,
+    def submit_batch(self, job_files, ce=None, delegation_id=None, retries=0, retry_delay=5,
         silent=False, threads=None):
         # default arguments
         threads = threads or self.threads
 
         # threaded processing
-        kwargs = dict(ce=ce, delegation_id=delegation_id, retry=retry,
-            retry_delay=retry_delay, silent=silent)
+        kwargs = dict(ce=ce, delegation_id=delegation_id, retries=retries, retry_delay=retry_delay,
+            silent=silent)
         pool = ThreadPool(max(threads, 1))
         results = [pool.apply_async(self.submit, (job_file,), kwargs) \
                    for job_file in job_files]
         pool.close()
         pool.join()
 
-        # store submission data per job file
-        submission_data, errors = [], []
+        # store return values or errors
+        outputs = []
         for res in results:
             try:
-                submission_data.append({"job_id": res.get()})
+                outputs.append(res.get())
             except Exception as e:
-                errors.append(e)
+                outputs.append(e)
 
-        return submission_data, errors
+        return outputs
 
     def cancel(self, job_id, silent=False):
         # build the command and run it
@@ -141,7 +142,7 @@ class GLiteJobManager(JobManager):
                 job_id = ", ".join(job_id)
             raise Exception("cancellation of job(s) '{}' failed:\n{}".format(job_id, out))
 
-    def cancel_batch(self, job_ids, silent=False, threads=None):
+    def cancel_batch(self, job_ids, silent=False, threads=None, chunk_size=20):
         # default arguments
         threads = threads or self.threads
 
@@ -149,11 +150,11 @@ class GLiteJobManager(JobManager):
         kwargs = dict(silent=silent)
         pool = ThreadPool(max(threads, 1))
         results = [pool.apply_async(self.cancel, (job_id_chunk,), kwargs) \
-                   for job_id_chunk in iter_chunks(job_ids, 20)]
+                   for job_id_chunk in iter_chunks(job_ids, chunk_size)]
         pool.close()
         pool.join()
 
-        # do not store any data but remember errors
+        # store errors
         errors = []
         for res in results:
             try:
@@ -175,7 +176,7 @@ class GLiteJobManager(JobManager):
                 job_id = ", ".join(job_id)
             raise Exception("purging of job(s) '{}' failed:\n{}".format(job_id, out))
 
-    def purge_batch(self, job_ids, silent=False, threads=None):
+    def purge_batch(self, job_ids, silent=False, threads=None, chunk_size=20):
         # default arguments
         threads = threads or self.threads
 
@@ -183,11 +184,11 @@ class GLiteJobManager(JobManager):
         kwargs = dict(silent=silent)
         pool = ThreadPool(max(threads, 1))
         results = [pool.apply_async(self.purge, (job_id_chunk,), kwargs) \
-                   for job_id_chunk in iter_chunks(job_ids, 20)]
+                   for job_id_chunk in iter_chunks(job_ids, chunk_size)]
         pool.close()
         pool.join()
 
-        # do not store any data but remember errors
+        # store errors
         errors = []
         for res in results:
             try:
@@ -218,10 +219,10 @@ class GLiteJobManager(JobManager):
         status_data = self._parse_query_output(out)
 
         # map back to requested job ids
-        query_data = []
-        for _jid in make_list(job_id):
-            if _jid in status_data:
-                data = status_data[_jid].copy()
+        query_data = {}
+        for _job_id in make_list(job_id):
+            if _job_id in status_data:
+                data = status_data[_job_id].copy()
             elif not multi:
                 if silent:
                     return None
@@ -230,14 +231,14 @@ class GLiteJobManager(JobManager):
                         job_id = ", ".join(job_id)
                     raise Exception("job(s) '{}' not found in status response".format(job_id))
             else:
-                data = self._job_status_dict(job_id=_jid, error="job not found in status response")
+                data = self._job_status_dict(job_id=_job_id, error="job not found in status response")
 
             data["status"] = self.map_status(data["status"])
-            query_data.append(data)
+            query_data[_job_id] = data
 
-        return query_data[0] if not multi else query_data
+        return query_data if multi else query_data[job_id]
 
-    def query_batch(self, job_ids, silent=False, threads=None):
+    def query_batch(self, job_ids, silent=False, threads=None, chunk_size=20):
         # default arguments
         threads = threads or self.threads
 
@@ -245,7 +246,7 @@ class GLiteJobManager(JobManager):
         kwargs = dict(silent=silent)
         pool = ThreadPool(max(threads, 1))
         results = [pool.apply_async(self.query, (job_id_chunk,), kwargs) \
-                   for job_id_chunk in iter_chunks(job_ids, 20)]
+                   for job_id_chunk in iter_chunks(job_ids, chunk_size)]
         pool.close()
         pool.join()
 
@@ -339,6 +340,9 @@ class GLiteJobFile(object):
         self.vo = vo
         self.tmp_dir = tmp_dir or tempfile.mkdtemp()
 
+    def __del__(self):
+        self.cleanup()
+
     def __call__(self, *args, **kwargs):
         return self.create(*args, **kwargs)
 
@@ -348,11 +352,26 @@ class GLiteJobFile(object):
     def __exit__(self, type, value, traceback):
         self.cleanup()
 
+    @classmethod
+    def postfix_file(cls, path, postfix):
+        if postfix:
+            if isinstance(postfix, six.string_types):
+                _postfix = postfix
+            else:
+                basename = os.path.basename(path)
+                for pattern, _postfix in six.iteritems(postfix):
+                    if fnmatch(basename, pattern):
+                        break
+                else:
+                    _postfix = ""
+            path = "{1}{0}{2}".format(_postfix, *os.path.splitext(path))
+        return path
+
     def cleanup(self):
         if self.tmp_dir and os.path.exists(self.tmp_dir):
             shutil.rmtree(self.tmp_dir)
 
-    def create(self, **kwargs):
+    def create(self, postfix=None, render=None, **kwargs):
         # fallback to instance values
         file_name = kwargs.get("file_name", self.file_name)
         executable = kwargs.get("executable", self.executable)
@@ -363,36 +382,75 @@ class GLiteJobFile(object):
         stderr = kwargs.get("stderr", self.stderr)
         vo = kwargs.get("vo", self.vo)
 
-        # some preparations
-        job_file = os.path.join(self.tmp_dir, file_name)
+        # helper to copy, render and prefix an input file
+        def provide_input(path):
+            basename = os.path.basename(path)
+            dest = os.path.join(self.tmp_dir, self.postfix_file(basename, postfix))
+            if render:
+                with open(path, "r") as f:
+                    lines = f.readlines()
+                for pattern, variables in six.iteritems(render):
+                    if fnmatch(basename, pattern):
+                        for key, value in six.iteritems(variables):
+                            lines = [line.replace("{{" + key + "}}", value or "") for line in lines]
+                with open(dest, "w") as f:
+                    for line in lines:
+                        f.write(line)
+            else:
+                shutil.copy2(path, dest)
+            return dest
+
+        # prepare paths
+        job_file = self.postfix_file(os.path.join(self.tmp_dir, file_name), postfix)
         input_files = map(os.path.abspath, input_files)
         abs_executable = os.path.abspath(executable)
-        if os.path.exists(abs_executable) and abs_executable not in input_files:
+        executable_is_file = os.path.exists(abs_executable)
+
+        # prepare input files
+        input_files = [provide_input(path) for path in input_files]
+        if executable_is_file:
+            abs_executable = provide_input(abs_executable)
+            executable = self.postfix_file(executable, postfix)
+
+        # output files
+        stdout = stdout and self.postfix_file(stdout, postfix)
+        stderr = stdout and self.postfix_file(stderr, postfix)
+        output_files = [self.postfix_file(path, postfix) for path in output_files]
+
+        # ensure that executable file and log files are contained in the sandboxes
+        if executable_is_file and abs_executable not in input_files:
             input_files.append(abs_executable)
         if stdout and stdout not in output_files:
             output_files.append(stdout)
         if stderr and stderr not in output_files:
             output_files.append(stderr)
         executable = os.path.basename(executable)
-        input_sandbox = ", ".join('"%s"' % add_scheme(x, "file") for x in input_files)
-        output_sandbox = ", ".join('"%s"' % x for x in output_files)
+
+        # serialize sandboxes into strings
+        input_sandbox = ", ".join("\"%s\"" % add_scheme(x, "file") for x in input_files)
+        output_sandbox = ", ".join("\"%s\"" % x for x in output_files)
+
+        # job file content
+        lines = []
+        lines.append("[")
+        lines.append("    Executable = \"{}\";".format(executable))
+        if input_files:
+            lines.append("    InputSandbox = {{{}}};".format(input_sandbox))
+        if output_files:
+            lines.append("    OutputSandbox = {{{}}};".format(output_sandbox))
+        if output_uri:
+            lines.append("    OutputSandboxBaseDestUri = \"{}\";".format(output_uri))
+        if vo:
+            lines.append("    VirtualOrganisation = \"{}\";".format(vo))
+        if stdout:
+            lines.append("    StdOutput = \"{}\";".format(stdout))
+        if stderr:
+            lines.append("    StdError = \"{}\";".format(stderr))
+        lines.append("]")
 
         # write the job file
         with open(job_file, "w") as f:
-            f.write('[\n')
-            f.write('    Executable = "{}";\n'.format(executable))
-            if input_files:
-                f.write('    InputSandbox = {{{}}};\n'.format(input_sandbox))
-            if output_files:
-                f.write('    OutputSandbox = {{{}}};\n'.format(output_sandbox))
-            if output_uri:
-                f.write('    OutputSandboxBaseDestUri = "{}";\n'.format(output_uri))
-            if vo:
-                f.write('    VirtualOrganisation = "{}";\n'.format(vo))
-            if stdout:
-                f.write('    StdOutput = "{}";\n'.format(stdout))
-            if stderr:
-                f.write('    StdError = "{}";\n'.format(stderr))
-            f.write(']\n')
+            for line in lines:
+                f.write(line + "\n")
 
         return job_file
