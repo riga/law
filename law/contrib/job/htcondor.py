@@ -31,6 +31,7 @@ class HTCondorJobManager(BaseJobManager):
     history_cluster_id_cre = re.compile("^ClusterId\s=\s(\d+)$")
     history_process_id_cre = re.compile("^ProcId\s=\s(\d+)$")
     history_code_cre = re.compile("^ExitCode\s=\s(-?\d+)$")
+    history_reason_cre = re.compile("^RemoveReason\s=\s\"(.*)\"$")
 
     def __init__(self, pool=None, scheduler=None, threads=1):
         super(HTCondorJobManager, self).__init__()
@@ -39,11 +40,11 @@ class HTCondorJobManager(BaseJobManager):
         self.scheduler = scheduler
         self.threads = threads
 
-    def remove(self, *args, **kwargs):
-        raise NotImplementedError("HTCondorJobManager.remove is not implemented")
+    def cleanup(self, *args, **kwargs):
+        raise NotImplementedError("HTCondorJobManager.cleanup is not implemented")
 
-    def remove_batch(self, *args, **kwargs):
-        raise NotImplementedError("HTCondorJobManager.remove_batch is not implemented")
+    def cleanup_batch(self, *args, **kwargs):
+        raise NotImplementedError("HTCondorJobManager.cleanup_batch is not implemented")
 
     def submit(self, job_file, pool=None, scheduler=None, retry_delay=5, silent=False):
         # default arguments
@@ -186,7 +187,7 @@ class HTCondorJobManager(BaseJobManager):
         missing_ids = [_job_id for _job_id in make_list(job_id) if _job_id not in query_data]
         if missing_ids:
             cmd = ["condor_history", user or getpass.getuser()]
-            cmd += ["--long", "--attributes", "ClusterId,ProcId,ExitCode"]
+            cmd += ["--long", "--attributes", "ClusterId,ProcId,ExitCode,RemoveReason"]
             if pool:
                 cmd += ["-pool", pool]
             if scheduler:
@@ -276,23 +277,39 @@ class HTCondorJobManager(BaseJobManager):
                 continue
             blocks[-1].append(line)
 
+        # helper to extract job data from a block
+        attrs = ["cluster_id", "code", "process_id", "reason"]
+        cres = [getattr(cls, "history_%s_cre" % (attr,)) for attr in attrs]
+        def parse_block(block):
+            data = {}
+            for line in block:
+                for attr, cre in six.moves.zip(attrs, cres):
+                    if attr not in data:
+                        m = cre.match(line)
+                        if m:
+                            data[attr] = m.group(1)
+                            break
+            return data
+
         # extract job information per block
         query_data = {}
         for block in blocks:
-            block.sort()
-            m_cluster = cls.history_cluster_id_cre.match(block[0])
-            m_code = cls.history_code_cre.match(block[1])
-            m_process = cls.history_process_id_cre.match(block[2])
-            if not all((m_cluster, m_process, m_code)):
+            data = parse_block(sorted(block))
+
+            if "cluster_id" not in data and "process_id" not in data:
                 continue
 
-            job_id = "{}.{}".format(m_cluster.group(1), m_process.group(1))
-            if job_ids and job_id not in job_ids:
-                continue
-
-            code = int(m_code.group(1))
+            # interpret data
+            job_id = "{cluster_id}.{process_id}".format(**data)
+            code = data.get("code") and int(data["code"])
+            error = data.get("reason")
+            if error and code in (0, None):
+                code = 1
             status = cls.FINISHED if code == 0 else cls.FAILED
-            query_data[job_id] = cls.job_status_dict(job_id=job_id, status=status, code=code)
+
+            # store it
+            query_data[job_id] = cls.job_status_dict(job_id=job_id, status=status, code=code,
+                error=error)
 
         return query_data
 
