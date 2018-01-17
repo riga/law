@@ -82,7 +82,7 @@ setup(
         "law.examples",
     ],
     package_data = {
-        "": ["LICENSE", "requirements.txt"],
+        "": ["LICENSE", "requirements.txt", "README.md"],
         "law": ["completion.sh"],
         "law.contrib.workflow.glite": ["*.sh"],
     },
