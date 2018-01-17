@@ -227,7 +227,7 @@ class GLiteWorkflowProxy(WorkflowProxy):
 
         # purge them
         task.publish_message("going to purge {} jobs".format(len(job_ids)))
-        errors = self.job_manager.remove_batch(job_ids, threads=task.threads)
+        errors = self.job_manager.cleanup_batch(job_ids, threads=task.threads)
 
         # print errors
         if errors:

@@ -23,7 +23,7 @@ from law.job.base import BaseJobManager, BaseJobFile
 from law.util import interruptable_popen, iter_chunks, make_list, multi_match
 
 
-class HTCondorJobManager(JobManager):
+class HTCondorJobManager(BaseJobManager):
 
     submission_job_id_cre = re.compile("^(\d+)\sjob\(s\)\ssubmitted\sto\scluster\s(\d+)\.$")
     status_header_cre = re.compile("^\s*ID\s+.+$")
@@ -39,11 +39,11 @@ class HTCondorJobManager(JobManager):
         self.scheduler = scheduler
         self.threads = threads
 
-    def purge(self, *args, **kwargs):
-        raise NotImplementedError("HTCondorJobManager.purge is not implemented")
+    def remove(self, *args, **kwargs):
+        raise NotImplementedError("HTCondorJobManager.remove is not implemented")
 
-    def purge_batch(self, *args, **kwargs):
-        raise NotImplementedError("HTCondorJobManager.purge_batch is not implemented")
+    def remove_batch(self, *args, **kwargs):
+        raise NotImplementedError("HTCondorJobManager.remove_batch is not implemented")
 
     def submit(self, job_file, pool=None, scheduler=None, retry_delay=5, silent=False):
         # default arguments
@@ -249,13 +249,13 @@ class HTCondorJobManager(JobManager):
             if cls.status_header_cre.match(line):
                 header = line
             elif header:
-                m = cls.status_line_cre(line)
+                m = cls.status_line_cre.match(line)
                 if m:
                     job_id = m.group(1)
                     status_flag = m.group(2)
 
                     # map the status
-                    status = self.map_status(status_flag)
+                    status = cls.map_status(status_flag)
 
                     # save the result
                     query_data[job_id] = cls.job_status_dict(job_id=job_id, status=status)
@@ -280,10 +280,10 @@ class HTCondorJobManager(JobManager):
         query_data = {}
         for block in blocks:
             block.sort()
-            m_cluster = self.history_cluster_id_cre.match(block[0])
-            m_process = self.history_process_id_cre.match(block[1])
-            m_code = self.history_code_cre.match(block[2])
-            if not all(m_cluster, m_process, m_code):
+            m_cluster = cls.history_cluster_id_cre.match(block[0])
+            m_code = cls.history_code_cre.match(block[1])
+            m_process = cls.history_process_id_cre.match(block[2])
+            if not all((m_cluster, m_process, m_code)):
                 continue
 
             job_id = "{}.{}".format(m_cluster.group(1), m_process.group(1))

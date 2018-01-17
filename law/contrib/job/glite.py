@@ -145,7 +145,7 @@ class GLiteJobManager(BaseJobManager):
 
         return errors
 
-    def remove(self, job_id, silent=False):
+    def cleanup(self, job_id, silent=False):
         # build the command and run it
         cmd = ["glite-ce-job-purge", "-N"] + make_list(job_id)
         code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=sys.stderr)
@@ -155,14 +155,14 @@ class GLiteJobManager(BaseJobManager):
             # glite prints everything to stdout
             raise Exception("purging of job(s) '{}' failed:\n{}".format(job_id, out))
 
-    def remove_batch(self, job_ids, silent=False, threads=None, chunk_size=20):
+    def cleanup_batch(self, job_ids, silent=False, threads=None, chunk_size=20):
         # default arguments
         threads = threads or self.threads
 
         # threaded processing
         kwargs = dict(silent=silent)
         pool = ThreadPool(max(threads, 1))
-        results = [pool.apply_async(self.remove, (job_id_chunk,), kwargs) \
+        results = [pool.apply_async(self.cleanup, (job_id_chunk,), kwargs) \
                    for job_id_chunk in iter_chunks(job_ids, chunk_size)]
         pool.close()
         pool.join()

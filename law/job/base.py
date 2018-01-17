@@ -59,11 +59,11 @@ class BaseJobManager(object):
         pass
 
     @abstractmethod
-    def remove(self, *args, **kwargs):
+    def cleanup(self, *args, **kwargs):
         pass
 
     @abstractmethod
-    def remove_batch(self, *args, **kwargs):
+    def cleanup_batch(self, *args, **kwargs):
         pass
 
     @abstractmethod
