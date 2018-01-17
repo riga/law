@@ -51,7 +51,7 @@ class GLiteWorkflowProxy(WorkflowProxy):
 
     @classmethod
     def job_status_data(cls, job_id=dummy_job_id, status=None, code=None, error=None):
-        return GLiteJobManager._job_status_dict(job_id, status, code, error)
+        return GLiteJobManager.job_status_dict(job_id, status, code, error)
 
     def requires(self):
         reqs = OrderedDict()
@@ -196,7 +196,7 @@ class GLiteWorkflowProxy(WorkflowProxy):
         # task hook
         config = task.glite_job_config(config)
 
-        return self.job_file.create(**config)
+        return self.job_file(**config)
 
     def cancel_jobs(self):
         task = self.task
@@ -227,7 +227,7 @@ class GLiteWorkflowProxy(WorkflowProxy):
 
         # purge them
         task.publish_message("going to purge {} jobs".format(len(job_ids)))
-        errors = self.job_manager.purge_batch(job_ids, threads=task.threads)
+        errors = self.job_manager.remove_batch(job_ids, threads=task.threads)
 
         # print errors
         if errors:

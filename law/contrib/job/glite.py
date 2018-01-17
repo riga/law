@@ -14,19 +14,16 @@ import time
 import re
 import random
 import subprocess
-import tempfile
-import shutil
-from fnmatch import fnmatch
 from multiprocessing.pool import ThreadPool
 
 import six
 
-from law.job.base import JobManager
+from law.job.base import BaseJobManager, BaseJobFile
 from law.target.file import add_scheme
 from law.util import interruptable_popen, iter_chunks, make_list, multi_match
 
 
-class GLiteJobManager(JobManager):
+class GLiteJobManager(BaseJobManager):
 
     submission_job_id_cre = re.compile("^https?\:\/\/.+\:\d+\/.+")
     status_job_id_cre = re.compile("^.*JobID\s*\=\s*\[(.+)\]$")
@@ -40,20 +37,6 @@ class GLiteJobManager(JobManager):
         self.ce = ce
         self.delegation_id = delegation_id
         self.threads = threads
-
-    @classmethod
-    def map_status(cls, status):
-        # see https://wiki.italiangrid.it/twiki/bin/view/CREAM/UserGuide#4_CREAM_job_states
-        if status in ("REGISTERED", "PENDING", "IDLE", "HELD"):
-            return cls.PENDING
-        elif status in ("RUNNING", "REALLY-RUNNING"):
-            return cls.RUNNING
-        elif status in ("DONE-OK",):
-            return cls.FINISHED
-        elif status in ("CANCELLED", "DONE-FAILED", "ABORTED"):
-            return cls.FAILED
-        else:
-            return cls.UNKNOWN
 
     def submit(self, job_file, ce=None, delegation_id=None, retries=0, retry_delay=5,
         silent=False):
@@ -138,8 +121,6 @@ class GLiteJobManager(JobManager):
         # check success
         if code != 0 and not silent:
             # glite prints everything to stdout
-            if isinstance(job_id, (list, set)):
-                job_id = ", ".join(job_id)
             raise Exception("cancellation of job(s) '{}' failed:\n{}".format(job_id, out))
 
     def cancel_batch(self, job_ids, silent=False, threads=None, chunk_size=20):
@@ -164,7 +145,7 @@ class GLiteJobManager(JobManager):
 
         return errors
 
-    def purge(self, job_id, silent=False):
+    def remove(self, job_id, silent=False):
         # build the command and run it
         cmd = ["glite-ce-job-purge", "-N"] + make_list(job_id)
         code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=sys.stderr)
@@ -172,18 +153,16 @@ class GLiteJobManager(JobManager):
         # check success
         if code != 0 and not silent:
             # glite prints everything to stdout
-            if isinstance(job_id, (list, set)):
-                job_id = ", ".join(job_id)
             raise Exception("purging of job(s) '{}' failed:\n{}".format(job_id, out))
 
-    def purge_batch(self, job_ids, silent=False, threads=None, chunk_size=20):
+    def remove_batch(self, job_ids, silent=False, threads=None, chunk_size=20):
         # default arguments
         threads = threads or self.threads
 
         # threaded processing
         kwargs = dict(silent=silent)
         pool = ThreadPool(max(threads, 1))
-        results = [pool.apply_async(self.purge, (job_id_chunk,), kwargs) \
+        results = [pool.apply_async(self.remove, (job_id_chunk,), kwargs) \
                    for job_id_chunk in iter_chunks(job_ids, chunk_size)]
         pool.close()
         pool.join()
@@ -201,40 +180,34 @@ class GLiteJobManager(JobManager):
     def query(self, job_id, silent=False):
         multi = isinstance(job_id, (list, tuple))
 
+        def raise_(tmpl)
+
         # build the command and run it
         cmd = ["glite-ce-job-status", "-n", "-L", "0"] + make_list(job_id)
         code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=sys.stderr)
 
-        # success?
+        # handle errors
         if code != 0:
             if silent:
                 return None
             else:
                 # glite prints everything to stdout
-                if isinstance(job_id, (list, set)):
-                    job_id = ", ".join(job_id)
                 raise Exception("status query of job(s) '{}' failed:\n{}".format(job_id, out))
 
         # parse the output and extract the status per job
-        status_data = self._parse_query_output(out)
+        query_data = self.parse_query_output(out)
 
-        # map back to requested job ids
-        query_data = {}
+        # compare to the requested job ids and perform some checks
         for _job_id in make_list(job_id):
-            if _job_id in status_data:
-                data = status_data[_job_id].copy()
-            elif not multi:
-                if silent:
-                    return None
+            if _job_id not in query_data:
+                if not multi:
+                    if silent:
+                        return None
+                    else:
+                        raise Exception("job(s) '{}' not found in query response".format(job_id))
                 else:
-                    if isinstance(job_id, (list, set)):
-                        job_id = ", ".join(job_id)
-                    raise Exception("job(s) '{}' not found in status response".format(job_id))
-            else:
-                data = self._job_status_dict(job_id=_job_id, error="job not found in status response")
-
-            data["status"] = self.map_status(data["status"])
-            query_data[_job_id] = data
+                    query_data[_job_id] = self.job_status_dict(job_id=_job_id,
+                        error="job not found in query response")
 
         return query_data if multi else query_data[job_id]
 
@@ -251,21 +224,17 @@ class GLiteJobManager(JobManager):
         pool.join()
 
         # store status data per job id
-        query_data, errors = [], []
+        query_data, errors = {}, []
         for res in results:
             try:
-                query_data += res.get()
+                query_data.update(res.get())
             except Exception as e:
                 errors.append(e)
 
         return query_data, errors
 
     @classmethod
-    def _job_status_dict(cls, job_id=None, status=None, code=None, error=None):
-        return dict(job_id=job_id, status=status, code=code, error=error)
-
-    @classmethod
-    def _parse_query_output(cls, out):
+    def parse_query_output(cls, out):
         # blocks per job are separated by ******
         blocks = []
         for block in out.split("******"):
@@ -288,7 +257,7 @@ class GLiteJobManager(JobManager):
             return None
 
         # retrieve status information per block mapped to the job id
-        status_data = {}
+        query_data = {}
         for block in blocks:
             # extract the job id
             job_id = parse(block, cls.status_job_id_cre)
@@ -318,139 +287,114 @@ class GLiteJobManager(JobManager):
                 if reason is None:
                     reason = "cannot find status of job {}".format(job_id)
 
-            # save the results
-            status_data[job_id] = cls._job_status_dict(job_id, status, code, reason)
+            # map the status
+            status = cls.map_status(status)
 
-        return status_data
+            # save the result
+            query_data[job_id] = cls.job_status_dict(job_id, status, code, reason)
+
+        return query_data
+
+    @classmethod
+    def map_status(cls, status):
+        # see https://wiki.italiangrid.it/twiki/bin/view/CREAM/UserGuide#4_CREAM_job_states
+        if status in ("REGISTERED", "PENDING", "IDLE", "HELD"):
+            return cls.PENDING
+        elif status in ("RUNNING", "REALLY-RUNNING"):
+            return cls.RUNNING
+        elif status in ("DONE-OK",):
+            return cls.FINISHED
+        elif status in ("CANCELLED", "DONE-FAILED", "ABORTED"):
+            return cls.FAILED
+        else:
+            return cls.UNKNOWN
 
 
-class GLiteJobFile(object):
+class GLiteJobFile(BaseJobFile):
+
+    config_attrs = ["file_name", "executable", "input_files", "output_files", "output_uri",
+        "stderr", "stdout", "vo", "custom_content"]
 
     def __init__(self, file_name="job.jdl", executable=None, input_files=None, output_files=None,
-        output_uri=None, stdout="stdout.txt", stderr="stderr.txt", vo=None, tmp_dir=None):
-        super(GLiteJobFile, self).__init__()
+        output_uri=None, stdout="stdout.txt", stderr="stderr.txt", vo=None, custom_content=None,
+        tmp_dir=None):
+        super(GLiteJobFile, self).__init__(tmp_dir=tmp_dir)
 
         self.file_name = file_name
         self.executable = executable
-        self.input_files = input_files
-        self.output_files = output_files
+        self.input_files = input_files or []
+        self.output_files = output_files or []
         self.output_uri = output_uri
         self.stdout = stdout
         self.stderr = stderr
         self.vo = vo
-        self.tmp_dir = tmp_dir or tempfile.mkdtemp()
+        self.custom_content = custom_content
 
-    def __del__(self):
-        self.cleanup()
+    def create(self, postfix=None, render_data=None, **kwargs):
+        # merge kwargs and instance attributes
+        c = self.get_config(kwargs)
 
-    def __call__(self, *args, **kwargs):
-        return self.create(*args, **kwargs)
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, type, value, traceback):
-        self.cleanup()
-
-    @classmethod
-    def postfix_file(cls, path, postfix):
-        if postfix:
-            if isinstance(postfix, six.string_types):
-                _postfix = postfix
-            else:
-                basename = os.path.basename(path)
-                for pattern, _postfix in six.iteritems(postfix):
-                    if fnmatch(basename, pattern):
-                        break
-                else:
-                    _postfix = ""
-            path = "{1}{0}{2}".format(_postfix, *os.path.splitext(path))
-        return path
-
-    def cleanup(self):
-        if self.tmp_dir and os.path.exists(self.tmp_dir):
-            shutil.rmtree(self.tmp_dir)
-
-    def create(self, postfix=None, render=None, **kwargs):
-        # fallback to instance values
-        file_name = kwargs.get("file_name", self.file_name)
-        executable = kwargs.get("executable", self.executable)
-        input_files = kwargs.get("input_files", self.input_files) or []
-        output_files = kwargs.get("output_files", self.output_files) or []
-        output_uri = kwargs.get("output_uri", self.output_uri)
-        stdout = kwargs.get("stdout", self.stdout)
-        stderr = kwargs.get("stderr", self.stderr)
-        vo = kwargs.get("vo", self.vo)
-
-        # helper to copy, render and prefix an input file
-        def provide_input(path):
-            basename = os.path.basename(path)
-            dest = os.path.join(self.tmp_dir, self.postfix_file(basename, postfix))
-            if render:
-                with open(path, "r") as f:
-                    lines = f.readlines()
-                for pattern, variables in six.iteritems(render):
-                    if fnmatch(basename, pattern):
-                        for key, value in six.iteritems(variables):
-                            lines = [line.replace("{{" + key + "}}", value or "") for line in lines]
-                with open(dest, "w") as f:
-                    for line in lines:
-                        f.write(line)
-            else:
-                shutil.copy2(path, dest)
-            return dest
+        # some sanity checks
+        if not c.file_name:
+            raise ValueError("file_name must not be empty")
+        elif not c.executable:
+            raise ValueError("executable must not be empty")
 
         # prepare paths
-        job_file = self.postfix_file(os.path.join(self.tmp_dir, file_name), postfix)
-        input_files = map(os.path.abspath, input_files)
-        abs_executable = os.path.abspath(executable)
-        executable_is_file = os.path.exists(abs_executable)
+        job_file = self.postfix_file(os.path.join(self.tmp_dir, c.file_name), postfix)
+        c.input_files = map(os.path.abspath, c.input_files)
+        executable_is_file = c.executable in map(os.path.basename, c.input_files)
 
         # prepare input files
-        input_files = [provide_input(path) for path in input_files]
+        c.input_files = [self.provide_input(path, postfix, render_data) for path in c.input_files]
         if executable_is_file:
-            abs_executable = provide_input(abs_executable)
-            executable = self.postfix_file(executable, postfix)
+            c.executable = self.postfix_file(os.path.basename(c.executable), postfix)
 
         # output files
-        stdout = stdout and self.postfix_file(stdout, postfix)
-        stderr = stdout and self.postfix_file(stderr, postfix)
-        output_files = [self.postfix_file(path, postfix) for path in output_files]
+        c.stdout = c.stdout and self.postfix_file(c.stdout, postfix)
+        c.stderr = c.stderr and self.postfix_file(c.stderr, postfix)
+        c.output_files = [self.postfix_file(path, postfix) for path in c.output_files]
 
-        # ensure that executable file and log files are contained in the sandboxes
-        if executable_is_file and abs_executable not in input_files:
-            input_files.append(abs_executable)
-        if stdout and stdout not in output_files:
-            output_files.append(stdout)
-        if stderr and stderr not in output_files:
-            output_files.append(stderr)
-        executable = os.path.basename(executable)
-
-        # serialize sandboxes into strings
-        input_sandbox = ", ".join("\"%s\"" % add_scheme(x, "file") for x in input_files)
-        output_sandbox = ", ".join("\"%s\"" % x for x in output_files)
+        # ensure that log files are contained in the output sandbox
+        if c.stdout and c.stdout not in c.output_files:
+            c.output_files.append(c.stdout)
+        if c.stderr and c.stderr not in c.output_files:
+            c.output_files.append(c.stderr)
+        c.input_files = [add_scheme(elem, "file") for elem in c.input_files]
 
         # job file content
-        lines = []
-        lines.append("[")
-        lines.append("    Executable = \"{}\";".format(executable))
-        if input_files:
-            lines.append("    InputSandbox = {{{}}};".format(input_sandbox))
-        if output_files:
-            lines.append("    OutputSandbox = {{{}}};".format(output_sandbox))
-        if output_uri:
-            lines.append("    OutputSandboxBaseDestUri = \"{}\";".format(output_uri))
-        if vo:
-            lines.append("    VirtualOrganisation = \"{}\";".format(vo))
-        if stdout:
-            lines.append("    StdOutput = \"{}\";".format(stdout))
-        if stderr:
-            lines.append("    StdError = \"{}\";".format(stderr))
-        lines.append("]")
+        content = []
+        content.append(("Executable", c.executable))
+        if c.input_files:
+            content.append(("InputSandbox", c.input_files))
+        if c.output_files:
+            content.append(("OutputSandbox", c.output_files))
+        if c.output_uri:
+            content.append(("OutputSandboxBaseDestUri", c.output_uri))
+        if c.vo:
+            content.append(("VirtualOrganisation", c.vo))
+        if c.stdout:
+            content.append(("StdOutput", c.stdout))
+        if c.stderr:
+            content.append(("StdError", c.stderr))
+
+        # add custom content
+        if c.custom_content:
+            content += c.custom_content
 
         # write the job file
         with open(job_file, "w") as f:
-            for line in lines:
-                f.write(line + "\n")
+            f.write("[\n")
+            for key, value in content:
+                f.write(self.create_line(key, value) + "\n")
+            f.write("]\n")
 
         return job_file
+
+    @classmethod
+    def create_line(cls, key, value):
+        if isinstance(value, (list, tuple)):
+            value = "{{{}}}".format(", ".join("\"{}\"".format(v) for v in value))
+        else:
+            value = "\"{}\"".format(value)
+        return "{} = {};".format(key, value)
