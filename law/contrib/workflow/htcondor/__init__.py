@@ -1,12 +1,11 @@
 # -*- coding: utf-8 -*-
 
 """
-Workflow implementation based on gLite job submission. See
-https://wiki.italiangrid.it/twiki/bin/view/CREAM/UserGuide.
+Workflow implementation based on HTCondor job submission. See https://research.cs.wisc.edu/htcondor.
 """
 
 
-__all__ = ["GLiteWorkflow"]
+__all__ = ["HTCondorWorkflow"]
 
 
 import os
@@ -24,22 +23,24 @@ from law.workflow.base import Workflow, WorkflowProxy
 from law.parameter import CSVParameter
 from law.decorator import log
 from law.util import iter_chunks
-from law.contrib.job.glite import GLiteJobManager, GLiteJobFile
-from law.contrib.util.wlcg import delegate_voms_proxy_glite, get_ce_endpoint
+from law.contrib.job.htcondor import HTCondorJobManager, HTCondorJobFile
 
 
-class GLiteWorkflowProxy(WorkflowProxy):
+class HTCondorWorkflowProxy(WorkflowProxy):
 
-    workflow_type = "glite"
+    workflow_type = "htcondor"
 
     dummy_job_id = "dummy_job_id"
 
     def __init__(self, *args, **kwargs):
-        super(GLiteWorkflowProxy, self).__init__(*args, **kwargs)
+        super(HTCondorWorkflowProxy, self).__init__(*args, **kwargs)
 
         self.job_file = None
-        self.job_manager = GLiteJobManager()
-        self.delegation_ids = None
+        self.job_manager = HTCondorJobManager()
+        TODO
+
+
+
         self.submission_data = GLiteSubmissionData(tasks_per_job=self.task.tasks_per_job)
         self.skipped_job_nums = None
         self.last_counts = len(self.job_manager.status_names) * (0,)
@@ -58,7 +59,7 @@ class GLiteWorkflowProxy(WorkflowProxy):
 
         # add upstream requirements when not purging or cancelling
         if not task.cancel and not task.purge:
-            reqs.update(super(GLiteWorkflowProxy, self).requires())
+            reqs.update(super(HTCondorWorkflowProxy, self).requires())
 
         return reqs
 
@@ -83,7 +84,7 @@ class GLiteWorkflowProxy(WorkflowProxy):
 
         # when not purging or cancelling, update with actual outputs
         if not task.cancel and not task.purge:
-            outputs.update(super(GLiteWorkflowProxy, self).output())
+            outputs.update(super(HTCondorWorkflowProxy, self).output())
 
         return outputs
 
@@ -483,11 +484,11 @@ class GLiteStatusData(OrderedDict):
         return self["jobs"]
 
 
-class GLiteWorkflow(Workflow):
+class HTCondorWorkflow(Workflow):
 
     exclude_db = True
 
-    workflow_proxy_cls = GLiteWorkflowProxy
+    workflow_proxy_cls = HTCondorWorkflowProxy
 
     ce = CSVParameter(default=[], significant=False, description="target computing element(s)")
     retries = luigi.IntParameter(default=5, significant=False, description="number of automatic "
