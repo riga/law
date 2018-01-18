@@ -196,6 +196,13 @@ class Workflow(Task):
     def branch_map(self):
         return self.get_branch_map()
 
+    @property
+    def branch_value(self):
+        if self.is_workflow():
+            raise Exception("calls to branch_value are forbidden for workflow tasks")
+
+        return self.branch_map[self.branch]
+
     def get_branch_tasks(self):
         if self.is_branch():
             return self.as_workflow().get_branch_tasks()
