@@ -102,9 +102,13 @@ class Workflow(Task):
             else:
                 raise ValueError("unknown workflow type {}".format(self.workflow))
 
-            # cached branch-related attributes
+            # cached attributes for the workflow
             self._branch_map = None
             self._branch_tasks = None
+
+        else:
+            # cached attributes for branches
+            self._workflow_task = None
 
     def __getattribute__(self, attr, proxy=True):
         if proxy:
@@ -140,7 +144,9 @@ class Workflow(Task):
         if self.is_workflow():
             return self
         else:
-            return self.__class__.req(self, branch=NO_INT)
+            if self._workflow_task is None:
+                self._workflow_task = self.__class__.req(self, branch=NO_INT)
+            return self._workflow_task
 
     @abstractmethod
     def create_branch_map(self):
@@ -172,7 +178,8 @@ class Workflow(Task):
 
     def get_branch_map(self, reset_boundaries=True, reduce=True):
         if self.is_branch():
-            return self.get_branch_map(reset_boundaries=reset_boundaries, reduce=reduce)
+            return self.as_workflow().get_branch_map(reset_boundaries=reset_boundaries,
+                reduce=reduce)
         else:
             if self._branch_map is None:
                 self._branch_map = self.create_branch_map()
@@ -191,7 +198,7 @@ class Workflow(Task):
 
     def get_branch_tasks(self):
         if self.is_branch():
-            return self.workflow_proxy.get_branches()
+            return self.as_workflow().get_branch_tasks()
         else:
             if self._branch_tasks is None:
                 branch_map = self.branch_map
