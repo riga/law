@@ -23,16 +23,59 @@ import six
 from law.workflow.base import Workflow, WorkflowProxy
 from law.parameter import CSVParameter
 from law.decorator import log
-from law.util import iter_chunks
+from law.util import law_base, iter_chunks
 from law.contrib.job.glite import GLiteJobManager, GLiteJobFile
 from law.contrib.util.wlcg import delegate_voms_proxy_glite, get_ce_endpoint
+
+
+class GLiteSubmissionData(OrderedDict):
+
+    dummy_job_id = "dummy_job_id"
+
+    def __init__(self, **kwargs):
+        super(GLiteSubmissionData, self).__init__()
+
+        self["jobs"] = kwargs.get("jobs", {})
+        self["tasks_per_job"] = kwargs.get("tasks_per_job", 1)
+
+    @classmethod
+    def job_data(cls, job_id=dummy_job_id, branches=None):
+        return dict(job_id=job_id, branches=branches or [])
+
+    @property
+    def jobs(self):
+        return self["jobs"]
+
+    @property
+    def tasks_per_job(self):
+        return self["tasks_per_job"]
+
+
+class GLiteStatusData(OrderedDict):
+
+    dummy_job_id = "dummy_job_id"
+
+    def __init__(self, **kwargs):
+        super(GLiteStatusData, self).__init__()
+
+        self["jobs"] = kwargs.get("jobs", {})
+
+    @classmethod
+    def job_data(cls, job_id=dummy_job_id, status=None, code=None, error=None):
+        return GLiteJobManager.job_status_dict(job_id, status, code, error)
+
+    @property
+    def jobs(self):
+        return self["jobs"]
 
 
 class GLiteWorkflowProxy(WorkflowProxy):
 
     workflow_type = "glite"
 
-    dummy_job_id = "dummy_job_id"
+    submission_data_cls = GLiteSubmissionData
+
+    status_data_cls = GLiteStatusData
 
     def __init__(self, *args, **kwargs):
         super(GLiteWorkflowProxy, self).__init__(*args, **kwargs)
@@ -40,24 +83,17 @@ class GLiteWorkflowProxy(WorkflowProxy):
         self.job_file = None
         self.job_manager = GLiteJobManager()
         self.delegation_ids = None
-        self.submission_data = GLiteSubmissionData(tasks_per_job=self.task.tasks_per_job)
+        self.submission_data = self.submission_data_cls(tasks_per_job=self.task.tasks_per_job)
         self.skipped_job_nums = None
         self.last_counts = len(self.job_manager.status_names) * (0,)
         self.retry_counts = defaultdict(int)
 
-    @classmethod
-    def job_submission_data(cls, job_id=dummy_job_id, branches=None):
-        return dict(job_id=job_id, branches=branches or [])
-
-    @classmethod
-    def job_status_data(cls, job_id=dummy_job_id, status=None, code=None, error=None):
-        return GLiteJobManager.job_status_dict(job_id, status, code, error)
-
     def requires(self):
+        task = self.task
         reqs = OrderedDict()
 
-        # add upstream requirements when not purging or cancelling
-        if not task.cancel and not task.purge:
+        # add upstream requirements when not cancelling or cleaning
+        if not task.cancel_jobs and not task.cleanup_jobs:
             reqs.update(super(GLiteWorkflowProxy, self).requires())
 
         return reqs
@@ -77,12 +113,12 @@ class GLiteWorkflowProxy(WorkflowProxy):
         outputs["submission"] = out_dir.child(submission_file, type="f")
 
         # a file containing status data when the jobs are done
-        if not task.no_poll and not task.cancel and not task.purge:
+        if not task.no_poll and not task.cancel_jobs and not task.cleanup_jobs:
             status_file = "status{}.json".format(postfix)
             outputs["status"] = out_dir.child(status_file, type="f")
 
-        # when not purging or cancelling, update with actual outputs
-        if not task.cancel and not task.purge:
+        # when not cancelling or cleaning, update with actual outputs
+        if not task.cancel_jobs and not task.cleanup_jobs:
             outputs.update(super(GLiteWorkflowProxy, self).output())
 
         return outputs
@@ -141,8 +177,9 @@ class GLiteWorkflowProxy(WorkflowProxy):
         task = self.task
         config = {}
 
-        def rel_file(basename):
-            return os.path.join(os.path.dirname(os.path.abspath(__file__)), basename)
+        thisdir = os.path.dirname(os.path.abspath(__file__))
+        def rel_file(*paths):
+            return os.path.normpath(os.path.join(thisdir, *paths))
 
         # the file postfix is pythonic range made from branches, e.g. [0, 1, 2] -> "_0To3"
         _postfix = "_{}To{}".format(branches[0], branches[-1] + 1)
@@ -153,14 +190,14 @@ class GLiteWorkflowProxy(WorkflowProxy):
         config["executable"] = rel_file("wrapper.sh")
 
         # input files
-        config["input_files"] = [rel_file("wrapper.sh"), rel_file("job.sh")]
+        config["input_files"] = [rel_file("wrapper.sh"), law_base("job", "job.sh")]
 
         # render variables
         config["render"] = defaultdict(dict)
         config["render"]["*"]["job_file"] = postfix("job.sh")
 
-        # add the bootstrap script
-        bootstrap_file = task.glite_bootstrap_script()
+        # add the bootstrap file
+        bootstrap_file = task.glite_bootstrap_file()
         config["input_files"].append(bootstrap_file)
         config["render"]["*"]["bootstrap_file"] = postfix(os.path.basename(bootstrap_file))
 
@@ -203,11 +240,11 @@ class GLiteWorkflowProxy(WorkflowProxy):
 
         # get job ids from submission data
         job_ids = [d["job_id"] for d in self.submission_data.jobs.values() \
-                   if d["job_id"] not in (self.dummy_job_id, None)]
+                   if d["job_id"] not in (self.submission_data.dummy_job_id, None)]
         if not job_ids:
             return
 
-        # cancel them
+        # cancel jobs
         task.publish_message("going to cancel {} jobs".format(len(job_ids)))
         errors = self.job_manager.cancel_batch(job_ids, threads=task.threads)
 
@@ -221,17 +258,17 @@ class GLiteWorkflowProxy(WorkflowProxy):
 
         # get job ids from submission data
         job_ids = [d["job_id"] for d in self.submission_data.jobs.values() \
-                   if d["job_id"] not in (self.dummy_job_id, None)]
+                   if d["job_id"] not in (self.submission_data.dummy_job_id, None)]
         if not job_ids:
             return
 
-        # purge them
-        task.publish_message("going to purge {} jobs".format(len(job_ids)))
+        # cleanup jobs
+        task.publish_message("going to cleanup {} jobs".format(len(job_ids)))
         errors = self.job_manager.cleanup_batch(job_ids, threads=task.threads)
 
         # print errors
         if errors:
-            print("{} errors occured while purging {} jobs:".format(len(errors), len(job_ids)))
+            print("{} errors occured while cleanup {} jobs:".format(len(errors), len(job_ids)))
             print("\n".join(str(e) for e in errors))
 
     def submit(self, job_map=None):
@@ -260,7 +297,8 @@ class GLiteWorkflowProxy(WorkflowProxy):
         for job_num, branches in six.iteritems(job_map):
             if check_skip and all(task.as_branch(b).complete() for b in branches):
                 self.skipped_job_nums.append(job_num)
-                self.submission_data.jobs[job_num] = self.job_submission_data(branches=branches)
+                self.submission_data.jobs[job_num] = self.submission_data_cls.job_data(
+                    branches=branches)
                 continue
 
             # create and store the job file
@@ -270,7 +308,7 @@ class GLiteWorkflowProxy(WorkflowProxy):
         job_files = [job_file for _, job_file in six.itervalues(job_data)]
         task.publish_message("going to submit {} jobs to {}".format(len(job_files), task.ce))
         job_ids = self.job_manager.submit_batch(job_files, ce=task.ce,
-            delegation_id=self.delegation_ids, retries=task.retries, threads=task.threads)
+            delegation_id=self.delegation_ids, retries=3, threads=task.threads)
 
         # store submission data
         errors = []
@@ -278,7 +316,7 @@ class GLiteWorkflowProxy(WorkflowProxy):
             if isinstance(job_id, Exception):
                 errors.append((job_num, job_id))
                 job_id = None
-            self.submission_data.jobs[job_num] = self.job_submission_data(job_id=job_id,
+            self.submission_data.jobs[job_num] = self.submission_data_cls.job_data(job_id=job_id,
                 branches=job_data[job_num][0])
 
         # write the submission data to the output file
@@ -310,8 +348,8 @@ class GLiteWorkflowProxy(WorkflowProxy):
         # fill dicts from submission data, taking into account skipped jobs
         for job_num, data in six.iteritems(self.submission_data.jobs):
             if self.skipped_job_nums and job_num in self.skipped_job_nums:
-                finished_jobs[job_num] = self.job_status_data(status=self.job_manager.FINISHED,
-                    code=0)
+                finished_jobs[job_num] = self.status_data_cls.job_data(
+                    status=self.job_manager.FINISHED, code=0)
             else:
                 unfinished_jobs[job_num] = data.copy()
                 unfinishedJobData[jobNum] = tpl
@@ -393,7 +431,7 @@ class GLiteWorkflowProxy(WorkflowProxy):
             if finished:
                 # write status output
                 if "status" in outputs:
-                    status_data = GLiteStatusData()
+                    status_data = self.status_data_cls()
                     status_data.jobs.update(finished_jobs)
                     status_data.jobs.update(states)
                     outputs["status"].dump(status_data, formatter="json")
@@ -440,47 +478,18 @@ class GLiteWorkflowProxy(WorkflowProxy):
             submission_data.jobs.clear()
             for i, branches in enumerate(branch_chunks):
                 job_num = i + 1
-                submission_data.jobs[job_num] = self.job_submission_data(branches=branches)
+                submission_data.jobs[job_num] = self.submission_data_cls.job_data(branches=branches)
             outputs["submission"].dump(submission_data, formatter="json")
 
         # status output
         if "status" in outputs and not outputs["status"].exists():
-            status_data = GLiteStatusData()
+            status_data = self.status_data_cls()
             # set dummy status data
             for i, branches in enumerate(branch_chunks):
                 job_num = i + 1
-                status_data.jobs[job_num] = self.job_status_data(status=self.job_manager.FINISHED,
-                    code=0)
+                status_data.jobs[job_num] = self.status_data_cls.job_data(
+                    status=self.job_manager.FINISHED, code=0)
             outputs["status"].dump(status_data, formatter="json")
-
-
-class GLiteSubmissionData(OrderedDict):
-
-    def __init__(self, *args, **kwargs):
-        super(GLiteSubmissionData, self).__init__()
-
-        self["jobs"] = kwargs.get("jobs", {})
-        self["tasks_per_job"] = kwargs.get("tasks_per_job", 1)
-
-    @property
-    def jobs(self):
-        return self["jobs"]
-
-    @property
-    def tasks_per_job(self):
-        return self["tasks_per_job"]
-
-
-class GLiteStatusData(OrderedDict):
-
-    def __init__(self, *args, **kwargs):
-        super(GLiteStatusData, self).__init__()
-
-        self["jobs"] = kwargs.get("jobs", {})
-
-    @property
-    def jobs(self):
-        return self["jobs"]
 
 
 class GLiteWorkflow(Workflow):
@@ -508,20 +517,20 @@ class GLiteWorkflow(Workflow):
         "of consecutive errors during polling, default: 5")
     cancel_jobs = luigi.BoolParameter(default=False, description="cancel all submitted jobs, no "
         "new submission")
-    cleanup_jobs = luigi.BoolParameter(default=False, description="purge all submitted jobs, no "
+    cleanup_jobs = luigi.BoolParameter(default=False, description="cleanup all submitted jobs, no "
         "new submission")
     transfer_logs = luigi.BoolParameter(significant=False, description="transfer job logs to the "
         "output directory")
 
     exclude_params_branch = {"ce", "retries", "tasks_per_job", "only_missing", "no_poll", "threads",
-        "interval", "walltime", "max_poll_fails", "cancel_jobs", "purge_jobs", "transfer_logs"}
+        "interval", "walltime", "max_poll_fails", "cancel_jobs", "cleanup_jobs", "transfer_logs"}
 
     @abstractmethod
     def glite_output_directory(self):
         return None
 
     @abstractmethod
-    def glite_bootstrap_script(self):
+    def glite_bootstrap_file(self):
         pass
 
     def glite_output_postfix(self):

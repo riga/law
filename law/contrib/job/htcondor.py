@@ -267,7 +267,7 @@ class HTCondorJobManager(BaseJobManager):
 
     @classmethod
     def parse_history_output(cls, out, job_ids=None):
-        # blocks per job are separated by empty lines
+        # build blocks per job, i.e. output lines that are separated by empty lines
         blocks = []
         for line in out.strip().split("\n"):
             line = line.strip()

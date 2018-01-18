@@ -180,8 +180,6 @@ class GLiteJobManager(BaseJobManager):
     def query(self, job_id, silent=False):
         multi = isinstance(job_id, (list, tuple))
 
-        def raise_(tmpl)
-
         # build the command and run it
         cmd = ["glite-ce-job-status", "-n", "-L", "0"] + make_list(job_id)
         code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=sys.stderr)

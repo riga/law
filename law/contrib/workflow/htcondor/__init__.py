@@ -20,45 +20,40 @@ import luigi
 import six
 
 from law.workflow.base import Workflow, WorkflowProxy
-from law.parameter import CSVParameter
+from law.parameter import NO_STR
 from law.decorator import log
-from law.util import iter_chunks
+from law.util import law_base, iter_chunks
 from law.contrib.job.htcondor import HTCondorJobManager, HTCondorJobFile
+# temporary imports, might be solved by clever inheritance
+from law.contrib.workflow.glite import GLiteSubmissionData, GLiteStatusData, GLiteWorkflowProxy
 
 
 class HTCondorWorkflowProxy(WorkflowProxy):
 
     workflow_type = "htcondor"
 
-    dummy_job_id = "dummy_job_id"
+    # TODO: use dedicated class
+    submission_data_cls = GLiteSubmissionData
+
+    # TODO: use dedicated class
+    status_data_cls = GLiteStatusData
 
     def __init__(self, *args, **kwargs):
         super(HTCondorWorkflowProxy, self).__init__(*args, **kwargs)
 
         self.job_file = None
         self.job_manager = HTCondorJobManager()
-        TODO
-
-
-
-        self.submission_data = GLiteSubmissionData(tasks_per_job=self.task.tasks_per_job)
+        self.submission_data = HTCondorSubmissionData(tasks_per_job=self.task.tasks_per_job)
         self.skipped_job_nums = None
         self.last_counts = len(self.job_manager.status_names) * (0,)
         self.retry_counts = defaultdict(int)
 
-    @classmethod
-    def job_submission_data(cls, job_id=dummy_job_id, branches=None):
-        return dict(job_id=job_id, branches=branches or [])
-
-    @classmethod
-    def job_status_data(cls, job_id=dummy_job_id, status=None, code=None, error=None):
-        return GLiteJobManager.job_status_dict(job_id, status, code, error)
-
     def requires(self):
+        task = self.task
         reqs = OrderedDict()
 
-        # add upstream requirements when not purging or cancelling
-        if not task.cancel and not task.purge:
+        # add upstream requirements when not cancelling
+        if not task.cancel_jobs:
             reqs.update(super(HTCondorWorkflowProxy, self).requires())
 
         return reqs
@@ -67,23 +62,23 @@ class HTCondorWorkflowProxy(WorkflowProxy):
         task = self.task
 
         # get the directory where the control outputs are stored
-        out_dir = task.glite_output_directory()
+        out_dir = task.htcondor_output_directory()
 
         # define outputs
         outputs = OrderedDict()
-        postfix = task.glite_output_postfix()
+        postfix = task.htcondor_output_postfix()
 
         # a file containing the submission data, i.e. job ids etc
         submission_file = "submission{}.json".format(postfix)
         outputs["submission"] = out_dir.child(submission_file, type="f")
 
         # a file containing status data when the jobs are done
-        if not task.no_poll and not task.cancel and not task.purge:
+        if not task.no_poll and not task.cancel_jobs:
             status_file = "status{}.json".format(postfix)
             outputs["status"] = out_dir.child(status_file, type="f")
 
-        # when not purging or cancelling, update with actual outputs
-        if not task.cancel and not task.purge:
+        # when not cancelling, update with actual outputs
+        if not task.cancel_jobs:
             outputs.update(super(HTCondorWorkflowProxy, self).output())
 
         return outputs
@@ -108,11 +103,6 @@ class HTCondorWorkflowProxy(WorkflowProxy):
             if submitted:
                 self.cancel()
 
-        # cleanup jobs?
-        elif task.cleanup_jobs:
-            if submitted:
-                self.cleanup()
-
         # submit and/or wait while polling
         else:
             outputs["submission"].parent.touch()
@@ -122,7 +112,7 @@ class HTCondorWorkflowProxy(WorkflowProxy):
                 outputs["status"].remove()
 
             try:
-                self.job_file = GLiteJobFile()
+                self.job_file = HTCondorJobFile()
 
                 # submit
                 if not submitted:
@@ -142,8 +132,9 @@ class HTCondorWorkflowProxy(WorkflowProxy):
         task = self.task
         config = {}
 
-        def rel_file(basename):
-            return os.path.join(os.path.dirname(os.path.abspath(__file__)), basename)
+        thisdir = os.path.dirname(os.path.abspath(__file__))
+        def rel_file(*paths):
+            return os.path.normpath(os.path.join(thisdir, *paths))
 
         # the file postfix is pythonic range made from branches, e.g. [0, 1, 2] -> "_0To3"
         _postfix = "_{}To{}".format(branches[0], branches[-1] + 1)
@@ -151,40 +142,13 @@ class HTCondorWorkflowProxy(WorkflowProxy):
         config["postfix"] = {"*": _postfix}
 
         # executable
-        config["executable"] = rel_file("wrapper.sh")
+        config["executable"] = "env"
 
-        # input files
-        config["input_files"] = [rel_file("wrapper.sh"), rel_file("job.sh")]
-
-        # render variables
-        config["render"] = defaultdict(dict)
-        config["render"]["*"]["job_file"] = postfix("job.sh")
-
-        # add the bootstrap script
-        bootstrap_file = task.glite_bootstrap_script()
-        config["input_files"].append(bootstrap_file)
-        config["render"]["*"]["bootstrap_file"] = postfix(os.path.basename(bootstrap_file))
-
-        # output files
-        config["output_files"] = []
-
-        # log file
-        if task.transfer_logs:
-            log_file = "stdall.txt"
-            config["stdout"] = log_file
-            config["stderr"] = log_file
-            config["output_files"].append(log_file)
-            config["render"]["*"]["log_file"] = postfix(log_file)
-        else:
-            config["stdout"] = None
-            config["stderr"] = None
-
-        # output uri
-        config["output_uri"] = task.glite_output_uri()
-
-        # job script arguments
+        # arguments
         task_params = task.as_branch(branches[0]).cli_args(exclude={"branch"})
         job_args = [
+            "bash",
+            postfix("job.sh"),
             task.__class__.__module__,
             task.task_family,
             base64.b64encode(" ".join(task_params)).replace("=", "_"),
@@ -192,58 +156,43 @@ class HTCondorWorkflowProxy(WorkflowProxy):
             str(branches[-1] + 1),
             "no"
         ]
-        config["render"]["wrapper.sh"]["job_args"] = " ".join(job_args)
+        config["arguments"] = " ".join(job_args)
+
+        # input files
+        config["input_files"] = [rel_file("wrapper.sh"), law_base("job", "job.sh")]
+
+        # render variables
+        config["render"] = defaultdict(dict)
+
+        # add the bootstrap file
+        bootstrap_file = task.htcondor_bootstrap_file()
+        if bootstrap_file:
+            config["input_files"].append(bootstrap_file)
+            config["render"]["*"]["bootstrap_file"] = postfix(os.path.basename(bootstrap_file))
+        else:
+            config["render"]["*"]["bootstrap_file"] = ""
+
+        # output files
+        config["output_files"] = []
+
+        # log file
+        log_file = "stdall.txt"
+        config["stdout"] = log_file
+        config["stderr"] = log_file
+        if task.transfer_logs:
+            config["output_files"].append(log_file)
+            config["render"]["*"]["log_file"] = postfix(log_file)
 
         # task hook
         config = task.glite_job_config(config)
 
         return self.job_file(**config)
 
-    def cancel(self):
-        task = self.task
-
-        # get job ids from submission data
-        job_ids = [d["job_id"] for d in self.submission_data.jobs.values() \
-                   if d["job_id"] not in (self.dummy_job_id, None)]
-        if not job_ids:
-            return
-
-        # cancel them
-        task.publish_message("going to cancel {} jobs".format(len(job_ids)))
-        errors = self.job_manager.cancel_batch(job_ids, threads=task.threads)
-
-        # print errors
-        if errors:
-            print("{} errors occured while cancelling {} jobs:".format(len(errors), len(job_ids)))
-            print("\n".join(str(e) for e in errors))
-
-    def cleanup(self):
-        task = self.task
-
-        # get job ids from submission data
-        job_ids = [d["job_id"] for d in self.submission_data.jobs.values() \
-                   if d["job_id"] not in (self.dummy_job_id, None)]
-        if not job_ids:
-            return
-
-        # purge them
-        task.publish_message("going to purge {} jobs".format(len(job_ids)))
-        errors = self.job_manager.cleanup_batch(job_ids, threads=task.threads)
-
-        # print errors
-        if errors:
-            print("{} errors occured while purging {} jobs:".format(len(errors), len(job_ids)))
-            print("\n".join(str(e) for e in errors))
+    # TODO: use inheritance
+    cancel = GLiteWorkflowProxy.__dict__["cancel"]
 
     def submit(self, job_map=None):
         task = self.task
-
-        # delegate the voms proxy to all endpoints
-        if self.delegation_ids is None and callable(task.glite_delegate_proxy):
-            self.delegation_ids = []
-            for ce in self.ce:
-                endpoint = get_ce_endpoint(ce)
-                self.delegation_ids.append(task.glite_delegate_proxy(endpoint))
 
         # map branch numbers to job numbers, chunk by tasks_per_job
         if not job_map:
@@ -269,9 +218,9 @@ class HTCondorWorkflowProxy(WorkflowProxy):
 
         # actual submission
         job_files = [job_file for _, job_file in six.itervalues(job_data)]
-        task.publish_message("going to submit {} jobs to {}".format(len(job_files), task.ce))
-        job_ids = self.job_manager.submit_batch(job_files, ce=task.ce,
-            delegation_id=self.delegation_ids, retries=task.retries, threads=task.threads)
+        task.publish_message("going to submit {} jobs".format(len(job_files)))
+        job_ids = self.job_manager.submit_batch(job_files, pool=task.pool, scheduler=task.scheduler,
+            retries=3, threads=task.threads)
 
         # store submission data
         errors = []
@@ -292,196 +241,11 @@ class HTCondorWorkflowProxy(WorkflowProxy):
         else:
             task.publish_message("submitted {} jobs to {}".format(len(job_files), task.ce))
 
-    def poll(self):
-        task = self.task
-        outputs = self.output()
+    # TODO: use inheritance
+    poll = GLiteWorkflowProxy.__dict__["poll"]
 
-        # submission stats
-        n_jobs = float(len(self.submission_data.jobs))
-        n_finished_min = task.acceptance * n_jobs if task.acceptance <= 1 else task.acceptance
-        n_failed_max = task.tolerance * n_jobs if task.tolerance <= 1 else task.tolerance
-        max_polls = int(math.ceil((task.walltime * 3600.) / (task.interval * 60.)))
-        n_poll_fails = 0
-
-        # bookkeeping dicts to avoid querying the status of finished jobs
-        # note: unfinished_jobs holds submission data, finished_jobs holds status data
-        unfinsihed_jobs = {}
-        finished_jobs = {}
-
-        # fill dicts from submission data, taking into account skipped jobs
-        for job_num, data in six.iteritems(self.submission_data.jobs):
-            if self.skipped_job_nums and job_num in self.skipped_job_nums:
-                finished_jobs[job_num] = self.job_status_data(status=self.job_manager.FINISHED,
-                    code=0)
-            else:
-                unfinished_jobs[job_num] = data.copy()
-                unfinishedJobData[jobNum] = tpl
-
-        # use maximum number of polls for looping
-        for i in six.moves.range(max_polls):
-            # sleep
-            if i > 0:
-                sleep(task.interval * 60)
-
-            # query job states
-            job_ids = [data["job_id"] for data in unfinished_jobs]
-            states, errors = self.job_manager.query_batch(job_ids, threads=task.threads)
-            if errors:
-                print("{} error(s) occured during status query:\n    {}".format(len(errors),
-                    "\n    ".join(str(e) for e in errors)))
-
-                n_poll_fails += 1
-                if n_poll_fails > task.max_poll_fails:
-                    raise Exception("max_poll_fails exceeded")
-                else:
-                    continue
-            else:
-                n_poll_fails = 0
-
-            # store jobs per status, remove finished ones from unfinished_jobs
-            pending_jobs = {}
-            running_jobs = {}
-            failed_jobs = {}
-            unknown_jobs = {}
-            for job_num, data in six.iteritems(states):
-                if data["status"] == self.job_manager.PENDING:
-                    pending_jobs[job_num] = data
-                elif data["status"] == self.job_manager.RUNNING:
-                    running_jobs[job_num] = data
-                elif data["status"] == self.job_manager.FINISHED:
-                    finished_jobs[job_num] = data
-                    unfinished_jobs.pop(job_num)
-                elif data["status"] in (self.job_manager.FAILED, self.job_manager.RETRY):
-                    failed_jobs[job_num] = data
-                else:
-                    unknown_jobs[job_num] = data
-
-            # counts
-            n_pending = len(pending_jobs)
-            n_running = len(running_jobs)
-            n_finished = len(finished_jobs)
-            n_failed = len(failed_jobs)
-            n_unknown = len(unknown_jobs)
-
-            # determine jobs that failed and might be resubmitted
-            retry_jobs = {}
-            if n_failed and task.retries > 0:
-                for job_num in failed_jobs:
-                    if self.retry_counts[job_num] < task.retries:
-                        retry_jobs[job_num] = self.submission_data.jobs[job_num]["branches"]
-                        self.retry_counts[job_num] += 1
-            n_retry = len(retry_jobs)
-            n_failed -= n_retry
-
-            # log the status line
-            counts = (n_pending, n_running, n_retry, n_finished, n_failed, n_unknown)
-            status_line = self.job_manager.status_line(counts, self.last_counts, color=True)
-            task.publish_message(status_line)
-            self.last_counts = counts
-
-            # log failed jobs
-            if len(failed_jobs) > 0:
-                print("reasons for failed jobs in task {}:".format(task.task_id))
-                tmpl = "    {}: {}, {status}, {code}, {error}"
-                for job_num, data in six.iteritems(failed_jobs):
-                    job_id = self.submission_data.jobs[job_num]["job_id"]
-                    print(tmpl.format(job_num, job_id, **data))
-
-            # infer the overall status
-            finished = n_finished >= n_finished_min
-            failed = n_failed > n_failed_max
-            unreachable = n_jobs - n_failed < n_finished_min
-            if finished:
-                # write status output
-                if "status" in outputs:
-                    status_data = GLiteStatusData()
-                    status_data.jobs.update(finished_jobs)
-                    status_data.jobs.update(states)
-                    outputs["status"].dump(status_data, formatter="json")
-                break
-            elif failed:
-                failed_nums = [job_num for job_num in failed_jobs if job_num not in retry_jobs]
-                raise Exception("tolerance exceeded for jobs {}".format(failed_nums))
-            elif unreachable:
-                raise Exception("acceptance of {} unreachable, total: {}, failed: {}".format(
-                    n_finished_min, n_jobs, n_failed))
-
-            # automatic resubmission
-            if n_retry:
-                self.skipped_job_nums = []
-                self.submit_jobs(retry_jobs)
-
-                # update the unfinished so the next iteration is aware of the new job ids
-                for job_num in retry_jobs:
-                    unfinished_jobs[job_num]["job_id"] = self.submission_data.jobs[job_num]["job_id"]
-
-            # break when no polling is desired
-            # we can get to this point when there was already a submission and the no_poll
-            # parameter was set so that only failed jobs are submitted again
-            if task.no_poll:
-                break
-        else:
-            # walltime exceeded
-            raise Exception("walltime exceeded")
-
-    def touch_control_outputs(self):
-        task = self.task
-
-        # create the parent directory
-        outputs = self.output()
-        outputs["submission"].parent.touch()
-
-        # get all branch indexes and chunk them by tasks_per_job
-        branch_chunks = list(iter_chunks(task.branch_map, task.tasks_per_job))
-
-        # submission output
-        if not outputs["submission"].exists():
-            submission_data = self.submission_data.copy()
-            # set dummy submission data
-            submission_data.jobs.clear()
-            for i, branches in enumerate(branch_chunks):
-                job_num = i + 1
-                submission_data.jobs[job_num] = self.job_submission_data(branches=branches)
-            outputs["submission"].dump(submission_data, formatter="json")
-
-        # status output
-        if "status" in outputs and not outputs["status"].exists():
-            status_data = GLiteStatusData()
-            # set dummy status data
-            for i, branches in enumerate(branch_chunks):
-                job_num = i + 1
-                status_data.jobs[job_num] = self.job_status_data(status=self.job_manager.FINISHED,
-                    code=0)
-            outputs["status"].dump(status_data, formatter="json")
-
-
-class GLiteSubmissionData(OrderedDict):
-
-    def __init__(self, *args, **kwargs):
-        super(GLiteSubmissionData, self).__init__()
-
-        self["jobs"] = kwargs.get("jobs", {})
-        self["tasks_per_job"] = kwargs.get("tasks_per_job", 1)
-
-    @property
-    def jobs(self):
-        return self["jobs"]
-
-    @property
-    def tasks_per_job(self):
-        return self["tasks_per_job"]
-
-
-class GLiteStatusData(OrderedDict):
-
-    def __init__(self, *args, **kwargs):
-        super(GLiteStatusData, self).__init__()
-
-        self["jobs"] = kwargs.get("jobs", {})
-
-    @property
-    def jobs(self):
-        return self["jobs"]
+    # TODO: use inheritance
+    touch_control_outputs = GLiteWorkflowProxy.__dict__["touch_control_outputs"]
 
 
 class HTCondorWorkflow(Workflow):
@@ -490,7 +254,9 @@ class HTCondorWorkflow(Workflow):
 
     workflow_proxy_cls = HTCondorWorkflowProxy
 
-    ce = CSVParameter(default=[], significant=False, description="target computing element(s)")
+    pool = luigi.Parameter(default=NO_STR, significant=False, description="target htcondor pool")
+    scheduler = luigi.Parameter(default=NO_STR, significant=False, description="target htcondor "
+        "scheduler")
     retries = luigi.IntParameter(default=5, significant=False, description="number of automatic "
         "resubmission attempts per job, default: 5")
     tasks_per_job = luigi.IntParameter(default=1, significant=False, description="number of tasks "
@@ -509,32 +275,23 @@ class HTCondorWorkflow(Workflow):
         "of consecutive errors during polling, default: 5")
     cancel_jobs = luigi.BoolParameter(default=False, description="cancel all submitted jobs, no "
         "new submission")
-    cleanup_jobs = luigi.BoolParameter(default=False, description="purge all submitted jobs, no "
-        "new submission")
     transfer_logs = luigi.BoolParameter(significant=False, description="transfer job logs to the "
         "output directory")
 
-    exclude_params_branch = {"ce", "retries", "tasks_per_job", "only_missing", "no_poll", "threads",
-        "interval", "walltime", "max_poll_fails", "cancel_jobs", "purge_jobs", "transfer_logs"}
+    exclude_params_branch = {"pool", "scheduler", "retries", "tasks_per_job", "only_missing",
+        "no_poll", "threads", "interval", "walltime", "max_poll_fails", "cancel_jobs",
+        "transfer_logs"}
 
     @abstractmethod
-    def glite_output_directory(self):
+    def htcondor_output_directory(self):
         return None
 
-    @abstractmethod
-    def glite_bootstrap_script(self):
-        pass
+    def htcondor_bootstrap_file(self):
+        return None
 
-    def glite_output_postfix(self):
+    def htcondor_output_postfix(self):
         # TODO: use start/end branch?
         return ""
 
-    def glite_output_uri(self):
-        return self.glite_output_directory().url()
-
-    def glite_delegate_proxy(self, endpoint):
-        return delegate_voms_proxy_glite(endpoint, stdout=sys.stdout, stderr=sys.stderr,
-            cache=True)
-
-    def glite_job_config(self, config):
+    def htcondor_job_config(self, config):
         return config

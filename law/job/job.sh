@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 
-# glite job script
+# generic law job script
 
-# script arguments:
-# 1: task_module
-# 2: task_family
-# 3: task_params
-# 4: start_branch
-# 5: end_branch
-# 6: auto_retry
+# render variables:
+# - bootstrap_file: file that is sourced before running tasks
+
+# arguments:
+# 1. task_module
+# 2. task_family
+# 3. task_params
+# 4. start_branch
+# 5. end_branch
+# 6. auto_retry
 
 action() {
     local cwd="$( /bin/pwd )"
@@ -75,12 +78,12 @@ action() {
     section
 
     echo "starting $0"
-    echo "shell  : '$SHELL'"
-    echo "args   : '$@'"
-    echo "pwd    : '$cwd'"
-    echo "home   : '$HOME'"
-    echo "base   : '$base'"
-    echo "tmp    : '$( python -c "from tempfile import gettempdir; print(gettempdir())" )'"
+    echo "shell: '$SHELL'"
+    echo "args : '$@'"
+    echo "pwd  : '$cwd'"
+    echo "home : '$HOME'"
+    echo "base : '$base'"
+    echo "tmp  : '$( python -c "from tempfile import gettempdir; print(gettempdir())" )'"
     echo "ls -hal:"
     ls -hal
 
@@ -95,23 +98,28 @@ action() {
 
 
     #
-    # custom bootstrap script
+    # custom bootstrap file
     #
 
-    run_bootstrap_script() {
-        echo "run bootstrap script"
-        source "{{bootstrap_file}}"
+    run_bootstrap_file() {
+        local bootstrap_file="{{bootstrap_file}}"
+        if [ ! -z "$bootstrap_file" ]; then
+            echo "run bootstrap file: $bootstrap_file"
+            source "$bootstrap_file"
+        else
+            echo "bootstrap file empty, skip"
+        fi
     }
 
     section
 
-    run_bootstrap_script
+    run_bootstrap_file
     local ret="$?"
 
     section
 
     if [ "$ret" != "0" ]; then
-        2>&1 echo "bootstrap script failed, abort"
+        2>&1 echo "bootstrap file failed, abort"
         cleanup
         return "$ret"
     fi
