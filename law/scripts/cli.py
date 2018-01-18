@@ -27,7 +27,7 @@ def main():
         mods[prog].setup_parser(sub_parsers)
 
     # parse args and dispatch execution
-    if sys.argv[1] in forward_progs:
+    if len(sys.argv) >= 2 and sys.argv[1] in forward_progs:
         args = parser.parse_args(sys.argv[1:3])
     else:
         args = parser.parse_args()

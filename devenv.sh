@@ -10,7 +10,7 @@ action() {
 
 	# mimic law executable
 	law() {
-		python "$LAW_DEV_BASE/law/scripts/cli.py" "$@"
+		python "$LAW_DEV_BASE/law" "$@"
 	}
 	export -f law
 

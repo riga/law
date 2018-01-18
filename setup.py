@@ -12,9 +12,9 @@ import law
 from law.util import which
 
 
-thisdir = os.path.dirname(os.path.abspath(__file__))
+this_dir = os.path.dirname(os.path.abspath(__file__))
 
-readme = os.path.join(thisdir, "README.md")
+readme = os.path.join(this_dir, "README.md")
 if os.path.isfile(readme) and "sdist" in sys.argv:
     cmd = "pandoc --from=markdown --to=rst " + readme
     p = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
@@ -41,7 +41,7 @@ classifiers = [
 ]
 
 install_requires = []
-with open(os.path.join(thisdir, "requirements.txt"), "r") as f:
+with open(os.path.join(this_dir, "requirements.txt"), "r") as f:
     install_requires.extend(line.strip() for line in f.readlines() if line.strip())
 
 # workaround to change the installed law script to _not_ use pkg_resources
@@ -49,7 +49,7 @@ class install(_install):
     def run(self):
         _install.run(self) # old-style
 
-        with open(os.path.join(thisdir, "law", "__main__.py")) as f:
+        with open(os.path.join(this_dir, "bib", "law")) as f:
             lines = f.readlines()
         with open(which("law"), "w") as f:
             f.write("".join(lines))

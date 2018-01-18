@@ -2,8 +2,7 @@
 # -*- coding: utf-8 -*-
 
 
-from law.scripts.cli import main
-
-
 if __name__ == "__main__":
+    # load the law cli
+    from law.scripts.cli import main
     main()
