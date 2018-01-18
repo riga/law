@@ -5,7 +5,7 @@ Custom luigi base task definitions.
 """
 
 
-__all__ = ["Task", "WrapperTask", "ProxyTask", "getreqs"]
+__all__ = ["Task", "WrapperTask"]
 
 
 import os
@@ -239,11 +239,14 @@ class Task(BaseTask):
         return remove_task_output(self, *args, **kwargs)
 
 
-class WrapperTask(BaseTask):
+class WrapperTask(Task):
 
     run = None
 
     exclude_db = True
+
+    def complete(self):
+        return all(task.complete() for task in flatten(self.requires()))
 
 
 class ProxyTask(BaseTask):
