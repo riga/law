@@ -55,7 +55,7 @@ class Config(ConfigParser):
         "singularity_volumes": {},
     }
 
-    _config_files = ["$LAW_CONFIG_FILE", "$HOME/.law/config", "etc/law/config"]
+    _config_files = ["$LAW_CONFIG_FILE", "law.cfg", "$HOME/.law/config", "etc/law/config"]
 
     @classmethod
     def instance(cls, config_file=""):
@@ -109,13 +109,13 @@ class Config(ConfigParser):
             overwrite_sections = overwrite
             overwrite_options = overwrite
 
-        for section, _data in data.items():
+        for section, _data in six.iteritems(data):
             if not self.has_section(section):
                 self.add_section(section)
             elif not overwrite_sections:
                 continue
 
-            for option, value in _data.items():
+            for option, value in six.iteritems(_data):
                 if overwrite_options or not self.has_option(section, option):
                     self.set(section, option, str(value))
 
