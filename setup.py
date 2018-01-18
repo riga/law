@@ -49,7 +49,7 @@ class install(_install):
     def run(self):
         _install.run(self) # old-style
 
-        with open(os.path.join(thisdir, "law", "scripts", "law")) as f:
+        with open(os.path.join(thisdir, "law", "__main__.py")) as f:
             lines = f.readlines()
         with open(which("law"), "w") as f:
             f.write("".join(lines))
