@@ -172,8 +172,7 @@ class Workflow(Task):
 
     def get_branch_map(self, reset_boundaries=True, reduce=True):
         if self.is_branch():
-            return self.workflow_proxy.get_branch_map(reset_boundaries=reset_boundaries,
-                reduce=reduce)
+            return self.get_branch_map(reset_boundaries=reset_boundaries, reduce=reduce)
         else:
             if self._branch_map is None:
                 self._branch_map = self.create_branch_map()
