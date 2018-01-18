@@ -292,3 +292,7 @@ class HTCondorWorkflow(Workflow):
 
     def htcondor_job_config(self, config):
         return config
+
+
+from law.contrib import provide
+provide(locals())
