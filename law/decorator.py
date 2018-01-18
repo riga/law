@@ -30,6 +30,7 @@ import random
 
 import luigi
 
+from law.task.base import ProxyTask
 from law.parameter import NO_STR
 from law.target.local import LocalFileTarget
 
@@ -51,7 +52,7 @@ def factory(**default_opts):
 
 
 def get_task(task):
-    return task
+    return task if not isinstance(task.ProxyTask) else task.task
 
 
 @factory()
