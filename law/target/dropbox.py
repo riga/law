@@ -9,10 +9,14 @@ __all__ = ["DropboxFileSystem", "DropboxFileTarget", "DropboxDirectoryTarget"]
 
 
 import os
+import logging
 
 from law.config import Config
 from law.target.remote import RemoteFileSystem, RemoteTarget, RemoteTarget, RemoteFileTarget, \
     RemoteDirectoryTarget
+
+
+logger = logging.getLogger(__name__)
 
 
 class DropboxFileSystem(RemoteFileSystem):
@@ -58,8 +62,10 @@ class DropboxFileSystem(RemoteFileSystem):
 # try to set the default fs instance
 try:
     DropboxFileSystem.default_instance = DropboxFileSystem()
+    logger.debug("created default DropboxFileSystem instance '{}'".format(
+        DropboxFileSystem.default_instance))
 except:
-    pass
+    logger.debug("could not create default DropboxFileSystem instance")
 
 
 class DropboxTarget(RemoteTarget):

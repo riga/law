@@ -10,6 +10,7 @@ __all__ = ["Task", "WrapperTask"]
 
 import os
 import sys
+import logging
 from argparse import ArgumentParser
 from socket import gethostname
 from collections import OrderedDict
@@ -22,6 +23,9 @@ import six
 from law.parameter import NO_STR, NO_INT, TaskInstanceParameter, CSVParameter
 from law.parser import global_cmdline_values
 from law.util import abort, colored, uncolored, make_list, query_choice, multi_match
+
+
+logger = logging.getLogger(__name__)
 
 
 class BaseRegister(luigi.task_register.Register):
@@ -161,6 +165,8 @@ class Register(BaseRegister):
             value = getattr(inst, param)
             if value:
                 try:
+                    logger.debug("evaluating interactive parameter '{}' with value '{}'".format(
+                        param, value))
                     getattr(inst, "_" + param)(*value)
                 except KeyboardInterrupt:
                     print("\naborted")

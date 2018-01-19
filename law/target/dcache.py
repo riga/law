@@ -9,10 +9,14 @@ __all__ = ["DCacheFileSystem", "DCacheFileTarget", "DCacheDirectoryTarget"]
 
 
 import os
+import logging
 
 from law.config import Config
 from law.target.remote import RemoteFileSystem, RemoteTarget, RemoteTarget, RemoteFileTarget, \
     RemoteDirectoryTarget
+
+
+logger = logging.getLogger(__name__)
 
 
 class DCacheFileSystem(RemoteFileSystem):
@@ -50,8 +54,10 @@ class DCacheFileSystem(RemoteFileSystem):
 # try to set the default fs instance
 try:
     DCacheFileSystem.default_instance = DCacheFileSystem()
+    logger.debug("created default DCacheFileSystem instance '{}'".format(
+        DCacheFileSystem.default_instance))
 except:
-    pass
+    logger.debug("could not create default DCacheFileSystem instance")
 
 
 class DCacheTarget(RemoteTarget):

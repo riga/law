@@ -8,9 +8,13 @@ Helpers to extract useful information from the luigi command line parser.
 __all__ = []
 
 
+import logging
 from argparse import ArgumentParser
 
 import luigi
+
+
+logger = logging.getLogger(__name__)
 
 
 # cached objects
@@ -34,6 +38,8 @@ def full_parser():
     luigi_parser = luigi.cmdline_parser.CmdlineParser.get_instance()
     root_task = luigi_parser.known_args.root_task
     _full_parser = luigi_parser._build_parser(root_task)
+
+    logger.debug("build full luigi argument parser")
 
     return _full_parser
 
@@ -62,6 +68,8 @@ def root_task_parser():
     for action in list(full_parser()._actions):
         if not action.option_strings or action.dest in root_dests:
             _root_task_parser._add_action(action)
+
+    logger.debug("build luigi argument parser for root task {}".format(root_task))
 
     return _root_task_parser
 

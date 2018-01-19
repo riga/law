@@ -31,6 +31,7 @@ def execute(args):
         db_file = Config.instance().get("core", "db_file")
         if os.path.exists(db_file):
             os.remove(db_file)
+            print("removed db file {}".format(db_file))
         return
 
     # get modules to lookup

@@ -12,10 +12,7 @@ import os
 import fnmatch
 import shutil
 import glob
-import tempfile
 import random
-import zipfile
-import tarfile
 from contextlib import contextmanager
 
 import luigi

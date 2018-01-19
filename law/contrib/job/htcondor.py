@@ -15,12 +15,16 @@ import re
 import random
 import subprocess
 import getpass
+import logging
 from multiprocessing.pool import ThreadPool
 
 import six
 
 from law.job.base import BaseJobManager, BaseJobFile
 from law.util import interruptable_popen, iter_chunks, make_list, multi_match
+
+
+logger = logging.getLogger(__name__)
 
 
 class HTCondorJobManager(BaseJobManager):
@@ -62,6 +66,7 @@ class HTCondorJobManager(BaseJobManager):
         # define the actual submission in a loop to simplify retries
         while True:
             # run the command
+            logger.debug("submit htcondor job with command '{}'".format(cmd))
             code, out, err = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                 cwd=os.path.dirname(job_file))
 
@@ -126,6 +131,7 @@ class HTCondorJobManager(BaseJobManager):
         cmd += make_list(job_id)
 
         # run it
+        logger.debug("cancel htcondor job with command '{}'".format(cmd))
         code, out, err = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         # check success
@@ -171,6 +177,7 @@ class HTCondorJobManager(BaseJobManager):
         if scheduler:
             cmd += ["-name", scheduler]
         cmd += make_list(job_id)
+        logger.debug("query htcondor job with command '{}'".format(cmd))
         code, out, err = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         # handle errors
@@ -192,6 +199,7 @@ class HTCondorJobManager(BaseJobManager):
                 cmd += ["-pool", pool]
             if scheduler:
                 cmd += ["-name", scheduler]
+            logger.debug("query htcondor job history with command '{}'".format(cmd))
             code, out, err = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
             # handle errors
@@ -409,6 +417,8 @@ class HTCondorJobFile(BaseJobFile):
         with open(job_file, "w") as f:
             for obj in content:
                 f.write(self.create_line(*make_list(obj)) + "\n")
+
+        logger.debug("created htcondor job file at '{}'".format(job_file))
 
         return job_file
 

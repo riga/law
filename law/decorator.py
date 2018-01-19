@@ -36,10 +36,10 @@ from law.parameter import NO_STR
 from law.target.local import LocalFileTarget
 
 
-def factory(**default_opts):
+def factory(*_, **default_opts):
     def wrapper(decorator):
         @functools.wraps(decorator)
-        def wrapper(fn=None, **opts):
+        def wrapper(fn=None, *_, **opts):
             _opts = default_opts.copy()
             _opts.update(opts)
             def wrapper(fn):

@@ -9,8 +9,12 @@ __all__ = ["patch_all"]
 
 
 import os
+import logging
 
 import luigi
+
+
+logger = logging.getLogger(__name__)
 
 
 _patched = False
@@ -26,6 +30,8 @@ def patch_all():
     patch_worker_run_task()
     patch_worker_factory()
     patch_cmdline_parser()
+
+    logger.debug("applied law-specific luigi patches")
 
 
 def patch_worker_run_task():

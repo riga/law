@@ -21,6 +21,7 @@ import gc
 import random
 import threading
 import warnings
+import logging
 from contextlib import contextmanager
 
 import six
@@ -32,6 +33,11 @@ from law.target.local import LocalFileSystem, LocalFileTarget
 from law.target.formatter import find_formatter
 from law.util import make_list, copy_no_perm
 
+
+logger = logging.getLogger(__name__)
+
+
+# try to import gfal2
 try:
     import gfal2
 
@@ -40,15 +46,12 @@ try:
     # configure gfal2 logging
     if not getattr(gfal2, "_law_configured_logging", False):
         gfal2._law_configured_logging = True
-
-        import logging
-
-        logger = logging.getLogger("gfal2")
-        logger.addHandler(logging.StreamHandler())
+        gfal2_logger = logging.getLogger("gfal2")
+        gfal2_logger.addHandler(logging.StreamHandler())
         level = Config.instance().get("target", "gfal2_log_level")
         if isinstance(level, six.string_types):
             level = getattr(logging, level, logging.WARNING)
-        logger.setLevel(level)
+        gfal2_logger.setLevel(level)
 
 except ImportError:
     HAS_GFAL2 = False
@@ -85,6 +88,8 @@ def retry(func):
                     if attempt > retries:
                         raise e
                     else:
+                        logger.debug("gfal2.{}(args: {}, kwargs: {}) failed, retry".format(
+                            func.__name__, args, kwargs))
                         time.sleep(delay)
         except Exception as e:
             e.message += "\nfunction: {}\nattempt : {}\nargs    : {}\nkwargs  : {}".format(
@@ -247,8 +252,10 @@ class RemoteCache(object):
         for inst in cls._instances:
             try:
                 inst.cleanup()
-            except:
-                pass
+                logger.debug("cleanup RemoteCache '{}'".format(inst))
+            except Exception as e:
+                logger.warning("error occured during cleanup of RemoteCache '{}': {}".format(
+                    inst, e))
 
     def __init__(self, fs, root=TMP, auto_flush=False, max_size=-1, dir_perm=0o0770,
                  file_perm=0o0660, wait_delay=5, max_waits=120):
@@ -432,6 +439,7 @@ class RemoteCache(object):
         return self._lock(self.cache_path(rpath))
 
     def allocate(self, size):
+        logger.debug("allocating {} bytes in cache '{}'".format(size, self))
         with self._lock_global():
             # determine stats and current cache size
             file_stats = []
@@ -462,6 +470,8 @@ class RemoteCache(object):
             if delete_size <= 0:
                 return
 
+            logger.debug("need to delete {} bytes".format(delete_size))
+
             # delete files, ordered by their access time, skip locked ones
             for cpath, stat in sorted(file_stats, key=lambda tpl: tpl[1].st_atime):
                 if self._locked(cpath):
@@ -471,7 +481,7 @@ class RemoteCache(object):
                 if delete_size <= 0:
                     break
             else:
-                print("warning, could not allocate size {}".format(size))
+                logger.warning("could not allocate remaining {} bytes".format(delete_size))
 
     def _touch(self, cpath, times=None):
         if os.path.exists(cpath):

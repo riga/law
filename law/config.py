@@ -10,9 +10,13 @@ __all__ = ["Config"]
 
 import os
 import tempfile
+import logging
 
 import six
 from six.moves.configparser import ConfigParser
+
+
+logger = logging.getLogger(__name__)
 
 
 class Config(ConfigParser):
@@ -82,7 +86,10 @@ class Config(ConfigParser):
             if os.path.isfile(f):
                 self.read(f)
                 self.config_file = f
+                logger.debug("config instance created from '{}'".format(f))
                 break
+        else:
+            logger.debug("config instance created without a file")
 
         # inherit from and/or extend by other configs
         for option, overwrite_options in [("include_configs", False), ("extend_configs", True)]:

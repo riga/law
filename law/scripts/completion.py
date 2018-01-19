@@ -5,9 +5,7 @@
 """
 
 
-import os
-
-import law
+from law.util import law_base
 
 
 def setup_parser(sub_parsers):
@@ -16,4 +14,4 @@ def setup_parser(sub_parsers):
 
 
 def execute(args):
-    print(os.path.join(os.path.dirname(law.__file__), "completion.sh"))
+    print(law_base("completion.sh"))

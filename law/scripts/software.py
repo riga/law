@@ -8,6 +8,7 @@
 import os
 import sys
 import shutil
+import logging
 
 import six
 import luigi
@@ -16,7 +17,11 @@ import law
 from law.config import Config
 
 
+logger = logging.getLogger(__name__)
+
+
 deps = [six, luigi, law]
+
 
 if "_reloaded_deps" not in globals():
     _reloaded_deps = False
@@ -78,6 +83,7 @@ def reload_dependencies(force=False):
 
     for mod in deps:
         six.moves.reload_module(mod)
+        logger.debug("reloaded module '{}'".format(mod))
 
 
 def use_software_cache(sw_dir=None, reload_deps=False):

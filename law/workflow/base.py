@@ -9,6 +9,7 @@ __all__ = ["Workflow"]
 
 
 import gc
+import logging
 from collections import OrderedDict
 from abc import abstractmethod
 
@@ -17,6 +18,9 @@ import luigi
 from law.task.base import Task, ProxyTask
 from law.target.collection import TargetCollection, SiblingFileCollection
 from law.parameter import NO_STR, NO_INT, CSVParameter
+
+
+logger = logging.getLogger(__name__)
 
 
 _forward_attrs = ("requires", "output", "run")
@@ -98,6 +102,8 @@ class Workflow(Task):
                     continue
                 if self.workflow in (NO_STR, cls.workflow_proxy_cls.workflow_type):
                     self.workflow_proxy = cls.workflow_proxy_cls(task=self)
+                    logger.debug("created workflow proxy instance of type '{}'".format(
+                        cls.workflow_proxy_cls.workflow_type))
                     break
             else:
                 raise ValueError("unknown workflow type {}".format(self.workflow))

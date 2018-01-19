@@ -14,6 +14,7 @@ import time
 import re
 import random
 import subprocess
+import logging
 from multiprocessing.pool import ThreadPool
 
 import six
@@ -21,6 +22,9 @@ import six
 from law.job.base import BaseJobManager, BaseJobFile
 from law.target.file import add_scheme
 from law.util import interruptable_popen, iter_chunks, make_list, multi_match
+
+
+logger = logging.getLogger(__name__)
 
 
 class GLiteJobManager(BaseJobManager):
@@ -67,6 +71,7 @@ class GLiteJobManager(BaseJobManager):
 
             # run the command
             # glite prints everything to stdout
+            logger.debug("submit glite job with command '{}'".format(cmd))
             code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=sys.stderr)
 
             # in some cases, the return code is 0 but the ce did not respond with a valid id
@@ -116,6 +121,7 @@ class GLiteJobManager(BaseJobManager):
     def cancel(self, job_id, silent=False):
         # build the command and run it
         cmd = ["glite-ce-job-cancel", "-N"] + make_list(job_id)
+        logger.debug("cancel glite job with command '{}'".format(cmd))
         code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=sys.stderr)
 
         # check success
@@ -148,6 +154,7 @@ class GLiteJobManager(BaseJobManager):
     def cleanup(self, job_id, silent=False):
         # build the command and run it
         cmd = ["glite-ce-job-purge", "-N"] + make_list(job_id)
+        logger.debug("cleanup glite job with command '{}'".format(cmd))
         code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=sys.stderr)
 
         # check success
@@ -182,6 +189,7 @@ class GLiteJobManager(BaseJobManager):
 
         # build the command and run it
         cmd = ["glite-ce-job-status", "-n", "-L", "0"] + make_list(job_id)
+        logger.debug("query glite job with command '{}'".format(cmd))
         code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=sys.stderr)
 
         # handle errors
@@ -386,6 +394,8 @@ class GLiteJobFile(BaseJobFile):
             for key, value in content:
                 f.write(self.create_line(key, value) + "\n")
             f.write("]\n")
+
+        logger.debug("created glite job file at '{}'".format(job_file))
 
         return job_file
 

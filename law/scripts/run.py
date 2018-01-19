@@ -7,6 +7,7 @@
 
 import os
 import sys
+import logging
 
 import luigi
 from luigi.cmdline import luigi_run
@@ -16,6 +17,9 @@ import law
 from law.task.base import Task
 from law.config import Config
 from law.util import abort, create_hash
+
+
+logger = logging.getLogger(__name__)
 
 
 def setup_parser(sub_parsers):
@@ -41,7 +45,7 @@ def execute(args):
                     abort("object '{}' is not a Task".format(args.task_family))
                 task_family = task_cls.task_family
         except ImportError as e:
-            pass
+            logger.debug("import error in module {}: {}".format(modid, e))
 
     # read task info from the db file and import it
     if task_family is None:
@@ -67,11 +71,9 @@ def read_task_from_db(task_family, db_file=None):
     with open(db_file, "r") as f:
         for line in f.readlines():
             line = line.strip()
-            try:
+            if line.count(":") >= 2:
                 modid, family, params = line.split(":", 2)
-            except ValueError:
-                pass
-            if family == task_family:
-                return modid, family, params
+                if family == task_family:
+                    return modid, family, params
 
     return None

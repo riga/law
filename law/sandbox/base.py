@@ -11,6 +11,7 @@ __all__ = ["Sandbox", "SandboxTask"]
 import os
 import sys
 import getpass
+import logging
 from abc import ABCMeta, abstractmethod, abstractproperty
 from contextlib import contextmanager
 from fnmatch import fnmatch
@@ -23,6 +24,9 @@ from law.target.local import LocalDirectoryTarget
 from law.config import Config
 from law.parser import global_cmdline_args
 from law.util import colored, multi_match, mask_struct, map_struct, interruptable_popen
+
+
+logger = logging.getLogger(__name__)
 
 
 _current_sandbox = os.environ.get("LAW_SANDBOX", "").split(",")
@@ -189,12 +193,14 @@ class SandboxProxy(ProxyTask):
         if stagein_info:
             # tell the sandbox
             self.sandbox_inst.stagein_info = stagein_info
+            logger.debug("configured sandbox data stage-in")
 
         # prepare stage-out
         stageout_info = self.prepare_stageout()
         if stageout_info:
             # tell the sandbox
             self.sandbox_inst.stageout_info = stageout_info
+            logger.debug("configured sandbox data stage-out")
 
         # create the actual command to run
         cmd = self.sandbox_inst.cmd(self.proxy_cmd())
@@ -315,6 +321,8 @@ class SandboxTask(Task):
         if not self.sandboxed:
             self.sandbox_inst = Sandbox.new(self.effective_sandbox, self)
             self.sandbox_proxy = SandboxProxy(task=self)
+            logger.debug("created sandbox proxy instance of type '{}'".format(
+                self.effective_sandbox))
         else:
             self.sandbox_inst = None
             self.sandbox_proxy = None

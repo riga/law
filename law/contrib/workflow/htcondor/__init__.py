@@ -21,7 +21,7 @@ from law.parameter import NO_STR
 from law.decorator import log
 from law.util import law_base, iter_chunks
 from law.contrib.job.htcondor import HTCondorJobManager, HTCondorJobFile
-# temporary imports, might be solved by clever inheritance
+# temporary imports, will be solved by clever inheritance
 from law.contrib.workflow.glite import GLiteSubmissionData, GLiteStatusData, GLiteWorkflowProxy
 
 

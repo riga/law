@@ -12,10 +12,14 @@ import os
 import json
 import zipfile
 import tarfile
+import logging
 from contextlib import contextmanager
 from collections import OrderedDict
 
 import six
+
+
+logger = logging.getLogger(__name__)
 
 
 class FormatterRegister(type):
@@ -33,6 +37,7 @@ class FormatterRegister(type):
         # store classes by name
         if cls.name != "_base":
             metacls.formatters[cls.name] = cls
+            logger.debug("registered target formatter '{}'".format(cls.name))
 
         return cls
 
