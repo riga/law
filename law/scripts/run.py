@@ -5,18 +5,14 @@
 """
 
 
-import os
 import sys
 import logging
 
-import luigi
 from luigi.cmdline import luigi_run
-import six
 
-import law
 from law.task.base import Task
 from law.config import Config
-from law.util import abort, create_hash
+from law.util import abort
 
 
 logger = logging.getLogger(__name__)

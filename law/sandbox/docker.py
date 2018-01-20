@@ -9,16 +9,14 @@ __all__ = ["DockerSandbox"]
 
 
 import os
+import uuid
+import socket
+import subprocess
 from collections import OrderedDict
-from fnmatch import fnmatch
-from subprocess import PIPE, STDOUT
-from uuid import uuid4
-from socket import gethostname
 
 import luigi
 import six
 
-import law
 from law.sandbox.base import Sandbox
 from law.config import Config
 from law.scripts.software import deps as law_deps
@@ -56,7 +54,7 @@ class DockerSandbox(Sandbox):
                 cmd = cmd.format(self.image, tmp_path, env_path)
 
                 returncode, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-                    stdout=PIPE, stderr=STDOUT)
+                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                 if returncode != 0:
                     raise Exception("docker sandbox env loading failed: " + str(out))
 
@@ -82,10 +80,10 @@ class DockerSandbox(Sandbox):
         args = make_list(getattr(self.task, "docker_args", self.default_docker_args))
 
         # container name
-        args.extend(["--name", "'{}_{}'".format(self.task.task_id, str(uuid4())[:8])])
+        args.extend(["--name", "'{}_{}'".format(self.task.task_id, str(uuid.uuid4())[:8])])
 
         # container hostname
-        args.extend(["--hostname", "'{}'".format(gethostname())])
+        args.extend(["--hostname", "'{}'".format(socket.gethostname())])
 
         # helper to build forwarded paths
         section = "docker_" + self.image
@@ -162,7 +160,6 @@ class DockerSandbox(Sandbox):
         vols = {}
         vols.update(self.get_config_volumes())
         vols.update(self.get_task_volumes())
-        vol_mapping = {"${PY}": dst(python_dir), "${BIN}": dst(bin_dir)}
         for hdir, cdir in six.iteritems(vols):
             if not cdir:
                 mount(hdir)

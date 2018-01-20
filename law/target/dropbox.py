@@ -8,12 +8,11 @@ Dropbox file system and targets.
 __all__ = ["DropboxFileSystem", "DropboxFileTarget", "DropboxDirectoryTarget"]
 
 
-import os
 import logging
 
 from law.config import Config
-from law.target.remote import RemoteFileSystem, RemoteTarget, RemoteTarget, RemoteFileTarget, \
-    RemoteDirectoryTarget
+from law.target.remote import (RemoteFileSystem, RemoteTarget, RemoteFileTarget,
+    RemoteDirectoryTarget)
 
 
 logger = logging.getLogger(__name__)
@@ -44,7 +43,7 @@ class DropboxFileSystem(RemoteFileSystem):
 
         gfal_options = {
             "integer": [("DROPBOX", "OAUTH", 2)],
-            "string" : [("DROPBOX", key.upper(), str(value)) for key, value in opts.items()],
+            "string": [("DROPBOX", key.upper(), str(value)) for key, value in opts.items()],
         }
 
         # default configs

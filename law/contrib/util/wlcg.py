@@ -10,7 +10,6 @@ __all__ = ["get_voms_proxy_user", "get_voms_proxy_lifetime", "get_voms_proxy_vo"
 
 
 import os
-import time
 import re
 import subprocess
 import uuid

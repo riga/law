@@ -114,7 +114,7 @@ class TargetCollection(Target):
         if max_depth > 0:
             if isinstance(self.targets, (list, tuple)):
                 gen = enumerate(self.targets)
-            else: # dict
+            else:  # dict
                 gen = six.iteritems(self.targets)
 
             for key, target in gen:
@@ -144,7 +144,7 @@ class SiblingFileCollection(TargetCollection):
         first_target = self._flat_targets[0]
         if isinstance(first_target, FileSystemTarget):
             self.dir = first_target.parent
-        else: # SiblingFileCollection
+        else:  # SiblingFileCollection
             self.dir = first_target.dir
 
     def exists(self, basenames=None):
@@ -168,7 +168,7 @@ class SiblingFileCollection(TargetCollection):
             if isinstance(target, FileSystemTarget):
                 if target.basename in basenames:
                     n += 1
-            else: # SiblingFileCollection
+            else:  # SiblingFileCollection
                 if target.exists(basenames=basenames):
                     n += 1
 
@@ -195,7 +195,7 @@ class SiblingFileCollection(TargetCollection):
             if isinstance(target, FileSystemTarget):
                 if target.basename in basenames:
                     n += 1
-            else: # SiblingFileCollection
+            else:  # SiblingFileCollection
                 if target.exists(basenames=basenames):
                     n += 1
 

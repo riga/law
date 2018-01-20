@@ -17,11 +17,9 @@ import subprocess
 import logging
 from multiprocessing.pool import ThreadPool
 
-import six
-
 from law.job.base import BaseJobManager, BaseJobFile
 from law.target.file import add_scheme
-from law.util import interruptable_popen, iter_chunks, make_list, multi_match
+from law.util import interruptable_popen, iter_chunks, make_list
 
 
 logger = logging.getLogger(__name__)
@@ -43,7 +41,7 @@ class GLiteJobManager(BaseJobManager):
         self.threads = threads
 
     def submit(self, job_file, ce=None, delegation_id=None, retries=0, retry_delay=5,
-        silent=False):
+            silent=False):
         # default arguments
         ce = ce or self.ce
         delegation_id = delegation_id or self.delegation_id
@@ -95,7 +93,7 @@ class GLiteJobManager(BaseJobManager):
                     raise Exception("submission of job '{}' failed:\n{}".format(job_file, out))
 
     def submit_batch(self, job_files, ce=None, delegation_id=None, retries=0, retry_delay=5,
-        silent=False, threads=None):
+            silent=False, threads=None):
         # default arguments
         threads = threads or self.threads
 
@@ -103,7 +101,7 @@ class GLiteJobManager(BaseJobManager):
         kwargs = dict(ce=ce, delegation_id=delegation_id, retries=retries, retry_delay=retry_delay,
             silent=silent)
         pool = ThreadPool(max(threads, 1))
-        results = [pool.apply_async(self.submit, (job_file,), kwargs) \
+        results = [pool.apply_async(self.submit, (job_file,), kwargs)
                    for job_file in job_files]
         pool.close()
         pool.join()
@@ -136,7 +134,7 @@ class GLiteJobManager(BaseJobManager):
         # threaded processing
         kwargs = dict(silent=silent)
         pool = ThreadPool(max(threads, 1))
-        results = [pool.apply_async(self.cancel, (job_id_chunk,), kwargs) \
+        results = [pool.apply_async(self.cancel, (job_id_chunk,), kwargs)
                    for job_id_chunk in iter_chunks(job_ids, chunk_size)]
         pool.close()
         pool.join()
@@ -169,7 +167,7 @@ class GLiteJobManager(BaseJobManager):
         # threaded processing
         kwargs = dict(silent=silent)
         pool = ThreadPool(max(threads, 1))
-        results = [pool.apply_async(self.cleanup, (job_id_chunk,), kwargs) \
+        results = [pool.apply_async(self.cleanup, (job_id_chunk,), kwargs)
                    for job_id_chunk in iter_chunks(job_ids, chunk_size)]
         pool.close()
         pool.join()
@@ -224,7 +222,7 @@ class GLiteJobManager(BaseJobManager):
         # threaded processing
         kwargs = dict(silent=silent)
         pool = ThreadPool(max(threads, 1))
-        results = [pool.apply_async(self.query, (job_id_chunk,), kwargs) \
+        results = [pool.apply_async(self.query, (job_id_chunk,), kwargs)
                    for job_id_chunk in iter_chunks(job_ids, chunk_size)]
         pool.close()
         pool.join()
@@ -322,8 +320,8 @@ class GLiteJobFile(BaseJobFile):
         "stderr", "stdout", "vo", "custom_content"]
 
     def __init__(self, file_name="job.jdl", executable=None, input_files=None, output_files=None,
-        output_uri=None, stdout="stdout.txt", stderr="stderr.txt", vo=None, custom_content=None,
-        tmp_dir=None):
+            output_uri=None, stdout="stdout.txt", stderr="stderr.txt", vo=None, custom_content=None,
+            tmp_dir=None):
         super(GLiteJobFile, self).__init__(tmp_dir=tmp_dir)
 
         self.file_name = file_name

@@ -9,17 +9,13 @@ __all__ = ["BashSandbox"]
 
 
 import os
+import subprocess
 from collections import OrderedDict
-from fnmatch import fnmatch
-from subprocess import PIPE, STDOUT
 
-import luigi
 import six
 
-import law
 from law.sandbox.base import Sandbox
-from law.config import Config
-from law.util import make_list, tmp_file, interruptable_popen
+from law.util import tmp_file, interruptable_popen
 
 
 class BashSandbox(Sandbox):
@@ -47,7 +43,7 @@ class BashSandbox(Sandbox):
                 cmd = cmd.format(script, tmp_path)
 
                 returncode, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-                    stdout=PIPE, stderr=STDOUT)
+                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                 if returncode != 0:
                     raise Exception("bash sandbox env loading failed: " + str(out))
 
@@ -66,8 +62,6 @@ class BashSandbox(Sandbox):
         return self._envs[script]
 
     def cmd(self, proxy_cmd):
-        cfg = Config.instance()
-
         # environment variables to set
         env = OrderedDict()
 

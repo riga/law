@@ -18,8 +18,8 @@ from contextlib import contextmanager
 import luigi
 import six
 
-from law.target.file import FileSystem, FileSystemTarget, FileSystemFileTarget, \
-    FileSystemDirectoryTarget, get_path, get_scheme, remove_scheme
+from law.target.file import (FileSystem, FileSystemTarget, FileSystemFileTarget,
+    FileSystemDirectoryTarget, get_scheme, remove_scheme)
 from law.target.formatter import find_formatter
 from law.config import Config
 

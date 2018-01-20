@@ -40,7 +40,7 @@ class HTCondorWorkflowProxy(WorkflowProxy):
 
         self.job_file = None
         self.job_manager = HTCondorJobManager()
-        self.submission_data = HTCondorSubmissionData(tasks_per_job=self.task.tasks_per_job)
+        self.submission_data = self.submission_data_cls(tasks_per_job=self.task.tasks_per_job)
         self.skipped_job_nums = None
         self.last_counts = len(self.job_manager.status_names) * (0,)
         self.retry_counts = defaultdict(int)
@@ -221,7 +221,7 @@ class HTCondorWorkflowProxy(WorkflowProxy):
 
         # store submission data
         errors = []
-        for job_num, job_id in six.moves.zip(job_data, jobs):
+        for job_num, job_id in six.moves.zip(job_data, job_ids):
             if isinstance(job_id, Exception):
                 errors.append((job_num, job_id))
                 job_id = None

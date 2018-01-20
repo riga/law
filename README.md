@@ -1,4 +1,4 @@
-[![law](https://raw.githubusercontent.com/riga/law/master/logo.png)](https://github.com/riga/law)
+[<img src="https://raw.githubusercontent.com/riga/law/master/logo.png" alt="law logo" width="200"/>](https://github.com/riga/law)
 -
 
 [![Build Status](https://travis-ci.org/riga/law.svg?branch=master)](https://travis-ci.org/riga/law) [![Documentation Status](https://readthedocs.org/projects/law/badge/?version=latest)](http://law.readthedocs.io/en/latest/?badge=latest) [![Package Status](https://img.shields.io/pypi/v/law.svg)](https://pypi.python.org/pypi/law)

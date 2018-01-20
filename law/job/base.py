@@ -80,8 +80,8 @@ class BaseJobManager(object):
 
     @classmethod
     def status_line(cls, counts, last_counts=None, skip=None, timestamp=True, align=False,
-        color=False):
-        status_names = self.status_names
+            color=False):
+        status_names = cls.status_names
         if skip:
             status_names = [name for name in status_names if name not in skip]
 
@@ -204,7 +204,7 @@ class BaseJobFile(object):
                 for key, value in six.iteritems(variables):
                     lines = [cls.render_line(line, key, value) for line in lines]
 
-        with open(dest, "w") as f:
+        with open(dst, "w") as f:
             for line in lines:
                 f.write(line)
 

@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# flake8: noqa
 
 """
 High-level extension layer for Luigi analysis workflows.
@@ -47,12 +48,3 @@ import law.sandbox.bash
 from law.workflow.local import LocalWorkflow
 import law.job.base
 import law.contrib
-
-
-# register exit function
-import atexit
-
-def exit():
-    pass
-
-atexit.register(exit)

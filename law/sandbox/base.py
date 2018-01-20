@@ -10,7 +10,6 @@ __all__ = ["Sandbox", "SandboxTask"]
 
 import os
 import sys
-import getpass
 import logging
 from abc import ABCMeta, abstractmethod, abstractproperty
 from contextlib import contextmanager

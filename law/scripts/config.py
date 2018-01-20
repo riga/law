@@ -5,9 +5,6 @@
 """
 
 
-import sys
-import os
-
 from law.config import Config
 from law.util import abort
 

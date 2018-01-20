@@ -1,20 +1,15 @@
 #!/usr/bin/env bash
 
 action() {
-	local base="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && /bin/pwd )"
+	local base="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 	# update variables
-	export LAW_DEV_BASE="$base"
+	export PATH="$base/bin:$PATH"
 	export PYTHONPATH="$base:$PYTHONPATH"
+	export LAW_DEV_BASE="$base"
 	export LUIGI_CONFIG_PATH="$base/law/examples/luigi.cfg"
 
-	# mimic law executable
-	law() {
-		python "$LAW_DEV_BASE/law" "$@"
-	}
-	export -f law
-
-	# cleanup method for dev files
+	# cleanup dev files
 	law_clean() {
 		rm -rf "$LAW_DEV_BASE/build"
 		rm -rf "$LAW_DEV_BASE/dist"
@@ -32,7 +27,7 @@ law.examples
 EOL
 	fi
 
-	# setup cli completion
+	# setup bash completion
 	source "$LAW_DEV_BASE/law/completion.sh"
 }
 action

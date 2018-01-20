@@ -6,7 +6,6 @@
 
 
 import os
-import sys
 from importlib import import_module
 
 import luigi
@@ -50,8 +49,8 @@ def execute(args):
             print("loading module '{}'".format(modid))
 
         try:
-            mod = import_module(modid)
-        except ImportError as e:
+            import_module(modid)
+        except ImportError:
             continue
 
         if args.verbose:

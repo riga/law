@@ -5,7 +5,6 @@ Main law command line interface.
 """
 
 
-import os
 import sys
 from importlib import import_module
 from argparse import ArgumentParser

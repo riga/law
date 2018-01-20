@@ -20,18 +20,18 @@ import subprocess
 import signal
 import hashlib
 import shutil
-import types
 from contextlib import contextmanager
 
 import six
 
 
-class _NoValue(object):
+class NoValue(object):
 
     def __nonzero__(self):
         return False
 
-_no_value = _NoValue()
+
+_no_value = NoValue()
 
 
 def law_base(*paths):
@@ -65,33 +65,34 @@ def abort(msg=None, exitcode=1):
 
 
 colors = {
-    "red"   : 31,
-    "green" : 32,
+    "red": 31,
+    "green": 32,
     "yellow": 33,
-    "blue"  : 34,
-    "pink"  : 35,
-    "cyan"  : 36,
-    "white" : 37
+    "blue": 34,
+    "pink": 35,
+    "cyan": 36,
+    "white": 37,
 }
 
 backgrounds = {
-    "none"  : 49,
-    "red"   : 41,
-    "green" : 42,
+    "none": 49,
+    "red": 41,
+    "green": 42,
     "yellow": 43,
-    "blue"  : 44,
-    "pink"  : 45,
-    "cyan"  : 46,
-    "grey"  : 47
+    "blue": 44,
+    "pink": 45,
+    "cyan": 46,
+    "grey": 47,
 }
 
 styles = {
-    "none"     : 0,
-    "bright"   : 1,
-    "underline": 4
+    "none": 0,
+    "bright": 1,
+    "underline": 4,
 }
 
 uncolor_cre = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
+
 
 def colored(msg, color=None, background=None, style=None, force=False):
     """
@@ -164,7 +165,7 @@ def multi_match(name, patterns, mode=any, regex=False):
     if not regex:
         return mode(fnmatch.fnmatch(name, pattern) for pattern in patterns)
     else:
-        return mode(re.match(pattern, name) for pattern in patternss)
+        return mode(re.match(pattern, name) for pattern in patterns)
 
 
 def make_list(obj, cast=True):
@@ -207,7 +208,7 @@ def which(prog):
     executable = lambda path: os.path.isfile(path) and os.access(path, os.X_OK)
 
     # prog can also be a path
-    dirname, basename = os.path.split(prog)
+    dirname, _ = os.path.split(prog)
     if dirname:
         if executable(prog):
             return prog
@@ -221,7 +222,7 @@ def which(prog):
 
 
 def map_struct(func, struct, cls=None, map_dict=True, map_list=True, map_tuple=False,
-    map_set=False):
+        map_set=False):
     """
     Applies a function *func* to each value of a complex structured object *struct* and returns the
     output in the same structure. Example:
@@ -274,14 +275,14 @@ def map_struct(func, struct, cls=None, map_dict=True, map_list=True, map_tuple=F
         elif isinstance(struct, set):
             gen = enumerate(struct)
             add = lambda _, value: new_struct.add(value)
-        else: # dict
+        else:  # dict
             gen = six.iteritems(struct)
             add = lambda key, value: new_struct.__setitem__(key, value)
 
         # recursively fill the new struct
         for key, value in gen:
             value = map_struct(func, value, cls=cls, map_dict=map_dict, map_list=map_list,
-                map_tuple=map_tuple, map_set=map_set)
+                    map_tuple=map_tuple, map_set=map_set)
             add(key, value)
 
         # convert tuples
@@ -341,7 +342,7 @@ def mask_struct(mask, struct, replace=_no_value):
 
     # when this point is reached, mask and struct have incompatible types
     raise TypeError("mask and struct must have the same type, got '{}' and '{}'".format(type(mask),
-        type(struct)))
+            type(struct)))
 
 
 @contextmanager
@@ -398,7 +399,7 @@ def iter_chunks(l, size):
     smaller than 1 results in no chunking at all.
     """
     if isinstance(l, six.integer_types):
-        l = six.range(l)
+        l = six.moves.range(l)
 
     if isinstance(l, types.GeneratorType):
         if size < 1:
@@ -419,4 +420,4 @@ def iter_chunks(l, size):
             yield l
         else:
             for i in six.moves.range(0, len(l), size):
-                yield l[i:i+size]
+                yield l[i:i + size]

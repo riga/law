@@ -12,7 +12,7 @@ __all__ = ["GLiteWorkflow"]
 import os
 import sys
 import math
-import random
+import time
 import base64
 from collections import OrderedDict, defaultdict
 from abc import abstractmethod
@@ -239,7 +239,7 @@ class GLiteWorkflowProxy(WorkflowProxy):
         task = self.task
 
         # get job ids from submission data
-        job_ids = [d["job_id"] for d in self.submission_data.jobs.values() \
+        job_ids = [d["job_id"] for d in self.submission_data.jobs.values()
                    if d["job_id"] not in (self.submission_data.dummy_job_id, None)]
         if not job_ids:
             return
@@ -257,7 +257,7 @@ class GLiteWorkflowProxy(WorkflowProxy):
         task = self.task
 
         # get job ids from submission data
-        job_ids = [d["job_id"] for d in self.submission_data.jobs.values() \
+        job_ids = [d["job_id"] for d in self.submission_data.jobs.values()
                    if d["job_id"] not in (self.submission_data.dummy_job_id, None)]
         if not job_ids:
             return
@@ -312,7 +312,7 @@ class GLiteWorkflowProxy(WorkflowProxy):
 
         # store submission data
         errors = []
-        for job_num, job_id in six.moves.zip(job_data, jobs):
+        for job_num, job_id in six.moves.zip(job_data, job_ids):
             if isinstance(job_id, Exception):
                 errors.append((job_num, job_id))
                 job_id = None
@@ -342,7 +342,7 @@ class GLiteWorkflowProxy(WorkflowProxy):
 
         # bookkeeping dicts to avoid querying the status of finished jobs
         # note: unfinished_jobs holds submission data, finished_jobs holds status data
-        unfinsihed_jobs = {}
+        unfinished_jobs = {}
         finished_jobs = {}
 
         # fill dicts from submission data, taking into account skipped jobs
@@ -352,13 +352,12 @@ class GLiteWorkflowProxy(WorkflowProxy):
                     status=self.job_manager.FINISHED, code=0)
             else:
                 unfinished_jobs[job_num] = data.copy()
-                unfinishedJobData[jobNum] = tpl
 
         # use maximum number of polls for looping
         for i in six.moves.range(max_polls):
             # sleep
             if i > 0:
-                sleep(task.interval * 60)
+                time.sleep(task.interval * 60)
 
             # query job states
             job_ids = [data["job_id"] for data in unfinished_jobs]

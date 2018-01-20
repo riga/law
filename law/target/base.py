@@ -8,7 +8,6 @@ Custom base target definition.
 __all__ = ["Target"]
 
 
-import os
 from abc import abstractmethod, abstractproperty
 
 import luigi

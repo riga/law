@@ -9,10 +9,8 @@ __all__ = ["HTCondorJobManager", "HTCondorJobFile"]
 
 
 import os
-import sys
 import time
 import re
-import random
 import subprocess
 import getpass
 import logging
@@ -21,7 +19,7 @@ from multiprocessing.pool import ThreadPool
 import six
 
 from law.job.base import BaseJobManager, BaseJobFile
-from law.util import interruptable_popen, iter_chunks, make_list, multi_match
+from law.util import interruptable_popen, iter_chunks, make_list
 
 
 logger = logging.getLogger(__name__)
@@ -31,7 +29,7 @@ class HTCondorJobManager(BaseJobManager):
 
     submission_job_id_cre = re.compile("^(\d+)\sjob\(s\)\ssubmitted\sto\scluster\s(\d+)\.$")
     status_header_cre = re.compile("^\s*ID\s+.+$")
-    status_line_cre = re.compile("^(\d+\.\d+)\s+[^\s]+\s+[^\s]+\s+[^\s]+\s+[^\s]+\s+([UIRXCHE])\s+.*$")
+    status_line_cre = re.compile("^(\d+\.\d+)" + 4 * "\s+[^\s]+" + "\s+([UIRXCHE])\s+.*$")
     history_cluster_id_cre = re.compile("^ClusterId\s=\s(\d+)$")
     history_process_id_cre = re.compile("^ProcId\s=\s(\d+)$")
     history_code_cre = re.compile("^ExitCode\s=\s(-?\d+)$")
@@ -50,7 +48,7 @@ class HTCondorJobManager(BaseJobManager):
     def cleanup_batch(self, *args, **kwargs):
         raise NotImplementedError("HTCondorJobManager.cleanup_batch is not implemented")
 
-    def submit(self, job_file, pool=None, scheduler=None, retry_delay=5, silent=False):
+    def submit(self, job_file, pool=None, scheduler=None, retries=0, retry_delay=5, silent=False):
         # default arguments
         pool = pool or self.pool
         scheduler = scheduler or self.scheduler
@@ -67,8 +65,8 @@ class HTCondorJobManager(BaseJobManager):
         while True:
             # run the command
             logger.debug("submit htcondor job with command '{}'".format(cmd))
-            code, out, err = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                cwd=os.path.dirname(job_file))
+            code, out, err = interruptable_popen(cmd, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, cwd=os.path.dirname(job_file))
 
             # get the job id(s)
             if code == 0:
@@ -94,7 +92,7 @@ class HTCondorJobManager(BaseJobManager):
                     raise Exception("submission of job '{}' failed:\n{}".format(job_file, err))
 
     def submit_batch(self, job_files, pool=None, scheduler=None, retries=0, retry_delay=5,
-        silent=False, threads=None):
+            silent=False, threads=None):
         # default arguments
         threads = threads or self.threads
 
@@ -102,7 +100,7 @@ class HTCondorJobManager(BaseJobManager):
         kwargs = dict(pool=pool, scheduler=scheduler, retries=retries, retry_delay=retry_delay,
             silent=silent)
         pool = ThreadPool(max(threads, 1))
-        results = [pool.apply_async(self.submit, (job_file,), kwargs) \
+        results = [pool.apply_async(self.submit, (job_file,), kwargs)
                    for job_file in job_files]
         pool.close()
         pool.join()
@@ -139,7 +137,7 @@ class HTCondorJobManager(BaseJobManager):
             raise Exception("cancellation of job(s) '{}' failed:\n{}".format(job_id, err))
 
     def cancel_batch(self, job_ids, pool=None, scheduler=None, silent=False, threads=None,
-        chunk_size=20):
+            chunk_size=20):
         # default arguments
         pool = pool or self.pool
         scheduler = scheduler or self.scheduler
@@ -148,7 +146,7 @@ class HTCondorJobManager(BaseJobManager):
         # threaded processing
         kwargs = dict(pool=pool, scheduler=scheduler, silent=silent)
         pool = ThreadPool(max(threads, 1))
-        results = [pool.apply_async(self.cancel, (job_id_chunk,), kwargs) \
+        results = [pool.apply_async(self.cancel, (job_id_chunk,), kwargs)
                    for job_id_chunk in iter_chunks(job_ids, chunk_size)]
         pool.close()
         pool.join()
@@ -200,7 +198,8 @@ class HTCondorJobManager(BaseJobManager):
             if scheduler:
                 cmd += ["-name", scheduler]
             logger.debug("query htcondor job history with command '{}'".format(cmd))
-            code, out, err = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            code, out, err = interruptable_popen(cmd, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE)
 
             # handle errors
             if code != 0:
@@ -227,14 +226,14 @@ class HTCondorJobManager(BaseJobManager):
         return query_data if multi else query_data[job_id]
 
     def query_batch(self, job_ids, pool=None, scheduler=None, user=None, silent=False, threads=None,
-        chunk_size=20):
+            chunk_size=20):
         # default arguments
         threads = threads or self.threads
 
         # threaded processing
         kwargs = dict(pool=pool, scheduler=scheduler, user=user, silent=silent)
         pool = ThreadPool(max(threads, 1))
-        results = [pool.apply_async(self.query, (job_id_chunk,), kwargs) \
+        results = [pool.apply_async(self.query, (job_id_chunk,), kwargs)
                    for job_id_chunk in iter_chunks(job_ids, chunk_size)]
         pool.close()
         pool.join()
@@ -288,6 +287,7 @@ class HTCondorJobManager(BaseJobManager):
         # helper to extract job data from a block
         attrs = ["cluster_id", "code", "process_id", "reason"]
         cres = [getattr(cls, "history_%s_cre" % (attr,)) for attr in attrs]
+
         def parse_block(block):
             data = {}
             for line in block:
@@ -342,8 +342,8 @@ class HTCondorJobFile(BaseJobFile):
         "output_files", "stdout", "stderr", "log", "notification", "custom_content"]
 
     def __init__(self, file_name="job", universe="vanilla", executable=None, arguments=None,
-        input_files=None, output_files=None, stdout="stdout.txt", stderr="stderr.txt",
-        log="log.txt", notification="Never", custom_content=None, tmp_dir=None):
+            input_files=None, output_files=None, stdout="stdout.txt", stderr="stderr.txt",
+            log="log.txt", notification="Never", custom_content=None, tmp_dir=None):
         super(HTCondorJobFile, self).__init__(tmp_dir=tmp_dir)
 
         self.file_name = file_name

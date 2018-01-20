@@ -170,12 +170,12 @@ class GFALInterface(object):
             if self.atomic_contexts and pid in self._transfer_parameters:
                 del self._transfer_parameters[pid]
 
-    def url(self, path, cmd=None, random=True):
+    def url(self, path, cmd=None, rnd=True):
         # get potential bases for the given cmd
         bases = self.bases.get(cmd, self.base)
 
         # select one when there are multple
-        if not random or len(bases) == 1:
+        if not rnd or len(bases) == 1:
             base = bases[0]
         else:
             base = random.choice(bases)
@@ -473,11 +473,11 @@ class RemoteCache(object):
             logger.debug("need to delete {} bytes".format(delete_size))
 
             # delete files, ordered by their access time, skip locked ones
-            for cpath, stat in sorted(file_stats, key=lambda tpl: tpl[1].st_atime):
+            for cpath, cstat in sorted(file_stats, key=lambda tpl: tpl[1].st_atime):
                 if self._locked(cpath):
                     continue
                 self._remove(cpath)
-                delete_size -= stat.st_size
+                delete_size -= cstat.st_size
                 if delete_size <= 0:
                     break
             else:
@@ -780,7 +780,7 @@ class RemoteFileSystem(FileSystem):
 
                 if mode == "rc":
                     return full_csrc
-                else: # rl
+                else:  # rl
                     # copy to local without permission bits
                     copy_no_perm(remove_scheme(full_csrc), remove_scheme(full_dst))
                     return dst

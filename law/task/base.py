@@ -8,10 +8,8 @@ Custom luigi base task definitions.
 __all__ = ["Task", "WrapperTask"]
 
 
-import os
 import sys
 import logging
-from argparse import ArgumentParser
 from socket import gethostname
 from collections import OrderedDict
 from abc import abstractmethod
@@ -20,9 +18,9 @@ import luigi
 import luigi.util
 import six
 
-from law.parameter import NO_STR, NO_INT, TaskInstanceParameter, CSVParameter
+from law.parameter import NO_STR, TaskInstanceParameter, CSVParameter
 from law.parser import global_cmdline_values
-from law.util import abort, colored, uncolored, make_list, query_choice, multi_match
+from law.util import abort, colored, uncolored, make_list, query_choice, multi_match, flatten
 
 
 logger = logging.getLogger(__name__)

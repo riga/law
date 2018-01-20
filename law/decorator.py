@@ -36,24 +36,26 @@ from law.parameter import NO_STR
 from law.target.local import LocalFileTarget
 
 
-def factory(*_, **default_opts):
+def factory(**default_opts):
     def wrapper(decorator):
         @functools.wraps(decorator)
-        def wrapper(fn=None, *_, **opts):
+        def wrapper(fn=None, **opts):
             _opts = default_opts.copy()
             _opts.update(opts)
+
             def wrapper(fn):
                 @functools.wraps(fn)
                 def wrapper(*args, **kwargs):
                     return decorator(fn, _opts, *args, **kwargs)
                 return wrapper
+
             return wrapper if fn is None else wrapper(fn)
         return wrapper
     return wrapper
 
 
 def get_task(task):
-    return task if not isinstance(task.ProxyTask) else task.task
+    return task if not isinstance(task, ProxyTask) else task.task
 
 
 @factory()
@@ -64,7 +66,6 @@ def log(fn, opts, task, *args, **kwargs):
     redirected.
     """
     task = get_task(task)
-    orig = task.log_file
     log = task.log_file if task.log_file != NO_STR else task.default_log_file
 
     if log == "-" or not log:
