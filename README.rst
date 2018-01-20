@@ -1,5 +1,4 @@
 .. figure:: https://raw.githubusercontent.com/riga/law/master/logo.png
-   :figwidth: 250
    :target: https://github.com/riga/law
    :align: center
    :alt: law logo
