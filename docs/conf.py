@@ -22,7 +22,7 @@ source_suffix = ".rst"
 exclude_patterns = []
 pygments_style = "sphinx"
 html_title = project + " Documentation"
-html_logo = "../logo_docs.png"
+html_logo = "../logo.png"
 html_sidebars = {"**": [
     "about.html",
     "localtoc.html",
@@ -48,5 +48,6 @@ extensions = ["sphinx.ext.autodoc"]
 
 
 def setup(app):
+    app.add_stylesheet("styles_common.css")
     if html_theme in ("sphinx_rtd_theme", "alabaster"):
         app.add_stylesheet("styles_{}.css".format(html_theme))

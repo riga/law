@@ -255,6 +255,9 @@ class HTCondorWorkflowProxy(WorkflowProxy):
 
 
 class HTCondorWorkflow(Workflow):
+    """
+    TODO.
+    """
 
     exclude_db = True
 

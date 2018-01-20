@@ -1,11 +1,20 @@
-law
-===
-
-.. centered:: This page contains only API docs. For more info, visit `law on GitHub <https://github.com/riga/law>`_.
+.. include:: ../README.rst
+   :end-before: marker-after-header
 
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
+
+   tasks
+   targets
+   workflows
+   sandboxing
+   config
+   cli
+   api/index
+   contrib/index
 
 
-.. automodule:: law
+.. include:: ../README.rst
+   :start-after: marker-after-header
+   :end-before: marker-after-body

@@ -2,9 +2,6 @@
 
 
 import os
-import sys
-import warnings
-from subprocess import Popen, PIPE
 from setuptools import setup
 from setuptools.command.install import install as _install
 
@@ -15,17 +12,8 @@ from law.util import which
 this_dir = os.path.dirname(os.path.abspath(__file__))
 
 
-readme = os.path.join(this_dir, "README.md")
-if os.path.isfile(readme) and "sdist" in sys.argv:
-    cmd = "pandoc --from=markdown --to=rst " + readme
-    p = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
-    out, err = p.communicate()
-    if p.returncode != 0:
-        warnings.warn("pandoc conversion failed: " + err)
-    long_description = out
-else:
-    long_description = ""
-
+with open(os.path.join(this_dir, "README.rst"), "r") as f:
+    long_description = f.read()
 
 keywords = ["luigi", "workflow", "pipeline", "remote", "submission", "grid"]
 
@@ -79,20 +67,18 @@ setup(
         "law.sandbox",
         "law.workflow",
         "law.job",
-        "law.contrib",
-        "law.contrib.workflow",
-        "law.contrib.workflow.glite",
-        "law.contrib.workflow.htcondor",
-        "law.contrib.job",
-        "law.contrib.util",
         "law.scripts",
+        "law.contrib",
+        "law.contrib.glite",
+        "law.contrib.htcondor",
+        "law.contrib.wlcg",
         "law.examples",
     ],
     package_data={
         "": ["LICENSE", "requirements.txt", "README.md"],
         "law": ["completion.sh"],
         "law.job": ["job.sh"],
-        "law.contrib.workflow.glite": ["wrapper.sh"],
+        "law.contrib.glite": ["wrapper.sh"],
     },
     cmdclass={"install": install},
     entry_points={"console_scripts": ["law = law.scripts.cli:main"]},

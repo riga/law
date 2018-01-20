@@ -29,6 +29,9 @@ def _voms_proxy_info(args=None):
 
 
 def get_voms_proxy_user():
+    """
+    Returns the owner of the voms proxy.
+    """
     out = _voms_proxy_info(["--identity"])[1].strip()
     try:
         return re.match(".*\/CN\=([^\/]+).*", out.strip()).group(1)
@@ -37,6 +40,9 @@ def get_voms_proxy_user():
 
 
 def get_voms_proxy_lifetime():
+    """
+    Returns the remaining lifetime of the voms proxy in seconds.
+    """
     out = _voms_proxy_info(["--timeleft"])[1].strip()
     try:
         return int(out)
@@ -45,15 +51,25 @@ def get_voms_proxy_lifetime():
 
 
 def get_voms_proxy_vo():
+    """
+    Returns the virtual organization name of the voms proxy.
+    """
     return _voms_proxy_info(["--vo"])[1].strip()
 
 
-def renew_voms_proxy(vo, passwd, valid="196:00"):
+def renew_voms_proxy(passwd="", vo=None, lifetime="196:00"):
+    """
+    Renews the voms proxy using a password *passwd*, an optional virtual organization name *vo*, and
+    a default *lifetime* of 8 days. The password is written to a temporary file first and piped into
+    the renewal commad to ensure it is not visible in the process list.
+    """
     with tmp_file() as (_, tmp):
         with open(tmp, "w") as f:
             f.write(passwd)
 
-        cmd = "cat '{}' | voms-proxy-init -voms '{}' --valid '{}'".format(tmp, vo, valid)
+        cmd = "cat '{}' | voms-proxy-init --valid '{}'".format(tmp, lifetime)
+        if vo:
+            cmd += " -voms '{}'".format(vo)
         code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         if code != 0:
@@ -61,6 +77,14 @@ def renew_voms_proxy(vo, passwd, valid="196:00"):
 
 
 def delegate_voms_proxy_glite(endpoint, stdout=None, stderr=None, cache=True):
+    """
+    Delegates the voms proxy via gLite to an *endpoint*, e.g.
+    ``grid-ce.physik.rwth-aachen.de:8443``. *stdout* and *stderr* are passed to the *Popen*
+    constructor for executing the ``glite-ce-delegate-proxy`` command. When *cache* is *True*, a
+    json file is created alongside the proxy file, which stores the delegation ids per endpoint. The
+    next time the exact same proxy should be delegated to the same endpoint, the cached delegation
+    id is returned.
+    """
     # get the proxy file
     proxy_file = os.environ.get("X509_USER_PROXY", "/tmp/x509up_u%i" % os.getuid())
     if not os.path.exists(proxy_file):
@@ -114,9 +138,18 @@ def delegate_voms_proxy_glite(endpoint, stdout=None, stderr=None, cache=True):
         cache_data.setdefault("ids", {})[endpoint] = delegation_id
         with open(cache_file, "w") as f:
             json.dump(cache_data, f, indent=4)
+        os.chmod(cache_file, 0o0600)
 
     return delegation_id
 
 
 def get_ce_endpoint(ce):
+    """
+    Extracts the endpoint from a computing element *ce* and returns it. Example:
+
+    .. code-block:: python
+
+        get_ce_endpoint("grid-ce.physik.rwth-aachen.de:8443/cream-pbs-cms")
+        # -> "grid-ce.physik.rwth-aachen.de:8443"
+    """
     return ce.split("/", 1)[0]

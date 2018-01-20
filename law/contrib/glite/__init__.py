@@ -501,6 +501,9 @@ class GLiteWorkflowProxy(WorkflowProxy):
 
 
 class GLiteWorkflow(Workflow):
+    """
+    TODO.
+    """
 
     exclude_db = True
 
