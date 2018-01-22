@@ -38,7 +38,7 @@ class BundleCMSSW(Task):
     def run(self):
         with self.output().localize("w") as tmp:
             cmd = [rel_path(__file__, "bundle_cmssw.sh"), self.path, tmp.path]
-            if self.exclude:
+            if self.exclude != NO_STR:
                 cmd += [self.exclude]
 
             code = interruptable_popen(cmd)[0]
