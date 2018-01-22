@@ -22,13 +22,13 @@ action() {
 
     if [[ "$repo_path" != /* ]]; then
         2>&1 echo "the provided path '$repo_path' must be absolute"
-        return "1"
+        return "3"
     fi
 
     local dst_path="$2"
     if [ -z "$dst_path" ]; then
         2>&1 echo "please provide the path where the bundle should be stored"
-        return "3"
+        return "4"
     fi
 
     local tmp_dir="$( mktemp -d )"

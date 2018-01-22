@@ -17,7 +17,7 @@ action() {
 
     if [ ! -d "$repo_path" ]; then
         2>&1 echo "the provided path '$repo_path' is not a directory or does not exist"
-        return "1"
+        return "2"
     fi
 
     ( \
@@ -26,5 +26,8 @@ action() {
         git diff && \
         ( git ls-files --others --exclude-standard | xargs cat ) \
     ) | sha1sum | cut -d ' ' -f 1
+    local ret="$?"
+
+    return "$ret"
 }
 action "$@"
