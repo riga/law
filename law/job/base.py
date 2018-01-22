@@ -32,14 +32,14 @@ class BaseJobManager(object):
 
     status_names = [PENDING, RUNNING, RETRY, FINISHED, FAILED, UNKNOWN]
 
-    # color styles per status when job count increases / decreases
+    # color styles per status when job count decreases / stagnates / increases
     status_diff_styles = {
-        PENDING: ({}, {"color": "green"}),
-        RUNNING: ({"color": "green"}, {}),
-        RETRY: ({"color": "red"}, {}),
-        FINISHED: ({"color": "green"}, {}),
-        FAILED: ({"color": "red", "style": "bright"}, {}),
-        UNKNOWN: ({"color": "red", "style": "bright"}, {}),
+        PENDING: ({}, {}, {"color": "green"}),
+        RUNNING: ({}, {}, {"color": "green"}),
+        RETRY: ({"color": "green"}, {}, {"color": "red"}),
+        FINISHED: ({}, {}, {"color": "green"}),
+        FAILED: ({}, {}, {"color": "red", "style": "bright"}),
+        UNKNOWN: ({}, {}, {"color": "red"}),
     }
 
     @abstractmethod
@@ -119,7 +119,9 @@ class BaseJobManager(object):
             if last_counts:
                 diff = diff_fmt % diffs[i]
                 if color:
-                    diff = colored(diff, **cls.status_diff_styles[status][diffs[i] < 0])
+                    # 0 if negative, 1 if zero, 2 if positive
+                    style_idx = (diffs[i] > 0) + (diffs[i] >= 0)
+                    diff = colored(diff, **cls.status_diff_styles[status][style_idx])
                 line += " ({})".format(diff)
 
         return line
