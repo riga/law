@@ -6,7 +6,7 @@
 # Arguments:
 # 1. the path to the CMSSW checkout
 # 2. the path where the bundle should be stored, should end with .tgz
-# 3. (optional) space-separated list of files or directories to ignore, supports globbing
+# 3. (optional) regex for excluding files or directories in src, should start with (e.g.) ^src/
 
 action() {
     local cmssw_path="$1"
@@ -15,7 +15,7 @@ action() {
         return "1"
     fi
 
-    if [ ! -d "$repo_path" ]; then
+    if [ ! -d "$cmssw_path" ]; then
         2>&1 echo "the provided path '$cmssw_path' is not a directory or does not exist"
         return "2"
     fi
@@ -26,10 +26,16 @@ action() {
         return "3"
     fi
 
+    local exclude="$3"
+    if [ -z "$exclude" ]; then
+        exclude="_"
+    fi
+
     ( \
         cd "$cmssw_path" && \
         find src -maxdepth 3 -type d \
             | grep -e "^src/.*/.*/\(interface\|data\|python\)" \
+            | grep -v -e "$exclude" \
             | tar -czf "$dst_path" lib biglib bin --exclude="*.pyc" --files-from -
     )
     local ret="$?"
