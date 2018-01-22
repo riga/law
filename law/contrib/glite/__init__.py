@@ -546,6 +546,13 @@ class GLiteWorkflow(Workflow):
     exclude_params_branch = {"ce", "retries", "tasks_per_job", "only_missing", "no_poll", "threads",
         "interval", "walltime", "max_poll_fails", "cancel_jobs", "cleanup_jobs", "transfer_logs"}
 
+    def __init__(self, *args, **kwargs):
+        super(GLiteWorkflow, self).__init__(*args, **kwargs)
+
+        # check if there is at least one ce
+        if not self.ce:
+            raise Exception("please set at least one computing element (--ce)")
+
     @abstractmethod
     def glite_output_directory(self):
         return None
