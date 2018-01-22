@@ -711,7 +711,3 @@ class HTCondorJobFile(BaseJobFile):
             return str(key)
         else:
             return "{} = {}".format(key, value)
-
-
-from law.contrib import provide
-provide(locals())

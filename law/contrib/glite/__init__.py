@@ -938,7 +938,3 @@ class GLiteJobFile(BaseJobFile):
         else:
             value = "\"{}\"".format(value)
         return "{} = {};".format(key, value)
-
-
-from law.contrib import provide
-provide(locals())
