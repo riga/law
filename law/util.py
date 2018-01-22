@@ -5,8 +5,8 @@ Helpful utility functions.
 """
 
 
-__all__ = ["law_base", "printerr", "abort", "colored", "uncolored", "query_choice", "multi_match",
-           "make_list", "flatten", "which", "map_struct", "mask_struct", "tmp_file",
+__all__ = ["rel_path", "law_base", "printerr", "abort", "colored", "uncolored", "query_choice",
+           "multi_match", "make_list", "flatten", "which", "map_struct", "mask_struct", "tmp_file",
            "interruptable_popen", "create_hash", "copy_no_perm", "iter_chunks"]
 
 
@@ -34,12 +34,22 @@ class NoValue(object):
 _no_value = NoValue()
 
 
+def rel_path(anchor, *paths):
+    """
+    Returns a path made of framgment *paths* relativ to an *anchor* path. When *anchor* is a file,
+    its absolute directory is used instead.
+    """
+    anchor = os.path.expandvars(os.path.expanduser(os.path.abspath(anchor)))
+    if os.path.exists(anchor) and os.path.isfile(anchor):
+        anchor = os.path.dirname(anchor)
+    return os.path.normpath(os.path.join(anchor, *paths))
+
+
 def law_base(*paths):
     """
     Returns the law installation directory, optionally joined with *paths*.
     """
-    base = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(base, *paths)
+    return rel_path(__file__, *paths)
 
 
 def printerr(*args, **kwargs):

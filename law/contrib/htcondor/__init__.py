@@ -27,7 +27,7 @@ from law.parameter import NO_STR
 from law.decorator import log
 from law.parser import global_cmdline_args
 from law.job.base import BaseJobManager, BaseJobFile
-from law.util import law_base, iter_chunks, interruptable_popen, make_list
+from law.util import rel_path, law_base, iter_chunks, interruptable_popen, make_list
 # temporary imports, will be solved by clever inheritance
 from law.contrib.glite import GLiteSubmissionData, GLiteStatusData, GLiteWorkflowProxy
 
@@ -139,10 +139,6 @@ class HTCondorWorkflowProxy(WorkflowProxy):
         task = self.task
         config = {}
 
-        thisdir = os.path.dirname(os.path.abspath(__file__))
-        def rel_file(*paths):
-            return os.path.normpath(os.path.join(thisdir, *paths))
-
         # the file postfix is pythonic range made from branches, e.g. [0, 1, 2] -> "_0To3"
         _postfix = "_{}To{}".format(branches[0], branches[-1] + 1)
         postfix = lambda path: self.job_file.postfix_file(path, _postfix)
@@ -167,7 +163,7 @@ class HTCondorWorkflowProxy(WorkflowProxy):
         config["arguments"] = " ".join(job_args)
 
         # input files
-        config["input_files"] = [rel_file("wrapper.sh"), law_base("job", "job.sh")]
+        config["input_files"] = [rel_path(__file__, "wrapper.sh"), law_base("job", "job.sh")]
 
         # render variables
         config["render_data"] = defaultdict(dict)

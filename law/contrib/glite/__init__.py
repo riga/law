@@ -31,7 +31,7 @@ from law.decorator import log
 from law.target.file import add_scheme
 from law.parser import global_cmdline_args
 from law.job.base import BaseJobManager, BaseJobFile
-from law.util import law_base, iter_chunks, interruptable_popen, make_list
+from law.util import rel_path, law_base, iter_chunks, interruptable_popen, make_list
 from law.contrib.wlcg import delegate_voms_proxy_glite, get_ce_endpoint
 
 
@@ -187,10 +187,6 @@ class GLiteWorkflowProxy(WorkflowProxy):
         task = self.task
         config = {}
 
-        thisdir = os.path.dirname(os.path.abspath(__file__))
-        def rel_file(*paths):
-            return os.path.normpath(os.path.join(thisdir, *paths))
-
         # the file postfix is pythonic range made from branches, e.g. [0, 1, 2] -> "_0To3"
         _postfix = "_{}To{}".format(branches[0], branches[-1] + 1)
         postfix = lambda path: self.job_file.postfix_file(path, _postfix)
@@ -200,7 +196,7 @@ class GLiteWorkflowProxy(WorkflowProxy):
         config["executable"] = "wrapper.sh"
 
         # input files
-        config["input_files"] = [rel_file("wrapper.sh"), law_base("job", "job.sh")]
+        config["input_files"] = [rel_path(__file__, "wrapper.sh"), law_base("job", "job.sh")]
 
         # render variables
         config["render_data"] = defaultdict(dict)
