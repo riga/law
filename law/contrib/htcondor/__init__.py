@@ -202,7 +202,7 @@ class HTCondorWorkflowProxy(WorkflowProxy):
 
         # map branch numbers to job numbers, chunk by tasks_per_job
         if not job_map:
-            branch_chunks = list(iter_chunks(task.branch_map, task.tasks_per_job))
+            branch_chunks = list(iter_chunks(task.branch_map.keys(), task.tasks_per_job))
             job_map = dict((i + 1, branches) for i, branches in enumerate(branch_chunks))
 
         # when only_missing is True, a job can be skipped when all its tasks are completed
