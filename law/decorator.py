@@ -65,8 +65,8 @@ def log(fn, opts, task, *args, **kwargs):
     defined by the tasks's *log* parameter. It its value is ``"-"`` or *None*, the output is not
     redirected.
     """
-    task = get_task(task)
-    log = task.log_file if task.log_file != NO_STR else task.default_log_file
+    _task = get_task(task)
+    log = _task.log_file if _task.log_file != NO_STR else _task.default_log_file
 
     if log == "-" or not log:
         return fn(task, *args, **kwargs)
