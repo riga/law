@@ -26,7 +26,7 @@ class BundleCMSSW(Task):
     exclude = CSVParameter(default=[], description="patterns of files to exclude")
 
     def __init__(self, *args, **kwargs):
-        super(BundleGitRepository, self).__init__(*args, **kwargs)
+        super(BundleCMSSW, self).__init__(*args, **kwargs)
 
         self.path = os.path.expandvars(os.path.expanduser(os.path.abspath(self.path)))
 
