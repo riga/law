@@ -286,7 +286,7 @@ class GLiteWorkflowProxy(WorkflowProxy):
         # delegate the voms proxy to all endpoints
         if self.delegation_ids is None and callable(task.glite_delegate_proxy):
             self.delegation_ids = []
-            for ce in self.ce:
+            for ce in task.ce:
                 endpoint = get_ce_endpoint(ce)
                 self.delegation_ids.append(task.glite_delegate_proxy(endpoint))
 
