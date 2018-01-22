@@ -25,6 +25,7 @@ import six
 from law.workflow.base import Workflow, WorkflowProxy
 from law.parameter import NO_STR
 from law.decorator import log
+from law.parser import global_cmdline_args
 from law.job.base import BaseJobManager, BaseJobFile
 from law.util import law_base, iter_chunks, interruptable_popen, make_list
 # temporary imports, will be solved by clever inheritance
@@ -152,6 +153,7 @@ class HTCondorWorkflowProxy(WorkflowProxy):
 
         # arguments
         task_params = task.as_branch(branches[0]).cli_args(exclude={"branch"})
+        task_params += global_cmdline_args()
         job_args = [
             "bash",
             postfix("job.sh"),
@@ -168,15 +170,15 @@ class HTCondorWorkflowProxy(WorkflowProxy):
         config["input_files"] = [rel_file("wrapper.sh"), law_base("job", "job.sh")]
 
         # render variables
-        config["render"] = defaultdict(dict)
+        config["render_data"] = defaultdict(dict)
 
         # add the bootstrap file
         bootstrap_file = task.htcondor_bootstrap_file()
         if bootstrap_file:
             config["input_files"].append(bootstrap_file)
-            config["render"]["*"]["bootstrap_file"] = postfix(os.path.basename(bootstrap_file))
+            config["render_data"]["*"]["bootstrap_file"] = postfix(os.path.basename(bootstrap_file))
         else:
-            config["render"]["*"]["bootstrap_file"] = ""
+            config["render_data"]["*"]["bootstrap_file"] = ""
 
         # output files
         config["output_files"] = []
@@ -187,7 +189,9 @@ class HTCondorWorkflowProxy(WorkflowProxy):
         config["stderr"] = log_file
         if task.transfer_logs:
             config["output_files"].append(log_file)
-            config["render"]["*"]["log_file"] = postfix(log_file)
+            config["render_data"]["*"]["log_file"] = postfix(log_file)
+        else:
+            config["render_data"]["*"]["log_file"] = ""
 
         # task hook
         config = task.glite_job_config(config)

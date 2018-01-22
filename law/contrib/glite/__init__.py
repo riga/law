@@ -29,6 +29,7 @@ from law.workflow.base import Workflow, WorkflowProxy
 from law.parameter import CSVParameter
 from law.decorator import log
 from law.target.file import add_scheme
+from law.parser import global_cmdline_args
 from law.job.base import BaseJobManager, BaseJobFile
 from law.util import law_base, iter_chunks, interruptable_popen, make_list
 from law.contrib.wlcg import delegate_voms_proxy_glite, get_ce_endpoint
@@ -196,19 +197,19 @@ class GLiteWorkflowProxy(WorkflowProxy):
         config["postfix"] = {"*": _postfix}
 
         # executable
-        config["executable"] = rel_file("wrapper.sh")
+        config["executable"] = "wrapper.sh"
 
         # input files
         config["input_files"] = [rel_file("wrapper.sh"), law_base("job", "job.sh")]
 
         # render variables
-        config["render"] = defaultdict(dict)
-        config["render"]["*"]["job_file"] = postfix("job.sh")
+        config["render_data"] = defaultdict(dict)
+        config["render_data"]["*"]["job_file"] = postfix("job.sh")
 
         # add the bootstrap file
         bootstrap_file = task.glite_bootstrap_file()
         config["input_files"].append(bootstrap_file)
-        config["render"]["*"]["bootstrap_file"] = postfix(os.path.basename(bootstrap_file))
+        config["render_data"]["*"]["bootstrap_file"] = postfix(os.path.basename(bootstrap_file))
 
         # output files
         config["output_files"] = []
@@ -219,16 +220,18 @@ class GLiteWorkflowProxy(WorkflowProxy):
             config["stdout"] = log_file
             config["stderr"] = log_file
             config["output_files"].append(log_file)
-            config["render"]["*"]["log_file"] = postfix(log_file)
+            config["render_data"]["*"]["log_file"] = postfix(log_file)
         else:
             config["stdout"] = None
             config["stderr"] = None
+            config["render_data"]["*"]["log_file"] = ""
 
         # output uri
         config["output_uri"] = task.glite_output_uri()
 
         # job script arguments
         task_params = task.as_branch(branches[0]).cli_args(exclude={"branch"})
+        task_params += global_cmdline_args()
         job_args = [
             task.__class__.__module__,
             task.task_family,
@@ -237,7 +240,7 @@ class GLiteWorkflowProxy(WorkflowProxy):
             str(branches[-1] + 1),
             "no"
         ]
-        config["render"]["wrapper.sh"]["job_args"] = " ".join(job_args)
+        config["render_data"]["wrapper.sh"]["job_args"] = " ".join(job_args)
 
         # task hook
         config = task.glite_job_config(config)
@@ -315,7 +318,8 @@ class GLiteWorkflowProxy(WorkflowProxy):
 
         # actual submission
         job_files = [job_file for _, job_file in six.itervalues(job_data)]
-        task.publish_message("going to submit {} jobs to {}".format(len(job_files), task.ce))
+        ce_str = ",".join(task.ce)
+        task.publish_message("going to submit {} jobs to {}".format(len(job_files), ce_str))
         job_ids = self.job_manager.submit_batch(job_files, ce=task.ce,
             delegation_id=self.delegation_ids, retries=3, threads=task.threads)
 
@@ -336,7 +340,7 @@ class GLiteWorkflowProxy(WorkflowProxy):
             raise Exception("{} error(s) occured during submission:\n    {}".format(len(errors),
                 "\n    ".join("job {}: {}".format(*tpl) for tpl in errors)))
         else:
-            task.publish_message("submitted {} jobs to {}".format(len(job_files), task.ce))
+            task.publish_message("submitted {} jobs to {}".format(len(job_files), ce_str))
 
     def poll(self):
         task = self.task
@@ -369,8 +373,8 @@ class GLiteWorkflowProxy(WorkflowProxy):
                 time.sleep(task.interval * 60)
 
             # query job states
-            job_ids = [data["job_id"] for data in unfinished_jobs]
-            states, errors = self.job_manager.query_batch(job_ids, threads=task.threads)
+            job_ids = [data["job_id"] for data in six.itervalues(unfinished_jobs)]
+            _states, errors = self.job_manager.query_batch(job_ids, threads=task.threads)
             if errors:
                 print("{} error(s) occured during status query:\n    {}".format(len(errors),
                     "\n    ".join(str(e) for e in errors)))
@@ -382,6 +386,11 @@ class GLiteWorkflowProxy(WorkflowProxy):
                     continue
             else:
                 n_poll_fails = 0
+
+            # states stores job_id's as keys, so replace them by using job_num's
+            states = {}
+            for job_num, data in six.iteritems(unfinished_jobs):
+                states[job_num] = _states[data["job_id"]]
 
             # store jobs per status, remove finished ones from unfinished_jobs
             pending_jobs = {}
@@ -420,7 +429,8 @@ class GLiteWorkflowProxy(WorkflowProxy):
 
             # log the status line
             counts = (n_pending, n_running, n_retry, n_finished, n_failed, n_unknown)
-            status_line = self.job_manager.status_line(counts, self.last_counts, color=True)
+            status_line = self.job_manager.status_line(counts, self.last_counts, color=True,
+                align=4)
             task.publish_message(status_line)
             self.last_counts = counts
 
@@ -454,7 +464,7 @@ class GLiteWorkflowProxy(WorkflowProxy):
             # automatic resubmission
             if n_retry:
                 self.skipped_job_nums = []
-                self.submit_jobs(retry_jobs)
+                self.submit(retry_jobs)
 
                 # update the unfinished so the next iteration is aware of the new job ids
                 for job_num in retry_jobs:
@@ -549,7 +559,7 @@ class GLiteWorkflow(Workflow):
         return ""
 
     def glite_output_uri(self):
-        return self.glite_output_directory().url()
+        return self.glite_output_directory().url(cmd="listdir")
 
     def glite_delegate_proxy(self, endpoint):
         return delegate_voms_proxy_glite(endpoint, stdout=sys.stdout, stderr=sys.stderr,
@@ -819,11 +829,12 @@ class GLiteJobManager(BaseJobManager):
             # special cases
             if status is None and code is None and reason is None and len(block) > 1:
                 reason = "\n".join(block[1:])
-
-            if status is None:
+            elif status is None:
                 status = "DONE-FAILED"
                 if reason is None:
                     reason = "cannot find status of job {}".format(job_id)
+            elif status == "DONE-OK" and code not in (0, None):
+                status = "DONE-FAILED"
 
             # map the status
             status = cls.map_status(status)

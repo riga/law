@@ -91,7 +91,7 @@ action() {
 
     echo "task module : $task_module"
     echo "task family : $task_family"
-    echo "task params : '$task_params'"
+    echo "task params : $task_params"
     echo "start branch: $start_branch"
     echo "end branch  : $end_branch"
     echo "auto retry  : $auto_retry"
@@ -133,7 +133,7 @@ action() {
     for (( branch=$start_branch; branch<$end_branch; branch++ )); do
         section
 
-        local task_cmd="law run $task_module.$task_family --branch $branch $( echo $task_params | tr _ = | base64 --decode )"
+        local cmd="law run $task_module.$task_family --branch $branch $task_params"
         echo "branch: $branch"
         echo "cmd   : $cmd"
 
@@ -141,7 +141,8 @@ action() {
 
         echo "dependecy tree:"
         eval "$cmd --print-deps 2"
-        if [ "$?" != "0" ];
+        ret="$?"
+        if [ "$?" != "0" ]; then
             2>&1 echo "dependency tree for branch $branch failed, abort"
             cleanup
             return "$ret"
@@ -163,7 +164,7 @@ action() {
             echo "return code: $ret"
         fi
 
-        if [ "$ret" != "0" ];
+        if [ "$ret" != "0" ]; then
             2>&1 echo "branch $branch failed, abort"
             cleanup
             return "$ret"

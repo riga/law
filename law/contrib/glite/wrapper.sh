@@ -5,7 +5,7 @@
 if [ -z "{{log_file}}" ]; then
     bash "{{job_file}}" {{job_args}}
 else
-    bash "{{job_file}}" {{job_args}} >> "{{log_file}}"
+    bash "{{job_file}}" {{job_args}} &>> "{{log_file}}"
 fi
 
 exit "$?"
