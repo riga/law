@@ -329,7 +329,7 @@ class GLiteWorkflowProxy(WorkflowProxy):
                 branches=job_data[job_num][0])
 
         # write the submission data to the output file
-        self.output()["submission"].dump(self.submission_data, formatter="json")
+        self.output()["submission"].dump(self.submission_data, formatter="json", indent=4)
 
         # raise exceptions or log
         if errors:
@@ -448,7 +448,7 @@ class GLiteWorkflowProxy(WorkflowProxy):
                     status_data = self.status_data_cls()
                     status_data.jobs.update(finished_jobs)
                     status_data.jobs.update(states)
-                    outputs["status"].dump(status_data, formatter="json")
+                    outputs["status"].dump(status_data, formatter="json", indent=4)
                 break
             elif failed:
                 failed_nums = [job_num for job_num in failed_jobs if job_num not in retry_jobs]
@@ -493,7 +493,7 @@ class GLiteWorkflowProxy(WorkflowProxy):
             for i, branches in enumerate(branch_chunks):
                 job_num = i + 1
                 submission_data.jobs[job_num] = self.submission_data_cls.job_data(branches=branches)
-            outputs["submission"].dump(submission_data, formatter="json")
+            outputs["submission"].dump(submission_data, formatter="json", indent=4)
 
         # status output
         if "status" in outputs and not outputs["status"].exists():
@@ -503,7 +503,7 @@ class GLiteWorkflowProxy(WorkflowProxy):
                 job_num = i + 1
                 status_data.jobs[job_num] = self.status_data_cls.job_data(
                     status=self.job_manager.FINISHED, code=0)
-            outputs["status"].dump(status_data, formatter="json")
+            outputs["status"].dump(status_data, formatter="json", indent=4)
 
 
 class GLiteWorkflow(Workflow):
