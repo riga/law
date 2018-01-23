@@ -92,7 +92,7 @@ class TextFormatter(Formatter):
     @classmethod
     def dump(cls, path, content, *args, **kwargs):
         with open(get_path(path), "w") as f:
-            f.write(content)
+            f.write(str(content))
 
 
 class JSONFormatter(Formatter):
