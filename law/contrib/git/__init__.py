@@ -54,10 +54,13 @@ class BundleGitRepository(Task):
     @log
     def run(self):
         with self.output().localize("w") as tmp:
-            cmd = [rel_path(__file__, "bundle_repository.sh"), self.path, tmp.path]
-            if self.exclude:
-                cmd += [" ".join(self.exclude)]
+            self.bundle(tmp.path)
 
-            code = interruptable_popen(cmd)[0]
-            if code != 0:
-                raise Exception("repository bundling failed")
+    def bundle(self, dst_path):
+        cmd = [rel_path(__file__, "bundle_repository.sh"), self.path, dst_path]
+        if self.exclude:
+            cmd += [" ".join(self.exclude)]
+
+        code = interruptable_popen(cmd)[0]
+        if code != 0:
+            raise Exception("repository bundling failed")

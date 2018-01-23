@@ -102,7 +102,7 @@ def retry(func):
 class GFALInterface(object):
 
     def __init__(self, base, bases=None, gfal_options=None, transfer_config=None,
-                 atomic_contexts=False, retries=0, retry_delay=0):
+            atomic_contexts=False, retries=0, retry_delay=0):
         super(GFALInterface, self).__init__()
 
         # cache for gfal context objects and transfer parameters per pid for thread safety
@@ -258,7 +258,7 @@ class RemoteCache(object):
                     inst, e))
 
     def __init__(self, fs, root=TMP, auto_flush=False, max_size=-1, dir_perm=0o0770,
-                 file_perm=0o0660, wait_delay=5, max_waits=120):
+            file_perm=0o0660, wait_delay=5, max_waits=120):
         super(RemoteCache, self).__init__()
 
         # create a unique name based on fs attributes
@@ -521,8 +521,8 @@ atexit.register(RemoteCache.cleanup_all)
 class RemoteFileSystem(FileSystem):
 
     def __init__(self, base, bases=None, gfal_options=None, transfer_config=None,
-                 atomic_contexts=False, retries=0, retry_delay=0, permissions=True,
-                 validate_copy=False, cache_config=None):
+            atomic_contexts=False, retries=0, retry_delay=0, permissions=True, validate_copy=False,
+            cache_config=None):
         super(RemoteFileSystem, self).__init__()
 
         # configure the gfal interface
