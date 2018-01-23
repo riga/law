@@ -23,7 +23,7 @@
 High-level extension layer for `luigi <https://github.com/spotify/luigi>`__ analysis workflows.
 
 
-**Note**: This project is currently under development. Version 0.1.0 will be the first, fully documentedalpha release.
+**Note**: This project is currently under development. Version 0.1.0 will be the first, fully documented alpha release.
 
 
 .. marker-after-header
