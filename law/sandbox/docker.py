@@ -223,8 +223,9 @@ class DockerSandbox(Sandbox):
     def get_task_volumes(self):
         return super(DockerSandbox, self).get_task_volumes("get_docker_volumes")
 
-    def get_host_ip(self, mac_default="192.168.65.2", linux_default="127.0.0.1"):
-        # in host network mode, docker containers can normally access the host via 127.0.0.1
-        # however, there is a bug / missing feature in docker for Mac, so we need a workaround
-        default_ip = mac_default if sys.platform == "darwin" else linux_default
+    def get_host_ip(self):
+        # in host network mode, docker containers can normally be accessed via 127.0.0.1 on Linux
+        # or via docker.for.mac.localhost on Mac (as of docker 17.06), however, in some cases it
+        # might be required to use a different ip which can be set via an env variable
+        default_ip = "docker.for.mac.localhost" if sys.platform == "darwin" else "127.0.0.1"
         return os.environ.get("LAW_DOCKER_HOST_IP", default_ip)
