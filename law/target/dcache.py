@@ -24,7 +24,7 @@ class DCacheFileSystem(RemoteFileSystem):
 
     def __init__(self, config=None, base=None, bases=None, **kwargs):
         # prepare the gfal options
-        # resolution order: config, base+bases, default dCache section
+        # resolution order: config, base+bases, default dcache section
         if not config and not base:
             config = Config.instance().get("target", "default_dcache")
         if config and Config.instance().has_section(config):

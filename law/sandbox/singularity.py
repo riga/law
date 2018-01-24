@@ -116,7 +116,7 @@ class SingularitySandbox(Sandbox):
             mount(self.stageout_info.stage_dir.path, dst(stageout_dir))
 
         # adjust path variables
-        env["PATH"] = os.pathsep.join(["$PATH", dst("bin"), dst(python_dir, "law", "scripts")])
+        env["PATH"] = os.pathsep.join(["$PATH", dst("bin")])
         env["PYTHONPATH"] = os.pathsep.join(["$PYTHONPATH", dst(python_dir)])
 
         # forward python directories of law and dependencies
@@ -130,6 +130,14 @@ class SingularitySandbox(Sandbox):
                 vsrc = os.path.join(path, name + ".py")
                 vdst = dst(python_dir, name + ".py")
             mount(vsrc, vdst)
+
+        # forward the law scripts dir to bin as it contains a law executable
+        env["PATH"] = os.pathsep.join([env["PATH"], dst(python_dir, "law", "scripts")])
+
+        # forward the law config file
+        if cfg.config_file:
+            mount(cfg.config_file, dst("law.cfg"))
+            env["LAW_CONFIG_FILE"] = dst("law.cfg")
 
         # forward the luigi config file
         for p in luigi.configuration.LuigiConfigParser._config_paths[::-1]:
