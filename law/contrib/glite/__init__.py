@@ -225,9 +225,15 @@ class GLiteWorkflowProxy(WorkflowProxy):
         # output uri
         config["output_uri"] = task.glite_output_uri()
 
-        # job script arguments
+        # collect task parameters
         task_params = task.as_branch(branches[0]).cli_args(exclude={"branch"})
         task_params += global_cmdline_args()
+        # force the local scheduler?
+        ls_flag = "--local-scheduler"
+        if ls_flag not in task_params and task.glite_use_local_scheduler():
+            task_params.append(ls_flag)
+
+        # job script arguments
         job_args = [
             task.__class__.__module__,
             task.task_family,
@@ -570,6 +576,9 @@ class GLiteWorkflow(Workflow):
 
     def glite_job_config(self, config):
         return config
+
+    def glite_use_local_scheduler(self):
+        return True
 
 
 class GLiteJobManager(BaseJobManager):

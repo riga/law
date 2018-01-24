@@ -147,9 +147,15 @@ class HTCondorWorkflowProxy(WorkflowProxy):
         # executable
         config["executable"] = "env"
 
-        # arguments
+        # collect task parameters
         task_params = task.as_branch(branches[0]).cli_args(exclude={"branch"})
         task_params += global_cmdline_args()
+        # force the local scheduler?
+        ls_flag = "--local-scheduler"
+        if ls_flag not in task_params and task.htcondor_use_local_scheduler():
+            task_params.append(ls_flag)
+
+        # job script arguments
         job_args = [
             "bash",
             postfix("job.sh"),
@@ -304,6 +310,9 @@ class HTCondorWorkflow(Workflow):
 
     def htcondor_job_config(self, config):
         return config
+
+    def htcondor_use_local_scheduler(self):
+        return False
 
 
 class HTCondorJobManager(BaseJobManager):
