@@ -94,4 +94,4 @@ __law_complete() {
 }
 export -f __law_complete
 
-complete -o bashdefault -F __law_complete law
+complete -o bashdefault -o default -F __law_complete law
