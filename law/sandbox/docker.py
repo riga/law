@@ -9,6 +9,7 @@ __all__ = ["DockerSandbox"]
 
 
 import os
+import sys
 import uuid
 import socket
 import subprocess
@@ -194,7 +195,7 @@ class DockerSandbox(Sandbox):
             # when the scheduler runs on the host system, we need to set the network interace to the
             # host system and set the correct luigi scheduler host as seen by the container
             if self.scheduler_on_host():
-                args.extend(["--net", "host"])
+                args.extend(["--network", "host"])
                 proxy_cmd.extend(["--scheduler-host", "\"{}\"".format(self.get_host_ip())])
 
         # build commands to add env variables
@@ -222,7 +223,8 @@ class DockerSandbox(Sandbox):
     def get_task_volumes(self):
         return super(DockerSandbox, self).get_task_volumes("get_docker_volumes")
 
-    def get_host_ip(self):
-        # the ip should be identical across docker versions
-        # but might be changed by overriding this function
-        return "192.168.65.1"
+    def get_host_ip(self, mac_default="192.168.65.2", linux_default="127.0.0.1"):
+        # in host network mode, docker containers can normally access the host via 127.0.0.1
+        # however, there is a bug / missing feature in docker for Mac, so we need a workaround
+        default_ip = mac_default if sys.platform == "darwin" else linux_default
+        return os.environ.get("LAW_DOCKER_HOST_IP", default_ip)
