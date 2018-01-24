@@ -474,7 +474,7 @@ class RemoteCache(object):
 
             # delete files, ordered by their access time, skip locked ones
             for cpath, cstat in sorted(file_stats, key=lambda tpl: tpl[1].st_atime):
-                if self._locked(cpath):
+                if self._is_locked(cpath):
                     continue
                 self._remove(cpath)
                 delete_size -= cstat.st_size
