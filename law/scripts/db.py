@@ -7,6 +7,7 @@
 
 import os
 from importlib import import_module
+from collections import OrderedDict
 
 import luigi
 import six
@@ -38,7 +39,7 @@ def execute(args):
     if args.modules:
         lookup += args.modules
 
-    print("loading tasks from {} modules".format(len(lookup)))
+    print("loading tasks from {} module(s)".format(len(lookup)))
 
     # loop through modules, import everything to load tasks
     for modid in lookup:
@@ -52,12 +53,6 @@ def execute(args):
             import_module(modid)
         except ImportError:
             continue
-
-        if args.verbose:
-            print("loaded module '{}'".format(modid))
-
-    if args.verbose:
-        print("")
 
     # determine tasks to write into the db file
     seen_families = []
@@ -76,14 +71,7 @@ def execute(args):
         if not skip:
             task_classes.append(cls)
 
-            if args.verbose:
-                print("add task '{}'".format(cls.task_family))
-        else:
-            if args.verbose:
-                print("skip task '{}'".format(cls.task_family))
-
-    def dbline(cls, default_namespace=None):
-        # determine parameters
+    def get_task_params(cls):
         params = []
         for attr in dir(cls):
             member = getattr(cls, attr)
@@ -91,10 +79,14 @@ def execute(args):
                 exclude = getattr(cls, "exclude_params_db", set())
                 if not multi_match(attr, exclude, any):
                     params.append(attr.replace("_", "-"))
+        return params
 
-        # build and return the line
+
+    def dbline(cls, params):
         # format: "module_id:task_family:param param ..."
         return "{}:{}:{}".format(cls.__module__, cls.task_family, " ".join(params))
+
+    stats = OrderedDict()
 
     # write the db file
     db_file = Config.instance().get("core", "db_file")
@@ -103,6 +95,21 @@ def execute(args):
 
     with open(db_file, "w") as f:
         for cls in task_classes:
-            f.write(dbline(cls) + "\n")
+            # get prams
+            params = get_task_params(cls)
 
-    print("written {} task(s) to db file {}".format(len(task_classes), db_file))
+            # fill stats
+            if cls.__module__ not in stats:
+                stats[cls.__module__] = []
+            stats[cls.__module__].append(cls.task_family)
+
+            f.write(dbline(cls, params) + "\n")
+
+    # print stats
+    print("written {} task(s) to db file '{}'".format(len(task_classes), db_file))
+
+    if args.verbose:
+        for mod, data in six.iteritems(stats):
+            print("module '{}', {} task(s):".format(mod, len(data)))
+            for task_family in data:
+                print("    {}".format(task_family))
