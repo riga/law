@@ -81,7 +81,6 @@ def execute(args):
                     params.append(attr.replace("_", "-"))
         return params
 
-
     def dbline(cls, params):
         # format: "module_id:task_family:param param ..."
         return "{}:{}:{}".format(cls.__module__, cls.task_family, " ".join(params))
