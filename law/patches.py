@@ -29,6 +29,7 @@ def patch_all():
 
     patch_worker_run_task()
     patch_worker_factory()
+    patch_keepalive_run()
     patch_cmdline_parser()
 
     logger.debug("applied law-specific luigi patches")
@@ -64,6 +65,19 @@ def patch_worker_factory():
         return worker
 
     luigi.interface._WorkerSchedulerFactory.create_worker = create_worker
+
+
+def patch_keepalive_run():
+    _run = luigi.worker.KeepAliveThread.run
+
+    def run(self):
+        # do not run the keep-alive loop when sandboxed
+        if os.environ.get("LAW_SANDBOX_SWITCHED") == "1":
+            self.stop()
+        else:
+            _run(self)
+
+    luigi.worker.KeepAliveThread.run = run
 
 
 def patch_cmdline_parser():
