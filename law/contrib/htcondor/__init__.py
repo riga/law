@@ -231,16 +231,21 @@ class HTCondorWorkflowProxy(WorkflowProxy):
 
         # actual submission
         job_files = [job_file for _, job_file in six.itervalues(job_data)]
-        task.publish_message("going to submit {} jobs".format(len(job_files)))
+        task.publish_message("going to submit {} job(s)".format(len(job_files)))
+
+        def progress_callback(i):
+            if i in (0, len(job_files) - 1) or i % 25 == 0:
+                task.publish_message("submitted job {}/{}".format(i + 1, len(job_files)))
+
         job_ids = self.job_manager.submit_batch(job_files, pool=task.pool, scheduler=task.scheduler,
-            retries=3, threads=task.threads)
+            retries=3, threads=task.threads, progress_callback=progress_callback)
 
         # store submission data
         errors = []
         for job_num, job_id in six.moves.zip(job_data, job_ids):
             if isinstance(job_id, Exception):
                 errors.append((job_num, job_id))
-                job_id = None
+                job_id = self.submission_data_cls.dummy_job_id
             self.submission_data.jobs[job_num] = self.job_submission_data(job_id=job_id,
                 branches=job_data[job_num][0])
 
@@ -249,10 +254,16 @@ class HTCondorWorkflowProxy(WorkflowProxy):
 
         # raise exceptions or log
         if errors:
-            raise Exception("{} error(s) occured during submission:\n    {}".format(len(errors),
-                "\n    ".join("job {}: {}".format(*tpl) for tpl in errors)))
+            print("{} error(s) occured during job submission of task {}:".format(
+                len(errors), task.task_id))
+            tmpl = "    job {}: {}"
+            for i, tpl in enumerate(errors):
+                print(tmpl.format(tpl))
+                if i == 9:
+                    print("    ... and {} more".format(len(errors) - 10))
+                    break
         else:
-            task.publish_message("submitted {} jobs to {}".format(len(job_files), task.ce))
+            task.publish_message("submitted {} job(s) to {}".format(len(job_files), task.ce))
 
     # TODO: use inheritance
     poll = GLiteWorkflowProxy.__dict__["poll"]
@@ -342,7 +353,8 @@ class HTCondorJobManager(BaseJobManager):
     def cleanup_batch(self, *args, **kwargs):
         raise NotImplementedError("HTCondorJobManager.cleanup_batch is not implemented")
 
-    def submit(self, job_file, pool=None, scheduler=None, retries=0, retry_delay=5, silent=False):
+    def submit(self, job_file, pool=None, scheduler=None, retries=0, retry_delay=5, silent=False,
+            callback=None):
         # default arguments
         pool = pool or self.pool
         scheduler = scheduler or self.scheduler
@@ -374,6 +386,8 @@ class HTCondorJobManager(BaseJobManager):
 
             # retry or done?
             if code == 0:
+                if callable(callback):
+                    callback()
                 return job_ids
             else:
                 if retries > 0:
@@ -386,16 +400,25 @@ class HTCondorJobManager(BaseJobManager):
                     raise Exception("submission of job '{}' failed:\n{}".format(job_file, err))
 
     def submit_batch(self, job_files, pool=None, scheduler=None, retries=0, retry_delay=5,
-            silent=False, threads=None):
+            silent=False, threads=None, progress_callback=None):
         # default arguments
         threads = threads or self.threads
 
-        # threaded processing
+        # prepare kwargs for progress callback
         kwargs = dict(pool=pool, scheduler=scheduler, retries=retries, retry_delay=retry_delay,
             silent=silent)
+
+        def make_kwargs(i):
+            _kwargs = kwargs
+            if callable(progress_callback):
+                _kwargs = _kwargs.copy()
+                _kwargs["callback"] = lambda: progress_callback(i)
+            return _kwargs
+
+        # threaded processing
         pool = ThreadPool(max(threads, 1))
-        results = [pool.apply_async(self.submit, (job_file,), kwargs)
-                   for job_file in job_files]
+        results = [pool.apply_async(self.submit, (job_file,), make_kwargs(i))
+                   for i, job_file in enumerate(job_files)]
         pool.close()
         pool.join()
 
@@ -514,7 +537,7 @@ class HTCondorJobManager(BaseJobManager):
                     else:
                         raise Exception("job(s) '{}' not found in query response".format(job_id))
                 else:
-                    query_data[_job_id] = self.job_status_dict(job_id=_job_id,
+                    query_data[_job_id] = self.job_status_dict(job_id=_job_id, status=self.FAILED,
                         error="job not found in query response")
 
         return query_data if multi else query_data[job_id]
@@ -627,7 +650,7 @@ class HTCondorJobManager(BaseJobManager):
         elif status_flag in ("E",):
             return cls.FAILED
         else:
-            return cls.UNKNOWN
+            return cls.FAILED
 
 
 class HTCondorJobFile(BaseJobFile):

@@ -25,21 +25,19 @@ class BaseJobManager(object):
 
     PENDING = "pending"
     RUNNING = "running"
-    RETRY = "retry"
     FINISHED = "finished"
+    RETRY = "retry"
     FAILED = "failed"
-    UNKNOWN = "unknown"
 
-    status_names = [PENDING, RUNNING, RETRY, FINISHED, FAILED, UNKNOWN]
+    status_names = [PENDING, RUNNING, FINISHED, RETRY, FAILED]
 
     # color styles per status when job count decreases / stagnates / increases
     status_diff_styles = {
         PENDING: ({}, {}, {"color": "green"}),
         RUNNING: ({}, {}, {"color": "green"}),
-        RETRY: ({"color": "green"}, {}, {"color": "red"}),
         FINISHED: ({}, {}, {"color": "green"}),
+        RETRY: ({"color": "green"}, {}, {"color": "red"}),
         FAILED: ({}, {}, {"color": "red", "style": "bright"}),
-        UNKNOWN: ({}, {}, {"color": "red"}),
     }
 
     @abstractmethod

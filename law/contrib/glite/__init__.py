@@ -322,16 +322,22 @@ class GLiteWorkflowProxy(WorkflowProxy):
         # actual submission
         job_files = [job_file for _, job_file in six.itervalues(job_data)]
         ce_str = ",".join(task.ce)
-        task.publish_message("going to submit {} jobs to {}".format(len(job_files), ce_str))
+        task.publish_message("going to submit {} job(s) to {}".format(len(job_files), ce_str))
+
+        def progress_callback(i):
+            if i in (0, len(job_files) - 1) or i % 25 == 0:
+                task.publish_message("submitted job {}/{}".format(i + 1, len(job_files)))
+
         job_ids = self.job_manager.submit_batch(job_files, ce=task.ce,
-            delegation_id=self.delegation_ids, retries=3, threads=task.threads)
+            delegation_id=self.delegation_ids, retries=3, threads=task.threads,
+            progress_callback=progress_callback)
 
         # store submission data
         errors = []
         for job_num, job_id in six.moves.zip(job_data, job_ids):
             if isinstance(job_id, Exception):
                 errors.append((job_num, job_id))
-                job_id = None
+                job_id = self.submission_data_cls.dummy_job_id
             self.submission_data.jobs[job_num] = self.submission_data_cls.job_data(job_id=job_id,
                 branches=job_data[job_num][0])
 
@@ -340,10 +346,16 @@ class GLiteWorkflowProxy(WorkflowProxy):
 
         # raise exceptions or log
         if errors:
-            raise Exception("{} error(s) occured during submission:\n    {}".format(len(errors),
-                "\n    ".join("job {}: {}".format(*tpl) for tpl in errors)))
+            print("{} error(s) occured during job submission of task {}:".format(
+                len(errors), task.task_id))
+            tmpl = "    job {}: {}"
+            for i, tpl in enumerate(errors):
+                print(tmpl.format(tpl))
+                if i == 9:
+                    print("    ... and {} more".format(len(errors) - 10))
+                    break
         else:
-            task.publish_message("submitted {} jobs to {}".format(len(job_files), ce_str))
+            task.publish_message("submitted {} job(s) to {}".format(len(job_files), ce_str))
 
     def poll(self):
         task = self.task
@@ -368,6 +380,9 @@ class GLiteWorkflowProxy(WorkflowProxy):
                     status=self.job_manager.FINISHED, code=0)
             else:
                 unfinished_jobs[job_num] = data.copy()
+                # make sure that job ids are reasonable
+                if not unfinished_jobs[job_num]["job_id"]:
+                    unfinished_jobs[job_num]["job_id"] = self.status_data_cls.dummy_job_id
 
         # use maximum number of polls for looping
         for i in six.moves.range(max_polls):
@@ -379,8 +394,14 @@ class GLiteWorkflowProxy(WorkflowProxy):
             job_ids = [data["job_id"] for data in six.itervalues(unfinished_jobs)]
             _states, errors = self.job_manager.query_batch(job_ids, threads=task.threads)
             if errors:
-                print("{} error(s) occured during status query:\n    {}".format(len(errors),
-                    "\n    ".join(str(e) for e in errors)))
+                print("{} error(s) occured during job status query of task {}:".format(
+                    len(errors), task.task_id))
+                tmpl = "    {}"
+                for i, err in enumerate(errors):
+                    print(tmpl.format(err))
+                    if i == 9:
+                        print("    ... and {} more".format(len(errors) - 10))
+                        break
 
                 n_poll_fails += 1
                 if n_poll_fails > task.max_poll_fails:
@@ -399,7 +420,6 @@ class GLiteWorkflowProxy(WorkflowProxy):
             pending_jobs = {}
             running_jobs = {}
             failed_jobs = {}
-            unknown_jobs = {}
             for job_num, data in six.iteritems(states):
                 if data["status"] == self.job_manager.PENDING:
                     pending_jobs[job_num] = data
@@ -411,14 +431,13 @@ class GLiteWorkflowProxy(WorkflowProxy):
                 elif data["status"] in (self.job_manager.FAILED, self.job_manager.RETRY):
                     failed_jobs[job_num] = data
                 else:
-                    unknown_jobs[job_num] = data
+                    raise Exception("unknown job status '{}'".format(data["status"]))
 
             # counts
             n_pending = len(pending_jobs)
             n_running = len(running_jobs)
             n_finished = len(finished_jobs)
             n_failed = len(failed_jobs)
-            n_unknown = len(unknown_jobs)
 
             # determine jobs that failed and might be resubmitted
             retry_jobs = {}
@@ -431,19 +450,22 @@ class GLiteWorkflowProxy(WorkflowProxy):
             n_failed -= n_retry
 
             # log the status line
-            counts = (n_pending, n_running, n_retry, n_finished, n_failed, n_unknown)
+            counts = (n_pending, n_running, n_finished, n_retry, n_failed)
             status_line = self.job_manager.status_line(counts, self.last_counts, color=True,
                 align=4)
             task.publish_message(status_line)
             self.last_counts = counts
 
             # log failed jobs
-            if len(failed_jobs) > 0:
-                print("reasons for failed jobs in task {}:".format(task.task_id))
-                tmpl = "    {}: {}, {status}, {code}, {error}"
-                for job_num, data in six.iteritems(failed_jobs):
+            if failed_jobs:
+                print("{} failed job(s) in task {}:".format(len(failed_jobs), task.task_id))
+                tmpl = "    {}: id: {}, status: {status}, code: {code}, error: {error}"
+                for i, (job_num, data) in enumerate(six.iteritems(failed_jobs)):
                     job_id = self.submission_data.jobs[job_num]["job_id"]
                     print(tmpl.format(job_num, job_id, **data))
+                    if i == 9:
+                        print("    ... and {} more".format(len(failed_jobs) - 10))
+                        break
 
             # infer the overall status
             finished = n_finished >= n_finished_min
@@ -601,7 +623,7 @@ class GLiteJobManager(BaseJobManager):
         self.threads = threads
 
     def submit(self, job_file, ce=None, delegation_id=None, retries=0, retry_delay=5,
-            silent=False):
+            silent=False, callback=None):
         # default arguments
         ce = ce or self.ce
         delegation_id = delegation_id or self.delegation_id
@@ -641,6 +663,8 @@ class GLiteJobManager(BaseJobManager):
 
             # retry or done?
             if code == 0:
+                if callable(callback):
+                    callback()
                 return job_id
             else:
                 if retries > 0:
@@ -653,16 +677,25 @@ class GLiteJobManager(BaseJobManager):
                     raise Exception("submission of job '{}' failed:\n{}".format(job_file, out))
 
     def submit_batch(self, job_files, ce=None, delegation_id=None, retries=0, retry_delay=5,
-            silent=False, threads=None):
+            silent=False, threads=None, progress_callback=None):
         # default arguments
         threads = threads or self.threads
 
-        # threaded processing
+        # prepare kwargs for progress callback
         kwargs = dict(ce=ce, delegation_id=delegation_id, retries=retries, retry_delay=retry_delay,
             silent=silent)
+
+        def make_kwargs(i):
+            _kwargs = kwargs
+            if callable(progress_callback):
+                _kwargs = _kwargs.copy()
+                _kwargs["callback"] = lambda: progress_callback(i)
+            return _kwargs
+
+        # threaded processing
         pool = ThreadPool(max(threads, 1))
-        results = [pool.apply_async(self.submit, (job_file,), kwargs)
-                   for job_file in job_files]
+        results = [pool.apply_async(self.submit, (job_file,), make_kwargs(i))
+                   for i, job_file in enumerate(job_files)]
         pool.close()
         pool.join()
 
@@ -770,7 +803,7 @@ class GLiteJobManager(BaseJobManager):
                     else:
                         raise Exception("job(s) '{}' not found in query response".format(job_id))
                 else:
-                    query_data[_job_id] = self.job_status_dict(job_id=_job_id,
+                    query_data[_job_id] = self.job_status_dict(job_id=_job_id, status=self.FAILED,
                         error="job not found in query response")
 
         return query_data if multi else query_data[job_id]
@@ -872,7 +905,7 @@ class GLiteJobManager(BaseJobManager):
         elif status in ("CANCELLED", "DONE-FAILED", "ABORTED"):
             return cls.FAILED
         else:
-            return cls.UNKNOWN
+            return cls.FAILED
 
 
 class GLiteJobFile(BaseJobFile):
