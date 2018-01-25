@@ -117,13 +117,16 @@ class TargetCollection(Target):
             else:  # dict
                 gen = six.iteritems(self.targets)
 
-            for key, target in gen:
+            for key, item in gen:
                 text += "\n{}: ".format(key)
 
-                if isinstance(target, TargetCollection):
-                    text += "\n  ".join(target.status_text(max_depth - 1, color=color).split("\n"))
-                elif isinstance(target, Target):
-                    text += "{} ({})".format(target.status_text(color=color), target.colored_repr())
+                if isinstance(item, TargetCollection):
+                    text += "\n  ".join(item.status_text(max_depth - 1, color=color).split("\n"))
+                elif isinstance(item, Target):
+                    text += "{} ({})".format(item.status_text(color=color), item.colored_repr())
+                else:
+                    text += "\n   ".join(
+                        self.__class__(item).status_text(max_depth - 1, color=color).split("\n"))
 
         return text
 
