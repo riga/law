@@ -62,7 +62,7 @@ class TargetCollection(Target):
     def _iter_flat(self):
         if isinstance(self._flat_targets, (list, tuple)):
             return self._flat_targets
-        else: # dict
+        else:  # dict
             return six.itervalues(self._flat_targets)
 
     @property
@@ -105,7 +105,7 @@ class TargetCollection(Target):
     def count(self, existing=True):
         # simple counting
         n = 0
-        for target in self._iter_flat:
+        for targets in self._iter_flat:
             if all(t.exists() for t in targets):
                 n += 1
 
