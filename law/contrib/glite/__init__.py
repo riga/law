@@ -95,7 +95,7 @@ class GLiteWorkflowProxy(WorkflowProxy):
         self.delegation_ids = None
         self.submission_data = self.submission_data_cls(tasks_per_job=self.task.tasks_per_job)
         self.skipped_job_nums = None
-        self.last_counts = len(self.job_manager.status_names) * (0,)
+        self.last_counts = None
         self.retry_counts = defaultdict(int)
 
     def requires(self):
@@ -451,6 +451,8 @@ class GLiteWorkflowProxy(WorkflowProxy):
 
             # log the status line
             counts = (n_pending, n_running, n_finished, n_retry, n_failed)
+            if not self.last_counts:
+                self.last_counts = counts
             status_line = self.job_manager.status_line(counts, self.last_counts, color=True,
                 align=4)
             task.publish_message(status_line)
