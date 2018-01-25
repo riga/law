@@ -31,8 +31,15 @@ class TargetCollection(Target):
         self.targets = targets
         self.threshold = threshold
 
-        # store flat targets for simplified iterations
-        self._flat_targets = flatten(self.targets)
+        # store flat targets per element in the input structure of targets
+        if isinstance(targets, (list, tuple)):
+            gen = (flatten(v) for v in targets)
+        else:  # dict
+            gen = ((k, flatten(v)) for k, v in six.iteritems(targets))
+        self._flat_targets = targets.__class__(gen)
+
+        # also store an entirely flat list of targets for simplified iterations
+        self._flat_target_list = flatten(targets)
 
     def __repr__(self):
         return "<{}(len={}, threshold={}) at {}>".format(self.__class__.__name__, len(self),
@@ -52,12 +59,19 @@ class TargetCollection(Target):
         raise TypeError("'{}' object is not iterable".format(self.__class__.__name__))
 
     @property
+    def _iter_flat(self):
+        if isinstance(self._flat_targets, (list, tuple)):
+            return self._flat_targets
+        else: # dict
+            return six.itervalues(self._flat_targets)
+
+    @property
     def hash(self):
-        target_hashes = "".join(target.hash for target in self._flat_targets)
+        target_hashes = "".join(target.hash for target in self._flat_target_list)
         return create_hash(self.__class__.__name__ + target_hashes)
 
     def remove(self, silent=True):
-        for target in self._flat_targets:
+        for target in self._flat_target_list:
             target.remove(silent=silent)
 
     def _threshold(self):
@@ -77,8 +91,8 @@ class TargetCollection(Target):
 
         # simple counting with early stopping criteria for both success and fail
         n = 0
-        for i, target in enumerate(self._flat_targets):
-            if target.exists():
+        for i, targets in enumerate(self._iter_flat):
+            if all(t.exists() for t in targets):
                 n += 1
                 if n >= threshold:
                     return True
@@ -91,8 +105,8 @@ class TargetCollection(Target):
     def count(self, existing=True):
         # simple counting
         n = 0
-        for target in self._flat_targets:
-            if target.exists():
+        for target in self._iter_flat:
+            if all(t.exists() for t in targets):
                 n += 1
 
         return n if existing else len(self) - n
@@ -138,13 +152,13 @@ class SiblingFileCollection(TargetCollection):
 
         # check if all targets are file system targets or nested SiblingFileCollection's
         # (it's the user's responsibility to pass targets that are really in the same directory)
-        for target in self._flat_targets:
+        for target in self._flat_target_list:
             if not isinstance(target, (FileSystemTarget, SiblingFileCollection)):
                 raise TypeError("SiblingFileCollection's only wrap FileSystemTarget's and "
                     "other SiblingFileCollection's, got {}".format(target.__class__))
 
         # find the first target and store its directory
-        first_target = self._flat_targets[0]
+        first_target = self._flat_target_list[0]
         if isinstance(first_target, FileSystemTarget):
             self.dir = first_target.parent
         else:  # SiblingFileCollection
@@ -167,13 +181,16 @@ class SiblingFileCollection(TargetCollection):
 
         # simple counting with early stopping criteria for both success and fail
         n = 0
-        for i, target in enumerate(self._flat_targets):
-            if isinstance(target, FileSystemTarget):
-                if target.basename in basenames:
-                    n += 1
-            else:  # SiblingFileCollection
-                if target.exists(basenames=basenames):
-                    n += 1
+        for i, targets in enumerate(self._iter_flat):
+            for target in targets:
+                if isinstance(target, FileSystemTarget):
+                    if target.basename not in basenames:
+                        break
+                else:  # SiblingFileCollection
+                    if not target.exists(basenames=basenames):
+                        break
+            else:
+                n += 1
 
             # we might be done here
             if n >= threshold:
@@ -194,12 +211,15 @@ class SiblingFileCollection(TargetCollection):
 
         # simple counting
         n = 0
-        for target in self._flat_targets:
-            if isinstance(target, FileSystemTarget):
-                if target.basename in basenames:
-                    n += 1
-            else:  # SiblingFileCollection
-                if target.exists(basenames=basenames):
-                    n += 1
+        for i, targets in enumerate(self._iter_flat):
+            for target in targets:
+                if isinstance(target, FileSystemTarget):
+                    if target.basename not in basenames:
+                        break
+                else:  # SiblingFileCollection
+                    if not target.exists(basenames=basenames):
+                        break
+            else:
+                n += 1
 
         return n if existing else len(self) - n
