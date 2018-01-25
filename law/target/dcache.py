@@ -23,21 +23,6 @@ class DCacheFileSystem(RemoteFileSystem):
     default_instance = None
 
     def __init__(self, config=None, base=None, bases=None, **kwargs):
-        # prepare the gfal options
-        # resolution order: config, base+bases, default dcache section
-        if not config and not base:
-            config = Config.instance().get("target", "default_dcache")
-        if config and Config.instance().has_section(config):
-            base = Config.instance().get_default(config, "base")
-            bases = {}
-            prefix = "base_"
-            for key, value in Config.instance().items(config):
-                if key.startswith(prefix):
-                    bases[key[len(prefix):]] = value
-        if base is None:
-            raise Exception("invalid arguments, set either config, base or the "
-                "target.default_dcache option in your law config")
-
         # default configs
         kwargs.setdefault("retries", 1)
         kwargs.setdefault("retry_delay", 5)
@@ -46,6 +31,34 @@ class DCacheFileSystem(RemoteFileSystem):
         kwargs.setdefault("cache_config", {})
         kwargs.setdefault("atomic_contexts", True)
         kwargs.setdefault("permissions", False)
+
+        # prepare the gfal options
+        # resolution order: config, base+bases, default dcache section
+        cfg = Config.instance()
+        if not config and not base:
+            config = cfg.get("target", "default_dcache")
+
+        if config and cfg.has_section(config):
+            # load the base from the config
+            base = cfg.get_default(config, "base")
+
+            # loop through items and load additional configs
+            bases = bases or {}
+            base_prefix = "base_"
+            cache_prefix = "cache_"
+            others = ("retries", "retry_delay", "validate_copy", "atomic_contexts", "permissions")
+            for key, value in cfg.items(config):
+                if key.startswith(base_prefix):
+                    bases[key[len(base_prefix):]] = value
+                elif key.startswith(cache_prefix):
+                    kwargs["cache_config"][key[len(cache_prefix):]] = value
+                elif key in others:
+                    kwargs[key] = value
+
+        # base is mandatory
+        if base is None:
+            raise Exception("invalid arguments, set either config, base or the "
+                "target.default_dcache option in your law config")
 
         super(DCacheFileSystem, self).__init__(base, bases, **kwargs)
 
