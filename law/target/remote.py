@@ -252,10 +252,8 @@ class RemoteCache(object):
         for inst in cls._instances:
             try:
                 inst.cleanup()
-                logger.debug("cleanup RemoteCache '{}'".format(inst))
-            except Exception as e:
-                logger.warning("error occured during cleanup of RemoteCache '{}': {}".format(
-                    inst, e))
+            except:
+                pass
 
     def __init__(self, fs, root=TMP, auto_flush=False, max_size=-1, dir_perm=0o0770,
             file_perm=0o0660, wait_delay=5, max_waits=120):
@@ -320,6 +318,7 @@ class RemoteCache(object):
                 self._unlock(cpath)
                 self._remove(cpath)
             self._locked_cpaths.clear()
+        logger.debug("cleanup RemoteCache at '{}'".format(self.base))
 
     def cache_path(self, rpath):
         return os.path.join(self.base, self.fs.unique_basename(rpath))
@@ -588,9 +587,9 @@ class RemoteFileSystem(FileSystem):
             warnings.warn("refused request to remove base directory of {}".format(self))
             return
 
-        # first, check if path refers to a file or directory
+        # first, check if path refers to a file or directory, or if it exists at all
         try:
-            is_dir = self.isdir(path, **kwargs)
+            is_dir = self.isdir(path, retries=0)
         except gfal2.GError:
             # path might not exist
             if silent:
