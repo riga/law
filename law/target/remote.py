@@ -31,7 +31,7 @@ from law.target.file import FileSystem, FileSystemTarget, FileSystemFileTarget, 
     FileSystemDirectoryTarget, get_path, get_scheme, has_scheme, add_scheme, remove_scheme
 from law.target.local import LocalFileSystem, LocalFileTarget
 from law.target.formatter import find_formatter
-from law.util import make_list, copy_no_perm
+from law.util import make_list, copy_no_perm, human_bytes, create_hash
 
 
 logger = logging.getLogger(__name__)
@@ -262,12 +262,12 @@ class RemoteCache(object):
         super(RemoteCache, self).__init__()
 
         # create a unique name based on fs attributes
-        name = "{}_{}".format(fs.__class__.__name__, str(abs(hash(fs.gfal.base[0])))[-8:])
+        name = "{}_{}".format(fs.__class__.__name__, create_hash(fs.gfal.base[0]))
 
         # create the root dir, handle tmp
-        root = os.path.expandvars(os.path.expanduser(root))
+        root = os.path.expandvars(os.path.expanduser(root)) or self.TMP
         if not os.path.exists(root) and root == self.TMP:
-            base = tempfile.mkdtemp()
+            base = tempfile.mkdtemp(dir=Config.instance().get("target", "tmp_dir"))
             auto_flush = True
         else:
             base = os.path.join(root, name)
@@ -339,13 +339,13 @@ class RemoteCache(object):
     def _unlock_global(self):
         try:
             os.remove(self._global_lock_path)
-        except IOError:
+        except OSError:
             pass
 
     def _unlock(self, cpath):
         try:
             os.remove(self._lock_path(cpath))
-        except IOError:
+        except OSError:
             pass
 
     def _await_global(self, delay=None, max_waits=None, silent=False):
@@ -439,7 +439,8 @@ class RemoteCache(object):
         return self._lock(self.cache_path(rpath))
 
     def allocate(self, size):
-        logger.debug("allocating {} bytes in cache '{}'".format(size, self))
+        logger.debug("allocating {0[0]:.2f} {0[1]} in cache '{1}'".format(human_bytes(size), self))
+
         with self._lock_global():
             # determine stats and current cache size
             file_stats = []
@@ -468,9 +469,11 @@ class RemoteCache(object):
             # determine the size of files that need to be deleted
             delete_size = current_size + size - max_size
             if delete_size <= 0:
+                logger.debug("cache space sufficient, {0[0]:.2f} {0[1]} bytes remaining".format(
+                    human_bytes(-delete_size)))
                 return
 
-            logger.debug("need to delete {} bytes".format(delete_size))
+            logger.debug("need to delete {0[0]:.2f} {0[1]} bytes".format(human_bytes(delete_size)))
 
             # delete files, ordered by their access time, skip locked ones
             for cpath, cstat in sorted(file_stats, key=lambda tpl: tpl[1].st_atime):
@@ -481,7 +484,8 @@ class RemoteCache(object):
                 if delete_size <= 0:
                     break
             else:
-                logger.warning("could not allocate remaining {} bytes".format(delete_size))
+                logger.warning("could not allocate remaining {0[0]:.2f} {0[1]}".format(
+                    human_bytes(delete_size)))
 
     def _touch(self, cpath, times=None):
         if os.path.exists(cpath):
@@ -502,7 +506,7 @@ class RemoteCache(object):
         def remove():
             try:
                 os.remove(cpath)
-            except IOError:
+            except OSError:
                 pass
 
         if lock:
@@ -740,13 +744,17 @@ class RemoteFileSystem(FileSystem):
             full_dst = dst if has_scheme(dst) else self.gfal.url(dst, cmd="filecopy")
 
         if cache:
+            kwargs_no_retries = kwargs.copy()
+            kwargs_no_retries["retries"] = 0
+            kwargs_no_retries = kwargs
+
             # handle 3 cases: lr, rl, rc
             if mode == "lr":
                 # lr strategy: copy to remote, copy to cache, sync stats
 
                 # copy to remote, no need to validate as we need the stat anyway
                 self._atomic_copy(src, full_dst, validate=False, **kwargs)
-                rstat = self.stat(dst, **kwargs)
+                rstat = self.stat(dst, **kwargs_no_retries)
 
                 # remove the cache entry
                 if dst in self.cache:
@@ -766,7 +774,7 @@ class RemoteFileSystem(FileSystem):
                 # rl, rc strategy: copy to cache when not up to date, sync stats, opt. copy to local
 
                 # check if cached and up to date
-                rstat = self.stat(src, **kwargs)
+                rstat = self.stat(src, **kwargs_no_retries)
                 full_csrc = add_scheme(self.cache.cache_path(src), "file")
                 with self.cache.lock(src):
                     if src in self.cache and abs(self.cache.mtime(src) - rstat.st_mtime) > 1:
