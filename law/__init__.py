@@ -15,12 +15,15 @@ __license__ = "MIT"
 __status__ = "Development"
 __version__ = "0.0.8"
 
-__all__ = ["Task", "WrapperTask", "SandboxTask", "LocalWorkflow",
-           "LocalFileSystem, LocalFileTarget, LocalDirectoryTarget",
-           "DropboxFileSystem", "DropboxFileTarget", "DropboxDirectoryTarget",
-           "DCacheFileSystem", "DCacheFileTarget", "DCacheDirectoryTarget",
-           "TargetCollection", "SiblingFileCollection",
-           "NO_STR", "NO_INT", "NO_FLOAT", "TaskInstanceParameter", "CSVParameter"]
+__all__ = [
+    "Task", "WrapperTask", "SandboxTask", "LocalWorkflow",
+    "LocalFileSystem, LocalFileTarget, LocalDirectoryTarget",
+    "DropboxFileSystem", "DropboxFileTarget", "DropboxDirectoryTarget",
+    "DCacheFileSystem", "DCacheFileTarget", "DCacheDirectoryTarget",
+    "TargetCollection", "SiblingFileCollection",
+    "NO_STR", "NO_INT", "NO_FLOAT", "TaskInstanceParameter", "CSVParameter",
+    "Config",
+]
 
 
 # use cached software
@@ -31,6 +34,11 @@ use_software_cache(reload_deps=True)
 # luigi patches
 from law.patches import patch_all
 patch_all()
+
+
+# setup logging
+import law.logger
+law.logger.setup_logging()
 
 
 # provisioning imports

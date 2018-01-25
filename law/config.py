@@ -30,8 +30,11 @@ class Config(ConfigParser):
             "inherit_configs": "",
             "extend_configs": "",
         },
+        "logging": {
+            "law": os.environ.get("LAW_LOG_LEVEL", "WARNING"),
+        },
         "target": {
-            "tmp_dir": tempfile.gettempdir(),
+            "tmp_dir": os.environ.get("LAW_TARGET_TMP_DIR", tempfile.gettempdir()),
             "tmp_dir_permission": 0o0770,
             "gfal2_log_level": "WARNING",
             "default_dropbox": "dropbox",
