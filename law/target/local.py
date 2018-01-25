@@ -13,6 +13,7 @@ import fnmatch
 import shutil
 import glob
 import random
+import logging
 from contextlib import contextmanager
 
 import luigi
@@ -22,6 +23,9 @@ from law.target.file import (FileSystem, FileSystemTarget, FileSystemFileTarget,
     FileSystemDirectoryTarget, get_scheme, remove_scheme)
 from law.target.formatter import find_formatter
 from law.config import Config
+
+
+logger = logging.getLogger(__name__)
 
 
 class LocalFileSystem(FileSystem):
@@ -255,7 +259,7 @@ class LocalFileTarget(LocalTarget, FileSystemFileTarget):
                 # simply yield
                 yield self
 
-        else:
+        else:  # write mode
             if is_tmp:
                 # create a temporary target
                 tmp = self.__class__(is_tmp=self.ext(n=0) or True)
@@ -271,6 +275,9 @@ class LocalFileTarget(LocalTarget, FileSystemFileTarget):
                     # move back again
                     if tmp.exists():
                         tmp.move_to(self, dir_perm=parent_perm)
+                    else:
+                        logger.warning("cannot move non-existing localized file target {}".format(
+                            self.colored_repr()))
                 finally:
                     tmp.remove()
             else:

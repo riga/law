@@ -964,6 +964,9 @@ class RemoteFileTarget(RemoteTarget, FileSystemFileTarget):
                 if tmp.exists():
                     self.copy_from_local(tmp, dir_perm=parent_perm, **kwargs)
                     self.chmod(perm)
+                else:
+                    logger.warning("cannot move non-existing localized file target {}".format(
+                        self.colored_repr()))
             finally:
                 del tmp
 
