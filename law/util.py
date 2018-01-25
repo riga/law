@@ -7,13 +7,14 @@ Helpful utility functions.
 
 __all__ = ["rel_path", "law_base", "printerr", "abort", "colored", "uncolored", "query_choice",
            "multi_match", "make_list", "flatten", "which", "map_struct", "mask_struct", "tmp_file",
-           "interruptable_popen", "create_hash", "copy_no_perm", "iter_chunks"]
+           "interruptable_popen", "create_hash", "copy_no_perm", "iter_chunks", "human_bytes"]
 
 
 import os
 import sys
 import types
 import re
+import math
 import fnmatch
 import tempfile
 import subprocess
@@ -431,3 +432,24 @@ def iter_chunks(l, size):
         else:
             for i in six.moves.range(0, len(l), size):
                 yield l[i:i + size]
+
+
+byte_units = ["bytes", "kB", "MB", "GB", "TB", "PB", "EB"]
+
+
+def human_bytes(n, unit=None):
+    """
+    Takes a number of bytes *n*, assigns the best matching unit and returns the respective number
+    and unit string in a tuple. When *unit* is set, that unit is used. Example:
+
+    .. code-block::
+
+        human_bytes(3407872)       # -> (3.25, "MB")
+        human_bytes(3407872, "kB") # -> (3328.0, "kB")
+    """
+    if unit:
+        idx = byte_units.index(unit)
+    else:
+        idx = int(math.floor(math.log(n, 1024)))
+        idx = min(idx, len(byte_units))
+    return n / 1024. ** idx, byte_units[idx]
