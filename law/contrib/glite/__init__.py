@@ -102,9 +102,10 @@ class GLiteWorkflowProxy(WorkflowProxy):
         task = self.task
         reqs = OrderedDict()
 
-        # add upstream requirements when not cancelling or cleaning
+        # add upstream and glite specific requirements when not cancelling or cleaning
         if not task.cancel_jobs and not task.cleanup_jobs:
             reqs.update(super(GLiteWorkflowProxy, self).requires())
+            reqs.update(task.glite_workflow_requires())
 
         return reqs
 
@@ -562,6 +563,9 @@ class GLiteWorkflow(Workflow):
     @abstractmethod
     def glite_bootstrap_file(self):
         pass
+
+    def glite_workflow_requires(self):
+        return OrderedDict()
 
     def glite_output_postfix(self):
         # TODO: use start/end branch?

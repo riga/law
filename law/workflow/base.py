@@ -101,6 +101,7 @@ class Workflow(Task):
                 if not issubclass(cls, Workflow):
                     continue
                 if self.workflow in (NO_STR, cls.workflow_proxy_cls.workflow_type):
+                    self.workflow = cls.workflow_proxy_cls.workflow_type
                     self.workflow_proxy = cls.workflow_proxy_cls(task=self)
                     logger.debug("created workflow proxy instance of type '{}'".format(
                         cls.workflow_proxy_cls.workflow_type))

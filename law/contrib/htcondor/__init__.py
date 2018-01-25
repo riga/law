@@ -59,9 +59,10 @@ class HTCondorWorkflowProxy(WorkflowProxy):
         task = self.task
         reqs = OrderedDict()
 
-        # add upstream requirements when not cancelling
+        # add upstream and htcondor specific requirements when not cancelling
         if not task.cancel_jobs:
             reqs.update(super(HTCondorWorkflowProxy, self).requires())
+            reqs.update(task.htcondor_workflow_requires())
 
         return reqs
 
@@ -300,6 +301,9 @@ class HTCondorWorkflow(Workflow):
     @abstractmethod
     def htcondor_output_directory(self):
         return None
+
+    def htcondor_workflow_requires(self):
+        return OrderedDict()
 
     def htcondor_bootstrap_file(self):
         return None
