@@ -512,7 +512,7 @@ class GLiteWorkflowProxy(WorkflowProxy):
         outputs["submission"].parent.touch()
 
         # get all branch indexes and chunk them by tasks_per_job
-        branch_chunks = list(iter_chunks(task.branch_map, task.tasks_per_job))
+        branch_chunks = list(iter_chunks(task.branch_map.keys(), task.tasks_per_job))
 
         # submission output
         if not outputs["submission"].exists():
