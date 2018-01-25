@@ -124,7 +124,7 @@ class GLiteWorkflowProxy(WorkflowProxy):
         outputs["submission"] = out_dir.child(submission_file, type="f")
 
         # a file containing status data when the jobs are done
-        if not task.no_poll and not task.cancel_jobs and not task.cleanup_jobs:
+        if not task.no_poll:
             status_file = "status{}.json".format(postfix)
             outputs["status"] = out_dir.child(status_file, type="f")
 
