@@ -24,6 +24,8 @@ class BundleGitRepository(Task):
 
     path = luigi.Parameter(description="the path to the repository to bundle")
     exclude = CSVParameter(default=[], description="patterns of files to exclude")
+    force_include = CSVParameter(default=[], description="patterns of files to force-include, "
+        "takes precedence over .gitignore")
     custom_checksum = luigi.Parameter(default=NO_STR, description="a custom checksum to use")
 
     def __init__(self, *args, **kwargs):
@@ -58,8 +60,8 @@ class BundleGitRepository(Task):
 
     def bundle(self, dst_path):
         cmd = [rel_path(__file__, "bundle_repository.sh"), self.path, dst_path]
-        if self.exclude:
-            cmd += [" ".join(self.exclude)]
+        cmd += [" ".join(self.exclude)]
+        cmd += [" ".join(self.force_include)]
 
         code = interruptable_popen(cmd)[0]
         if code != 0:

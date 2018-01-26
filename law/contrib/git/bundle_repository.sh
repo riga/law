@@ -7,6 +7,7 @@
 # 1. the absolute path to the repository
 # 2. the path where the bundle should be stored, should end with .tgz
 # 3. (optional) space-separated list of files or directories to ignore, supports globbing
+# 4. (optional) space-separated list of files or directories to force-add, supports globbing
 
 action() {
     local repo_path="$1"
@@ -44,6 +45,7 @@ action() {
         cd "$tmp_dir/$( basename "$repo_path" )" && \
         rm -rf $3 && \
         sgit add -A . && \
+        sgit add -f $4 > /dev/null; \
         sgit commit -m "[tmp] Add all changes." > /dev/null; \
         sgit archive --prefix="$( basename "$repo_path" )/" --format=tar.gz -o "$dst_path" HEAD \
     )
