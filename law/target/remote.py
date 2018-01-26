@@ -31,7 +31,7 @@ from law.target.file import FileSystem, FileSystemTarget, FileSystemFileTarget, 
     FileSystemDirectoryTarget, get_path, get_scheme, has_scheme, add_scheme, remove_scheme
 from law.target.local import LocalFileSystem, LocalFileTarget
 from law.target.formatter import find_formatter
-from law.util import make_list, copy_no_perm, human_bytes, create_hash
+from law.util import make_list, copy_no_perm, human_bytes, create_hash, user_owns_file
 
 
 logger = logging.getLogger(__name__)
@@ -492,7 +492,8 @@ class RemoteCache(object):
 
     def _touch(self, cpath, times=None):
         if os.path.exists(cpath):
-            os.chmod(cpath, self.file_perm)
+            if user_owns_file(cpath):
+                os.chmod(cpath, self.file_perm)
             if times is not None:
                 os.utime(cpath, times)
 

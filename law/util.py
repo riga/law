@@ -6,8 +6,9 @@ Helpful utility functions.
 
 
 __all__ = ["rel_path", "law_base", "printerr", "abort", "colored", "uncolored", "query_choice",
-           "multi_match", "make_list", "flatten", "which", "map_struct", "mask_struct", "tmp_file",
-           "interruptable_popen", "create_hash", "copy_no_perm", "iter_chunks", "human_bytes"]
+           "multi_match", "make_list", "flatten", "which", "map_verbose", "map_struct",
+           "mask_struct", "tmp_file", "interruptable_popen", "create_hash", "copy_no_perm",
+           "user_owns_file", "iter_chunks", "human_bytes"]
 
 
 import os
@@ -232,6 +233,44 @@ def which(prog):
     return None
 
 
+def map_verbose(func, seq, msg="{}", every=25, start=True, end=True, callback=None):
+    """
+    Same as the built-in map function but prints a *msg* after chunks of size *every* iterations.
+    When *start* (*stop*) is *True*, the *msg* is also printed after the first (last) iteration.
+    When *callback* is callable, it is invoked everytime something is printed with the current
+    iteration number as the only argument. Note that *msg* is supposed to be a template string that
+    will be formatted with the current iteration number (starting at 0) using ``str.format``.
+    Example:
+
+    .. code-block:: python
+
+       func = lambda x: x ** 2
+       msg = "computing square of {}"
+       squares = map_verbose(func, range(7), msg, every=3)
+       # ->
+       # computing square of 0
+       # computing square of 2
+       # computing square of 5
+       # computing square of 6
+    """
+    def cb(i):
+        print(msg.format(i))
+        if callable(callback):
+            callback(i)
+
+    results = []
+    for i, obj in enumerate(seq):
+        results.append(func(obj))
+        do_call = (start and i == 0) or (i + 1) % every == 0
+        if do_call:
+            cb(i)
+    else:
+        if end and results and not do_call:
+            cb(i)
+
+    return results
+
+
 def map_struct(func, struct, cls=None, map_dict=True, map_list=True, map_tuple=False,
         map_set=False):
     """
@@ -402,6 +441,17 @@ def copy_no_perm(src, dst):
     perm = os.stat(dst).st_mode
     shutil.copystat(src, dst)
     os.chmod(dst, perm)
+
+
+def user_owns_file(path, uid=None):
+    """
+    Returns whether a file located at *path* is owned by the user with *uid*. When *uid* is *None*,
+    the current user id is used.
+    """
+    if uid is None:
+        uid = os.getuid()
+    path = os.path.expandvars(os.path.expanduser(path))
+    return os.stat(path).st_uid == uid
 
 
 def iter_chunks(l, size):
