@@ -265,7 +265,9 @@ class RemoteCache(object):
         # create the root dir, handle tmp
         root = os.path.expandvars(os.path.expanduser(root)) or self.TMP
         if not os.path.exists(root) and root == self.TMP:
-            base = tempfile.mkdtemp(dir=Config.instance().get("target", "tmp_dir"))
+            tmp_dir = Config.instance().get("target", "tmp_dir")
+            tmp_dir = os.path.expandvars(os.path.expanduser(tmp_dir))
+            base = tempfile.mkdtemp(dir=tmp_dir)
             auto_flush = True
         else:
             base = os.path.join(root, name)
@@ -294,6 +296,8 @@ class RemoteCache(object):
 
         # currently locked cache paths, only used to clean up broken files during cleanup
         self._locked_cpaths = set()
+
+        logger.debug("created RemoteCache at '{}'".format(self.base))
 
     def __del__(self):
         self.cleanup()
