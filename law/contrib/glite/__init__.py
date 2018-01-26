@@ -146,7 +146,7 @@ class GLiteWorkflowProxy(WorkflowProxy):
             task.tasks_per_job = self.submission_data.tasks_per_job
 
         # when the branch outputs, i.e. the "collection" exists, just create dummy control outputs
-        if outputs["collection"].exists():
+        if "collection" in outputs and outputs["collection"].exists():
             self.touch_control_outputs()
 
         # cancel jobs?
