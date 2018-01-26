@@ -458,6 +458,9 @@ class GLiteWorkflowProxy(WorkflowProxy):
             task.publish_message(status_line)
             self.last_counts = counts
 
+            # inform the scheduler about the progress
+            task.set_progress_percentage(100. * n_failed / n_jobs)
+
             # log failed jobs
             if failed_jobs:
                 print("{} failed job(s) in task {}:".format(len(failed_jobs), task.task_id))
