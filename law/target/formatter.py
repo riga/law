@@ -200,14 +200,17 @@ class TarFormatter(Formatter):
         elif "mode" in kwargs:
             mode = kwargs.pop("mode")
 
+        # get the filter callback that is forwarded to add()
+        _filter = kwargs.pop("filter", None)
+
         # open a new zip file and add all files in src
         with tarfile.open(get_path(path), mode, *args, **kwargs) as f:
             src = get_path(src)
             if os.path.isfile(src):
-                f.add(src, os.path.basename(src))
+                f.add(src, os.path.basename(src), filter=_filter)
             else:
                 for elem in os.listdir(src):
-                    f.add(os.path.join(src, elem), elem)
+                    f.add(os.path.join(src, elem), elem, filter=_filter)
 
 
 class NumpyFormatter(Formatter):
