@@ -615,10 +615,7 @@ class GLiteWorkflow(Workflow):
 class GLiteJobManager(BaseJobManager):
 
     submission_job_id_cre = re.compile("^https?\:\/\/.+\:\d+\/.+")
-    status_job_id_cre = re.compile("^.*JobID\s*\=\s*\[(.+)\]$")
-    status_name_cre = re.compile("^.*Status\s*\=\s*\[(.+)\]$")
-    status_code_cre = re.compile("^.*ExitCode\s*\=\s*\[(.*)\]$")
-    status_reason_cre = re.compile("^.*(FailureReason|Description)\s*\=\s*(.*)$")
+    status_block_cre = re.compile("(\w+)\s*\=\s*\[([^\]]*)\]")
 
     def __init__(self, ce=None, delegation_id=None, threads=1):
         super(GLiteJobManager, self).__init__()
@@ -840,37 +837,23 @@ class GLiteJobManager(BaseJobManager):
         # blocks per job are separated by ******
         blocks = []
         for block in out.split("******"):
-            block = block.strip()
+            block = dict(cls.status_block_cre.findall(block))
             if block:
-                lines = []
-                for line in block.split("\n"):
-                    line = line.strip()
-                    if line:
-                        lines.append(line)
-                if lines:
-                    blocks.append(lines)
-
-        # helper to extract info from a block via a precompiled re
-        def parse(block, cre, group=1):
-            for line in block:
-                m = cre.match(line)
-                if m:
-                    return m.group(group)
-            return None
+                blocks.append(block)
 
         # retrieve status information per block mapped to the job id
         query_data = {}
         for block in blocks:
             # extract the job id
-            job_id = parse(block, cls.status_job_id_cre)
+            job_id = block.get("JobID")
             if job_id is None:
                 continue
 
             # extract the status name
-            status = parse(block, cls.status_name_cre)
+            status = block.get("Status") or None
 
             # extract the exit code and try to cast it to int
-            code = parse(block, cls.status_code_cre)
+            code = block.get("ExitCode")
             if code is not None:
                 try:
                     code = int(code)
@@ -878,11 +861,14 @@ class GLiteJobManager(BaseJobManager):
                     pass
 
             # extract the fail reason
-            reason = parse(block, cls.status_reason_cre, group=2)
+            reason = block.get("FailureReason") or block.get("Description")
 
             # special cases
-            if status is None and code is None and reason is None and len(block) > 1:
-                reason = "\n".join(block[1:])
+            if status is None and code is None and reason is None:
+                reason = "cannot parse data for job {}".format(job_id)
+                if block:
+                    found = ["{}={}".format(*tpl) for tpl in block.items()]
+                    reason += ", found " + ", ".join(found)
             elif status is None:
                 status = "DONE-FAILED"
                 if reason is None:
