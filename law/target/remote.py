@@ -494,8 +494,7 @@ class RemoteCache(object):
         if os.path.exists(cpath):
             if user_owns_file(cpath):
                 os.chmod(cpath, self.file_perm)
-            if times is not None:
-                os.utime(cpath, times)
+            os.utime(cpath, times)
 
     def touch(self, rpath, times=None):
         self._touch(self.cache_path(rpath), times=times)
@@ -754,7 +753,7 @@ class RemoteFileSystem(FileSystem):
 
             # handle 3 cases: lr, rl, rc
             if mode == "lr":
-                # lr strategy: copy to remote, copy to cache, sync stats
+                # strategy: copy to remote, copy to cache, sync stats
 
                 # copy to remote, no need to validate as we need the stat anyway
                 self._atomic_copy(src, full_dst, validate=False, **kwargs)
@@ -774,21 +773,22 @@ class RemoteFileSystem(FileSystem):
 
                 return dst
 
-            else:
-                # rl, rc strategy: copy to cache when not up to date, sync stats, opt. copy to local
+            else:  # rl, rc
+                # strategy: copy to cache when not up to date, sync stats, opt. copy to local
 
                 # check if cached and up to date
                 rstat = self.stat(src, **kwargs_no_retries)
                 full_csrc = add_scheme(self.cache.cache_path(src), "file")
-                with self.cache.lock(src):
-                    if src in self.cache and abs(self.cache.mtime(src) - rstat.st_mtime) > 1:
+                # in cache and outdated?
+                if src in self.cache and abs(self.cache.mtime(src) - rstat.st_mtime) > 1:
+                    with self.cache.lock(src):
                         self.cache.remove(src, lock=False)
-                    if src not in self.cache:
-                        self.cache.allocate(rstat.st_size)
+                # in cache at all?
+                if src not in self.cache:
+                    self.cache.allocate(rstat.st_size)
+                    with self.cache.lock(src):
                         self._atomic_copy(full_src, full_csrc, validate=validate, **kwargs)
-
-                # sync stats
-                self.cache.touch(src, (int(time.time()), rstat.st_mtime))
+                        self.cache.touch(src, (int(time.time()), rstat.st_mtime))
 
                 if mode == "rc":
                     return full_csrc
