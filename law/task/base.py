@@ -9,8 +9,8 @@ __all__ = ["Task", "WrapperTask"]
 
 
 import sys
+import socket
 import logging
-from socket import gethostname
 from collections import OrderedDict
 from abc import abstractmethod
 
@@ -54,7 +54,7 @@ class BaseTask(luigi.Task):
     @staticmethod
     def resource_name(name, host=None):
         if host is None:
-            host = gethostname().partition(".")[0]
+            host = socket.gethostname().partition(".")[0]
         return "{}_{}".format(host, name)
 
     @classmethod
@@ -198,6 +198,9 @@ class Task(BaseTask):
         self._message_cache = []
         self._message_cache_size = 10
 
+        # cache for the last progress published to the scheduler
+        self._last_progress_percentage = None
+
     @property
     def default_log_file(self):
         return "-"
@@ -216,6 +219,12 @@ class Task(BaseTask):
         # set status message using the current message cache
         self.set_status_message("\n".join(self._message_cache))
 
+    def publish_progress(self, percentage, precision=0):
+        percentage = round(percentage, precision)
+        if percentage != self._last_progress_percentage:
+            self._last_progress_percentage = percentage
+            self.set_progress_percentage(percentage)
+
     def colored_repr(self):
         params = self.get_params()
         param_values = self.get_param_values(params, [], self.param_kwargs)
@@ -232,6 +241,19 @@ class Task(BaseTask):
         task_str = "{}({})".format(colored(self.task_family, "green"), ", ".join(sig_parts))
 
         return task_str
+
+    def create_progress_callback(self, n_total, reach=(0, 100)):
+        def make_callback(n, start, end):
+            def callback(i):
+                self.publish_progress(start + (i + 1) / float(n) * (end - start))
+            return callback
+
+        if isinstance(n_total, (list, tuple)):
+            width = 100. / len(n_total)
+            reaches = [(width * i, width * (i + 1)) for i in range(len(n_total))]
+            return n_total.__class__(make_callback(n, *r) for n, r in zip(n_total, reaches))
+        else:
+            return make_callback(n_total, *reach)
 
     def _print_deps(self, *args, **kwargs):
         return print_task_deps(self, *args, **kwargs)
