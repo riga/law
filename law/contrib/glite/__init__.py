@@ -97,6 +97,7 @@ class GLiteWorkflowProxy(WorkflowProxy):
         self.skipped_job_nums = None
         self.last_counts = None
         self.retry_counts = defaultdict(int)
+        self.show_errors = 5
 
     def requires(self):
         task = self.task
@@ -351,8 +352,10 @@ class GLiteWorkflowProxy(WorkflowProxy):
             tmpl = "    job {}: {}"
             for i, tpl in enumerate(errors):
                 print(tmpl.format(tpl))
-                if i == 9:
-                    print("    ... and {} more".format(len(errors) - 10))
+                if i + 1 >= self.show_errors:
+                    remaining = len(errors) - self.show_errors
+                    if remaining > 0:
+                        print("    ... and {} more".format(remaining))
                     break
         else:
             task.publish_message("submitted {} job(s) to {}".format(len(job_files), ce_str))
@@ -370,8 +373,8 @@ class GLiteWorkflowProxy(WorkflowProxy):
 
         # bookkeeping dicts to avoid querying the status of finished jobs
         # note: unfinished_jobs holds submission data, finished_jobs holds status data
-        unfinished_jobs = {}
-        finished_jobs = {}
+        unfinished_jobs = OrderedDict()
+        finished_jobs = OrderedDict()
 
         # fill dicts from submission data, taking into account skipped jobs
         for job_num, data in six.iteritems(self.submission_data.jobs):
@@ -399,8 +402,10 @@ class GLiteWorkflowProxy(WorkflowProxy):
                 tmpl = "    {}"
                 for i, err in enumerate(errors):
                     print(tmpl.format(err))
-                    if i == 9:
-                        print("    ... and {} more".format(len(errors) - 10))
+                    if i + 1 >= self.show_errors:
+                        remaining = len(errors) - self.show_errors
+                        if remaining > 0:
+                            print("    ... and {} more".format(remaining))
                         break
 
                 n_poll_fails += 1
@@ -417,9 +422,9 @@ class GLiteWorkflowProxy(WorkflowProxy):
                 states[job_num] = _states[data["job_id"]]
 
             # store jobs per status, remove finished ones from unfinished_jobs
-            pending_jobs = {}
-            running_jobs = {}
-            failed_jobs = {}
+            pending_jobs = OrderedDict()
+            running_jobs = OrderedDict()
+            failed_jobs = OrderedDict()
             for job_num, data in six.iteritems(states):
                 if data["status"] == self.job_manager.PENDING:
                     pending_jobs[job_num] = data
@@ -440,7 +445,7 @@ class GLiteWorkflowProxy(WorkflowProxy):
             n_failed = len(failed_jobs)
 
             # determine jobs that failed and might be resubmitted
-            retry_jobs = {}
+            retry_jobs = OrderedDict()
             if n_failed and task.retries > 0:
                 for job_num in failed_jobs:
                     if self.retry_counts[job_num] < task.retries:
@@ -468,8 +473,10 @@ class GLiteWorkflowProxy(WorkflowProxy):
                 for i, (job_num, data) in enumerate(six.iteritems(failed_jobs)):
                     job_id = self.submission_data.jobs[job_num]["job_id"]
                     print(tmpl.format(job_num, job_id, **data))
-                    if i == 9:
-                        print("    ... and {} more".format(len(failed_jobs) - 10))
+                    if i + 1 >= self.show_errors:
+                        remaining = len(failed_jobs) - self.show_errors
+                        if remaining > 0:
+                            print("    ... and {} more".format(remaining))
                         break
 
             # infer the overall status
@@ -853,7 +860,7 @@ class GLiteJobManager(BaseJobManager):
             status = block.get("Status") or None
 
             # extract the exit code and try to cast it to int
-            code = block.get("ExitCode")
+            code = block.get("ExitCode") or None
             if code is not None:
                 try:
                     code = int(code)
