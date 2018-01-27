@@ -103,8 +103,7 @@ class Config(ConfigParser):
                     if self.config_file:
                         basedir = os.path.dirname(self.config_file)
                         filename = os.path.normpath(os.path.join(basedir, filename))
-                    if os.path.exists(filename):
-                        self.include(filename, overwrite_options=overwrite_options)
+                    self.include(filename, overwrite_options=overwrite_options)
 
     def optionxform(self, option):
         return option
