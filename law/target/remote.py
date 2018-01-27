@@ -779,23 +779,22 @@ class RemoteFileSystem(FileSystem):
                 # check if cached and up to date
                 rstat = self.stat(src, **kwargs_no_retries)
                 full_csrc = add_scheme(self.cache.cache_path(src), "file")
-                # in cache and outdated?
-                if src in self.cache and abs(self.cache.mtime(src) - rstat.st_mtime) > 1:
-                    with self.cache.lock(src):
+                with self.cache.lock(src):
+                    # in cache and outdated?
+                    if src in self.cache and abs(self.cache.mtime(src) - rstat.st_mtime) > 1:
                         self.cache.remove(src, lock=False)
-                # in cache at all?
-                if src not in self.cache:
-                    self.cache.allocate(rstat.st_size)
-                    with self.cache.lock(src):
+                    # in cache at all?
+                    if src not in self.cache:
+                        self.cache.allocate(rstat.st_size)
                         self._atomic_copy(full_src, full_csrc, validate=validate, **kwargs)
                         self.cache.touch(src, (int(time.time()), rstat.st_mtime))
 
-                if mode == "rc":
-                    return full_csrc
-                else:  # rl
+                if mode == "rl":
                     # copy to local without permission bits
                     copy_no_perm(remove_scheme(full_csrc), remove_scheme(full_dst))
                     return dst
+                else:  # rc
+                    return full_csrc
 
         else:
             # simply copy and return the dst path
