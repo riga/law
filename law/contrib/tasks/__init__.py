@@ -61,7 +61,7 @@ class PutLocalFile(Task):
             output.copy_from_local(src, cache=False)
         else:
             # upload all replicas
+            progress_callback = self.create_progress_callback(self.replicas)
             for i, replica in enumerate(output.targets):
                 replica.copy_from_local(src, cache=False)
-                self.publish_message("uploaded replica %d" % (i + 1))
-                self.set_progress_percentage(100. * (i + 1) / self.replicas)
+                progress_callback(i)
