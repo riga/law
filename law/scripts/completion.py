@@ -5,7 +5,7 @@
 """
 
 
-from law.util import law_base
+from law.util import law_src_path
 
 
 def setup_parser(sub_parsers):
@@ -14,4 +14,4 @@ def setup_parser(sub_parsers):
 
 
 def execute(args):
-    print(law_base("completion.sh"))
+    print(law_src_path("completion.sh"))

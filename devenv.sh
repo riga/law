@@ -6,6 +6,7 @@ action() {
     # update variables
     export PATH="$base/bin:$PATH"
     export PYTHONPATH="$base:$PYTHONPATH"
+    export LAW_HOME="$HOME/.law"
     export LAW_DEV_BASE="$base"
     export LUIGI_CONFIG_PATH="$base/law/examples/luigi.cfg"
 
@@ -19,9 +20,9 @@ action() {
     export -f law_clean
 
     # add a default config
-    if [ ! -f "$HOME/.law/config" ]; then
-        mkdir -p "$HOME/.law"
-        cat >"$HOME/.law/config" <<EOL
+    if [ ! -f "$LAW_HOME/config" ]; then
+        mkdir -p "$LAW_HOME"
+        cat >"$LAW_HOME/config" <<EOL
 [modules]
 law.examples
 EOL

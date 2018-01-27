@@ -5,10 +5,10 @@ Helpful utility functions.
 """
 
 
-__all__ = ["rel_path", "law_base", "printerr", "abort", "colored", "uncolored", "query_choice",
-           "multi_match", "make_list", "flatten", "which", "map_verbose", "map_struct",
-           "mask_struct", "tmp_file", "interruptable_popen", "create_hash", "copy_no_perm",
-           "user_owns_file", "iter_chunks", "human_bytes"]
+__all__ = ["rel_path", "law_src_path", "law_home_path", "printerr", "abort", "colored", "uncolored",
+           "query_choice", "multi_match", "make_list", "flatten", "which", "map_verbose",
+           "map_struct", "mask_struct", "tmp_file", "interruptable_popen", "create_hash",
+           "copy_no_perm", "user_owns_file", "iter_chunks", "human_bytes"]
 
 
 import os
@@ -47,11 +47,21 @@ def rel_path(anchor, *paths):
     return os.path.normpath(os.path.join(anchor, *paths))
 
 
-def law_base(*paths):
+def law_src_path(*paths):
     """
     Returns the law installation directory, optionally joined with *paths*.
     """
     return rel_path(__file__, *paths)
+
+
+def law_home_path(*paths):
+    """
+    Returns the law home directory (``$LAW_HOME``) that defaults to ``"$HOME/.law"``, optionally
+    joined with *paths*.
+    """
+    home = os.getenv("LAW_HOME", "$HOME/.law")
+    home = os.path.expandvars(os.path.expanduser(home))
+    return os.path.normpath(os.path.join(home, *paths))
 
 
 def printerr(*args, **kwargs):

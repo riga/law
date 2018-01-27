@@ -28,13 +28,13 @@ from law.util import colored, multi_match, mask_struct, map_struct, interruptabl
 logger = logging.getLogger(__name__)
 
 
-_current_sandbox = os.environ.get("LAW_SANDBOX", "").split(",")
+_current_sandbox = os.getenv("LAW_SANDBOX", "").split(",")
 
-_sandbox_switched = os.environ.get("LAW_SANDBOX_SWITCHED", "") == "1"
+_sandbox_switched = os.getenv("LAW_SANDBOX_SWITCHED", "") == "1"
 
-_sandbox_stagein_dir = os.environ.get("LAW_SANDBOX_STAGEIN_DIR", "")
+_sandbox_stagein_dir = os.getenv("LAW_SANDBOX_STAGEIN_DIR", "")
 
-_sandbox_stageout_dir = os.environ.get("LAW_SANDBOX_STAGEOUT_DIR", "")
+_sandbox_stageout_dir = os.getenv("LAW_SANDBOX_STAGEOUT_DIR", "")
 
 
 class StageInfo(object):
@@ -131,7 +131,7 @@ class Sandbox(object):
             else:
                 names = [name]
             for name in names:
-                env[name] = value if value is not None else os.environ.get(name, "")
+                env[name] = value if value is not None else os.getenv(name, "")
 
         return env
 

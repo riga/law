@@ -2,10 +2,11 @@
 # It repeatedly grep's the law db file which should be cached by the fileystem.
 
 _law_complete() {
+    local law_home="$LAW_HOME"
+    [ -z "$law_home" ] && law_home="$HOME/.law"
+
     local db_file="$LAW_DB_FILE"
-    if [ -z "$db_file" ]; then
-        db_file="$HOME/.law/db"
-    fi
+    [ -z "$db_file" ] && db_file="$law_home/db"
 
     # cross-OS grep
     _law_grep() {
@@ -73,7 +74,6 @@ _law_complete() {
 
                 COMPREPLY=( $( compgen -W "$( echo ${words[@]} )" -P "--" -- "$inp" ) )
             fi
-
         fi
     fi
 

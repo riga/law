@@ -15,6 +15,8 @@ import logging
 import six
 from six.moves.configparser import ConfigParser
 
+from law.util import law_home_path
+
 
 logger = logging.getLogger(__name__)
 
@@ -25,16 +27,16 @@ class Config(ConfigParser):
 
     _default_config = {
         "core": {
-            "db_file": os.environ.get("LAW_DB_FILE", os.path.expandvars("$HOME/.law/db")),
-            "software_dir": "$HOME/.law/software",
+            "db_file": os.getenv("LAW_DB_FILE", law_home_path("db")),
+            "software_dir": law_home_path("software"),
             "inherit_configs": "",
             "extend_configs": "",
         },
         "logging": {
-            "law": os.environ.get("LAW_LOG_LEVEL", "WARNING"),
+            "law": os.getenv("LAW_LOG_LEVEL", "WARNING"),
         },
         "target": {
-            "tmp_dir": os.environ.get("LAW_TARGET_TMP_DIR", tempfile.gettempdir()),
+            "tmp_dir": os.getenv("LAW_TARGET_TMP_DIR", tempfile.gettempdir()),
             "tmp_dir_permission": 0o0770,
             "gfal2_log_level": "WARNING",
             "default_dropbox": "dropbox",
@@ -62,7 +64,7 @@ class Config(ConfigParser):
         "singularity_volumes": {},
     }
 
-    _config_files = ["$LAW_CONFIG_FILE", "law.cfg", "$HOME/.law/config", "etc/law/config"]
+    _config_files = ["$LAW_CONFIG_FILE", "law.cfg", law_home_path("config"), "etc/law/config"]
 
     @classmethod
     def instance(cls, config_file=""):

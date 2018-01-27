@@ -86,7 +86,7 @@ def delegate_voms_proxy_glite(endpoint, stdout=None, stderr=None, cache=True):
     id is returned.
     """
     # get the proxy file
-    proxy_file = os.environ.get("X509_USER_PROXY", "/tmp/x509up_u%i" % os.getuid())
+    proxy_file = os.getenv("X509_USER_PROXY", "/tmp/x509up_u%i" % os.getuid())
     if not os.path.exists(proxy_file):
         raise Exception("proxy file '{}' does not exist".format(proxy_file))
 

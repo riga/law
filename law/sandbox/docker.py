@@ -228,4 +228,4 @@ class DockerSandbox(Sandbox):
         # or via docker.for.mac.localhost on Mac (as of docker 17.06), however, in some cases it
         # might be required to use a different ip which can be set via an env variable
         default_ip = "docker.for.mac.localhost" if sys.platform == "darwin" else "127.0.0.1"
-        return os.environ.get("LAW_DOCKER_HOST_IP", default_ip)
+        return os.getenv("LAW_DOCKER_HOST_IP", default_ip)

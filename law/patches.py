@@ -51,7 +51,7 @@ def patch_worker_run_task():
             task._worker_task = None
 
         # make worker disposable when sandboxed
-        if os.environ.get("LAW_SANDBOX_SWITCHED") == "1":
+        if os.getenv("LAW_SANDBOX_SWITCHED") == "1":
             self._start_phasing_out()
 
     luigi.worker.Worker._run_task = run_task
@@ -60,8 +60,8 @@ def patch_worker_run_task():
 def patch_worker_factory():
     def create_worker(self, scheduler, worker_processes, assistant=False):
         worker = luigi.worker.Worker(scheduler=scheduler, worker_processes=worker_processes,
-            assistant=assistant, worker_id=os.environ.get("LAW_SANDBOX_WORKER_ID"))
-        worker._first_task = os.environ.get("LAW_SANDBOX_WORKER_TASK")
+            assistant=assistant, worker_id=os.getenv("LAW_SANDBOX_WORKER_ID"))
+        worker._first_task = os.getenv("LAW_SANDBOX_WORKER_TASK")
         return worker
 
     luigi.interface._WorkerSchedulerFactory.create_worker = create_worker
@@ -72,7 +72,7 @@ def patch_keepalive_run():
 
     def run(self):
         # do not run the keep-alive loop when sandboxed
-        if os.environ.get("LAW_SANDBOX_SWITCHED") == "1":
+        if os.getenv("LAW_SANDBOX_SWITCHED") == "1":
             self.stop()
         else:
             _run(self)
