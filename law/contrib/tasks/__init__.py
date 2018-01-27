@@ -27,6 +27,8 @@ class PutLocalFile(Task):
 
     replica_format = "{name}.{i}{ext}"
 
+    exclude_db = True
+
     def get_file_target(self):
         # when self.path is set, return a target around it
         # otherwise assume self.requires() returns a task with a single local target

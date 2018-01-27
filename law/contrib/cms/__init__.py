@@ -22,6 +22,8 @@ from law.util import rel_path, interruptable_popen
 
 class BundleCMSSW(Task):
 
+    task_namespace = "law.cms"
+
     path = luigi.Parameter(description="the path to the CMSSW checkout to bundle")
     exclude = luigi.Parameter(default=NO_STR, description="regular expression for excluding files "
         "or directories, relative to the CMSSW checkout path")

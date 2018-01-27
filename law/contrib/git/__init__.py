@@ -22,6 +22,8 @@ from law.util import rel_path, interruptable_popen
 
 class BundleGitRepository(Task):
 
+    task_namespace = "law.git"
+
     path = luigi.Parameter(description="the path to the repository to bundle")
     exclude = CSVParameter(default=[], description="patterns of files to exclude")
     force_include = CSVParameter(default=[], description="patterns of files to force-include, "
