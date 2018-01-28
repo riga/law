@@ -3,7 +3,10 @@
 # generic law job script
 
 # render variables:
+# - log_file: a file for logging stdout and stderr simultaneously
+# - input_files: basenames of all input files
 # - bootstrap_file: file that is sourced before running tasks
+# - stageout_file: file that is executed after running tasks
 
 # arguments:
 # 1. task_module
@@ -14,7 +17,7 @@
 # 6. auto_retry
 
 action() {
-    local cwd="$( /bin/pwd )"
+    local origin="$( /bin/pwd )"
 
 
     #
@@ -30,19 +33,18 @@ action() {
 
 
     #
-    # create a new base and tmp dirs that will be deleted at the end of the job
+    # create a new home and tmp dirs, and change into the new home dir and copy all input files
     #
 
     local job_hash="$( python -c "import uuid; print(str(uuid.uuid4())[-12:])" )"
-    local base="$cwd/base_${job_hash}"
-    local base_tmp="$base/tmp"
+    export HOME="$origin/job_${job_hash}"
+    export TMP="$HOME/tmp"
+    export TEMP="$TMP"
+    export TMPDIR="$TMP"
 
-    mkdir -p "$base_tmp"
-
-    export HOME="$base"
-    export TMP="$base_tmp"
-    export TEMP="$base_tmp"
-    export TMPDIR="$base_tmp"
+    mkdir -p "$TMP"
+    [ ! -z "{{input_files}}" ] && cp {{input_files}} "$HOME/"
+    cd "$HOME"
 
 
     #
@@ -58,16 +60,18 @@ action() {
     cleanup() {
         section
 
+        cd "$origin"
+
         echo "pre cleanup"
-        echo "ls -hal $base:"
-        ls -hal $base
-        rm -rf "$base"
+        echo "ls -la $HOME:"
+        ls -la "$HOME"
+        rm -rf "$HOME"
 
         section
 
         echo "post cleanup"
-        echo "ls -hal $cwd:"
-        ls -hal $cwd
+        echo "ls -la $origin:"
+        ls -la $origin
     }
 
 
@@ -78,14 +82,14 @@ action() {
     section
 
     echo "starting $0"
-    echo "shell: '$SHELL'"
-    echo "args : '$@'"
-    echo "pwd  : '$cwd'"
-    echo "home : '$HOME'"
-    echo "base : '$base'"
-    echo "tmp  : '$( python -c "from tempfile import gettempdir; print(gettempdir())" )'"
-    echo "ls -hal:"
-    ls -hal
+    echo "shell : '$SHELL'"
+    echo "args  : '$@'"
+    echo "origin: '$origin'"
+    echo "home  : '$HOME'"
+    echo "tmp   : '$( python -c "from tempfile import gettempdir; print(gettempdir())" )'"
+    echo "pwd   : '$( pwd )'"
+    echo "ls -la:"
+    ls -la
 
     section
 
@@ -104,7 +108,7 @@ action() {
     run_bootstrap_file() {
         local bootstrap_file="{{bootstrap_file}}"
         if [ ! -z "$bootstrap_file" ]; then
-            echo "run bootstrap file: $bootstrap_file"
+            echo "run bootstrap file $bootstrap_file"
             source "$bootstrap_file"
         else
             echo "bootstrap file empty, skip"
@@ -173,6 +177,34 @@ action() {
 
 
     #
+    # custom stageout file
+    #
+
+    run_stageout_file() {
+        local stageout_file="{{stageout_file}}"
+        if [ ! -z "$stageout_file" ]; then
+            echo "run stageout file $stageout_file"
+            bash "$stageout_file"
+        else
+            echo "stageout file empty, skip"
+        fi
+    }
+
+    section
+
+    run_stageout_file
+    local ret="$?"
+
+    section
+
+    if [ "$ret" != "0" ]; then
+        2>&1 echo "stageout file failed, abort"
+        cleanup
+        return "$ret"
+    fi
+
+
+    #
     # le fin
     #
 
@@ -180,4 +212,9 @@ action() {
     return "0"
 }
 
-action "$@"
+# start and optionally log
+if [ -z "{{log_file}}" ]; then
+    action "$@"
+else
+    action "$@" &>> "{{log_file}}"
+fi

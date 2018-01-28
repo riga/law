@@ -23,11 +23,12 @@ import luigi
 import six
 
 from law.workflow.base import Workflow, WorkflowProxy
+from law.target.local import LocalDirectoryTarget
 from law.parameter import NO_STR
 from law.decorator import log
 from law.parser import global_cmdline_args
 from law.job.base import BaseJobManager, BaseJobFile
-from law.util import rel_path, law_src_path, iter_chunks, interruptable_popen, make_list
+from law.util import law_src_path, iter_chunks, interruptable_popen, make_list
 # temporary imports, will be solved by clever inheritance
 from law.contrib.glite import GLiteSubmissionData, GLiteStatusData, GLiteWorkflowProxy
 
@@ -52,8 +53,9 @@ class HTCondorWorkflowProxy(WorkflowProxy):
         self.job_manager = HTCondorJobManager()
         self.submission_data = self.submission_data_cls(tasks_per_job=self.task.tasks_per_job)
         self.skipped_job_nums = None
-        self.last_counts = len(self.job_manager.status_names) * (0,)
+        self.last_counts = None
         self.retry_counts = defaultdict(int)
+        self.show_errors = 5
 
     def requires(self):
         task = self.task
@@ -146,7 +148,7 @@ class HTCondorWorkflowProxy(WorkflowProxy):
         config["postfix"] = {"*": _postfix}
 
         # executable
-        config["executable"] = "env"
+        config["executable"] = "/usr/bin/env"
 
         # collect task parameters
         task_params = task.as_branch(branches[0]).cli_args(exclude={"branch"})
@@ -165,12 +167,12 @@ class HTCondorWorkflowProxy(WorkflowProxy):
             base64.b64encode(" ".join(task_params)).replace("=", "_"),
             str(branches[0]),
             str(branches[-1] + 1),
-            "no"
+            "no",
         ]
         config["arguments"] = " ".join(job_args)
 
         # input files
-        config["input_files"] = [rel_path(__file__, "wrapper.sh"), law_src_path("job", "job.sh")]
+        config["input_files"] = [law_src_path("job", "job.sh")]
 
         # render variables
         config["render_data"] = defaultdict(dict)
@@ -183,18 +185,41 @@ class HTCondorWorkflowProxy(WorkflowProxy):
         else:
             config["render_data"]["*"]["bootstrap_file"] = ""
 
+        # add the stageout file
+        stageout_file = task.htcondor_stageout_file()
+        if stageout_file:
+            config["input_files"].append(stageout_file)
+            config["render_data"]["*"]["stageout_file"] = postfix(os.path.basename(stageout_file))
+        else:
+            config["render_data"]["*"]["stageout_file"] = ""
+
         # output files
         config["output_files"] = []
 
-        # log file
-        log_file = "stdall.txt"
-        config["stdout"] = log_file
-        config["stderr"] = log_file
+        # logging
+        # we do not use condor's logging mechanism but rely on the job.sh script
+        config["log"] = None
+        config["stdout"] = None
+        config["stderr"] = None
         if task.transfer_logs:
+            log_file = "stdall.txt"
             config["output_files"].append(log_file)
             config["render_data"]["*"]["log_file"] = postfix(log_file)
         else:
             config["render_data"]["*"]["log_file"] = ""
+
+        # determine postfixed basenames of input files and add that list to the render data
+        input_basenames = [postfix(os.path.basename(path)) for path in config["input_files"]]
+        config["render_data"]["*"]["input_files"] = " ".join(input_basenames)
+
+        # we can use condor's file stageout only when the output directory is local
+        # otherwise, one should use the stageout_file and stageout manually
+        output_dir = task.htcondor_output_directory()
+        if not isinstance(output_dir, LocalDirectoryTarget):
+            del config["output_files"][:]
+        else:
+            config["absolute_paths"] = True
+            config["custom_content"] = [("initialdir", output_dir.path)]
 
         # task hook
         config = task.glite_job_config(config)
@@ -231,7 +256,12 @@ class HTCondorWorkflowProxy(WorkflowProxy):
 
         # actual submission
         job_files = [job_file for _, job_file in six.itervalues(job_data)]
-        task.publish_message("going to submit {} job(s)".format(len(job_files)))
+        dst_str = ""
+        if task.pool != NO_STR:
+            dst_str += ", pool: {}".format(task.pool)
+        if task.scheduler != NO_STR:
+            dst_str += ", scheduler: {}".format(task.scheduler)
+        task.publish_message("going to submit {} job(s)".format(len(job_files)) + dst_str)
 
         def progress_callback(i):
             if i in (0, len(job_files) - 1) or i % 25 == 0:
@@ -246,11 +276,11 @@ class HTCondorWorkflowProxy(WorkflowProxy):
             if isinstance(job_id, Exception):
                 errors.append((job_num, job_id))
                 job_id = self.submission_data_cls.dummy_job_id
-            self.submission_data.jobs[job_num] = self.job_submission_data(job_id=job_id,
+            self.submission_data.jobs[job_num] = self.submission_data_cls.job_data(job_id=job_id,
                 branches=job_data[job_num][0])
 
         # write the submission data to the output file
-        self.output()["submission"].dump(self.submission_data, formatter="json")
+        self.output()["submission"].dump(self.submission_data, formatter="json", indent=4)
 
         # raise exceptions or log
         if errors:
@@ -258,12 +288,14 @@ class HTCondorWorkflowProxy(WorkflowProxy):
                 len(errors), task.task_id))
             tmpl = "    job {}: {}"
             for i, tpl in enumerate(errors):
-                print(tmpl.format(tpl))
-                if i == 9:
-                    print("    ... and {} more".format(len(errors) - 10))
+                print(tmpl.format(*tpl))
+                if i + 1 >= self.show_errors:
+                    remaining = len(errors) - self.show_errors
+                    if remaining > 0:
+                        print("    ... and {} more".format(remaining))
                     break
         else:
-            task.publish_message("submitted {} job(s) to {}".format(len(job_files), task.ce))
+            task.publish_message("submitted {} job(s)".format(len(job_files)) + dst_str)
 
     # TODO: use inheritance
     poll = GLiteWorkflowProxy.__dict__["poll"]
@@ -319,6 +351,9 @@ class HTCondorWorkflow(Workflow):
     def htcondor_bootstrap_file(self):
         return None
 
+    def htcondor_stageout_file(self):
+        return None
+
     def htcondor_output_postfix(self):
         # TODO: use start/end branch?
         return ""
@@ -335,10 +370,7 @@ class HTCondorJobManager(BaseJobManager):
     submission_job_id_cre = re.compile("^(\d+)\sjob\(s\)\ssubmitted\sto\scluster\s(\d+)\.$")
     status_header_cre = re.compile("^\s*ID\s+.+$")
     status_line_cre = re.compile("^(\d+\.\d+)" + 4 * "\s+[^\s]+" + "\s+([UIRXCHE])\s+.*$")
-    history_cluster_id_cre = re.compile("^ClusterId\s=\s(\d+)$")
-    history_process_id_cre = re.compile("^ProcId\s=\s(\d+)$")
-    history_code_cre = re.compile("^ExitCode\s=\s(-?\d+)$")
-    history_reason_cre = re.compile("^RemoveReason\s=\s\"(.*)\"$")
+    history_block_cre = re.compile("(\w+)\s\=\s\"?(.*)\"?\n")
 
     def __init__(self, pool=None, scheduler=None, threads=1):
         super(HTCondorJobManager, self).__init__()
@@ -353,11 +385,13 @@ class HTCondorJobManager(BaseJobManager):
     def cleanup_batch(self, *args, **kwargs):
         raise NotImplementedError("HTCondorJobManager.cleanup_batch is not implemented")
 
-    def submit(self, job_file, pool=None, scheduler=None, retries=0, retry_delay=5, silent=False,
-            callback=None):
+    def submit(self, job_file, pool=None, scheduler=None, retries=0, retry_delay=5, silent=False):
         # default arguments
         pool = pool or self.pool
         scheduler = scheduler or self.scheduler
+
+        # get the job file location as the submission command is run it the same directory
+        job_file_dir, job_file_name = os.path.split(os.path.abspath(job_file))
 
         # build the command
         cmd = ["condor_submit"]
@@ -365,14 +399,14 @@ class HTCondorJobManager(BaseJobManager):
             cmd += ["-pool", pool]
         if scheduler:
             cmd += ["-name", scheduler]
-        cmd += [os.path.basename(job_file)]
+        cmd += [os.path.basename(job_file_name)]
 
         # define the actual submission in a loop to simplify retries
         while True:
             # run the command
             logger.debug("submit htcondor job with command '{}'".format(cmd))
             code, out, err = interruptable_popen(cmd, stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE, cwd=os.path.dirname(job_file))
+                stderr=subprocess.PIPE, cwd=job_file_dir)
 
             # get the job id(s)
             if code == 0:
@@ -386,8 +420,6 @@ class HTCondorJobManager(BaseJobManager):
 
             # retry or done?
             if code == 0:
-                if callable(callback):
-                    callback()
                 return job_ids
             else:
                 if retries > 0:
@@ -404,20 +436,17 @@ class HTCondorJobManager(BaseJobManager):
         # default arguments
         threads = threads or self.threads
 
-        # prepare kwargs for progress callback
+        # prepare progress callback
+        def callback(i):
+            return (lambda _: progress_callback(i)) if callable(progress_callback) else None
+
+        # prepare kwargs
         kwargs = dict(pool=pool, scheduler=scheduler, retries=retries, retry_delay=retry_delay,
             silent=silent)
 
-        def make_kwargs(i):
-            _kwargs = kwargs
-            if callable(progress_callback):
-                _kwargs = _kwargs.copy()
-                _kwargs["callback"] = lambda: progress_callback(i)
-            return _kwargs
-
         # threaded processing
         pool = ThreadPool(max(threads, 1))
-        results = [pool.apply_async(self.submit, (job_file,), make_kwargs(i))
+        results = [pool.apply_async(self.submit, (job_file,), kwargs, callback=callback(i))
                    for i, job_file in enumerate(job_files)]
         pool.close()
         pool.join()
@@ -426,7 +455,7 @@ class HTCondorJobManager(BaseJobManager):
         outputs = []
         for res in results:
             try:
-                outputs.append(res.get())
+                outputs += res.get()
             except Exception as e:
                 outputs.append(e)
 
@@ -508,8 +537,9 @@ class HTCondorJobManager(BaseJobManager):
         # find missing jobs, and query the condor history for the exit code
         missing_ids = [_job_id for _job_id in make_list(job_id) if _job_id not in query_data]
         if missing_ids:
-            cmd = ["condor_history", user or getpass.getuser()]
-            cmd += ["--long", "--attributes", "ClusterId,ProcId,ExitCode,RemoveReason"]
+            cmd = ["condor_history"]
+            cmd += [user or getpass.getuser()] if multi else [job_id]
+            cmd += ["--long", "--attributes", "ClusterId,ProcId,ExitCode,RemoveReason,HoldReason"]
             if pool:
                 cmd += ["-pool", pool]
             if scheduler:
@@ -591,45 +621,27 @@ class HTCondorJobManager(BaseJobManager):
 
     @classmethod
     def parse_history_output(cls, out, job_ids=None):
-        # build blocks per job, i.e. output lines that are separated by empty lines
-        blocks = []
-        for line in out.strip().split("\n"):
-            line = line.strip()
-            if not blocks or not line:
-                blocks.append([])
-            if not line:
-                continue
-            blocks[-1].append(line)
-
-        # helper to extract job data from a block
-        attrs = ["cluster_id", "code", "process_id", "reason"]
-        cres = [getattr(cls, "history_%s_cre" % (attr,)) for attr in attrs]
-
-        def parse_block(block):
-            data = {}
-            for line in block:
-                for attr, cre in six.moves.zip(attrs, cres):
-                    if attr not in data:
-                        m = cre.match(line)
-                        if m:
-                            data[attr] = m.group(1)
-                            break
-            return data
-
-        # extract job information per block
+        # retrieve information per block mapped to the job id
         query_data = {}
-        for block in blocks:
-            data = parse_block(sorted(block))
-
-            if "cluster_id" not in data and "process_id" not in data:
+        for block in out.strip().split("\n\n"):
+            data = dict(cls.history_block_cre.findall(block + "\n"))
+            if not data:
                 continue
+
+            # build the job id
+            if "ClusterId" not in data and "ProcId" not in data:
+                continue
+            job_id = "{ClusterId}.{ProcId}".format(**data)
 
             # interpret data
-            job_id = "{cluster_id}.{process_id}".format(**data)
-            code = data.get("code") and int(data["code"])
-            error = data.get("reason")
+            code = data.get("ExitCode") and int(data["ExitCode"])
+            error = data.get("HoldReason") or data.get("RemoveReason")
+
+            # special cases
             if error and code in (0, None):
                 code = 1
+
+            # in condor_history, the status can only be finished or failed
             status = cls.FINISHED if code == 0 else cls.FAILED
 
             # store it
@@ -641,13 +653,13 @@ class HTCondorJobManager(BaseJobManager):
     @classmethod
     def map_status(cls, status_flag):
         # see http://pages.cs.wisc.edu/~adesmet/status.html
-        if status_flag in ("U", "I", "H"):
+        if status_flag in ("U", "I"):
             return cls.PENDING
         elif status_flag in ("R",):
             return cls.RUNNING
         elif status_flag in ("C",):
             return cls.FINISHED
-        elif status_flag in ("E",):
+        elif status_flag in ("H", "E"):
             return cls.FAILED
         else:
             return cls.FAILED
@@ -656,11 +668,13 @@ class HTCondorJobManager(BaseJobManager):
 class HTCondorJobFile(BaseJobFile):
 
     config_attrs = ["file_name", "universe", "executable", "arguments", "input_files",
-        "output_files", "stdout", "stderr", "log", "notification", "custom_content"]
+        "output_files", "stdout", "stderr", "log", "notification", "custom_content",
+        "absolute_paths"]
 
-    def __init__(self, file_name="job", universe="vanilla", executable=None, arguments=None,
+    def __init__(self, file_name="job.jdl", universe="vanilla", executable=None, arguments=None,
             input_files=None, output_files=None, stdout="stdout.txt", stderr="stderr.txt",
-            log="log.txt", notification="Never", custom_content=None, tmp_dir=None):
+            log="log.txt", notification="Never", custom_content=None, absolute_paths=False,
+            tmp_dir=None):
         super(HTCondorJobFile, self).__init__(tmp_dir=tmp_dir)
 
         self.file_name = file_name
@@ -674,6 +688,7 @@ class HTCondorJobFile(BaseJobFile):
         self.log = log
         self.notification = notification
         self.custom_content = custom_content
+        self.absolute_paths = absolute_paths
 
     def create(self, postfix=None, render_data=None, **kwargs):
         # merge kwargs and instance attributes
@@ -696,6 +711,8 @@ class HTCondorJobFile(BaseJobFile):
         c.input_files = [self.provide_input(path, postfix, render_data) for path in c.input_files]
         if executable_is_file:
             c.executable = self.postfix_file(os.path.basename(c.executable), postfix)
+        if not c.absolute_paths:
+            c.input_files = map(os.path.basename, c.input_files)
 
         # output files
         c.output_files = [self.postfix_file(path, postfix) for path in c.output_files]
@@ -705,20 +722,22 @@ class HTCondorJobFile(BaseJobFile):
 
         # job file content
         content = []
-        content.append(("Universe", c.universe))
-        content.append(("Executable", c.executable))
+        content.append(("universe", c.universe))
+        content.append(("executable", c.executable))
+        if c.stdout:
+            content.append(("output", c.stdout))
+        if c.stderr:
+            content.append(("error", c.stderr))
+        if c.log:
+            content.append(("log", c.log))
+        if c.notification:
+            content.append(("notification", c.notification))
         if c.input_files:
             content.append(("transfer_input_files", c.input_files))
+            content.append(("should_transfer_files", "YES"))
         if c.output_files:
             content.append(("transfer_output_files", c.output_files))
-        if c.stdout:
-            content.append(("Output", c.stdout))
-        if c.stderr:
-            content.append(("Error", c.stderr))
-        if c.log:
-            content.append(("Log", c.log))
-        if c.notification:
-            content.append(("Notification", c.notification))
+            content.append(("when_to_transfer_output", "ON_EXIT"))
 
         # add custom content
         if c.custom_content:
@@ -727,8 +746,8 @@ class HTCondorJobFile(BaseJobFile):
         # finally arguments and queuing statements
         if c.arguments:
             for _arguments in make_list(c.arguments):
-                content.append(("Arguments", _arguments))
-                content.append("Queue")
+                content.append(("arguments", _arguments))
+                content.append("queue")
 
         # write the job file
         with open(job_file, "w") as f:

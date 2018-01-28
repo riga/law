@@ -209,6 +209,14 @@ class GLiteWorkflowProxy(WorkflowProxy):
         config["input_files"].append(bootstrap_file)
         config["render_data"]["*"]["bootstrap_file"] = postfix(os.path.basename(bootstrap_file))
 
+        # add the stageout file
+        stageout_file = task.glite_stageout_file()
+        if stageout_file:
+            config["input_files"].append(stageout_file)
+            config["render_data"]["*"]["stageout_file"] = postfix(os.path.basename(stageout_file))
+        else:
+            config["render_data"]["*"]["stageout_file"] = ""
+
         # output files
         config["output_files"] = []
 
@@ -242,9 +250,13 @@ class GLiteWorkflowProxy(WorkflowProxy):
             base64.b64encode(" ".join(task_params)).replace("=", "_"),
             str(branches[0]),
             str(branches[-1] + 1),
-            "no"
+            "no",
         ]
         config["render_data"]["wrapper.sh"]["job_args"] = " ".join(job_args)
+
+        # determine postfixed basenames of input files and add that list to the render data
+        input_basenames = [postfix(os.path.basename(path)) for path in config["input_files"]]
+        config["render_data"]["*"]["input_files"] = " ".join(input_basenames)
 
         # task hook
         config = task.glite_job_config(config)
@@ -322,8 +334,8 @@ class GLiteWorkflowProxy(WorkflowProxy):
 
         # actual submission
         job_files = [job_file for _, job_file in six.itervalues(job_data)]
-        ce_str = ",".join(task.ce)
-        task.publish_message("going to submit {} job(s) to {}".format(len(job_files), ce_str))
+        dst_str = ", ce: {}".format(",".join(task.ce))
+        task.publish_message("going to submit {} job(s)".format(len(job_files)) + dst_str)
 
         def progress_callback(i):
             if i in (0, len(job_files) - 1) or i % 25 == 0:
@@ -351,14 +363,14 @@ class GLiteWorkflowProxy(WorkflowProxy):
                 len(errors), task.task_id))
             tmpl = "    job {}: {}"
             for i, tpl in enumerate(errors):
-                print(tmpl.format(tpl))
+                print(tmpl.format(*tpl))
                 if i + 1 >= self.show_errors:
                     remaining = len(errors) - self.show_errors
                     if remaining > 0:
                         print("    ... and {} more".format(remaining))
                     break
         else:
-            task.publish_message("submitted {} job(s) to {}".format(len(job_files), ce_str))
+            task.publish_message("submitted {} job(s)".format(len(job_files)) + dst_str)
 
     def poll(self):
         task = self.task
@@ -417,7 +429,7 @@ class GLiteWorkflowProxy(WorkflowProxy):
                 n_poll_fails = 0
 
             # states stores job_id's as keys, so replace them by using job_num's
-            states = {}
+            states = OrderedDict()
             for job_num, data in six.iteritems(unfinished_jobs):
                 states[job_num] = _states[data["job_id"]]
 
@@ -598,6 +610,9 @@ class GLiteWorkflow(Workflow):
     def glite_bootstrap_file(self):
         pass
 
+    def glite_stageout_file(self):
+        return None
+
     def glite_workflow_requires(self):
         return OrderedDict()
 
@@ -606,7 +621,7 @@ class GLiteWorkflow(Workflow):
         return ""
 
     def glite_output_uri(self):
-        return self.glite_output_directory().url(cmd="listdir")
+        return self.glite_output_directory().url()
 
     def glite_delegate_proxy(self, endpoint):
         return delegate_voms_proxy_glite(endpoint, stdout=sys.stdout, stderr=sys.stderr,
@@ -631,8 +646,7 @@ class GLiteJobManager(BaseJobManager):
         self.delegation_id = delegation_id
         self.threads = threads
 
-    def submit(self, job_file, ce=None, delegation_id=None, retries=0, retry_delay=5,
-            silent=False, callback=None):
+    def submit(self, job_file, ce=None, delegation_id=None, retries=0, retry_delay=5, silent=False):
         # default arguments
         ce = ce or self.ce
         delegation_id = delegation_id or self.delegation_id
@@ -649,6 +663,9 @@ class GLiteJobManager(BaseJobManager):
                 raise Exception("numbers of CEs ({}) and delegation ids ({}) do not match".format(
                     len(ce), len(delegation_id)))
 
+        # get the job file location as the submission command is run it the same directory
+        job_file_dir, job_file_name = os.path.split(os.path.abspath(job_file))
+
         # define the actual submission in a loop to simplify retries
         while True:
             # build the command
@@ -656,12 +673,13 @@ class GLiteJobManager(BaseJobManager):
             cmd = ["glite-ce-job-submit", "-r", ce[i]]
             if delegation_id:
                 cmd += ["-D", delegation_id[i]]
-            cmd += [job_file]
+            cmd += [job_file_name]
 
             # run the command
             # glite prints everything to stdout
             logger.debug("submit glite job with command '{}'".format(cmd))
-            code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=sys.stderr)
+            code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=sys.stderr,
+                cwd=job_file_dir)
 
             # in some cases, the return code is 0 but the ce did not respond with a valid id
             if code == 0:
@@ -672,8 +690,6 @@ class GLiteJobManager(BaseJobManager):
 
             # retry or done?
             if code == 0:
-                if callable(callback):
-                    callback()
                 return job_id
             else:
                 if retries > 0:
@@ -690,20 +706,17 @@ class GLiteJobManager(BaseJobManager):
         # default arguments
         threads = threads or self.threads
 
-        # prepare kwargs for progress callback
+        # prepare progress callback
+        def callback(i):
+            return (lambda _: progress_callback(i)) if callable(progress_callback) else None
+
+        # prepare kwargs
         kwargs = dict(ce=ce, delegation_id=delegation_id, retries=retries, retry_delay=retry_delay,
             silent=silent)
 
-        def make_kwargs(i):
-            _kwargs = kwargs
-            if callable(progress_callback):
-                _kwargs = _kwargs.copy()
-                _kwargs["callback"] = lambda: progress_callback(i)
-            return _kwargs
-
         # threaded processing
         pool = ThreadPool(max(threads, 1))
-        results = [pool.apply_async(self.submit, (job_file,), make_kwargs(i))
+        results = [pool.apply_async(self.submit, (job_file,), kwargs, callback=callback(i))
                    for i, job_file in enumerate(job_files)]
         pool.close()
         pool.join()
@@ -848,7 +861,7 @@ class GLiteJobManager(BaseJobManager):
             if block:
                 blocks.append(block)
 
-        # retrieve status information per block mapped to the job id
+        # retrieve information per block mapped to the job id
         query_data = {}
         for block in blocks:
             # extract the job id
@@ -909,11 +922,11 @@ class GLiteJobManager(BaseJobManager):
 class GLiteJobFile(BaseJobFile):
 
     config_attrs = ["file_name", "executable", "input_files", "output_files", "output_uri",
-        "stderr", "stdout", "vo", "custom_content"]
+        "stderr", "stdout", "vo", "custom_content", "absolute_paths"]
 
     def __init__(self, file_name="job.jdl", executable=None, input_files=None, output_files=None,
             output_uri=None, stdout="stdout.txt", stderr="stderr.txt", vo=None, custom_content=None,
-            tmp_dir=None):
+            absolute_paths=False, tmp_dir=None):
         super(GLiteJobFile, self).__init__(tmp_dir=tmp_dir)
 
         self.file_name = file_name
@@ -925,6 +938,7 @@ class GLiteJobFile(BaseJobFile):
         self.stderr = stderr
         self.vo = vo
         self.custom_content = custom_content
+        self.absolute_paths = absolute_paths
 
     def create(self, postfix=None, render_data=None, **kwargs):
         # merge kwargs and instance attributes
@@ -956,7 +970,12 @@ class GLiteJobFile(BaseJobFile):
             c.output_files.append(c.stdout)
         if c.stderr and c.stderr not in c.output_files:
             c.output_files.append(c.stderr)
-        c.input_files = [add_scheme(elem, "file") for elem in c.input_files]
+
+        # handle relative or absolute input files
+        if c.absolute_paths:
+            c.input_files = [add_scheme(elem, "file") for elem in c.input_files]
+        else:
+            c.input_files = map(os.path.basename, c.input_files)
 
         # job file content
         content = []
