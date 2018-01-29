@@ -120,10 +120,10 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
     def requires(self):
         reqs = OrderedDict()
 
-        # add upstream and glite specific requirements when not controlling running jobs
+        # add upstream and workflow specific requirements when not controlling running jobs
         if not self._control_jobs:
             reqs.update(super(BaseRemoteWorkflowProxy, self).requires())
-            reqs.ujpdate(self._get_task_hook("workflow_requires")())
+            reqs.update(self._get_task_hook("workflow_requires")())
 
         return reqs
 
