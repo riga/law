@@ -32,7 +32,7 @@ class TransferLocalFile(Task):
     def get_source_target(self):
         # when self.source_path is set, return a target around it
         # otherwise assume self.requires() returns a task with a single local target
-        return LocalFileTarget(self.soure_path) if self.soure_path else self.input()
+        return LocalFileTarget(self.source_path) if self.source_path else self.input()
 
     @abstractmethod
     def single_output(self):
@@ -69,3 +69,4 @@ class TransferLocalFile(Task):
             for i, replica in enumerate(output.targets):
                 replica.copy_from_local(src_path, cache=False)
                 progress_callback(i)
+                self.publish_message("uploaded {}".format(replica.basename))
