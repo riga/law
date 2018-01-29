@@ -338,8 +338,9 @@ class GLiteWorkflowProxy(WorkflowProxy):
         task.publish_message("going to submit {} job(s)".format(len(job_files)) + dst_str)
 
         def progress_callback(i):
-            if i in (0, len(job_files) - 1) or i % 25 == 0:
-                task.publish_message("submitted job {}/{}".format(i + 1, len(job_files)))
+            i += 1
+            if i in (1, len(job_files)) or i % 25 == 0:
+                task.publish_message("submitted job {}/{}".format(i, len(job_files)))
 
         job_ids = self.job_manager.submit_batch(job_files, ce=task.ce,
             delegation_id=self.delegation_ids, retries=3, threads=task.threads,
