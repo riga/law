@@ -423,12 +423,13 @@ def tmp_file(*args, **kwargs):
 
 def interruptable_popen(*args, **kwargs):
     kwargs["preexec_fn"] = os.setsid
+
     p = subprocess.Popen(*args, **kwargs)
 
     try:
         out, err = p.communicate()
     except KeyboardInterrupt:
-        os.killpg(os.getpgid(p.pid), signal.SIGKILL)
+        os.killpg(os.getpgid(p.pid), signal.SIGTERM)
         raise
 
     return p.returncode, out, err
