@@ -222,7 +222,7 @@ class HTCondorWorkflowProxy(WorkflowProxy):
             config["custom_content"] = [("initialdir", output_dir.path)]
 
         # task hook
-        config = task.glite_job_config(config)
+        config = task.htcondor_job_config(config, job_num, branches)
 
         return self.job_file(**config)
 
@@ -358,7 +358,7 @@ class HTCondorWorkflow(Workflow):
         # TODO: use start/end branch?
         return ""
 
-    def htcondor_job_config(self, config):
+    def htcondor_job_config(self, config, job_num, branches):
         return config
 
     def htcondor_use_local_scheduler(self):

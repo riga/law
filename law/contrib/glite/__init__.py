@@ -259,7 +259,7 @@ class GLiteWorkflowProxy(WorkflowProxy):
         config["render_data"]["*"]["input_files"] = " ".join(input_basenames)
 
         # task hook
-        config = task.glite_job_config(config)
+        config = task.glite_job_config(config, job_num, branches)
 
         return self.job_file(**config)
 
@@ -627,7 +627,7 @@ class GLiteWorkflow(Workflow):
         return delegate_voms_proxy_glite(endpoint, stdout=sys.stdout, stderr=sys.stderr,
             cache=True)
 
-    def glite_job_config(self, config):
+    def glite_job_config(self, config, job_num, branches):
         return config
 
     def glite_use_local_scheduler(self):
