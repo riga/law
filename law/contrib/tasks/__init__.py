@@ -5,7 +5,7 @@ Tasks that provide common and often used functionality.
 """
 
 
-__all__ = ["PutLocalFile"]
+__all__ = ["TransferLocalFile"]
 
 
 import os
@@ -19,20 +19,20 @@ from law.target.collection import SiblingFileCollection
 from law.decorator import log
 
 
-class PutLocalFile(Task):
+class TransferLocalFile(Task):
 
-    path = luigi.Parameter(description="path to the file to put")
-    replicas = luigi.IntParameter(default=0, description="number of replicas to put, uses "
+    source_path = luigi.Parameter(description="path to the file to transfer")
+    replicas = luigi.IntParameter(default=0, description="number of replicas to generate, uses "
         "replica_format when > 0 for creating target basenames, default: 0")
 
     replica_format = "{name}.{i}{ext}"
 
     exclude_db = True
 
-    def get_file_target(self):
-        # when self.path is set, return a target around it
+    def get_source_target(self):
+        # when self.source_path is set, return a target around it
         # otherwise assume self.requires() returns a task with a single local target
-        return LocalFileTarget(self.path) if self.path else self.input()
+        return LocalFileTarget(self.soure_path) if self.soure_path else self.input()
 
     @abstractmethod
     def single_output(self):
@@ -55,15 +55,17 @@ class PutLocalFile(Task):
 
     @log
     def run(self):
+        self.transfer(self.get_source_target())
+
+    def transfer(self, src_path):
         output = self.output()
-        src = self.get_file_target()
 
         # single output or replicas?
         if not isinstance(output, SiblingFileCollection):
-            output.copy_from_local(src, cache=False)
+            output.copy_from_local(src_path, cache=False)
         else:
             # upload all replicas
             progress_callback = self.create_progress_callback(self.replicas)
             for i, replica in enumerate(output.targets):
-                replica.copy_from_local(src, cache=False)
+                replica.copy_from_local(src_path, cache=False)
                 progress_callback(i)
