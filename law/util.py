@@ -473,7 +473,7 @@ def iter_chunks(l, size):
     if isinstance(l, six.integer_types):
         l = six.moves.range(l)
 
-    if isinstance(l, types.GeneratorType):
+    if isinstance(l, (types.GeneratorType, six.moves.range)):
         if size < 1:
             yield list(l)
         else:
@@ -484,8 +484,9 @@ def iter_chunks(l, size):
                 else:
                     yield chunk
                     chunk = []
-            if chunk:
-                yield chunk
+            else:
+                if chunk:
+                    yield chunk
 
     else:
         if size < 1:

@@ -65,7 +65,9 @@ class BaseTask(luigi.Task):
         else:
             return values
 
-    modify_param_values = None
+    @classmethod
+    def modify_param_values(cls, params):
+        return params
 
     @classmethod
     def req(cls, *args, **kwargs):

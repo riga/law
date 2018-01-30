@@ -38,9 +38,11 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
 
         self.delegation_ids = None
 
+    @property
     def job_manager_cls(self):
         return GLiteJobManager
 
+    @property
     def job_file_cls(self):
         return GLiteJobFile
 
@@ -123,7 +125,7 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
         return self.job_file(**config)
 
     def destination_info(self):
-        return ", ce: {}".format(",".join(self.task.ce))
+        return "ce: {}".format(",".join(self.task.ce))
 
     def submit_jobs(self, job_files):
         task = self.task

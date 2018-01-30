@@ -42,9 +42,11 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         self.retry_counts = defaultdict(int)
         self.show_errors = 5
 
+    @property
     def job_manager_cls(self):
         return HTCondorJobManager
 
+    @property
     def job_file_cls(self):
         return HTCondorJobFile
 
