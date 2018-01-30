@@ -42,12 +42,15 @@ class TargetCollection(Target):
         self._flat_target_list = flatten(targets)
 
     def __repr__(self):
-        return "<{}(len={}, threshold={}) at {}>".format(self.__class__.__name__, len(self),
-            self.threshold, hex(id(self)))
+        return "{}(len={}, threshold={})".format(self.__class__.__name__, len(self), self.threshold)
 
     def colored_repr(self):
-        return "{}(len={}, threshold={})".format(colored(self.__class__.__name__, "cyan"),
-            colored(len(self), style="bright"), colored(self.threshold, style="bright"))
+        return "{}({}={}, {}={})".format(
+            colored(self.__class__.__name__, "cyan"),
+            colored("len", color="blue", style="bright"),
+            len(self),
+            colored("threshold", color="blue", style="bright"),
+            self.threshold)
 
     def __len__(self):
         return len(self.targets)
@@ -163,6 +166,14 @@ class SiblingFileCollection(TargetCollection):
             self.dir = first_target.parent
         else:  # SiblingFileCollection
             self.dir = first_target.dir
+
+    def __repr__(self):
+        dir_repr = "dir={}".format(self.dir.path)
+        return "{}, {})".format(super(SiblingFileCollection, self).__repr__()[:-1], dir_repr)
+
+    def colored_repr(self):
+        dir_repr = "{}={}".format(colored("dir", color="blue", style="bright"), self.dir.path)
+        return "{}, {})".format(super(SiblingFileCollection, self).colored_repr()[:-1], dir_repr)
 
     def exists(self, basenames=None):
         threshold = self._threshold()

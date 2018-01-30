@@ -124,10 +124,11 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
         luigi.target.FileSystemTarget.__init__(self, path)
 
     def __repr__(self):
-        return "{}(path={}, {})".format(self.__class__.__name__, self.path, hex(id(self)))
+        return "{}(path={})".format(self.__class__.__name__, self.path)
 
     def colored_repr(self):
-        return "{}({}={})".format(colored(self.__class__.__name__, "cyan"),
+        return "{}({}={})".format(
+            colored(self.__class__.__name__, "cyan"),
             colored("path", "blue", style="bright"), self.path)
 
     @property
