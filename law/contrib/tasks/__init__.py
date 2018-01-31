@@ -5,7 +5,7 @@ Tasks that provide common and often used functionality.
 """
 
 
-__all__ = ["TransferLocalFile"]
+__all__ = ["TransferLocalFile", "CascadeMerge"]
 
 
 import os
@@ -22,7 +22,7 @@ from law.target.local import LocalFileTarget
 from law.target.collection import TargetCollection, SiblingFileCollection
 from law.parameter import NO_INT
 from law.decorator import log
-from law.util import flatten, iter_chunks
+from law.util import iter_chunks
 
 
 class TransferLocalFile(Task):
