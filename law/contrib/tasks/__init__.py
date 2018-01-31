@@ -78,7 +78,7 @@ class TransferLocalFile(Task):
                 self.publish_message("uploaded {}".format(replica.basename))
 
 
-class CascadeMerge(Task, LocalWorkflow):
+class CascadeMerge(LocalWorkflow):
 
     cascade_tree = luigi.IntParameter(default=0, description="the index of the cascade tree, in "
         "case multiple trees are used, default: 0")
@@ -95,7 +95,7 @@ class CascadeMerge(Task, LocalWorkflow):
     tolerance = 0.
     pilot = False
 
-    node_format = "{name}.t{tree}.d{depth}.b{branch}{ext}"
+    node_format = "{name}.d{depth}.b{branch}{ext}"
     merge_factor = 2
 
     exclude_params_db = {"n_cascade_leaves"}
@@ -152,9 +152,7 @@ class CascadeMerge(Task, LocalWorkflow):
         if self.n_cascade_leaves == NO_INT:
             # get inputs, i.e. outputs of workflow requirements and trace actual inputs to merge
             inputs = luigi.task.getpaths(self.cascade_workflow_requires())
-            if isinstance(inputs, (tuple, list)) and len(inputs) == 2 and callable(inputs[1]):
-                inputs, tracer = inputs
-                inputs = tracer(inputs)
+            inputs = self.trace_cascade_workflow_inputs(inputs)
             self.n_cascade_leaves = len(inputs)
 
         # infer the number of trees from the cascade output
@@ -162,9 +160,9 @@ class CascadeMerge(Task, LocalWorkflow):
         n_trees = 1 if not isinstance(output, TargetCollection) else len(output)
 
         # determine the number of leaves per tree
-        leaves_per_tree = n_trees * [self.n_cascade_leaves // n_trees]
-        for i in six.moves.range(self.n_cascade_leaves % n_trees):
-            leaves_per_tree[i] += 1
+        n_min = self.n_cascade_leaves // n_trees
+        n_trees_overlap = self.n_cascade_leaves % n_trees
+        leaves_per_tree = n_trees_overlap * [n_min + 1] + (n_trees - n_trees_overlap) * [n_min]
 
         # build trees
         trees = []
@@ -196,7 +194,7 @@ class CascadeMerge(Task, LocalWorkflow):
 
     @property
     def is_root(self):
-        return self.depth == 0
+        return self.cascade_depth == 0
 
     @property
     def is_leaf(self):
@@ -204,20 +202,22 @@ class CascadeMerge(Task, LocalWorkflow):
         max_depth = max(tree.keys())
         return self.cascade_depth == max_depth
 
-    @abstractmethod
-    def cascade_requires(self):
-        # should return a tuple containing
-        # 1) the leaf requirements of a cascading task branch
-        # 2) (opt.) a function that takes the outputs of the requirements and returns the actual
-        # targets to merge (e.g. usefull when the requirements output multiple targets)
-        pass
+    def trace_cascade_workflow_inputs(self, inputs):
+        # should convert inputs to an object with a length (e.g. list, tuple, TargetCollection, ...)
+        return inputs
+
+    def trace_cascade_inputs(self, inputs):
+        # should convert inputs into an iterable sequence (list, tuple, ...), no TargetCollection!
+        return inputs
 
     @abstractmethod
     def cascade_workflow_requires(self):
-        # should return a tuple containing
-        # 1) the leaf requirements of a cascading task workflow
-        # 2) (opt.) a function that takes the outputs of the requirements and returns the actual
-        # targets to merge (e.g. usefull when the requirements output multiple targets)
+        # should return the leaf requirements of a cascading task workflow
+        pass
+
+    @abstractmethod
+    def cascade_requires(self):
+        # should return the leaf requirements of a cascading task branch
         pass
 
     @abstractmethod
@@ -239,7 +239,7 @@ class CascadeMerge(Task, LocalWorkflow):
 
         else:
             # not a leaf, just require the next cascade depth
-            reqs["cascade"] = self.req(self, depth=self.depth + 1)
+            reqs["cascade"] = self.req(self, cascade_depth=self.cascade_depth + 1)
 
         return reqs
 
@@ -252,11 +252,13 @@ class CascadeMerge(Task, LocalWorkflow):
             # strategy: consider the node tuple values as a number in a numeral system where the
             # base corresponds to our merge factor, convert it to a decimal number and account for
             # the offset from previous trees
+            self.cascade_trees
+            n_leaves = self.leaves_per_tree[self.cascade_tree]
             offset = sum(self.leaves_per_tree[:self.cascade_tree])
             node = self.branch_value
-            value = "".join(str(v) for v in node)
-            start_branch = offset + self.merge_factor * int(value, self.merge_factor)
-            end_branch = min(start_branch + self.merge_factor, self.n_cascade_leaves)
+            node_str = "".join(str(v) for v in node)
+            start_branch = offset + self.merge_factor * int(node_str, self.merge_factor)
+            end_branch = min(start_branch + self.merge_factor, n_leaves)
             reqs["cascade"] = self.cascade_requires(start_branch, end_branch)
 
         else:
@@ -264,10 +266,12 @@ class CascadeMerge(Task, LocalWorkflow):
             # note: child node tuples contain the exact same values plus an additional one
             node = self.branch_value
             tree = self.cascade_trees[self.cascade_tree]
-            branches = [i for i, n in enumerate(tree[self.depth + 1]) if n[:-1] == node]
+            branches = [i for i, n in enumerate(tree[self.cascade_depth + 1]) if n[:-1] == node]
 
             # add to requirements
-            reqs["cascade"] = {b: self.req(self, branch=b, depth=self.depth + 1) for b in branches}
+            reqs["cascade"] = {
+                b: self.req(self, branch=b, cascade_depth=self.cascade_depth + 1) for b in branches
+            }
 
         return reqs
 
@@ -285,15 +289,16 @@ class CascadeMerge(Task, LocalWorkflow):
 
     def output(self):
         output = self.cascade_output()
+        if isinstance(output, TargetCollection):
+            output = output.targets[self.cascade_tree]
+
         if self.is_root:
-            if isinstance(output, TargetCollection):
-                return output.targets[self.cascade_tree]
-            else:
-                return output
+            return output
+
         else:
             name, ext = os.path.splitext(output.basename)
             basename = self.node_format.format(name=name, ext=ext, branch=self.branch,
-                tree=self.cascade_tree, depth=self.cascade_depth)
+                depth=self.cascade_depth)
             return self.cascade_cache_directory().child(basename, "f")
 
     @log
@@ -301,24 +306,18 @@ class CascadeMerge(Task, LocalWorkflow):
         # trace actual inputs to merge
         inputs = self.input()["cascade"]
         if self.is_leaf:
-            if isinstance(inputs, (tuple, list)) and len(inputs) == 2 and callable(inputs[1]):
-                inputs, tracer = inputs
-                inputs = tracer(inputs)
-
-        # flatten inputs
-        if isinstance(inputs, TargetCollection):
-            inputs = flatten(inputs.targets)
+            inputs = self.trace_cascade_inputs(inputs)
         else:
-            inputs = flatten(inputs)
+            inputs = inputs.values()
 
         # merge
-        self.publish_message("start merging of node {} in tree {}".format(self.branch_value,
-            self.cascade_tree))
+        self.publish_message("start merging {} inputs of node {} in tree {}".format(
+            len(inputs), self.branch_value, self.cascade_tree))
         self.merge(inputs, self.output())
 
         # remove intermediate nodes
         if not self.is_leaf and not self.keep_nodes:
-            self.publish_message("remove intermediate results to node {} in tree {}".format(
-                self.branch_value, self.cascade_tree))
-            for target in inputs:
-                target.remove()
+            with self.publish_step("removing intermediate results to node {} in tree {}".format(
+                    self.branch_value, self.cascade_tree)):
+                for inp in inputs:
+                    inp.remove()
