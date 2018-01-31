@@ -966,10 +966,10 @@ class RemoteFileTarget(RemoteTarget, FileSystemFileTarget):
             with self.fs.open(self.path, mode, _yield_path=True, **kwargs) as lpath:
                 yield LocalFileTarget(lpath)
 
-        else:
-            try:
-                tmp = LocalFileTarget(is_tmp=self.ext() or True)
+        else:  # w
+            tmp = LocalFileTarget(is_tmp=self.ext() or True)
 
+            try:
                 yield tmp
 
                 if tmp.exists():

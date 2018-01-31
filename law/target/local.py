@@ -197,7 +197,7 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
             tmp_dir = os.path.realpath(os.path.expandvars(os.path.expanduser(tmp_dir)))
             if not self.fs.exists(tmp_dir):
                 perm = Config.instance().get("target", "tmp_dir_permission")
-                self.fs.mkdir(tmp_dir, perm=perm)
+                self.fs.mkdir(tmp_dir, perm=perm and int(perm))
 
             # create a random path
             while True:
