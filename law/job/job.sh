@@ -11,10 +11,11 @@
 # arguments:
 # 1. task_module
 # 2. task_family
-# 3. task_params
+# 3. task_params (base64 encoded)
 # 4. start_branch
 # 5. end_branch
 # 6. auto_retry
+# 7. hook_args (base64 encoded)
 
 action() {
     local origin="$( /bin/pwd )"
@@ -26,10 +27,11 @@ action() {
 
     local task_module="$1"
     local task_family="$2"
-    local task_params="$( echo "$3" | tr _ = | base64 --decode )"
+    local task_params="$( echo "$3" | base64 --decode )"
     local start_branch="$4"
     local end_branch="$5"
     local auto_retry="$6"
+    local hook_args="$( echo "$7" | base64 --decode )"
 
 
     #
@@ -73,6 +75,30 @@ action() {
         echo "post cleanup"
         echo "ls -la $origin:"
         ls -la $origin
+    }
+
+    call_hook() {
+        local name="$1"
+        local args="${@:2}"
+
+        # hook existing?
+        type -t "$name" &> /dev/null
+        if [ "$?" = "0" ]; then
+            echo "calling hook $name"
+            $name "$@"
+        fi
+    }
+
+    call_start_hook() {
+        call_hook law_hook_job_started $hook_args
+    }
+
+    call_success_hook() {
+        call_hook law_hook_job_finished $hook_args
+    }
+
+    call_fail_hook() {
+        call_hook law_hook_job_failed $hook_args
     }
 
 
@@ -135,6 +161,9 @@ action() {
     #
 
     echo "run tasks from branch $start_branch to $end_branch"
+
+    call_start_hook
+
     for (( branch=$start_branch; branch<$end_branch; branch++ )); do
         section
 
@@ -149,6 +178,7 @@ action() {
         ret="$?"
         if [ "$?" != "0" ]; then
             2>&1 echo "dependency tree for branch $branch failed, abort"
+            call_fail_hook
             cleanup
             return "$ret"
         fi
@@ -160,7 +190,7 @@ action() {
         ret="$?"
         echo "return code: $ret"
 
-        if [ "$ret" != "0" ] && [ "%auto_retry" = "yes" ]; then
+        if [ "$ret" != "0" ] && [ "$auto_retry" = "yes" ]; then
             section
 
             echo "execute attempt 2:"
@@ -171,6 +201,7 @@ action() {
 
         if [ "$ret" != "0" ]; then
             2>&1 echo "branch $branch failed, abort"
+            call_fail_hook
             cleanup
             return "$ret"
         fi
@@ -200,6 +231,7 @@ action() {
 
     if [ "$ret" != "0" ]; then
         2>&1 echo "stageout file failed, abort"
+        call_fail_hook
         cleanup
         return "$ret"
     fi
@@ -209,7 +241,9 @@ action() {
     # le fin
     #
 
+    call_success_hook
     cleanup
+
     return "0"
 }
 
