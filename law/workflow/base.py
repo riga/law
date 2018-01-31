@@ -145,14 +145,14 @@ class Workflow(Task):
         if self.is_branch():
             return self
         else:
-            return self.__class__.req(self, branch=branch)
+            return self.req(self, branch=branch)
 
     def as_workflow(self):
         if self.is_workflow():
             return self
         else:
             if self._workflow_task is None:
-                self._workflow_task = self.__class__.req(self, branch=NO_INT)
+                self._workflow_task = self.req(self, branch=NO_INT)
             return self._workflow_task
 
     @abstractmethod
@@ -221,7 +221,7 @@ class Workflow(Task):
 
                 self._branch_tasks = OrderedDict()
                 for b in branch_map:
-                    self._branch_tasks[b] = self.__class__.req(self, branch=b,
+                    self._branch_tasks[b] = self.req(self, branch=b,
                         _exclude=self.exclude_params_branch)
                 gc.collect()
 
