@@ -12,6 +12,7 @@ import sys
 import socket
 import logging
 from collections import OrderedDict
+from contextlib import contextmanager
 from abc import abstractmethod
 
 import luigi
@@ -220,6 +221,16 @@ class Task(BaseTask):
 
         # set status message using the current message cache
         self.set_status_message("\n".join(self._message_cache))
+
+    @contextmanager
+    def publish_step(self, msg, success_message="done", fail_message="failed"):
+        self.publish_message(msg)
+        success = False
+        try:
+            yield
+            success = True
+        finally:
+            self.publish_message(success_message if success else fail_message)
 
     def publish_progress(self, percentage, precision=0):
         percentage = round(percentage, precision)
