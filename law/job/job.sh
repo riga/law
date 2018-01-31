@@ -41,6 +41,7 @@ action() {
     export TMP="$HOME/tmp"
     export TEMP="$TMP"
     export TMPDIR="$TMP"
+    export LAW_TARGET_TMP_DIR="$TMP"
 
     mkdir -p "$TMP"
     [ ! -z "{{input_files}}" ] && cp {{input_files}} "$HOME/"
