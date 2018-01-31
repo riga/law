@@ -11,7 +11,6 @@ __all__ = ["GLiteWorkflow"]
 
 import os
 import sys
-import base64
 import logging
 from abc import abstractmethod
 from collections import OrderedDict, defaultdict
@@ -19,6 +18,7 @@ from collections import OrderedDict, defaultdict
 import luigi
 
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
+from law.job.base import JobArguments
 from law.contrib.glite.job import GLiteJobManager, GLiteJobFile
 from law.parameter import CSVParameter
 from law.parser import global_cmdline_args
@@ -105,15 +105,16 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
             task_params.append(ls_flag)
 
         # job script arguments
-        job_args = [
-            task.__class__.__module__,
-            task.task_family,
-            base64.b64encode(" ".join(task_params)).replace("=", "_"),
-            str(branches[0]),
-            str(branches[-1] + 1),
-            "no",
-        ]
-        config["render_data"]["wrapper.sh"]["job_args"] = " ".join(job_args)
+        job_args = JobArguments(
+            task_module=task.__class__.__module__,
+            task_family=task.task_family,
+            task_params=task_params,
+            start_branch=branches[0],
+            end_branch=branches[-1] + 1,
+            auto_retry=False,
+            hook_args=None,
+        )
+        config["render_data"]["wrapper.sh"]["job_args"] = job_args.join()
 
         # determine postfixed basenames of input files and add that list to the render data
         input_basenames = [postfix(os.path.basename(path)) for path in config["input_files"]]

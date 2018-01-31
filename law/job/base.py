@@ -5,7 +5,7 @@ Base definition of a minimalistic job manager.
 """
 
 
-__all__ = ["BaseJobManager", "BaseJobFile"]
+__all__ = ["BaseJobManager", "BaseJobFile", "JobArguments"]
 
 
 import os
@@ -13,6 +13,7 @@ import time
 import shutil
 import tempfile
 import fnmatch
+import base64
 from abc import ABCMeta, abstractmethod
 
 import six
@@ -215,3 +216,32 @@ class BaseJobFile(object):
     @classmethod
     def create_line(cls, key, value=None, indent=0):
         raise NotImplementedError
+
+
+class JobArguments(object):
+
+    def __init__(self, task_module, task_family, task_params, start_branch, end_branch,
+            auto_retry=False, hook_args=None):
+        super(JobArguments, self).__init__()
+
+        self.task_module = task_module
+        self.task_family = task_family
+        self.task_params = task_params
+        self.start_branch = start_branch
+        self.end_branch = end_branch
+        self.auto_retry = auto_retry
+        self.hook_args = hook_args
+
+    def pack(self):
+        return [
+            self.task_module,
+            self.task_family,
+            base64.b64encode(" ".join(self.task_params)),
+            self.start_branch,
+            self.end_branch,
+            "yes" if self.auto_retry else "no",
+            base64.b64encode("" if not self.hook_args else " ".join(str(a) for a in self.hook_args))
+        ]
+
+    def join(self):
+        return " ".join(str(item) for item in self.pack())

@@ -9,7 +9,6 @@ __all__ = ["HTCondorWorkflow"]
 
 
 import os
-import base64
 import logging
 from abc import abstractmethod
 from collections import OrderedDict, defaultdict
@@ -17,6 +16,7 @@ from collections import OrderedDict, defaultdict
 import luigi
 
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
+from law.job.base import JobArguments
 from law.contrib.htcondor.job import HTCondorJobManager, HTCondorJobFile
 from law.target.local import LocalDirectoryTarget
 from law.parameter import NO_STR
@@ -71,17 +71,16 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
             task_params.append(ls_flag)
 
         # job script arguments
-        job_args = [
-            "bash",
-            postfix("job.sh"),
-            task.__class__.__module__,
-            task.task_family,
-            base64.b64encode(" ".join(task_params)).replace("=", "_"),
-            str(branches[0]),
-            str(branches[-1] + 1),
-            "no",
-        ]
-        config["arguments"] = " ".join(job_args)
+        job_args = JobArguments(
+            task_module=task.__class__.__module__,
+            task_family=task.task_family,
+            task_params=task_params,
+            start_branch=branches[0],
+            end_branch=branches[-1] + 1,
+            auto_retry=False,
+            hook_args=None,
+        )
+        config["arguments"] = "bash {} {}".format(postfix("job.sh"), job_args.join())
 
         # input files
         config["input_files"] = [law_src_path("job", "job.sh")]
