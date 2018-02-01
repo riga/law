@@ -47,8 +47,6 @@ class CMSJobDashboard(BaseJobDashboard):
             task_type="analysis", site=None, executable="law", application=None,
             application_version=None, submission_tool="law", submission_type="direct",
             submission_ui=None):
-        super(CMSJobDashboard, self).__init__(max_rate=max_rate)
-
         # setup the apmon interface
         import apmon
         apmon_config = apmon_config or self.default_apmon_config
@@ -58,6 +56,8 @@ class CMSJobDashboard(BaseJobDashboard):
         # hotfix of a bug occurring in apmon for too large pids
         for key, value in self.apmon.senderRef.items():
             value["INSTANCE_ID"] = value["INSTANCE_ID"] & 0x7fffffff
+
+        super(CMSJobDashboard, self).__init__(max_rate=max_rate)
 
         # mandatory (persistent) attributes
         self.task_id = task
