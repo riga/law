@@ -78,6 +78,7 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
             start_branch=branches[0],
             end_branch=branches[-1] + 1,
             auto_retry=False,
+            dashboard_data=None,
             hook_args=None,
         )
         config["arguments"] = "bash {} {}".format(postfix("job.sh"), job_args.join())

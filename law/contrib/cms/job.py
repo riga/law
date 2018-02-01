@@ -73,7 +73,7 @@ class CMSJobDashboard(BaseJobDashboard):
         self.application_version = application_version or self.task_id.rsplit("_", 1)[1]
         self.submission_tool = submission_tool
         self.submission_type = submission_type
-        self.submission_ui = submission_ui if submission_ui else socket.gethostname()
+        self.submission_ui = submission_ui or socket.gethostname()
 
     @classmethod
     def create_timestamp(cls):

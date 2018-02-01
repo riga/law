@@ -224,7 +224,7 @@ class BaseJobFile(object):
 class JobArguments(object):
 
     def __init__(self, task_module, task_family, task_params, start_branch, end_branch,
-            auto_retry=False, hook_args=None):
+            auto_retry=False, dashboard_data=None, hook_args=None):
         super(JobArguments, self).__init__()
 
         self.task_module = task_module
@@ -233,17 +233,29 @@ class JobArguments(object):
         self.start_branch = start_branch
         self.end_branch = end_branch
         self.auto_retry = auto_retry
+        self.dashboard_data = dashboard_data
         self.hook_args = hook_args
+
+    @classmethod
+    def encode_bool(cls, value):
+        return "yes" if value else "no"
+
+    @classmethod
+    def encode_list(cls, value):
+        if not value:
+            return ""
+        return base64.b64encode(" ".join(str(v) for v in value))
 
     def pack(self):
         return [
             self.task_module,
             self.task_family,
-            base64.b64encode(" ".join(self.task_params)),
+            self.encode_list(self.task_params),
             self.start_branch,
             self.end_branch,
-            "yes" if self.auto_retry else "no",
-            base64.b64encode("" if not self.hook_args else " ".join(str(a) for a in self.hook_args))
+            self.encode_bool(self.auto_retry),
+            self.encode_list(self.dashboard_data),
+            self.encode_list(self.hook_args),
         ]
 
     def join(self):

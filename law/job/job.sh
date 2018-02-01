@@ -15,7 +15,8 @@
 # 4. start_branch
 # 5. end_branch
 # 6. auto_retry
-# 7. hook_args (base64 encoded)
+# 7. dashboard_data (base64 encoded)
+# 8. hook_args (base64 encoded)
 
 action() {
     local origin="$( /bin/pwd )"
@@ -31,7 +32,8 @@ action() {
     local start_branch="$4"
     local end_branch="$5"
     local auto_retry="$6"
-    local hook_args="$( echo "$7" | base64 --decode )"
+    local dashboard_data="$( echo "$7" | base64 --decode )"
+    local hook_args="$( echo "$8" | base64 --decode )"
 
 
     #
