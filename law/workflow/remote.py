@@ -17,7 +17,7 @@ import luigi
 import six
 
 from law.workflow.base import Workflow, WorkflowProxy
-from law.job.base import NoDashboardInterface
+from law.job.base import NoJobDashboard
 from law.decorator import log
 from law.util import iter_chunks
 
@@ -88,8 +88,8 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
         self.retry_counts = defaultdict(int)
         self.show_errors = 5
 
-        # create a dashboard interface
-        self.dashboard = self.task.create_dashboard_interface()
+        # create a job dashboard interface
+        self.dashboard = self.task.create_job_dashboard()
 
     @property
     def submission_data_cls(self):
@@ -196,7 +196,14 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
 
         # submit and/or wait while polling
         else:
-            outputs["submission"].parent.touch()
+            # maybe set a tracking url
+            tracking_url = self.dashboard.create_tracking_url()
+            if tracking_url:
+                task.set_tracking_url(tracking_url)
+
+            # ensure the output directory exists
+            if not submitted:
+                outputs["submission"].parent.touch()
 
             # at this point, when the status file exists, it is considered outdated
             if "status" in outputs:
@@ -274,10 +281,6 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
                     if remaining > 0:
                         print("    ... and {} more".format(remaining))
                     break
-
-        # inform the dashboard
-        for job_data in self.submission_data.jobs.values():
-            task.forward_dashboard_event(self.dashboard, job_data, "action.cleanup")
 
     def submit(self, job_map=None):
         task = self.task
@@ -574,18 +577,17 @@ class BaseRemoteWorkflow(Workflow):
 
     exclude_db = True
 
-    def create_dashboard_interface(self):
-        return NoDashboardInterface()
+    def create_job_dashboard(self):
+        return NoJobDashboard()
 
-    def forward_dashboard_event(self, dashboard, job_data, event):
+    def forward_dashboard_event(self, dashboard, job_num, job_data, event):
         # possible events:
         #   - action.submit
         #   - action.cancel
-        #   - action.cleanup
         #   - status.pending
         #   - status.running
         #   - status.finished
         #   - status.retry
         #   - status.failed
         # forward to dashboard in any event by default
-        return dashboard.publish(job_data)
+        return dashboard.publish(job_num, job_data, event)

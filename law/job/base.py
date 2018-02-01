@@ -5,8 +5,8 @@ Base definition of a minimalistic job manager.
 """
 
 
-__all__ = ["BaseJobManager", "BaseJobFile", "JobArguments", "BaseDashboardInterface",
-           "NoDashboardInterface", "cache_job_status"]
+__all__ = ["BaseJobManager", "BaseJobFile", "JobArguments", "BaseJobDashboard",
+           "NoDashboardInterface", "cache_by_status"]
 
 
 import os
@@ -250,37 +250,31 @@ class JobArguments(object):
         return " ".join(str(item) for item in self.pack())
 
 
-def cache_job_status(fn):
-    @functools.wraps(fn)
-    def wrapper(self, job_data, *args, **kwargs):
+def cache_by_status(func):
+    @functools.wraps(func)
+    def wrapper(self, job_num, job_data, event, *args, **kwargs):
         job_id = job_data["job_id"]
-        job_status = self.map_job_status(job_data["status"])
+        dashboard_status = self.map_status(job_data.get("status"), event)
 
-        # nothing to do when the status did not change
-        if self._last_job_states.get(job_id) == job_status:
+        # nothing to do when the status is invalid or did not change
+        if not dashboard_status or self._last_states.get(job_id) == dashboard_status:
             return None
 
         # set the new status
-        self._last_job_states[job_id] = job_status
+        self._last_states[job_id] = dashboard_status
 
-        return fn(job_data, *args, **kwargs)
+        return func(job_num, job_data, event, *args, **kwargs)
     return wrapper
 
 
-class BaseDashboardInterface(object):
+class BaseJobDashboard(object):
 
-    PENDING = "pending"
-    RUNNING = "running"
-    FINISHED = "finished"
-    RETRY = "retry"
-    FAILED = "failed"
+    cache_by_status = None
 
-    status_names = [PENDING, RUNNING, FINISHED, RETRY, FAILED]
-
-    cache_job_status = None
+    persistent_attributes = []
 
     def __init__(self, max_rate=0):
-        super(BaseDashboardInterface, self).__init__()
+        super(BaseJobDashboard, self).__init__()
 
         # maximum number of events per second
         self.max_rate = max_rate
@@ -288,11 +282,12 @@ class BaseDashboardInterface(object):
         # timestamp of last event, used to ensure that max_rate is not exceeded
         self._last_event_time = 0.
 
-        # last status per job_id, used to prevent subsequent requests for jobs for the same status
-        self._last_job_states = {}
+        # last dashboard status per job_id, used to prevent subsequent requests for jobs
+        # without any status change
+        self._last_states = {}
 
     def get_persistent_config(self):
-        return {}
+        return {attr: getattr(self, attr) for attr in self.persistent_attributes}
 
     def apply_config(self, config):
         for attr, value in six.iteritems(config):
@@ -300,37 +295,36 @@ class BaseDashboardInterface(object):
                 setattr(self, attr, value)
 
     @contextmanager
-    def delay(self):
+    def rate_guard(self):
+        now = 0.
+
         if self.max_rate > 0:
             now = time.time()
             diff = self._last_event_time + 1. / self.max_rate - now
             if diff > 0:
                 time.sleep(diff)
 
-            self._last_event_time = now
-
         yield
 
-    def map_job_status(self, job_status):
-        # assume the status names are identical
-        # this method should be overwritten if the job manager *or* the dashboard use different ones
-        if job_status not in self.status_names:
-            raise ValueError("unknown status name '{}'".format(job_status))
-        return job_status
-
-    @abstractmethod
-    def publish(self, job_data, *args, **kwargs):
-        pass
+        self._last_event_time = now
 
     def create_tracking_url(self):
         return None
 
+    @abstractmethod
+    def map_status(self, job_status, event):
+        return
 
-BaseDashboardInterface.cache_job_status = cache_job_status
+    @abstractmethod
+    def publish(self, job_num, job_data, event, *args, **kwargs):
+        return
 
 
-class NoDashboardInterface(BaseDashboardInterface):
+BaseJobDashboard.cache_by_status = cache_by_status
+
+
+class NoJobDashboard(BaseJobDashboard):
 
     def publish(self, *args, **kwargs):
         # as the name of the class says, this does just nothing
-        pass
+        return
