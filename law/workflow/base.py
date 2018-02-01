@@ -8,7 +8,6 @@ Workflow base class definitions.
 __all__ = ["Workflow"]
 
 
-import gc
 import logging
 from collections import OrderedDict
 from abc import abstractmethod
@@ -225,7 +224,6 @@ class Workflow(Task):
                 for b in branch_map:
                     self._branch_tasks[b] = self.req(self, branch=b,
                         _exclude=self.exclude_params_branch)
-                gc.collect()
 
             return self._branch_tasks
 
