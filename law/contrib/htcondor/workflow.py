@@ -149,13 +149,13 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         task = self.task
 
         # progress callback to inform the scheduler
-        def progress_callback(i):
+        def progress_callback(result, i):
             i += 1
             if i in (1, len(job_files)) or i % 25 == 0:
-                task.publish_message("submitted job {}/{}".format(i, len(job_files)))
+                task.publish_message("submitted {}/{} job(s)".format(i, len(job_files)))
 
         return self.job_manager.submit_batch(job_files, pool=task.pool, scheduler=task.scheduler,
-            retries=3, threads=task.threads, progress_callback=progress_callback)
+            retries=3, threads=task.threads, callback=progress_callback)
 
 
 class HTCondorWorkflow(BaseRemoteWorkflow):

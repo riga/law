@@ -45,35 +45,35 @@ class BaseJobManager(object):
     }
 
     @abstractmethod
-    def submit(self, *args, **kwargs):
+    def submit(self):
         pass
 
     @abstractmethod
-    def submit_batch(self, *args, **kwargs):
+    def submit_batch(self, threads=None, callback=None):
         pass
 
     @abstractmethod
-    def cancel(self, *args, **kwargs):
+    def cancel(self):
         pass
 
     @abstractmethod
-    def cancel_batch(self, *args, **kwargs):
+    def cancel_batch(self, threads=None, callback=None):
         pass
 
     @abstractmethod
-    def cleanup(self, *args, **kwargs):
+    def cleanup(self):
         pass
 
     @abstractmethod
-    def cleanup_batch(self, *args, **kwargs):
+    def cleanup_batch(self, threads=None, callback=None):
         pass
 
     @abstractmethod
-    def query(self, *args, **kwargs):
+    def query(self):
         pass
 
     @abstractmethod
-    def query_batch(self, *args, **kwargs):
+    def query_batch(self, threads=None, callback=None):
         pass
 
     @classmethod

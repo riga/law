@@ -90,13 +90,12 @@ class HTCondorJobManager(BaseJobManager):
                     raise Exception("submission of job '{}' failed:\n{}".format(job_file, err))
 
     def submit_batch(self, job_files, pool=None, scheduler=None, retries=0, retry_delay=5,
-            silent=False, threads=None, progress_callback=None):
+            silent=False, threads=None, callback=None):
         # default arguments
         threads = threads or self.threads
 
-        # prepare progress callback
-        def callback(i):
-            return (lambda _: progress_callback(i)) if callable(progress_callback) else None
+        def _callback(i):
+            return (lambda r: callback(r, i)) if callable(callback) else None
 
         # prepare kwargs
         kwargs = dict(pool=pool, scheduler=scheduler, retries=retries, retry_delay=retry_delay,
@@ -104,7 +103,7 @@ class HTCondorJobManager(BaseJobManager):
 
         # threaded processing
         pool = ThreadPool(max(threads, 1))
-        results = [pool.apply_async(self.submit, (job_file,), kwargs, callback=callback(i))
+        results = [pool.apply_async(self.submit, (job_file,), kwargs, callback=_callback(i))
                    for i, job_file in enumerate(job_files)]
         pool.close()
         pool.join()
@@ -140,18 +139,21 @@ class HTCondorJobManager(BaseJobManager):
         if code != 0 and not silent:
             raise Exception("cancellation of job(s) '{}' failed:\n{}".format(job_id, err))
 
-    def cancel_batch(self, job_ids, pool=None, scheduler=None, silent=False, threads=None,
-            chunk_size=20):
+    def cancel_batch(self, job_ids, pool=None, scheduler=None, silent=False, chunk_size=20,
+            threads=None, callback=None):
         # default arguments
         pool = pool or self.pool
         scheduler = scheduler or self.scheduler
         threads = threads or self.threads
 
+        def _callback(i):
+            return (lambda r: callback(r, i)) if callable(callback) else None
+
         # threaded processing
         kwargs = dict(pool=pool, scheduler=scheduler, silent=silent)
         pool = ThreadPool(max(threads, 1))
-        results = [pool.apply_async(self.cancel, (job_id_chunk,), kwargs)
-                   for job_id_chunk in iter_chunks(job_ids, chunk_size)]
+        results = [pool.apply_async(self.cancel, (job_id_chunk,), kwargs, callback=_callback(i))
+                   for i, job_id_chunk in enumerate(iter_chunks(job_ids, chunk_size))]
         pool.close()
         pool.join()
 
@@ -230,16 +232,19 @@ class HTCondorJobManager(BaseJobManager):
 
         return query_data if multi else query_data[job_id]
 
-    def query_batch(self, job_ids, pool=None, scheduler=None, user=None, silent=False, threads=None,
-            chunk_size=20):
+    def query_batch(self, job_ids, pool=None, scheduler=None, user=None, silent=False,
+            chunk_size=20, threads=None, callback=None):
         # default arguments
         threads = threads or self.threads
+
+        def _callback(i):
+            return (lambda r: callback(r, i)) if callable(callback) else None
 
         # threaded processing
         kwargs = dict(pool=pool, scheduler=scheduler, user=user, silent=silent)
         pool = ThreadPool(max(threads, 1))
-        results = [pool.apply_async(self.query, (job_id_chunk,), kwargs)
-                   for job_id_chunk in iter_chunks(job_ids, chunk_size)]
+        results = [pool.apply_async(self.query, (job_id_chunk,), kwargs, callback=_callback(i))
+                   for i, job_id_chunk in enumerate(iter_chunks(job_ids, chunk_size))]
         pool.close()
         pool.join()
 

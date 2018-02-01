@@ -93,13 +93,12 @@ class GLiteJobManager(BaseJobManager):
                     raise Exception("submission of job '{}' failed:\n{}".format(job_file, out))
 
     def submit_batch(self, job_files, ce=None, delegation_id=None, retries=0, retry_delay=5,
-            silent=False, threads=None, progress_callback=None):
+            silent=False, threads=None, callback=None):
         # default arguments
         threads = threads or self.threads
 
-        # prepare progress callback
-        def callback(i):
-            return (lambda _: progress_callback(i)) if callable(progress_callback) else None
+        def _callback(i):
+            return (lambda r: callback(r, i)) if callable(callback) else None
 
         # prepare kwargs
         kwargs = dict(ce=ce, delegation_id=delegation_id, retries=retries, retry_delay=retry_delay,
@@ -107,7 +106,7 @@ class GLiteJobManager(BaseJobManager):
 
         # threaded processing
         pool = ThreadPool(max(threads, 1))
-        results = [pool.apply_async(self.submit, (job_file,), kwargs, callback=callback(i))
+        results = [pool.apply_async(self.submit, (job_file,), kwargs, callback=_callback(i))
                    for i, job_file in enumerate(job_files)]
         pool.close()
         pool.join()
@@ -133,15 +132,18 @@ class GLiteJobManager(BaseJobManager):
             # glite prints everything to stdout
             raise Exception("cancellation of job(s) '{}' failed:\n{}".format(job_id, out))
 
-    def cancel_batch(self, job_ids, silent=False, threads=None, chunk_size=20):
+    def cancel_batch(self, job_ids, silent=False, chunk_size=20, threads=None, callback=None):
         # default arguments
         threads = threads or self.threads
+
+        def _callback(i):
+            return (lambda r: callback(r, i)) if callable(callback) else None
 
         # threaded processing
         kwargs = dict(silent=silent)
         pool = ThreadPool(max(threads, 1))
-        results = [pool.apply_async(self.cancel, (job_id_chunk,), kwargs)
-                   for job_id_chunk in iter_chunks(job_ids, chunk_size)]
+        results = [pool.apply_async(self.cancel, (job_id_chunk,), kwargs, callback=_callback(i))
+                   for i, job_id_chunk in enumerate(iter_chunks(job_ids, chunk_size))]
         pool.close()
         pool.join()
 
@@ -166,15 +168,18 @@ class GLiteJobManager(BaseJobManager):
             # glite prints everything to stdout
             raise Exception("purging of job(s) '{}' failed:\n{}".format(job_id, out))
 
-    def cleanup_batch(self, job_ids, silent=False, threads=None, chunk_size=20):
+    def cleanup_batch(self, job_ids, silent=False, chunk_size=20, threads=None, callback=None):
         # default arguments
         threads = threads or self.threads
+
+        def _callback(i):
+            return (lambda r: callback(r, i)) if callable(callback) else None
 
         # threaded processing
         kwargs = dict(silent=silent)
         pool = ThreadPool(max(threads, 1))
-        results = [pool.apply_async(self.cleanup, (job_id_chunk,), kwargs)
-                   for job_id_chunk in iter_chunks(job_ids, chunk_size)]
+        results = [pool.apply_async(self.cleanup, (job_id_chunk,), kwargs, callback=_callback(i))
+                   for i, job_id_chunk in enumerate(iter_chunks(job_ids, chunk_size))]
         pool.close()
         pool.join()
 
@@ -221,15 +226,18 @@ class GLiteJobManager(BaseJobManager):
 
         return query_data if multi else query_data[job_id]
 
-    def query_batch(self, job_ids, silent=False, threads=None, chunk_size=20):
+    def query_batch(self, job_ids, silent=False, chunk_size=20, threads=None, callback=None):
         # default arguments
         threads = threads or self.threads
+
+        def _callback(i):
+            return (lambda r: callback(r, i)) if callable(callback) else None
 
         # threaded processing
         kwargs = dict(silent=silent)
         pool = ThreadPool(max(threads, 1))
-        results = [pool.apply_async(self.query, (job_id_chunk,), kwargs)
-                   for job_id_chunk in iter_chunks(job_ids, chunk_size)]
+        results = [pool.apply_async(self.query, (job_id_chunk,), kwargs, callback=_callback(i))
+                   for i, job_id_chunk in enumerate(iter_chunks(job_ids, chunk_size))]
         pool.close()
         pool.join()
 
