@@ -8,8 +8,6 @@ Local workflow implementation.
 __all__ = ["LocalWorkflow"]
 
 
-import luigi
-
 from law.workflow.base import Workflow, WorkflowProxy
 
 
@@ -45,10 +43,10 @@ class LocalWorkflowProxy(WorkflowProxy):
 
 class LocalWorkflow(Workflow):
 
-    local_workflow_require_branches = luigi.BoolParameter(description="when set, the local "
-        "workflow considers its branch tasks as requirements instead of starting them dynamically")
+    # when True, the local workflow considers its branch tasks as requirements
+    # instead of starting them dynamically
+    local_workflow_require_branches = False
 
     workflow_proxy_cls = LocalWorkflowProxy
 
     exclude_db = True
-    exclude_params_req = {"local_workflow_require_branches"}

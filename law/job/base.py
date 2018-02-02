@@ -275,7 +275,8 @@ def cache_by_status(func):
         # set the new status
         self._last_states[job_id] = dashboard_status
 
-        return func(job_num, job_data, event, *args, **kwargs)
+        return func(self, job_num, job_data, event, *args, **kwargs)
+
     return wrapper
 
 
@@ -332,7 +333,7 @@ class BaseJobDashboard(object):
         return
 
 
-BaseJobDashboard.cache_by_status = cache_by_status
+BaseJobDashboard.cache_by_status = staticmethod(cache_by_status)
 
 
 class NoJobDashboard(BaseJobDashboard):

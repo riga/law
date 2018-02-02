@@ -87,9 +87,7 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
         self.last_counts = None
         self.retry_counts = defaultdict(int)
         self.show_errors = 5
-
-        # create a job dashboard interface
-        self.dashboard = self.task.create_job_dashboard()
+        self.dashboard = None
 
     @property
     def submission_data_cls(self):
@@ -173,6 +171,9 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
         task = self.task
         outputs = self.output()
 
+        # create the job dashboard interface
+        self.dashboard = task.create_job_dashboard() or NoJobDashboard()
+
         # read submission data and reset some values
         submitted = outputs["submission"].exists()
         if submitted:
@@ -200,6 +201,7 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
             tracking_url = self.dashboard.create_tracking_url()
             if tracking_url:
                 task.set_tracking_url(tracking_url)
+                print("tracking url set to {}".format(tracking_url))
 
             # ensure the output directory exists
             if not submitted:
@@ -253,8 +255,8 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
                     break
 
         # inform the dashboard
-        for job_data in self.submission_data.jobs.values():
-            task.forward_dashboard_event(self.dashboard, job_data, "action.cancel")
+        for job_num, job_data in six.iteritems(self.submission_data.jobs):
+            task.forward_dashboard_event(self.dashboard, job_num, job_data, "action.cancel")
 
     def cleanup(self):
         task = self.task
@@ -330,7 +332,7 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
                 branches=job_data[job_num][0])
 
         # write the submission data to the output file, renew the dashboard config
-        self.submission_data.dashboard_config = self.dashboard.get_persistent_config()
+        self.submission_data["dashboard_config"] = self.dashboard.get_persistent_config()
         self.output()["submission"].dump(self.submission_data, formatter="json", indent=4)
 
         # raise exceptions or log
@@ -350,8 +352,8 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
 
         # inform the dashboard about successful submissions
         for job_num in successful_job_nums:
-            job_data = self.submission_data[job_num]
-            task.forward_dashboard_event(self.dashboard, job_data, "action.submit")
+            job_data = self.submission_data.jobs[job_num]
+            task.forward_dashboard_event(self.dashboard, job_num, job_data, "action.submit")
 
     def poll(self):
         task = self.task
@@ -421,14 +423,14 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
             for job_num, data in six.iteritems(states):
                 if data["status"] == self.job_manager.PENDING:
                     pending_jobs[job_num] = data
-                    task.forward_dashboard_event(self.dashboard, data, "status.pending")
+                    task.forward_dashboard_event(self.dashboard, job_num, data, "status.pending")
                 elif data["status"] == self.job_manager.RUNNING:
                     running_jobs[job_num] = data
-                    task.forward_dashboard_event(self.dashboard, data, "status.running")
+                    task.forward_dashboard_event(self.dashboard, job_num, data, "status.running")
                 elif data["status"] == self.job_manager.FINISHED:
                     finished_jobs[job_num] = data
                     unfinished_jobs.pop(job_num)
-                    task.forward_dashboard_event(self.dashboard, data, "status.finished")
+                    task.forward_dashboard_event(self.dashboard, job_num, data, "status.finished")
                 elif data["status"] in (self.job_manager.FAILED, self.job_manager.RETRY):
                     failed_jobs[job_num] = data
                 else:
@@ -448,9 +450,9 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
                         data["status"] = self.job_manager.RETRY
                         retry_jobs[job_num] = self.submission_data.jobs[job_num]["branches"]
                         self.retry_counts[job_num] += 1
-                        task.forward_dashboard_event(self.dashboard, data, "status.retry")
+                        task.forward_dashboard_event(self.dashboard, job_num, data, "status.retry")
                     else:
-                        task.forward_dashboard_event(self.dashboard, data, "status.failed")
+                        task.forward_dashboard_event(self.dashboard, job_num, data, "status.failed")
 
             n_retry = len(retry_jobs)
             n_failed -= n_retry
@@ -578,7 +580,7 @@ class BaseRemoteWorkflow(Workflow):
     exclude_db = True
 
     def create_job_dashboard(self):
-        return NoJobDashboard()
+        return None
 
     def forward_dashboard_event(self, dashboard, job_num, job_data, event):
         # possible events:
