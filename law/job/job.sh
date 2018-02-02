@@ -122,12 +122,14 @@ action() {
 
     section
 
-    echo "task module : $task_module"
-    echo "task family : $task_family"
-    echo "task params : $task_params"
-    echo "start branch: $start_branch"
-    echo "end branch  : $end_branch"
-    echo "auto retry  : $auto_retry"
+    echo "task module   : $task_module"
+    echo "task family   : $task_family"
+    echo "task params   : $task_params"
+    echo "start branch  : $start_branch"
+    echo "end branch    : $end_branch"
+    echo "auto retry    : $auto_retry"
+    echo "dashboard data: $dashboard_data"
+    echo "hook args     : $hook_args"
 
 
     #
