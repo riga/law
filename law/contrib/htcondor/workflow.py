@@ -15,11 +15,10 @@ from collections import OrderedDict, defaultdict
 
 import luigi
 
+from law import LocalDirectoryTarget, NO_STR
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments
 from law.contrib.htcondor.job import HTCondorJobManager, HTCondorJobFile
-from law.target.local import LocalDirectoryTarget
-from law.parameter import NO_STR
 from law.parser import global_cmdline_args
 from law.util import law_src_path
 

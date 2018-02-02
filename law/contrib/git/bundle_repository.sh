@@ -44,8 +44,8 @@ action() {
         cp -R "$repo_path" "$tmp_dir/" && \
         cd "$tmp_dir/$( basename "$repo_path" )" && \
         rm -rf $3 && \
-        sgit add -A . && \
-        sgit add -f $4 > /dev/null; \
+        sgit add -A . &> /dev/null && \
+        sgit add -f $4 &> /dev/null; \
         sgit commit -m "[tmp] Add all changes." > /dev/null; \
         sgit archive --prefix="$( basename "$repo_path" )/" --format=tar.gz -o "$dst_path" HEAD \
     )

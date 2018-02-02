@@ -17,10 +17,10 @@ from collections import OrderedDict, defaultdict
 
 import luigi
 
+from law import CSVParameter
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments
 from law.contrib.glite.job import GLiteJobManager, GLiteJobFile
-from law.parameter import CSVParameter
 from law.parser import global_cmdline_args
 from law.util import rel_path, law_src_path
 from law.contrib.wlcg import delegate_voms_proxy_glite, get_ce_endpoint

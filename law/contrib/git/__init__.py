@@ -13,10 +13,8 @@ import subprocess
 
 import luigi
 
-from law.task.base import Task
-from law.target.local import LocalFileTarget
+from law import Task, LocalFileTarget, CSVParameter, NO_STR
 from law.target.file import get_path
-from law.parameter import CSVParameter, NO_STR
 from law.decorator import log
 from law.util import rel_path, interruptable_popen
 

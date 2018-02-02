@@ -15,12 +15,10 @@ from abc import abstractmethod
 import luigi
 import six
 
-from law.task.base import Task
-from law.workflow.local import LocalWorkflow
-from law.target.file import FileSystemTarget
-from law.target.local import LocalFileTarget
-from law.target.collection import TargetCollection, SiblingFileCollection
-from law.parameter import NO_INT
+from law import (
+    Task, LocalWorkflow, FileSystemTarget, LocalFileTarget, TargetCollection, SiblingFileCollection,
+    cached_workflow_property, NO_INT,
+)
 from law.decorator import log
 from law.util import iter_chunks
 
@@ -102,37 +100,22 @@ class CascadeMerge(LocalWorkflow):
 
     exclude_db = True
 
-    def __init__(self, *args, **kwargs):
-        super(CascadeMerge, self).__init__(*args, **kwargs)
+    @cached_workflow_property
+    def cascade_forest(self):
+        # initializer for cached property
+        self._build_cascade_forest()
 
-        # cache values from expensive computations
-        if self.is_workflow():
-            self._cascade_forrest = None
-            self._leaves_per_tree = None
-
-    @property
-    def cascade_forrest(self):
-        # let the workflow create the cascade trees, branches can simply refer to them
-        if self.is_workflow():
-            if not self._cascade_forrest:
-                self._build_cascade_forrest()
-            return self._cascade_forrest
-        else:
-            return self.as_workflow().cascade_forrest
-
-    @property
+    @cached_workflow_property
     def leaves_per_tree(self):
-        if self.is_workflow():
-            return self._leaves_per_tree
-        else:
-            return self.as_workflow().leaves_per_tree
+        # initializer for cached property
+        self._leaves_per_tree = None
 
-    def _build_cascade_forrest(self):
+    def _build_cascade_forest(self):
         # a node in the tree can be described by a tuple of integers, where each value denotes the
         # branch path to go down the tree to reach the node (e.g. (2, 0) -> 2nd branch, 0th branch),
         # so the length of the tuple defines the depth of the node via ``depth = len(node) - 1``
         # the tree itself is a dict that maps depths to lists of nodes with that depth
-        # when multiple trees are used (a forrest), each one handles ``n_leaves / n_trees`` leaves
+        # when multiple trees are used (a forest), each one handles ``n_leaves / n_trees`` leaves
 
         # helper to convert nested lists of leaf number chunks into a list of nodes in the format
         # described above
@@ -166,7 +149,7 @@ class CascadeMerge(LocalWorkflow):
         leaves_per_tree = n_trees_overlap * [n_min + 1] + (n_trees - n_trees_overlap) * [n_min]
 
         # build the trees
-        forrest = []
+        forest = []
         for n_leaves in leaves_per_tree:
             # build a nested list of leaf numbers using the merge factor
             # e.g. 9 leaves with factor 3 -> [[0, 1, 2], [3, 4, 5], [6, 7, 8]]
@@ -182,14 +165,14 @@ class CascadeMerge(LocalWorkflow):
                 depth = len(node) - 1
                 tree.setdefault(depth, []).append(node)
 
-            forrest.append(tree)
+            forest.append(tree)
 
         # store values
         self._leaves_per_tree = leaves_per_tree
-        self._cascade_forrest = forrest
+        self._cascade_forest = forest
 
     def create_branch_map(self):
-        tree = self.cascade_forrest[self.cascade_tree]
+        tree = self.cascade_forest[self.cascade_tree]
         nodes = tree[self.cascade_depth]
         return dict(enumerate(nodes))
 
@@ -199,7 +182,7 @@ class CascadeMerge(LocalWorkflow):
 
     @property
     def is_leaf(self):
-        tree = self.cascade_forrest[self.cascade_tree]
+        tree = self.cascade_forest[self.cascade_tree]
         max_depth = max(tree.keys())
         return self.cascade_depth == max_depth
 
@@ -253,20 +236,20 @@ class CascadeMerge(LocalWorkflow):
             # strategy: consider the node tuple values as a number in a numeral system where the
             # base corresponds to our merge factor, convert it to a decimal number and account for
             # the offset from previous trees
-            self.cascade_forrest
+            self.cascade_forest
             n_leaves = self.leaves_per_tree[self.cascade_tree]
             offset = sum(self.leaves_per_tree[:self.cascade_tree])
             node = self.branch_value
             node_str = "".join(str(v) for v in node)
-            start_branch = offset + self.merge_factor * int(node_str, self.merge_factor)
-            end_branch = min(start_branch + self.merge_factor, n_leaves)
-            reqs["cascade"] = self.cascade_requires(start_branch, end_branch)
+            start_leaf = offset + self.merge_factor * int(node_str, self.merge_factor)
+            end_leaf = min(start_leaf + self.merge_factor, n_leaves)
+            reqs["cascade"] = self.cascade_requires(start_leaf, end_leaf)
 
         else:
             # get all child nodes in the next layer at depth = depth + 1, store their branches
             # note: child node tuples contain the exact same values plus an additional one
             node = self.branch_value
-            tree = self.cascade_forrest[self.cascade_tree]
+            tree = self.cascade_forest[self.cascade_tree]
             branches = [i for i, n in enumerate(tree[self.cascade_depth + 1]) if n[:-1] == node]
 
             # add to requirements

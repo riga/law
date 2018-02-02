@@ -43,12 +43,18 @@ class CMSJobDashboard(BaseJobDashboard):
 
     persistent_attributes = ["task_id", "cms_user", "voms_user", "init_timestamp"]
 
-    def __init__(self, task, cms_user, voms_user, apmon_config=None, log_level="INFO", max_rate=20,
-            task_type="analysis", site=None, executable="law", application=None,
+    def __init__(self, task, cms_user, voms_user, apmon_config=None, log_level="WARNING",
+            max_rate=20, task_type="analysis", site=None, executable="law", application=None,
             application_version=None, submission_tool="law", submission_type="direct",
             submission_ui=None):
         # setup the apmon interface
-        import apmon
+        try:
+            import apmon
+        except ImportError as e:
+            e.message += " (required for {})".format(self.__class__.__name__)
+            e.args = (e.message,) + e.args[1:]
+            raise e
+
         apmon_config = apmon_config or self.default_apmon_config
         log_level = getattr(apmon.Logger, log_level.upper())
         self.apmon = apmon.ApMon(apmon_config, log_level)
@@ -60,7 +66,7 @@ class CMSJobDashboard(BaseJobDashboard):
         super(CMSJobDashboard, self).__init__(max_rate=max_rate)
 
         # mandatory (persistent) attributes
-        self.task_id = task
+        self.task_id = task.task_id
         self.cms_user = cms_user
         self.voms_user = voms_user
         self.init_timestamp = self.create_timestamp()
