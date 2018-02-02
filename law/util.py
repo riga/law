@@ -509,9 +509,11 @@ def human_bytes(n, unit=None):
         human_bytes(3407872)       # -> (3.25, "MB")
         human_bytes(3407872, "kB") # -> (3328.0, "kB")
     """
-    if unit:
+    if n == 0:
+        idx = 0
+    elif unit:
         idx = byte_units.index(unit)
     else:
-        idx = int(math.floor(math.log(n, 1024)))
+        idx = int(math.floor(math.log(abs(n), 1024)))
         idx = min(idx, len(byte_units))
     return n / 1024. ** idx, byte_units[idx]
