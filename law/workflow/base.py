@@ -5,9 +5,10 @@ Workflow base class definitions.
 """
 
 
-__all__ = ["Workflow"]
+__all__ = ["Workflow", "workflow_property", "cached_workflow_property"]
 
 
+import functools
 import logging
 from collections import OrderedDict
 from abc import abstractmethod
@@ -59,6 +60,27 @@ class WorkflowProxy(ProxyTask):
         return min(acceptance, n - tolerance) / float(n)
 
 
+def workflow_property(func):
+    @functools.wraps(func)
+    def wrapper(self):
+        return func(self.as_workflow())
+
+    return property(wrapper)
+
+
+def cached_workflow_property(func):
+    attr = "_" + func.__name__
+
+    @functools.wraps(func)
+    def wrapper(self):
+        wf = self.as_workflow()
+        if not hasattr(wf, attr):
+            setattr(wf, attr, func(wf))
+        return getattr(wf, attr)
+
+    return property(wrapper)
+
+
 class Workflow(Task):
 
     workflow = luigi.Parameter(default=NO_STR, significant=False, description="the type of the "
@@ -85,6 +107,9 @@ class Workflow(Task):
     target_collection_cls = None
     outputs_siblings = False
 
+    workflow_property = None
+    cached_workflow_property = None
+
     exclude_db = True
     exclude_params_branch = {"print_deps", "print_status", "remove_output", "workflow",
         "acceptance", "tolerance", "pilot", "start_branch", "end_branch", "branches"}
@@ -95,7 +120,7 @@ class Workflow(Task):
 
         # determine workflow proxy class to instantiate
         if self.is_workflow():
-            classes = self.__class__.mro()[1:]
+            classes = self.__class__.mro()
             for cls in classes:
                 if not issubclass(cls, Workflow):
                     continue
@@ -238,3 +263,7 @@ class Workflow(Task):
             raise Exception("calls to workflow_input are forbidden for branch tasks")
 
         return luigi.task.getpaths(self.workflow_proxy.requires())
+
+
+Workflow.workflow_property = workflow_property
+Workflow.cached_workflow_property = cached_workflow_property
