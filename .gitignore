@@ -5,10 +5,9 @@
 *.DS_Store
 *.pkl
 *.egg-info
-MANIFEST
 __pycache__
 dist
 build
-law.egg-info
 docs/_build
 data
+MANIFEST
