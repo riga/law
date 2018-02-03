@@ -33,7 +33,7 @@ class CMSJobDashboard(BaseJobDashboard):
     FAILED = "failed"
 
     tracking_url = "http://dashb-cms-job.cern.ch/dashboard/templates/task-analysis/#" + \
-        "table=Jobs&p=1&activemenu=2&tid={dashboard_task_id}"
+        "table=Jobs&p=1&activemenu=2&refresh=60&tid={dashboard_task_id}"
 
     persistent_attributes = ["task_id", "cms_user", "voms_user", "init_timestamp"]
 

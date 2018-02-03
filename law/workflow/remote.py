@@ -88,6 +88,7 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
         self.retry_counts = defaultdict(int)
         self.show_errors = 5
         self.dashboard = None
+        self.n_unfinished_jobs = None
 
     @property
     def submission_data_cls(self):
@@ -441,6 +442,7 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
             n_running = len(running_jobs)
             n_finished = len(finished_jobs)
             n_failed = len(failed_jobs)
+            self.n_unfinished_jobs = len(unfinished_jobs)
 
             # determine jobs that failed and might be resubmitted
             retry_jobs = OrderedDict()
@@ -506,7 +508,7 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
                 self.skipped_job_nums = []
                 self.submit(retry_jobs)
 
-                # update the unfinished so the next iteration is aware of the new job ids
+                # update the unfinished job data so the next iteration is aware of the new job ids
                 for job_num in retry_jobs:
                     job_id = self.submission_data.jobs[job_num]["job_id"]
                     unfinished_jobs[job_num]["job_id"] = job_id
