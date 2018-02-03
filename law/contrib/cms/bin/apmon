@@ -1,0 +1,71 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+Script that creates a CMSJobDashboard instance from law.contrib.cms and sends a single job status
+request. Usage:
+
+> apmon \
+>   task_id=<task_id> \
+>   cms_user=<cms_user> \
+>   voms_user=<voms_user> \
+>   job_num=<job_num> \
+>   job_id=<job_id> \
+>   status=<status> \
+>   attempt=<attempt> \
+>   init_timestamp=<init_timestamp>
+
+Further optional arguments: log_leve, site, code, event
+"""
+
+
+import sys
+import shlex
+import traceback
+
+
+def main():
+    from law.contrib.cms import CMSJobDashboard
+    from law.contrib.cms.util import Site
+
+    # read dashboard and message info from argv, encoded as "<key>=<value>"
+    args = {}
+    for arg in shlex.split(" ".join(sys.argv[1:])):
+        if "=" in arg:
+            key, value = arg.split("=", 1)
+            args[key] = value.strip("\"'")
+
+    # create both dashboard and message args
+    dashboard_args = {
+        "task": args["task_id"],
+        "cms_user": args["cms_user"],
+        "voms_user": args["voms_user"],
+        "log_level": args.get("log_level", "INFO"),
+        "site": args.get("site", Site().name),
+        "init_timestamp": args.get("init_timestamp"),
+    }
+    message_args = {
+        "job_num": int(args["job_num"]),
+        "job_data": {
+            "job_id": args["job_id"],
+            "status": args["status"],
+            "code": args.get("code", 0),
+        },
+        "event": args.get("event", "status.{}".format(args["status"])),
+        "attempt": int(args["attempt"]),
+    }
+
+    # create the dashboard and send the message
+    dashboard = CMSJobDashboard(**dashboard_args)
+    message = dashboard.create_message(**message_args)
+    if message:
+        dashboard.apmon._send(*message)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except:
+        print("failed to send apmon message, traceback:")
+        traceback.print_exc()
+        sys.exit(0)
