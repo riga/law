@@ -10,9 +10,11 @@ __all__ = ["CMSJobDashboard"]
 
 import time
 import socket
+import threading
 
 import six
 
+import law
 from law.job.base import BaseJobManager, BaseJobDashboard
 
 
@@ -30,14 +32,6 @@ class CMSJobDashboard(BaseJobDashboard):
     SUCCESS = "success"
     FAILED = "failed"
 
-    default_apmon_config = {
-        "cms-jobmon.cern.ch:8884": {
-            "sys_monitoring": 0,
-            "general_info": 0,
-            "job_monitoring": 0,
-        },
-    }
-
     tracking_url = "http://dashb-cms-job.cern.ch/dashboard/templates/task-analysis/#" + \
         "table=Jobs&p=1&activemenu=2&tid={dashboard_task_id}"
 
@@ -46,40 +40,41 @@ class CMSJobDashboard(BaseJobDashboard):
     def __init__(self, task, cms_user, voms_user, apmon_config=None, log_level="WARNING",
             max_rate=20, task_type="analysis", site=None, executable="law", application=None,
             application_version=None, submission_tool="law", submission_type="direct",
-            submission_ui=None):
-        # setup the apmon interface
+            submission_ui=None, init_timestamp=None):
+        super(CMSJobDashboard, self).__init__(max_rate=max_rate)
+
+        # setup the apmon thread
         try:
-            import apmon
+            self.apmon = Apmon(apmon_config, self.max_rate, log_level)
         except ImportError as e:
             e.message += " (required for {})".format(self.__class__.__name__)
             e.args = (e.message,) + e.args[1:]
             raise e
 
-        apmon_config = apmon_config or self.default_apmon_config
-        log_level = getattr(apmon.Logger, log_level.upper())
-        self.apmon = apmon.ApMon(apmon_config, log_level)
-
-        # hotfix of a bug occurring in apmon for too large pids
-        for key, value in self.apmon.senderRef.items():
-            value["INSTANCE_ID"] = value["INSTANCE_ID"] & 0x7fffffff
-
-        super(CMSJobDashboard, self).__init__(max_rate=max_rate)
-
         # mandatory (persistent) attributes
-        self.task_id = task.task_id
+        self.task_id = task.task_id if isinstance(task, law.Task) else task
         self.cms_user = cms_user
         self.voms_user = voms_user
-        self.init_timestamp = self.create_timestamp()
+        self.init_timestamp = init_timestamp or self.create_timestamp()
 
         # optional attributes
         self.task_type = task_type
         self.site = site
         self.executable = executable
-        self.application = application or task.task_family
+        self.application = application or (task.task_family if isinstance(task, law.Task) else task)
         self.application_version = application_version or self.task_id.rsplit("_", 1)[1]
         self.submission_tool = submission_tool
         self.submission_type = submission_type
         self.submission_ui = submission_ui or socket.gethostname()
+
+        # start the apmon thread
+        self.apmon.daemon = True
+        self.apmon.start()
+
+    def __del__(self):
+        if getattr(self, "apmon", None) and self.apmon.is_alive():
+            self.apmon.stop()
+            self.apmon.join()
 
     @classmethod
     def create_timestamp(cls):
@@ -112,44 +107,45 @@ class CMSJobDashboard(BaseJobDashboard):
         else:
             raise ValueError("invalid dashboard status '{}'".format(dashboard_status))
 
-    @property
-    def max_rate(self):
-        return self.apmon.maxMsgRate
+    @classmethod
+    def map_status(cls, job_status, event):
+        # when starting with "status.", event must end with the job status
+        if event.startswith("status.") and event.split(".", 1)[-1] != job_status:
+            raise ValueError("event '{}' does not match job status '{}'".format(event, job_status))
 
-    @max_rate.setter
-    def max_rate(self, max_rate):
-        self.apmon.maxMsgRate = max_rate
+        status = lambda attr: "status.{}".format(getattr(BaseJobManager, attr))
 
-    def map_status(self, job_status, event):
-        if event == "action.submit":
-            return self.PENDING
-        elif event == "action.cancel":
-            return self.CANCELLED
-        else:
-            # event must start with "status." and end with the valid job status
-            if not event.startswith("status.") or event.split(".", 1)[-1] != job_status:
-                raise ValueError("event '{}' does not match job status '{}'".format(
-                    event, job_status))
-            elif job_status not in BaseJobManager.status_names:
-                raise ValueError("invalid job status '{}'".format(job_status))
-            elif job_status == BaseJobManager.PENDING:
-                return self.PENDING
-            elif job_status == BaseJobManager.RUNNING:
-                return self.RUNNING
-            elif job_status == BaseJobManager.FINISHED:
-                return self.SUCCESS
-            elif job_status == BaseJobManager.RETRY:
-                return self.FAILED
-            elif job_status == BaseJobManager.FAILED:
-                return self.FAILED
+        return {
+            "action.submit": cls.PENDING,
+            "action.cancel": cls.CANCELLED,
+            "custom.running": cls.RUNNING,
+            "custom.postproc": cls.POSTPROC,
+            "custom.failed": cls.FAILED,
+            status("FINISHED"): cls.SUCCESS,
+        }.get(event)
+
+    def remote_hook_file(self):
+        return law.util.rel_path(__file__, "cmsdashb_hooks.sh")
+
+    def remote_hook_data(self, job_num, attempt):
+        data = [
+            "task_id='{}'".format(self.task_id),
+            "cms_user='{}'".format(self.cms_user),
+            "voms_user='{}'".format(self.voms_user),
+            "init_timestamp='{}'".format(self.init_timestamp),
+            "job_num={}".format(job_num),
+            "attempt={}".format(attempt),
+        ]
+        if self.site:
+            data.append("site='{}'".format(self.site))
+        return data
 
     def create_tracking_url(self):
         dashboard_task_id = self.create_dashboard_task_id(self.task_id, self.cms_user,
             self.init_timestamp)
         return self.tracking_url.format(dashboard_task_id=dashboard_task_id)
 
-    @BaseJobDashboard.cache_by_status
-    def publish(self, job_num, job_data, event, attempt=0, custom_params=None, **kwargs):
+    def create_message(self, job_num, job_data, event, attempt=0, custom_params=None, **kwargs):
         # we need the voms user, which must start with "/CN="
         voms_user = self.voms_user
         if not voms_user:
@@ -201,6 +197,65 @@ class CMSJobDashboard(BaseJobDashboard):
         # finally filter None's and convert everything to strings
         params = {key: str(value) for key, value in six.iteritems(params) if value is not None}
 
-        # send
-        with self.rate_guard():
-            self.apmon.sendParameters(dashboard_task_id, dashboard_job_id, params)
+        return (dashboard_task_id, dashboard_job_id, params)
+
+    @BaseJobDashboard.cache_by_status
+    def publish(self, *args, **kwargs):
+        message = self.create_message(*args, **kwargs)
+        if message:
+            self.apmon.send(*message)
+
+
+apmon_lock = threading.Lock()
+
+
+class Apmon(threading.Thread):
+
+    default_config = {
+        "cms-jobmon.cern.ch:8884": {
+            "sys_monitoring": 0,
+            "general_info": 0,
+            "job_monitoring": 0,
+        },
+    }
+
+    def __init__(self, config=None, max_rate=20, log_level="INFO"):
+        super(Apmon, self).__init__()
+
+        import apmon
+        log_level = getattr(apmon.Logger, log_level.upper())
+        self._apmon = apmon.ApMon(config or self.default_config, log_level)
+        self._apmon.maxMsgRate = int(max_rate * 1.5)
+
+        # hotfix of a bug occurring in apmon for too large pids
+        for key, value in self._apmon.senderRef.items():
+            value["INSTANCE_ID"] = value["INSTANCE_ID"] & 0x7fffffff
+
+        self._max_rate = max_rate
+        self._queue = six.moves.queue.Queue()
+        self._stop_event = threading.Event()
+
+    def send(self, *args, **kwargs):
+        self._queue.put((args, kwargs))
+
+    def _send(self, *args, **kwargs):
+        self._apmon.sendParameters(*args, **kwargs)
+
+    def stop(self):
+        self._stop_event.set()
+
+    def run(self):
+        while True:
+            # handling stopping
+            self._stop_event.wait(0.5)
+            if self._stop_event.is_set():
+                break
+
+            if self._queue.empty():
+                continue
+
+            with apmon_lock:
+                while not self._queue.empty():
+                    args, kwargs = self._queue.get()
+                    self._send(*args, **kwargs)
+                    time.sleep(1. / self._max_rate)
