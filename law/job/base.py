@@ -224,7 +224,7 @@ class BaseJobFile(object):
 class JobArguments(object):
 
     def __init__(self, task_module, task_family, task_params, start_branch, end_branch,
-            auto_retry=False, dashboard_data=None, hook_args=None):
+            auto_retry=False, dashboard_data=None):
         super(JobArguments, self).__init__()
 
         self.task_module = task_module
@@ -234,7 +234,6 @@ class JobArguments(object):
         self.end_branch = end_branch
         self.auto_retry = auto_retry
         self.dashboard_data = dashboard_data
-        self.hook_args = hook_args
 
     @classmethod
     def encode_bool(cls, value):
@@ -255,7 +254,6 @@ class JobArguments(object):
             self.end_branch,
             self.encode_bool(self.auto_retry),
             self.encode_list(self.dashboard_data),
-            self.encode_list(self.hook_args),
         ]
 
     def join(self):
@@ -306,6 +304,12 @@ class BaseJobDashboard(object):
         for attr, value in six.iteritems(config):
             if hasattr(self, attr):
                 setattr(self, attr, value)
+
+    def remote_hook_file(self):
+        return None
+
+    def remote_hook_data(self, job_num, attempt):
+        return None
 
     @contextmanager
     def rate_guard(self):

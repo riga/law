@@ -77,8 +77,8 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
             start_branch=branches[0],
             end_branch=branches[-1] + 1,
             auto_retry=False,
-            dashboard_data=None,
-            hook_args=None,
+            dashboard_data=self.dashboard.remote_hook_data(
+                job_num, self.retry_counts.get(job_num, 0)),
         )
         config["arguments"] = "bash {} {}".format(postfix("job.sh"), job_args.join())
 
@@ -118,6 +118,12 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
             config["render_data"]["*"]["log_file"] = postfix(log_file)
         else:
             config["render_data"]["*"]["log_file"] = ""
+
+        # does the dashboard have a hook file?
+        dashboard_file = self.dashboard.remote_hook_file()
+        if dashboard_file:
+            config["input_files"].append(dashboard_file)
+            config["render_data"]["*"]["dashboard_file"] = postfix(os.path.basename(dashboard_file))
 
         # determine postfixed basenames of input files and add that list to the render data
         input_basenames = [postfix(os.path.basename(path)) for path in config["input_files"]]
