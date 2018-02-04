@@ -55,11 +55,14 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
         self.job_manager = self.job_manager_cls()
         self.submission_data = self.submission_data_cls(tasks_per_job=self.task.tasks_per_job)
         self.skipped_job_nums = None
-        self.last_counts = None
-        self.retry_counts = defaultdict(int)
+        self.last_status_counts = None
+        self.attempts = defaultdict(int)
         self.show_errors = 5
         self.dashboard = None
         self.n_unfinished_jobs = None
+
+        # cached output() return value, set in run()
+        self._outputs = None
 
     @property
     def submission_data_cls(self):
@@ -138,24 +141,31 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
 
         return outputs
 
+    def dump_submission_data(self):
+        # renew the dashboard config
+        self.submission_data["dashboard_config"] = self.dashboard.get_persistent_config()
+
+        # write the submission data to the output file
+        self._outputs["submission"].dump(self.submission_data, formatter="json", indent=4)
+
     @log
     def run(self):
         task = self.task
-        outputs = self.output()
+        self._outputs = self.output()
 
         # create the job dashboard interface
         self.dashboard = task.create_job_dashboard() or NoJobDashboard()
 
         # read submission data and reset some values
-        submitted = outputs["submission"].exists()
+        submitted = self._outputs["submission"].exists()
         if submitted:
-            self.submission_data.update(outputs["submission"].load(formatter="json"))
+            self.submission_data.update(self._outputs["submission"].load(formatter="json"))
             task.tasks_per_job = self.submission_data.tasks_per_job
             self.dashboard.apply_config(self.submission_data.dashboard_config)
 
         # when the branch outputs, i.e. the "collection" exists, just create dummy control outputs
-        if "collection" in outputs and outputs["collection"].exists():
-            self.touch_control_outputs()
+        if "collection" in self._outputs and self._outputs["collection"].exists():
+            self.touch_control_self._outputs()
 
         # cancel jobs?
         elif self._cancel_jobs:
@@ -177,11 +187,11 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
 
             # ensure the output directory exists
             if not submitted:
-                outputs["submission"].parent.touch()
+                self._outputs["submission"].parent.touch()
 
             # at this point, when the status file exists, it is considered outdated
-            if "status" in outputs:
-                outputs["status"].remove()
+            if "status" in self._outputs:
+                self._outputs["status"].remove()
 
             try:
                 self.job_file = self.job_file_cls()
@@ -303,9 +313,8 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
             self.submission_data.jobs[job_num] = self.submission_data_cls.job_data(job_id=job_id,
                 branches=job_data[job_num][0])
 
-        # write the submission data to the output file, renew the dashboard config
-        self.submission_data["dashboard_config"] = self.dashboard.get_persistent_config()
-        self.output()["submission"].dump(self.submission_data, formatter="json", indent=4)
+        # dump the submission data to the output file
+        self.dump_submission_data()
 
         # raise exceptions or log
         if errors:
@@ -329,7 +338,6 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
 
     def poll(self):
         task = self.task
-        outputs = self.output()
 
         # submission stats
         n_jobs = float(len(self.submission_data.jobs))
@@ -419,10 +427,11 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
             retry_jobs = OrderedDict()
             if n_failed and task.retries > 0:
                 for job_num, data in six.iteritems(failed_jobs):
-                    if self.retry_counts[job_num] < task.retries:
+                    if self.attempts[job_num] < task.retries:
+                        self.attempts[job_num] += 1
+                        self.submission_data.jobs[job_num]["attempt"] += 1
                         data["status"] = self.job_manager.RETRY
                         retry_jobs[job_num] = self.submission_data.jobs[job_num]["branches"]
-                        self.retry_counts[job_num] += 1
                         task.forward_dashboard_event(self.dashboard, job_num, data, "status.retry")
                     else:
                         task.forward_dashboard_event(self.dashboard, job_num, data, "status.failed")
@@ -432,12 +441,12 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
 
             # log the status line
             counts = (n_pending, n_running, n_finished, n_retry, n_failed)
-            if not self.last_counts:
-                self.last_counts = counts
-            status_line = self.job_manager.status_line(counts, self.last_counts, color=True,
+            if not self.last_status_counts:
+                self.last_status_counts = counts
+            status_line = self.job_manager.status_line(counts, self.last_status_counts, color=True,
                 align=4)
             task.publish_message(status_line)
-            self.last_counts = counts
+            self.last_status_counts = counts
 
             # inform the scheduler about the progress
             task.publish_progress(100. * n_finished / n_jobs)
@@ -461,11 +470,11 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
             unreachable = n_jobs - n_failed < n_finished_min
             if finished:
                 # write status output
-                if "status" in outputs:
+                if "status" in self._outputs:
                     status_data = self.status_data_cls()
                     status_data.jobs.update(finished_jobs)
                     status_data.jobs.update(states)
-                    outputs["status"].dump(status_data, formatter="json", indent=4)
+                    self._outputs["status"].dump(status_data, formatter="json", indent=4)
                 break
             elif failed:
                 failed_nums = [job_num for job_num in failed_jobs if job_num not in retry_jobs]
@@ -486,7 +495,7 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
 
             # break when no polling is desired
             # we can get to this point when there was already a submission and the no_poll
-            # parameter was set so that only failed jobs are submitted again
+            # parameter was set so that only failed jobs are resubmitted once
             if task.no_poll:
                 break
         else:
@@ -497,31 +506,30 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
         task = self.task
 
         # create the parent directory
-        outputs = self.output()
-        outputs["submission"].parent.touch()
+        self._outputs["submission"].parent.touch()
 
         # get all branch indexes and chunk them by tasks_per_job
         branch_chunks = list(iter_chunks(task.branch_map.keys(), task.tasks_per_job))
 
         # submission output
-        if not outputs["submission"].exists():
+        if not self._outputs["submission"].exists():
             submission_data = self.submission_data.copy()
             # set dummy submission data
             submission_data.jobs.clear()
             for i, branches in enumerate(branch_chunks):
                 job_num = i + 1
                 submission_data.jobs[job_num] = self.submission_data_cls.job_data(branches=branches)
-            outputs["submission"].dump(submission_data, formatter="json", indent=4)
+            self._outputs["submission"].dump(submission_data, formatter="json", indent=4)
 
         # status output
-        if "status" in outputs and not outputs["status"].exists():
+        if "status" in self._outputs and not self._outputs["status"].exists():
             status_data = self.status_data_cls()
             # set dummy status data
             for i, branches in enumerate(branch_chunks):
                 job_num = i + 1
                 status_data.jobs[job_num] = self.status_data_cls.job_data(
                     status=self.job_manager.FINISHED, code=0)
-            outputs["status"].dump(status_data, formatter="json", indent=4)
+            self._outputs["status"].dump(status_data, formatter="json", indent=4)
 
 
 class BaseRemoteWorkflow(Workflow):

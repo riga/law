@@ -216,10 +216,6 @@ class BaseJobFile(object):
     def render_line(cls, line, key, value):
         return line.replace("{{" + key + "}}", value)
 
-    @classmethod
-    def create_line(cls, key, value=None, indent=0):
-        raise NotImplementedError
-
 
 class JobArguments(object):
 
@@ -305,12 +301,6 @@ class BaseJobDashboard(object):
             if hasattr(self, attr):
                 setattr(self, attr, value)
 
-    def remote_hook_file(self):
-        return None
-
-    def remote_hook_data(self, job_num, attempt):
-        return None
-
     @contextmanager
     def rate_guard(self):
         now = 0.
@@ -324,6 +314,12 @@ class BaseJobDashboard(object):
         yield
 
         self._last_event_time = now
+
+    def remote_hook_file(self):
+        return None
+
+    def remote_hook_data(self, job_num, attempt):
+        return None
 
     def create_tracking_url(self):
         return None

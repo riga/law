@@ -113,7 +113,7 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
             end_branch=branches[-1] + 1,
             auto_retry=False,
             dashboard_data=self.dashboard.remote_hook_data(
-                job_num, self.retry_counts.get(job_num, 0)),
+                job_num, self.attempts.get(job_num, 0)),
         )
         config["render_data"]["wrapper.sh"]["job_args"] = job_args.join()
 
