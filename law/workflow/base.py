@@ -68,17 +68,20 @@ def workflow_property(func):
     return property(wrapper)
 
 
-def cached_workflow_property(func):
-    attr = "_" + func.__name__
+def cached_workflow_property(func=None, attr=None):
+    def wrapper(func):
+        _attr = attr or "_workflow_cached_" + func.__name__
 
-    @functools.wraps(func)
-    def wrapper(self):
-        wf = self.as_workflow()
-        if not hasattr(wf, attr):
-            setattr(wf, attr, func(wf))
-        return getattr(wf, attr)
+        @functools.wraps(func)
+        def wrapper(self):
+            wf = self.as_workflow()
+            if not hasattr(wf, _attr):
+                setattr(wf, _attr, func(wf))
+            return getattr(wf, _attr)
 
-    return property(wrapper)
+        return property(wrapper)
+
+    return wrapper if not func else wrapper(func)
 
 
 class Workflow(Task):
