@@ -99,9 +99,10 @@ class BaseTask(luigi.Task):
         if _prefer_cli:
             cls_args = []
             prefix = cls.task_family + "_"
-            for key in global_cmdline_values().keys():
-                if key.startswith(prefix):
-                    cls_args.append(key[len(prefix):])
+            if luigi.cmdline_parser.CmdlineParser.get_instance():
+                for key in global_cmdline_values().keys():
+                    if key.startswith(prefix):
+                        cls_args.append(key[len(prefix):])
             for name in make_list(_prefer_cli):
                 if name in params and name in cls_args:
                     del params[name]
