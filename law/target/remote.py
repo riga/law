@@ -963,7 +963,7 @@ class RemoteFileTarget(RemoteTarget, FileSystemFileTarget):
             raise Exception("unknown mode '{}', use r or w".format(mode))
 
         if mode == "r":
-            with self.fs.open(self.path, mode, _yield_path=True, **kwargs) as lpath:
+            with self.fs.open(self.path, "r", _yield_path=True, **kwargs) as lpath:
                 yield LocalFileTarget(lpath)
 
         else:  # w

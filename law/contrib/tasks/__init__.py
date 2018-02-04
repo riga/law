@@ -127,7 +127,7 @@ class CascadeMerge(LocalWorkflow):
 
         # helper to convert nested lists of leaf number chunks into a list of nodes in the format
         # described above
-        def nodify(obj, node=None):
+        def nodify(obj, node=None, root_id=0):
             if not isinstance(obj, list):
                 return []
             nodes = []
@@ -136,7 +136,7 @@ class CascadeMerge(LocalWorkflow):
             else:
                 nodes.append(node)
             for i, _obj in enumerate(obj):
-                nodes += nodify(_obj, node + (i,))
+                nodes += nodify(_obj, node + (i if node else root_id,))
             return nodes
 
         # first, determine the number of files to merge in total when not already set via params
@@ -158,7 +158,7 @@ class CascadeMerge(LocalWorkflow):
 
         # build the trees
         forest = []
-        for n_leaves in leaves_per_tree:
+        for i, n_leaves in enumerate(leaves_per_tree):
             # build a nested list of leaf numbers using the merge factor
             # e.g. 9 leaves with factor 3 -> [[0, 1, 2], [3, 4, 5], [6, 7, 8]]
             # TODO: this point defines the actual tree structure, which is bottom-up at the moment,
@@ -169,7 +169,7 @@ class CascadeMerge(LocalWorkflow):
 
             # convert the list of nodes to the tree format described above
             tree = {}
-            for node in nodify(nested_leaves):
+            for node in nodify(nested_leaves, root_id=i):
                 depth = len(node) - 1
                 tree.setdefault(depth, []).append(node)
 
@@ -241,16 +241,11 @@ class CascadeMerge(LocalWorkflow):
 
         if self.is_leaf:
             # this is simply the cascade requirement
-            # also determine and pass the corresponding leaf number range which is rather tricky
-            # strategy: consider the node tuple values as a number in a numeral system where the
-            # base corresponds to our merge factor, convert it to a decimal number and account for
-            # the offset from previous trees
+            # also determine and pass the corresponding leaf number range
             self.cascade_forest
             n_leaves = self.leaves_per_tree[self.cascade_tree]
             offset = sum(self.leaves_per_tree[:self.cascade_tree])
-            node = self.branch_value
-            node_str = "".join(str(v) for v in node)
-            start_leaf = offset + self.merge_factor * int(node_str, self.merge_factor)
+            start_leaf = offset + self.branch * self.merge_factor
             end_leaf = min(start_leaf + self.merge_factor, n_leaves)
             reqs["cascade"] = self.cascade_requires(start_leaf, end_leaf)
 
@@ -304,13 +299,13 @@ class CascadeMerge(LocalWorkflow):
             inputs = inputs.values()
 
         # merge
-        self.publish_message("start merging {} inputs of node {} in tree {}".format(
-            len(inputs), self.branch_value, self.cascade_tree))
+        self.publish_message("start merging {} inputs of node {}".format(
+            len(inputs), self.branch_value))
         self.merge(inputs, self.output())
 
         # remove intermediate nodes
         if not self.is_leaf and not self.keep_nodes:
-            with self.publish_step("removing intermediate results to node {} in tree {}".format(
-                    self.branch_value, self.cascade_tree)):
+            with self.publish_step("removing intermediate results to node {}".format(
+                    self.branch_value)):
                 for inp in inputs:
                     inp.remove()
