@@ -8,7 +8,7 @@ Helpful utility functions.
 __all__ = ["rel_path", "law_src_path", "law_home_path", "printerr", "abort", "colored", "uncolored",
            "query_choice", "multi_match", "make_list", "flatten", "which", "map_verbose",
            "map_struct", "mask_struct", "tmp_file", "interruptable_popen", "create_hash",
-           "copy_no_perm", "user_owns_file", "iter_chunks", "human_bytes"]
+           "copy_no_perm", "user_owns_file", "iter_chunks", "human_bytes", "ShorthandDict"]
 
 
 import os
@@ -22,6 +22,8 @@ import subprocess
 import signal
 import hashlib
 import shutil
+import copy
+from collections import OrderedDict
 from contextlib import contextmanager
 
 import six
@@ -517,3 +519,34 @@ def human_bytes(n, unit=None):
         idx = int(math.floor(math.log(abs(n), 1024)))
         idx = min(idx, len(byte_units))
     return n / 1024. ** idx, byte_units[idx]
+
+
+class ShorthandDict(OrderedDict):
+
+    attributes = []
+    defaults = []
+
+    def __init__(self, **kwargs):
+        super(ShorthandDict, self).__init__()
+
+        for attr, default in six.moves.zip(self.attributes, self.defaults):
+            self[attr] = kwargs.pop(attr, copy.deepcopy(default))
+
+        self.update(kwargs)
+
+    def copy(self):
+        # deep copy
+        kwargs = {key: copy.deepcopy(value) for key, value in six.iteritems(self)}
+        return self.__class__(**kwargs)
+
+    def __getattr__(self, attr):
+        if attr in self.attributes:
+            return self[attr]
+        else:
+            return super(ShorthandDict, self).__getattr__(attr)
+
+    def __setattr__(self, attr, value):
+        if attr in self.attributes:
+            self[attr] = value
+        else:
+            super(ShorthandDict, self).__setattr__(attr, value)

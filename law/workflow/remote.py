@@ -19,60 +19,31 @@ import six
 from law.workflow.base import Workflow, WorkflowProxy
 from law.job.base import NoJobDashboard
 from law.decorator import log
-from law.util import iter_chunks
+from law.util import iter_chunks, ShorthandDict
 
 
-class SubmissionData(OrderedDict):
+class SubmissionData(ShorthandDict):
+
+    attributes = ["jobs", "tasks_per_job", "dashboard_config"]
+    defaults = [{}, 1, {}]
 
     dummy_job_id = "dummy_job_id"
 
-    def __init__(self, **kwargs):
-        super(SubmissionData, self).__init__()
-
-        self["jobs"] = kwargs.get("jobs", {})
-        self["tasks_per_job"] = kwargs.get("tasks_per_job", 1)
-        self["dashboard_config"] = kwargs.get("dashboard_config", {})
-
-    def copy(self):
-        return self.__class__(jobs=self.jobs.copy(), tasks_per_job=self.tasks_per_job,
-            dashboard_config=self.dashboard_config)
-
     @classmethod
-    def job_data(cls, job_id=dummy_job_id, branches=None):
-        return dict(job_id=job_id, branches=branches or [])
-
-    @property
-    def jobs(self):
-        return self["jobs"]
-
-    @property
-    def tasks_per_job(self):
-        return self["tasks_per_job"]
-
-    @property
-    def dashboard_config(self):
-        return self["dashboard_config"]
+    def job_data(cls, job_id=dummy_job_id, branches=None, attempt=0, **kwargs):
+        return dict(job_id=job_id, branches=branches or [], attempt=attempt)
 
 
-class StatusData(OrderedDict):
+class StatusData(ShorthandDict):
+
+    attributes = ["jobs"]
+    defaults = [{}]
 
     dummy_job_id = SubmissionData.dummy_job_id
 
-    def __init__(self, **kwargs):
-        super(StatusData, self).__init__()
-
-        self["jobs"] = kwargs.get("jobs", {})
-
-    def copy(self):
-        return self.__class__(jobs=self.jobs.copy())
-
     @classmethod
-    def job_data(cls, job_id=dummy_job_id, status=None, code=None, error=None):
+    def job_data(cls, job_id=dummy_job_id, status=None, code=None, error=None, **kwargs):
         return dict(job_id=job_id, status=status, code=code, error=error)
-
-    @property
-    def jobs(self):
-        return self["jobs"]
 
 
 class BaseRemoteWorkflowProxy(WorkflowProxy):
