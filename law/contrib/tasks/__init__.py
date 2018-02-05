@@ -103,6 +103,10 @@ class CascadeMerge(LocalWorkflow):
     def __init__(self, *args, **kwargs):
         super(CascadeMerge, self).__init__(*args, **kwargs)
 
+        # the merge factor should not be 1
+        if self.merge_factor == 1:
+            raise ValueError("the merge factor should not be 1")
+
         self._build = False
 
     @cached_workflow_property
@@ -151,6 +155,10 @@ class CascadeMerge(LocalWorkflow):
         output = self.cascade_output()
         n_trees = 1 if not isinstance(output, TargetCollection) else len(output)
 
+        if self.n_cascade_leaves < n_trees:
+            raise Exception("too many leaves ({}) for number of requested trees ({})".format(
+                self.n_cascade_leaves, n_trees))
+
         # determine the number of leaves per tree
         n_min = self.n_cascade_leaves // n_trees
         n_trees_overlap = self.n_cascade_leaves % n_trees
@@ -162,8 +170,8 @@ class CascadeMerge(LocalWorkflow):
             # build a nested list of leaf numbers using the merge factor
             # e.g. 9 leaves with factor 3 -> [[0, 1, 2], [3, 4, 5], [6, 7, 8]]
             # TODO: this point defines the actual tree structure, which is bottom-up at the moment,
-            # but maybe it's good to configure this
-            nested_leaves = list(six.moves.range(n_leaves))
+            # but maybe it's good to have this configurable
+            nested_leaves = list(iter_chunks(n_leaves, self.merge_factor))
             while len(nested_leaves) > 1:
                 nested_leaves = list(iter_chunks(nested_leaves, self.merge_factor))
 
@@ -245,8 +253,11 @@ class CascadeMerge(LocalWorkflow):
             self.cascade_forest
             sum_n_leaves = sum(self.leaves_per_tree)
             offset = sum(self.leaves_per_tree[:self.cascade_tree])
-            start_leaf = offset + self.branch * self.merge_factor
-            end_leaf = min(start_leaf + self.merge_factor, sum_n_leaves)
+            merge_factor = self.merge_factor
+            if merge_factor <= 0:
+                merge_factor = self.leaves_per_tree[self.cascade_tree]
+            start_leaf = offset + self.branch * merge_factor
+            end_leaf = min(start_leaf + merge_factor, sum_n_leaves)
             reqs["cascade"] = self.cascade_requires(start_leaf, end_leaf)
 
         else:
