@@ -243,10 +243,10 @@ class CascadeMerge(LocalWorkflow):
             # this is simply the cascade requirement
             # also determine and pass the corresponding leaf number range
             self.cascade_forest
-            n_leaves = self.leaves_per_tree[self.cascade_tree]
+            sum_n_leaves = sum(self.leaves_per_tree)
             offset = sum(self.leaves_per_tree[:self.cascade_tree])
             start_leaf = offset + self.branch * self.merge_factor
-            end_leaf = min(start_leaf + self.merge_factor, n_leaves)
+            end_leaf = min(start_leaf + self.merge_factor, sum_n_leaves)
             reqs["cascade"] = self.cascade_requires(start_leaf, end_leaf)
 
         else:
