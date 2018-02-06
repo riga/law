@@ -289,7 +289,7 @@ class CascadeMerge(LocalWorkflow):
     def output(self):
         output = self.cascade_output()
         if isinstance(output, TargetCollection):
-            output = output.targets[self.cascade_tree]
+            output = output[self.cascade_tree]
 
         if self.is_root:
             return output
