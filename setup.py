@@ -6,7 +6,6 @@ from setuptools import setup
 from setuptools.command.install import install as _install
 
 import law
-from law.util import which
 
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
@@ -41,10 +40,10 @@ class install(_install):
     def run(self):
         _install.run(self)  # old-style
 
-        with open(os.path.join(this_dir, "bib", "law")) as f:
-            lines = f.readlines()
-        with open(which("law"), "w") as f:
-            f.write("".join(lines))
+        with open(os.path.join(this_dir, "bin", "law")) as f:
+            content = f.read()
+        with open(law.util.which("law"), "w") as f:
+            f.write(content)
 
 
 setup(
@@ -67,7 +66,7 @@ setup(
         "law.sandbox",
         "law.workflow",
         "law.job",
-        "law.scripts",
+        "law.cli",
         "law.contrib",
         "law.contrib.tasks",
         "law.contrib.git",
@@ -79,13 +78,12 @@ setup(
     ],
     package_data={
         "": ["LICENSE", "requirements.txt", "README.md"],
-        "law": ["completion.sh"],
         "law.job": ["job.sh"],
-        "law.scripts": ["law"],
+        "law.cli": ["law", "completion.sh"],
         "law.contrib.git": ["bundle_repository.sh", "repository_checksum.sh"],
         "law.contrib.glite": ["wrapper.sh"],
-        "law.contrib.cms": ["bundle_cmssw.sh", "cmsdashb_hooks.sh", "bin/*"],
+        "law.contrib.cms": ["bundle_cmssw.sh", "cmsdashb_hooks.sh", "bin/apmon"],
     },
     cmdclass={"install": install},
-    entry_points={"console_scripts": ["law = law.scripts.cli:main"]},
+    entry_points={"console_scripts": ["law = law.cli:run"]},
 )

@@ -6,6 +6,7 @@
 
 
 import os
+import traceback
 from importlib import import_module
 from collections import OrderedDict
 
@@ -51,7 +52,11 @@ def execute(args):
 
         try:
             import_module(modid)
-        except ImportError:
+        except ImportError as e:
+            if args.verbose:
+                print("\nImportError in module {}:".format(modid, e))
+                traceback.print_exc()
+                print("")
             continue
 
     # determine tasks to write into the db file

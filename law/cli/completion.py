@@ -14,4 +14,4 @@ def setup_parser(sub_parsers):
 
 
 def execute(args):
-    print(law_src_path("completion.sh"))
+    print(law_src_path("cli", "completion.sh"))

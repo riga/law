@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Main law command line interface.
+Law command line interface entry point.
 """
 
 
@@ -14,7 +14,7 @@ progs = ["run", "db", "config", "software", "completion"]
 forward_progs = ["run"]
 
 
-def main():
+def run():
     # setup the main parser and sub parsers
     parser = ArgumentParser(prog="law", description="law command line tool")
     sub_parsers = parser.add_subparsers(help="subcommands", dest="command")
@@ -22,7 +22,7 @@ def main():
     # setup all progs
     mods = {}
     for prog in progs:
-        mods[prog] = import_module("law.scripts." + prog)
+        mods[prog] = import_module("law.cli." + prog)
         mods[prog].setup_parser(sub_parsers)
 
     # parse args and dispatch execution
@@ -32,7 +32,3 @@ def main():
         args = parser.parse_args()
 
     mods[args.command].execute(args)
-
-
-if __name__ == "__main__":
-    main()

@@ -17,7 +17,7 @@ import six
 
 from law.sandbox.base import Sandbox
 from law.config import Config
-from law.scripts.software import deps as law_deps
+from law.cli.software import deps as law_deps
 from law.util import make_list, tmp_file, interruptable_popen
 
 
@@ -131,8 +131,8 @@ class SingularitySandbox(Sandbox):
                 vdst = dst(python_dir, name + ".py")
             mount(vsrc, vdst)
 
-        # forward the law scripts dir to bin as it contains a law executable
-        env["PATH"] = os.pathsep.join([env["PATH"], dst(python_dir, "law", "scripts")])
+        # forward the law cli dir to bin as it contains a law executable
+        env["PATH"] = os.pathsep.join([env["PATH"], dst(python_dir, "law", "cli")])
 
         # forward the law config file
         if cfg.config_file:

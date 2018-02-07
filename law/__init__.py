@@ -29,7 +29,7 @@ __all__ = [
 
 
 # use cached software
-from law.scripts.software import use_software_cache
+from law.cli.software import use_software_cache
 use_software_cache(reload_deps=True)
 
 

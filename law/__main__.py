@@ -11,5 +11,5 @@ if __name__ == "__main__":
     sys.path.insert(0, parent_dir)
 
     # load the law cli
-    from law.scripts.cli import main
-    main()
+    from law.cli import run
+    run()
