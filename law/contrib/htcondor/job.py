@@ -16,7 +16,7 @@ import getpass
 import logging
 from multiprocessing.pool import ThreadPool
 
-from law.job.base import BaseJobManager, BaseJobFile
+from law.job.base import BaseJobManager, BaseJobFileFactory
 from law.util import iter_chunks, interruptable_popen, make_list
 
 
@@ -328,7 +328,7 @@ class HTCondorJobManager(BaseJobManager):
             return cls.FAILED
 
 
-class HTCondorJobFile(BaseJobFile):
+class HTCondorJobFileFactory(BaseJobFileFactory):
 
     config_attrs = ["file_name", "universe", "executable", "arguments", "input_files",
         "output_files", "stdout", "stderr", "log", "notification", "custom_content",
@@ -338,7 +338,7 @@ class HTCondorJobFile(BaseJobFile):
             input_files=None, output_files=None, stdout="stdout.txt", stderr="stderr.txt",
             log="log.txt", notification="Never", custom_content=None, absolute_paths=False,
             tmp_dir=None):
-        super(HTCondorJobFile, self).__init__(tmp_dir=tmp_dir)
+        super(HTCondorJobFileFactory, self).__init__(tmp_dir=tmp_dir)
 
         self.file_name = file_name
         self.universe = universe

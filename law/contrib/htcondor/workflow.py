@@ -18,7 +18,7 @@ import luigi
 from law import LocalDirectoryTarget, NO_STR
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments
-from law.contrib.htcondor.job import HTCondorJobManager, HTCondorJobFile
+from law.contrib.htcondor.job import HTCondorJobManager, HTCondorJobFileFactory
 from law.parser import global_cmdline_args
 from law.util import law_src_path
 
@@ -41,13 +41,11 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         self.retry_counts = defaultdict(int)
         self.show_errors = 5
 
-    @property
-    def job_manager_cls(self):
-        return HTCondorJobManager
+    def create_job_manager(self):
+        return HTCondorJobManager()
 
-    @property
-    def job_file_cls(self):
-        return HTCondorJobFile
+    def create_job_file_factory(self):
+        return HTCondorJobFileFactory()
 
     def create_job_file(self, job_num, branches):
         task = self.task
@@ -55,7 +53,7 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
 
         # the file postfix is pythonic range made from branches, e.g. [0, 1, 2] -> "_0To3"
         _postfix = "_{}To{}".format(branches[0], branches[-1] + 1)
-        postfix = lambda path: self.job_file.postfix_file(path, _postfix)
+        postfix = lambda path: self.job_file_factory.postfix_file(path, _postfix)
         config["postfix"] = {"*": _postfix}
 
         # executable
@@ -141,7 +139,7 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         # task hook
         config = task.htcondor_job_config(config, job_num, branches)
 
-        return self.job_file(**config)
+        return self.job_file_factory(**config)
 
     def destination_info(self):
         info = []

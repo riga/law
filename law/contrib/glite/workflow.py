@@ -166,8 +166,8 @@ class GLiteWorkflow(BaseRemoteWorkflow):
         super(GLiteWorkflow, self).__init__(*args, **kwargs)
 
         # check if there is at least one ce
-        if not self.ce:
-            raise Exception("please set at least one computing element (--ce)")
+        if not self.glite_ce:
+            raise Exception("please set at least one glite computing element (--glite-ce)")
 
     @abstractmethod
     def glite_output_directory(self):
