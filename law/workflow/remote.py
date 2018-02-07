@@ -11,7 +11,7 @@ __all__ = ["SubmissionData", "StatusData", "BaseRemoteWorkflowProxy", "BaseRemot
 import time
 import math
 from collections import OrderedDict, defaultdict
-from abc import abstractmethod, abstractproperty
+from abc import abstractmethod
 
 import luigi
 import six
@@ -51,8 +51,8 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
     def __init__(self, *args, **kwargs):
         super(BaseRemoteWorkflowProxy, self).__init__(*args, **kwargs)
 
-        self.job_file = None
-        self.job_manager = self.job_manager_cls()
+        self.job_manager = self.create_job_manager()
+        self.job_file_factory = None
         self.submission_data = self.submission_data_cls(tasks_per_job=self.task.tasks_per_job)
         self.skipped_job_nums = None
         self.last_status_counts = None
@@ -72,12 +72,12 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
     def status_data_cls(self):
         return StatusData
 
-    @abstractproperty
-    def job_manager_cls(self):
+    @abstractmethod
+    def create_job_manager(self):
         pass
 
-    @abstractproperty
-    def job_file_cls(self):
+    @abstractmethod
+    def create_job_file_factory(self):
         pass
 
     @abstractmethod
@@ -194,7 +194,7 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
                 self._outputs["status"].remove()
 
             try:
-                self.job_file = self.job_file_cls()
+                self.job_file_factory = self.create_job_file_factory()
 
                 # submit
                 if not submitted:
@@ -207,8 +207,8 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
 
             finally:
                 # finally, cleanup the job file
-                if self.job_file:
-                    self.job_file.cleanup()
+                if self.job_file_factory:
+                    self.job_file_factory.cleanup()
 
     def cancel(self):
         task = self.task
@@ -554,9 +554,11 @@ class BaseRemoteWorkflow(Workflow):
         "new submission")
     cleanup_jobs = luigi.BoolParameter(default=False, description="cleanup all submitted jobs, no "
         "new submission")
+    transfer_logs = luigi.BoolParameter(significant=False, description="transfer job logs to the "
+        "output directory")
 
     exclude_params_branch = {"retries", "tasks_per_job", "only_missing", "no_poll", "threads",
-        "interval", "walltime", "max_poll_fails", "cancel_jobs", "cleanup_jobs"}
+        "interval", "walltime", "max_poll_fails", "cancel_jobs", "cleanup_jobs", "transfer_logs"}
 
     exclude_db = True
 

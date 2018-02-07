@@ -5,7 +5,7 @@ Base definition of a minimalistic job manager.
 """
 
 
-__all__ = ["BaseJobManager", "BaseJobFile", "JobArguments", "BaseJobDashboard",
+__all__ = ["BaseJobManager", "BaseJobFileFactory", "JobArguments", "BaseJobDashboard",
            "NoDashboardInterface", "cache_by_status"]
 
 
@@ -130,7 +130,7 @@ class BaseJobManager(object):
 
 
 @six.add_metaclass(ABCMeta)
-class BaseJobFile(object):
+class BaseJobFileFactory(object):
 
     config_attrs = []
 
@@ -143,7 +143,7 @@ class BaseJobFile(object):
             self.__setitem__(attr, value)
 
     def __init__(self, tmp_dir=None):
-        super(BaseJobFile, self).__init__()
+        super(BaseJobFileFactory, self).__init__()
 
         self.tmp_dir = tmp_dir if tmp_dir is not None else tempfile.mkdtemp()
 
@@ -158,29 +158,6 @@ class BaseJobFile(object):
 
     def __exit__(self, type, value, traceback):
         self.cleanup()
-
-    def cleanup(self):
-        if isinstance(self.tmp_dir, six.string_types) and os.path.exists(self.tmp_dir):
-            shutil.rmtree(self.tmp_dir)
-
-    def provide_input(self, src, postfix, render_data=None):
-        basename = os.path.basename(src)
-        dst = os.path.join(self.tmp_dir, self.postfix_file(basename, postfix))
-        if render_data:
-            self.render_file(src, dst, render_data)
-        else:
-            shutil.copy2(src, dst)
-        return dst
-
-    def get_config(self, kwargs):
-        cfg = self.Config()
-        for attr in self.config_attrs:
-            cfg[attr] = kwargs.get(attr, getattr(self, attr))
-        return cfg
-
-    @abstractmethod
-    def create(self, postfix=None, render=None, **kwargs):
-        pass
 
     @classmethod
     def postfix_file(cls, path, postfix):
@@ -215,6 +192,29 @@ class BaseJobFile(object):
     @classmethod
     def render_line(cls, line, key, value):
         return line.replace("{{" + key + "}}", value)
+
+    def cleanup(self):
+        if isinstance(self.tmp_dir, six.string_types) and os.path.exists(self.tmp_dir):
+            shutil.rmtree(self.tmp_dir)
+
+    def provide_input(self, src, postfix, render_data=None):
+        basename = os.path.basename(src)
+        dst = os.path.join(self.tmp_dir, self.postfix_file(basename, postfix))
+        if render_data:
+            self.render_file(src, dst, render_data)
+        else:
+            shutil.copy2(src, dst)
+        return dst
+
+    def get_config(self, kwargs):
+        cfg = self.Config()
+        for attr in self.config_attrs:
+            cfg[attr] = kwargs.get(attr, getattr(self, attr))
+        return cfg
+
+    @abstractmethod
+    def create(self, postfix=None, render=None, **kwargs):
+        pass
 
 
 class JobArguments(object):

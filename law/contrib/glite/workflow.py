@@ -15,12 +15,10 @@ import logging
 from abc import abstractmethod
 from collections import OrderedDict, defaultdict
 
-import luigi
-
 from law import CSVParameter
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments
-from law.contrib.glite.job import GLiteJobManager, GLiteJobFile
+from law.contrib.glite.job import GLiteJobManager, GLiteJobFileFactory
 from law.parser import global_cmdline_args
 from law.util import rel_path, law_src_path
 from law.contrib.wlcg import delegate_voms_proxy_glite, get_ce_endpoint
@@ -38,13 +36,11 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
 
         self.delegation_ids = None
 
-    @property
-    def job_manager_cls(self):
-        return GLiteJobManager
+    def create_job_manager(self):
+        return GLiteJobManager()
 
-    @property
-    def job_file_cls(self):
-        return GLiteJobFile
+    def create_job_file_factory(self):
+        return GLiteJobFileFactory()
 
     def create_job_file(self, job_num, branches):
         task = self.task
@@ -52,7 +48,7 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
 
         # the file postfix is pythonic range made from branches, e.g. [0, 1, 2] -> "_0To3"
         _postfix = "_{}To{}".format(branches[0], branches[-1] + 1)
-        postfix = lambda path: self.job_file.postfix_file(path, _postfix)
+        postfix = lambda path: self.job_file_factory.postfix_file(path, _postfix)
         config["postfix"] = {"*": _postfix}
 
         # executable
@@ -130,10 +126,10 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
         # task hook
         config = task.glite_job_config(config, job_num, branches)
 
-        return self.job_file(**config)
+        return self.job_file_factory(**config)
 
     def destination_info(self):
-        return "ce: {}".format(",".join(self.task.ce))
+        return "ce: {}".format(",".join(self.task.glite_ce))
 
     def submit_jobs(self, job_files):
         task = self.task
@@ -141,7 +137,7 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
         # delegate the voms proxy to all endpoints
         if self.delegation_ids is None and callable(task.glite_delegate_proxy):
             self.delegation_ids = []
-            for ce in task.ce:
+            for ce in task.glite_ce:
                 endpoint = get_ce_endpoint(ce)
                 self.delegation_ids.append(task.glite_delegate_proxy(endpoint))
 
@@ -151,7 +147,7 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
             if i in (1, len(job_files)) or i % 25 == 0:
                 task.publish_message("submitted {}/{} job(s)".format(i, len(job_files)))
 
-        return self.job_manager.submit_batch(job_files, ce=task.ce,
+        return self.job_manager.submit_batch(job_files, ce=task.glite_ce,
             delegation_id=self.delegation_ids, retries=3, threads=task.threads,
             callback=progress_callback)
 
@@ -160,11 +156,9 @@ class GLiteWorkflow(BaseRemoteWorkflow):
 
     workflow_proxy_cls = GLiteWorkflowProxy
 
-    ce = CSVParameter(default=[], significant=False, description="target computing element(s)")
-    transfer_logs = luigi.BoolParameter(significant=False, description="transfer job logs to the "
-        "output directory")
+    glite_ce = CSVParameter(default=[], significant=False, description="target computing elements")
 
-    exclude_params_branch = {"ce", "transfer_logs"}
+    exclude_params_branch = {"glite_ce"}
 
     exclude_db = True
 

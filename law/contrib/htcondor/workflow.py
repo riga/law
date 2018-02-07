@@ -145,10 +145,10 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
 
     def destination_info(self):
         info = []
-        if self.task.pool != NO_STR:
-            info.append(", pool: {}".format(self.task.pool))
-        if self.task.scheduler != NO_STR:
-            info.append(", scheduler: {}".format(self.task.scheduler))
+        if self.task.htcondor_pool != NO_STR:
+            info.append(", pool: {}".format(self.task.htcondor_pool))
+        if self.task.htcondor_scheduler != NO_STR:
+            info.append(", scheduler: {}".format(self.task.htcondor_scheduler))
         return ", ".join(info)
 
     def submit_jobs(self, job_files):
@@ -160,21 +160,21 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
             if i in (1, len(job_files)) or i % 25 == 0:
                 task.publish_message("submitted {}/{} job(s)".format(i, len(job_files)))
 
-        return self.job_manager.submit_batch(job_files, pool=task.pool, scheduler=task.scheduler,
-            retries=3, threads=task.threads, callback=progress_callback)
+        return self.job_manager.submit_batch(job_files, pool=task.htcondor_pool,
+            scheduler=task.htcondor_scheduler, retries=3, threads=task.threads,
+            callback=progress_callback)
 
 
 class HTCondorWorkflow(BaseRemoteWorkflow):
 
     workflow_proxy_cls = HTCondorWorkflowProxy
 
-    pool = luigi.Parameter(default=NO_STR, significant=False, description="target htcondor pool")
-    scheduler = luigi.Parameter(default=NO_STR, significant=False, description="target htcondor "
-        "scheduler")
-    transfer_logs = luigi.BoolParameter(significant=False, description="transfer job logs to the "
-        "output directory")
+    htcondor_pool = luigi.Parameter(default=NO_STR, significant=False, description="target "
+        "htcondor pool")
+    htcondor_scheduler = luigi.Parameter(default=NO_STR, significant=False, description="target "
+        "htcondor scheduler")
 
-    exclude_params_branch = {"pool", "scheduler", "transfer_logs"}
+    exclude_params_branch = {"htcondor_pool", "htcondor_scheduler"}
 
     exclude_db = True
 

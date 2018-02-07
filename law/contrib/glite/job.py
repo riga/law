@@ -17,7 +17,7 @@ import subprocess
 import logging
 from multiprocessing.pool import ThreadPool
 
-from law.job.base import BaseJobManager, BaseJobFile
+from law.job.base import BaseJobManager, BaseJobFileFactory
 from law.target.file import add_scheme
 from law.util import iter_chunks, interruptable_popen, make_list
 
@@ -318,7 +318,7 @@ class GLiteJobManager(BaseJobManager):
             return cls.FAILED
 
 
-class GLiteJobFile(BaseJobFile):
+class GLiteJobFileFactory(BaseJobFileFactory):
 
     config_attrs = ["file_name", "executable", "input_files", "output_files", "output_uri",
         "stderr", "stdout", "vo", "custom_content", "absolute_paths"]
@@ -326,7 +326,7 @@ class GLiteJobFile(BaseJobFile):
     def __init__(self, file_name="job.jdl", executable=None, input_files=None, output_files=None,
             output_uri=None, stdout="stdout.txt", stderr="stderr.txt", vo=None, custom_content=None,
             absolute_paths=False, tmp_dir=None):
-        super(GLiteJobFile, self).__init__(tmp_dir=tmp_dir)
+        super(GLiteJobFileFactory, self).__init__(tmp_dir=tmp_dir)
 
         self.file_name = file_name
         self.executable = executable
