@@ -132,7 +132,7 @@ class BaseJobManager(object):
 @six.add_metaclass(ABCMeta)
 class BaseJobFileFactory(object):
 
-    config_attrs = []
+    config_attrs = ["dir"]
 
     class Config(dict):
 
@@ -142,10 +142,11 @@ class BaseJobFileFactory(object):
         def __setattr__(self, attr, value):
             self.__setitem__(attr, value)
 
-    def __init__(self, tmp_dir=None):
+    def __init__(self, dir=None):
         super(BaseJobFileFactory, self).__init__()
 
-        self.tmp_dir = tmp_dir if tmp_dir is not None else tempfile.mkdtemp()
+        self._is_tmp = dir is None
+        self.dir = dir if not self._is_tmp else tempfile.mkdtemp()
 
     def __del__(self):
         self.cleanup()
@@ -194,12 +195,12 @@ class BaseJobFileFactory(object):
         return line.replace("{{" + key + "}}", value)
 
     def cleanup(self):
-        if isinstance(self.tmp_dir, six.string_types) and os.path.exists(self.tmp_dir):
-            shutil.rmtree(self.tmp_dir)
+        if self._is_tmp and isinstance(self.dir, six.string_types) and os.path.exists(self.dir):
+            shutil.rmtree(self.dir)
 
-    def provide_input(self, src, postfix, render_data=None):
+    def provide_input(self, src, postfix, dir=None, render_data=None):
         basename = os.path.basename(src)
-        dst = os.path.join(self.tmp_dir, self.postfix_file(basename, postfix))
+        dst = os.path.join(dir or self.dir, self.postfix_file(basename, postfix))
         if render_data:
             self.render_file(src, dst, render_data)
         else:
