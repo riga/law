@@ -162,7 +162,7 @@ class LSFJobManager(BaseJobManager):
         multi = isinstance(job_id, (list, tuple))
 
         # query the condor queue
-        cmd = ["bjobs", "-noheader", "-w"]
+        cmd = ["bjobs", "-noheader"]
         if queue:
             cmd += ["-q", queue]
         cmd += make_list(job_id)
@@ -220,7 +220,7 @@ class LSFJobManager(BaseJobManager):
         return query_data, errors
 
     @classmethod
-    def parse_queue_output(cls, out):
+    def parse_query_output(cls, out):
         """
         Example output to parse:
         141914132 user_name DONE queue_name exec_host b63cee711a job_name Feb 8 14:54
@@ -229,7 +229,7 @@ class LSFJobManager(BaseJobManager):
 
         for line in out.strip().split("\n"):
             parts = line.split()
-            if len(parts) != 8:
+            if len(parts) < 6:
                 continue
 
             job_id = parts[0]

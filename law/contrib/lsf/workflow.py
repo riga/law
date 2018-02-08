@@ -18,7 +18,7 @@ import luigi
 from law import LocalDirectoryTarget, NO_STR
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments
-from law.contrib.glite.job import LSFJobManager, LSFJobFileFactory
+from law.contrib.lsf.job import LSFJobManager, LSFJobFileFactory
 from law.parser import global_cmdline_args
 from law.util import law_src_path
 
@@ -158,9 +158,8 @@ class LSFWorkflow(BaseRemoteWorkflow):
     def lsf_output_directory(self):
         return None
 
-    @abstractmethod
     def lsf_bootstrap_file(self):
-        pass
+        return None
 
     def lsf_stageout_file(self):
         return None
