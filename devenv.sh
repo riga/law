@@ -29,6 +29,6 @@ EOL
     fi
 
     # setup bash completion
-    source "$LAW_DEV_BASE/law/completion.sh"
+    source "$LAW_DEV_BASE/law/cli/completion.sh"
 }
 action
