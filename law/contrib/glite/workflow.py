@@ -79,11 +79,11 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
 
         # log file
         if task.transfer_logs:
-            log_file = "stdall.txt"
+            log_file = postfix("stdall.txt")
             config["stdout"] = log_file
             config["stderr"] = log_file
             config["output_files"].append(log_file)
-            config["render_data"]["*"]["log_file"] = postfix(log_file)
+            config["render_data"]["*"]["log_file"] = log_file
         else:
             config["stdout"] = None
             config["stderr"] = None
@@ -156,7 +156,8 @@ class GLiteWorkflow(BaseRemoteWorkflow):
 
     workflow_proxy_cls = GLiteWorkflowProxy
 
-    glite_ce = CSVParameter(default=[], significant=False, description="target computing elements")
+    glite_ce = CSVParameter(default=[], significant=False, description="target glite computing "
+        "element(s)")
 
     exclude_params_branch = {"glite_ce"}
 

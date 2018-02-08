@@ -106,14 +106,15 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         config["output_files"] = []
 
         # logging
-        # we do not use condor's logging mechanism but rely on the job.sh script
+        # we do not use condor's logging mechanism since it requires that the submission directory
+        # is present when it retrieves logs, and therefore we rely on the job.sh script
         config["log"] = None
         config["stdout"] = None
         config["stderr"] = None
         if task.transfer_logs:
-            log_file = "stdall.txt"
+            log_file = postfix("stdall.txt")
             config["output_files"].append(log_file)
-            config["render_data"]["*"]["log_file"] = postfix(log_file)
+            config["render_data"]["*"]["log_file"] = log_file
         else:
             config["render_data"]["*"]["log_file"] = ""
 

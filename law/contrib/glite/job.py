@@ -124,7 +124,7 @@ class GLiteJobManager(BaseJobManager):
     def cancel(self, job_id, silent=False):
         # build the command and run it
         cmd = ["glite-ce-job-cancel", "-N"] + make_list(job_id)
-        logger.debug("cancel glite job with command '{}'".format(cmd))
+        logger.debug("cancel glite job(s) with command '{}'".format(cmd))
         code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=sys.stderr)
 
         # check success
@@ -160,7 +160,7 @@ class GLiteJobManager(BaseJobManager):
     def cleanup(self, job_id, silent=False):
         # build the command and run it
         cmd = ["glite-ce-job-purge", "-N"] + make_list(job_id)
-        logger.debug("cleanup glite job with command '{}'".format(cmd))
+        logger.debug("cleanup glite job(s) with command '{}'".format(cmd))
         code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=sys.stderr)
 
         # check success
@@ -320,18 +320,21 @@ class GLiteJobManager(BaseJobManager):
 
 class GLiteJobFileFactory(BaseJobFileFactory):
 
-    config_attrs = ["file_name", "executable", "input_files", "output_files", "output_uri",
-        "stderr", "stdout", "vo", "custom_content", "absolute_paths"]
+    config_attrs = BaseJobFileFactory.config_attrs + [
+        "file_name", "executable", "input_files", "output_files", "postfix_output_files",
+        "output_uri", "stderr", "stdout", "vo", "custom_content", "absolute_paths"
+    ]
 
     def __init__(self, file_name="job.jdl", executable=None, input_files=None, output_files=None,
-            output_uri=None, stdout="stdout.txt", stderr="stderr.txt", vo=None, custom_content=None,
-            absolute_paths=False, tmp_dir=None):
-        super(GLiteJobFileFactory, self).__init__(tmp_dir=tmp_dir)
+            postfix_output_files=False, output_uri=None, stdout="stdout.txt", stderr="stderr.txt",
+            vo=None, custom_content=None, absolute_paths=False, dir=None):
+        super(GLiteJobFileFactory, self).__init__(dir=dir)
 
         self.file_name = file_name
         self.executable = executable
         self.input_files = input_files or []
         self.output_files = output_files or []
+        self.postfix_output_files = postfix_output_files
         self.output_uri = output_uri
         self.stdout = stdout
         self.stderr = stderr
@@ -350,19 +353,23 @@ class GLiteJobFileFactory(BaseJobFileFactory):
             raise ValueError("executable must not be empty")
 
         # prepare paths
-        job_file = self.postfix_file(os.path.join(self.tmp_dir, c.file_name), postfix)
+        job_file = self.postfix_file(os.path.join(c.dir, c.file_name), postfix)
         c.input_files = map(os.path.abspath, c.input_files)
         executable_is_file = c.executable in map(os.path.basename, c.input_files)
 
         # prepare input files
-        c.input_files = [self.provide_input(path, postfix, render_data) for path in c.input_files]
+        c.input_files = [
+            self.provide_input(path, postfix, c.dir, render_data)
+            for path in c.input_files
+        ]
         if executable_is_file:
             c.executable = self.postfix_file(os.path.basename(c.executable), postfix)
 
         # output files
-        c.stdout = c.stdout and self.postfix_file(c.stdout, postfix)
-        c.stderr = c.stderr and self.postfix_file(c.stderr, postfix)
-        c.output_files = [self.postfix_file(path, postfix) for path in c.output_files]
+        if c.postfix_output_files:
+            c.output_files = [self.postfix_file(path, postfix) for path in c.output_files]
+            c.stdout = c.stdout and self.postfix_file(c.stdout, postfix)
+            c.stderr = c.stderr and self.postfix_file(c.stderr, postfix)
 
         # ensure that log files are contained in the output sandbox
         if c.stdout and c.stdout not in c.output_files:

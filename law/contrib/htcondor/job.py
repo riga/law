@@ -57,7 +57,7 @@ class HTCondorJobManager(BaseJobManager):
             cmd += ["-pool", pool]
         if scheduler:
             cmd += ["-name", scheduler]
-        cmd += [os.path.basename(job_file_name)]
+        cmd += [job_file_name]
 
         # define the actual submission in a loop to simplify retries
         while True:
@@ -132,7 +132,7 @@ class HTCondorJobManager(BaseJobManager):
         cmd += make_list(job_id)
 
         # run it
-        logger.debug("cancel htcondor job with command '{}'".format(cmd))
+        logger.debug("cancel htcondor job(s) with command '{}'".format(cmd))
         code, out, err = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         # check success
@@ -142,8 +142,6 @@ class HTCondorJobManager(BaseJobManager):
     def cancel_batch(self, job_ids, pool=None, scheduler=None, silent=False, chunk_size=20,
             threads=None, callback=None):
         # default arguments
-        pool = pool or self.pool
-        scheduler = scheduler or self.scheduler
         threads = threads or self.threads
 
         def _callback(i):
@@ -181,7 +179,7 @@ class HTCondorJobManager(BaseJobManager):
         if scheduler:
             cmd += ["-name", scheduler]
         cmd += make_list(job_id)
-        logger.debug("query htcondor job with command '{}'".format(cmd))
+        logger.debug("query htcondor job(s) with command '{}'".format(cmd))
         code, out, err = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         # handle errors
@@ -330,15 +328,17 @@ class HTCondorJobManager(BaseJobManager):
 
 class HTCondorJobFileFactory(BaseJobFileFactory):
 
-    config_attrs = ["file_name", "universe", "executable", "arguments", "input_files",
-        "output_files", "stdout", "stderr", "log", "notification", "custom_content",
-        "absolute_paths"]
+    config_attrs = BaseJobFileFactory.config_attrs + [
+        "file_name", "universe", "executable", "arguments", "input_files", "output_files",
+        "postfix_output_files", "stdout", "stderr", "log", "notification", "custom_content",
+        "absolute_paths"
+    ]
 
     def __init__(self, file_name="job.jdl", universe="vanilla", executable=None, arguments=None,
-            input_files=None, output_files=None, stdout="stdout.txt", stderr="stderr.txt",
-            log="log.txt", notification="Never", custom_content=None, absolute_paths=False,
-            tmp_dir=None):
-        super(HTCondorJobFileFactory, self).__init__(tmp_dir=tmp_dir)
+            input_files=None, output_files=None, postfix_output_files=False, stdout="stdout.txt",
+            stderr="stderr.txt", log="log.txt", notification="Never", custom_content=None,
+            absolute_paths=False, dir=None):
+        super(HTCondorJobFileFactory, self).__init__(dir=dir)
 
         self.file_name = file_name
         self.universe = universe
@@ -346,6 +346,7 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
         self.arguments = arguments
         self.input_files = input_files or []
         self.output_files = output_files or []
+        self.postfix_output_files = postfix_output_files
         self.stdout = stdout
         self.stderr = stderr
         self.log = log
@@ -366,22 +367,26 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
             raise ValueError("executable must not be empty")
 
         # prepare paths
-        job_file = self.postfix_file(os.path.join(self.tmp_dir, c.file_name), postfix)
+        job_file = self.postfix_file(os.path.join(c.dir, c.file_name), postfix)
         c.input_files = map(os.path.abspath, c.input_files)
         executable_is_file = c.executable in map(os.path.basename, c.input_files)
 
         # prepare input files
-        c.input_files = [self.provide_input(path, postfix, render_data) for path in c.input_files]
+        c.input_files = [
+            self.provide_input(path, postfix, c.dir, render_data)
+            for path in c.input_files
+        ]
         if executable_is_file:
             c.executable = self.postfix_file(os.path.basename(c.executable), postfix)
         if not c.absolute_paths:
             c.input_files = map(os.path.basename, c.input_files)
 
         # output files
-        c.output_files = [self.postfix_file(path, postfix) for path in c.output_files]
-        c.stdout = c.stdout and self.postfix_file(c.stdout, postfix)
-        c.stderr = c.stdout and self.postfix_file(c.stderr, postfix)
-        c.log = c.log and self.postfix_file(c.log, postfix)
+        if c.postfix_output_files:
+            c.output_files = [self.postfix_file(path, postfix) for path in c.output_files]
+            c.stdout = c.stdout and self.postfix_file(c.stdout, postfix)
+            c.stderr = c.stdout and self.postfix_file(c.stderr, postfix)
+            c.log = c.log and self.postfix_file(c.log, postfix)
 
         # job file content
         content = []
