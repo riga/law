@@ -45,6 +45,9 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
         postfix = lambda path: self.job_file_factory.postfix_file(path, _postfix)
         config["postfix"] = {"*": _postfix}
 
+        # meta info
+        config["job_name"] = task.task_id
+
         # input files
         config["input_files"] = [law_src_path("job", "job.sh")]
 

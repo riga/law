@@ -176,7 +176,7 @@ class GLiteWorkflow(BaseRemoteWorkflow):
 
     @abstractmethod
     def glite_bootstrap_file(self):
-        pass
+        return None
 
     def glite_stageout_file(self):
         return None
