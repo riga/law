@@ -17,6 +17,11 @@ from law.util import colored
 
 class Target(luigi.target.Target):
 
+    def __init__(self, *args, **kwargs):
+        self.optional = kwargs.pop("optional", False)
+
+        luigi.target.Target.__init__(self, *args, **kwargs)
+
     def __repr__(self):
         return "<{} at {}>".format(self.__class__.__name__, hex(id(self)))
 

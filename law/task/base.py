@@ -11,6 +11,7 @@ __all__ = ["Task", "WrapperTask"]
 import sys
 import socket
 import logging
+import warnings
 from collections import OrderedDict
 from contextlib import contextmanager
 from abc import abstractmethod
@@ -108,6 +109,16 @@ class BaseTask(luigi.Task):
                     del params[name]
 
         return params
+
+    def complete(self):
+        outputs = [t for t in flatten(self.output()) if not t.optional]
+
+        if len(outputs) == 0:
+            msg = "task {!r} has either no non-optional outputs or no custom complete() method"
+            warnings.warn(msg.format(self), stacklevel=2)
+            return False
+
+        return all(t.exists() for t in outputs)
 
     def walk_deps(self, max_depth=-1, order="level"):
         # see https://en.wikipedia.org/wiki/Tree_traversal
