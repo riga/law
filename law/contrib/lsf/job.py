@@ -339,9 +339,11 @@ class LSFJobFileFactory(BaseJobFileFactory):
 
         if not c.copy_files:
             for input_file in c.input_files:
-                content.append(("-f", "{} > {}".format(input_file, os.path.basename(input_file))))
+                content.append(("-f", "\"{} > {}\"".format(
+                    input_file, os.path.basename(input_file))))
             for output_file in c.output_files:
-                content.append(("-f", "{} < {}".format(output_file, os.path.basename(output_file))))
+                content.append(("-f", "\"{} < {}\"".format(
+                    output_file, os.path.basename(output_file))))
         else:
             tmpl = "cp " + ("{}" if c.absolute_paths else "$LS_EXECCWD/{}") + " $( pwd )/{}"
             for input_file in c.input_files:

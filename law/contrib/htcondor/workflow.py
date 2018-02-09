@@ -42,10 +42,10 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         self.show_errors = 5
 
     def create_job_manager(self):
-        return HTCondorJobManager()
+        return self.task.htcondor_create_job_manager()
 
     def create_job_file_factory(self):
-        return HTCondorJobFileFactory()
+        return self.task.htcondor_create_job_file_factory()
 
     def create_job_file(self, job_num, branches):
         task = self.task
@@ -80,11 +80,11 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         )
         config["arguments"] = "bash {} {}".format(postfix("job.sh"), job_args.join())
 
+        # prepare render data
+        config["render_data"] = defaultdict(dict)
+
         # input files
         config["input_files"] = [law_src_path("job", "job.sh")]
-
-        # render variables
-        config["render_data"] = defaultdict(dict)
 
         # add the bootstrap file
         bootstrap_file = task.htcondor_bootstrap_file()
@@ -102,6 +102,18 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         else:
             config["render_data"]["*"]["stageout_file"] = ""
 
+        # does the dashboard have a hook file?
+        dashboard_file = self.dashboard.remote_hook_file()
+        if dashboard_file:
+            config["input_files"].append(dashboard_file)
+            config["render_data"]["*"]["dashboard_file"] = postfix(os.path.basename(dashboard_file))
+        else:
+            config["render_data"]["*"]["dashboard_file"] = ""
+
+        # determine postfixed basenames of input files and add that list to the render data
+        input_basenames = [postfix(os.path.basename(path)) for path in config["input_files"]]
+        config["render_data"]["*"]["input_files"] = " ".join(input_basenames)
+
         # output files
         config["output_files"] = []
 
@@ -117,16 +129,6 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
             config["render_data"]["*"]["log_file"] = log_file
         else:
             config["render_data"]["*"]["log_file"] = ""
-
-        # does the dashboard have a hook file?
-        dashboard_file = self.dashboard.remote_hook_file()
-        if dashboard_file:
-            config["input_files"].append(dashboard_file)
-            config["render_data"]["*"]["dashboard_file"] = postfix(os.path.basename(dashboard_file))
-
-        # determine postfixed basenames of input files and add that list to the render data
-        input_basenames = [postfix(os.path.basename(path)) for path in config["input_files"]]
-        config["render_data"]["*"]["input_files"] = " ".join(input_basenames)
 
         # we can use condor's file stageout only when the output directory is local
         # otherwise, one should use the stageout_file and stageout manually
@@ -193,6 +195,12 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
     def htcondor_output_postfix(self):
         # TODO: use start/end branch by default?
         return ""
+
+    def htcondor_create_job_manager(self):
+        return HTCondorJobManager()
+
+    def htcondor_create_job_file_factory(self):
+        return HTCondorJobFileFactory()
 
     def htcondor_job_config(self, config, job_num, branches):
         return config

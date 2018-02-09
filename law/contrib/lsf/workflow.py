@@ -31,10 +31,10 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
     workflow_type = "lsf"
 
     def create_job_manager(self):
-        return LSFJobManager()
+        return self.task.lsf_create_job_manager()
 
     def create_job_file_factory(self):
-        return LSFJobFileFactory()
+        return self.task.lsf_create_job_file_factory()
 
     def create_job_file(self, job_num, branches):
         task = self.task
@@ -44,46 +44,6 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
         _postfix = "_{}To{}".format(branches[0], branches[-1] + 1)
         postfix = lambda path: self.job_file_factory.postfix_file(path, _postfix)
         config["postfix"] = {"*": _postfix}
-
-        # meta info
-        config["job_name"] = task.task_id
-
-        # input files
-        config["input_files"] = [law_src_path("job", "job.sh")]
-
-        # render variables
-        config["render_data"] = defaultdict(dict)
-
-        # add the bootstrap file
-        bootstrap_file = task.lsf_bootstrap_file()
-        if bootstrap_file:
-            config["input_files"].append(bootstrap_file)
-            config["render_data"]["*"]["bootstrap_file"] = postfix(os.path.basename(bootstrap_file))
-        else:
-            config["render_data"]["*"]["bootstrap_file"] = ""
-
-        # add the stageout file
-        stageout_file = task.lsf_stageout_file()
-        if stageout_file:
-            config["input_files"].append(stageout_file)
-            config["render_data"]["*"]["stageout_file"] = postfix(os.path.basename(stageout_file))
-        else:
-            config["render_data"]["*"]["stageout_file"] = ""
-
-        # output files
-        config["output_files"] = []
-
-        # logging
-        # we do not use lsf's logging mechanism since it requires that the submission directory
-        # is present when it retrieves logs, and therefore we rely on the job.sh script
-        config["stdout"] = None
-        config["stderr"] = None
-        if task.transfer_logs:
-            log_file = postfix("stdall.txt")
-            config["output_files"].append(log_file)
-            config["render_data"]["*"]["log_file"] = log_file
-        else:
-            config["render_data"]["*"]["log_file"] = ""
 
         # collect task parameters
         task_params = task.as_branch(branches[0]).cli_args(exclude={"branch"})
@@ -106,15 +66,58 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
         )
         config["command"] = "bash {} {}".format(postfix("job.sh"), job_args.join())
 
+        # meta infos
+        config["job_name"] = task.task_id
+        config["emails"] = True
+
+        # prepare render data
+        config["render_data"] = defaultdict(dict)
+
+        # input files
+        config["input_files"] = [law_src_path("job", "job.sh")]
+
+        # add the bootstrap file
+        bootstrap_file = task.lsf_bootstrap_file()
+        if bootstrap_file:
+            config["input_files"].append(bootstrap_file)
+            config["render_data"]["*"]["bootstrap_file"] = postfix(os.path.basename(bootstrap_file))
+        else:
+            config["render_data"]["*"]["bootstrap_file"] = ""
+
+        # add the stageout file
+        stageout_file = task.lsf_stageout_file()
+        if stageout_file:
+            config["input_files"].append(stageout_file)
+            config["render_data"]["*"]["stageout_file"] = postfix(os.path.basename(stageout_file))
+        else:
+            config["render_data"]["*"]["stageout_file"] = ""
+
         # does the dashboard have a hook file?
         dashboard_file = self.dashboard.remote_hook_file()
         if dashboard_file:
             config["input_files"].append(dashboard_file)
             config["render_data"]["*"]["dashboard_file"] = postfix(os.path.basename(dashboard_file))
+        else:
+            config["render_data"]["*"]["dashboard_file"] = ""
 
         # determine postfixed basenames of input files and add that list to the render data
         input_basenames = [postfix(os.path.basename(path)) for path in config["input_files"]]
         config["render_data"]["*"]["input_files"] = " ".join(input_basenames)
+
+        # output files
+        config["output_files"] = []
+
+        # logging
+        # we do not use lsf's logging mechanism since it requires that the submission directory
+        # is present when it retrieves logs, and therefore we rely on the job.sh script
+        config["stdout"] = None
+        config["stderr"] = None
+        if task.transfer_logs:
+            log_file = postfix("stdall.txt")
+            config["output_files"].append(log_file)
+            config["render_data"]["*"]["log_file"] = log_file
+        else:
+            config["render_data"]["*"]["log_file"] = ""
 
         # we can use lsf's file stageout only when the output directory is local
         # otherwise, one should use the stageout_file and stageout manually
@@ -173,6 +176,12 @@ class LSFWorkflow(BaseRemoteWorkflow):
     def lsf_output_postfix(self):
         # TODO (riga): use start/end branch by default?
         return ""
+
+    def lsf_create_job_manager(self):
+        return LSFJobManager()
+
+    def lsf_create_job_file_factory(self):
+        return LSFJobFileFactory()
 
     def lsf_job_config(self, config, job_num, branches):
         return config

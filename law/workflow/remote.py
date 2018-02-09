@@ -210,7 +210,7 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
             finally:
                 # finally, cleanup the job file
                 if self.job_file_factory:
-                    self.job_file_factory.cleanup()
+                    self.job_file_factory.cleanup(force=False)
 
     def cancel(self):
         task = self.task

@@ -72,6 +72,7 @@ setup(
         "law.contrib.git",
         "law.contrib.glite",
         "law.contrib.htcondor",
+        "law.contrib.lsf",
         "law.contrib.wlcg",
         "law.contrib.cms",
         "law.examples",

@@ -22,6 +22,7 @@ from abc import ABCMeta, abstractmethod
 import six
 
 from law.util import colored
+from law.config import Config
 
 
 @six.add_metaclass(ABCMeta)
@@ -105,7 +106,7 @@ class BaseJobManager(object):
         if isinstance(align, bool) or not isinstance(align, six.integer_types):
             align = 4 if align else 0
         count_fmt = "%d" if not align else "%%%sd" % align
-        diff_fmt = "%+d" if not align else "%%+%sd" % align
+        diff_fmt = "%+d" if not align else "%%+%sd" % (align - 1)
 
         # build the status line
         line = ""
@@ -145,11 +146,12 @@ class BaseJobFileFactory(object):
     def __init__(self, dir=None):
         super(BaseJobFileFactory, self).__init__()
 
-        self._is_tmp = dir is None
-        self.dir = dir if not self._is_tmp else tempfile.mkdtemp()
+        self.is_tmp = dir is None
+        self.dir = dir if not self.is_tmp else tempfile.mkdtemp(
+            dir=Config.instance().get_expanded("job", "job_file_dir"))
 
     def __del__(self):
-        self.cleanup()
+        self.cleanup(force=False)
 
     def __call__(self, *args, **kwargs):
         return self.create(*args, **kwargs)
@@ -158,7 +160,7 @@ class BaseJobFileFactory(object):
         return self
 
     def __exit__(self, type, value, traceback):
-        self.cleanup()
+        return
 
     @classmethod
     def postfix_file(cls, path, postfix):
@@ -194,8 +196,10 @@ class BaseJobFileFactory(object):
     def render_line(cls, line, key, value):
         return line.replace("{{" + key + "}}", value)
 
-    def cleanup(self):
-        if self._is_tmp and isinstance(self.dir, six.string_types) and os.path.exists(self.dir):
+    def cleanup(self, force=True):
+        if not self.is_tmp and not force:
+            return
+        if isinstance(self.dir, six.string_types) and os.path.exists(self.dir):
             shutil.rmtree(self.dir)
 
     def provide_input(self, src, postfix, dir=None, render_data=None):

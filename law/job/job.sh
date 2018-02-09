@@ -130,6 +130,7 @@ action() {
     echo "home  : '$HOME'"
     echo "tmp   : '$( python -c "from tempfile import gettempdir; print(gettempdir())" )'"
     echo "pwd   : '$( pwd )'"
+    echo "python: '$( 2>&1 python --version )' ($( which python ))"
     echo
     echo "task module   : $task_module"
     echo "task family   : $task_family"

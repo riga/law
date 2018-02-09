@@ -193,8 +193,7 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
                 raise Exception("either path or is_tmp must be set")
 
             # get the tmp dir from the config and ensure it exists
-            tmp_dir = Config.instance().get("target", "tmp_dir")
-            tmp_dir = os.path.realpath(os.path.expandvars(os.path.expanduser(tmp_dir)))
+            tmp_dir = os.path.realpath(Config.instance().get_expanded("target", "tmp_dir"))
             if not self.fs.exists(tmp_dir):
                 perm = Config.instance().get("target", "tmp_dir_permission")
                 self.fs.mkdir(tmp_dir, perm=perm and int(perm))

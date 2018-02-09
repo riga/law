@@ -42,6 +42,9 @@ class Config(ConfigParser):
             "default_dropbox": "dropbox",
             "default_dcache": "dcache",
         },
+        "job": {
+            "job_file_dir": tempfile.gettempdir(),
+        },
         "modules": {},
         "bash_env": {},
         "docker": {
@@ -115,6 +118,12 @@ class Config(ConfigParser):
             return self.get(section, option)
         else:
             return default
+
+    def get_expanded(self, section, option, default=None):
+        value = self.get_default(section, option, default=default)
+        if isinstance(value, six.string_types):
+            value = os.path.expandvars(os.path.expanduser(value))
+        return value
 
     def update(self, data, overwrite=None, overwrite_sections=True, overwrite_options=True):
         if overwrite is not None:

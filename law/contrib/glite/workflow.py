@@ -37,10 +37,10 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
         self.delegation_ids = None
 
     def create_job_manager(self):
-        return GLiteJobManager()
+        return self.task.glite_create_job_manager()
 
     def create_job_file_factory(self):
-        return GLiteJobFileFactory()
+        return self.task.glite_create_job_file_factory()
 
     def create_job_file(self, job_num, branches):
         task = self.task
@@ -53,44 +53,6 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
 
         # executable
         config["executable"] = "wrapper.sh"
-
-        # input files
-        config["input_files"] = [rel_path(__file__, "wrapper.sh"), law_src_path("job", "job.sh")]
-
-        # render variables
-        config["render_data"] = defaultdict(dict)
-        config["render_data"]["*"]["job_file"] = postfix("job.sh")
-
-        # add the bootstrap file
-        bootstrap_file = task.glite_bootstrap_file()
-        config["input_files"].append(bootstrap_file)
-        config["render_data"]["*"]["bootstrap_file"] = postfix(os.path.basename(bootstrap_file))
-
-        # add the stageout file
-        stageout_file = task.glite_stageout_file()
-        if stageout_file:
-            config["input_files"].append(stageout_file)
-            config["render_data"]["*"]["stageout_file"] = postfix(os.path.basename(stageout_file))
-        else:
-            config["render_data"]["*"]["stageout_file"] = ""
-
-        # output files
-        config["output_files"] = []
-
-        # log file
-        if task.transfer_logs:
-            log_file = postfix("stdall.txt")
-            config["stdout"] = log_file
-            config["stderr"] = log_file
-            config["output_files"].append(log_file)
-            config["render_data"]["*"]["log_file"] = log_file
-        else:
-            config["stdout"] = None
-            config["stderr"] = None
-            config["render_data"]["*"]["log_file"] = ""
-
-        # output uri
-        config["output_uri"] = task.glite_output_uri()
 
         # collect task parameters
         task_params = task.as_branch(branches[0]).cli_args(exclude={"branch"})
@@ -113,15 +75,55 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
         )
         config["render_data"]["wrapper.sh"]["job_args"] = job_args.join()
 
+        # meta infos
+        config["output_uri"] = task.glite_output_uri()
+
+        # prepare render data
+        config["render_data"] = defaultdict(dict)
+
+        # input files
+        config["input_files"] = [rel_path(__file__, "wrapper.sh"), law_src_path("job", "job.sh")]
+        config["render_data"]["*"]["job_file"] = postfix("job.sh")
+
+        # add the bootstrap file
+        bootstrap_file = task.glite_bootstrap_file()
+        config["input_files"].append(bootstrap_file)
+        config["render_data"]["*"]["bootstrap_file"] = postfix(os.path.basename(bootstrap_file))
+
+        # add the stageout file
+        stageout_file = task.glite_stageout_file()
+        if stageout_file:
+            config["input_files"].append(stageout_file)
+            config["render_data"]["*"]["stageout_file"] = postfix(os.path.basename(stageout_file))
+        else:
+            config["render_data"]["*"]["stageout_file"] = ""
+
         # does the dashboard have a hook file?
         dashboard_file = self.dashboard.remote_hook_file()
         if dashboard_file:
             config["input_files"].append(dashboard_file)
             config["render_data"]["*"]["dashboard_file"] = postfix(os.path.basename(dashboard_file))
+        else:
+            config["render_data"]["*"]["dashboard_file"] = ""
 
         # determine postfixed basenames of input files and add that list to the render data
         input_basenames = [postfix(os.path.basename(path)) for path in config["input_files"]]
         config["render_data"]["*"]["input_files"] = " ".join(input_basenames)
+
+        # output files
+        config["output_files"] = []
+
+        # log file
+        if task.transfer_logs:
+            log_file = postfix("stdall.txt")
+            config["stdout"] = log_file
+            config["stderr"] = log_file
+            config["output_files"].append(log_file)
+            config["render_data"]["*"]["log_file"] = log_file
+        else:
+            config["stdout"] = None
+            config["stderr"] = None
+            config["render_data"]["*"]["log_file"] = ""
 
         # task hook
         config = task.glite_job_config(config, job_num, branches)
@@ -194,6 +196,12 @@ class GLiteWorkflow(BaseRemoteWorkflow):
     def glite_delegate_proxy(self, endpoint):
         return delegate_voms_proxy_glite(endpoint, stdout=sys.stdout, stderr=sys.stderr,
             cache=True)
+
+    def glite_create_job_manager(self):
+        return GLiteJobManager()
+
+    def glite_create_job_file_factory(self):
+        return GLiteJobFileFactory()
 
     def glite_job_config(self, config, job_num, branches):
         return config
