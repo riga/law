@@ -186,7 +186,7 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
 
     fs = LocalFileSystem.default_instance
 
-    def __init__(self, path=None, is_tmp=False):
+    def __init__(self, path=None, is_tmp=False, **kwargs):
         # handle tmp paths manually since luigi uses the env tmp dir
         if not path:
             if not is_tmp:
@@ -214,7 +214,7 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
             path = self.fs.abspath(os.path.expandvars(os.path.expanduser(remove_scheme(path))))
 
         luigi.LocalTarget.__init__(self, path=path, is_tmp=is_tmp)
-        FileSystemTarget.__init__(self, self.path)
+        FileSystemTarget.__init__(self, self.path, **kwargs)
 
 
 class LocalFileTarget(LocalTarget, FileSystemFileTarget):
@@ -276,8 +276,8 @@ class LocalFileTarget(LocalTarget, FileSystemFileTarget):
                     if tmp.exists():
                         tmp.move_to(self, dir_perm=parent_perm)
                     else:
-                        logger.warning("cannot move non-existing localized file target {}".format(
-                            self.colored_repr()))
+                        logger.warning("cannot move non-existing localized file target {!r}".format(
+                            self))
                 finally:
                     tmp.remove()
             else:

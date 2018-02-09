@@ -72,7 +72,7 @@ class DropboxFileSystem(RemoteFileSystem):
         }
 
         base_url = "dropbox://dropbox.com/" + base.strip("/")
-        super(DropboxFileSystem, self).__init__(base_url, gfal_options=gfal_options, **kwargs)
+        RemoteFileSystem.__init__(self, base_url, gfal_options=gfal_options, **kwargs)
 
 
 # try to set the default fs instance
@@ -86,10 +86,10 @@ except:
 
 class DropboxTarget(RemoteTarget):
 
-    def __init__(self, path, fs=DropboxFileSystem.default_instance):
-        """ __init__(path, fs=DropboxFileSystem.default_instance)
+    def __init__(self, path, fs=DropboxFileSystem.default_instance, **kwargs):
+        """ __init__(path, fs=DropboxFileSystem.default_instance, **kwargs)
         """
-        RemoteTarget.__init__(self, path, fs)
+        RemoteTarget.__init__(self, path, fs, **kwargs)
 
 
 class DropboxFileTarget(DropboxTarget, RemoteFileTarget):

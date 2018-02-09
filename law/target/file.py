@@ -19,7 +19,7 @@ import luigi
 import luigi.task
 
 from law.target.base import Target
-from law.util import colored, create_hash
+from law.util import create_hash
 
 
 class FileSystem(luigi.target.FileSystem):
@@ -119,17 +119,12 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
     file_class = None
     directory_class = None
 
-    def __init__(self, path):
-        Target.__init__(self)
+    def __init__(self, path, **kwargs):
+        Target.__init__(self, **kwargs)
         luigi.target.FileSystemTarget.__init__(self, path)
 
-    def __repr__(self):
-        return "{}(path={})".format(self.__class__.__name__, self.path)
-
-    def colored_repr(self):
-        return "{}({}={})".format(
-            colored(self.__class__.__name__, "cyan"),
-            colored("path", "blue", style="bright"), self.path)
+    def _repr_pairs(self):
+        return Target._repr_pairs(self) + [("path", self.path)]
 
     @property
     def init_args(self):

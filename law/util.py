@@ -96,6 +96,7 @@ colors = {
     "pink": 35,
     "cyan": 36,
     "white": 37,
+    "grey": 90,
 }
 
 backgrounds = {

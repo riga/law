@@ -60,7 +60,7 @@ class DCacheFileSystem(RemoteFileSystem):
             raise Exception("invalid arguments, set either config, base or the "
                 "target.default_dcache option in your law config")
 
-        super(DCacheFileSystem, self).__init__(base, bases, **kwargs)
+        RemoteFileSystem.__init__(self, base, bases, **kwargs)
 
 
 # try to set the default fs instance
@@ -74,10 +74,10 @@ except:
 
 class DCacheTarget(RemoteTarget):
 
-    def __init__(self, path, fs=DCacheFileSystem.default_instance):
-        """ __init__(path, fs=DCacheFileSystem.default_instance)
+    def __init__(self, path, fs=DCacheFileSystem.default_instance, **kwargs):
+        """ __init__(path, fs=DCacheFileSystem.default_instance, **kwargs)
         """
-        RemoteTarget.__init__(self, path, fs)
+        RemoteTarget.__init__(self, path, fs, **kwargs)
 
 
 class DCacheFileTarget(DCacheTarget, RemoteFileTarget):

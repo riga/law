@@ -19,13 +19,13 @@ from law.util import colored, flatten, create_hash
 
 class TargetCollection(Target):
 
-    def __init__(self, targets, threshold=1.0):
+    def __init__(self, targets, threshold=1.0, **kwargs):
         if isinstance(targets, types.GeneratorType):
             targets = list(targets)
         elif not isinstance(targets, (list, tuple, dict)):
             raise TypeError("invalid targets, must be of type: list, tuple, dict")
 
-        super(TargetCollection, self).__init__()
+        Target.__init__(self, **kwargs)
 
         # store targets and threshold
         self.targets = targets
@@ -41,17 +41,6 @@ class TargetCollection(Target):
         # also store an entirely flat list of targets for simplified iterations
         self._flat_target_list = flatten(targets)
 
-    def __repr__(self):
-        return "{}(len={}, threshold={})".format(self.__class__.__name__, len(self), self.threshold)
-
-    def colored_repr(self):
-        return "{}({}={}, {}={})".format(
-            colored(self.__class__.__name__, "cyan"),
-            colored("len", color="blue", style="bright"),
-            len(self),
-            colored("threshold", color="blue", style="bright"),
-            self.threshold)
-
     def __len__(self):
         return len(self.targets)
 
@@ -60,6 +49,9 @@ class TargetCollection(Target):
 
     def __iter__(self):
         raise TypeError("'{}' object is not iterable".format(self.__class__.__name__))
+
+    def _repr_pairs(self):
+        return Target._repr_pairs(self) + [("len", len(self)), ("threshold", self.threshold)]
 
     @property
     def _iter_flat(self):
@@ -123,7 +115,7 @@ class TargetCollection(Target):
             _color = "green"
         else:
             text = "absent"
-            _color = "red"
+            _color = "red" if not self.optional else "grey"
 
         text = colored(text, _color, style="bright") if color else text
         text += " ({}/{})".format(count, len(self))
@@ -140,7 +132,8 @@ class TargetCollection(Target):
                 if isinstance(item, TargetCollection):
                     text += "\n  ".join(item.status_text(max_depth - 1, color=color).split("\n"))
                 elif isinstance(item, Target):
-                    text += "{} ({})".format(item.status_text(color=color), item.colored_repr())
+                    text += "{} ({})".format(item.status_text(color=color),
+                        item.colored_repr(color=color))
                 else:
                     text += "\n   ".join(
                         self.__class__(item).status_text(max_depth - 1, color=color).split("\n"))
@@ -151,7 +144,7 @@ class TargetCollection(Target):
 class SiblingFileCollection(TargetCollection):
 
     def __init__(self, *args, **kwargs):
-        super(SiblingFileCollection, self).__init__(*args, **kwargs)
+        TargetCollection.__init__(self, *args, **kwargs)
 
         # check if all targets are file system targets or nested SiblingFileCollection's
         # (it's the user's responsibility to pass targets that are really in the same directory)
@@ -167,13 +160,8 @@ class SiblingFileCollection(TargetCollection):
         else:  # SiblingFileCollection
             self.dir = first_target.dir
 
-    def __repr__(self):
-        dir_repr = "dir={}".format(self.dir.path)
-        return "{}, {})".format(super(SiblingFileCollection, self).__repr__()[:-1], dir_repr)
-
-    def colored_repr(self):
-        dir_repr = "{}={}".format(colored("dir", color="blue", style="bright"), self.dir.path)
-        return "{}, {})".format(super(SiblingFileCollection, self).colored_repr()[:-1], dir_repr)
+    def _repr_pairs(self):
+        return TargetCollection._repr_pairs(self) + [("dir", self.dir.path)]
 
     def exists(self, basenames=None):
         threshold = self._threshold()

@@ -27,7 +27,7 @@ class FormatterRegister(type):
     formatters = OrderedDict()
 
     def __new__(metacls, classname, bases, classdict):
-        cls = super(FormatterRegister, metacls).__new__(metacls, classname, bases, classdict)
+        cls = type.__new__(metacls, classname, bases, classdict)
 
         if cls.name in metacls.formatters:
             raise ValueError("duplicate formatter name '{}' for class {}".format(cls.name, cls))

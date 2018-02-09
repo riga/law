@@ -103,7 +103,7 @@ class GFALInterface(object):
 
     def __init__(self, base, bases=None, gfal_options=None, transfer_config=None,
             atomic_contexts=False, retries=0, retry_delay=0):
-        super(GFALInterface, self).__init__()
+        object.__init__(self)
 
         # cache for gfal context objects and transfer parameters per pid for thread safety
         self._contexts = {}
@@ -241,7 +241,7 @@ class RemoteCache(object):
     _instances = []
 
     def __new__(cls, *args, **kwargs):
-        inst = super(RemoteCache, cls).__new__(cls, *args, **kwargs)
+        inst = object.__new__(cls, *args, **kwargs)
 
         cls._instances.append(inst)
 
@@ -257,7 +257,7 @@ class RemoteCache(object):
 
     def __init__(self, fs, root=TMP, auto_flush=False, max_size=-1, dir_perm=0o0770,
             file_perm=0o0660, wait_delay=5, max_waits=120):
-        super(RemoteCache, self).__init__()
+        object.__init__(self)
 
         # create a unique name based on fs attributes
         name = "{}_{}".format(fs.__class__.__name__, create_hash(fs.gfal.base[0]))
@@ -530,7 +530,7 @@ class RemoteFileSystem(FileSystem):
     def __init__(self, base, bases=None, gfal_options=None, transfer_config=None,
             atomic_contexts=False, retries=0, retry_delay=0, permissions=True, validate_copy=False,
             cache_config=None):
-        super(RemoteFileSystem, self).__init__()
+        FileSystem.__init__(self)
 
         # configure the gfal interface
         self.gfal = GFALInterface(base, bases, gfal_options=gfal_options,
@@ -567,10 +567,10 @@ class RemoteFileSystem(FileSystem):
         return ("/" + path.strip("/")) if not get_scheme(path) else path
 
     def dirname(self, path):
-        return super(RemoteFileSystem, self).dirname(self.abspath(path))
+        return FileSystem.dirname(self, self.abspath(path))
 
     def basename(self, path):
-        return super(RemoteFileSystem, self).basename(self.abspath(path))
+        return FileSystem.basename(self, self.abspath(path))
 
     def exists(self, path, stat=False):
         return self.gfal.exists(self.abspath(path), stat=stat)
@@ -909,14 +909,14 @@ class RemoteTarget(FileSystemTarget):
 
     fs = None
 
-    def __init__(self, path, fs):
+    def __init__(self, path, fs, **kwargs):
         if not isinstance(fs, RemoteFileSystem):
             raise TypeError("fs must be a {} instance, is {}".format(RemoteFileSystem, fs))
 
         self.fs = fs
         self._path = None
 
-        FileSystemTarget.__init__(self, path)
+        FileSystemTarget.__init__(self, path, **kwargs)
 
     @property
     def init_args(self):
@@ -942,20 +942,20 @@ class RemoteFileTarget(RemoteTarget, FileSystemFileTarget):
     def copy_to_local(self, dst=None, dir_perm=None, **kwargs):
         if dst:
             dst = add_scheme(_local_fs.abspath(get_path(dst)), "file")
-        return super(RemoteFileTarget, self).copy_to(dst, dir_perm=dir_perm, **kwargs)
+        return FileSystemFileTarget.copy_to(self, dst, dir_perm=dir_perm, **kwargs)
 
     def copy_from_local(self, src=None, dir_perm=None, **kwargs):
         src = add_scheme(_local_fs.abspath(get_path(src)), "file")
-        return super(RemoteFileTarget, self).copy_from(src, dir_perm=dir_perm, **kwargs)
+        return FileSystemFileTarget.copy_from(self, src, dir_perm=dir_perm, **kwargs)
 
     def move_to_local(self, dst=None, dir_perm=None, **kwargs):
         if dst:
             dst = add_scheme(_local_fs.abspath(get_path(dst)), "file")
-        return super(RemoteFileTarget, self).move_to(dst, dir_perm=dir_perm, **kwargs)
+        return FileSystemFileTarget.move_to(self, dst, dir_perm=dir_perm, **kwargs)
 
     def move_from_local(self, src=None, dir_perm=None, **kwargs):
         src = add_scheme(_local_fs.abspath(get_path(src)), "file")
-        return super(RemoteFileTarget, self).move_from(src, dir_perm=dir_perm, **kwargs)
+        return FileSystemFileTarget.move_from(self, src, dir_perm=dir_perm, **kwargs)
 
     @contextmanager
     def localize(self, mode="r", perm=None, parent_perm=None, **kwargs):
@@ -976,8 +976,8 @@ class RemoteFileTarget(RemoteTarget, FileSystemFileTarget):
                     self.copy_from_local(tmp, dir_perm=parent_perm, **kwargs)
                     self.chmod(perm)
                 else:
-                    logger.warning("cannot move non-existing localized file target {}".format(
-                        self.colored_repr()))
+                    logger.warning("cannot move non-existing localized file target {!r}".format(
+                        self))
             finally:
                 del tmp
 
