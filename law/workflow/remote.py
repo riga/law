@@ -129,11 +129,13 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
         # a file containing the submission data, i.e. job ids etc
         submission_file = "submission{}.json".format(postfix)
         outputs["submission"] = out_dir.child(submission_file, type="f")
+        outputs["submission"].optional = True
 
         # a file containing status data when the jobs are done
         if not task.no_poll:
             status_file = "status{}.json".format(postfix)
             outputs["status"] = out_dir.child(status_file, type="f")
+            outputs["status"].optional = True
 
         # update with upstream output when npt just controlling running jobs
         if not self._control_jobs:
@@ -165,7 +167,7 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
 
         # when the branch outputs, i.e. the "collection" exists, just create dummy control outputs
         if "collection" in self._outputs and self._outputs["collection"].exists():
-            self.touch_control_self._outputs()
+            self.touch_control_outputs()
 
         # cancel jobs?
         elif self._cancel_jobs:
