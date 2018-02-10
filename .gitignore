@@ -10,4 +10,5 @@ dist
 build
 docs/_build
 data
+.law
 MANIFEST

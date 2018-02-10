@@ -47,7 +47,7 @@ class LSFWorkflow(law.contrib.lsf.LSFWorkflow):
         return law.LocalDirectoryTarget(self.local_path())
 
     def lsf_create_job_file_factory(self):
-        # tell the factory that responsible for creating our job files,
+        # tell the factory, that is responsible for creating our job files,
         # that the files are not temporary, i.e., it should not delete them after submission 
         factory = super(LSFWorkflow, self).lsf_create_job_file_factory()
         factory.is_tmp = False
@@ -67,10 +67,10 @@ class LSFWorkflow(law.contrib.lsf.LSFWorkflow):
 
 class CreateChars(Task, LSFWorkflow, law.LocalWorkflow):
     """
-    Simple task that has a trivial payload: converting integers to ascii characters. The task is
-    designed to be a workflow with 26 branches. Each branches creates one character (a-z) and saves
-    it in a json output file. While branches are numbered continuously from 0 to n-1, the actual
-    data it processes are defined in the *branch_map*. A task can access this data via
+    Simple task that has a trivial payload: converting integers into ascii characters. The task is
+    designed to be a workflow with 26 branches. Each branch creates one character (a-z) and saves
+    it to a json output file. While branches are numbered continuously from 0 to n-1, the actual
+    data it processes is defined in the *branch_map*. A task can access this data via
     ``self.branch_map[self.branch]``, or via ``self.branch_data`` by convenience.
 
     By default, CreateChars is a LSFWorkflow (first workflow class in the inheritance order, MRO).
@@ -99,8 +99,8 @@ class CreateChars(Task, LSFWorkflow, law.LocalWorkflow):
         output = self.output()
         output.parent.touch()
 
-        # use target formatters (implementing dump and load, based in the file extension)
-        # to encode and write the output target
+        # use target formatters (implementing dump and load, based on the file extension)
+        # to write the output target
         output.dump({"num": num, "char": char})
 
 
@@ -113,24 +113,24 @@ class CreateAlphabet(Task):
     def requires(self):
         # req() is defined on all tasks and handles the passing of all parameter values that are
         # common between the required task and the instance (self)
-        # note that the workflow is required (default branch -1), not the particular branch tasks
-        # (branches [0, 26))
+        # note that the workflow is required (branch -1, the default), not the particular branch
+        # tasks (branches [0, 26))
         return CreateChars.req(self)
 
     def output(self):
-        # output a plain text filee
+        # output a plain text file
         return self.local_target("alphabet.txt")
 
     def run(self):
         # since we require the workflow and not the branch tasks (see above), self.input() points
         # to the output of the workflow, which contains the output of its branches in a target
         # collection, stored - of course - in "collection"
-        inputs = self.input()["collection"]
+        inputs = self.input()["collection"].targets
 
         # loop over all targets in the collection, load the json data, and append the character
         # to the alphabet
         alphabet = ""
-        for inp in six.itervalues(inputs.targets):
+        for inp in six.itervalues(inputs):
             alphabet += inp.load()["char"]
 
         # ensure that the output directory exists

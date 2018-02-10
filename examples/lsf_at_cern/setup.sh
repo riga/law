@@ -4,6 +4,7 @@ action() {
     local base="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
     export PYTHONPATH="$base:$PYTHONPATH"
+    export LAW_HOME="$base"
     export LAW_CONFIG_FILE="$base/law.cfg"
 
     export ANALYSIS_PATH="$base"
