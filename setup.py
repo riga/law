@@ -75,7 +75,6 @@ setup(
         "law.contrib.lsf",
         "law.contrib.wlcg",
         "law.contrib.cms",
-        "law.examples",
     ],
     package_data={
         "": ["LICENSE", "requirements.txt", "README.md"],

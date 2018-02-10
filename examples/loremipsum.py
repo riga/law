@@ -7,6 +7,8 @@ The first task (FetchLoremIpsum) will download six different versions of a "lore
 next task (CountChars) determines and saves the frequency of every character. After that, the (json)
 count files are merged (MergeCounts). The last task (ShowFrequencies) illustrates the "measured"
 frequencies and publishes the result to the scheduler.
+
+Example status: review
 """
 
 
