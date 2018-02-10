@@ -146,9 +146,14 @@ class BaseJobFileFactory(object):
     def __init__(self, dir=None):
         super(BaseJobFileFactory, self).__init__()
 
+        self.dir = dir
         self.is_tmp = dir is None
-        self.dir = dir if not self.is_tmp else tempfile.mkdtemp(
-            dir=Config.instance().get_expanded("job", "job_file_dir"))
+
+        if self.is_tmp:
+            base = Config.instance().get_expanded("job", "job_file_dir")
+            if not os.path.exists(base):
+                os.makedirs(base)
+            self.dir = tempfile.mkdtemp(dir=base)
 
     def __del__(self):
         self.cleanup(force=False)
