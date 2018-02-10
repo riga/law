@@ -231,9 +231,9 @@ class Workflow(Task):
         return self.get_branch_map()
 
     @property
-    def branch_value(self):
+    def branch_data(self):
         if self.is_workflow():
-            raise Exception("calls to branch_value are forbidden for workflow tasks")
+            raise Exception("calls to branch_data are forbidden for workflow tasks")
         elif self.branch not in self.branch_map:
             raise ValueError("invalid branch {}, not found in branch map".format(self.branch))
 

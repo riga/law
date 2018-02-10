@@ -263,7 +263,7 @@ class CascadeMerge(LocalWorkflow):
         else:
             # get all child nodes in the next layer at depth = depth + 1, store their branches
             # note: child node tuples contain the exact same values plus an additional one
-            node = self.branch_value
+            node = self.branch_data
             tree = self.cascade_forest[self.cascade_tree]
             branches = [i for i, n in enumerate(tree[self.cascade_depth + 1]) if n[:-1] == node]
 
@@ -311,12 +311,12 @@ class CascadeMerge(LocalWorkflow):
 
         # merge
         self.publish_message("start merging {} inputs of node {}".format(
-            len(inputs), self.branch_value))
+            len(inputs), self.branch_data))
         self.merge(inputs, self.output())
 
         # remove intermediate nodes
         if not self.is_leaf and not self.keep_nodes:
             with self.publish_step("removing intermediate results to node {}".format(
-                    self.branch_value)):
+                    self.branch_data)):
                 for inp in inputs:
                     inp.remove()
