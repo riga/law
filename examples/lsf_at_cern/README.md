@@ -1,5 +1,12 @@
 # Example: LSF workflow at CERN
 
+##### 0. At CERN: copy this example to your user space
+
+```shell
+cp -R /afs/cern.ch/user/m/mrieger/public/law/law/examples/lsf_at_cern/* /yout/target/path 
+```
+
+
 ##### 1. Source the setup script (just software and some variables)
 
 ```shell
@@ -87,6 +94,6 @@ print task status with max_depth -1 and target_depth 0
 ##### 6. Look at the results
 
 ```shell
-cd data/CreateAlphabet
-...
+cd data
+ls */v1/
 ```
