@@ -15,13 +15,15 @@ import shutil
 import tempfile
 import fnmatch
 import base64
+import re
 import functools
 from contextlib import contextmanager
+from multiprocessing.pool import ThreadPool
 from abc import ABCMeta, abstractmethod
 
 import six
 
-from law.util import colored
+from law.util import colored, make_list, iter_chunks
 from law.config import Config
 
 
@@ -47,35 +49,118 @@ class BaseJobManager(object):
 
     @abstractmethod
     def submit(self):
-        pass
-
-    @abstractmethod
-    def submit_batch(self, threads=None, callback=None):
-        pass
+        return
 
     @abstractmethod
     def cancel(self):
-        pass
-
-    @abstractmethod
-    def cancel_batch(self, threads=None, callback=None):
-        pass
+        return
 
     @abstractmethod
     def cleanup(self):
-        pass
-
-    @abstractmethod
-    def cleanup_batch(self, threads=None, callback=None):
-        pass
+        return
 
     @abstractmethod
     def query(self):
-        pass
+        return
 
-    @abstractmethod
-    def query_batch(self, threads=None, callback=None):
-        pass
+    def submit_batch(self, job_files, threads=None, callback=None, **kwargs):
+        # default arguments
+        threads = threads or self.threads
+
+        def _callback(i):
+            return (lambda r: callback(r, i)) if callable(callback) else None
+
+        # threaded processing
+        pool = ThreadPool(max(threads, 1))
+        results = [pool.apply_async(self.submit, (job_file,), kwargs, callback=_callback(i))
+                   for i, job_file in enumerate(job_files)]
+        pool.close()
+        pool.join()
+
+        # store return values or errors
+        outputs = []
+        for res in results:
+            try:
+                outputs += make_list(res.get())
+            except Exception as e:
+                outputs.append(e)
+
+        return outputs
+
+    def cancel_batch(self, job_ids, threads=None, chunk_size=20, callback=None, **kwargs):
+        # default arguments
+        threads = threads or self.threads
+
+        def _callback(i):
+            return (lambda r: callback(r, i)) if callable(callback) else None
+
+        # threaded processing
+        pool = ThreadPool(max(threads, 1))
+        gen = job_ids if chunk_size < 0 else iter_chunks(job_ids, chunk_size)
+        results = [pool.apply_async(self.cancel, (job_id_chunk,), kwargs, callback=_callback(i))
+                   for i, job_id_chunk in enumerate(gen)]
+        pool.close()
+        pool.join()
+
+        # store errors
+        errors = []
+        for res in results:
+            try:
+                res.get()
+            except Exception as e:
+                errors.append(e)
+
+        return errors
+
+    def cleanup_batch(self, job_ids, threads=None, chunk_size=20, callback=None, **kwargs):
+        # default arguments
+        threads = threads or self.threads
+
+        def _callback(i):
+            return (lambda r: callback(r, i)) if callable(callback) else None
+
+        # threaded processing
+        pool = ThreadPool(max(threads, 1))
+        gen = job_ids if chunk_size < 0 else iter_chunks(job_ids, chunk_size)
+        results = [pool.apply_async(self.cleanup, (job_id_chunk,), kwargs, callback=_callback(i))
+                   for i, job_id_chunk in enumerate(gen)]
+        pool.close()
+        pool.join()
+
+        # store errors
+        errors = []
+        for res in results:
+            try:
+                res.get()
+            except Exception as e:
+                errors.append(e)
+
+        return errors
+
+    def query_batch(self, job_ids, threads=None, chunk_size=20, callback=None, **kwargs):
+        # default arguments
+        threads = threads or self.threads
+
+        def _callback(i):
+            return (lambda r: callback(r, i)) if callable(callback) else None
+
+        # threaded processing
+        pool = ThreadPool(max(threads, 1))
+        gen = job_ids if chunk_size < 0 else iter_chunks(job_ids, chunk_size)
+        results = [pool.apply_async(self.query, (job_id_chunk,), kwargs, callback=_callback(i))
+                   for i, job_id_chunk in enumerate(gen)]
+        pool.close()
+        pool.join()
+
+        # store status data per job id
+        query_data, errors = {}, []
+        for res in results:
+            try:
+                query_data.update(res.get())
+            except Exception as e:
+                errors.append(e)
+
+        return query_data, errors
 
     @classmethod
     def job_status_dict(cls, job_id=None, status=None, code=None, error=None):
@@ -183,14 +268,20 @@ class BaseJobFileFactory(object):
         return path
 
     @classmethod
-    def render_file(cls, src, dst, render_data):
+    def render_file(cls, src, dst, render_data, postfix=None):
         with open(src, "r") as f:
             lines = f.readlines()
+
+        def postfix_fn(m):
+            return cls.postfix_file(m.group(1), postfix)
 
         basename = os.path.basename(src)
         for pattern, variables in six.iteritems(render_data):
             if fnmatch.fnmatch(basename, pattern):
                 for key, value in six.iteritems(variables):
+                    # value might contain paths that should be postfixed
+                    if postfix:
+                        value = re.sub("postfix:([^\s]+)", postfix_fn, value)
                     lines = [cls.render_line(line, key, value) for line in lines]
 
         with open(dst, "w") as f:
@@ -211,7 +302,7 @@ class BaseJobFileFactory(object):
         basename = os.path.basename(src)
         dst = os.path.join(dir or self.dir, self.postfix_file(basename, postfix))
         if render_data:
-            self.render_file(src, dst, render_data)
+            self.render_file(src, dst, render_data, postfix)
         else:
             shutil.copy2(src, dst)
         return dst

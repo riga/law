@@ -81,7 +81,6 @@ setup(
         "law.job": ["job.sh"],
         "law.cli": ["law", "completion.sh"],
         "law.contrib.git": ["bundle_repository.sh", "repository_checksum.sh"],
-        "law.contrib.glite": ["wrapper.sh"],
         "law.contrib.cms": ["bundle_cmssw.sh", "cmsdashb_hooks.sh", "bin/apmon"],
     },
     cmdclass={"install": install},

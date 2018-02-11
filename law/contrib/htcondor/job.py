@@ -14,10 +14,9 @@ import re
 import subprocess
 import getpass
 import logging
-from multiprocessing.pool import ThreadPool
 
 from law.job.base import BaseJobManager, BaseJobFileFactory
-from law.util import iter_chunks, interruptable_popen, make_list
+from law.util import interruptable_popen, make_list
 
 
 logger = logging.getLogger(__name__)
@@ -25,10 +24,10 @@ logger = logging.getLogger(__name__)
 
 class HTCondorJobManager(BaseJobManager):
 
-    submission_job_id_cre = re.compile("^(\d+)\sjob\(s\)\ssubmitted\sto\scluster\s(\d+)\.$")
+    submission_job_id_cre = re.compile("^(\d+) job\(s\) submitted to cluster (\d+)\.$")
     status_header_cre = re.compile("^\s*ID\s+.+$")
     status_line_cre = re.compile("^(\d+\.\d+)" + 4 * "\s+[^\s]+" + "\s+([UIRXCHE])\s+.*$")
-    history_block_cre = re.compile("(\w+)\s\=\s\"?(.*)\"?\n")
+    history_block_cre = re.compile("(\w+) \= \"?(.*)\"?\n")
 
     def __init__(self, pool=None, scheduler=None, threads=1):
         super(HTCondorJobManager, self).__init__()
@@ -89,35 +88,6 @@ class HTCondorJobManager(BaseJobManager):
                 else:
                     raise Exception("submission of job '{}' failed:\n{}".format(job_file, err))
 
-    def submit_batch(self, job_files, pool=None, scheduler=None, retries=0, retry_delay=5,
-            silent=False, threads=None, callback=None):
-        # default arguments
-        threads = threads or self.threads
-
-        def _callback(i):
-            return (lambda r: callback(r, i)) if callable(callback) else None
-
-        # prepare kwargs
-        kwargs = dict(pool=pool, scheduler=scheduler, retries=retries, retry_delay=retry_delay,
-            silent=silent)
-
-        # threaded processing
-        pool = ThreadPool(max(threads, 1))
-        results = [pool.apply_async(self.submit, (job_file,), kwargs, callback=_callback(i))
-                   for i, job_file in enumerate(job_files)]
-        pool.close()
-        pool.join()
-
-        # store return values or errors
-        outputs = []
-        for res in results:
-            try:
-                outputs += res.get()
-            except Exception as e:
-                outputs.append(e)
-
-        return outputs
-
     def cancel(self, job_id, pool=None, scheduler=None, silent=False):
         # default arguments
         pool = pool or self.pool
@@ -139,38 +109,13 @@ class HTCondorJobManager(BaseJobManager):
         if code != 0 and not silent:
             raise Exception("cancellation of job(s) '{}' failed:\n{}".format(job_id, err))
 
-    def cancel_batch(self, job_ids, pool=None, scheduler=None, silent=False, chunk_size=20,
-            threads=None, callback=None):
-        # default arguments
-        threads = threads or self.threads
-
-        def _callback(i):
-            return (lambda r: callback(r, i)) if callable(callback) else None
-
-        # threaded processing
-        kwargs = dict(pool=pool, scheduler=scheduler, silent=silent)
-        pool = ThreadPool(max(threads, 1))
-        results = [pool.apply_async(self.cancel, (job_id_chunk,), kwargs, callback=_callback(i))
-                   for i, job_id_chunk in enumerate(iter_chunks(job_ids, chunk_size))]
-        pool.close()
-        pool.join()
-
-        # store errors
-        errors = []
-        for res in results:
-            try:
-                res.get()
-            except Exception as e:
-                errors.append(e)
-
-        return errors
-
     def query(self, job_id, pool=None, scheduler=None, user=None, silent=False):
         # default arguments
         pool = pool or self.pool
         scheduler = scheduler or self.scheduler
 
         multi = isinstance(job_id, (list, tuple))
+        job_ids = make_list(job_id)
 
         # query the condor queue
         cmd = ["condor_q", "-nobatch"]
@@ -178,7 +123,7 @@ class HTCondorJobManager(BaseJobManager):
             cmd += ["-pool", pool]
         if scheduler:
             cmd += ["-name", scheduler]
-        cmd += make_list(job_id)
+        cmd += job_ids
         logger.debug("query htcondor job(s) with command '{}'".format(cmd))
         code, out, err = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
@@ -193,7 +138,7 @@ class HTCondorJobManager(BaseJobManager):
         query_data = self.parse_queue_output(out)
 
         # find missing jobs, and query the condor history for the exit code
-        missing_ids = [_job_id for _job_id in make_list(job_id) if _job_id not in query_data]
+        missing_ids = [_job_id for _job_id in job_ids if _job_id not in query_data]
         if missing_ids:
             cmd = ["condor_history"]
             cmd += [user or getpass.getuser()] if multi else [job_id]
@@ -217,7 +162,7 @@ class HTCondorJobManager(BaseJobManager):
             query_data.update(self.parse_history_output(out, job_ids=missing_ids))
 
         # compare to the requested job ids and perform some checks
-        for _job_id in make_list(job_id):
+        for _job_id in job_ids:
             if _job_id not in query_data:
                 if not multi:
                     if silent:
@@ -229,32 +174,6 @@ class HTCondorJobManager(BaseJobManager):
                         error="job not found in query response")
 
         return query_data if multi else query_data[job_id]
-
-    def query_batch(self, job_ids, pool=None, scheduler=None, user=None, silent=False,
-            chunk_size=20, threads=None, callback=None):
-        # default arguments
-        threads = threads or self.threads
-
-        def _callback(i):
-            return (lambda r: callback(r, i)) if callable(callback) else None
-
-        # threaded processing
-        kwargs = dict(pool=pool, scheduler=scheduler, user=user, silent=silent)
-        pool = ThreadPool(max(threads, 1))
-        results = [pool.apply_async(self.query, (job_id_chunk,), kwargs, callback=_callback(i))
-                   for i, job_id_chunk in enumerate(iter_chunks(job_ids, chunk_size))]
-        pool.close()
-        pool.join()
-
-        # store status data per job id
-        query_data, errors = {}, []
-        for res in results:
-            try:
-                query_data.update(res.get())
-            except Exception as e:
-                errors.append(e)
-
-        return query_data, errors
 
     @classmethod
     def parse_queue_output(cls, out):
@@ -330,13 +249,13 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
 
     config_attrs = BaseJobFileFactory.config_attrs + [
         "file_name", "universe", "executable", "arguments", "input_files", "output_files",
-        "postfix_output_files", "stdout", "stderr", "log", "notification", "custom_content",
+        "postfix_output_files", "log", "stdout", "stderr", "notification", "custom_content",
         "absolute_paths"
     ]
 
     def __init__(self, file_name="job.jdl", universe="vanilla", executable=None, arguments=None,
-            input_files=None, output_files=None, postfix_output_files=False, stdout="stdout.txt",
-            stderr="stderr.txt", log="log.txt", notification="Never", custom_content=None,
+            input_files=None, output_files=None, postfix_output_files=True, log="log.txt",
+            stdout="stdout.txt", stderr="stderr.txt", notification="Never", custom_content=None,
             absolute_paths=False, dir=None):
         super(HTCondorJobFileFactory, self).__init__(dir=dir)
 
@@ -347,9 +266,9 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
         self.input_files = input_files or []
         self.output_files = output_files or []
         self.postfix_output_files = postfix_output_files
+        self.log = log
         self.stdout = stdout
         self.stderr = stderr
-        self.log = log
         self.notification = notification
         self.custom_content = custom_content
         self.absolute_paths = absolute_paths
@@ -366,27 +285,26 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
         elif not c.executable:
             raise ValueError("executable must not be empty")
 
-        # prepare paths
+        # prepare the job file and the executable
         job_file = self.postfix_file(os.path.join(c.dir, c.file_name), postfix)
-        c.input_files = map(os.path.abspath, c.input_files)
         executable_is_file = c.executable in map(os.path.basename, c.input_files)
-
-        # prepare input files
-        c.input_files = [
-            self.provide_input(path, postfix, c.dir, render_data)
-            for path in c.input_files
-        ]
         if executable_is_file:
             c.executable = self.postfix_file(os.path.basename(c.executable), postfix)
-        if not c.absolute_paths:
-            c.input_files = map(os.path.basename, c.input_files)
+
+        # prepare input files
+        def prepare_input(path):
+            path = self.provide_input(os.path.abspath(path), postfix, c.dir, render_data)
+            path = path if c.absolute_paths else os.path.basename(path)
+            return path
+
+        c.input_files = map(os.path.abspath, c.input_files)
 
         # output files
         if c.postfix_output_files:
             c.output_files = [self.postfix_file(path, postfix) for path in c.output_files]
+            c.log = c.log and self.postfix_file(c.log, postfix)
             c.stdout = c.stdout and self.postfix_file(c.stdout, postfix)
             c.stderr = c.stdout and self.postfix_file(c.stderr, postfix)
-            c.log = c.log and self.postfix_file(c.log, postfix)
 
         # job file content
         content = []

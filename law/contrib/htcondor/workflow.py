@@ -52,9 +52,10 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         config = {}
 
         # the file postfix is pythonic range made from branches, e.g. [0, 1, 2] -> "_0To3"
-        _postfix = "_{}To{}".format(branches[0], branches[-1] + 1)
-        postfix = lambda path: self.job_file_factory.postfix_file(path, _postfix)
-        config["postfix"] = {"*": _postfix}
+        postfix = "_{}To{}".format(branches[0], branches[-1] + 1)
+        config["postfix"] = {"*": postfix}
+        _postfix = lambda path: self.job_file_factory.postfix_file(path, postfix)
+        pf = lambda s: "postfix:{}".format(s)
 
         # executable
         config["executable"] = "/usr/bin/env"
@@ -78,7 +79,7 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
             dashboard_data=self.dashboard.remote_hook_data(
                 job_num, self.attempts.get(job_num, 0)),
         )
-        config["arguments"] = "bash {} {}".format(postfix("job.sh"), job_args.join())
+        config["arguments"] = "bash {} {}".format(_postfix("job.sh"), job_args.join())
 
         # prepare render data
         config["render_data"] = defaultdict(dict)
@@ -90,7 +91,7 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         bootstrap_file = task.htcondor_bootstrap_file()
         if bootstrap_file:
             config["input_files"].append(bootstrap_file)
-            config["render_data"]["*"]["bootstrap_file"] = postfix(os.path.basename(bootstrap_file))
+            config["render_data"]["*"]["bootstrap_file"] = pf(os.path.basename(bootstrap_file))
         else:
             config["render_data"]["*"]["bootstrap_file"] = ""
 
@@ -98,7 +99,7 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         stageout_file = task.htcondor_stageout_file()
         if stageout_file:
             config["input_files"].append(stageout_file)
-            config["render_data"]["*"]["stageout_file"] = postfix(os.path.basename(stageout_file))
+            config["render_data"]["*"]["stageout_file"] = pf(os.path.basename(stageout_file))
         else:
             config["render_data"]["*"]["stageout_file"] = ""
 
@@ -106,12 +107,12 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         dashboard_file = self.dashboard.remote_hook_file()
         if dashboard_file:
             config["input_files"].append(dashboard_file)
-            config["render_data"]["*"]["dashboard_file"] = postfix(os.path.basename(dashboard_file))
+            config["render_data"]["*"]["dashboard_file"] = pf(os.path.basename(dashboard_file))
         else:
             config["render_data"]["*"]["dashboard_file"] = ""
 
-        # determine postfixed basenames of input files and add that list to the render data
-        input_basenames = [postfix(os.path.basename(path)) for path in config["input_files"]]
+        # determine basenames of input files and add that list to the render data
+        input_basenames = [pf(os.path.basename(path)) for path in config["input_files"]]
         config["render_data"]["*"]["input_files"] = " ".join(input_basenames)
 
         # output files
@@ -124,9 +125,9 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         config["stdout"] = None
         config["stderr"] = None
         if task.transfer_logs:
-            log_file = postfix("stdall.txt")
+            log_file = "stdall.txt"
             config["output_files"].append(log_file)
-            config["render_data"]["*"]["log_file"] = log_file
+            config["render_data"]["*"]["log_file"] = pf(log_file)
         else:
             config["render_data"]["*"]["log_file"] = ""
 

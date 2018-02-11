@@ -13,12 +13,11 @@ import time
 import re
 import subprocess
 import logging
-from multiprocessing.pool import ThreadPool
 
 import six
 
 from law.job.base import BaseJobManager, BaseJobFileFactory
-from law.util import iter_chunks, interruptable_popen, make_list
+from law.util import interruptable_popen, make_list
 
 
 logger = logging.getLogger(__name__)
@@ -26,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 class LSFJobManager(BaseJobManager):
 
-    submission_job_id_cre = re.compile("^Job\s<(\d+)>\sis\ssubmitted\s.+$")
+    submission_job_id_cre = re.compile("^Job <(\d+)> is submitted.+$")
 
     def __init__(self, queue=None, threads=1):
         super(LSFJobManager, self).__init__()
@@ -82,35 +81,6 @@ class LSFJobManager(BaseJobManager):
                 else:
                     raise Exception("submission of job '{}' failed:\n{}".format(job_file, err))
 
-    def submit_batch(self, job_files, queue=None, emails=None, retries=0, retry_delay=5,
-            silent=False, threads=None, callback=None):
-        # default arguments
-        threads = threads or self.threads
-
-        def _callback(i):
-            return (lambda r: callback(r, i)) if callable(callback) else None
-
-        # prepare kwargs
-        kwargs = dict(queue=queue, emails=emails, retries=retries, retry_delay=retry_delay,
-            silent=silent)
-
-        # threaded processing
-        pool = ThreadPool(max(threads, 1))
-        results = [pool.apply_async(self.submit, (job_file,), kwargs, callback=_callback(i))
-                   for i, job_file in enumerate(job_files)]
-        pool.close()
-        pool.join()
-
-        # store return values or errors
-        outputs = []
-        for res in results:
-            try:
-                outputs.append(res.get())
-            except Exception as e:
-                outputs.append(e)
-
-        return outputs
-
     def cancel(self, job_id, queue=None, silent=False):
         # default arguments
         queue = queue or self.queue
@@ -129,43 +99,18 @@ class LSFJobManager(BaseJobManager):
         if code != 0 and not silent:
             raise Exception("cancellation of job(s) '{}' failed:\n{}".format(job_id, err))
 
-    def cancel_batch(self, job_ids, queue=None, silent=False, chunk_size=20, threads=None,
-            callback=None):
-        # default arguments
-        threads = threads or self.threads
-
-        def _callback(i):
-            return (lambda r: callback(r, i)) if callable(callback) else None
-
-        # threaded processing
-        kwargs = dict(queue=queue, silent=silent)
-        pool = ThreadPool(max(threads, 1))
-        results = [pool.apply_async(self.cancel, (job_id_chunk,), kwargs, callback=_callback(i))
-                   for i, job_id_chunk in enumerate(iter_chunks(job_ids, chunk_size))]
-        pool.close()
-        pool.join()
-
-        # store errors
-        errors = []
-        for res in results:
-            try:
-                res.get()
-            except Exception as e:
-                errors.append(e)
-
-        return errors
-
     def query(self, job_id, queue=None, silent=False):
         # default arguments
         queue = queue or self.queue
 
         multi = isinstance(job_id, (list, tuple))
+        job_ids = make_list(job_id)
 
         # query the condor queue
         cmd = ["bjobs", "-noheader"]
         if queue:
             cmd += ["-q", queue]
-        cmd += make_list(job_id)
+        cmd += job_ids
         logger.debug("query lsf job(s) with command '{}'".format(cmd))
         code, out, err = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
@@ -180,7 +125,7 @@ class LSFJobManager(BaseJobManager):
         query_data = self.parse_query_output(out)
 
         # compare to the requested job ids and perform some checks
-        for _job_id in make_list(job_id):
+        for _job_id in job_ids:
             if _job_id not in query_data:
                 if not multi:
                     if silent:
@@ -192,32 +137,6 @@ class LSFJobManager(BaseJobManager):
                         error="job not found in query response")
 
         return query_data if multi else query_data[job_id]
-
-    def query_batch(self, job_ids, queue=None, silent=False, chunk_size=20, threads=None,
-            callback=None):
-        # default arguments
-        threads = threads or self.threads
-
-        def _callback(i):
-            return (lambda r: callback(r, i)) if callable(callback) else None
-
-        # threaded processing
-        kwargs = dict(queue=queue, silent=silent)
-        pool = ThreadPool(max(threads, 1))
-        results = [pool.apply_async(self.query, (job_id_chunk,), kwargs, callback=_callback(i))
-                   for i, job_id_chunk in enumerate(iter_chunks(job_ids, chunk_size))]
-        pool.close()
-        pool.join()
-
-        # store status data per job id
-        query_data, errors = {}, []
-        for res in results:
-            try:
-                query_data.update(res.get())
-            except Exception as e:
-                errors.append(e)
-
-        return query_data, errors
 
     @classmethod
     def parse_query_output(cls, out):
@@ -267,7 +186,7 @@ class LSFJobFileFactory(BaseJobFileFactory):
     ]
 
     def __init__(self, file_name="job.job", command=None, queue=None, cwd=None, input_files=None,
-            output_files=None, postfix_output_files=False, copy_files=True, job_name=None,
+            output_files=None, postfix_output_files=True, copy_files=True, job_name=None,
             stdout="stdout.txt", stderr="stderr.txt", shell="bash", emails=False,
             custom_content=None, absolute_paths=False, dir=None):
         super(LSFJobFileFactory, self).__init__(dir=dir)
@@ -302,15 +221,14 @@ class LSFJobFileFactory(BaseJobFileFactory):
 
         # prepare paths
         job_file = self.postfix_file(os.path.join(c.dir, c.file_name), postfix)
-        c.input_files = map(os.path.abspath, c.input_files)
 
         # prepare input files
-        c.input_files = [
-            self.provide_input(path, postfix, c.dir, render_data)
-            for path in c.input_files
-        ]
-        if not c.absolute_paths:
-            c.input_files = map(os.path.basename, c.input_files)
+        def prepare_input(path):
+            path = self.provide_input(os.path.abspath(path), postfix, c.dir, render_data)
+            path = path if c.absolute_paths else os.path.basename(path)
+            return path
+
+        c.input_files = map(os.path.abspath, c.input_files)
 
         # output files
         if c.postfix_output_files:

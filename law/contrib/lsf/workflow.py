@@ -41,9 +41,10 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
         config = {}
 
         # the file postfix is pythonic range made from branches, e.g. [0, 1, 2] -> "_0To3"
-        _postfix = "_{}To{}".format(branches[0], branches[-1] + 1)
-        postfix = lambda path: self.job_file_factory.postfix_file(path, _postfix)
-        config["postfix"] = {"*": _postfix}
+        postfix = "_{}To{}".format(branches[0], branches[-1] + 1)
+        config["postfix"] = {"*": postfix}
+        _postfix = lambda path: self.job_file_factory.postfix_file(path, postfix)
+        pf = lambda s: "postfix:{}".format(s)
 
         # collect task parameters
         task_params = task.as_branch(branches[0]).cli_args(exclude={"branch"})
@@ -64,7 +65,7 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
             dashboard_data=self.dashboard.remote_hook_data(
                 job_num, self.attempts.get(job_num, 0)),
         )
-        config["command"] = "bash {} {}".format(postfix("job.sh"), job_args.join())
+        config["command"] = "bash {} {}".format(_postfix("job.sh"), job_args.join())
 
         # meta infos
         config["job_name"] = task.task_id
@@ -80,7 +81,7 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
         bootstrap_file = task.lsf_bootstrap_file()
         if bootstrap_file:
             config["input_files"].append(bootstrap_file)
-            config["render_data"]["*"]["bootstrap_file"] = postfix(os.path.basename(bootstrap_file))
+            config["render_data"]["*"]["bootstrap_file"] = pf(os.path.basename(bootstrap_file))
         else:
             config["render_data"]["*"]["bootstrap_file"] = ""
 
@@ -88,7 +89,7 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
         stageout_file = task.lsf_stageout_file()
         if stageout_file:
             config["input_files"].append(stageout_file)
-            config["render_data"]["*"]["stageout_file"] = postfix(os.path.basename(stageout_file))
+            config["render_data"]["*"]["stageout_file"] = pf(os.path.basename(stageout_file))
         else:
             config["render_data"]["*"]["stageout_file"] = ""
 
@@ -96,12 +97,12 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
         dashboard_file = self.dashboard.remote_hook_file()
         if dashboard_file:
             config["input_files"].append(dashboard_file)
-            config["render_data"]["*"]["dashboard_file"] = postfix(os.path.basename(dashboard_file))
+            config["render_data"]["*"]["dashboard_file"] = pf(os.path.basename(dashboard_file))
         else:
             config["render_data"]["*"]["dashboard_file"] = ""
 
-        # determine postfixed basenames of input files and add that list to the render data
-        input_basenames = [postfix(os.path.basename(path)) for path in config["input_files"]]
+        # determine basenames of input files and add that list to the render data
+        input_basenames = [pf(os.path.basename(path)) for path in config["input_files"]]
         config["render_data"]["*"]["input_files"] = " ".join(input_basenames)
 
         # output files
@@ -113,9 +114,9 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
         config["stdout"] = None
         config["stderr"] = None
         if task.transfer_logs:
-            log_file = postfix("stdall.txt")
+            log_file = "stdall.txt"
             config["output_files"].append(log_file)
-            config["render_data"]["*"]["log_file"] = log_file
+            config["render_data"]["*"]["log_file"] = pf(log_file)
         else:
             config["render_data"]["*"]["log_file"] = ""
 
@@ -146,7 +147,7 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
             if i in (1, len(job_files)) or i % 25 == 0:
                 task.publish_message("submitted {}/{} job(s)".format(i, len(job_files)))
 
-        return self.job_manager.submit_batch(job_files, queue=queue, retries=3,
+        return self.job_manager.submit_batch(job_files, queue=queue, emails=False, retries=3,
             threads=task.threads, callback=progress_callback)
 
 

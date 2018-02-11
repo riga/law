@@ -15,11 +15,10 @@ import re
 import random
 import subprocess
 import logging
-from multiprocessing.pool import ThreadPool
 
 from law.job.base import BaseJobManager, BaseJobFileFactory
 from law.target.file import add_scheme
-from law.util import iter_chunks, interruptable_popen, make_list
+from law.util import interruptable_popen, make_list
 
 
 logger = logging.getLogger(__name__)
@@ -92,35 +91,6 @@ class GLiteJobManager(BaseJobManager):
                 else:
                     raise Exception("submission of job '{}' failed:\n{}".format(job_file, out))
 
-    def submit_batch(self, job_files, ce=None, delegation_id=None, retries=0, retry_delay=5,
-            silent=False, threads=None, callback=None):
-        # default arguments
-        threads = threads or self.threads
-
-        def _callback(i):
-            return (lambda r: callback(r, i)) if callable(callback) else None
-
-        # prepare kwargs
-        kwargs = dict(ce=ce, delegation_id=delegation_id, retries=retries, retry_delay=retry_delay,
-            silent=silent)
-
-        # threaded processing
-        pool = ThreadPool(max(threads, 1))
-        results = [pool.apply_async(self.submit, (job_file,), kwargs, callback=_callback(i))
-                   for i, job_file in enumerate(job_files)]
-        pool.close()
-        pool.join()
-
-        # store return values or errors
-        outputs = []
-        for res in results:
-            try:
-                outputs.append(res.get())
-            except Exception as e:
-                outputs.append(e)
-
-        return outputs
-
     def cancel(self, job_id, silent=False):
         # build the command and run it
         cmd = ["glite-ce-job-cancel", "-N"] + make_list(job_id)
@@ -132,31 +102,6 @@ class GLiteJobManager(BaseJobManager):
             # glite prints everything to stdout
             raise Exception("cancellation of job(s) '{}' failed:\n{}".format(job_id, out))
 
-    def cancel_batch(self, job_ids, silent=False, chunk_size=20, threads=None, callback=None):
-        # default arguments
-        threads = threads or self.threads
-
-        def _callback(i):
-            return (lambda r: callback(r, i)) if callable(callback) else None
-
-        # threaded processing
-        kwargs = dict(silent=silent)
-        pool = ThreadPool(max(threads, 1))
-        results = [pool.apply_async(self.cancel, (job_id_chunk,), kwargs, callback=_callback(i))
-                   for i, job_id_chunk in enumerate(iter_chunks(job_ids, chunk_size))]
-        pool.close()
-        pool.join()
-
-        # store errors
-        errors = []
-        for res in results:
-            try:
-                res.get()
-            except Exception as e:
-                errors.append(e)
-
-        return errors
-
     def cleanup(self, job_id, silent=False):
         # build the command and run it
         cmd = ["glite-ce-job-purge", "-N"] + make_list(job_id)
@@ -166,39 +111,15 @@ class GLiteJobManager(BaseJobManager):
         # check success
         if code != 0 and not silent:
             # glite prints everything to stdout
-            raise Exception("purging of job(s) '{}' failed:\n{}".format(job_id, out))
-
-    def cleanup_batch(self, job_ids, silent=False, chunk_size=20, threads=None, callback=None):
-        # default arguments
-        threads = threads or self.threads
-
-        def _callback(i):
-            return (lambda r: callback(r, i)) if callable(callback) else None
-
-        # threaded processing
-        kwargs = dict(silent=silent)
-        pool = ThreadPool(max(threads, 1))
-        results = [pool.apply_async(self.cleanup, (job_id_chunk,), kwargs, callback=_callback(i))
-                   for i, job_id_chunk in enumerate(iter_chunks(job_ids, chunk_size))]
-        pool.close()
-        pool.join()
-
-        # store errors
-        errors = []
-        for res in results:
-            try:
-                res.get()
-            except Exception as e:
-                errors.append(e)
-
-        return errors
+            raise Exception("cleanup of job(s) '{}' failed:\n{}".format(job_id, out))
 
     def query(self, job_id, silent=False):
         multi = isinstance(job_id, (list, tuple))
+        job_ids = make_list(job_id)
 
         # build the command and run it
-        cmd = ["glite-ce-job-status", "-n", "-L", "0"] + make_list(job_id)
-        logger.debug("query glite job with command '{}'".format(cmd))
+        cmd = ["glite-ce-job-status", "-n", "-L", "0"] + job_ids
+        logger.debug("query glite job(s) with command '{}'".format(cmd))
         code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=sys.stderr)
 
         # handle errors
@@ -213,7 +134,7 @@ class GLiteJobManager(BaseJobManager):
         query_data = self.parse_query_output(out)
 
         # compare to the requested job ids and perform some checks
-        for _job_id in make_list(job_id):
+        for _job_id in job_ids:
             if _job_id not in query_data:
                 if not multi:
                     if silent:
@@ -225,31 +146,6 @@ class GLiteJobManager(BaseJobManager):
                         error="job not found in query response")
 
         return query_data if multi else query_data[job_id]
-
-    def query_batch(self, job_ids, silent=False, chunk_size=20, threads=None, callback=None):
-        # default arguments
-        threads = threads or self.threads
-
-        def _callback(i):
-            return (lambda r: callback(r, i)) if callable(callback) else None
-
-        # threaded processing
-        kwargs = dict(silent=silent)
-        pool = ThreadPool(max(threads, 1))
-        results = [pool.apply_async(self.query, (job_id_chunk,), kwargs, callback=_callback(i))
-                   for i, job_id_chunk in enumerate(iter_chunks(job_ids, chunk_size))]
-        pool.close()
-        pool.join()
-
-        # store status data per job id
-        query_data, errors = {}, []
-        for res in results:
-            try:
-                query_data.update(res.get())
-            except Exception as e:
-                errors.append(e)
-
-        return query_data, errors
 
     @classmethod
     def parse_query_output(cls, out):
@@ -321,17 +217,19 @@ class GLiteJobManager(BaseJobManager):
 class GLiteJobFileFactory(BaseJobFileFactory):
 
     config_attrs = BaseJobFileFactory.config_attrs + [
-        "file_name", "executable", "input_files", "output_files", "postfix_output_files",
-        "output_uri", "stderr", "stdout", "vo", "custom_content", "absolute_paths"
+        "file_name", "executable", "arguments", "input_files", "output_files",
+        "postfix_output_files", "output_uri", "stderr", "stdout", "vo", "custom_content",
+        "absolute_paths",
     ]
 
-    def __init__(self, file_name="job.jdl", executable=None, input_files=None, output_files=None,
-            postfix_output_files=False, output_uri=None, stdout="stdout.txt", stderr="stderr.txt",
-            vo=None, custom_content=None, absolute_paths=False, dir=None):
+    def __init__(self, file_name="job.jdl", executable=None, arguments=None, input_files=None,
+            output_files=None, postfix_output_files=True, output_uri=None, stdout="stdout.txt",
+            stderr="stderr.txt", vo=None, custom_content=None, absolute_paths=False, dir=None):
         super(GLiteJobFileFactory, self).__init__(dir=dir)
 
         self.file_name = file_name
         self.executable = executable
+        self.arguments = arguments
         self.input_files = input_files or []
         self.output_files = output_files or []
         self.postfix_output_files = postfix_output_files
@@ -352,40 +250,37 @@ class GLiteJobFileFactory(BaseJobFileFactory):
         elif not c.executable:
             raise ValueError("executable must not be empty")
 
-        # prepare paths
+        # prepare the job file and the executable
         job_file = self.postfix_file(os.path.join(c.dir, c.file_name), postfix)
-        c.input_files = map(os.path.abspath, c.input_files)
         executable_is_file = c.executable in map(os.path.basename, c.input_files)
+        if executable_is_file:
+            c.executable = self.postfix_file(c.executable, postfix)
 
         # prepare input files
-        c.input_files = [
-            self.provide_input(path, postfix, c.dir, render_data)
-            for path in c.input_files
-        ]
-        if executable_is_file:
-            c.executable = self.postfix_file(os.path.basename(c.executable), postfix)
+        def prepare_input(path):
+            path = self.provide_input(os.path.abspath(path), postfix, c.dir, render_data)
+            path = add_scheme(path, "file") if c.absolute_paths else os.path.basename(path)
+            return path
 
-        # output files
-        if c.postfix_output_files:
-            c.output_files = [self.postfix_file(path, postfix) for path in c.output_files]
-            c.stdout = c.stdout and self.postfix_file(c.stdout, postfix)
-            c.stderr = c.stderr and self.postfix_file(c.stderr, postfix)
+        c.input_files = map(prepare_input, c.input_files)
 
-        # ensure that log files are contained in the output sandbox
+        # ensure that log files are contained in the output files
         if c.stdout and c.stdout not in c.output_files:
             c.output_files.append(c.stdout)
         if c.stderr and c.stderr not in c.output_files:
             c.output_files.append(c.stderr)
 
-        # handle relative or absolute input files
-        if c.absolute_paths:
-            c.input_files = [add_scheme(elem, "file") for elem in c.input_files]
-        else:
-            c.input_files = map(os.path.basename, c.input_files)
+        # postfix output files
+        if c.postfix_output_files:
+            c.output_files = [self.postfix_file(path, postfix) for path in c.output_files]
+            c.stdout = c.stdout and self.postfix_file(c.stdout, postfix)
+            c.stderr = c.stderr and self.postfix_file(c.stderr, postfix)
 
         # job file content
         content = []
         content.append(("Executable", c.executable))
+        if c.arguments:
+            content.append(("Arguments", c.arguments))
         if c.input_files:
             content.append(("InputSandbox", c.input_files))
         if c.output_files:

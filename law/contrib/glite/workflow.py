@@ -20,7 +20,7 @@ from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments
 from law.contrib.glite.job import GLiteJobManager, GLiteJobFileFactory
 from law.parser import global_cmdline_args
-from law.util import rel_path, law_src_path
+from law.util import law_src_path
 from law.contrib.wlcg import delegate_voms_proxy_glite, get_ce_endpoint
 
 
@@ -47,12 +47,12 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
         config = {}
 
         # the file postfix is pythonic range made from branches, e.g. [0, 1, 2] -> "_0To3"
-        _postfix = "_{}To{}".format(branches[0], branches[-1] + 1)
-        postfix = lambda path: self.job_file_factory.postfix_file(path, _postfix)
-        config["postfix"] = {"*": _postfix}
+        postfix = "_{}To{}".format(branches[0], branches[-1] + 1)
+        config["postfix"] = {"*": postfix}
+        pf = lambda s: "postfix:{}".format(s)
 
         # executable
-        config["executable"] = "wrapper.sh"
+        config["executable"] = "bash_wrapper.sh"
 
         # collect task parameters
         task_params = task.as_branch(branches[0]).cli_args(exclude={"branch"})
@@ -73,7 +73,7 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
             dashboard_data=self.dashboard.remote_hook_data(
                 job_num, self.attempts.get(job_num, 0)),
         )
-        config["render_data"]["wrapper.sh"]["job_args"] = job_args.join()
+        config["arguments"] = job_args.join()
 
         # meta infos
         config["output_uri"] = task.glite_output_uri()
@@ -82,19 +82,21 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
         config["render_data"] = defaultdict(dict)
 
         # input files
-        config["input_files"] = [rel_path(__file__, "wrapper.sh"), law_src_path("job", "job.sh")]
-        config["render_data"]["*"]["job_file"] = postfix("job.sh")
+        config["input_files"] = [
+            law_src_path("job", "bash_wrapper.sh"), law_src_path("job", "job.sh")
+        ]
+        config["render_data"]["*"]["job_file"] = pf("job.sh")
 
         # add the bootstrap file
         bootstrap_file = task.glite_bootstrap_file()
         config["input_files"].append(bootstrap_file)
-        config["render_data"]["*"]["bootstrap_file"] = postfix(os.path.basename(bootstrap_file))
+        config["render_data"]["*"]["bootstrap_file"] = pf(os.path.basename(bootstrap_file))
 
         # add the stageout file
         stageout_file = task.glite_stageout_file()
         if stageout_file:
             config["input_files"].append(stageout_file)
-            config["render_data"]["*"]["stageout_file"] = postfix(os.path.basename(stageout_file))
+            config["render_data"]["*"]["stageout_file"] = pf(os.path.basename(stageout_file))
         else:
             config["render_data"]["*"]["stageout_file"] = ""
 
@@ -102,12 +104,12 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
         dashboard_file = self.dashboard.remote_hook_file()
         if dashboard_file:
             config["input_files"].append(dashboard_file)
-            config["render_data"]["*"]["dashboard_file"] = postfix(os.path.basename(dashboard_file))
+            config["render_data"]["*"]["dashboard_file"] = pf(os.path.basename(dashboard_file))
         else:
             config["render_data"]["*"]["dashboard_file"] = ""
 
-        # determine postfixed basenames of input files and add that list to the render data
-        input_basenames = [postfix(os.path.basename(path)) for path in config["input_files"]]
+        # determine basenames of input files and add that list to the render data
+        input_basenames = [pf(os.path.basename(path)) for path in config["input_files"]]
         config["render_data"]["*"]["input_files"] = " ".join(input_basenames)
 
         # output files
@@ -115,11 +117,11 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
 
         # log file
         if task.transfer_logs:
-            log_file = postfix("stdall.txt")
+            log_file = "stdall.txt"
             config["stdout"] = log_file
             config["stderr"] = log_file
             config["output_files"].append(log_file)
-            config["render_data"]["*"]["log_file"] = log_file
+            config["render_data"]["*"]["log_file"] = pf(log_file)
         else:
             config["stdout"] = None
             config["stderr"] = None
