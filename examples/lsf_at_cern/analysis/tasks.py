@@ -6,90 +6,15 @@ The actual payload of the tasks is rather trivial.
 """
 
 
-import os
-
-import luigi
 import six
 import law
-import law.contrib.htcondor
-import law.contrib.lsf
 
 
-class Task(law.Task):
-    """
-    Base task that we use to force a version parameter on all inheriting tasks, and that provides
-    some convenience methods to create local file and directory targets at the default data path.
-    """
-
-    version = luigi.Parameter()
-
-    def store_parts(self):
-        return (self.__class__.__name__, self.version)
-
-    def local_path(self, *path):
-        # ANALYSIS_DATA_PATH is defined in setup.sh
-        parts = (os.getenv("ANALYSIS_DATA_PATH"),) + self.store_parts() + path
-        return os.path.join(*parts)
-
-    def local_target(self, *path):
-        return law.LocalFileTarget(self.local_path(*path))
+# import our "framework" tasks
+from analysis.framework import Task, LSFWorkflow
 
 
-class HTCondorWorkflow(law.contrib.htcondor.HTCondorWorkflow):
-    """
-    Batch systems are typically very heterogeneous by design, and so is HTCondir. Law does not aim
-    to "magically" adapt to all possible HTCondor setups which would certainly end in a mess.
-    Therefore we have to configure the base HTCondor workflow in law.contrib.htcondor to work with
-    the settings at CERN. In most cases, like in this example, only a minimal amount of
-    configuration is required.
-    """
-
-    def htcondor_output_directory(self):
-        # the directory where submission meta information should be stored
-        return law.LocalDirectoryTarget(self.local_path())
-
-    def htcondor_create_job_file_factory(self):
-        # tell the factory, that is responsible for creating our job files,
-        # that the files are not temporary, i.e., it should not delete them after submission
-        factory = super(HTCondorWorkflow, self).htcondor_create_job_file_factory()
-        factory.is_tmp = False
-        return factory
-
-    def htcondor_bootstrap_file(self):
-        # each HTCondor job can define a bootstrap file that is executed prior to the actual job
-        # in order to setup software and environment variables
-        return law.util.rel_path(__file__, "lsf_bootstrap.sh")
-
-    def htcondor_job_config(self, config, job_num, branches):
-        # render_data is rendered into all files sent with a job
-        # the pattern "*" tells law to render the given variable in all files
-        config["render_data"]["*"]["analysis_path"] = os.getenv("ANALYSIS_PATH")
-        return config
-
-
-class LSFWorkflow(law.contrib.lsf.LSFWorkflow):
-    """
-    The legacy LSF system at CERN can also be used to submit jobs. Please read the notes in the
-    HTCondorWorkflow above. The purpose and implementation of the LSFWorkflow are identical.
-    """
-
-    def lsf_output_directory(self):
-        return law.LocalDirectoryTarget(self.local_path())
-
-    def lsf_create_job_file_factory(self):
-        factory = super(LSFWorkflow, self).lsf_create_job_file_factory()
-        factory.is_tmp = False
-        return factory
-
-    def lsf_bootstrap_file(self):
-        return law.util.rel_path(__file__, "lsf_bootstrap.sh")
-
-    def lsf_job_config(self, config, job_num, branches):
-        config["render_data"]["*"]["analysis_path"] = os.getenv("ANALYSIS_PATH")
-        return config
-
-
-class CreateChars(Task, HTCondorWorkflow, LSFWorkflow, law.LocalWorkflow):
+class CreateChars(Task, LSFWorkflow, law.LocalWorkflow):
     """
     Simple task that has a trivial payload: converting integers into ascii characters. The task is
     designed to be a workflow with 26 branches. Each branch creates one character (a-z) and saves

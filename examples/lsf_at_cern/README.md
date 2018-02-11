@@ -1,9 +1,12 @@
-# Example: Batch workflows at CERN (HTCondor / LSF)
+# Example: LSF workflows at CERN
+
+Resources: [luigi](http://luigi.readthedocs.io/en/stable), [law](http://law.readthedocs.io/en/latest)
+
 
 ##### 0. At CERN: copy this example to your user space
 
 ```shell
-cp -R /afs/cern.ch/user/m/mrieger/public/law_sw/law/examples/batch_at_cern/* /examplepath
+cp -R /afs/cern.ch/user/m/mrieger/public/law_sw/law/examples/lsf_at_cern/* /examplepath
 ```
 
 
@@ -48,9 +51,9 @@ print task status with max_depth -1 and target_depth 0
 |     -> absent
 |
 |   > check status of CreateChars(branch=-1, version=v1, ...)
-|   |   - check LocalFileTarget(path=/examplepath/data/CreateChars/v1/htcondor_submission.json, optional)
+|   |   - check LocalFileTarget(path=/examplepath/data/CreateChars/v1/lsf_submission.json, optional)
 |   |     -> absent
-|   |   - check LocalFileTarget(path=/examplepath/data/CreateChars/v1/htcondor_status.json, optional)
+|   |   - check LocalFileTarget(path=/examplepath/data/CreateChars/v1/lsf_status.json, optional)
 |   |     -> absent
 |   |   - check TargetCollection(len=26, threshold=1.0)
 |   |     -> absent (0/26)
@@ -64,7 +67,7 @@ print task status with max_depth -1 and target_depth 0
 law run CreateAlphabet --version v1 --CreateChars-transfer-logs --CreateChars-interval 0.5 --local-scheduler
 ```
 
-The ``CreateChars`` is an ``HTCondorWorkflow`` by default, but it is also able to submit jobs via LSF. To do so, just add ``--CreateChars-workflow lsf`` to the command above.
+The ``CreateChars`` task is a ``LSFWorkflow`` by default, but it is also able to run tasks locally. To do so, just add ``--CreateChars-workflow local`` to the command above.
 
 This should take only a few minutes to process, depending on the job queue at CERN.
 
@@ -85,9 +88,9 @@ print task status with max_depth -1 and target_depth 0
 |     -> existent
 |
 |   > check status of CreateChars(branch=-1, version=v1, ...)
-|   |   - check LocalFileTarget(path=/examplepath/data/CreateChars/v1/htcondor_submission.json, optional)
+|   |   - check LocalFileTarget(path=/examplepath/data/CreateChars/v1/lsf_submission.json, optional)
 |   |     -> existent
-|   |   - check LocalFileTarget(path=/examplepath/data/CreateChars/v1/htcondor_status.json, optional)
+|   |   - check LocalFileTarget(path=/examplepath/data/CreateChars/v1/lsf_status.json, optional)
 |   |     -> existent
 |   |   - check TargetCollection(len=26, threshold=1.0)
 |   |     -> existent (26/26)
