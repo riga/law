@@ -36,6 +36,19 @@ class HTCondorJobManager(BaseJobManager):
         self.scheduler = scheduler
         self.threads = threads
 
+        # determine the htcondor version once
+        self.htcondor_version = self.get_htcondor_version()
+
+    @classmethod
+    def get_htcondor_version(cls):
+        cmd = ["condor_version"]
+        code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE)
+        if code == 0:
+            m = re.match("^\$CondorVersion: (\d+)\.(\d+)\.(\d+) .+$", out)
+            if m:
+                return tuple(map(int, m.groups()))
+        return None
+
     def cleanup(self, *args, **kwargs):
         raise NotImplementedError("HTCondorJobManager.cleanup is not implemented")
 
@@ -120,7 +133,10 @@ class HTCondorJobManager(BaseJobManager):
         job_ids = make_list(job_id)
 
         # query the condor queue
-        cmd = ["condor_q", "-nobatch"]
+        cmd = ["condor_q"]
+        # since htcondor 8.5.6, batch mode is default, so use -nobatch
+        if self.htcondor_version and self.htcondor_version >= (8, 5, 6):
+            cmd += ["-nobatch"]
         if pool:
             cmd += ["-pool", pool]
         if scheduler:
