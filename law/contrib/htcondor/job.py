@@ -42,7 +42,7 @@ class HTCondorJobManager(BaseJobManager):
     def cleanup_batch(self, *args, **kwargs):
         raise NotImplementedError("HTCondorJobManager.cleanup_batch is not implemented")
 
-    def submit(self, job_file, pool=None, scheduler=None, retries=0, retry_delay=5, silent=False):
+    def submit(self, job_file, pool=None, scheduler=None, retries=0, retry_delay=3, silent=False):
         # default arguments
         pool = pool or self.pool
         scheduler = scheduler or self.scheduler
@@ -73,12 +73,13 @@ class HTCondorJobManager(BaseJobManager):
                     job_ids = ["{}.{}".format(m.group(2), i) for i in range(int(m.group(1)))]
                 else:
                     code = 1
-                    err = "cannot parse job id(s) from output:\n{}".format(out)
+                    err = "cannot parse htcondor job id(s) from output:\n{}".format(out)
 
             # retry or done?
             if code == 0:
                 return job_ids
             else:
+                logger.debug("submission of htcondor job '{}' failed:\n{}".format(job_file, err))
                 if retries > 0:
                     retries -= 1
                     time.sleep(retry_delay)
@@ -86,7 +87,8 @@ class HTCondorJobManager(BaseJobManager):
                 elif silent:
                     return None
                 else:
-                    raise Exception("submission of job '{}' failed:\n{}".format(job_file, err))
+                    raise Exception("submission of htcondor job '{}' failed:\n{}".format(
+                        job_file, err))
 
     def cancel(self, job_id, pool=None, scheduler=None, silent=False):
         # default arguments
@@ -107,7 +109,7 @@ class HTCondorJobManager(BaseJobManager):
 
         # check success
         if code != 0 and not silent:
-            raise Exception("cancellation of job(s) '{}' failed:\n{}".format(job_id, err))
+            raise Exception("cancellation of htcondor job(s) '{}' failed:\n{}".format(job_id, err))
 
     def query(self, job_id, pool=None, scheduler=None, user=None, silent=False):
         # default arguments
@@ -132,7 +134,8 @@ class HTCondorJobManager(BaseJobManager):
             if silent:
                 return None
             else:
-                raise Exception("queue query of job(s) '{}' failed:\n{}".format(job_id, err))
+                raise Exception("queue query of htcondor job(s) '{}' failed:\n{}".format(
+                    job_id, err))
 
         # parse the output and extract the status per job
         query_data = self.parse_queue_output(out)
@@ -156,7 +159,8 @@ class HTCondorJobManager(BaseJobManager):
                 if silent:
                     return None
                 else:
-                    raise Exception("history query of job(s) '{}' failed:\n{}".format(job_id, err))
+                    raise Exception("history query of htcondor job(s) '{}' failed:\n{}".format(
+                        job_id, err))
 
             # parse the output and update query data
             query_data.update(self.parse_history_output(out, job_ids=missing_ids))
@@ -168,7 +172,8 @@ class HTCondorJobManager(BaseJobManager):
                     if silent:
                         return None
                     else:
-                        raise Exception("job(s) '{}' not found in query response".format(job_id))
+                        raise Exception("htcondor job(s) '{}' not found in query response".format(
+                            job_id))
                 else:
                     query_data[_job_id] = self.job_status_dict(job_id=_job_id, status=self.FAILED,
                         error="job not found in query response")
@@ -310,20 +315,21 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
         content = []
         content.append(("universe", c.universe))
         content.append(("executable", c.executable))
+        if c.log:
+            content.append(("log", c.log))
         if c.stdout:
             content.append(("output", c.stdout))
         if c.stderr:
             content.append(("error", c.stderr))
-        if c.log:
-            content.append(("log", c.log))
-        if c.notification:
-            content.append(("notification", c.notification))
+        if c.input_files or c.output_files:
+            content.append(("should_transfer_files", "YES"))
         if c.input_files:
             content.append(("transfer_input_files", c.input_files))
-            content.append(("should_transfer_files", "YES"))
         if c.output_files:
             content.append(("transfer_output_files", c.output_files))
             content.append(("when_to_transfer_output", "ON_EXIT"))
+        if c.notification:
+            content.append(("notification", c.notification))
 
         # add custom content
         if c.custom_content:
@@ -338,7 +344,8 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
         # write the job file
         with open(job_file, "w") as f:
             for obj in content:
-                f.write(self.create_line(*make_list(obj)) + "\n")
+                line = self.create_line(*make_list(obj))
+                f.write(line + "\n")
 
         logger.debug("created htcondor job file at '{}'".format(job_file))
 

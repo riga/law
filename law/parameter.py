@@ -5,8 +5,8 @@ Custom luigi parameters.
 """
 
 
-__all__ = ["NO_STR", "NO_INT", "NO_FLOAT",
-           "TaskInstanceParameter", "CSVParameter"]
+__all__ = ["NO_STR", "NO_INT", "NO_FLOAT", "check_no_param", "TaskInstanceParameter",
+           "CSVParameter"]
 
 
 import luigi
@@ -19,6 +19,10 @@ NO_STR = "NO_STR"
 NO_INT = -1
 
 NO_FLOAT = -1.
+
+
+def check_no_param(value, default=None):
+    return default if value in (NO_STR, NO_INT, NO_FLOAT) else value
 
 
 # custom task classes

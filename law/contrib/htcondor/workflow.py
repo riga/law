@@ -15,7 +15,7 @@ from collections import OrderedDict, defaultdict
 
 import luigi
 
-from law import LocalDirectoryTarget, NO_STR
+from law import LocalDirectoryTarget, NO_STR, check_no_param
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments
 from law.contrib.htcondor.job import HTCondorJobManager, HTCondorJobFileFactory
@@ -30,17 +30,6 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
 
     workflow_type = "htcondor"
 
-    def __init__(self, *args, **kwargs):
-        super(HTCondorWorkflowProxy, self).__init__(*args, **kwargs)
-
-        self.job_file = None
-        self.job_manager = HTCondorJobManager()
-        self.submission_data = self.submission_data_cls(tasks_per_job=self.task.tasks_per_job)
-        self.skipped_job_nums = None
-        self.last_counts = None
-        self.retry_counts = defaultdict(int)
-        self.show_errors = 5
-
     def create_job_manager(self):
         return self.task.htcondor_create_job_manager()
 
@@ -53,7 +42,7 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
 
         # the file postfix is pythonic range made from branches, e.g. [0, 1, 2] -> "_0To3"
         postfix = "_{}To{}".format(branches[0], branches[-1] + 1)
-        config["postfix"] = {"*": postfix}
+        config["postfix"] = postfix
         _postfix = lambda path: self.job_file_factory.postfix_file(path, postfix)
         pf = lambda s: "postfix:{}".format(s)
 
@@ -155,6 +144,8 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
 
     def submit_jobs(self, job_files):
         task = self.task
+        pool = check_no_param(task.htcondor_pool)
+        scheduler = check_no_param(task.htcondor_scheduler)
 
         # progress callback to inform the scheduler
         def progress_callback(result, i):
@@ -162,9 +153,8 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
             if i in (1, len(job_files)) or i % 25 == 0:
                 task.publish_message("submitted {}/{} job(s)".format(i, len(job_files)))
 
-        return self.job_manager.submit_batch(job_files, pool=task.htcondor_pool,
-            scheduler=task.htcondor_scheduler, retries=3, threads=task.threads,
-            callback=progress_callback)
+        return self.job_manager.submit_batch(job_files, pool=pool, scheduler=scheduler, retries=3,
+            threads=task.threads, callback=progress_callback)
 
 
 class HTCondorWorkflow(BaseRemoteWorkflow):

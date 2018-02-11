@@ -32,7 +32,7 @@ import random
 import luigi
 
 from law.task.base import ProxyTask
-from law.parameter import NO_STR
+from law.parameter import check_no_param
 from law.target.local import LocalFileTarget
 
 
@@ -66,7 +66,7 @@ def log(fn, opts, task, *args, **kwargs):
     redirected.
     """
     _task = get_task(task)
-    log = _task.log_file if _task.log_file != NO_STR else _task.default_log_file
+    log = check_no_param(_task.log_file, _task.default_log_file)
 
     if log == "-" or not log:
         return fn(task, *args, **kwargs)

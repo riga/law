@@ -68,6 +68,7 @@ setup(
         "law.job",
         "law.cli",
         "law.contrib",
+        "law.contrib.arc",
         "law.contrib.tasks",
         "law.contrib.git",
         "law.contrib.glite",
@@ -78,7 +79,7 @@ setup(
     ],
     package_data={
         "": ["LICENSE", "requirements.txt", "README.md"],
-        "law.job": ["job.sh"],
+        "law.job": ["job.sh", "bash_wrapper.sh"],
         "law.cli": ["law", "completion.sh"],
         "law.contrib.git": ["bundle_repository.sh", "repository_checksum.sh"],
         "law.contrib.cms": ["bundle_cmssw.sh", "cmsdashb_hooks.sh", "bin/apmon"],

@@ -47,7 +47,7 @@ class ArcWorkflowProxy(BaseRemoteWorkflowProxy):
 
         # the file postfix is pythonic range made from branches, e.g. [0, 1, 2] -> "_0To3"
         postfix = "_{}To{}".format(branches[0], branches[-1] + 1)
-        config["postfix"] = {"*": postfix}
+        config["postfix"] = postfix
         pf = lambda s: "postfix:{}".format(s)
 
         # executable

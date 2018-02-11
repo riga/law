@@ -39,7 +39,7 @@ class LSFJobManager(BaseJobManager):
     def cleanup_batch(self, *args, **kwargs):
         raise NotImplementedError("LSFJobManager.cleanup_batch is not implemented")
 
-    def submit(self, job_file, queue=None, emails=False, retries=0, retry_delay=5, silent=False):
+    def submit(self, job_file, queue=None, emails=False, retries=0, retry_delay=3, silent=False):
         # default arguments
         queue = queue or self.queue
 
@@ -72,6 +72,7 @@ class LSFJobManager(BaseJobManager):
             if code == 0:
                 return job_id
             else:
+                logger.debug("submission of lsf job '{}' failed:\n{}".format(job_file, err))
                 if retries > 0:
                     retries -= 1
                     time.sleep(retry_delay)
@@ -79,7 +80,7 @@ class LSFJobManager(BaseJobManager):
                 elif silent:
                     return None
                 else:
-                    raise Exception("submission of job '{}' failed:\n{}".format(job_file, err))
+                    raise Exception("submission of lsf job '{}' failed:\n{}".format(job_file, err))
 
     def cancel(self, job_id, queue=None, silent=False):
         # default arguments
@@ -97,7 +98,7 @@ class LSFJobManager(BaseJobManager):
 
         # check success
         if code != 0 and not silent:
-            raise Exception("cancellation of job(s) '{}' failed:\n{}".format(job_id, err))
+            raise Exception("cancellation of lsf job(s) '{}' failed:\n{}".format(job_id, err))
 
     def query(self, job_id, queue=None, silent=False):
         # default arguments
@@ -119,7 +120,7 @@ class LSFJobManager(BaseJobManager):
             if silent:
                 return None
             else:
-                raise Exception("status query of job(s) '{}' failed:\n{}".format(job_id, err))
+                raise Exception("status query of lsf job(s) '{}' failed:\n{}".format(job_id, err))
 
         # parse the output and extract the status per job
         query_data = self.parse_query_output(out)
@@ -131,7 +132,8 @@ class LSFJobManager(BaseJobManager):
                     if silent:
                         return None
                     else:
-                        raise Exception("job(s) '{}' not found in query response".format(job_id))
+                        raise Exception("lsf job(s) '{}' not found in query response".format(
+                            job_id))
                 else:
                     query_data[_job_id] = self.job_status_dict(job_id=_job_id, status=self.FAILED,
                         error="job not found in query response")

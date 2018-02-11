@@ -36,7 +36,7 @@ class GLiteJobManager(BaseJobManager):
         self.delegation_id = delegation_id
         self.threads = threads
 
-    def submit(self, job_file, ce=None, delegation_id=None, retries=0, retry_delay=5, silent=False):
+    def submit(self, job_file, ce=None, delegation_id=None, retries=0, retry_delay=3, silent=False):
         # default arguments
         ce = ce or self.ce
         delegation_id = delegation_id or self.delegation_id
@@ -82,6 +82,7 @@ class GLiteJobManager(BaseJobManager):
             if code == 0:
                 return job_id
             else:
+                logger.debug("submission of glite job '{}' failed:\n{}".format(job_file, out))
                 if retries > 0:
                     retries -= 1
                     time.sleep(retry_delay)
@@ -89,7 +90,8 @@ class GLiteJobManager(BaseJobManager):
                 elif silent:
                     return None
                 else:
-                    raise Exception("submission of job '{}' failed:\n{}".format(job_file, out))
+                    raise Exception("submission of glite job '{}' failed:\n{}".format(
+                        job_file, out))
 
     def cancel(self, job_id, silent=False):
         # build the command and run it
@@ -100,7 +102,7 @@ class GLiteJobManager(BaseJobManager):
         # check success
         if code != 0 and not silent:
             # glite prints everything to stdout
-            raise Exception("cancellation of job(s) '{}' failed:\n{}".format(job_id, out))
+            raise Exception("cancellation of glite job(s) '{}' failed:\n{}".format(job_id, out))
 
     def cleanup(self, job_id, silent=False):
         # build the command and run it
@@ -111,7 +113,7 @@ class GLiteJobManager(BaseJobManager):
         # check success
         if code != 0 and not silent:
             # glite prints everything to stdout
-            raise Exception("cleanup of job(s) '{}' failed:\n{}".format(job_id, out))
+            raise Exception("cleanup of glite job(s) '{}' failed:\n{}".format(job_id, out))
 
     def query(self, job_id, silent=False):
         multi = isinstance(job_id, (list, tuple))
@@ -128,7 +130,7 @@ class GLiteJobManager(BaseJobManager):
                 return None
             else:
                 # glite prints everything to stdout
-                raise Exception("status query of job(s) '{}' failed:\n{}".format(job_id, out))
+                raise Exception("status query of glite job(s) '{}' failed:\n{}".format(job_id, out))
 
         # parse the output and extract the status per job
         query_data = self.parse_query_output(out)
@@ -140,7 +142,8 @@ class GLiteJobManager(BaseJobManager):
                     if silent:
                         return None
                     else:
-                        raise Exception("job(s) '{}' not found in query response".format(job_id))
+                        raise Exception("glite job(s) '{}' not found in query response".format(
+                            job_id))
                 else:
                     query_data[_job_id] = self.job_status_dict(job_id=_job_id, status=self.FAILED,
                         error="job not found in query response")

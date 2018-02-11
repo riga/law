@@ -23,7 +23,7 @@ __all__ = [
     "DropboxFileSystem", "DropboxFileTarget", "DropboxDirectoryTarget",
     "DCacheFileSystem", "DCacheFileTarget", "DCacheDirectoryTarget",
     "TargetCollection", "SiblingFileCollection",
-    "NO_STR", "NO_INT", "NO_FLOAT", "TaskInstanceParameter", "CSVParameter",
+    "NO_STR", "NO_INT", "NO_FLOAT", "check_no_param", "TaskInstanceParameter", "CSVParameter",
     "Config",
 ]
 
@@ -45,7 +45,9 @@ law.logger.setup_logging()
 
 # provisioning imports
 import law.util
-from law.parameter import NO_STR, NO_INT, NO_FLOAT, TaskInstanceParameter, CSVParameter
+from law.parameter import (
+    NO_STR, NO_INT, NO_FLOAT, check_no_param, TaskInstanceParameter, CSVParameter,
+)
 from law.target.file import FileSystemTarget, FileSystemFileTarget, FileSystemDirectoryTarget
 from law.target.local import LocalFileSystem, LocalFileTarget, LocalDirectoryTarget
 from law.target.dropbox import DropboxFileSystem, DropboxFileTarget, DropboxDirectoryTarget

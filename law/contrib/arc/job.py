@@ -42,7 +42,7 @@ class ArcJobManager(BaseJobManager):
         self.job_list = job_list
         self.threads = threads
 
-    def submit(self, job_file, ce=None, job_list=None, retries=0, retry_delay=5, silent=False):
+    def submit(self, job_file, ce=None, job_list=None, retries=0, retry_delay=3, silent=False):
         # default arguments
         ce = ce or self.ce
         job_list = job_list or self.job_list
@@ -81,6 +81,7 @@ class ArcJobManager(BaseJobManager):
             if code == 0:
                 return job_id
             else:
+                logger.debug("submission of arc job '{}' failed:\n{}".format(job_file, out))
                 if retries > 0:
                     retries -= 1
                     time.sleep(retry_delay)
@@ -88,7 +89,7 @@ class ArcJobManager(BaseJobManager):
                 elif silent:
                     return None
                 else:
-                    raise Exception("submission of job '{}' failed:\n{}".format(job_file, out))
+                    raise Exception("submission of arc job '{}' failed:\n{}".format(job_file, out))
 
     def cancel(self, job_id, job_list=None, silent=False):
         # default arguments
@@ -105,7 +106,7 @@ class ArcJobManager(BaseJobManager):
         # check success
         if code != 0 and not silent:
             # glite prints everything to stdout
-            raise Exception("cancellation of job(s) '{}' failed:\n{}".format(job_id, out))
+            raise Exception("cancellation of arc job(s) '{}' failed:\n{}".format(job_id, out))
 
     def cleanup(self, job_id, job_list=None, silent=False):
         # default arguments
@@ -122,7 +123,7 @@ class ArcJobManager(BaseJobManager):
         # check success
         if code != 0 and not silent:
             # glite prints everything to stdout
-            raise Exception("cleanup of job(s) '{}' failed:\n{}".format(job_id, out))
+            raise Exception("cleanup of arc job(s) '{}' failed:\n{}".format(job_id, out))
 
     def query(self, job_id, job_list=None, silent=False):
         # default arguments
@@ -145,7 +146,7 @@ class ArcJobManager(BaseJobManager):
                 return None
             else:
                 # glite prints everything to stdout
-                raise Exception("status query of job(s) '{}' failed:\n{}".format(job_id, out))
+                raise Exception("status query of arc job(s) '{}' failed:\n{}".format(job_id, out))
 
         # parse the output and extract the status per job
         query_data = self.parse_query_output(out)
@@ -157,7 +158,8 @@ class ArcJobManager(BaseJobManager):
                     if silent:
                         return None
                     else:
-                        raise Exception("job(s) '{}' not found in query response".format(job_id))
+                        raise Exception("arc job(s) '{}' not found in query response".format(
+                            job_id))
                 else:
                     query_data[_job_id] = self.job_status_dict(job_id=_job_id, status=self.FAILED,
                         error="job not found in query response")
