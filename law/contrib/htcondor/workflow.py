@@ -43,11 +43,10 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         # the file postfix is pythonic range made from branches, e.g. [0, 1, 2] -> "_0To3"
         postfix = "_{}To{}".format(branches[0], branches[-1] + 1)
         config["postfix"] = postfix
-        _postfix = lambda path: self.job_file_factory.postfix_file(path, postfix)
         pf = lambda s: "postfix:{}".format(s)
 
         # executable
-        config["executable"] = "/usr/bin/env"
+        config["executable"] = "bash_wrapper.sh"
 
         # collect task parameters
         task_params = task.as_branch(branches[0]).cli_args(exclude={"branch"})
@@ -68,13 +67,16 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
             dashboard_data=self.dashboard.remote_hook_data(
                 job_num, self.attempts.get(job_num, 0)),
         )
-        config["arguments"] = "bash {} {}".format(_postfix("job.sh"), job_args.join())
+        config["arguments"] = job_args.join()
 
         # prepare render data
         config["render_data"] = defaultdict(dict)
 
         # input files
-        config["input_files"] = [law_src_path("job", "job.sh")]
+        config["input_files"] = [
+            law_src_path("job", "bash_wrapper.sh"), law_src_path("job", "job.sh")
+        ]
+        config["render_data"]["*"]["job_file"] = pf("job.sh")
 
         # add the bootstrap file
         bootstrap_file = task.htcondor_bootstrap_file()

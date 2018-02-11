@@ -2,6 +2,7 @@
 
 """
 Law example tasks to demonstrate LSF workflows at CERN.
+
 The actual payload of the tasks is rather trivial.
 """
 
@@ -22,10 +23,10 @@ class CreateChars(Task, LSFWorkflow, law.LocalWorkflow):
     data it processes is defined in the *branch_map*. A task can access this data via
     ``self.branch_map[self.branch]``, or via ``self.branch_data`` by convenience.
 
-    By default, CreateChars is a HTCondorWorkflow (first workflow class in the inheritance order,
-    MRO). If you want to execute it as a LSFWOrkflow (LocalWorkflow), add the ``"--workflow lsf"``
-    (``"--workflow local"``) parameter on the command line. The code in this task should be
-    completely independent of the actual *run location*, and law provides the means to do so.
+    By default, CreateChars is a LSFWorkflow (first workflow class in the inheritance order, MRO).
+    If you want to execute it as a LocalWorkflow, add the ``"--workflow local"`` parameter on the
+    command line. The code in this task should be completely independent of the actual *run
+    location*, and law provides the means to do so.
 
     When a branch greater or equal to zero is set, e.g. via ``"--branch 1"``, you instantiate a
     single *branch task* rather than the workflow. Branch tasks are always executed locally.

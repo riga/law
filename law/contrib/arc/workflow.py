@@ -81,6 +81,7 @@ class ArcWorkflowProxy(BaseRemoteWorkflowProxy):
         # prepare render data
         config["render_data"] = defaultdict(dict)
 
+        # input files
         config["input_files"] = [
             law_src_path("job", "bash_wrapper.sh"), law_src_path("job", "job.sh")
         ]
