@@ -298,7 +298,8 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
         job_files = [job_file for _, job_file in six.itervalues(job_data)]
         dst_info = self.destination_info() or ""
         dst_info = dst_info and (", " + dst_info)
-        task.publish_message("going to submit {} job(s)".format(len(job_files)) + dst_info)
+        task.publish_message("going to submit {} {} job(s){}".format(
+            len(job_files), self.workflow_type, dst_info))
 
         # pass the the submit_jobs method for actual submission
         job_ids = self.submit_jobs(job_files)
