@@ -183,14 +183,14 @@ class LSFJobFileFactory(BaseJobFileFactory):
 
     config_attrs = BaseJobFileFactory.config_attrs + [
         "file_name", "command", "queue", "cwd", "input_files", "output_files",
-        "postfix_output_files", "copy_files", "job_name", "stdout", "stderr", "shell", "emails",
-        "custom_content", "absolute_paths"
+        "postfix_output_files", "manual_stagein", "manual_stageout", "job_name", "stdout", "stderr",
+        "shell", "emails", "custom_content", "absolute_paths",
     ]
 
     def __init__(self, file_name="job.job", command=None, queue=None, cwd=None, input_files=None,
-            output_files=None, postfix_output_files=True, copy_files=True, job_name=None,
-            stdout="stdout.txt", stderr="stderr.txt", shell="bash", emails=False,
-            custom_content=None, absolute_paths=False, dir=None):
+            output_files=None, postfix_output_files=True, manual_stagein=False,
+            manual_stageout=False, job_name=None, stdout="stdout.txt", stderr="stderr.txt",
+            shell="bash", emails=False, custom_content=None, absolute_paths=False, dir=None):
         super(LSFJobFileFactory, self).__init__(dir=dir)
 
         self.file_name = file_name
@@ -200,7 +200,8 @@ class LSFJobFileFactory(BaseJobFileFactory):
         self.input_files = input_files or []
         self.output_files = output_files or []
         self.postfix_output_files = postfix_output_files
-        self.copy_files = copy_files
+        self.manual_stagein = manual_stagein
+        self.manual_stageout = manual_stageout
         self.job_name = job_name
         self.stdout = stdout
         self.stderr = stderr
@@ -257,21 +258,24 @@ class LSFJobFileFactory(BaseJobFileFactory):
         if c.custom_content:
             content += c.custom_content
 
-        if not c.copy_files:
+        if not c.manual_stagein:
             for input_file in c.input_files:
                 content.append(("-f", "\"{} > {}\"".format(
                     input_file, os.path.basename(input_file))))
+
+        if not c.manual_stageout:
             for output_file in c.output_files:
                 content.append(("-f", "\"{} < {}\"".format(
                     output_file, os.path.basename(output_file))))
-        else:
+
+        if c.manual_stagein:
             tmpl = "cp " + ("{}" if c.absolute_paths else "$LS_EXECCWD/{}") + " $( pwd )/{}"
             for input_file in c.input_files:
                 content.append(tmpl.format(input_file, os.path.basename(input_file)))
 
         content.append(c.command)
 
-        if c.copy_files:
+        if c.manual_stageout:
             tmpl = "cp $( pwd )/{} $LS_EXECCWD/{}"
             for output_file in c.output_files:
                 content.append(tmpl.format(output_file, output_file))

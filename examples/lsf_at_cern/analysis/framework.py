@@ -53,6 +53,8 @@ class LSFWorkflow(law.contrib.lsf.LSFWorkflow):
         # that the files are not temporary, i.e., it should not delete them after submission
         factory = super(LSFWorkflow, self).lsf_create_job_file_factory()
         factory.is_tmp = False
+        factory.manual_stagein = True
+        factory.manual_stageout = True
         return factory
 
     def lsf_bootstrap_file(self):
