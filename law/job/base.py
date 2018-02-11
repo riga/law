@@ -220,13 +220,22 @@ class BaseJobFileFactory(object):
 
     config_attrs = ["dir"]
 
-    class Config(dict):
+    class Config(object):
 
         def __getattr__(self, attr):
-            return self.__getitem__(attr)
+            return self.__dict__[attr]
 
         def __setattr__(self, attr, value):
-            self.__setitem__(attr, value)
+            self.__dict__[attr] = value
+
+        def __getitem__(self, attr):
+            return self.__dict__[attr]
+
+        def __setitem__(self, attr, value):
+            self.__dict__[attr] = value
+
+        def __contains__(self, attr):
+            return attr in self.__dict__
 
     def __init__(self, dir=None):
         super(BaseJobFileFactory, self).__init__()

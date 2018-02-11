@@ -38,15 +38,15 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
 
     def create_job_file(self, job_num, branches):
         task = self.task
-        config = {}
+        config = self.job_file_factory.Config()
 
         # the file postfix is pythonic range made from branches, e.g. [0, 1, 2] -> "_0To3"
         postfix = "_{}To{}".format(branches[0], branches[-1] + 1)
-        config["postfix"] = postfix
+        config.postfix = postfix
         pf = lambda s: "postfix:{}".format(s)
 
         # executable
-        config["executable"] = "bash_wrapper.sh"
+        config.executable = "bash_wrapper.sh"
 
         # collect task parameters
         task_params = task.as_branch(branches[0]).cli_args(exclude={"branch"})
@@ -67,74 +67,74 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
             dashboard_data=self.dashboard.remote_hook_data(
                 job_num, self.attempts.get(job_num, 0)),
         )
-        config["arguments"] = job_args.join()
+        config.arguments = job_args.join()
 
         # prepare render data
-        config["render_data"] = defaultdict(dict)
+        config.render_data = defaultdict(dict)
 
         # input files
-        config["input_files"] = [
+        config.input_files = [
             law_src_path("job", "bash_wrapper.sh"), law_src_path("job", "job.sh")
         ]
-        config["render_data"]["*"]["job_file"] = pf("job.sh")
+        config.render_data["*"]["job_file"] = pf("job.sh")
 
         # add the bootstrap file
         bootstrap_file = task.htcondor_bootstrap_file()
         if bootstrap_file:
-            config["input_files"].append(bootstrap_file)
-            config["render_data"]["*"]["bootstrap_file"] = pf(os.path.basename(bootstrap_file))
+            config.input_files.append(bootstrap_file)
+            config.render_data["*"]["bootstrap_file"] = pf(os.path.basename(bootstrap_file))
         else:
-            config["render_data"]["*"]["bootstrap_file"] = ""
+            config.render_data["*"]["bootstrap_file"] = ""
 
         # add the stageout file
         stageout_file = task.htcondor_stageout_file()
         if stageout_file:
-            config["input_files"].append(stageout_file)
-            config["render_data"]["*"]["stageout_file"] = pf(os.path.basename(stageout_file))
+            config.input_files.append(stageout_file)
+            config.render_data["*"]["stageout_file"] = pf(os.path.basename(stageout_file))
         else:
-            config["render_data"]["*"]["stageout_file"] = ""
+            config.render_data["*"]["stageout_file"] = ""
 
         # does the dashboard have a hook file?
         dashboard_file = self.dashboard.remote_hook_file()
         if dashboard_file:
-            config["input_files"].append(dashboard_file)
-            config["render_data"]["*"]["dashboard_file"] = pf(os.path.basename(dashboard_file))
+            config.input_files.append(dashboard_file)
+            config.render_data["*"]["dashboard_file"] = pf(os.path.basename(dashboard_file))
         else:
-            config["render_data"]["*"]["dashboard_file"] = ""
+            config.render_data["*"]["dashboard_file"] = ""
 
         # determine basenames of input files and add that list to the render data
-        input_basenames = [pf(os.path.basename(path)) for path in config["input_files"]]
-        config["render_data"]["*"]["input_files"] = " ".join(input_basenames)
+        input_basenames = [pf(os.path.basename(path)) for path in config.input_files]
+        config.render_data["*"]["input_files"] = " ".join(input_basenames)
 
         # output files
-        config["output_files"] = []
+        config.output_files = []
 
         # logging
         # we do not use condor's logging mechanism since it requires that the submission directory
         # is present when it retrieves logs, and therefore we rely on the job.sh script
-        config["log"] = None
-        config["stdout"] = None
-        config["stderr"] = None
+        config.log = None
+        config.stdout = None
+        config.stderr = None
         if task.transfer_logs:
             log_file = "stdall.txt"
-            config["output_files"].append(log_file)
-            config["render_data"]["*"]["log_file"] = pf(log_file)
+            config.output_files.append(log_file)
+            config.render_data["*"]["log_file"] = pf(log_file)
         else:
-            config["render_data"]["*"]["log_file"] = ""
+            config.render_data["*"]["log_file"] = ""
 
         # we can use condor's file stageout only when the output directory is local
         # otherwise, one should use the stageout_file and stageout manually
         output_dir = task.htcondor_output_directory()
         if not isinstance(output_dir, LocalDirectoryTarget):
-            del config["output_files"][:]
+            del config.output_files[:]
         else:
-            config["absolute_paths"] = True
-            config["custom_content"] = [("initialdir", output_dir.path)]
+            config.absolute_paths = True
+            config.custom_content = [("initialdir", output_dir.path)]
 
         # task hook
         config = task.htcondor_job_config(config, job_num, branches)
 
-        return self.job_file_factory(**config)
+        return self.job_file_factory(**config.__dict__)
 
     def destination_info(self):
         info = []
