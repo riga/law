@@ -190,8 +190,8 @@ class BaseJobManager(object):
         # number formatting
         if isinstance(align, bool) or not isinstance(align, six.integer_types):
             align = 4 if align else 0
-        count_fmt = "%d" if not align else "%%%sd" % align
-        diff_fmt = "%+d" if not align else "%%+%sd" % (align - 1)
+        count_fmt = "%d" if not align else "%{}d".format(align)
+        diff_fmt = "%+d" if not align else "%+{}d".format(align - 1)
 
         # build the status line
         line = ""

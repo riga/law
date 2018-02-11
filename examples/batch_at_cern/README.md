@@ -1,9 +1,9 @@
-# Example: LSF workflow at CERN
+# Example: Batch workflows at CERN (HTCondor / LSF)
 
 ##### 0. At CERN: copy this example to your user space
 
 ```shell
-cp -R /afs/cern.ch/user/m/mrieger/public/law/law/examples/lsf_at_cern/* /yout/target/path 
+cp -R /afs/cern.ch/user/m/mrieger/public/law_sw/law/examples/batch_at_cern/* /examplepath
 ```
 
 
@@ -20,7 +20,7 @@ source setup.sh
 law db --verbose
 ```
 
-Should output:
+You should see:
 
 ```shell
 loading tasks from 1 module(s)
@@ -34,7 +34,7 @@ module 'analysis.tasks', 2 task(s):
 
 ##### 3. Check the status of the CreateAlphabet task
 
-```task
+```shell
 law run CreateAlphabet --version v1 --print-status -1
 ```
 
@@ -48,9 +48,9 @@ print task status with max_depth -1 and target_depth 0
 |     -> absent
 |
 |   > check status of CreateChars(branch=-1, version=v1, ...)
-|   |   - check LocalFileTarget(path=/examplepath/data/CreateChars/v1/submission.json, optional)
+|   |   - check LocalFileTarget(path=/examplepath/data/CreateChars/v1/htcondor_submission.json, optional)
 |   |     -> absent
-|   |   - check LocalFileTarget(path=/examplepath/data/CreateChars/v1/status.json, optional)
+|   |   - check LocalFileTarget(path=/examplepath/data/CreateChars/v1/htcondor_status.json, optional)
 |   |     -> absent
 |   |   - check TargetCollection(len=26, threshold=1.0)
 |   |     -> absent (0/26)
@@ -59,16 +59,19 @@ print task status with max_depth -1 and target_depth 0
 
 ##### 4. Run the CreateAlphabet task
 
+
 ```shell
-law run CreateAlphabet --version v1 --CreateChars-lsf-queue 8nm --CreateChars-transfer-logs --CreateChars-interval 0.5 --local-scheduler
+law run CreateAlphabet --version v1 --CreateChars-transfer-logs --CreateChars-interval 0.5 --local-scheduler
 ```
 
-This should take only a few minutes to process, depending on the 8nm queue status at CERN.
+The ``CreateChars`` is an ``HTCondorWorkflow`` by default, but it is also able to submit jobs via LSF. To do so, just add ``--CreateChars-workflow lsf`` to the command above.
+
+This should take only a few minutes to process, depending on the job queue at CERN.
 
 
 ##### 5. Check the status again
 
-```task
+```shell
 law run CreateAlphabet --version v1 --print-status -1
 ```
 
@@ -82,9 +85,9 @@ print task status with max_depth -1 and target_depth 0
 |     -> existent
 |
 |   > check status of CreateChars(branch=-1, version=v1, ...)
-|   |   - check LocalFileTarget(path=/examplepath/data/CreateChars/v1/submission.json, optional)
+|   |   - check LocalFileTarget(path=/examplepath/data/CreateChars/v1/htcondor_submission.json, optional)
 |   |     -> existent
-|   |   - check LocalFileTarget(path=/examplepath/data/CreateChars/v1/status.json, optional)
+|   |   - check LocalFileTarget(path=/examplepath/data/CreateChars/v1/htcondor_status.json, optional)
 |   |     -> existent
 |   |   - check TargetCollection(len=26, threshold=1.0)
 |   |     -> existent (26/26)
@@ -96,4 +99,11 @@ print task status with max_depth -1 and target_depth 0
 ```shell
 cd data
 ls */v1/
+```
+
+
+##### 7. Cleanup the results
+
+```shell
+law run CreateAlphabet --version v1 --remove-output -1
 ```

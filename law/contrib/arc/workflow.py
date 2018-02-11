@@ -28,6 +28,13 @@ class ArcWorkflowProxy(BaseRemoteWorkflowProxy):
 
     workflow_type = "arc"
 
+    def __init__(self, *args, **kwargs):
+        super(ArcWorkflowProxy, self).__init__(*args, **kwargs)
+
+        # check if there is at least one ce
+        if not self.task.arc_ce:
+            raise Exception("please set at least one arc computing element (--arc-ce)")
+
     def create_job_manager(self):
         return self.task.arc_create_job_manager()
 
@@ -151,13 +158,6 @@ class ArcWorkflow(BaseRemoteWorkflow):
     exclude_params_branch = {"arc_ce"}
 
     exclude_db = True
-
-    def __init__(self, *args, **kwargs):
-        super(ArcWorkflow, self).__init__(*args, **kwargs)
-
-        # check if there is at least one ce
-        if not self.arc_ce:
-            raise Exception("please set at least one arc computing element (--arc-ce)")
 
     @abstractmethod
     def arc_output_directory(self):

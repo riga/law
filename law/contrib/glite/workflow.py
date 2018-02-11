@@ -34,6 +34,10 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
     def __init__(self, *args, **kwargs):
         super(GLiteWorkflowProxy, self).__init__(*args, **kwargs)
 
+        # check if there is at least one ce
+        if not self.task.glite_ce:
+            raise Exception("please set at least one glite computing element (--glite-ce)")
+
         self.delegation_ids = None
 
     def create_job_manager(self):
@@ -166,13 +170,6 @@ class GLiteWorkflow(BaseRemoteWorkflow):
     exclude_params_branch = {"glite_ce"}
 
     exclude_db = True
-
-    def __init__(self, *args, **kwargs):
-        super(GLiteWorkflow, self).__init__(*args, **kwargs)
-
-        # check if there is at least one ce
-        if not self.glite_ce:
-            raise Exception("please set at least one glite computing element (--glite-ce)")
 
     @abstractmethod
     def glite_output_directory(self):

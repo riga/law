@@ -127,13 +127,13 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
         postfix = self._get_task_hook("output_postfix")()
 
         # a file containing the submission data, i.e. job ids etc
-        submission_file = "submission{}.json".format(postfix)
+        submission_file = "{}_submission{}.json".format(self.workflow_type, postfix)
         outputs["submission"] = out_dir.child(submission_file, type="f")
         outputs["submission"].optional = True
 
         # a file containing status data when the jobs are done
         if not task.no_poll:
-            status_file = "status{}.json".format(postfix)
+            status_file = "{}_status{}.json".format(self.workflow_type, postfix)
             outputs["status"] = out_dir.child(status_file, type="f")
             outputs["status"].optional = True
 

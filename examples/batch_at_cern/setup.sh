@@ -10,7 +10,7 @@ action() {
     export ANALYSIS_PATH="$base"
     export ANALYSIS_DATA_PATH="$ANALYSIS_PATH/data"
 
-    source "/afs/cern.ch/user/m/mrieger/public/law/setup.sh"
+    source "/afs/cern.ch/user/m/mrieger/public/law_sw/setup.sh"
     source `law completion` 
 }
 action
