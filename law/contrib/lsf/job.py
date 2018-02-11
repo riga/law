@@ -228,7 +228,7 @@ class LSFJobFileFactory(BaseJobFileFactory):
             path = path if c.absolute_paths else os.path.basename(path)
             return path
 
-        c.input_files = map(os.path.abspath, c.input_files)
+        c.input_files = map(prepare_input, c.input_files)
 
         # output files
         if c.postfix_output_files:
