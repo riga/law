@@ -220,6 +220,8 @@ class BaseJobFileFactory(object):
 
     config_attrs = ["dir"]
 
+    render_key_cre = re.compile("\{\{(\w+)\}\}")
+
     class Config(object):
 
         def __getattr__(self, attr):
@@ -277,29 +279,42 @@ class BaseJobFileFactory(object):
         return path
 
     @classmethod
-    def render_file(cls, src, dst, render_data, postfix=None):
+    def linearize_render_variables(cls, render_variables):
+        linearized = {}
+        for key, value in six.iteritems(render_variables):
+            while True:
+                m = cls.render_key_cre.search(value)
+                if not m:
+                    break
+                subkey = m.group(1)
+                value = cls.render_text(value, subkey, render_variables.get(subkey, ""))
+            linearized[key] = value
+
+        return linearized
+
+    @classmethod
+    def render_file(cls, src, dst, render_variables, postfix=None):
         with open(src, "r") as f:
-            lines = f.readlines()
+            content = f.read()
 
         def postfix_fn(m):
             return cls.postfix_file(m.group(1), postfix)
 
-        basename = os.path.basename(src)
-        for pattern, variables in six.iteritems(render_data):
-            if fnmatch.fnmatch(basename, pattern):
-                for key, value in six.iteritems(variables):
-                    # value might contain paths that should be postfixed
-                    if postfix:
-                        value = re.sub("postfix:([^\s]+)", postfix_fn, value)
-                    lines = [cls.render_line(line, key, value) for line in lines]
+        for key, value in six.iteritems(render_variables):
+            # value might contain paths that should be postfixed, denoted by "postfix:..."
+            if postfix:
+                value = re.sub("postfix:([^\s]+)", postfix_fn, value)
+            content = cls.render_text(content, key, value)
+
+        # finally, replace all non-rendered keys with empty strings
+        content = cls.render_key_cre.sub("", content)
 
         with open(dst, "w") as f:
-            for line in lines:
-                f.write(line)
+            f.write(content)
 
     @classmethod
-    def render_line(cls, line, key, value):
-        return line.replace("{{" + key + "}}", value)
+    def render_text(cls, text, key, value):
+        return text.replace("{{" + key + "}}", value)
 
     def cleanup(self, force=True):
         if not self.is_tmp and not force:
@@ -307,11 +322,11 @@ class BaseJobFileFactory(object):
         if isinstance(self.dir, six.string_types) and os.path.exists(self.dir):
             shutil.rmtree(self.dir)
 
-    def provide_input(self, src, postfix, dir=None, render_data=None):
+    def provide_input(self, src, postfix, dir=None, render_variables=None):
         basename = os.path.basename(src)
         dst = os.path.join(dir or self.dir, self.postfix_file(basename, postfix))
-        if render_data:
-            self.render_file(src, dst, render_data, postfix)
+        if render_variables:
+            self.render_file(src, dst, render_variables, postfix)
         else:
             shutil.copy2(src, dst)
         return dst
@@ -339,7 +354,7 @@ class JobArguments(object):
         self.start_branch = start_branch
         self.end_branch = end_branch
         self.auto_retry = auto_retry
-        self.dashboard_data = dashboard_data
+        self.dashboard_data = dashboard_data or []
 
     @classmethod
     def encode_bool(cls, value):
@@ -347,9 +362,7 @@ class JobArguments(object):
 
     @classmethod
     def encode_list(cls, value):
-        if not value:
-            return ""
-        return base64.b64encode(" ".join(str(v) for v in value))
+        return base64.b64encode(" ".join(str(v) for v in value) or "-")
 
     def pack(self):
         return [

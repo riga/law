@@ -243,7 +243,7 @@ class GLiteJobFileFactory(BaseJobFileFactory):
         self.custom_content = custom_content
         self.absolute_paths = absolute_paths
 
-    def create(self, postfix=None, render_data=None, **kwargs):
+    def create(self, postfix=None, render_variables=None, **kwargs):
         # merge kwargs and instance attributes
         c = self.get_config(kwargs)
 
@@ -253,6 +253,10 @@ class GLiteJobFileFactory(BaseJobFileFactory):
         elif not c.executable:
             raise ValueError("executable must not be empty")
 
+        # linearize render_variables
+        if render_variables:
+            render_variables = self.linearize_render_variables(render_variables)
+
         # prepare the job file and the executable
         job_file = self.postfix_file(os.path.join(c.dir, c.file_name), postfix)
         executable_is_file = c.executable in map(os.path.basename, c.input_files)
@@ -261,7 +265,7 @@ class GLiteJobFileFactory(BaseJobFileFactory):
 
         # prepare input files
         def prepare_input(path):
-            path = self.provide_input(os.path.abspath(path), postfix, c.dir, render_data)
+            path = self.provide_input(os.path.abspath(path), postfix, c.dir, render_variables)
             path = add_scheme(path, "file") if c.absolute_paths else os.path.basename(path)
             return path
 

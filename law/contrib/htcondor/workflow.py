@@ -11,7 +11,7 @@ __all__ = ["HTCondorWorkflow"]
 import os
 import logging
 from abc import abstractmethod
-from collections import OrderedDict, defaultdict
+from collections import OrderedDict
 
 import luigi
 
@@ -69,42 +69,36 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         )
         config.arguments = job_args.join()
 
-        # prepare render data
-        config.render_data = defaultdict(dict)
+        # prepare render variables
+        config.render_variables = {}
 
         # input files
         config.input_files = [
             law_src_path("job", "bash_wrapper.sh"), law_src_path("job", "job.sh")
         ]
-        config.render_data["*"]["job_file"] = pf("job.sh")
+        config.render_variables["job_file"] = pf("job.sh")
 
         # add the bootstrap file
         bootstrap_file = task.htcondor_bootstrap_file()
         if bootstrap_file:
             config.input_files.append(bootstrap_file)
-            config.render_data["*"]["bootstrap_file"] = pf(os.path.basename(bootstrap_file))
-        else:
-            config.render_data["*"]["bootstrap_file"] = ""
+            config.render_variables["bootstrap_file"] = pf(os.path.basename(bootstrap_file))
 
         # add the stageout file
         stageout_file = task.htcondor_stageout_file()
         if stageout_file:
             config.input_files.append(stageout_file)
-            config.render_data["*"]["stageout_file"] = pf(os.path.basename(stageout_file))
-        else:
-            config.render_data["*"]["stageout_file"] = ""
+            config.render_variables["stageout_file"] = pf(os.path.basename(stageout_file))
 
         # does the dashboard have a hook file?
         dashboard_file = self.dashboard.remote_hook_file()
         if dashboard_file:
             config.input_files.append(dashboard_file)
-            config.render_data["*"]["dashboard_file"] = pf(os.path.basename(dashboard_file))
-        else:
-            config.render_data["*"]["dashboard_file"] = ""
+            config.render_variables["dashboard_file"] = pf(os.path.basename(dashboard_file))
 
         # determine basenames of input files and add that list to the render data
         input_basenames = [pf(os.path.basename(path)) for path in config.input_files]
-        config.render_data["*"]["input_files"] = " ".join(input_basenames)
+        config.render_variables["input_files"] = " ".join(input_basenames)
 
         # output files
         config.output_files = []
@@ -118,9 +112,7 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         if task.transfer_logs:
             log_file = "stdall.txt"
             config.output_files.append(log_file)
-            config.render_data["*"]["log_file"] = pf(log_file)
-        else:
-            config.render_data["*"]["log_file"] = ""
+            config.render_variables["log_file"] = pf(log_file)
 
         # we can use condor's file stageout only when the output directory is local
         # otherwise, one should use the stageout_file and stageout manually

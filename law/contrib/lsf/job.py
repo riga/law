@@ -210,7 +210,7 @@ class LSFJobFileFactory(BaseJobFileFactory):
         self.custom_content = custom_content
         self.absolute_paths = absolute_paths
 
-    def create(self, postfix=None, render_data=None, **kwargs):
+    def create(self, postfix=None, render_variables=None, **kwargs):
         # merge kwargs and instance attributes
         c = self.get_config(kwargs)
 
@@ -222,12 +222,16 @@ class LSFJobFileFactory(BaseJobFileFactory):
         elif not c.shell:
             raise ValueError("shell must not be empty")
 
+        # linearize render_variables
+        if render_variables:
+            render_variables = self.linearize_render_variables(render_variables)
+
         # prepare paths
         job_file = self.postfix_file(os.path.join(c.dir, c.file_name), postfix)
 
         # prepare input files
         def prepare_input(path):
-            path = self.provide_input(os.path.abspath(path), postfix, c.dir, render_data)
+            path = self.provide_input(os.path.abspath(path), postfix, c.dir, render_variables)
             path = path if c.absolute_paths else os.path.basename(path)
             return path
 

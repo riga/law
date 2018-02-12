@@ -138,7 +138,7 @@ class ArcJobManager(BaseJobManager):
             cmd += ["-j", job_list]
         cmd += job_ids
         logger.debug("query arc job(s) with command '{}'".format(cmd))
-        code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=sys.stderr)
+        code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
         # handle errors
         if code != 0:
@@ -191,8 +191,14 @@ class ArcJobManager(BaseJobManager):
                 continue
 
         # retrieve actual job status information per block
-        for block in out.split("Job: ", 1)[1].strip().split("\nJob: "):
-            data = dict(cls.status_block_cre.findall("Job: " + block))
+        # remove the summary line and check if there is any valid job status
+        out = out.split("\nStatus of ", 1)[0].strip()
+        if "Job: " not in out:
+            return query_data
+
+        blocks = out.split("Job: ", 1)[1].strip().split("\nJob: ")
+        for block in blocks:
+            data = dict(cls.status_block_cre.findall("Job: {}\n".format(block)))
             if not data:
                 continue
 
@@ -223,7 +229,7 @@ class ArcJobManager(BaseJobManager):
             return cls.PENDING
         elif status in ("Running", "Finishing"):
             return cls.RUNNING
-        elif status in ("Finsihed",):
+        elif status in ("Finished",):
             return cls.FINISHED
         elif status in ("Failed", "Deleted"):
             return cls.FAILED
@@ -236,13 +242,13 @@ class ArcJobFileFactory(BaseJobFileFactory):
     config_attrs = BaseJobFileFactory.config_attrs + [
         "file_name", "executable", "arguments", "input_files", "output_files",
         "postfix_output_files", "output_uri", "overwrite_output_files", "job_name", "log", "stdout",
-        "stderr", "custom_content", "dir",
+        "stderr", "custom_content", "absolute_paths", "dir",
     ]
 
     def __init__(self, file_name="job.xrsl", executable=None, arguments=None, input_files=None,
             output_files=None, postfix_output_files=True, output_uri=None,
             overwrite_output_files=True, job_name=None, log="log.txt", stdout="stdout.txt",
-            stderr="stderr.txt", custom_content=None, dir=None):
+            stderr="stderr.txt", custom_content=None, absolute_paths=False, dir=None):
         super(ArcJobFileFactory, self).__init__(dir=dir)
 
         self.file_name = file_name
@@ -257,9 +263,10 @@ class ArcJobFileFactory(BaseJobFileFactory):
         self.log = log
         self.stdout = stdout
         self.stderr = stderr
+        self.absolute_paths = absolute_paths
         self.custom_content = custom_content
 
-    def create(self, postfix=None, render_data=None, **kwargs):
+    def create(self, postfix=None, render_variables=None, **kwargs):
         # merge kwargs and instance attributes
         c = self.get_config(kwargs)
 
@@ -268,6 +275,10 @@ class ArcJobFileFactory(BaseJobFileFactory):
             raise ValueError("file_name must not be empty")
         elif not c.executable:
             raise ValueError("executable must not be empty")
+
+        # linearize render_variables
+        if render_variables:
+            render_variables = self.linearize_render_variables(render_variables)
 
         # prepare the job file
         job_file = self.postfix_file(os.path.join(c.dir, c.file_name), postfix)
@@ -280,17 +291,20 @@ class ArcJobFileFactory(BaseJobFileFactory):
             path, src, opts = (tpl + ("", ""))[:3]
             path = self.postfix_file(path, postfix)
             if src and get_scheme(src) in ("file", None):
-                src = self.provide_input(os.path.abspath(src), postfix, c.dir, render_data)
+                src = self.provide_input(os.path.abspath(src), postfix, c.dir, render_variables)
                 if not c.absolute_paths:
                     src = os.path.basename(src)
-            return (path, src, opts)
+                    if src == path:
+                        src = ""
+            return (path, src, opts) if opts else (path, src)
 
         c.input_files = map(prepare_input, c.input_files)
 
-        # adjust the executable
-        executable_is_file = c.executable in [os.path.basename(tpl[0]) for tpl in c.input_files]
+        # postfix the executable
+        pf_executable = self.postfix_file(os.path.basename(c.executable), postfix)
+        executable_is_file = pf_executable in [os.path.basename(tpl[0]) for tpl in c.input_files]
         if executable_is_file:
-            c.executable = self.postfix_file(os.path.basename(c.executable), postfix)
+            c.executable = pf_executable
 
         # ensure that log files are contained in the output files
         if c.log and c.log not in c.output_files:
@@ -313,8 +327,8 @@ class ArcJobFileFactory(BaseJobFileFactory):
                 if dst:
                     dst = self.postfix_file(dst, postfix)
             if c.overwrite_output_files and "overwrite" not in opts:
-                opts += ";overwrite=yes"
-            return (path, dst, opts)
+                opts += (";" if opts else "") + "overwrite=yes"
+            return (path, dst, opts) if opts else (path, dst)
 
         c.output_files = map(prepare_output, c.output_files)
 
@@ -350,7 +364,8 @@ class ArcJobFileFactory(BaseJobFileFactory):
         with open(job_file, "w") as f:
             f.write("&\n")
             for key, value in content:
-                f.write(self.create_line(key, value) + "\n")
+                line = self.create_line(key, value)
+                f.write(line + "\n")
 
         logger.debug("created glite job file at '{}'".format(job_file))
 

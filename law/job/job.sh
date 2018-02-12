@@ -6,7 +6,9 @@
 # - log_file: a file for logging stdout and stderr simultaneously
 # - input_files: basenames of all input files
 # - bootstrap_file: file that is sourced before running tasks
+# - bootstrap_command: command that is sourced before running tasks
 # - stageout_file: file that is executed after running tasks
+# - stageout_command: command that is executed after running tasks
 # - dashboard_file: file that contains dashboard functions to be used in hooks
 
 # arguments:
@@ -84,21 +86,6 @@ action() {
         fi
     }
 
-    cleanup() {
-        section cleanup
-
-        cd "$origin"
-
-        echo "pre cleanup"
-        echo "ls -la $HOME:"
-        ls -la "$HOME"
-        rm -rf "$HOME"
-        echo
-        echo "post cleanup"
-        echo "ls -la $origin:"
-        ls -la "$origin"
-    }
-
     call_func() {
         local name="$1"
         local args="${@:2}"
@@ -116,12 +103,71 @@ action() {
         section
     }
 
+    stageout() {
+        section "stageout"
+
+        run_stageout_file() {
+            local stageout_file="{{stageout_file}}"
+            if [ ! -z "$stageout_file" ]; then
+                echo "run stageout file '$stageout_file'"
+                bash "$stageout_file"
+            else
+                echo "stageout file empty, skip"
+            fi
+        }
+
+        run_stageout_file
+        ret="$?"
+
+        if [ "$ret" != "0" ]; then
+            2>&1 echo "stageout file failed, abort"
+            call_hook law_hook_job_failed "$ret"
+            return "$ret"
+        fi
+
+        run_stageout_command() {
+            local stageout_command="{{stageout_command}}"
+            if [ ! -z "$stageout_command" ]; then
+                echo "run stageout command '$stageout_command'"
+                bash -c "$stageout_command"
+            else
+                echo "stageout command empty, skip"
+            fi
+        }
+
+        run_stageout_command
+        ret="$?"
+
+        if [ "$ret" != "0" ]; then
+            2>&1 echo "stageout command failed, abort"
+            call_hook law_hook_job_failed "$ret"
+            return "$ret"
+        fi
+    }
+
+    cleanup() {
+        section "cleanup"
+
+        cd "$origin"
+
+        echo "pre cleanup"
+        echo "ls -la $HOME:"
+        ls -la "$HOME"
+        rm -rf "$HOME"
+
+        echo
+
+        echo "post cleanup"
+        echo "ls -la $origin:"
+        ls -la "$origin"
+    }
+
 
     #
     # some logs
     #
 
-    section environment
+    section "environment"
 
     echo "script: $0"
     echo "shell : '$SHELL'"
@@ -148,6 +194,8 @@ action() {
     # dashboard file
     #
 
+    section "dashboard file"
+
     load_dashboard_file() {
         local dashboard_file="{{dashboard_file}}"
         if [ ! -z "$dashboard_file" ]; then
@@ -157,8 +205,6 @@ action() {
             echo "dashboard file empty, skip"
         fi
     }
-
-    section "dashboard file"
 
     load_dashboard_file
 
@@ -171,23 +217,44 @@ action() {
     # custom bootstrap file
     #
 
+    section "bootstrapping"
+
     run_bootstrap_file() {
         local bootstrap_file="{{bootstrap_file}}"
         if [ ! -z "$bootstrap_file" ]; then
-            echo "run bootstrap file $bootstrap_file"
+            echo "run bootstrap file '$bootstrap_file'"
             source "$bootstrap_file"
         else
             echo "bootstrap file empty, skip"
         fi
     }
 
-    section "bootstrap file"
-
     run_bootstrap_file
     ret="$?"
 
     if [ "$ret" != "0" ]; then
         2>&1 echo "bootstrap file failed, abort"
+        stageout
+        cleanup
+        return "$ret"
+    fi
+
+    run_bootstrap_command() {
+        local bootstrap_command="{{bootstrap_command}}"
+        if [ ! -z "$bootstrap_command" ]; then
+            echo "run bootstrap command '$bootstrap_command'"
+            bash -c "$bootstrap_command"
+        else
+            echo "bootstrap command empty, skip"
+        fi
+    }
+
+    run_bootstrap_command
+    ret="$?"
+
+    if [ "$ret" != "0" ]; then
+        2>&1 echo "bootstrap command failed, abort"
+        stageout
         cleanup
         return "$ret"
     fi
@@ -203,6 +270,7 @@ action() {
 
     if [ -z "$LAW_SRC_PATH" ]; then
         2>&1 echo "law not found (should be loaded in bootstrap file), abort"
+        stageout
         cleanup
         return "1"
     fi
@@ -230,6 +298,7 @@ action() {
         if [ "$?" != "0" ]; then
             2>&1 echo "dependency tree for branch $branch failed, abort"
             call_hook law_hook_job_failed "$ret"
+            stageout
             cleanup
             return "$ret"
         fi
@@ -253,6 +322,7 @@ action() {
         if [ "$ret" != "0" ]; then
             2>&1 echo "branch $branch failed with exit code $ret, abort"
             call_hook law_hook_job_failed "$ret"
+            stageout
             cleanup
             return "$ret"
         fi
@@ -260,45 +330,21 @@ action() {
 
 
     #
-    # custom stageout file
-    #
-
-    run_stageout_file() {
-        local stageout_file="{{stageout_file}}"
-        if [ ! -z "$stageout_file" ]; then
-            echo "run stageout file $stageout_file"
-            bash "$stageout_file"
-        else
-            echo "stageout file empty, skip"
-        fi
-    }
-
-    section stageout
-
-    run_stageout_file
-    ret="$?"
-
-    if [ "$ret" != "0" ]; then
-        2>&1 echo "stageout file failed, abort"
-        call_hook law_hook_job_failed "$ret"
-        cleanup
-        return "$ret"
-    fi
-
-
-    #
     # le fin
     #
 
     call_hook law_hook_job_finished
+
+    stageout
     cleanup
 
     return "0"
 }
 
 # start and optionally log
-if [ -z "{{log_file}}" ]; then
+log_file="{{log_file}}"
+if [ -z "$log_file" ]; then
     action "$@"
 else
-    action "$@" &>> "{{log_file}}"
+    action "$@" &>> "$log_file"
 fi

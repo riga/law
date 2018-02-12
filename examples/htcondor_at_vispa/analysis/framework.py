@@ -63,6 +63,5 @@ class HTCondorWorkflow(law.contrib.htcondor.HTCondorWorkflow):
 
     def htcondor_job_config(self, config, job_num, branches):
         # render_data is rendered into all files sent with a job
-        # the pattern "*" tells law to render the given variable in all files
-        config.render_data["*"]["analysis_path"] = os.getenv("ANALYSIS_PATH")
+        config.render_variables["analysis_path"] = os.getenv("ANALYSIS_PATH")
         return config
