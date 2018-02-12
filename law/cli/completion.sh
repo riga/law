@@ -10,10 +10,10 @@ _law_complete() {
 
     # cross-OS grep
     _law_grep() {
-        if [ "$( uname -s )" != "Darwin" ]; then
-            grep -Po $@
-        else
+        if [ "$( uname -s )" = "Darwin" ]; then
             perl -nle "print $& if m{$1}" "${@:2}"
+        else
+            grep -Po $@
         fi
     }
 

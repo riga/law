@@ -12,6 +12,6 @@ action() {
     export ANALYSIS_DATA_PATH="$ANALYSIS_PATH/data"
 
     source "/home/Marcel/public/law_sw/setup.sh"
-    source `law completion`
+    source "$( law completion )"
 }
 action
