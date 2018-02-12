@@ -6,7 +6,7 @@
 # - log_file: a file for logging stdout and stderr simultaneously
 # - input_files: basenames of all input files
 # - bootstrap_file: file that is sourced before running tasks
-# - bootstrap_command: command that is sourced before running tasks
+# - bootstrap_command: command that is executed before running tasks
 # - stageout_file: file that is executed after running tasks
 # - stageout_command: command that is executed after running tasks
 # - dashboard_file: file that contains dashboard functions to be used in hooks
