@@ -161,7 +161,10 @@ class HTCondorJobManager(BaseJobManager):
         if missing_ids:
             cmd = ["condor_history"]
             cmd += [user or getpass.getuser()] if multi else [job_id]
-            cmd += ["--long", "--attributes", "ClusterId,ProcId,ExitCode,RemoveReason,HoldReason"]
+            cmd += ["-long"]
+            # since htcondor 8.5.6, one can define the attributes to fetch
+            if self.htcondor_version and self.htcondor_version >= (8, 5, 6):
+                cmd += ["-attributes", "ClusterId,ProcId,ExitCode,RemoveReason,HoldReason"]
             if pool:
                 cmd += ["-pool", pool]
             if scheduler:
