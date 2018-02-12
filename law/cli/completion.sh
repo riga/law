@@ -37,6 +37,11 @@ _law_complete() {
 
     # complete run
     if [ "$sub_cmd" = "run" ]; then
+        if [ ! -f "$db_file" ]; then
+            COMPREPLY=()
+            return
+        fi
+
         # task family
         if [ "$COMP_CWORD" = "2" ]; then
             COMPREPLY=( $( compgen -W "$( _law_grep "[^\:]+\:\K(.+)(?=\:.+)" "$db_file" )" -- "$cur" ) )
