@@ -45,6 +45,9 @@ class HTCondorWorkflow(law.contrib.htcondor.HTCondorWorkflow):
     configuration is required.
     """
 
+    htcondor_gpus = luigi.IntParameter(default=law.NO_INT, significant=False, desription="number "
+        "of GPUs to request on the VISPA cluster, leave empty to use only CPUs")
+
     def htcondor_output_directory(self):
         # the directory where submission meta data should be stored
         return law.LocalDirectoryTarget(self.local_path())
@@ -64,4 +67,7 @@ class HTCondorWorkflow(law.contrib.htcondor.HTCondorWorkflow):
     def htcondor_job_config(self, config, job_num, branches):
         # render_data is rendered into all files sent with a job
         config.render_variables["analysis_path"] = os.getenv("ANALYSIS_PATH")
+        # tell the job config if GPUs are requested
+        if not law.is_no_param(self.htcondor_gpus):
+            config.custom_config = [("request_gpus", self.htcondor_gpus)]
         return config
