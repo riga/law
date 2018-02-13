@@ -38,9 +38,9 @@ with open(os.path.join(this_dir, "requirements.txt"), "r") as f:
 class install(_install):
 
     def run(self):
-        _install.run(self)  # old-style
+        _install.run(self)
 
-        with open(os.path.join(this_dir, "bin", "law")) as f:
+        with open(os.path.join(this_dir, "law", "cli", "law")) as f:
             content = f.read()
         with open(law.util.which("law"), "w") as f:
             f.write(content)
@@ -77,13 +77,6 @@ setup(
         "law.contrib.wlcg",
         "law.contrib.cms",
     ],
-    package_data={
-        "": ["LICENSE", "requirements.txt", "README.md"],
-        "law.job": ["job.sh", "bash_wrapper.sh"],
-        "law.cli": ["law", "completion.sh"],
-        "law.contrib.git": ["bundle_repository.sh", "repository_checksum.sh"],
-        "law.contrib.cms": ["bundle_cmssw.sh", "cmsdashb_hooks.sh", "bin/apmon"],
-    },
     cmdclass={"install": install},
     entry_points={"console_scripts": ["law = law.cli:run"]},
 )

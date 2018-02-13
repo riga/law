@@ -13,7 +13,7 @@ __credits__ = ["Marcel Rieger"]
 __contact__ = "https://github.com/riga/law"
 __license__ = "MIT"
 __status__ = "Development"
-__version__ = "0.0.11"
+__version__ = "0.0.12"
 
 __all__ = [
     "Task", "WrapperTask", "SandboxTask",

@@ -1,0 +1,4 @@
+exclude *
+recursive-exclude . *
+recursive-include law *
+include setup.py requirements.txt README.rst LICENSE
