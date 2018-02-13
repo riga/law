@@ -30,7 +30,7 @@ from law.config import Config
 from law.target.file import FileSystem, FileSystemTarget, FileSystemFileTarget, \
     FileSystemDirectoryTarget, get_path, get_scheme, has_scheme, add_scheme, remove_scheme
 from law.target.local import LocalFileSystem, LocalFileTarget
-from law.target.formatter import find_formatter
+from law.target.formatter import AUTO_FORMATTER, get_formatter, find_formatters
 from law.util import make_list, copy_no_perm, human_bytes, create_hash, user_owns_file
 
 
@@ -897,11 +897,33 @@ class RemoteFileSystem(FileSystem):
 
     def load(self, path, formatter, *args, **kwargs):
         with self.open(path, "r", _yield_path=True) as lpath:
-            return find_formatter(lpath, formatter).load(lpath, *args, **kwargs)
+            if formatter == AUTO_FORMATTER:
+                errors = []
+                for f in find_formatters(lpath, silent=False):
+                    try:
+                        return f.load(lpath, *args, **kwargs)
+                    except ImportError as e:
+                        errors.append(str(e))
+                else:
+                    raise Exception("could not automatically load '{}', errors:\n{}".format(
+                        lpath, "\n".join(errors)))
+            else:
+                return get_formatter(formatter, silent=False).load(lpath, *args, **kwargs)
 
     def dump(self, path, formatter, *args, **kwargs):
         with self.open(path, "w", _yield_path=True) as lpath:
-            return find_formatter(path, formatter).dump(lpath, *args, **kwargs)
+            if formatter == AUTO_FORMATTER:
+                errors = []
+                for f in find_formatters(lpath, silent=False):
+                    try:
+                        return f.load(lpath, *args, **kwargs)
+                    except ImportError as e:
+                        errors.append(str(e))
+                else:
+                    raise Exception("could not automatically dump '{}', errors:\n{}".format(
+                        lpath, "\n".join(errors)))
+            else:
+                return get_formatter(formatter, silent=False).load(lpath, *args, **kwargs)
 
 
 class RemoteTarget(FileSystemTarget):

@@ -19,6 +19,7 @@ import luigi
 import luigi.task
 
 from law.target.base import Target
+from law.target.formatter import AUTO_FORMATTER
 from law.util import create_hash
 
 
@@ -193,11 +194,11 @@ class FileSystemFileTarget(FileSystemTarget):
         return self.fs.open(self.path, mode, **kwargs)
 
     def load(self, *args, **kwargs):
-        formatter = kwargs.pop("_formatter" if "_formatter" in kwargs else "formatter", "auto")
+        formatter = kwargs.pop("_formatter", None) or kwargs.pop("formatter", AUTO_FORMATTER)
         return self.fs.load(self.path, formatter, *args, **kwargs)
 
     def dump(self, *args, **kwargs):
-        formatter = kwargs.pop("_formatter" if "_formatter" in kwargs else "formatter", "auto")
+        formatter = kwargs.pop("_formatter", None) or kwargs.pop("formatter", AUTO_FORMATTER)
         return self.fs.dump(self.path, formatter, *args, **kwargs)
 
     def copy_to(self, dst, dir_perm=None, **kwargs):

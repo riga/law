@@ -11,8 +11,9 @@ __all__ = ["DCacheFileSystem", "DCacheFileTarget", "DCacheDirectoryTarget"]
 import logging
 
 from law.config import Config
-from law.target.remote import (RemoteFileSystem, RemoteTarget, RemoteFileTarget,
-    RemoteDirectoryTarget)
+from law.target.remote import (
+    RemoteFileSystem, RemoteTarget, RemoteFileTarget, RemoteDirectoryTarget,
+)
 
 
 logger = logging.getLogger(__name__)

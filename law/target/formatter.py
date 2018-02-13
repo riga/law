@@ -5,7 +5,7 @@ Formatter classes for file targets.
 """
 
 
-__all__ = ["Formatter", "find_formatter"]
+__all__ = ["AUTO_FORMATTER", "Formatter", "get_formatter", "find_formatters"]
 
 
 import os
@@ -22,6 +22,9 @@ import six
 logger = logging.getLogger(__name__)
 
 
+AUTO_FORMATTER = "auto"
+
+
 class FormatterRegister(type):
 
     formatters = OrderedDict()
@@ -31,8 +34,9 @@ class FormatterRegister(type):
 
         if cls.name in metacls.formatters:
             raise ValueError("duplicate formatter name '{}' for class {}".format(cls.name, cls))
-        elif cls.name == "auto":
-            raise ValueError("formatter class {} must not be named 'auto'".format(cls))
+        elif cls.name == AUTO_FORMATTER:
+            raise ValueError("formatter class {} must not be named '{}'".format(
+                cls, AUTO_FORMATTER))
 
         # store classes by name
         if cls.name != "_base":
@@ -42,20 +46,29 @@ class FormatterRegister(type):
         return cls
 
 
-def find_formatter(path, name):
-    formatter = None
-    if name == "auto":
-        for cls in six.itervalues(FormatterRegister.formatters):
-            if cls.accepts(path):
-                formatter = cls
-                break
-    elif name in FormatterRegister.formatters:
-        formatter = FormatterRegister.formatters[name]
+def get_formatter(name, silent=False):
+    """
+    Returns the formatter class whose name attribute is *name*. When no class could be found and
+    *silent* is *True*, *None* is returned. Otherwise, an exception is raised.
+    """
+    formatter = FormatterRegister.formatters.get(name)
+    if formatter or silent:
+        return formatter
+    else:
+        raise Exception("cannot find formatter '{}'".format(name))
 
-    if formatter is None:
-        raise Exception("cannot find formatter for path {}, name {}".format(path, name))
 
-    return formatter
+def find_formatters(path, silent=True):
+    """
+    Returns a list of formatter classes which would accept the file given by *path*. When no classes
+    could be found and *silent* is *True*, an empty list is returned. Otherwise, an exception is
+    raised.
+    """
+    formatters = [f for f in six.itervalues(FormatterRegister.formatters) if f.accepts(path)]
+    if formatters or silent:
+        return formatters
+    else:
+        raise Exception("cannot find formatter for path '{}'".format(path))
 
 
 @six.add_metaclass(FormatterRegister)
