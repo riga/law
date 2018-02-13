@@ -3,21 +3,21 @@
 Resources: [luigi](http://luigi.readthedocs.io/en/stable), [law](http://law.readthedocs.io/en/latest)
 
 
-##### 0. At CERN: copy this example to your user space
+#### 0. At CERN: copy this example to your user space
 
 ```shell
 cp -R /afs/cern.ch/user/m/mrieger/public/law_sw/law/examples/lsf_at_cern/* /examplepath
 ```
 
 
-##### 1. Source the setup script (just software and some variables)
+#### 1. Source the setup script (just software and some variables)
 
 ```shell
 source setup.sh
 ```
 
 
-##### 2. Let law scan your the tasks and their parameters (for autocompletion)
+#### 2. Let law scan your the tasks and their parameters (for autocompletion)
 
 ```shell
 law db --verbose
@@ -35,7 +35,7 @@ module 'analysis.tasks', 2 task(s):
 ```
 
 
-##### 3. Check the status of the CreateAlphabet task
+#### 3. Check the status of the CreateAlphabet task
 
 ```shell
 law run CreateAlphabet --version v1 --print-status -1
@@ -60,7 +60,7 @@ print task status with max_depth -1 and target_depth 0
 ```
 
 
-##### 4. Run the CreateAlphabet task
+#### 4. Run the CreateAlphabet task
 
 
 ```shell
@@ -72,7 +72,7 @@ The ``CreateChars`` task is a ``LSFWorkflow`` by default, but it is also able to
 This should take only a few minutes to process, depending on the job queue at CERN.
 
 
-##### 5. Check the status again
+#### 5. Check the status again
 
 ```shell
 law run CreateAlphabet --version v1 --print-status -1
@@ -97,7 +97,7 @@ print task status with max_depth -1 and target_depth 0
 ```
 
 
-##### 6. Look at the results
+#### 6. Look at the results
 
 ```shell
 cd data
@@ -105,7 +105,7 @@ ls */v1/
 ```
 
 
-##### 7. Cleanup the results
+#### 7. Cleanup the results
 
 ```shell
 law run CreateAlphabet --version v1 --remove-output -1

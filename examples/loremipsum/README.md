@@ -3,14 +3,14 @@
 Resources: [luigi](http://luigi.readthedocs.io/en/stable), [law](http://law.readthedocs.io/en/latest)
 
 
-##### 1. Source the setup script (just sets up software and some variables)
+#### 1. Source the setup script (just sets up software and some variables)
 
 ```shell
 source setup.sh
 ```
 
 
-##### 2. Let law scan your the tasks and their parameters (for autocompletion)
+#### 2. Let law scan your the tasks and their parameters (for autocompletion)
 
 ```shell
 law db --verbose
@@ -30,7 +30,7 @@ module 'tasks', 4 task(s):
 ```
 
 
-##### 3. Check the status of the ShowFrequencies task
+#### 3. Check the status of the ShowFrequencies task
 
 ```shell
 law run ShowFrequencies --print-status -1
@@ -60,7 +60,7 @@ print task status with max_depth -1 and target_depth 0
 The ``-1`` value tells law to recursively check the task status. Given a positive number, law stops at that level. The task itself has a depth of ``0``.
 
 
-##### 4. Run the ShowFrequencies task
+#### 4. Run the ShowFrequencies task
 
 
 ```shell
@@ -72,7 +72,7 @@ This should take only a few seconds to process.
 If you want to see how the task tree is built and subsequently run, start a luigi scheduler in a second terminal with ``luigid`` (you might want to source the setup script again before). This will start a central scheduler at *localhost:8082* (the default address). Also remove the ``--local-scheduler`` from the ``law run`` command, so tasks (or *workers*) know they can communicate with a central scheduler. You might want to add the ``--slow`` parameter to make the tasks somewhat slower in order to see the actual progress in the scheduler (this is of course not a feature of law, but only implemented by the tasks in this example ;) ).
 
 
-##### 5. Check the status again
+#### 5. Check the status again
 
 ```shell
 law run ShowFrequencies --print-status -1
@@ -100,14 +100,14 @@ print task status with max_depth -1 and target_depth 0
 ```
 
 
-##### 6. Look at the results
+#### 6. Look at the results
 
 ```shell
 ls data
 ```
 
 
-##### 7. Cleanup the results
+#### 7. Cleanup the results
 
 ```shell
 law run ShowFrequencies --remove-output -1
