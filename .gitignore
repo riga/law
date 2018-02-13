@@ -8,6 +8,7 @@
 __pycache__
 dist
 build
+tmp
 docs/_build
 data
 .law
