@@ -40,10 +40,13 @@ class install(_install):
     def run(self):
         _install.run(self)
 
-        with open(os.path.join(this_dir, "law", "cli", "law")) as f:
-            content = f.read()
-        with open(law.util.which("law"), "w") as f:
-            f.write(content)
+        try:
+            with open(os.path.join(this_dir, "law", "cli", "law")) as f:
+                content = f.read()
+            with open(law.util.which("law"), "w") as f:
+                f.write(content)
+        except:
+            pass
 
 
 setup(
