@@ -8,6 +8,7 @@ Base definition of remote workflows based on submission and status polling.
 __all__ = ["SubmissionData", "StatusData", "BaseRemoteWorkflowProxy", "BaseRemoteWorkflow"]
 
 
+import sys
 import time
 import math
 from collections import OrderedDict, defaultdict
@@ -18,6 +19,7 @@ import six
 
 from law.workflow.base import Workflow, WorkflowProxy
 from law.job.base import NoJobDashboard
+from law.parameter import NO_FLOAT, is_no_param
 from law.decorator import log
 from law.util import iter_chunks, ShorthandDict
 
@@ -346,7 +348,10 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
         n_jobs = float(len(self.submission_data.jobs))
         n_finished_min = task.acceptance * n_jobs if task.acceptance <= 1 else task.acceptance
         n_failed_max = task.tolerance * n_jobs if task.tolerance <= 1 else task.tolerance
-        max_polls = int(math.ceil((task.walltime * 3600.) / (task.interval * 60.)))
+        if is_no_param(task.walltime):
+            max_polls = sys.maxint
+        else:
+            max_polls = int(math.ceil((task.walltime * 3600.) / (task.poll_interval * 60.)))
         n_poll_fails = 0
 
         # bookkeeping dicts to avoid querying the status of finished jobs
@@ -369,7 +374,7 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
         for i in six.moves.range(max_polls):
             # sleep
             if i > 0:
-                time.sleep(task.interval * 60)
+                time.sleep(task.poll_interval * 60)
 
             # query job states
             job_ids = [data["job_id"] for data in six.itervalues(unfinished_jobs)]
@@ -387,8 +392,8 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
                         break
 
                 n_poll_fails += 1
-                if n_poll_fails > task.max_poll_fails:
-                    raise Exception("max_poll_fails exceeded")
+                if n_poll_fails > task.poll_fails:
+                    raise Exception("poll_fails exceeded")
                 else:
                     continue
             else:
@@ -547,12 +552,12 @@ class BaseRemoteWorkflow(Workflow):
         "status polling after submission")
     threads = luigi.IntParameter(default=4, significant=False, description="number of threads to "
         "use for (re)submission and status queries, default: 4")
-    interval = luigi.FloatParameter(default=3, significant=False, description="time between status "
-        "polls in minutes, default: 3")
-    walltime = luigi.FloatParameter(default=48, significant=False, description="maximum wall time "
-        "in hours, default: 48")
-    max_poll_fails = luigi.IntParameter(default=5, significant=False, description="maximum number "
-        "of consecutive errors during polling, default: 5")
+    walltime = luigi.FloatParameter(default=NO_FLOAT, significant=False, description="maximum wall "
+        "time in hours, default: not set")
+    poll_interval = luigi.FloatParameter(default=1, significant=False, description="time between "
+        "status polls in minutes, default: 1")
+    poll_fails = luigi.IntParameter(default=5, significant=False, description="maximum number of "
+        "consecutive errors during polling, default: 5")
     cancel_jobs = luigi.BoolParameter(default=False, description="cancel all submitted jobs, no "
         "new submission")
     cleanup_jobs = luigi.BoolParameter(default=False, description="cleanup all submitted jobs, no "
@@ -560,8 +565,10 @@ class BaseRemoteWorkflow(Workflow):
     transfer_logs = luigi.BoolParameter(significant=False, description="transfer job logs to the "
         "output directory")
 
-    exclude_params_branch = {"retries", "tasks_per_job", "only_missing", "no_poll", "threads",
-        "interval", "walltime", "max_poll_fails", "cancel_jobs", "cleanup_jobs", "transfer_logs"}
+    exclude_params_branch = {
+        "retries", "tasks_per_job", "only_missing", "no_poll", "threads", "walltime",
+        "poll_interval", "poll_fails", "cancel_jobs", "cleanup_jobs", "transfer_logs",
+    }
 
     exclude_db = True
 

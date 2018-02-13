@@ -348,4 +348,3 @@ if [ -z "$log_file" ]; then
 else
     action "$@" &>> "$log_file"
 fi
-
