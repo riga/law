@@ -90,7 +90,7 @@ class CreateAlphabet(Task):
         output.parent.touch()
 
         # again, dump the alphabet string into the output file
-        output.dump(alphabet)
+        output.dump(alphabet + "\n")
 
         # some status message
         # publish_message not only prints the message to stdout, but sends it to the scheduler

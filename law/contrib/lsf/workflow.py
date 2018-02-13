@@ -15,7 +15,7 @@ from collections import OrderedDict
 
 import luigi
 
-from law import LocalDirectoryTarget, NO_STR, check_no_param
+from law import LocalDirectoryTarget, NO_STR, get_param
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments
 from law.contrib.lsf.job import LSFJobManager, LSFJobFileFactory
@@ -131,7 +131,7 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
 
     def submit_jobs(self, job_files):
         task = self.task
-        queue = check_no_param(task.lsf_queue)
+        queue = get_param(task.lsf_queue)
 
         # progress callback to inform the scheduler
         def progress_callback(result, i):

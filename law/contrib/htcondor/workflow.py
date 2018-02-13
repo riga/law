@@ -15,7 +15,7 @@ from collections import OrderedDict
 
 import luigi
 
-from law import LocalDirectoryTarget, NO_STR, check_no_param
+from law import LocalDirectoryTarget, NO_STR, get_param
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments
 from law.contrib.htcondor.job import HTCondorJobManager, HTCondorJobFileFactory
@@ -138,8 +138,8 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
 
     def submit_jobs(self, job_files):
         task = self.task
-        pool = check_no_param(task.htcondor_pool)
-        scheduler = check_no_param(task.htcondor_scheduler)
+        pool = get_param(task.htcondor_pool)
+        scheduler = get_param(task.htcondor_scheduler)
 
         # progress callback to inform the scheduler
         def progress_callback(result, i):
