@@ -349,4 +349,3 @@ else
     action "$@" &>> "$log_file"
 fi
 
-echo -e "\nfinal return code: $?"
