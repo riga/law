@@ -19,7 +19,6 @@ import luigi
 import luigi.task
 
 from law.target.base import Target
-from law.target.formatter import AUTO_FORMATTER
 from law.util import create_hash
 
 
@@ -300,3 +299,7 @@ def remove_scheme(path):
     # ftp://path/to/file -> /path/to/file
     # /path/to/file -> /path/to/file
     return six.moves.urllib_parse.urlparse(path).path or None
+
+
+# trailing imports
+from law.target.formatter import AUTO_FORMATTER
