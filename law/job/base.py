@@ -224,6 +224,9 @@ class BaseJobFileFactory(object):
 
     class Config(object):
 
+        def __repr__(self):
+            return repr(self.__dict__)
+
         def __getattr__(self, attr):
             return self.__dict__[attr]
 
