@@ -916,14 +916,14 @@ class RemoteFileSystem(FileSystem):
                 errors = []
                 for f in find_formatters(lpath, silent=False):
                     try:
-                        return f.load(lpath, *args, **kwargs)
+                        return f.dump(lpath, *args, **kwargs)
                     except ImportError as e:
                         errors.append(str(e))
                 else:
                     raise Exception("could not automatically dump '{}', errors:\n{}".format(
                         lpath, "\n".join(errors)))
             else:
-                return get_formatter(formatter, silent=False).load(lpath, *args, **kwargs)
+                return get_formatter(formatter, silent=False).dump(lpath, *args, **kwargs)
 
 
 class RemoteTarget(FileSystemTarget):
