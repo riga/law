@@ -70,7 +70,7 @@ def printerr(*args, **kwargs):
     """ printerr(*args, flush=False)
     Same as *print*, but outputs to stderr. If *flush* is *True*, stderr is flushed after printing.
     """
-    sys.stderr.write(str(args) + "\n")
+    sys.stderr.write(" ".join(str(arg) for arg in args) + "\n")
     if kwargs.get("flush", False):
         sys.stderr.flush()
 
