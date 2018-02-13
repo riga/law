@@ -41,7 +41,6 @@ action() {
     # create a new home and tmp dirs, and change into the new home dir and copy all input files
     #
 
-    local ret="0"
     local job_hash="$( python -c "import uuid; print(str(uuid.uuid4())[-12:])" )"
     export HOME="$origin/job_${job_hash}"
     export TMP="$HOME/tmp"
@@ -117,12 +116,12 @@ action() {
         }
 
         run_stageout_file
-        ret="$?"
+        local stageout_ret="$?"
 
-        if [ "$ret" != "0" ]; then
+        if [ "$stageout_ret" != "0" ]; then
             2>&1 echo "stageout file failed, abort"
-            call_hook law_hook_job_failed "$ret"
-            return "$ret"
+            call_hook law_hook_job_failed "$stageout_ret"
+            return "$stageout_ret"
         fi
 
         run_stageout_command() {
@@ -136,12 +135,12 @@ action() {
         }
 
         run_stageout_command
-        ret="$?"
+        stageout_ret="$?"
 
-        if [ "$ret" != "0" ]; then
+        if [ "$stageout_ret" != "0" ]; then
             2>&1 echo "stageout command failed, abort"
-            call_hook law_hook_job_failed "$ret"
-            return "$ret"
+            call_hook law_hook_job_failed "$stageout_ret"
+            return "$stageout_ret"
         fi
     }
 
@@ -230,13 +229,13 @@ action() {
     }
 
     run_bootstrap_file
-    ret="$?"
+    local bootstrap_ret="$?"
 
-    if [ "$ret" != "0" ]; then
+    if [ "$bootstrap_ret" != "0" ]; then
         2>&1 echo "bootstrap file failed, abort"
         stageout
         cleanup
-        return "$ret"
+        return "$bootstrap_ret"
     fi
 
     run_bootstrap_command() {
@@ -250,13 +249,13 @@ action() {
     }
 
     run_bootstrap_command
-    ret="$?"
+    bootstrap_ret="$?"
 
-    if [ "$ret" != "0" ]; then
+    if [ "$bootstrap_ret" != "0" ]; then
         2>&1 echo "bootstrap command failed, abort"
         stageout
         cleanup
-        return "$ret"
+        return "$bootstrap_ret"
     fi
 
 
@@ -284,6 +283,7 @@ action() {
 
     call_hook law_hook_job_running
 
+    local exec_ret="0"
     for (( branch=$start_branch; branch<$end_branch; branch++ )); do
         section "branch $branch"
 
@@ -294,37 +294,37 @@ action() {
 
         echo "dependecy tree:"
         eval "$cmd --print-deps 2"
-        ret="$?"
+        exec_ret="$?"
         if [ "$?" != "0" ]; then
             2>&1 echo "dependency tree for branch $branch failed, abort"
-            call_hook law_hook_job_failed "$ret"
+            call_hook law_hook_job_failed "$exec_ret"
             stageout
             cleanup
-            return "$ret"
+            return "$exec_ret"
         fi
 
         echo
 
         echo "execute attempt 1:"
         eval "$cmd"
-        ret="$?"
-        echo "return code: $ret"
+        exec_ret="$?"
+        echo "return code: $exec_ret"
 
-        if [ "$ret" != "0" ] && [ "$auto_retry" = "yes" ]; then
+        if [ "$exec_ret" != "0" ] && [ "$auto_retry" = "yes" ]; then
             echo
 
             echo "execute attempt 2:"
             eval "$cmd"
-            ret="$?"
-            echo "return code: $ret"
+            exec_ret="$?"
+            echo "return code: $exec_ret"
         fi
 
-        if [ "$ret" != "0" ]; then
-            2>&1 echo "branch $branch failed with exit code $ret, abort"
-            call_hook law_hook_job_failed "$ret"
+        if [ "$exec_ret" != "0" ]; then
+            2>&1 echo "branch $branch failed with exit code $exec_ret, abort"
+            call_hook law_hook_job_failed "$exec_ret"
             stageout
             cleanup
-            return "$ret"
+            return "$exec_ret"
         fi
     done
 
@@ -348,3 +348,5 @@ if [ -z "$log_file" ]; then
 else
     action "$@" &>> "$log_file"
 fi
+
+echo -e "\nfinal return code: $?"
