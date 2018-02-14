@@ -267,6 +267,12 @@ class Workflow(Task):
 
         return luigi.task.getpaths(self.workflow_proxy.requires())
 
+    def requires_from_branch(self):
+        if self.is_branch():
+            raise Exception("calls to requires_from_branch are forbidden for branch tasks")
+
+        return self.__class__.requires(self)
+
 
 Workflow.workflow_property = workflow_property
 Workflow.cached_workflow_property = cached_workflow_property
