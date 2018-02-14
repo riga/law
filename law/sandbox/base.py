@@ -336,10 +336,10 @@ class SandboxTask(Task):
         return (os.getuid(), os.getgid())
 
     def __getattribute__(self, attr, proxy=True):
-        if proxy:
+        if proxy and attr != "__class__":
             # be aware of workflows independent of the MRO as sandboxing should be the last
             # modification of a task, i.e., this enforces granular sandbox diping instead of nesting
-            if attr != "__class__" and hasattr(self, "workflow_proxy"):
+            if hasattr(self, "workflow_proxy"):
                 if Workflow._forward_attribute(self, attr):
                     return Workflow.__getattribute__(self, attr, force=True)
 
