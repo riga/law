@@ -1,5 +1,9 @@
 # Example: Character frequencies in the Loremipsum
 
+This example demonstrates how to create a simple law task tree
+
+The actual payload of the tasks is rather trivial. Six different versions of the [lorem ipsum](https://www.lipsum.com) dummy text are fetched from a website. Per version, the character frequencies are measured, and merged and visualized in the end.
+
 Resources: [luigi](http://luigi.readthedocs.io/en/stable), [law](http://law.readthedocs.io/en/latest)
 
 
