@@ -148,8 +148,9 @@ class Workflow(Task):
         return attr in _forward_attributes and self.is_workflow()
 
     def __getattribute__(self, attr, proxy=True, force=False):
-        if proxy and (force or self._forward_attribute(attr)):
-            return getattr(self.workflow_proxy, attr)
+        if proxy:
+            if force or (attr != "_forward_attribute" and self._forward_attribute(attr)):
+                return getattr(self.workflow_proxy, attr)
 
         return super(Workflow, self).__getattribute__(attr)
 
