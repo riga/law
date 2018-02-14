@@ -43,8 +43,8 @@ class LoremIpsumBase(law.Task):
     local file and directory targets at the default data path.
     """
 
-    file_index = luigi.ChoiceParameter(int, choices=list(range(1, 7)), description="the file index "
-        "ranging from 1 to 6")
+    file_index = luigi.ChoiceParameter(int, choices=list(range(1, 6 + 1)), description="the file "
+        "index ranging from 1 to 6")
     slow = luigi.BoolParameter(description="before running, wait between 5 and 15 seconds")
 
     def local_path(self, *path):
