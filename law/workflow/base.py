@@ -23,7 +23,7 @@ from law.parameter import NO_STR, NO_INT, CSVParameter
 logger = logging.getLogger(__name__)
 
 
-_forward_attrs = ("requires", "output", "run")
+_forward_attributes = ("requires", "output", "run")
 
 
 class WorkflowProxy(ProxyTask):
@@ -144,10 +144,12 @@ class Workflow(Task):
             # cached attributes for branches
             self._workflow_task = None
 
-    def __getattribute__(self, attr, proxy=True):
-        if proxy:
-            if attr in _forward_attrs and self.is_workflow():
-                return getattr(self.workflow_proxy, attr)
+    def _forward_attribute(self, attr):
+        return attr in _forward_attributes and self.is_workflow()
+
+    def __getattribute__(self, attr, proxy=True, force=False):
+        if proxy and (force or self._forward_attribute(attr)):
+            return getattr(self.workflow_proxy, attr)
 
         return super(Workflow, self).__getattribute__(attr)
 

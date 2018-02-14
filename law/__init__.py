@@ -56,11 +56,11 @@ from law.target.dcache import DCacheFileSystem, DCacheFileTarget, DCacheDirector
 from law.target.collection import TargetCollection, SiblingFileCollection
 import law.decorator
 from law.task.base import Task, WrapperTask
+from law.workflow.base import Workflow, workflow_property, cached_workflow_property
+from law.workflow.local import LocalWorkflow
 from law.sandbox.base import SandboxTask
 import law.sandbox.docker
 import law.sandbox.bash
-from law.workflow.base import Workflow, workflow_property, cached_workflow_property
-from law.workflow.local import LocalWorkflow
 import law.job.base
 import law.workflow.remote
 import law.contrib
