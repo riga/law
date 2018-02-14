@@ -43,10 +43,10 @@ class install(_install):
         try:
             with open(os.path.join(this_dir, "law", "cli", "law")) as f:
                 content = f.read()
-            with open(law.util.which("law"), "w") as f:
+            with open(os.path.join(self.install_scripts, "law"), "w") as f:
                 f.write(content)
-        except:
-            pass
+        except Exception as e:
+            print("could not update the law executable: {}".format(e))
 
 
 setup(
