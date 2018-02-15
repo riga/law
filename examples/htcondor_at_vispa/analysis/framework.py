@@ -69,5 +69,5 @@ class HTCondorWorkflow(law.contrib.htcondor.HTCondorWorkflow):
         config.render_variables["analysis_path"] = os.getenv("ANALYSIS_PATH")
         # tell the job config if GPUs are requested
         if not law.is_no_param(self.htcondor_gpus):
-            config.custom_config.append(("request_gpus", self.htcondor_gpus))
+            config.custom_content.append(("request_gpus", self.htcondor_gpus))
         return config
