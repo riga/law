@@ -45,7 +45,7 @@ class HTCondorWorkflow(law.contrib.htcondor.HTCondorWorkflow):
     configuration is required.
     """
 
-    htcondor_gpus = luigi.IntParameter(default=law.NO_INT, significant=False, desription="number "
+    htcondor_gpus = luigi.IntParameter(default=law.NO_INT, significant=False, description="number "
         "of GPUs to request on the VISPA cluster, leave empty to use only CPUs")
 
     def htcondor_output_directory(self):

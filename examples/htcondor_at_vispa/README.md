@@ -1,6 +1,6 @@
 # Example: HTCondor workflows at VISPA
 
-This example demonstrates how to create law task workflows that run on the HTCondor batch system at [VISPA](vispa.physik.rwth-aachen.de).
+This example demonstrates how to create law task workflows that run on the HTCondor batch system at [VISPA](https://vispa.physik.rwth-aachen.de/).
 
 The actual payload of the tasks is rather trivial. The workflow consists of 26 tasks which convert an integer between 97 and 122 (ascii) into a character. A single task collects the results in the end and writes all characters into a text file.
 
