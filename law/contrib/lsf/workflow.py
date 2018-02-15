@@ -102,6 +102,9 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
         # output files
         config.output_files = []
 
+        # custom content
+        config.custom_content = []
+
         # logging
         # we do not use lsf's logging mechanism since it requires that the submission directory
         # is present when it retrieves logs, and therefore we rely on the job.sh script

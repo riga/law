@@ -111,6 +111,9 @@ class ArcWorkflowProxy(BaseRemoteWorkflowProxy):
         # output files
         config.output_files = []
 
+        # custom content
+        config.custom_content = []
+
         # log files
         config.log = None
         if task.transfer_logs:

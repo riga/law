@@ -103,6 +103,9 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         # output files
         config.output_files = []
 
+        # custom content
+        config.custom_content = []
+
         # logging
         # we do not use condor's logging mechanism since it requires that the submission directory
         # is present when it retrieves logs, and therefore we rely on the job.sh script
@@ -121,7 +124,7 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
             del config.output_files[:]
         else:
             config.absolute_paths = True
-            config.custom_content = [("initialdir", output_dir.path)]
+            config.custom_content.append(("initialdir", output_dir.path))
 
         # task hook
         config = task.htcondor_job_config(config, job_num, branches)

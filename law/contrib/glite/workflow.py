@@ -115,6 +115,9 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
         # output files
         config.output_files = []
 
+        # custom content
+        config.custom_content = []
+
         # log file
         if task.transfer_logs:
             log_file = "stdall.txt"
