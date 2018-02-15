@@ -191,7 +191,7 @@ class BaseJobManager(object):
         if isinstance(align, bool) or not isinstance(align, six.integer_types):
             align = 4 if align else 0
         count_fmt = "%d" if not align else "%{}d".format(align)
-        diff_fmt = "%+d" if not align else "%+{}d".format(align - 1)
+        diff_fmt = "%+d" if not align else "%+{}d".format(align)
 
         # build the status line
         line = ""
