@@ -6,6 +6,7 @@
 
 
 import os
+import sys
 import traceback
 from importlib import import_module
 from collections import OrderedDict
@@ -15,7 +16,7 @@ import six
 
 from law.task.base import Task
 from law.config import Config
-from law.util import multi_match
+from law.util import multi_match, colored
 
 
 def setup_parser(sub_parsers):
@@ -48,16 +49,19 @@ def execute(args):
             continue
 
         if args.verbose:
-            print("loading module '{}'".format(modid))
+            sys.stdout.write("loading module '{}'".format(modid))
 
         try:
             import_module(modid)
-        except ImportError as e:
+        except:
             if args.verbose:
-                print("\nImportError in module {}:".format(modid, e))
+                print("\n\nError in module '{}':".format(colored(modid, "red")))
                 traceback.print_exc()
                 print("")
             continue
+
+        if args.verbose:
+            print(", {}".format(colored("done", style="bright")))
 
     # determine tasks to write into the db file
     seen_families = []
@@ -71,7 +75,7 @@ def execute(args):
             continue
         seen_families.append(cls.task_family)
 
-        skip = cls.exclude_db or not six.callable(getattr(cls, "run", None)) \
+        skip = cls.exclude_db or not callable(getattr(cls, "run", None)) \
             or getattr(cls.run, "__isabstractmethod__", False)
         if not skip:
             task_classes.append(cls)
@@ -105,15 +109,16 @@ def execute(args):
             # fill stats
             if cls.__module__ not in stats:
                 stats[cls.__module__] = []
-            stats[cls.__module__].append(cls.task_family)
+            stats[cls.__module__].append((cls.task_family, params))
 
             f.write(dbline(cls, params) + "\n")
 
     # print stats
-    print("written {} task(s) to db file '{}'".format(len(task_classes), db_file))
-
     if args.verbose:
         for mod, data in six.iteritems(stats):
-            print("module '{}', {} task(s):".format(mod, len(data)))
-            for task_family in data:
-                print("    {}".format(task_family))
+            print("\nmodule '{}', {} task(s):".format(colored(mod, style="bright"), len(data)))
+            for task_family, _ in data:
+                print("    - {}".format(colored(task_family, "green")))
+        print("")
+
+    print("written {} task(s) to db file '{}'".format(len(task_classes), db_file))

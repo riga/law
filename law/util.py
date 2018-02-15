@@ -5,10 +5,11 @@ Helpful utility functions.
 """
 
 
-__all__ = ["rel_path", "law_src_path", "law_home_path", "printerr", "abort", "colored", "uncolored",
-           "query_choice", "multi_match", "make_list", "flatten", "which", "map_verbose",
-           "map_struct", "mask_struct", "tmp_file", "interruptable_popen", "create_hash",
-           "copy_no_perm", "user_owns_file", "iter_chunks", "human_bytes", "ShorthandDict"]
+__all__ = ["rel_path", "law_src_path", "law_home_path", "print_err", "abort", "colored",
+           "uncolored", "query_choice", "multi_match", "make_list", "flatten", "which",
+           "map_verbose", "map_struct", "mask_struct", "tmp_file", "interruptable_popen",
+           "create_hash", "copy_no_perm", "user_owns_file", "iter_chunks", "human_bytes",
+           "ShorthandDict"]
 
 
 import os
@@ -66,8 +67,8 @@ def law_home_path(*paths):
     return os.path.normpath(os.path.join(home, *paths))
 
 
-def printerr(*args, **kwargs):
-    """ printerr(*args, flush=False)
+def print_err(*args, **kwargs):
+    """ print_err(*args, flush=False)
     Same as *print*, but outputs to stderr. If *flush* is *True*, stderr is flushed after printing.
     """
     sys.stderr.write(" ".join(str(arg) for arg in args) + "\n")
@@ -84,7 +85,7 @@ def abort(msg=None, exitcode=1):
         if exitcode in (None, 0):
             print(msg)
         else:
-            printerr(msg)
+            print_err(msg)
     sys.exit(exitcode)
 
 
