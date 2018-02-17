@@ -40,13 +40,14 @@ class install(_install):
     def run(self):
         _install.run(self)
 
-        try:
-            with open(os.path.join(this_dir, "law", "cli", "law")) as f:
-                content = f.read()
-            with open(os.path.join(self.install_scripts, "law"), "w") as f:
-                f.write(content)
-        except Exception as e:
-            print("could not update the law executable: {}".format(e))
+        if os.getenv("LAW_INSTALL_CUSTOM_SCRIPT", "").lower() in ("1", "yes", "true"):
+            try:
+                with open(os.path.join(this_dir, "law", "cli", "law")) as f:
+                    content = f.read()
+                with open(os.path.join(self.install_scripts, "law"), "w") as f:
+                    f.write(content)
+            except Exception as e:
+                print("could not update the law executable: {}".format(e))
 
 
 setup(
@@ -88,6 +89,6 @@ setup(
         "law.contrib.git": ["bundle_repository.sh", "repository_checksum.sh"],
         "law.contrib.cms": ["bundle_cmssw.sh", "cmsdashb_hooks.sh", "bin/apmon"],
     },
-    # cmdclass={"install": install},
+    cmdclass={"install": install},
     entry_points={"console_scripts": ["law = law.cli:run"]},
 )
