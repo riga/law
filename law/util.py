@@ -436,6 +436,12 @@ def interruptable_popen(*args, **kwargs):
         os.killpg(os.getpgid(p.pid), signal.SIGTERM)
         raise
 
+    if six.PY3:
+        if out is not None:
+            out = out.decode("utf-8")
+        if err is not None:
+            err = err.decode("utf-8")
+
     return p.returncode, out, err
 
 
@@ -445,7 +451,7 @@ def create_hash(inp, l=10, algo="sha256"):
     python's hashlib. *l* corresponds to the maximum length of the returned hash. Internally, the
     string representation of *inp* is used.
     """
-    return getattr(hashlib, algo)(str(inp)).hexdigest()[:l]
+    return getattr(hashlib, algo)(six.b(str(inp))).hexdigest()[:l]
 
 
 def copy_no_perm(src, dst):

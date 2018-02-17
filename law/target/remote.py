@@ -241,7 +241,7 @@ class RemoteCache(object):
     _instances = []
 
     def __new__(cls, *args, **kwargs):
-        inst = object.__new__(cls, *args, **kwargs)
+        inst = object.__new__(cls)
 
         cls._instances.append(inst)
 
