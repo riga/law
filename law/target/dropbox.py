@@ -10,6 +10,8 @@ __all__ = ["DropboxFileSystem", "DropboxFileTarget", "DropboxDirectoryTarget"]
 
 import logging
 
+import six
+
 from law.config import Config
 from law.target.remote import (
     RemoteFileSystem, RemoteTarget, RemoteFileTarget, RemoteDirectoryTarget,
@@ -90,6 +92,8 @@ class DropboxTarget(RemoteTarget):
     def __init__(self, path, fs=DropboxFileSystem.default_instance, **kwargs):
         """ __init__(path, fs=DropboxFileSystem.default_instance, **kwargs)
         """
+        if isinstance(fs, six.string_types):
+            fs = DropboxFileSystem(fs)
         RemoteTarget.__init__(self, path, fs, **kwargs)
 
 

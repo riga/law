@@ -10,6 +10,8 @@ __all__ = ["DCacheFileSystem", "DCacheFileTarget", "DCacheDirectoryTarget"]
 
 import logging
 
+import six
+
 from law.config import Config
 from law.target.remote import (
     RemoteFileSystem, RemoteTarget, RemoteFileTarget, RemoteDirectoryTarget,
@@ -78,6 +80,8 @@ class DCacheTarget(RemoteTarget):
     def __init__(self, path, fs=DCacheFileSystem.default_instance, **kwargs):
         """ __init__(path, fs=DCacheFileSystem.default_instance, **kwargs)
         """
+        if isinstance(fs, six.string_types):
+            fs = DCacheFileSystem(fs)
         RemoteTarget.__init__(self, path, fs, **kwargs)
 
 
