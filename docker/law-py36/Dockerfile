@@ -51,7 +51,7 @@ RUN yum -y install gfal2-all gfal2-devel; yum clean all
 RUN git clone https://gitlab.cern.ch/mrieger/gfal2-bindings.git && \
     cd gfal2-bindings && \
     python3.6 setup.py install && \
-    cd .. && rm -rf bindings
+    cd .. && rm -rf gfal2-bindings.git
 RUN git clone https://github.com/cern-it-sdc-id/gfal2-dropbox.git && \
     cd gfal2-dropbox && \
     mkdir build && cd build && \
