@@ -20,10 +20,19 @@
    :alt: License
 
 
-High-level extension layer for `luigi <https://github.com/spotify/luigi>`__ analysis workflows.
-
-
 **Note**: This project is currently under development. Version 0.1.0 will be the first, fully documented alpha release.
+
+Use law to build complex and large-scale task workflows. It is build on top of `luigi <https://github.com/spotify/luigi>`_ and adds abstractions for **run locations**, **storage locations** and **software environments**. Law strictly disentangles these building blocks and ensures they remain interchangeable and resource-opportunistic.
+
+Key features:
+
+- CLI with auto-completion and interactive status and dependency inspection.
+- Remote targets with automatic retries and local caching
+   - WebDAV, HTTP, Dropbox, SFTP, all WLCG protocols (srm, xrootd, rfio, dcap, gsiftp, ...)
+- Automatic submission to batch systems from within tasks
+   - HTCondir, LSF, gLite, ARC
+- Environment sandboxing, configurable on task level
+   - Docker, Singularity, Sub-Shells
 
 
 .. marker-after-header
@@ -46,7 +55,17 @@ This command also installs `luigi <https://pypi.python.org/pypi/luigi>`_ and `si
 Remote targets also require `gfal2 <http://dmc.web.cern.ch/projects/gfal-2/home>`_ and `gfal2-python <https://pypi.python.org/pypi/gfal2-python>`_ (also via pip) to be installed.
 
 
-.. marker-after-body
+Examples
+========
+
+- `loremipsum <https://github.com/riga/law/tree/master/examples/loremipsum>`_: The *hello world* of law.
+- `workflows <https://github.com/riga/law/tree/master/examples/workflows>`_: Law workflows. TODO.
+- `docker_sandboxes <https://github.com/riga/law/tree/master/examples/docker_sandboxes>`_: Environment sandboxing using Docker. TODO.
+- `dropbox_targets <https://github.com/riga/law/tree/master/examples/dropbox_targets>`_: Working with targets that are stored on Dropbox.
+- `dcache_targets <https://github.com/riga/law/tree/master/examples/dcache_targets>`_: Working with targets that are stored on WLCG storage elements (dCache, EOS, ...). TODO.
+- `htcondor_at_vispa <https://github.com/riga/law/tree/master/examples/htcondor_at_vispa>`_: HTCondor workflows at the `VISPA service <https://vispa.physik.rwth-aachen.de>`_.
+- `lsf_at_cern <https://github.com/riga/law/tree/master/examples/lsf_at_cern>`_: LSF workflows at the CERN batch infrastructure.
+- `grid_at_cern <https://github.com/riga/law/tree/master/examples/grid_at_cern>`_: Workflows that run on the WLCG. TODO.
 
 
 Development
@@ -54,6 +73,9 @@ Development
 
 - Source hosted at `GitHub <https://github.com/riga/law>`_
 - Report issues, questions, feature requests on `GitHub Issues <https://github.com/riga/law/issues>`_
+
+
+.. marker-after-body
 
 
 Authors
