@@ -19,7 +19,7 @@ docker run -ti riga/law
 docker run -ti riga/law:py36
 ```
 
-*Tip*: When you cloned the law repository to you local machine, you can forward it into the docker
+*Tip*: When you cloned the law repository to your local machine, you can forward it into the docker
 container:
 
 ```bash
@@ -119,7 +119,7 @@ with open(local_path, "w") as f:
 data_file.copy_from_local(local_path)
 
 # method 2: via open(), which creates a local representation that
-# is uploaded when the open() context is exited
+# is uploaded when the open() context exited
 with data_file.open("w") as f:
     json.dump(data, f, indent=4)
 
@@ -162,7 +162,7 @@ array_file = top_dir.child("my_array.npy")
 # by default, localize("r") downloads remote files to tmp
 # (you can configure which path law considers "tmp")
 with array_file.localize("r") as tmp:
-    # tmp is a file target that is removed again when this context is exited
+    # tmp is a file target that is removed again when this context exited
     # do some stuff with it
     dnn_training_with_file(tmp.path)
 
@@ -189,7 +189,7 @@ cache_root: $LAW_DROPBOX_EXAMPLE/remote_cache
 
 The `$LAW_DROPBOX_EXAMPLE` variable is defined in the `setup.sh` file you sourced earlier.
 
-When caching is enabled, law holds unique copies of transferred files in its cache directory. Unless you manually pass `cache=False`, all target methods like `open()`, `copy_to|from_local()`, `load()`, `dump()` and `localize()` consider the cache and only lead to actual file transfers when the remote file is not yet cached, or the local copy is outdated. In addition, some methods will not require a local path anymore when caching is enabled:
+When caching is enabled, law holds unique copies of transferred files in its cache directory. Unless you manually pass `cache=False`, all target methods like `open()`, `copy_to|from_local()`, `load()`, `dump()` and `localize()` consider the cache and only lead to actual file transfers when the remote file is not yet cached, or when the local copy is outdated. In addition, some methods will not require a local path anymore when caching is enabled:
 
 ```python
 array_file = top_dir.child("my_array.npy")
