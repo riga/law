@@ -52,66 +52,70 @@ class FileSystem(luigi.target.FileSystem):
     def isdir(self, path, **kwargs):
         return stat.S_ISDIR(self.stat(path, **kwargs).st_mode)
 
+    @abstractmethod
+    def __eq__(self, other):
+        return
+
     @abstractproperty
     def default_instance(self):
-        pass
+        return
 
     @abstractmethod
     def abspath(self, path):
-        pass
+        return
 
     @abstractmethod
     def exists(self, path):
-        pass
+        return
 
     @abstractmethod
     def stat(self, path):
-        pass
+        return
 
     @abstractmethod
     def chmod(self, path, perm, silent=True, **kwargs):
-        pass
+        return
 
     @abstractmethod
     def remove(self, path, recursive=True, silent=True, **kwargs):
-        pass
+        return
 
     @abstractmethod
     def mkdir(self, path, perm=None, recursive=True, silent=True, **kwargs):
-        pass
+        return
 
     @abstractmethod
     def listdir(self, path, pattern=None, type=None, **kwargs):
-        pass
+        return
 
     @abstractmethod
     def walk(self, path, max_depth=-1, **kwargs):
-        pass
+        return
 
     @abstractmethod
     def glob(self, pattern, cwd=None, **kwargs):
-        pass
+        return
 
     @abstractmethod
     def copy(self, src, dst, dir_perm=None, **kwargs):
-        pass
+        return
 
     @abstractmethod
     def move(self, src, dst, dir_perm=None, **kwargs):
-        pass
+        return
 
     @abstractmethod
     @contextmanager
     def open(self, path, mode, **kwargs):
-        pass
+        return
 
     @abstractmethod
     def load(self, path, formatter, *args, **kwargs):
-        pass
+        return
 
     @abstractmethod
     def dump(self, path, formatter, *args, **kwargs):
-        pass
+        return
 
 
 class FileSystemTarget(Target, luigi.target.FileSystemTarget):
@@ -122,6 +126,11 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
     def __init__(self, path, **kwargs):
         Target.__init__(self, **kwargs)
         luigi.target.FileSystemTarget.__init__(self, path)
+
+    def __eq__(self, other):
+        return self.__class__ == other.__class__ and \
+            self.fs == other.fs and \
+            self.fs.abspath(self.path) == other.fs.abspath(other.path)
 
     def _repr_pairs(self):
         return Target._repr_pairs(self) + [("path", self.path)]
@@ -166,7 +175,7 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
 
     @abstractproperty
     def fs(self):
-        pass
+        return
 
 
 class FileSystemFileTarget(FileSystemTarget):
@@ -214,24 +223,24 @@ class FileSystemFileTarget(FileSystemTarget):
 
     @abstractmethod
     def copy_to_local(self, *args, **kwargs):
-        pass
+        return
 
     @abstractmethod
     def copy_from_local(self, *args, **kwargs):
-        pass
+        return
 
     @abstractmethod
     def move_to_local(self, *args, **kwargs):
-        pass
+        return
 
     @abstractmethod
     def move_from_local(self, *args, **kwargs):
-        pass
+        return
 
     @abstractmethod
     @contextmanager
     def localize(self, mode="r", perm=None, parent_perm=None, **kwargs):
-        pass
+        return
 
 
 class FileSystemDirectoryTarget(FileSystemTarget):

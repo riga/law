@@ -32,6 +32,9 @@ class LocalFileSystem(FileSystem):
 
     default_instance = None
 
+    def __eq__(self, other):
+        return self.__class__ == other.__class__
+
     def _unscheme(self, path):
         return remove_scheme(path) if get_scheme(path) == "file" else path
 

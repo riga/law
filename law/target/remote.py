@@ -554,6 +554,9 @@ class RemoteFileSystem(FileSystem):
     def __repr__(self):
         return "{}(base={}, {})".format(self.__class__.__name__, self.gfal.base[0], hex(id(self)))
 
+    def __eq__(self, other):
+        return self is other
+
     def is_local(self, path):
         return get_scheme(path) == "file"
 
