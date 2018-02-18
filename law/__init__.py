@@ -2,7 +2,8 @@
 # flake8: noqa
 
 """
-High-level extension layer for Luigi analysis workflows.
+Build large-scale task workflows using luigi, remote job submission, remote targets, and environment
+sandboxing.
 """
 
 
@@ -13,7 +14,7 @@ __credits__ = ["Marcel Rieger"]
 __contact__ = "https://github.com/riga/law"
 __license__ = "MIT"
 __status__ = "Development"
-__version__ = "0.0.16"
+__version__ = "0.0.17"
 
 __all__ = [
     "Task", "WrapperTask", "SandboxTask",

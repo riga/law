@@ -2,7 +2,7 @@ FROM centos:7
 
 # labels
 LABEL name="law-py27"
-LABEL version="0.0.16"
+LABEL version="0.0.17"
 
 # workdir
 WORKDIR /root
@@ -51,7 +51,7 @@ RUN pip install luigi six
 
 # install law master
 RUN git clone https://github.com/riga/law && \
-    cd law && git checkout tags/v0.0.16 && \
+    cd law && git checkout tags/v0.0.17 && \
     python setup.py install && \
     cd .. && rm -rf law
 
