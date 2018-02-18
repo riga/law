@@ -66,6 +66,7 @@ Examples
 - `htcondor_at_vispa <https://github.com/riga/law/tree/master/examples/htcondor_at_vispa>`_: HTCondor workflows at the `VISPA service <https://vispa.physik.rwth-aachen.de>`_.
 - `lsf_at_cern <https://github.com/riga/law/tree/master/examples/lsf_at_cern>`_: LSF workflows at the CERN batch infrastructure.
 - `grid_at_cern <https://github.com/riga/law/tree/master/examples/grid_at_cern>`_: Workflows that run on the WLCG. TODO.
+- `CMS Single Top Analysis <https://github.com/riga/law_example_CMSSingleTopAnalysis>`_: Simple physics analysis using law.
 
 
 Development

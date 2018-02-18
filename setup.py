@@ -55,7 +55,7 @@ setup(
     version=law.__version__,
     author=law.__author__,
     author_email=law.__email__,
-    description=law.__doc__.strip(),
+    description=law.__doc__.strip().replace("\n", " "),
     license=law.__license__,
     url=law.__contact__,
     keywords=" ".join(keywords),
