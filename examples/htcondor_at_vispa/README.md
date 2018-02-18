@@ -31,11 +31,13 @@ You should see:
 
 ```shell
 loading tasks from 1 module(s)
-loading module 'analysis.tasks'
-written 2 task(s) to db file '/examplepath/.law/db'
+loading module 'analysis.tasks', done
+
 module 'analysis.tasks', 2 task(s):
-    CreateChars
-    CreateAlphabet
+    - CreateChars
+    - CreateAlphabet
+
+written 2 task(s) to db file '/examplepath/.law/db'
 ```
 
 
