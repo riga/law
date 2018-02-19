@@ -34,7 +34,7 @@ class TFConstantGraphFormatter(Formatter):
 
     @classmethod
     def dump(cls, path, session, output_names, *args, **kwargs):
-        import tf
+        import tensorflow as tf
 
         graph_dir, graph_name = os.path.split(get_path(path))
 

@@ -49,10 +49,7 @@ def execute(args):
         if not info:
             abort("task family '{}' not found in db".format(args.task_family))
         modid, task_family, _ = info
-        try:
-            __import__(modid, globals(), locals())
-        except ImportError:
-            abort("could not import module '{}'".format(modid))
+        __import__(modid, globals(), locals())
 
     # import the module and run luigi
     luigi_run([task_family] + sys.argv[3:])
