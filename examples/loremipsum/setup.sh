@@ -8,8 +8,8 @@ action() {
     local sw_dir="$base/tmp"
     if [ ! -d "$sw_dir" ]; then
         mkdir -p "$sw_dir"
-        git clone https://github.com/spotify/luigi.git "$sw_dir/luigi"
-        git clone https://github.com/benjaminp/six.git "$sw_dir/six"
+        git clone --depth 1 https://github.com/spotify/luigi.git "$sw_dir/luigi"
+        git clone --depth 1 https://github.com/benjaminp/six.git "$sw_dir/six"
     fi
 
     export PATH="$law_base/bin:$sw_dir/luigi/bin:$PATH"
