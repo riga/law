@@ -97,7 +97,7 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
             config.render_variables["dashboard_file"] = pf(os.path.basename(dashboard_file))
 
         # determine basenames of input files and add that list to the render data
-        input_basenames = [pf(os.path.basename(path)) for path in config.input_files]
+        input_basenames = [pf(os.path.basename(path)) for path in config.input_files[1:]]
         config.render_variables["input_files"] = " ".join(input_basenames)
 
         # output files
