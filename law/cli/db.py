@@ -53,11 +53,12 @@ def execute(args):
 
         try:
             import_module(modid)
-        except:
-            if args.verbose:
+        except Exception as e:
+            if not args.verbose:
+                print("Error in module '{}': {}".format(colored(modid, "red"), str(e)))
+            else:
                 print("\n\nError in module '{}':".format(colored(modid, "red")))
                 traceback.print_exc()
-                print("")
             continue
 
         if args.verbose:
