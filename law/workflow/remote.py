@@ -62,6 +62,7 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
         self.show_errors = 5
         self.dashboard = None
         self.n_unfinished_jobs = None
+        self.did_submit = False
 
         # cached output() return value, set in run()
         self._outputs = None
@@ -341,6 +342,8 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
             job_data = self.submission_data.jobs[job_num]
             task.forward_dashboard_event(self.dashboard, job_num, job_data, "action.submit")
 
+        self.did_submit = True
+
     def poll(self):
         task = self.task
 
@@ -433,11 +436,12 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
 
             # determine jobs that failed and might be resubmitted
             retry_jobs = OrderedDict()
-            if n_failed and task.retries > 0:
+            if n_failed:
                 for job_num, data in six.iteritems(failed_jobs):
-                    if self.attempts[job_num] < task.retries:
-                        self.attempts[job_num] += 1
-                        self.submission_data.jobs[job_num]["attempt"] += 1
+                    if not self.did_submit or self.attempts[job_num] < task.retries:
+                        if self.did_submit:
+                            self.attempts[job_num] += 1
+                            self.submission_data.jobs[job_num]["attempt"] += 1
                         data["status"] = self.job_manager.RETRY
                         retry_jobs[job_num] = self.submission_data.jobs[job_num]["branches"]
                         task.forward_dashboard_event(self.dashboard, job_num, data, "status.retry")
