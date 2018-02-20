@@ -11,6 +11,7 @@ __all__ = ["SubmissionData", "StatusData", "BaseRemoteWorkflowProxy", "BaseRemot
 import sys
 import time
 import math
+import random
 from collections import OrderedDict, defaultdict
 from abc import abstractmethod
 
@@ -285,9 +286,14 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
             self.skipped_job_nums = []
             check_skip = True
 
+        # shuffle job nums
+        job_nums = list(job_map.keys())
+        random.shuffle(job_nums)
+
         # create job files for each chunk
         job_data = OrderedDict()
-        for job_num, branches in six.iteritems(job_map):
+        for job_num in job_nums:
+            branches = job_map[job_num]
             if check_skip and all(task.as_branch(b).complete() for b in branches):
                 self.skipped_job_nums.append(job_num)
                 self.submission_data.jobs[job_num] = self.submission_data_cls.job_data(
