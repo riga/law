@@ -126,6 +126,30 @@ class JSONFormatter(Formatter):
             return json.dump(obj, f, *args, **kwargs)
 
 
+class YAMLFormatter(Formatter):
+
+    name = "yaml"
+
+    @classmethod
+    def accepts(cls, path):
+        path = get_path(path)
+        return path.endswith(".yaml") or path.endswith(".yml")
+
+    @classmethod
+    def load(cls, path, *args, **kwargs):
+        import yaml
+
+        with open(get_path(path), "r") as f:
+            return yaml.load(f, *args, **kwargs)
+
+    @classmethod
+    def dump(cls, path, obj, *args, **kwargs):
+        import yaml
+
+        with open(get_path(path), "w") as f:
+            return yaml.dump(obj, f, *args, **kwargs)
+
+
 class ZipFormatter(Formatter):
 
     name = "zip"
