@@ -275,7 +275,15 @@ class NumpyFormatter(Formatter):
         if path.endswith(".txt"):
             func = np.savetxt
         elif path.endswith(".npz"):
-            func = np.savez
+            compress_flag = "savez_compressed"
+            compress = False
+            if compress_flag in kwargs:
+                if isinstance(kwargs[compress_flag], bool):
+                    compress = kwargs.pop(compress_flag)
+                else:
+                    logger.warning("the '{}' argument is reserved to set compression".format(
+                        compress_flag))
+            func = np.savez_compressed if compress else np.savez
         else:
             func = np.save
 
