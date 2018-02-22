@@ -302,9 +302,10 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
                     submit_jobs[job_num] = branches
 
         # fill with jobs from the waiting list until maximum number of parallel jobs is reached
+        n_active = self.n_active_jobs or 0
         new_jobs = OrderedDict()
         for job_num, branches in six.iteritems(self.submission_data.waiting_jobs):
-            if task.job_limit > 0 and len(submit_jobs) + len(new_jobs) >= task.job_limit:
+            if task.job_limit > 0 and n_active + len(submit_jobs) + len(new_jobs) >= task.job_limit:
                 break
 
             if skip_job(job_num, branches):
@@ -337,6 +338,7 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
 
         # store submission data
         errors = []
+        new_submission_data = OrderedDict()
         for job_num, job_id in six.moves.zip(submit_jobs, job_ids):
             # handle errors
             error = (job_num, job_id) if isinstance(job_id, Exception) else None
@@ -348,6 +350,7 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
             branches = submit_jobs[job_num]
             job_data = self.submission_data_cls.job_data(job_id=job_id, branches=branches)
             self.submission_data.jobs[job_num] = job_data
+            new_submission_data[job_num] = job_data
 
             # set attempts and inform the dashboard
             self.attempts[job_num] = 0
@@ -371,6 +374,8 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
         else:
             task.publish_message("submitted {} job(s)".format(len(submit_jobs)) + dst_info)
 
+        return new_submission_data
+
     def poll(self):
         task = self.task
 
@@ -387,6 +392,7 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
         else:
             max_polls = int(math.ceil((task.walltime * 3600.) / (task.poll_interval * 60.)))
         n_poll_fails = 0
+        n_limit = sys.maxint if task.job_limit < 0 else task.job_limit
 
         # bookkeeping dicts to avoid querying the status of finished jobs
         # note: active_jobs holds submission data, finished_jobs holds status data
@@ -460,6 +466,8 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
 
             # counts
             self.n_active_jobs = len(active_jobs)
+            n_free = n_limit - self.n_active_jobs
+            n_waiting = len(self.submission_data.waiting_jobs)
             n_pending = len(pending_jobs)
             n_running = len(running_jobs)
             n_finished = len(finished_jobs)
@@ -526,14 +534,12 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
                 raise Exception("acceptance of {} unreachable, total: {}, failed: {}".format(
                     n_finished_min, n_jobs, n_failed))
 
-            # automatic resubmission
-            if n_retry:
-                self.skipped_job_nums = []
-                self.submit(retry_jobs)
+            # automatic resubmission and further processing of the waiting list
+            if n_retry or (n_free > 0 and n_waiting > 0):
+                submit_data = self.submit(retry_jobs)
 
                 # update data of active jobs so the poll next iteration is aware of the new job ids
-                for job_num in retry_jobs:
-                    active_jobs[job_num]["job_id"] = self.submission_data.jobs[job_num]["job_id"]
+                active_jobs.update(submit_data)
 
             # break when no polling is desired
             # we can get to this point when there was already a submission and the no_poll
