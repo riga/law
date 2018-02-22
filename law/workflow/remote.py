@@ -204,7 +204,8 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 # submit
                 if not submitted:
                     # set the initial job waiting list
-                    branch_chunks = list(iter_chunks(task.branch_map.keys(), task.tasks_per_job))
+                    branches = sorted(task.branch_map.keys())
+                    branch_chunks = list(iter_chunks(branches, task.tasks_per_job))
                     self.submission_data.waiting_jobs = dict(
                         (i + 1, branches) for i, branches in enumerate(branch_chunks)
                     )
@@ -299,7 +300,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         if retry_jobs:
             for job_num, branches in six.iteritems(retry_jobs):
                 if not skip_job(job_num, branches):
-                    submit_jobs[job_num] = branches
+                    submit_jobs[job_num] = sorted(branches)
 
         # fill with jobs from the waiting list until maximum number of parallel jobs is reached
         n_active = self.n_active_jobs or 0
@@ -312,7 +313,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             if skip_job(job_num, branches):
                 continue
 
-            new_jobs[job_num] = branches
+            new_jobs[job_num] = sorted(branches)
 
         # remove new jobs from the waiting list
         for job_num in new_jobs:

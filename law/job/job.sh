@@ -14,11 +14,10 @@
 # arguments:
 # 1. task_module
 # 2. task_family
-# 3. task_params (base64 encoded)
-# 4. start_branch
-# 5. end_branch
-# 6. auto_retry
-# 7. dashboard_data (base64 encoded)
+# 3. task_params (base64 encoded list)
+# 4. branches (base64 encoded list)
+# 5. auto_retry
+# 6. dashboard_data (base64 encoded list)
 
 action() {
     local origin="$( /bin/pwd )"
@@ -31,10 +30,9 @@ action() {
     local task_module="$1"
     local task_family="$2"
     local task_params="$( echo "$3" | base64 --decode )"
-    local start_branch="$4"
-    local end_branch="$5"
-    local auto_retry="$6"
-    local dashboard_data="$( echo "$7" | base64 --decode )"
+    local branches="$( echo "$4" | base64 --decode )"
+    local auto_retry="$5"
+    local dashboard_data="$( echo "$6" | base64 --decode )"
 
 
     #
@@ -180,8 +178,7 @@ action() {
     echo "task module   : $task_module"
     echo "task family   : $task_family"
     echo "task params   : $task_params"
-    echo "start branch  : $start_branch"
-    echo "end branch    : $end_branch"
+    echo "branches      : $branches"
     echo "auto retry    : $auto_retry"
     echo "dashboard data: $dashboard_data"
     echo
@@ -284,7 +281,7 @@ action() {
     call_hook law_hook_job_running
 
     local exec_ret="0"
-    for (( branch=$start_branch; branch<$end_branch; branch++ )); do
+    for branch in $branches; do
         section "branch $branch"
 
         local cmd="law run $task_module.$task_family --branch $branch $task_params"

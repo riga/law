@@ -349,15 +349,14 @@ class BaseJobFileFactory(object):
 
 class JobArguments(object):
 
-    def __init__(self, task_module, task_family, task_params, start_branch, end_branch,
-            auto_retry=False, dashboard_data=None):
+    def __init__(self, task_module, task_family, task_params, branches, auto_retry=False,
+            dashboard_data=None):
         super(JobArguments, self).__init__()
 
         self.task_module = task_module
         self.task_family = task_family
         self.task_params = task_params
-        self.start_branch = start_branch
-        self.end_branch = end_branch
+        self.branches = branches
         self.auto_retry = auto_retry
         self.dashboard_data = dashboard_data or []
 
@@ -374,8 +373,7 @@ class JobArguments(object):
             self.task_module,
             self.task_family,
             self.encode_list(self.task_params),
-            self.start_branch,
-            self.end_branch,
+            self.encode_list(self.branches),
             self.encode_bool(self.auto_retry),
             self.encode_list(self.dashboard_data),
         ]

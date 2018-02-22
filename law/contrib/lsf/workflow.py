@@ -40,7 +40,7 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
         task = self.task
         config = self.job_file_factory.Config()
 
-        # the file postfix is pythonic range made from branches, e.g. [0, 1, 2] -> "_0To3"
+        # the file postfix is pythonic range made from branches, e.g. [0, 1, 2, 4] -> "_0To5"
         postfix = "_{}To{}".format(branches[0], branches[-1] + 1)
         config.postfix = postfix
         _postfix = lambda path: self.job_file_factory.postfix_file(path, postfix)
@@ -59,8 +59,7 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
             task_module=task.__class__.__module__,
             task_family=task.task_family,
             task_params=task_params,
-            start_branch=branches[0],
-            end_branch=branches[-1] + 1,
+            branches=branches,
             auto_retry=False,
             dashboard_data=self.dashboard.remote_hook_data(
                 job_num, self.attempts.get(job_num, 0)),
