@@ -303,9 +303,10 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
 
         # fill with jobs from the waiting list until maximum number of parallel jobs is reached
         n_active = self.n_active_jobs or 0
+        n_parallel = sys.maxint if task.parallel_jobs < 0 else task.parallel_jobs
         new_jobs = OrderedDict()
         for job_num, branches in six.iteritems(self.submission_data.waiting_jobs):
-            if task.job_limit > 0 and n_active + len(submit_jobs) + len(new_jobs) >= task.job_limit:
+            if n_active + len(submit_jobs) + len(new_jobs) >= n_parallel:
                 break
 
             if skip_job(job_num, branches):
@@ -392,7 +393,7 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
         else:
             max_polls = int(math.ceil((task.walltime * 3600.) / (task.poll_interval * 60.)))
         n_poll_fails = 0
-        n_limit = sys.maxint if task.job_limit < 0 else task.job_limit
+        n_parallel = sys.maxint if task.parallel_jobs < 0 else task.parallel_jobs
 
         # bookkeeping dicts to avoid querying the status of finished jobs
         # note: active_jobs holds submission data, finished_jobs holds status data
@@ -466,7 +467,7 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
 
             # counts
             self.n_active_jobs = len(active_jobs)
-            n_free = n_limit - self.n_active_jobs
+            n_free = n_parallel - self.n_active_jobs
             n_waiting = len(self.submission_data.waiting_jobs)
             n_pending = len(pending_jobs)
             n_running = len(running_jobs)
@@ -586,8 +587,8 @@ class BaseRemoteWorkflow(Workflow):
         "resubmission attempts per job, default: 5")
     tasks_per_job = luigi.IntParameter(default=1, significant=False, description="number of tasks "
         "to be processed by one job, default: 1")
-    job_limit = luigi.IntParameter(default=NO_INT, significant=False, description="maximum number "
-        "of parallel running jobs, default: no limit")
+    parallel_jobs = luigi.IntParameter(default=NO_INT, significant=False, description="maximum "
+        "number of parallel running jobs, default: infinite")
     only_missing = luigi.BoolParameter(significant=False, description="skip tasks that are "
         "considered complete")
     no_poll = luigi.BoolParameter(significant=False, description="just submit, do not initiate "
@@ -607,8 +608,8 @@ class BaseRemoteWorkflow(Workflow):
         "output directory")
 
     exclude_params_branch = {
-        "retries", "tasks_per_job", "job_limit", "only_missing", "no_poll", "threads", "walltime",
-        "poll_interval", "poll_fails", "shuffle_jobs", "cancel_jobs", "cleanup_jobs",
+        "retries", "tasks_per_job", "parallel_jobs", "only_missing", "no_poll", "threads",
+        "walltime", "poll_interval", "poll_fails", "shuffle_jobs", "cancel_jobs", "cleanup_jobs",
         "transfer_logs",
     }
 
