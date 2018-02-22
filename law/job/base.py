@@ -167,8 +167,8 @@ class BaseJobManager(object):
         return dict(job_id=job_id, status=status, code=code, error=error)
 
     @classmethod
-    def status_line(cls, counts, last_counts=None, skip=None, timestamp=True, align=False,
-            color=False):
+    def status_line(cls, counts, last_counts=None, sum_counts=None, skip=None, timestamp=True,
+            align=False, color=False):
         status_names = cls.status_names
         if skip:
             status_names = [name for name in status_names if name not in skip]
@@ -197,7 +197,9 @@ class BaseJobManager(object):
         line = ""
         if timestamp:
             line += "{}: ".format(time.strftime("%H:%M:%S"))
-        line += "all: " + count_fmt % (sum(counts),)
+        if sum_counts is None:
+            sum_counts = sum(counts)
+        line += "all: " + count_fmt % (sum_counts,)
         for i, (status, count) in enumerate(zip(status_names, counts)):
             count = count_fmt % count
             if color:
@@ -384,7 +386,7 @@ class JobArguments(object):
 
 def cache_by_status(func):
     @functools.wraps(func)
-    def wrapper(self, job_num, job_data, event, *args, **kwargs):
+    def wrapper(self, event, job_num, job_data, *args, **kwargs):
         job_id = job_data["job_id"]
         dashboard_status = self.map_status(job_data.get("status"), event)
 
@@ -395,7 +397,7 @@ def cache_by_status(func):
         # set the new status
         self._last_states[job_id] = dashboard_status
 
-        return func(self, job_num, job_data, event, *args, **kwargs)
+        return func(self, event, job_num, job_data, *args, **kwargs)
 
     return wrapper
 
@@ -455,7 +457,7 @@ class BaseJobDashboard(object):
         return
 
     @abstractmethod
-    def publish(self, job_num, job_data, event, *args, **kwargs):
+    def publish(self, event, job_num, job_data, *args, **kwargs):
         return
 
 

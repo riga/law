@@ -12,7 +12,7 @@ import sys
 import time
 import math
 import random
-from collections import OrderedDict, defaultdict
+from collections import OrderedDict
 from abc import abstractmethod
 
 import luigi
@@ -20,15 +20,15 @@ import six
 
 from law.workflow.base import Workflow, WorkflowProxy
 from law.job.base import NoJobDashboard
-from law.parameter import NO_FLOAT, is_no_param
+from law.parameter import NO_FLOAT, NO_INT, is_no_param
 from law.decorator import log
 from law.util import iter_chunks, ShorthandDict
 
 
 class SubmissionData(ShorthandDict):
 
-    attributes = ["jobs", "tasks_per_job", "dashboard_config"]
-    defaults = [{}, 1, {}]
+    attributes = ["jobs", "waiting_jobs", "tasks_per_job", "dashboard_config"]
+    defaults = [{}, {}, 1, {}]
 
     dummy_job_id = "dummy_job_id"
 
@@ -57,13 +57,12 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
         self.job_manager = self.create_job_manager()
         self.job_file_factory = None
         self.submission_data = self.submission_data_cls(tasks_per_job=self.task.tasks_per_job)
-        self.skipped_job_nums = None
+        self.skip_data = {}
         self.last_status_counts = None
-        self.attempts = defaultdict(int)
+        self.attempts = {}
         self.show_errors = 5
         self.dashboard = None
-        self.n_unfinished_jobs = None
-        self.did_submit = False
+        self.n_active_jobs = None
 
         # cached output() return value, set in run()
         self._outputs = None
@@ -204,6 +203,11 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
 
                 # submit
                 if not submitted:
+                    # set the initial job waiting list
+                    branch_chunks = list(iter_chunks(task.branch_map.keys(), task.tasks_per_job))
+                    self.submission_data.waiting_jobs = dict(
+                        (i + 1, branches) for i, branches in enumerate(branch_chunks)
+                    )
                     self.submit()
 
                 # start status polling when a) no_poll is not set, or b) the jobs were already
@@ -244,7 +248,7 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
 
         # inform the dashboard
         for job_num, job_data in six.iteritems(self.submission_data.jobs):
-            task.forward_dashboard_event(self.dashboard, job_num, job_data, "action.cancel")
+            task.forward_dashboard_event(self.dashboard, "action.cancel", job_num, job_data)
 
     def cleanup(self):
         task = self.task
@@ -272,58 +276,82 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
                         print("    ... and {} more".format(remaining))
                     break
 
-    def submit(self, job_map=None):
+    def submit(self, retry_jobs=None):
         task = self.task
 
-        # map branch numbers to job numbers, chunk by tasks_per_job
-        if not job_map:
-            branch_chunks = list(iter_chunks(task.branch_map.keys(), task.tasks_per_job))
-            job_map = dict((i + 1, branches) for i, branches in enumerate(branch_chunks))
+        # helper to check if a job can be skipped
+        def skip_job(job_num, branches):
+            if not task.only_missing:
+                return False
+            elif job_num in self.skip_data:
+                return self.skip_data[job_num]
+            else:
+                self.skip_data[job_num] = all(task.as_branch(b).complete() for b in branches)
+                if self.skip_data[job_num]:
+                    self.submission_data.jobs[job_num] = self.submission_data_cls.job_data(
+                        branches=branches)
+                return self.skip_data[job_num]
 
-        # when only_missing is True, a job can be skipped when all its tasks are completed
-        check_skip = False
-        if task.only_missing and self.skipped_job_nums is None:
-            self.skipped_job_nums = []
-            check_skip = True
+        # collect data of jobs that should be submitted: num -> (branches, job_file)
+        submit_jobs = OrderedDict()
 
-        # shuffle job nums
-        job_nums = list(job_map.keys())
-        random.shuffle(job_nums)
+        # handle jobs for resubmission
+        if retry_jobs:
+            for job_num, branches in six.iteritems(retry_jobs):
+                if not skip_job(job_num, branches):
+                    submit_jobs[job_num] = branches
 
-        # create job files for each chunk
-        job_data = OrderedDict()
-        for job_num in job_nums:
-            branches = job_map[job_num]
-            if check_skip and all(task.as_branch(b).complete() for b in branches):
-                self.skipped_job_nums.append(job_num)
-                self.submission_data.jobs[job_num] = self.submission_data_cls.job_data(
-                    branches=branches)
+        # fill with jobs from the waiting list until maximum number of parallel jobs is reached
+        new_jobs = OrderedDict()
+        for job_num, branches in six.iteritems(self.submission_data.waiting_jobs):
+            if task.job_limit > 0 and len(submit_jobs) + len(new_jobs) >= task.job_limit:
+                break
+
+            if skip_job(job_num, branches):
                 continue
 
-            # create and store the job file
-            job_data[job_num] = (branches, self.create_job_file(job_num, branches))
+            new_jobs[job_num] = branches
 
-        # actual submission
-        job_files = [job_file for _, job_file in six.itervalues(job_data)]
+        # remove new jobs from the waiting list
+        for job_num in new_jobs:
+            del self.submission_data.waiting_jobs[job_num]
+
+        # add new jobs to the jobs to submit, maybe also shuffle
+        new_job_nums = list(new_jobs.keys())
+        if task.shuffle_jobs:
+            random.shuffle(new_job_nums)
+        for job_num in new_job_nums:
+            submit_jobs[job_num] = new_jobs[job_num]
+
+        # create job submission files
+        job_files = [self.create_job_file(*tpl) for tpl in six.iteritems(submit_jobs)]
+
+        # log some stats
         dst_info = self.destination_info() or ""
         dst_info = dst_info and (", " + dst_info)
         task.publish_message("going to submit {} {} job(s){}".format(
-            len(job_files), self.workflow_type, dst_info))
+            len(submit_jobs), self.workflow_type, dst_info))
 
-        # pass the the submit_jobs method for actual submission
+        # actual submission
         job_ids = self.submit_jobs(job_files)
 
         # store submission data
         errors = []
-        successful_job_nums = []
-        for job_num, job_id in six.moves.zip(job_data, job_ids):
-            if isinstance(job_id, Exception):
+        for job_num, job_id in six.moves.zip(submit_jobs, job_ids):
+            # handle errors
+            error = (job_num, job_id) if isinstance(job_id, Exception) else None
+            if error:
                 errors.append((job_num, job_id))
                 job_id = self.submission_data_cls.dummy_job_id
-            else:
-                successful_job_nums.append(job_num)
-            self.submission_data.jobs[job_num] = self.submission_data_cls.job_data(job_id=job_id,
-                branches=job_data[job_num][0])
+
+            # build the job data
+            branches = submit_jobs[job_num]
+            job_data = self.submission_data_cls.job_data(job_id=job_id, branches=branches)
+            self.submission_data.jobs[job_num] = job_data
+
+            # set attempts and inform the dashboard
+            self.attempts[job_num] = 0
+            task.forward_dashboard_event(self.dashboard, "action.submit", job_num, job_data)
 
         # dump the submission data to the output file
         self.dump_submission_data()
@@ -341,20 +369,17 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
                         print("    ... and {} more".format(remaining))
                     break
         else:
-            task.publish_message("submitted {} job(s)".format(len(job_files)) + dst_info)
-
-        # inform the dashboard about successful submissions
-        for job_num in successful_job_nums:
-            job_data = self.submission_data.jobs[job_num]
-            task.forward_dashboard_event(self.dashboard, job_num, job_data, "action.submit")
-
-        self.did_submit = True
+            task.publish_message("submitted {} job(s)".format(len(submit_jobs)) + dst_info)
 
     def poll(self):
         task = self.task
 
-        # submission stats
-        n_jobs = float(len(self.submission_data.jobs))
+        # get job counts
+        n_active = float(len(self.submission_data.jobs))
+        n_waiting = float(len(self.submission_data.waiting_jobs))
+        n_jobs = n_active + n_waiting
+
+        # determine thresholds
         n_finished_min = task.acceptance * n_jobs if task.acceptance <= 1 else task.acceptance
         n_failed_max = task.tolerance * n_jobs if task.tolerance <= 1 else task.tolerance
         if is_no_param(task.walltime):
@@ -364,20 +389,20 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
         n_poll_fails = 0
 
         # bookkeeping dicts to avoid querying the status of finished jobs
-        # note: unfinished_jobs holds submission data, finished_jobs holds status data
-        unfinished_jobs = OrderedDict()
+        # note: active_jobs holds submission data, finished_jobs holds status data
+        active_jobs = OrderedDict()
         finished_jobs = OrderedDict()
 
-        # fill dicts from submission data, taking into account skipped jobs
+        # fill dicts from submission data, consider skipped jobs finished
         for job_num, data in six.iteritems(self.submission_data.jobs):
-            if self.skipped_job_nums and job_num in self.skipped_job_nums:
+            if self.skip_data.get(job_num):
                 finished_jobs[job_num] = self.status_data_cls.job_data(
                     status=self.job_manager.FINISHED, code=0)
             else:
-                unfinished_jobs[job_num] = data.copy()
+                active_jobs[job_num] = data.copy()
                 # make sure that job ids are reasonable
-                if not unfinished_jobs[job_num]["job_id"]:
-                    unfinished_jobs[job_num]["job_id"] = self.status_data_cls.dummy_job_id
+                if not active_jobs[job_num]["job_id"]:
+                    active_jobs[job_num]["job_id"] = self.status_data_cls.dummy_job_id
 
         # use maximum number of polls for looping
         for i in six.moves.range(max_polls):
@@ -386,7 +411,7 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
                 time.sleep(task.poll_interval * 60)
 
             # query job states
-            job_ids = [data["job_id"] for data in six.itervalues(unfinished_jobs)]
+            job_ids = [data["job_id"] for data in six.itervalues(active_jobs)]
             _states, errors = self.job_manager.query_batch(job_ids, threads=task.threads)
             if errors:
                 print("{} error(s) occured during job status query of task {}:".format(
@@ -410,49 +435,49 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
 
             # states stores job_id's as keys, so replace them by using job_num's
             states = OrderedDict()
-            for job_num, data in six.iteritems(unfinished_jobs):
+            for job_num, data in six.iteritems(active_jobs):
                 states[job_num] = self.status_data_cls.job_data(**_states[data["job_id"]])
 
-            # store jobs per status, remove finished ones from unfinished_jobs
+            # store jobs per status, remove finished ones from active_jobs
             pending_jobs = OrderedDict()
             running_jobs = OrderedDict()
             failed_jobs = OrderedDict()
             for job_num, data in six.iteritems(states):
                 if data["status"] == self.job_manager.PENDING:
                     pending_jobs[job_num] = data
-                    task.forward_dashboard_event(self.dashboard, job_num, data, "status.pending")
+                    task.forward_dashboard_event(self.dashboard, "status.pending", job_num, data)
                 elif data["status"] == self.job_manager.RUNNING:
                     running_jobs[job_num] = data
-                    task.forward_dashboard_event(self.dashboard, job_num, data, "status.running")
+                    task.forward_dashboard_event(self.dashboard, "status.running", job_num, data)
                 elif data["status"] == self.job_manager.FINISHED:
                     finished_jobs[job_num] = data
-                    unfinished_jobs.pop(job_num)
-                    task.forward_dashboard_event(self.dashboard, job_num, data, "status.finished")
+                    active_jobs.pop(job_num)
+                    task.forward_dashboard_event(self.dashboard, "status.finished", job_num, data)
                 elif data["status"] in (self.job_manager.FAILED, self.job_manager.RETRY):
                     failed_jobs[job_num] = data
                 else:
                     raise Exception("unknown job status '{}'".format(data["status"]))
 
             # counts
+            self.n_active_jobs = len(active_jobs)
             n_pending = len(pending_jobs)
             n_running = len(running_jobs)
             n_finished = len(finished_jobs)
             n_failed = len(failed_jobs)
-            self.n_unfinished_jobs = len(unfinished_jobs)
 
             # determine jobs that failed and might be resubmitted
             retry_jobs = OrderedDict()
             if n_failed:
                 for job_num, data in six.iteritems(failed_jobs):
-                    if not self.did_submit or self.attempts[job_num] < task.retries:
-                        if self.did_submit:
-                            self.attempts[job_num] += 1
-                            self.submission_data.jobs[job_num]["attempt"] += 1
+                    self.attempts.setdefault(job_num, -1)
+                    if self.attempts[job_num] < task.retries:
+                        self.attempts[job_num] += 1
+                        self.submission_data.jobs[job_num]["attempt"] += 1
                         data["status"] = self.job_manager.RETRY
                         retry_jobs[job_num] = self.submission_data.jobs[job_num]["branches"]
-                        task.forward_dashboard_event(self.dashboard, job_num, data, "status.retry")
+                        task.forward_dashboard_event(self.dashboard, "status.retry", job_num, data)
                     else:
-                        task.forward_dashboard_event(self.dashboard, job_num, data, "status.failed")
+                        task.forward_dashboard_event(self.dashboard, "status.failed", job_num, data)
 
             n_retry = len(retry_jobs)
             n_failed -= n_retry
@@ -461,8 +486,8 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
             counts = (n_pending, n_running, n_finished, n_retry, n_failed)
             if not self.last_status_counts:
                 self.last_status_counts = counts
-            status_line = self.job_manager.status_line(counts, self.last_status_counts, color=True,
-                align=4)
+            status_line = self.job_manager.status_line(counts, self.last_status_counts,
+                sum_counts=n_jobs, color=True, align=4)
             task.publish_message(status_line)
             self.last_status_counts = counts
 
@@ -506,10 +531,9 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
                 self.skipped_job_nums = []
                 self.submit(retry_jobs)
 
-                # update the unfinished job data so the next iteration is aware of the new job ids
+                # update data of active jobs so the poll next iteration is aware of the new job ids
                 for job_num in retry_jobs:
-                    job_id = self.submission_data.jobs[job_num]["job_id"]
-                    unfinished_jobs[job_num]["job_id"] = job_id
+                    active_jobs[job_num]["job_id"] = self.submission_data.jobs[job_num]["job_id"]
 
             # break when no polling is desired
             # we can get to this point when there was already a submission and the no_poll
@@ -556,6 +580,8 @@ class BaseRemoteWorkflow(Workflow):
         "resubmission attempts per job, default: 5")
     tasks_per_job = luigi.IntParameter(default=1, significant=False, description="number of tasks "
         "to be processed by one job, default: 1")
+    job_limit = luigi.IntParameter(default=NO_INT, significant=False, description="maximum number "
+        "of parallel running jobs, default: no limit")
     only_missing = luigi.BoolParameter(significant=False, description="skip tasks that are "
         "considered complete")
     no_poll = luigi.BoolParameter(significant=False, description="just submit, do not initiate "
@@ -568,16 +594,16 @@ class BaseRemoteWorkflow(Workflow):
         "status polls in minutes, default: 1")
     poll_fails = luigi.IntParameter(default=5, significant=False, description="maximum number of "
         "consecutive errors during polling, default: 5")
-    cancel_jobs = luigi.BoolParameter(default=False, description="cancel all submitted jobs, no "
-        "new submission")
-    cleanup_jobs = luigi.BoolParameter(default=False, description="cleanup all submitted jobs, no "
-        "new submission")
+    shuffle_jobs = luigi.BoolParameter(description="shuffled job submission")
+    cancel_jobs = luigi.BoolParameter(description="cancel all submitted jobs, no new submission")
+    cleanup_jobs = luigi.BoolParameter(description="cleanup all submitted jobs, no new submission")
     transfer_logs = luigi.BoolParameter(significant=False, description="transfer job logs to the "
         "output directory")
 
     exclude_params_branch = {
-        "retries", "tasks_per_job", "only_missing", "no_poll", "threads", "walltime",
-        "poll_interval", "poll_fails", "cancel_jobs", "cleanup_jobs", "transfer_logs",
+        "retries", "tasks_per_job", "job_limit", "only_missing", "no_poll", "threads", "walltime",
+        "poll_interval", "poll_fails", "shuffle_jobs", "cancel_jobs", "cleanup_jobs",
+        "transfer_logs",
     }
 
     exclude_db = True
@@ -585,7 +611,7 @@ class BaseRemoteWorkflow(Workflow):
     def create_job_dashboard(self):
         return None
 
-    def forward_dashboard_event(self, dashboard, job_num, job_data, event):
+    def forward_dashboard_event(self, dashboard, event, job_num, job_data):
         # possible events:
         #   - action.submit
         #   - action.cancel
@@ -595,4 +621,4 @@ class BaseRemoteWorkflow(Workflow):
         #   - status.retry
         #   - status.failed
         # forward to dashboard in any event by default
-        return dashboard.publish(job_num, job_data, event)
+        return dashboard.publish(event, job_num, job_data)

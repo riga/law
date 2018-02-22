@@ -145,7 +145,7 @@ class CMSJobDashboard(BaseJobDashboard):
             self.init_timestamp)
         return self.tracking_url.format(dashboard_task_id=dashboard_task_id)
 
-    def create_message(self, job_num, job_data, event, attempt=0, custom_params=None, **kwargs):
+    def create_message(self, event, job_num, job_data, attempt=0, custom_params=None, **kwargs):
         # we need the voms user, which must start with "/CN="
         voms_user = self.voms_user
         if not voms_user:
