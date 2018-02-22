@@ -18,7 +18,7 @@ from abc import abstractmethod
 import luigi
 import six
 
-from law.workflow.base import Workflow, WorkflowProxy
+from law.workflow.base import BaseWorkflow, BaseWorkflowProxy
 from law.job.base import NoJobDashboard
 from law.parameter import NO_FLOAT, NO_INT, is_no_param
 from law.decorator import log
@@ -49,7 +49,7 @@ class StatusData(ShorthandDict):
         return dict(job_id=job_id, status=status, code=code, error=error)
 
 
-class BaseRemoteWorkflowProxy(WorkflowProxy):
+class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
     def __init__(self, *args, **kwargs):
         super(BaseRemoteWorkflowProxy, self).__init__(*args, **kwargs)
@@ -581,7 +581,7 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
             self._outputs["status"].dump(status_data, formatter="json", indent=4)
 
 
-class BaseRemoteWorkflow(Workflow):
+class BaseRemoteWorkflow(BaseWorkflow):
 
     retries = luigi.IntParameter(default=5, significant=False, description="number of automatic "
         "resubmission attempts per job, default: 5")

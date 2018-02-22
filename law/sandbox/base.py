@@ -19,7 +19,7 @@ import luigi
 import six
 
 from law.task.base import Task, ProxyTask
-from law.workflow.base import Workflow
+from law.workflow.base import BaseWorkflow
 from law.target.local import LocalDirectoryTarget
 from law.config import Config
 from law.parser import global_cmdline_args
@@ -340,8 +340,8 @@ class SandboxTask(Task):
             # be aware of workflows independent of the MRO as sandboxing should be the last
             # modification of a task, i.e., this enforces granular sandbox diping instead of nesting
             if hasattr(self, "workflow_proxy"):
-                if Workflow._forward_attribute(self, attr):
-                    return Workflow.__getattribute__(self, attr, force=True)
+                if BaseWorkflow._forward_attribute(self, attr):
+                    return BaseWorkflow.__getattribute__(self, attr, force=True)
 
             if attr == "run" and not self.sandboxed:
                 return self.sandbox_proxy.run

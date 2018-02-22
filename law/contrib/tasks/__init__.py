@@ -15,10 +15,8 @@ from abc import abstractmethod
 import luigi
 import six
 
-from law import (
-    Task, LocalWorkflow, FileSystemTarget, LocalFileTarget, TargetCollection, SiblingFileCollection,
-    cached_workflow_property, NO_INT,
-)
+from law import Task, LocalWorkflow, FileSystemTarget, LocalFileTarget, TargetCollection, \
+    SiblingFileCollection, cached_workflow_property, NO_INT
 from law.decorator import log
 from law.util import iter_chunks
 

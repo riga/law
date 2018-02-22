@@ -5,7 +5,7 @@ Workflow base class definitions.
 """
 
 
-__all__ = ["Workflow", "workflow_property", "cached_workflow_property"]
+__all__ = ["BaseWorkflow", "workflow_property", "cached_workflow_property"]
 
 
 import functools
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 _forward_attributes = ("requires", "output", "run")
 
 
-class WorkflowProxy(ProxyTask):
+class BaseWorkflowProxy(ProxyTask):
 
     workflow_type = None
 
@@ -84,7 +84,7 @@ def cached_workflow_property(func=None, attr=None):
     return wrapper if not func else wrapper(func)
 
 
-class Workflow(Task):
+class BaseWorkflow(Task):
 
     workflow = luigi.Parameter(default=NO_STR, significant=False, description="the type of the "
         "workflow to use")
@@ -105,7 +105,7 @@ class Workflow(Task):
     branches = CSVParameter(cls=luigi.IntParameter, default=[], significant=False,
         description="branches to use")
 
-    workflow_proxy_cls = WorkflowProxy
+    workflow_proxy_cls = BaseWorkflowProxy
 
     target_collection_cls = None
     outputs_siblings = False
@@ -119,13 +119,13 @@ class Workflow(Task):
     exclude_params_workflow = {"branch"}
 
     def __init__(self, *args, **kwargs):
-        super(Workflow, self).__init__(*args, **kwargs)
+        super(BaseWorkflow, self).__init__(*args, **kwargs)
 
         # determine workflow proxy class to instantiate
         if self.is_workflow():
             classes = self.__class__.mro()
             for cls in classes:
-                if not issubclass(cls, Workflow):
+                if not issubclass(cls, BaseWorkflow):
                     continue
                 if self.workflow in (NO_STR, cls.workflow_proxy_cls.workflow_type):
                     self.workflow = cls.workflow_proxy_cls.workflow_type
@@ -152,7 +152,7 @@ class Workflow(Task):
             if force or (attr != "_forward_attribute" and self._forward_attribute(attr)):
                 return getattr(self.workflow_proxy, attr)
 
-        return super(Workflow, self).__getattribute__(attr)
+        return super(BaseWorkflow, self).__getattribute__(attr)
 
     def cli_args(self, exclude=None, replace=None):
         if exclude is None:
@@ -163,7 +163,7 @@ class Workflow(Task):
         else:
             exclude |= self.exclude_params_workflow
 
-        return super(Workflow, self).cli_args(exclude=exclude, replace=replace)
+        return super(BaseWorkflow, self).cli_args(exclude=exclude, replace=replace)
 
     def is_branch(self):
         return self.branch != NO_INT
@@ -277,5 +277,5 @@ class Workflow(Task):
         return self.__class__.requires(self)
 
 
-Workflow.workflow_property = workflow_property
-Workflow.cached_workflow_property = cached_workflow_property
+BaseWorkflow.workflow_property = workflow_property
+BaseWorkflow.cached_workflow_property = cached_workflow_property

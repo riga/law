@@ -18,7 +18,7 @@ __version__ = "0.0.18"
 
 __all__ = [
     "Task", "WrapperTask", "SandboxTask",
-    "Workflow", "LocalWorkflow", "workflow_property", "cached_workflow_property",
+    "BaseWorkflow", "LocalWorkflow", "workflow_property", "cached_workflow_property",
     "FileSystemTarget", "FileSystemFileTarget", "FileSystemDirectoryTarget",
     "LocalFileSystem, LocalFileTarget, LocalDirectoryTarget",
     "DropboxFileSystem", "DropboxFileTarget", "DropboxDirectoryTarget",
@@ -57,7 +57,7 @@ from law.target.dcache import DCacheFileSystem, DCacheFileTarget, DCacheDirector
 from law.target.collection import TargetCollection, SiblingFileCollection
 import law.decorator
 from law.task.base import Task, WrapperTask
-from law.workflow.base import Workflow, workflow_property, cached_workflow_property
+from law.workflow.base import BaseWorkflow, workflow_property, cached_workflow_property
 from law.workflow.local import LocalWorkflow
 from law.sandbox.base import SandboxTask
 import law.sandbox.docker

@@ -8,10 +8,10 @@ Local workflow implementation.
 __all__ = ["LocalWorkflow"]
 
 
-from law.workflow.base import Workflow, WorkflowProxy
+from law.workflow.base import BaseWorkflow, BaseWorkflowProxy
 
 
-class LocalWorkflowProxy(WorkflowProxy):
+class LocalWorkflowProxy(BaseWorkflowProxy):
 
     workflow_type = "local"
 
@@ -44,7 +44,7 @@ class LocalWorkflowProxy(WorkflowProxy):
         self._has_run = True
 
 
-class LocalWorkflow(Workflow):
+class LocalWorkflow(BaseWorkflow):
 
     # when True, the local workflow considers its branch tasks as requirements
     # instead of starting them dynamically
