@@ -8,8 +8,8 @@ Helpful utility functions.
 __all__ = ["rel_path", "law_src_path", "law_home_path", "print_err", "abort", "colored",
            "uncolored", "query_choice", "multi_match", "make_list", "flatten", "which",
            "map_verbose", "map_struct", "mask_struct", "tmp_file", "interruptable_popen",
-           "create_hash", "copy_no_perm", "user_owns_file", "iter_chunks", "human_bytes",
-           "ShorthandDict"]
+           "create_hash", "copy_no_perm", "makedirs_perm", "user_owns_file", "iter_chunks",
+           "human_bytes", "ShorthandDict"]
 
 
 import os
@@ -462,6 +462,20 @@ def copy_no_perm(src, dst):
     perm = os.stat(dst).st_mode
     shutil.copystat(src, dst)
     os.chmod(dst, perm)
+
+
+def makedirs_perm(path, perm=None):
+    """
+    Recursively creates directory up to *path*. If *perm* is set, the permissions of all created
+    newly directories are set to its value.
+    """
+    if not os.path.exists(path):
+        if perm is None:
+            os.makedirs(path)
+        else:
+            umask = os.umask(0)
+            os.makedirs(path, perm)
+            os.umask(umask)
 
 
 def user_owns_file(path, uid=None):

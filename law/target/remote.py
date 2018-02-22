@@ -31,7 +31,8 @@ from law.target.file import FileSystem, FileSystemTarget, FileSystemFileTarget, 
     FileSystemDirectoryTarget, get_path, get_scheme, has_scheme, add_scheme, remove_scheme
 from law.target.local import LocalFileSystem, LocalFileTarget
 from law.target.formatter import AUTO_FORMATTER, get_formatter, find_formatters
-from law.util import make_list, copy_no_perm, human_bytes, create_hash, user_owns_file
+from law.util import make_list, copy_no_perm, makedirs_perm, human_bytes, create_hash, \
+    user_owns_file
 
 
 logger = logging.getLogger(__name__)
@@ -270,13 +271,7 @@ class RemoteCache(object):
             auto_flush = True
         else:
             base = os.path.join(root, name)
-            if not os.path.exists(base):
-                if dir_perm is None:
-                    os.makedirs(base)
-                else:
-                    umask = os.umask(0)
-                    os.makedirs(base, dir_perm)
-                    os.umask(umask)
+            makedirs_perm(base, dir_perm)
 
         # save attributes and configs
         self.root = root
