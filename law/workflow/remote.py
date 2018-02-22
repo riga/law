@@ -306,7 +306,7 @@ class BaseRemoteWorkflowProxy(WorkflowProxy):
         n_parallel = sys.maxint if task.parallel_jobs < 0 else task.parallel_jobs
         new_jobs = OrderedDict()
         for job_num, branches in six.iteritems(self.submission_data.waiting_jobs):
-            if n_active + len(submit_jobs) + len(new_jobs) >= n_parallel:
+            if n_active + len(new_jobs) >= n_parallel:
                 break
 
             if skip_job(job_num, branches):
