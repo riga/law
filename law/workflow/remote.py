@@ -387,14 +387,14 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         n_jobs = n_active + n_waiting
 
         # determine thresholds
-        n_finished_min = task.acceptance * n_jobs if task.acceptance <= 1 else task.acceptance
-        n_failed_max = task.tolerance * n_jobs if task.tolerance <= 1 else task.tolerance
         if is_no_param(task.walltime):
             max_polls = sys.maxint
         else:
             max_polls = int(math.ceil((task.walltime * 3600.) / (task.poll_interval * 60.)))
         n_poll_fails = 0
         n_parallel = sys.maxint if task.parallel_jobs < 0 else task.parallel_jobs
+        n_finished_min = task.acceptance * n_jobs if task.acceptance <= 1 else task.acceptance
+        n_failed_max = task.tolerance * n_jobs if task.tolerance <= 1 else task.tolerance
 
         # bookkeeping dicts to avoid querying the status of finished jobs
         # note: active_jobs holds submission data, finished_jobs holds status data
@@ -520,7 +520,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             # infer the overall status
             finished = n_finished >= n_finished_min
             failed = n_failed > n_failed_max
-            unreachable = n_jobs - n_failed < n_finished_min
+            unreachable = n_jobs - n_failed < n_finished_min - n_failed_max
             if finished:
                 # write status output
                 if "status" in self._outputs:

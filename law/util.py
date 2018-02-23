@@ -466,8 +466,8 @@ def copy_no_perm(src, dst):
 
 def makedirs_perm(path, perm=None):
     """
-    Recursively creates directory up to *path*. If *perm* is set, the permissions of all created
-    newly directories are set to its value.
+    Recursively creates directory up to *path*. If *perm* is set, the permissions of all newly
+    created directories are set to its value.
     """
     if not os.path.exists(path):
         if perm is None:
