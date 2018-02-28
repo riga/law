@@ -173,7 +173,12 @@ class GFALInterface(object):
 
     def url(self, path, cmd=None, rnd=True):
         # get potential bases for the given cmd
-        bases = self.bases.get(cmd, self.base)
+        bases = self.base
+        if cmd:
+            for cmd in make_list(cmd):
+                if cmd in self.bases:
+                    bases = self.bases[cmd]
+                    break
 
         # select one when there are multple
         if not rnd or len(bases) == 1:
@@ -184,9 +189,10 @@ class GFALInterface(object):
         return os.path.join(base, path.strip("/"))
 
     def exists(self, path, stat=False):
+        cmd = "stat" if stat else ("exists", "stat")
         with self.context() as ctx:
             try:
-                _stat = ctx.stat(self.url(path, "stat"))
+                _stat = ctx.stat(self.url(path, cmd=cmd))
                 return _stat if stat else True
             except gfal2.GError:
                 return None if stat else False
@@ -220,7 +226,7 @@ class GFALInterface(object):
     @retry
     def mkdir_rec(self, path, perm):
         with self.context() as ctx:
-            return ctx.mkdir_rec(self.url(path, "mkdir_rec"), perm or 0o0770)
+            return ctx.mkdir_rec(self.url(path, ("mkdir_rec", "mkdir")), perm or 0o0770)
 
     @retry
     def listdir(self, path):
