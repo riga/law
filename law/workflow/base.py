@@ -207,7 +207,7 @@ class BaseWorkflow(Task):
 
         # reset end_branch
         if self.end_branch < 0:
-            self.end_branch = sys.maxint
+            self.end_branch = sys.maxsize
         self.end_branch = max(self.start_branch, min(max_branch + 1, self.end_branch))
 
     def _reduce_branch_map(self):

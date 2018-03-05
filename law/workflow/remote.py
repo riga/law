@@ -304,7 +304,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
         # fill with jobs from the waiting list until maximum number of parallel jobs is reached
         n_active = self.n_active_jobs or 0
-        n_parallel = sys.maxint if task.parallel_jobs < 0 else task.parallel_jobs
+        n_parallel = sys.maxsize if task.parallel_jobs < 0 else task.parallel_jobs
         new_jobs = OrderedDict()
         for job_num, branches in six.iteritems(self.submission_data.waiting_jobs):
             if n_active + len(new_jobs) >= n_parallel:
@@ -388,11 +388,11 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
         # determine thresholds
         if is_no_param(task.walltime):
-            max_polls = sys.maxint
+            max_polls = sys.maxsize
         else:
             max_polls = int(math.ceil((task.walltime * 3600.) / (task.poll_interval * 60.)))
         n_poll_fails = 0
-        n_parallel = sys.maxint if task.parallel_jobs < 0 else task.parallel_jobs
+        n_parallel = sys.maxsize if task.parallel_jobs < 0 else task.parallel_jobs
         n_finished_min = task.acceptance * n_jobs if task.acceptance <= 1 else task.acceptance
         n_failed_max = task.tolerance * n_jobs if task.tolerance <= 1 else task.tolerance
 
