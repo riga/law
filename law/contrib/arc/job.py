@@ -298,7 +298,7 @@ class ArcJobFileFactory(BaseJobFileFactory):
                         src = ""
             return (path, src, opts) if opts else (path, src)
 
-        c.input_files = map(prepare_input, c.input_files)
+        c.input_files = list(map(prepare_input, c.input_files))
 
         # postfix the executable
         pf_executable = self.postfix_file(os.path.basename(c.executable), postfix)

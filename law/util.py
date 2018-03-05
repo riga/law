@@ -24,13 +24,15 @@ import signal
 import hashlib
 import shutil
 import copy
-from collections import OrderedDict
+from collections import OrderedDict, ValuesView
 from contextlib import contextmanager
 
 import six
 
 
 class NoValue(object):
+    def __bool__(self):
+        return False
 
     def __nonzero__(self):
         return False
@@ -217,7 +219,7 @@ def flatten(struct):
         return flatten(list(struct))
     elif isinstance(struct, dict):
         return flatten(struct.values())
-    elif isinstance(struct, (list, tuple, set)):
+    elif isinstance(struct, (list, tuple, set, ValuesView)):
         objs = []
         for obj in struct:
             objs.extend(flatten(obj))

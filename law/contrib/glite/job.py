@@ -269,7 +269,7 @@ class GLiteJobFileFactory(BaseJobFileFactory):
             path = add_scheme(path, "file") if c.absolute_paths else os.path.basename(path)
             return path
 
-        c.input_files = map(prepare_input, c.input_files)
+        c.input_files = list(map(prepare_input, c.input_files))
 
         # ensure that log files are contained in the output files
         if c.stdout and c.stdout not in c.output_files:
