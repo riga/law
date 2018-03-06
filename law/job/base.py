@@ -367,9 +367,7 @@ class JobArguments(object):
     @classmethod
     def encode_list(cls, value):
         encoded = base64.b64encode(six.b(" ".join(str(v) for v in value) or "-"))
-        if six.PY3:
-            return encoded.decode("utf-8")
-        return encoded
+        return encoded.decode("utf-8") if six.PY3 else encoded
 
     def pack(self):
         return [

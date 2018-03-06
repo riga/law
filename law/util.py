@@ -31,6 +31,7 @@ import six
 
 
 class NoValue(object):
+
     def __bool__(self):
         return False
 
@@ -307,6 +308,10 @@ def map_struct(func, struct, cls=None, map_dict=True, map_list=True, map_tuple=F
     objects of the respective types are traversed or mapped. The can be booleans or integer values
     that define the depth of that setting in the struct.
     """
+    # interpret generators and views as lists
+    if isinstance(struct, (types.GeneratorType, ValuesView)):
+        struct = list(struct)
+
     types = tuple()
     if map_dict:
         types = types + (dict,)
@@ -367,12 +372,12 @@ def map_struct(func, struct, cls=None, map_dict=True, map_list=True, map_tuple=F
 
 
 def mask_struct(mask, struct, replace=_no_value):
-    # interpret genrators as lists
-    if isinstance(struct, types.GeneratorType):
-        return mask_struct(mask, list(struct), replace=replace)
+    # interpret generators and views as lists
+    if isinstance(struct, (types.GeneratorType, ValuesView)):
+        struct = list(struct)
 
     # when mask is a bool, or struct is not a dict or sequence, apply the mask immediately
-    elif isinstance(mask, bool) or not isinstance(struct, (list, tuple, dict)):
+    if isinstance(mask, bool) or not isinstance(struct, (list, tuple, dict)):
         return struct if mask else replace
 
     # check list and tuple types
