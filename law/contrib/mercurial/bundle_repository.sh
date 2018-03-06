@@ -10,6 +10,7 @@
 # 4. (optional) space-separated list of files or directories to force-add, supports globbing
 
 action() {
+    # handle arguments
     local repo_path="$1"
     if [ -z "$repo_path" ]; then
         2>&1 echo "please provide the path to the repository to bundle"

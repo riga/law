@@ -1,21 +1,21 @@
+#!/usr/bin/env bash
+
 # Bash completion function that is registered for the law executable.
 # It repeatedly grep's the law db file which should be cached by the fileystem.
 
 _law_complete() {
+    local base="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+    # load polyfills
+    source "$base/../polyfills.sh"
+
+    # determine LAW_HOME
     local law_home="$LAW_HOME"
     [ -z "$law_home" ] && law_home="$HOME/.law"
 
+    # determine LAW_DB_FILE
     local db_file="$LAW_DB_FILE"
     [ -z "$db_file" ] && db_file="$law_home/db"
-
-    # cross-OS grep
-    _law_grep() {
-        if [ "$( uname -s )" = "Darwin" ]; then
-            perl -nle "print $& if m{$1}" "${@:2}"
-        else
-            grep -Po $@
-        fi
-    }
 
     # common task run parameters
     local common_run_params="workers local-scheduler help log-level"
@@ -44,7 +44,7 @@ _law_complete() {
 
         # task family
         if [ "$COMP_CWORD" = "2" ]; then
-            COMPREPLY=( $( compgen -W "$( _law_grep "[^\:]+\:\K(.+)(?=\:.+)" "$db_file" )" -- "$cur" ) )
+            COMPREPLY=( $( compgen -W "$( _law_grep_Po "[^\:]+\:\K(.+)(?=\:.+)" "$db_file" )" -- "$cur" ) )
             return
         fi
         local task_family="${COMP_WORDS[2]}"
@@ -52,26 +52,26 @@ _law_complete() {
         # parameters of the root task
         local inp="${cur##-}"
         inp="${inp##-}"
-        COMPREPLY=( $( compgen -W "$( _law_grep "[^\:]+\:$task_family\:\K.+" "$db_file" ) $common_run_params" -P "--" -- "$inp" ) )
+        COMPREPLY=( $( compgen -W "$( _law_grep_Po "[^\:]+\:$task_family\:\K.+" "$db_file" ) $common_run_params" -P "--" -- "$inp" ) )
 
         if [ "${#COMPREPLY[@]}" = "0" ] && [ "${cur:0:2}" = "--" ]; then
-            local tasks=( $( _law_grep "[^\:]+\:\K$inp[^\:]*(?=\:.+)" "$db_file" ) )
+            local tasks=( $( _law_grep_Po "[^\:]+\:\K$inp[^\:]*(?=\:.+)" "$db_file" ) )
 
-            if [[ "$( echo $inp | _law_grep "\K[^\.]+$" )" != *"-"* ]] && [ "${#tasks[@]}" -gt "1" ]; then
+            if [[ "$( echo $inp | _law_grep_Po "\K[^\.]+$" )" != *"-"* ]] && [ "${#tasks[@]}" -gt "1" ]; then
                 # other task families
                 COMPREPLY=( $( compgen -W "$( echo ${tasks[@]} )" -P "--" -S "-" -- "$inp" ) )
             else
                 # parameters of other tasks
-                local task="$( echo $inp | _law_grep "^[^-]*" )"
-                local curparam="$( echo $inp | _law_grep "^[^-]*-\K.*" )"
+                local task="$( echo $inp | _law_grep_Po "^[^-]*" )"
+                local curparam="$( echo $inp | _law_grep_Po "^[^-]*-\K.*" )"
 
-                [[ "$( echo $inp | _law_grep "\K[^\.]+$" )" != *"-"* ]] && task="${tasks[0]}"
+                [[ "$( echo $inp | _law_grep_Po "\K[^\.]+$" )" != *"-"* ]] && task="${tasks[0]}"
                 [ "$( echo ${task:${#task}-1} )" == "-" ] && task="${task:0:${#task}-1}"
 
-                local params=( $( _law_grep "[^\:]\:$task\:\K.*" "$db_file" ) )
+                local params=( $( _law_grep_Po "[^\:]\:$task\:\K.*" "$db_file" ) )
                 local words=()
                 for param in "${params[@]}"; do
-                    if [ -z "$curparam" ] || [ ! -z "$( echo "$param" | _law_grep "^$curparam" )" ]; then
+                    if [ -z "$curparam" ] || [ ! -z "$( echo "$param" | _law_grep_Po "^$curparam" )" ]; then
                         words+=("$task-$param")
                     fi
                 done

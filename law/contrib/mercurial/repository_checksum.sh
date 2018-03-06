@@ -9,6 +9,11 @@
 # 1. the path to the repository
 
 action() {
+    # load polyfills
+    local base="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+    source "$base/../../polyfills.sh"
+
+    # handle arguments
     local repo_path="$1"
     if [ -z "$repo_path" ]; then
         2>&1 echo "please provide the path to the repository to bundle"
@@ -20,21 +25,12 @@ action() {
         return "2"
     fi
 
-    # cross-OS shasum
-    _law_shasum() {
-        if [ "$( uname -s )" = "Darwin" ]; then
-            shasum $@
-        else
-            sha1sum $@
-        fi
-    }
-
     ( \
         cd "$repo_path" && \
         hg identify -i && \
         hg diff && \
-        ( hg status | grep "?" | cut -d " " -f 2 | xargs cat ) \
-    ) | _law_shasum | cut -d " "  -f 1
+        ( hg status --unknown --no-status | xargs cat ) \
+    ) | _law_shasum | cut -d " " -f 1
     local ret="$?"
 
     return "$ret"
