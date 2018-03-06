@@ -30,7 +30,7 @@ action() {
         git rev-parse HEAD && \
         git diff && \
         ( git ls-files --others --exclude-standard | xargs cat ) \
-    ) | _law_shasum | cut -d " " -f 1
+    ) | shasum | cut -d " " -f 1
     local ret="$?"
 
     return "$ret"

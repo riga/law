@@ -30,7 +30,7 @@ action() {
         hg identify -i && \
         hg diff && \
         ( hg status --unknown --no-status | xargs cat ) \
-    ) | _law_shasum | cut -d " " -f 1
+    ) | shasum | cut -d " " -f 1
     local ret="$?"
 
     return "$ret"

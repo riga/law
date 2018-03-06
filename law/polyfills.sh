@@ -38,18 +38,5 @@ action() {
         }
     fi
     export -f _law_grep_Po
-
-
-    # cross-OS shasum
-    if [ "${_law_is_mac}" = "1" ]; then
-        _law_shasum() {
-            shasum $@
-        }
-    else
-        _law_shasum() {
-            sha1sum $@
-        }
-    fi
-    export -f _law_shasum
 }
 action
