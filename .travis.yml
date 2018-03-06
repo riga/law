@@ -9,7 +9,7 @@ python:
   - "3.5"
   - "3.6"
 
-install:
+before_script:
   - pip install -r requirements.txt
   - pip install flake8
 
