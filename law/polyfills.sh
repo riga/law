@@ -14,9 +14,10 @@ action() {
 
     # cross-OS grep
     if [ "${_law_is_mac}" = "1" ]; then
-        _law_grep_path="$( which grep )"
+        _law_grep_path="$( which grep 2> /dev/null )"
     else
-        _law_grep_path="$( which --skip-alias --skip-functions grep )"
+        _law_grep_path="$( which --skip-alias --skip-functions grep 2> /dev/null )"
+        [ "$?" != "0" ] && _law_grep_path="$( which grep 2> /dev/null )"
     fi
     [ "$?" != "0" ] && _law_grep_path="grep"
     export _law_grep_path
