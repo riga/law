@@ -31,4 +31,7 @@ def run():
     else:
         args = parser.parse_args()
 
-    mods[args.command].execute(args)
+    if args.command:
+        mods[args.command].execute(args)
+    else:
+        parser.print_help()
