@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-"law config" command line tool
+"law config" cli subprogram.
 """
 
 
@@ -10,6 +10,9 @@ from law.util import abort
 
 
 def setup_parser(sub_parsers):
+    """
+    Sets up the command line parser for the *config* subprogram and adds it to *sub_parsers*.
+    """
     parser = sub_parsers.add_parser("config", prog="law config",
         description="law config file lookup")
 
@@ -19,6 +22,9 @@ def setup_parser(sub_parsers):
 
 
 def execute(args):
+    """
+    Executes the *config* subprogram with parsed commandline *args*.
+    """
     if args.value is None and not args.remove:
         # just print the value
         print(get_config(args.name))
@@ -27,5 +33,9 @@ def execute(args):
 
 
 def get_config(name):
+    """
+    Returns the config value that corresponds to *name*, which must have the format
+    ``section.option``.
+    """
     section, option = name.split(".", 1)
     return Config.instance().get(section, option)

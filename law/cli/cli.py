@@ -15,6 +15,10 @@ forward_progs = ["run"]
 
 
 def run():
+    """
+    Entry point to the law cli. Sets up all parsers, parses all arguments, and executes the
+    requested subprogram.
+    """
     # setup the main parser and sub parsers
     parser = ArgumentParser(prog="law", description="law command line tool")
     sub_parsers = parser.add_subparsers(help="subcommands", dest="command")

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-"law db" command line tool.
+"law db" cli subprogram.
 """
 
 
@@ -20,6 +20,9 @@ from law.util import multi_match, colored
 
 
 def setup_parser(sub_parsers):
+    """
+    Sets up the command line parser for the *db* subprogram and adds it to *sub_parsers*.
+    """
     parser = sub_parsers.add_parser("db", prog="law db", description="law db file updater")
 
     parser.add_argument("--modules", "-m", nargs="+", help="additional modules to traverse")
@@ -28,6 +31,9 @@ def setup_parser(sub_parsers):
 
 
 def execute(args):
+    """
+    Executes the *db* subprogram with parsed commandline *args*.
+    """
     # just remove the db file?
     if args.remove:
         db_file = Config.instance().get("core", "db_file")

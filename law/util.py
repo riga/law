@@ -314,19 +314,19 @@ def map_struct(func, struct, cls=None, map_dict=True, map_list=True, map_tuple=F
 
     valid_types = tuple()
     if map_dict:
-        valid_types = valid_types + (dict,)
+        valid_types += (dict,)
         if isinstance(map_dict, int) and not isinstance(map_dict, bool):
             map_dict -= 1
     if map_list:
-        valid_types = valid_types + (list,)
+        valid_types += (list,)
         if isinstance(map_list, int) and not isinstance(map_list, bool):
             map_list -= 1
     if map_tuple:
-        valid_types = valid_types + (tuple,)
+        valid_types += (tuple,)
         if isinstance(map_tuple, int) and not isinstance(map_tuple, bool):
             map_tuple -= 1
     if map_set:
-        valid_types = valid_types + (set,)
+        valid_types += (set,)
         if isinstance(map_set, int) and not isinstance(map_set, bool):
             map_set -= 1
 

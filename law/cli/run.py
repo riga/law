@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-"law run" command line tool.
+"law run" cli subprogram.
 """
 
 
@@ -20,6 +20,9 @@ logger = logging.getLogger(__name__)
 
 
 def setup_parser(sub_parsers):
+    """
+    Sets up the command line parser for the *run* subprogram and adds it to *sub_parsers*.
+    """
     parser = sub_parsers.add_parser("run", prog="law run", add_help=False,
         description="law run tool")
 
@@ -28,6 +31,9 @@ def setup_parser(sub_parsers):
 
 
 def execute(args):
+    """
+    Executes the *run* subprogram with parsed commandline *args*.
+    """
     task_family = None
     error = None
 
@@ -68,6 +74,11 @@ def execute(args):
 
 
 def read_task_from_db(task_family, db_file=None):
+    """
+    Returns module id, task family and space-separated parameters in a tuple for a task given by
+    *task_family* from the *db_file*. When *None*, the *db_file* refers to the default as defined in
+    :py:module:`law.config`. Returns *None* when the task could not be found.
+    """
     # read task information from the db file given a task family
     if db_file is None:
         db_file = Config.instance().get_expanded("core", "db_file")

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-"law sw" command line tool.
+"law sw" cli subprogram.
 """
 
 
@@ -28,6 +28,9 @@ if "_reloaded_deps" not in globals():
 
 
 def setup_parser(sub_parsers):
+    """
+    Sets up the command line parser for the *software* subprogram and adds it to *sub_parsers*.
+    """
     parser = sub_parsers.add_parser("software", prog="law software",
         description="law software caching tool")
 
@@ -36,6 +39,9 @@ def setup_parser(sub_parsers):
 
 
 def execute(args):
+    """
+    Executes the *software* subprogram with parsed commandline *args*.
+    """
     sw_dir = get_sw_dir()
 
     # just remove the current software cache?
@@ -48,6 +54,10 @@ def execute(args):
 
 
 def build_software_cache(sw_dir=None):
+    """
+    Builds up the software cache directory at *sw_dir* by simply copying all required python
+    modules. *sw_dir* is evaluated with :py:func:`get_sw_dir`.
+    """
     # ensure the cache is empty
     sw_dir = get_sw_dir(sw_dir)
     remove_software_cache(sw_dir)
@@ -69,12 +79,19 @@ def build_software_cache(sw_dir=None):
 
 
 def remove_software_cache(sw_dir=None):
+    """
+    Removes the software cache directory at *sw_dir* which is evaluated with :py:func:`get_sw_dir`.
+    """
     sw_dir = get_sw_dir(sw_dir)
     if os.path.exists(sw_dir):
         shutil.rmtree(sw_dir)
 
 
 def reload_dependencies(force=False):
+    """
+    Reloads all python modules that law depends on. Currently, this is just *luigi* and *six*.
+    Unless *force* is *True*, multiple calls to this function will not have any effect.
+    """
     global _reloaded_deps
 
     if _reloaded_deps and not force:
@@ -87,6 +104,10 @@ def reload_dependencies(force=False):
 
 
 def use_software_cache(sw_dir=None, reload_deps=False):
+    """
+    Adjusts ``sys.path`` so that the cached software at *sw_dir* is used. *sw_dir* is evaluated with
+    :py:func:`get_sw_dir`. When *reload_deps* is *True*, :py:func:`reload_dependencies` is invoked.
+    """
     sw_dir = get_sw_dir(sw_dir)
     if os.path.exists(sw_dir):
         sys.path.insert(1, sw_dir)
@@ -96,6 +117,10 @@ def use_software_cache(sw_dir=None, reload_deps=False):
 
 
 def get_sw_dir(sw_dir=None):
+    """
+    Returns the software directory defined in the ``config.software_dir`` config. When *sw_dir* is
+    not *None*, it is expanded and returned instead.
+    """
     if sw_dir is None:
         sw_dir = Config.instance().get("core", "software_dir")
 
