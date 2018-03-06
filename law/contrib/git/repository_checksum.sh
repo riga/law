@@ -20,12 +20,21 @@ action() {
         return "2"
     fi
 
+    # cross-OS shasum
+    _law_shasum() {
+        if [ "$( uname -s )" = "Darwin" ]; then
+            shasum $@
+        else
+            sha1sum $@
+        fi
+    }
+
     ( \
         cd "$repo_path" && \
         git rev-parse HEAD && \
         git diff && \
         ( git ls-files --others --exclude-standard | xargs cat ) \
-    ) | sha1sum | cut -d ' ' -f 1
+    ) | _law_shasum | cut -d " " -f 1
     local ret="$?"
 
     return "$ret"
