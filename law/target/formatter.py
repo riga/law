@@ -116,12 +116,12 @@ class JSONFormatter(Formatter):
         return get_path(path).endswith(".json")
 
     @classmethod
-    def load(cls, path, *args, **kwargs):
+    def load(cls_, path, *args, **kwargs):
         with open(get_path(path), "r") as f:
             return json.load(f, *args, **kwargs)
 
     @classmethod
-    def dump(cls, path, obj, *args, **kwargs):
+    def dump(cls_, path, obj, *args, **kwargs):
         with open(get_path(path), "w") as f:
             return json.dump(obj, f, *args, **kwargs)
 
