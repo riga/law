@@ -586,7 +586,6 @@ def is_file_exists_error(e):
     Returns whether the exception *e* was raised due to an already existing file or directory.
     """
     if six.PY3:
-        return isinstance(e, FileExistsError)
+        return isinstance(e, FileExistsError)  # noqa: F821
     else:
         return isinstance(e, OSError) and e.errno == 17
-
