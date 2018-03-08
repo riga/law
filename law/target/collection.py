@@ -53,12 +53,21 @@ class TargetCollection(Target):
     def _repr_pairs(self):
         return Target._repr_pairs(self) + [("len", len(self)), ("threshold", self.threshold)]
 
-    @property
     def _iter_flat(self):
         if isinstance(self._flat_targets, (list, tuple)):
             return self._flat_targets
         else:  # dict
             return six.itervalues(self._flat_targets)
+
+    def iter_existing(self):
+        for targets in self._iter_flat():
+            if all(t.exists() for t in targets):
+                yield targets
+
+    def iter_missing(self):
+        for targets in self._iter_flat():
+            if any(not t.exists() for t in targets):
+                yield targets
 
     @property
     def hash(self):
@@ -69,16 +78,16 @@ class TargetCollection(Target):
         for target in self._flat_target_list:
             target.remove(silent=silent)
 
-    def _threshold(self):
+    def _abs_threshold(self):
         if self.threshold < 0:
             return 0
         elif self.threshold <= 1:
             return len(self) * self.threshold
         else:
-            return min(len(self), self.threshold)
+            return min(len(self), max(self.threshold, 0.))
 
     def exists(self):
-        threshold = self._threshold()
+        threshold = self._abs_threshold()
 
         # trivial case
         if threshold == 0:
@@ -86,7 +95,7 @@ class TargetCollection(Target):
 
         # simple counting with early stopping criteria for both success and fail
         n = 0
-        for i, targets in enumerate(self._iter_flat):
+        for i, targets in enumerate(self._iter_flat()):
             if all(t.exists() for t in targets):
                 n += 1
                 if n >= threshold:
@@ -100,7 +109,7 @@ class TargetCollection(Target):
     def count(self, existing=True):
         # simple counting
         n = 0
-        for targets in self._iter_flat:
+        for targets in self._iter_flat():
             if all(t.exists() for t in targets):
                 n += 1
 
@@ -108,7 +117,7 @@ class TargetCollection(Target):
 
     def status_text(self, max_depth=0, color=True):
         count = self.count()
-        exists = count >= self._threshold()
+        exists = count >= self._abs_threshold()
 
         if exists:
             text = "existent"
@@ -164,7 +173,7 @@ class SiblingFileCollection(TargetCollection):
         return TargetCollection._repr_pairs(self) + [("dir", self.dir.path)]
 
     def exists(self, basenames=None):
-        threshold = self._threshold()
+        threshold = self._abs_threshold()
 
         # check the dir
         if not self.dir.exists():
@@ -180,7 +189,7 @@ class SiblingFileCollection(TargetCollection):
 
         # simple counting with early stopping criteria for both success and fail
         n = 0
-        for i, targets in enumerate(self._iter_flat):
+        for i, targets in enumerate(self._iter_flat()):
             for target in targets:
                 if isinstance(target, FileSystemTarget):
                     if target.basename not in basenames:
@@ -210,7 +219,7 @@ class SiblingFileCollection(TargetCollection):
 
         # simple counting
         n = 0
-        for i, targets in enumerate(self._iter_flat):
+        for i, targets in enumerate(self._iter_flat()):
             for target in targets:
                 if isinstance(target, FileSystemTarget):
                     if target.basename not in basenames:
