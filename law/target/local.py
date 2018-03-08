@@ -23,6 +23,7 @@ from law.target.file import (FileSystem, FileSystemTarget, FileSystemFileTarget,
     FileSystemDirectoryTarget, get_scheme, remove_scheme)
 from law.target.formatter import AUTO_FORMATTER, get_formatter, find_formatters
 from law.config import Config
+from law.util import is_file_exists_error
 
 
 logger = logging.getLogger(__name__)
@@ -73,7 +74,11 @@ class LocalFileSystem(FileSystem):
                 args = (self._unscheme(path),)
                 if perm is not None:
                     args += (perm,)
-                (os.makedirs if recursive else os.mkdir)(*args)
+                try:
+                    (os.makedirs if recursive else os.mkdir)(*args)
+                except Exception as e:
+                    if not is_file_exists_error(e):
+                        raise
                 self.chmod(path, perm)
             finally:
                 if perm is not None:

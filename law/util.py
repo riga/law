@@ -9,7 +9,7 @@ __all__ = ["rel_path", "law_src_path", "law_home_path", "print_err", "abort", "c
            "uncolored", "query_choice", "multi_match", "make_list", "flatten", "which",
            "map_verbose", "map_struct", "mask_struct", "tmp_file", "interruptable_popen",
            "create_hash", "copy_no_perm", "makedirs_perm", "user_owns_file", "iter_chunks",
-           "human_bytes", "ShorthandDict"]
+           "human_bytes", "ShorthandDict", "is_file_exists_error"]
 
 
 import os
@@ -579,3 +579,14 @@ class ShorthandDict(OrderedDict):
             self[attr] = value
         else:
             super(ShorthandDict, self).__setattr__(attr, value)
+
+
+def is_file_exists_error(e):
+    """
+    Returns whether the exception *e* was raised due to an already existing file or directory.
+    """
+    if six.PY3:
+        return isinstance(e, FileExistsError)
+    else:
+        return isinstance(e, OSError) and e.errno == 17
+
