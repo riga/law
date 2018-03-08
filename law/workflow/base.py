@@ -59,7 +59,7 @@ class BaseWorkflowProxy(ProxyTask):
         tolerance = self.task.tolerance
         tolerance *= n if tolerance <= 1 else 1
 
-        return min(acceptance, n - tolerance) / float(n)
+        return min(acceptance, n - min(tolerance, n)) / float(n)
 
 
 def workflow_property(func):
