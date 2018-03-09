@@ -24,7 +24,7 @@ import signal
 import hashlib
 import shutil
 import copy
-from collections import OrderedDict, ValuesView
+from collections import OrderedDict, MappingView
 from contextlib import contextmanager
 
 import six
@@ -204,7 +204,7 @@ def make_list(obj, cast=True):
     """
     if isinstance(obj, list):
         return list(obj)
-    if isinstance(obj, types.GeneratorType):
+    if isinstance(obj, (types.GeneratorType, MappingView)):
         return list(obj)
     if isinstance(obj, (tuple, set)) and cast:
         return list(obj)
@@ -220,7 +220,7 @@ def flatten(struct):
         return flatten(list(struct))
     elif isinstance(struct, dict):
         return flatten(struct.values())
-    elif isinstance(struct, (list, tuple, set, ValuesView)):
+    elif isinstance(struct, (list, tuple, set, MappingView)):
         objs = []
         for obj in struct:
             objs.extend(flatten(obj))
@@ -309,7 +309,7 @@ def map_struct(func, struct, cls=None, map_dict=True, map_list=True, map_tuple=F
     that define the depth of that setting in the struct.
     """
     # interpret generators and views as lists
-    if isinstance(struct, (types.GeneratorType, ValuesView)):
+    if isinstance(struct, (types.GeneratorType, MappingView)):
         struct = list(struct)
 
     valid_types = tuple()
@@ -373,7 +373,7 @@ def map_struct(func, struct, cls=None, map_dict=True, map_list=True, map_tuple=F
 
 def mask_struct(mask, struct, replace=_no_value):
     # interpret generators and views as lists
-    if isinstance(struct, (types.GeneratorType, ValuesView)):
+    if isinstance(struct, (types.GeneratorType, MappingView)):
         struct = list(struct)
 
     # when mask is a bool, or struct is not a dict or sequence, apply the mask immediately
