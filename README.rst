@@ -62,7 +62,7 @@ Examples
 - `workflows <https://github.com/riga/law/tree/master/examples/workflows>`_: Law workflows. TODO.
 - `docker_sandboxes <https://github.com/riga/law/tree/master/examples/docker_sandboxes>`_: Environment sandboxing using Docker. TODO.
 - `dropbox_targets <https://github.com/riga/law/tree/master/examples/dropbox_targets>`_: Working with targets that are stored on Dropbox.
-- `dcache_targets <https://github.com/riga/law/tree/master/examples/dcache_targets>`_: Working with targets that are stored on WLCG storage elements (dCache, EOS, ...). TODO.
+- `wlcg_targets <https://github.com/riga/law/tree/master/examples/wlcg_targets>`_: Working with targets that are stored on WLCG storage elements (dCache, EOS, ...). TODO.
 - `htcondor_at_vispa <https://github.com/riga/law/tree/master/examples/htcondor_at_vispa>`_: HTCondor workflows at the `VISPA service <https://vispa.physik.rwth-aachen.de>`_.
 - `lsf_at_cern <https://github.com/riga/law/tree/master/examples/lsf_at_cern>`_: LSF workflows at the CERN batch infrastructure.
 - `grid_at_cern <https://github.com/riga/law/tree/master/examples/grid_at_cern>`_: Workflows that run on the WLCG. TODO.
