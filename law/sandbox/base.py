@@ -294,6 +294,7 @@ class SandboxTask(Task):
 
     valid_sandboxes = ["*"]
 
+    exclude_db = True
     exclude_params_sandbox = {"print_deps", "print_status", "remove_output", "sandbox"}
 
     def __init__(self, *args, **kwargs):

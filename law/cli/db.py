@@ -82,9 +82,12 @@ def execute(args):
             continue
         seen_families.append(cls.task_family)
 
-        skip = cls.exclude_db or not callable(getattr(cls, "run", None)) \
-            or getattr(cls.run, "__isabstractmethod__", False)
-        if not skip:
+        is_valid_task = (callable(getattr(cls, "run", None)) and
+            not getattr(cls.run, "__isabstractmethod__", False)) or \
+            (callable(getattr(cls, "complete", None)) and
+            not getattr(cls.complete, "__isabstractmethod__", False))
+
+        if not cls.exclude_db and is_valid_task:
             task_classes.append(cls)
 
     def get_task_params(cls):
