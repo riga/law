@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Base definition of a minimalistic job manager.
+Base classes for implementing remote job management, job files and dashboard interfaces.
 """
 
 
@@ -29,6 +29,58 @@ from law.config import Config
 
 @six.add_metaclass(ABCMeta)
 class BaseJobManager(object):
+    """
+    Base class that defines how remote jobs are submitted, queried, cancelled and cleaned up. It
+    also defines the most common job states:
+
+    - PENDING: The job is submitted and waiting to be processed.
+    - RUNNUNG: The job is running.
+    - FINISHED: The job is completed and successfully finished.
+    - RETRY: The job is completed but failed. It can be resubmitted.
+    - FAILED: The job is completed but failed. It cannot or should not be recovered.
+
+    The particular job manager implementation should match its own, native states to these common
+    states.
+
+    *threads* is the default number of concurrent threads that are used in :py:meth:`submit_batch`,
+    :py:meth:`cancel_batch`, :py:meth:`cleanup_batch` and :py:meth:`query_batch`.
+
+    .. py:attribute:: PENDING
+       classmember
+       type: string
+
+       Flag that represents the ``PENDING`` status.
+
+    .. py:attribute:: RUNNING
+       classmember
+       type: string
+
+       Flag that represents the ``RUNNING`` status.
+
+    .. py:attribute:: FINISHED
+       classmember
+       type: string
+
+       Flag that represents the ``FINISHED`` status.
+
+    .. py:attribute:: RETRY
+       classmember
+       type: string
+
+       Flag that represents the ``RETRY`` status.
+
+    .. py:attribute:: FAILED
+       classmember
+       type: string
+
+       Flag that represents the ``FAILED`` status.
+
+    .. py:attribute:: status_names
+       classmember
+       type: list
+
+       The list of all status flags.
+    """
 
     PENDING = "pending"
     RUNNING = "running"
@@ -47,128 +99,39 @@ class BaseJobManager(object):
         FAILED: ({}, {}, {"color": "red", "style": "bright"}),
     }
 
-    @abstractmethod
-    def submit(self):
-        return
-
-    @abstractmethod
-    def cancel(self):
-        return
-
-    @abstractmethod
-    def cleanup(self):
-        return
-
-    @abstractmethod
-    def query(self):
-        return
-
-    def submit_batch(self, job_files, threads=None, callback=None, **kwargs):
-        # default arguments
-        threads = threads or self.threads
-
-        def _callback(i):
-            return (lambda r: callback(i, r)) if callable(callback) else None
-
-        # threaded processing
-        pool = ThreadPool(max(threads, 1))
-        results = [pool.apply_async(self.submit, (job_file,), kwargs, callback=_callback(i))
-                   for i, job_file in enumerate(job_files)]
-        pool.close()
-        pool.join()
-
-        # store return values or errors
-        outputs = []
-        for res in results:
-            try:
-                outputs += make_list(res.get())
-            except Exception as e:
-                outputs.append(e)
-
-        return outputs
-
-    def cancel_batch(self, job_ids, threads=None, chunk_size=20, callback=None, **kwargs):
-        # default arguments
-        threads = threads or self.threads
-
-        def _callback(i):
-            return (lambda r: callback(i, r)) if callable(callback) else None
-
-        # threaded processing
-        pool = ThreadPool(max(threads, 1))
-        gen = job_ids if chunk_size < 0 else iter_chunks(job_ids, chunk_size)
-        results = [pool.apply_async(self.cancel, (job_id_chunk,), kwargs, callback=_callback(i))
-                   for i, job_id_chunk in enumerate(gen)]
-        pool.close()
-        pool.join()
-
-        # store errors
-        errors = []
-        for res in results:
-            try:
-                res.get()
-            except Exception as e:
-                errors.append(e)
-
-        return errors
-
-    def cleanup_batch(self, job_ids, threads=None, chunk_size=20, callback=None, **kwargs):
-        # default arguments
-        threads = threads or self.threads
-
-        def _callback(i):
-            return (lambda r: callback(i, r)) if callable(callback) else None
-
-        # threaded processing
-        pool = ThreadPool(max(threads, 1))
-        gen = job_ids if chunk_size < 0 else iter_chunks(job_ids, chunk_size)
-        results = [pool.apply_async(self.cleanup, (job_id_chunk,), kwargs, callback=_callback(i))
-                   for i, job_id_chunk in enumerate(gen)]
-        pool.close()
-        pool.join()
-
-        # store errors
-        errors = []
-        for res in results:
-            try:
-                res.get()
-            except Exception as e:
-                errors.append(e)
-
-        return errors
-
-    def query_batch(self, job_ids, threads=None, chunk_size=20, callback=None, **kwargs):
-        # default arguments
-        threads = threads or self.threads
-
-        def _callback(i):
-            return (lambda r: callback(i, r)) if callable(callback) else None
-
-        # threaded processing
-        pool = ThreadPool(max(threads, 1))
-        gen = job_ids if chunk_size < 0 else iter_chunks(job_ids, chunk_size)
-        results = [pool.apply_async(self.query, (job_id_chunk,), kwargs, callback=_callback(i))
-                   for i, job_id_chunk in enumerate(gen)]
-        pool.close()
-        pool.join()
-
-        # store status data per job id
-        query_data, errors = {}, []
-        for res in results:
-            try:
-                query_data.update(res.get())
-            except Exception as e:
-                errors.append(e)
-
-        return query_data, errors
-
     @classmethod
     def job_status_dict(cls, job_id=None, status=None, code=None, error=None):
+        """
+        Returns a dictionay that describes the status of a job given its *job_id*, *status*, return
+        *code*, and *error*.
+        """
         return dict(job_id=job_id, status=status, code=code, error=error)
 
     @classmethod
     def status_line(cls, counts, last_counts=None, sum_counts=None, skip=None, timestamp=True,
             align=False, color=False):
+        """
+        Returns a job status line containing job counts per status. When *last_counts* is set, the
+        status line also contains the differences in job counts with respect the passed values. The
+        status line starts with the sum of jobs which is inferred from *counts*. When you want to
+        use a custom value, set *sum_counts*. *skip* can be a sequence of status names that will not
+        considered. When *timestamp* is *True*, the status line begins with the current timestamp.
+        When *timestamp* is a non-empty string, it is used as the ``strftime`` format. *align*
+        handles the alignment of the values in the status line by using a maximum width. *True* will
+        result in the default width of 4. When *align* evaluates to *False*, no alignment is used.
+        By default, some elements of the status line are colored. Set *color* to *False* to disable
+        this feature.
+
+        Example:
+
+        .. code-block:: python
+
+            status_line((2, 0, 0, 0, 0))
+            # 12:45:18: all 2, pending 2, running 0, finished 2, retry 0, failed 0
+
+            status_line((0, 2, 0, 0, 0), last_counts=(2, 0, 0, 0, 0))
+            # 12:46:18: all 2, pending 0 (-2), running 2 (+2), finished 2 (+0), retry 0 (+0), failed 0 (+0)
+        """
         status_names = cls.status_names
         if skip:
             status_names = [name for name in status_names if name not in skip]
@@ -196,7 +159,8 @@ class BaseJobManager(object):
         # build the status line
         line = ""
         if timestamp:
-            line += "{}: ".format(time.strftime("%H:%M:%S"))
+            time_format = timestamp if isinstance(timestamp, six.string_types) else "%H:%M:%S"
+            line += "{}: ".format(time.strftime(time_format))
         if sum_counts is None:
             sum_counts = sum(counts)
         line += "all: " + count_fmt % (sum_counts,)
@@ -216,9 +180,185 @@ class BaseJobManager(object):
 
         return line
 
+    def __init__(self, threads=1):
+        super(BaseJobManager, self).__init__()
+
+        self.threads = threads
+
+    @abstractmethod
+    def submit(self):
+        """
+        Abstract atomic job submission.
+        """
+        return
+
+    @abstractmethod
+    def cancel(self):
+        """
+        Abstract atomic job cancellation.
+        """
+        return
+
+    @abstractmethod
+    def cleanup(self):
+        """
+        Abstract atomic job cleanup.
+        """
+        return
+
+    @abstractmethod
+    def query(self):
+        """
+        Abstract atomic job status query.
+        """
+        return
+
+    def submit_batch(self, job_files, threads=None, callback=None, **kwargs):
+        """
+        Submits a batch of jobs given by *job_files* via a thread pool of size *threads* which
+        defaults to its instance attribute. When *callback* is set, it is invoked after each
+        successful job submission with the job number (starting from 0) and the result object. All
+        other *kwargs* are passed the :py:meth:`submit`.
+
+        The return value is a list containing the return values of the particular :py:meth:`submit`
+        calls, in an order that corresponds to *job_files*. When an exception was raised during a
+        submission, this exception is added to the returned list.
+        """
+        # default arguments
+        threads = threads or self.threads
+
+        def _callback(i):
+            return (lambda r: callback(i, r)) if callable(callback) else None
+
+        # threaded processing
+        pool = ThreadPool(max(threads, 1))
+        results = [pool.apply_async(self.submit, (job_file,), kwargs, callback=_callback(i))
+                   for i, job_file in enumerate(job_files)]
+        pool.close()
+        pool.join()
+
+        # store return values or errors
+        outputs = []
+        for res in results:
+            try:
+                outputs += make_list(res.get())
+            except Exception as e:
+                outputs.append(e)
+
+        return outputs
+
+    def cancel_batch(self, job_ids, threads=None, chunk_size=20, callback=None, **kwargs):
+        """
+        Cancels a batch of jobs given by *job_ids* via a thread pool of size *threads* which
+        defaults to its instance attribute. When *chunk_size* is not negative, *job_ids* is split
+        into chunks of that size which are passed to :py:meth:`cancel`. When *callback* is set, it
+        is invoked after each successful job (or job chunk) cancelling with the job number (starting
+        from 0) and the result object. All other *kwargs* are passed the :py:meth:`cancel`.
+
+        Exceptions that occured during job cancelling is stored in a list and returned. An empty
+        list means that no exceptions occured.
+        """
+        # default arguments
+        threads = threads or self.threads
+
+        def _callback(i):
+            return (lambda r: callback(i, r)) if callable(callback) else None
+
+        # threaded processing
+        pool = ThreadPool(max(threads, 1))
+        gen = job_ids if chunk_size < 0 else iter_chunks(job_ids, chunk_size)
+        results = [pool.apply_async(self.cancel, (job_id_chunk,), kwargs, callback=_callback(i))
+                   for i, job_id_chunk in enumerate(gen)]
+        pool.close()
+        pool.join()
+
+        # store errors
+        errors = []
+        for res in results:
+            try:
+                res.get()
+            except Exception as e:
+                errors.append(e)
+
+        return errors
+
+    def cleanup_batch(self, job_ids, threads=None, chunk_size=20, callback=None, **kwargs):
+        """
+        Cleans up a batch of jobs given by *job_ids* via a thread pool of size *threads* which
+        defaults to its instance attribute. When *chunk_size* is not negative, *job_ids* is split
+        into chunks of that size which are passed to :py:meth:`cleanup`. When *callback* is set, it
+        is invoked after each successful job (or job chunk) cleaning with the job number (starting
+        from 0) and the result object. All other *kwargs* are passed the :py:meth:`cleanup`.
+
+        Exceptions that occured during job cleaning is stored in a list and returned. An empty
+        list means that no exceptions occured.
+        """
+        # default arguments
+        threads = threads or self.threads
+
+        def _callback(i):
+            return (lambda r: callback(i, r)) if callable(callback) else None
+
+        # threaded processing
+        pool = ThreadPool(max(threads, 1))
+        gen = job_ids if chunk_size < 0 else iter_chunks(job_ids, chunk_size)
+        results = [pool.apply_async(self.cleanup, (job_id_chunk,), kwargs, callback=_callback(i))
+                   for i, job_id_chunk in enumerate(gen)]
+        pool.close()
+        pool.join()
+
+        # store errors
+        errors = []
+        for res in results:
+            try:
+                res.get()
+            except Exception as e:
+                errors.append(e)
+
+        return errors
+
+    def query_batch(self, job_ids, threads=None, chunk_size=20, callback=None, **kwargs):
+        """
+        Queries the status of a batch of jobs given by *job_ids* via a thread pool of size *threads*
+        which defaults to its instance attribute. When *chunk_size* is not negative, *job_ids* is
+        split into chunks of that size which are passed to :py:meth:`query`. When *callback* is set,
+        it is invoked after each successful job (or job chunk) status query with the job number
+        (starting from 0) and the result object. All other *kwargs* are passed the :py:meth:`query`.
+
+        This method returns a tuple containing the job status query data in a dictionary mapped to
+        job ids, and a list of exceptions that occured during status querying. An empty list means
+        that no exceptions occured.
+        """
+        # default arguments
+        threads = threads or self.threads
+
+        def _callback(i):
+            return (lambda r: callback(i, r)) if callable(callback) else None
+
+        # threaded processing
+        pool = ThreadPool(max(threads, 1))
+        gen = job_ids if chunk_size < 0 else iter_chunks(job_ids, chunk_size)
+        results = [pool.apply_async(self.query, (job_id_chunk,), kwargs, callback=_callback(i))
+                   for i, job_id_chunk in enumerate(gen)]
+        pool.close()
+        pool.join()
+
+        # store status data per job id
+        query_data, errors = {}, []
+        for res in results:
+            try:
+                query_data.update(res.get())
+            except Exception as e:
+                errors.append(e)
+
+        return query_data, errors
+
 
 @six.add_metaclass(ABCMeta)
 class BaseJobFileFactory(object):
+    """
+    Baseclass that defines how job files are created.
+    """
 
     config_attrs = ["dir"]
 
