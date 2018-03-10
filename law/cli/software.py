@@ -112,8 +112,8 @@ def use_software_cache(sw_dir=None, reload_deps=False):
     if os.path.exists(sw_dir):
         sys.path.insert(1, sw_dir)
 
-    if reload_deps:
-        reload_dependencies()
+        if reload_deps:
+            reload_dependencies()
 
 
 def get_sw_dir(sw_dir=None):

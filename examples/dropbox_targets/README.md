@@ -213,7 +213,7 @@ Let's get fancy. Now, we want to load a numpy array from one file in the *defaul
 
 ```python
 # load the numpy contribs which contains the numpy target formatter
-import law.contrib.numpy
+law.contrib.load("numpy")
 
 pred_file = law.DropboxFileTarget("/prediction.npy", fs="dropbox_results")
 pred_file.dump(array_file.load()["prediction"])
@@ -230,7 +230,7 @@ Here, we want to download a number of numpy files, merge them locally, and trans
 import numpy as np
 
 # load the numpy contribs which contains the numpy target formatter
-import law.contrib.numpy
+law.contrib.load("numpy")
 
 inputs = [law.DropboxFileTarget("/my_array_%d.npy" % i) for i in range(10)]
 output = law.DropboxFileTarget("/my_big_array.npy")
