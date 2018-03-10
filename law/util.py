@@ -5,7 +5,7 @@ Helpful utility functions.
 """
 
 
-__all__ = ["rel_path", "law_src_path", "law_home_path", "print_err", "abort", "colored",
+__all__ = ["no_value", "rel_path", "law_src_path", "law_home_path", "print_err", "abort", "colored",
            "uncolored", "query_choice", "multi_match", "make_list", "flatten", "which",
            "map_verbose", "map_struct", "mask_struct", "tmp_file", "interruptable_popen",
            "create_hash", "copy_no_perm", "makedirs_perm", "user_owns_file", "iter_chunks",
@@ -39,7 +39,7 @@ class NoValue(object):
         return False
 
 
-_no_value = NoValue()
+no_value = NoValue()
 
 
 def rel_path(anchor, *paths):
@@ -371,7 +371,7 @@ def map_struct(func, struct, cls=None, map_dict=True, map_list=True, map_tuple=F
         return func(struct)
 
 
-def mask_struct(mask, struct, replace=_no_value):
+def mask_struct(mask, struct, replace=no_value):
     # interpret generators and views as lists
     if isinstance(struct, (types.GeneratorType, MappingView)):
         struct = list(struct)
@@ -387,11 +387,11 @@ def mask_struct(mask, struct, replace=_no_value):
             if i >= len(mask):
                 new_struct.append(val)
             else:
-                repl = _no_value
+                repl = no_value
                 if isinstance(replace, (list, tuple)) and len(replace) > i:
                     repl = replace[i]
                 val = mask_struct(mask[i], val, replace=repl)
-                if val != _no_value:
+                if val != no_value:
                     new_struct.append(val)
 
         return struct.__class__(new_struct) if new_struct else replace
@@ -403,11 +403,11 @@ def mask_struct(mask, struct, replace=_no_value):
             if key not in mask:
                 new_struct[key] = val
             else:
-                repl = _no_value
+                repl = no_value
                 if isinstance(replace, dict) and key in replace:
                     repl = replace[key]
                 val = mask_struct(mask[key], val, replace=repl)
-                if val != _no_value:
+                if val != no_value:
                     new_struct[key] = val
         return new_struct or replace
 
@@ -481,8 +481,10 @@ def makedirs_perm(path, perm=None):
             os.makedirs(path)
         else:
             umask = os.umask(0)
-            os.makedirs(path, perm)
-            os.umask(umask)
+            try:
+                os.makedirs(path, perm)
+            finally:
+                os.umask(umask)
 
 
 def user_owns_file(path, uid=None):
