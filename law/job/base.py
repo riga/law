@@ -127,10 +127,10 @@ class BaseJobManager(object):
         .. code-block:: python
 
             status_line((2, 0, 0, 0, 0))
-            # 12:45:18: all 2, pending 2, running 0, finished 2, retry 0, failed 0
+            # 12:45:18: all: 2, pending: 2, running: 0, finished: 0, retry: 0, failed: 0
 
-            status_line((0, 2, 0, 0, 0), last_counts=(2, 0, 0, 0, 0), timestamp=False)
-            # all 2, pending 0 (-2), running 2 (+2), finished 2 (+0), retry 0 (+0), failed 0 (+0)
+            status_line((0, 2, 0, 0), last_counts=(2, 0, 0, 0), skip=["retry"], timestamp=False)
+            # all: 2, pending: 0 (-2), running: 2 (+2), finished: 2 (+0), failed: 0 (+0)
         """
         status_names = cls.status_names
         if skip:

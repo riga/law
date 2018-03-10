@@ -125,7 +125,7 @@ with data_file.open("w") as f:
 
 # method 3: via target formatters, which provide load/dump methods
 # for a number of file extensions, such as json, the formatter is automatically selected
-# (current formatters: text, json, zip, tar, numpy, root, uproot, root_numpy)
+# (current formatters: text, json, zip, tar, numpy, root, uproot, root_numpy, tf_const_graph)
 data_file.dump(data, indent=4)
 ```
 
@@ -212,6 +212,9 @@ array_file.copy_to_local("/local/path", cache=False)
 Let's get fancy. Now, we want to load a numpy array from one file in the *default* Dropbox, and transfer a single column (`prediction`) to a new file in a *different* Dropbox. To do so, add another section(`[dropbox_results]`) to the `law.cfg` file which can have different credentials and/or just another base directory.
 
 ```python
+# load the numpy contribs which contains the numpy target formatter
+import law.contrib.numpy
+
 pred_file = law.DropboxFileTarget("/prediction.npy", fs="dropbox_results")
 pred_file.dump(array_file.load()["prediction"])
 ```
@@ -225,6 +228,9 @@ Here, we want to download a number of numpy files, merge them locally, and trans
 
 ```python
 import numpy as np
+
+# load the numpy contribs which contains the numpy target formatter
+import law.contrib.numpy
 
 inputs = [law.DropboxFileTarget("/my_array_%d.npy" % i) for i in range(10)]
 output = law.DropboxFileTarget("/my_big_array.npy")
