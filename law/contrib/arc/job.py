@@ -27,7 +27,7 @@ from law.util import interruptable_popen, make_list
 logger = logging.getLogger(__name__)
 
 
-class ArcJobManager(BaseJobManager):
+class ARCJobManager(BaseJobManager):
 
     submission_job_id_cre = re.compile("^Job submitted with jobid: (.+)$")
     status_block_cre = re.compile("\s*([^:]+): (.*)\n")
@@ -36,7 +36,7 @@ class ArcJobManager(BaseJobManager):
         "^.+: Job information not found in the information system: (.+)$")
 
     def __init__(self, ce=None, job_list=None, threads=1):
-        super(ArcJobManager, self).__init__()
+        super(ARCJobManager, self).__init__()
 
         self.ce = ce
         self.job_list = job_list
@@ -237,7 +237,7 @@ class ArcJobManager(BaseJobManager):
             return cls.FAILED
 
 
-class ArcJobFileFactory(BaseJobFileFactory):
+class ARCJobFileFactory(BaseJobFileFactory):
 
     config_attrs = BaseJobFileFactory.config_attrs + [
         "file_name", "executable", "arguments", "input_files", "output_files",
@@ -249,7 +249,7 @@ class ArcJobFileFactory(BaseJobFileFactory):
             output_files=None, postfix_output_files=True, output_uri=None,
             overwrite_output_files=True, job_name=None, log="log.txt", stdout="stdout.txt",
             stderr="stderr.txt", custom_content=None, absolute_paths=False, dir=None):
-        super(ArcJobFileFactory, self).__init__(dir=dir)
+        super(ARCJobFileFactory, self).__init__(dir=dir)
 
         self.file_name = file_name
         self.executable = executable

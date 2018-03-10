@@ -5,7 +5,7 @@ ARC remote workflow implementation. See http://www.nordugrid.org/arc/ce.
 """
 
 
-__all__ = ["ArcWorkflow"]
+__all__ = ["ARCWorkflow"]
 
 
 import os
@@ -16,7 +16,7 @@ from collections import OrderedDict
 from law import CSVParameter
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments
-from law.contrib.arc.job import ArcJobManager, ArcJobFileFactory
+from law.contrib.arc.job import ARCJobManager, ARCJobFileFactory
 from law.parser import global_cmdline_args
 from law.util import law_src_path
 
@@ -24,12 +24,12 @@ from law.util import law_src_path
 logger = logging.getLogger(__name__)
 
 
-class ArcWorkflowProxy(BaseRemoteWorkflowProxy):
+class ARCWorkflowProxy(BaseRemoteWorkflowProxy):
 
     workflow_type = "arc"
 
     def __init__(self, *args, **kwargs):
-        super(ArcWorkflowProxy, self).__init__(*args, **kwargs)
+        super(ARCWorkflowProxy, self).__init__(*args, **kwargs)
 
         # check if there is at least one ce
         if not self.task.arc_ce:
@@ -146,9 +146,9 @@ class ArcWorkflowProxy(BaseRemoteWorkflowProxy):
             threads=task.threads, callback=progress_callback)
 
 
-class ArcWorkflow(BaseRemoteWorkflow):
+class ARCWorkflow(BaseRemoteWorkflow):
 
-    workflow_proxy_cls = ArcWorkflowProxy
+    workflow_proxy_cls = ARCWorkflowProxy
 
     arc_ce = CSVParameter(default=[], significant=False, description="target arc computing "
         "element(s)")
@@ -179,10 +179,10 @@ class ArcWorkflow(BaseRemoteWorkflow):
         return self.arc_output_directory().url()
 
     def arc_create_job_manager(self):
-        return ArcJobManager()
+        return ARCJobManager()
 
     def arc_create_job_file_factory(self):
-        return ArcJobFileFactory()
+        return ARCJobFileFactory()
 
     def arc_job_config(self, config, job_num, branches):
         return config
