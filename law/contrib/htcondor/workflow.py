@@ -144,7 +144,7 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         scheduler = get_param(task.htcondor_scheduler)
 
         # progress callback to inform the scheduler
-        def progress_callback(result, i):
+        def progress_callback(i, result):
             i += 1
             if i in (1, len(job_files)) or i % 25 == 0:
                 task.publish_message("submitted {}/{} job(s)".format(i, len(job_files)))

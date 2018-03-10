@@ -6,7 +6,7 @@ Base definition of a minimalistic job manager.
 
 
 __all__ = ["BaseJobManager", "BaseJobFileFactory", "JobArguments", "BaseJobDashboard",
-           "NoDashboardInterface", "cache_by_status"]
+           "NoJobDashboard", "cache_by_status"]
 
 
 import os
@@ -68,7 +68,7 @@ class BaseJobManager(object):
         threads = threads or self.threads
 
         def _callback(i):
-            return (lambda r: callback(r, i)) if callable(callback) else None
+            return (lambda r: callback(i, r)) if callable(callback) else None
 
         # threaded processing
         pool = ThreadPool(max(threads, 1))
@@ -92,7 +92,7 @@ class BaseJobManager(object):
         threads = threads or self.threads
 
         def _callback(i):
-            return (lambda r: callback(r, i)) if callable(callback) else None
+            return (lambda r: callback(i, r)) if callable(callback) else None
 
         # threaded processing
         pool = ThreadPool(max(threads, 1))
@@ -117,7 +117,7 @@ class BaseJobManager(object):
         threads = threads or self.threads
 
         def _callback(i):
-            return (lambda r: callback(r, i)) if callable(callback) else None
+            return (lambda r: callback(i, r)) if callable(callback) else None
 
         # threaded processing
         pool = ThreadPool(max(threads, 1))
@@ -142,7 +142,7 @@ class BaseJobManager(object):
         threads = threads or self.threads
 
         def _callback(i):
-            return (lambda r: callback(r, i)) if callable(callback) else None
+            return (lambda r: callback(i, r)) if callable(callback) else None
 
         # threaded processing
         pool = ThreadPool(max(threads, 1))
