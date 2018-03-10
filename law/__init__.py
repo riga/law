@@ -20,9 +20,7 @@ __all__ = [
     "Task", "WrapperTask", "SandboxTask",
     "BaseWorkflow", "LocalWorkflow", "workflow_property", "cached_workflow_property",
     "FileSystemTarget", "FileSystemFileTarget", "FileSystemDirectoryTarget",
-    "LocalFileSystem, LocalFileTarget, LocalDirectoryTarget",
-    "DropboxFileSystem", "DropboxFileTarget", "DropboxDirectoryTarget",
-    "DCacheFileSystem", "DCacheFileTarget", "DCacheDirectoryTarget",
+    "LocalFileSystem", "LocalTarget", "LocalFileTarget, LocalDirectoryTarget",
     "TargetCollection", "SiblingFileCollection",
     "NO_STR", "NO_INT", "NO_FLOAT", "is_no_param", "get_param", "TaskInstanceParameter",
     "CSVParameter",
@@ -51,9 +49,7 @@ from law.parameter import (
     NO_STR, NO_INT, NO_FLOAT, is_no_param, get_param, TaskInstanceParameter, CSVParameter,
 )
 from law.target.file import FileSystemTarget, FileSystemFileTarget, FileSystemDirectoryTarget
-from law.target.local import LocalFileSystem, LocalFileTarget, LocalDirectoryTarget
-from law.target.dropbox import DropboxFileSystem, DropboxFileTarget, DropboxDirectoryTarget
-from law.target.dcache import DCacheFileSystem, DCacheFileTarget, DCacheDirectoryTarget
+from law.target.local import LocalFileSystem, LocalTarget, LocalFileTarget, LocalDirectoryTarget
 from law.target.collection import TargetCollection, SiblingFileCollection
 import law.decorator
 from law.task.base import Task, WrapperTask

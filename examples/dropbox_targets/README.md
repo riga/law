@@ -58,6 +58,9 @@ Let's start with some basic target functionality:
 ```python
 import law
 
+# dropbox targets are defined in the law.contrib.dropbox
+law.contrib.load("dropbox")
+
 # the top directory was already created by dropbox
 # after setting up the API credentials
 top_dir = law.DropboxDirectoryTarget("/")

@@ -5,7 +5,7 @@ Remote filesystem and targets, based on gfal2 bindings.
 """
 
 
-__all__ = ["RemoteFileSystem", "RemoteFileTarget", "RemoteDirectoryTarget"]
+__all__ = ["RemoteFileSystem", "RemoteTarget", "RemoteFileTarget", "RemoteDirectoryTarget"]
 
 
 import os

@@ -5,7 +5,7 @@ Dropbox file system and targets.
 """
 
 
-__all__ = ["DropboxFileSystem", "DropboxFileTarget", "DropboxDirectoryTarget"]
+__all__ = ["DropboxFileSystem", "DropboxTarget", "DropboxFileTarget", "DropboxDirectoryTarget"]
 
 
 import logging
@@ -36,10 +36,10 @@ class DropboxFileSystem(RemoteFileSystem):
         kwargs.setdefault("permissions", False)
 
         # prepare the gfal options
-        # resolution order: config, key+secret+token, default dropbox section
+        # resolution order: config, key+secret+token, default dropbox fs section
         cfg = Config.instance()
         if not config and not app_key and not app_secret and not access_token:
-            config = cfg.get("target", "default_dropbox")
+            config = cfg.get("target", "default_dropbox_fs")
 
         if config and cfg.has_section(config):
             # load options from the config
@@ -62,7 +62,7 @@ class DropboxFileSystem(RemoteFileSystem):
 
         else:
             raise Exception("invalid arguments, set either config, app_key+app_secret+access_token "
-                "or the target.default_dropbox option in your law config")
+                "or the target.default_dropbox_fs option in your law config")
 
         # base is mandatory
         if base is None:

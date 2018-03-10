@@ -2,7 +2,9 @@
 
 
 import json
+
 import law
+law.contrib.load("dropbox")
 
 
 top_dir = law.DropboxDirectoryTarget("/")

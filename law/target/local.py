@@ -5,7 +5,7 @@ Local target implementations.
 """
 
 
-__all__ = ["LocalFileSystem", "LocalFileTarget", "LocalDirectoryTarget"]
+__all__ = ["LocalFileSystem", "LocalTarget", "LocalFileTarget", "LocalDirectoryTarget"]
 
 
 import os

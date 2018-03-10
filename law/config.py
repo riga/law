@@ -39,8 +39,9 @@ class Config(ConfigParser):
             "tmp_dir": os.getenv("LAW_TARGET_TMP_DIR", tempfile.gettempdir()),
             "tmp_dir_permission": 0o0770,
             "gfal2_log_level": "WARNING",
-            "default_dropbox": "dropbox",
-            "default_dcache": "dcache",
+            # contrib
+            "default_dropbox_fs": "dropbox",
+            "default_wlcg_fs": "wlcg",
         },
         "job": {
             "job_file_dir": tempfile.gettempdir(),

@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 
 """
-DCache file system and targets.
+WLCG remote file system and targets.
 """
 
 
-__all__ = ["DCacheFileSystem", "DCacheFileTarget", "DCacheDirectoryTarget"]
+__all__ = ["WLCGFileSystem", "WLCGTarget", "WLCGFileTarget", "WLCGDirectoryTarget"]
 
 
 import logging
@@ -21,7 +21,7 @@ from law.target.remote import (
 logger = logging.getLogger(__name__)
 
 
-class DCacheFileSystem(RemoteFileSystem):
+class WLCGFileSystem(RemoteFileSystem):
 
     default_instance = None
 
@@ -36,10 +36,10 @@ class DCacheFileSystem(RemoteFileSystem):
         kwargs.setdefault("permissions", False)
 
         # prepare the gfal options
-        # resolution order: config, base+bases, default dcache section
+        # resolution order: config, base+bases, default wlcg fs section
         cfg = Config.instance()
         if not config and not base:
-            config = cfg.get("target", "default_dcache")
+            config = cfg.get("target", "default_wlcg_fs")
 
         if config and cfg.has_section(config):
             # load the base from the config
@@ -61,39 +61,39 @@ class DCacheFileSystem(RemoteFileSystem):
         # base is mandatory
         if base is None:
             raise Exception("invalid arguments, set either config, base or the "
-                "target.default_dcache option in your law config")
+                "target.default_wlcg_fs option in your law config")
 
         RemoteFileSystem.__init__(self, base, bases, **kwargs)
 
 
 # try to set the default fs instance
 try:
-    DCacheFileSystem.default_instance = DCacheFileSystem()
-    logger.debug("created default DCacheFileSystem instance '{}'".format(
-        DCacheFileSystem.default_instance))
+    WLCGFileSystem.default_instance = WLCGFileSystem()
+    logger.debug("created default WLCGFileSystem instance '{}'".format(
+        WLCGFileSystem.default_instance))
 except:
-    logger.debug("could not create default DCacheFileSystem instance")
+    logger.debug("could not create default WLCGFileSystem instance")
 
 
-class DCacheTarget(RemoteTarget):
+class WLCGTarget(RemoteTarget):
 
-    def __init__(self, path, fs=DCacheFileSystem.default_instance, **kwargs):
-        """ __init__(path, fs=DCacheFileSystem.default_instance, **kwargs)
+    def __init__(self, path, fs=WLCGFileSystem.default_instance, **kwargs):
+        """ __init__(path, fs=WLCGFileSystem.default_instance, **kwargs)
         """
         if isinstance(fs, six.string_types):
-            fs = DCacheFileSystem(fs)
+            fs = WLCGFileSystem(fs)
         RemoteTarget.__init__(self, path, fs, **kwargs)
 
 
-class DCacheFileTarget(DCacheTarget, RemoteFileTarget):
+class WLCGFileTarget(WLCGTarget, RemoteFileTarget):
 
     pass
 
 
-class DCacheDirectoryTarget(DCacheTarget, RemoteDirectoryTarget):
+class WLCGDirectoryTarget(WLCGTarget, RemoteDirectoryTarget):
 
     pass
 
 
-DCacheTarget.file_class = DCacheFileTarget
-DCacheTarget.directory_class = DCacheDirectoryTarget
+WLCGTarget.file_class = WLCGFileTarget
+WLCGTarget.directory_class = WLCGDirectoryTarget
