@@ -6,8 +6,9 @@ ARC contrib functionality.
 """
 
 
-__all__ = ["ArcWorkflow"]
+__all__ = ["ARCJobManager", "ARCJobFileFactory", "ARCWorkflow"]
 
 
 # provisioning imports
-from law.contrib.arc.workflow import ArcWorkflow
+from law.contrib.arc.job import ARCJobManager, ARCJobFileFactory
+from law.contrib.arc.workflow import ARCWorkflow

@@ -5,7 +5,7 @@ HTCondor job manager. See https://research.cs.wisc.edu/htcondor.
 """
 
 
-__all__ = []
+__all__ = ["HTCondorJobManager", "HTCondorJobFileFactory"]
 
 
 import os

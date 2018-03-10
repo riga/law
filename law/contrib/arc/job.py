@@ -6,7 +6,7 @@ http://www.nordugrid.org/documents/xrsl.pdf.
 """
 
 
-__all__ = []
+__all__ = ["ARCJobManager", "ARCJobFileFactory"]
 
 
 import os

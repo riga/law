@@ -4,8 +4,64 @@ law.task
 .. automodule:: law.task
 
 
-``law.task.base``
------------------
+.. contents::
+
+
+Module ``law.task.base``
+------------------------
 
 .. automodule:: law.task.base
+
+
+Class ``BaseRegister``
+^^^^^^^^^^^^^^^^^^^^^^
+
+.. autoclass:: BaseRegister
    :members:
+
+
+Class ``BaseTask``
+^^^^^^^^^^^^^^^^^^
+
+.. autoclass:: BaseTask
+   :members:
+
+
+Class ``Register``
+^^^^^^^^^^^^^^^^^^
+
+.. autoclass:: Register
+   :members:
+
+
+Class ``Task``
+^^^^^^^^^^^^^^
+
+.. autoclass:: Task
+   :members:
+
+
+Class ``WrapperTask``
+^^^^^^^^^^^^^^^^^^^^^
+
+.. autoclass:: WrapperTask
+   :members:
+
+
+Class ``ProxyTask``
+^^^^^^^^^^^^^^^^^^^
+
+.. autoclass:: ProxyTask
+   :members:
+
+
+Functions
+^^^^^^^^^
+
+.. autofunction:: getreqs
+
+.. autofunction:: print_task_deps
+
+.. autofunction:: print_task_status
+
+.. autofunction:: remove_task_output

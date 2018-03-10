@@ -6,8 +6,9 @@ LSF contrib functionality.
 """
 
 
-__all__ = ["LSFWorkflow"]
+__all__ = ["LSFJobManager", "LSFJobFileFactory", "LSFWorkflow"]
 
 
 # provisioning imports
+from law.contrib.lsf.job import LSFJobManager, LSFJobFileFactory
 from law.contrib.lsf.workflow import LSFWorkflow

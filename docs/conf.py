@@ -46,6 +46,8 @@ elif html_theme == "alabaster":
 
 extensions = ["sphinx.ext.autodoc"]
 
+autodoc_member_order = "bysource"
+
 
 def setup(app):
     app.add_stylesheet("styles_common.css")
