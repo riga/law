@@ -1,8 +1,7 @@
-`tensorflow`
-============
+tensorflow
+==========
 
 .. automodule:: law.contrib.tensorflow
-
 
 .. contents::
 

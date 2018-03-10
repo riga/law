@@ -1,8 +1,7 @@
-`lsf`
-=====
+lsf
+===
 
 .. automodule:: law.contrib.lsf
-
 
 .. contents::
 

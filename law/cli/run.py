@@ -77,7 +77,7 @@ def read_task_from_db(task_family, db_file=None):
     """
     Returns module id, task family and space-separated parameters in a tuple for a task given by
     *task_family* from the *db_file*. When *None*, the *db_file* refers to the default as defined in
-    :py:module:`law.config`. Returns *None* when the task could not be found.
+    :py:mod:`law.config`. Returns *None* when the task could not be found.
     """
     # read task information from the db file given a task family
     if db_file is None:

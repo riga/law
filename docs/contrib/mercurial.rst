@@ -1,8 +1,7 @@
-`mercurial`
-===========
+mercurial
+=========
 
 .. automodule:: law.contrib.mercurial
-
 
 .. contents::
 

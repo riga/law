@@ -2,10 +2,11 @@ API Reference
 =============
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
 
-   task
-   target
-   workflow
-   sandbox
-   job
+   task/index
+   target/index
+   workflow/index
+   sandbox/index
+   job/index
+   cli/index

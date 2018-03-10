@@ -1,16 +1,9 @@
-law.job
-=======
-
-.. automodule:: law.job
-
-
-.. contents::
-
-
-Module ``law.job.base``
------------------------
+law.job.base
+============
 
 .. automodule:: law.job.base
+
+.. contents::
 
 
 Class ``BaseJobManager``

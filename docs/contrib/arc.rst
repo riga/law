@@ -1,8 +1,7 @@
-`arc`
-=====
+arc
+===
 
 .. automodule:: law.contrib.arc
-
 
 .. contents::
 

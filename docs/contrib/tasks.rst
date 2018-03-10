@@ -1,8 +1,7 @@
-`tasks`
-=======
+tasks
+=====
 
 .. automodule:: law.contrib.tasks
-
 
 .. contents::
 

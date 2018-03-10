@@ -1,8 +1,7 @@
-`matplotlib`
-============
+matplotlib
+==========
 
 .. automodule:: law.contrib.matplotlib
-
 
 .. contents::
 

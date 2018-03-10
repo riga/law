@@ -1,8 +1,7 @@
-`git`
-=====
+git
+===
 
 .. automodule:: law.contrib.git
-
 
 .. contents::
 

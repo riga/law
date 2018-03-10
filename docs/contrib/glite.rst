@@ -1,8 +1,7 @@
-`glite`
-=======
+glite
+=====
 
 .. automodule:: law.contrib.glite
-
 
 .. contents::
 

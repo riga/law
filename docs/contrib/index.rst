@@ -16,12 +16,14 @@ To use on of the following packages in your code, you must import them explicitl
 
    arc
    cms
+   dropbox
    git
    glite
    htcondor
    lsf
    matplotlib
    mercurial
+   numpy
    root
    tasks
    tensorflow

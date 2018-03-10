@@ -1,16 +1,9 @@
-law.task
-========
-
-.. automodule:: law.task
-
-
-.. contents::
-
-
-Module ``law.task.base``
-------------------------
+law.task.base
+=============
 
 .. automodule:: law.task.base
+
+.. contents::
 
 
 Class ``BaseRegister``
