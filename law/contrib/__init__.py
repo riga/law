@@ -15,6 +15,9 @@ from law.util import flatten
 logger = logging.getLogger(__name__)
 
 
+loaded_packages = []
+
+
 def load(*packages):
     """
     Loads contrib *packages* and adds members exposed in ``__all__`` to the law main module.
@@ -27,8 +30,15 @@ def load(*packages):
 
         print(law.NumpyFormatter)
         # -> <class 'law.contrib.numpy.formatter.NumpyFormatter'>
+
+    It is ensured that packages are loaded only once.
     """
     for pkg in flatten(packages):
+        if pkg in loaded_packages:
+            logger.debug("skip contrib package '{}', already loaded".format(pkg))
+            continue
+        loaded_packages.append(pkg)
+
         mod = __import__("law.contrib.{}".format(pkg), globals(), locals(), [pkg])
         logger.debug("loaded contrib package '{}'".format(pkg))
 
