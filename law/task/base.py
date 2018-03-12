@@ -291,13 +291,17 @@ class Task(BaseTask):
 
 
 class WrapperTask(Task):
-
-    run = None
-
+    """
+    Use for tasks that only wrap other tasks and that by definition are done
+    if all their requirements exist.
+    """
     exclude_db = True
 
     def complete(self):
         return all(task.complete() for task in flatten(self.requires()))
+
+    def run(self):
+        return
 
 
 class ProxyTask(BaseTask):
