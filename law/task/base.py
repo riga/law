@@ -165,7 +165,7 @@ class BaseTask(luigi.Task):
 
     @abstractmethod
     def run(self):
-        pass
+        return
 
 
 class Register(BaseRegister):
@@ -304,7 +304,6 @@ class ProxyTask(BaseTask):
 
     task = TaskInstanceParameter()
 
-    exclude_db = True
     exclude_params_req = {"task"}
 
 

@@ -484,7 +484,7 @@ class BaseJobFileFactory(object):
 
     @abstractmethod
     def create(self, postfix=None, render=None, **kwargs):
-        pass
+        return
 
 
 class JobArguments(object):

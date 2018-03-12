@@ -77,19 +77,19 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
     @abstractmethod
     def create_job_manager(self):
-        pass
+        return
 
     @abstractmethod
     def create_job_file_factory(self):
-        pass
+        return
 
     @abstractmethod
     def create_job_file(self, job_num, branches):
-        pass
+        return
 
     @abstractmethod
     def submit_jobs(self, job_files):
-        pass
+        return
 
     def destination_info(self):
         return ""

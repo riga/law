@@ -105,11 +105,11 @@ class Sandbox(object):
 
     @abstractproperty
     def env(self):
-        pass
+        return
 
     @abstractmethod
     def cmd(self, proxy_cmd):
-        pass
+        return
 
     def run(self, cmd, stdout=None, stderr=None):
         if stdout is None:
@@ -390,10 +390,10 @@ class SandboxTask(Task):
         return False
 
     def sandbox_before_run(self):
-        pass
+        return
 
     def sandbox_after_run(self):
-        pass
+        return
 
 
 def make_staged_target(stage_dir, target):

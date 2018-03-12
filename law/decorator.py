@@ -12,7 +12,7 @@ Example usage:
         @log
         @safe_output(skip=KeyboardInterrupt)
         def run(self):
-            pass
+            ...
 
 The usage of a decorator without invocation (e.g. ``@log``) is equivalent to the one *with*
 invocation (``@log()``), for law to distuinguish between the two cases **always** use keyword

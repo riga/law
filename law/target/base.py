@@ -74,12 +74,12 @@ class Target(luigi.target.Target):
 
     @abstractmethod
     def exists(self):
-        pass
+        return
 
     @abstractmethod
     def remove(self, silent=True):
-        pass
+        return
 
     @abstractproperty
     def hash(self):
-        pass
+        return

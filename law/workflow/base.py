@@ -190,7 +190,7 @@ class BaseWorkflow(Task):
 
     @abstractmethod
     def create_branch_map(self):
-        pass
+        return
 
     def _reset_branch_boundaries(self, branches=None):
         if self.is_branch():

@@ -38,7 +38,7 @@ class TransferLocalFile(Task):
 
     @abstractmethod
     def single_output(self):
-        pass
+        return
 
     def output(self):
         output = self.single_output()
@@ -212,22 +212,22 @@ class CascadeMerge(LocalWorkflow):
     @abstractmethod
     def cascade_workflow_requires(self):
         # should return the leaf requirements of a cascading task workflow
-        pass
+        return
 
     @abstractmethod
     def cascade_requires(self):
         # should return the leaf requirements of a cascading task branch
-        pass
+        return
 
     @abstractmethod
     def cascade_output(self):
         # this should return a single target to explicitely denote a single tree
         # or a target collection whose targets are accessible as items via the tree numbers
-        pass
+        return
 
     @abstractmethod
     def merge(self, inputs, output):
-        pass
+        return
 
     def workflow_requires(self):
         reqs = super(CascadeMerge, self).workflow_requires()
