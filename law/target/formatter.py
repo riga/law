@@ -128,6 +128,26 @@ class JSONFormatter(Formatter):
             return json.dump(obj, f, *args, **kwargs)
 
 
+class PickleFormatter(Formatter):
+
+    name = "pickle"
+
+    @classmethod
+    def accepts(cls, path):
+        path = get_path(path)
+        return path.endswith(".pkl") or path.endswith(".pickle") or path.endswith(".p")
+
+    @classmethod
+    def load(cls, path, *args, **kwargs):
+        with open(get_path(path), "rb") as f:
+            return six.moves.cPickle.load(f, *args, **kwargs)
+
+    @classmethod
+    def dump(cls, path, obj, *args, **kwargs):
+        with open(get_path(path), "wb") as f:
+            return six.moves.cPickle.dump(obj, f, *args, **kwargs)
+
+
 class YAMLFormatter(Formatter):
 
     name = "yaml"
