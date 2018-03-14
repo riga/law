@@ -357,7 +357,48 @@ class BaseJobManager(object):
 @six.add_metaclass(ABCMeta)
 class BaseJobFileFactory(object):
     """
-    Baseclass that defines how job files are created.
+    Base class that handles the creation of job files. It is likely that inheriting classes only
+    need to implement the :py:meth:`create` method as well as extend the constructor to handle
+    additional arguments.
+
+    The general idea behind this class is as follows. An instance holds the path to a directory
+    *dir*, defaulting to a new, temporary directory inside ``job.job_file_dir`` (which itself
+    defaults to the system's tmp path). Job input files, which are supported by almost all job /
+    batch systems, are automatically copied into this directory. The file name can be optionally
+    postfixed with a configurable string, so that multiple job files can be created and stored
+    within the same *dir* without the risk of interfering file names. A common use case would be
+    the use of a job number or id. Another *transformation* that is applied to copied files is the
+    rendering of variables. For example, when an input file looks like
+
+    .. code-block:: bash
+
+        #!/usr/bin/env bash
+
+        echo "Hello, {{my_variable}}!"
+
+    the rendering mechanism can replace variables such as ``my_variable`` following a double-brace
+    notation. Internally, the rendering is implemented in :py:meth:`render_file`, but there is
+    usually no need to call this method directly as implementations of this base class might use it
+    in their :py:meth:`create` method.
+
+    .. py::attribute:: config_attrs
+       classmember
+       type: list
+
+       List of attributes that is used to create a configuration dictionary. See
+       :py:meth:`get_config` for more info.
+
+    .. py::attribute:: dir
+       type: string
+
+       The path to the internal job file directory.
+
+    .. py::attribute: is_tmp
+       type: bool
+
+       Boolean that denotes whether this internal job file directory is temporary. If *True*, it
+       will be deleted in the desctructor. It defaults to *True* when the *dir* constructor argument
+       is *None*.
     """
 
     config_attrs = ["dir"]
@@ -410,6 +451,19 @@ class BaseJobFileFactory(object):
 
     @classmethod
     def postfix_file(cls, path, postfix):
+        """
+        Adds a *postfix* to a file *path*, right before the last file extension denoted by ``"."``.
+        Example:
+
+        .. code-block:: python
+
+            postfix_file("/path/to/file.txt", "_1")
+            # -> "/path/to/file_1.txt"
+
+        *postfix* might also be a dictionary that maps patterns to actual postfix strings. When a
+        pattern matches the base name of the file, the associated postfix is applied and the path is
+        returned. You might want to use an ordered dictionary to control the first match.
+        """
         if postfix:
             if isinstance(postfix, six.string_types):
                 _postfix = postfix
@@ -424,7 +478,36 @@ class BaseJobFileFactory(object):
         return path
 
     @classmethod
+    def render_string(cls, s, key, value):
+        """
+        Renders a string *s* by replacing ``{{key}}`` with *value*. Returns the rendered string.
+        """
+        return s.replace("{{" + key + "}}", value)
+
+    @classmethod
     def linearize_render_variables(cls, render_variables):
+        """
+        Linearizes variables contained in the dictionary *render_variables*. In some use cases,
+        variables may contain render expressions pointing to other variables, e.g.:
+
+        .. code-block:: python
+
+            render_variables = {
+                "variable_a": "Tom",
+                "variable_b": "Hello, {{variable_a}}!",
+            }
+
+        Situations like this can be simplified by linearizing the variables:
+
+        .. code-block:: python
+
+            linearize_render_variables(render_variables)
+            # ->
+            # {
+            #     "variable_a": "Tom",
+            #     "variable_b": "Hello, Tom!",
+            # }
+        """
         linearized = {}
         for key, value in six.iteritems(render_variables):
             while True:
@@ -432,13 +515,26 @@ class BaseJobFileFactory(object):
                 if not m:
                     break
                 subkey = m.group(1)
-                value = cls.render_text(value, subkey, render_variables.get(subkey, ""))
+                value = cls.render_string(value, subkey, render_variables.get(subkey, ""))
             linearized[key] = value
 
         return linearized
 
     @classmethod
     def render_file(cls, src, dst, render_variables, postfix=None):
+        """
+        Renders a source file *src* with *render_variables* and copies it to a new location *dst*.
+        In some cases, a render variable value might contain a path that should be subject to file
+        postfixing (see :py:meth:`postfix_file`). When *postfix* is not *None*, this method will
+        replace substrings in the format ``postfix:<path>`` the postfixed ``path``. In the following
+        example, the variable ``my_command`` in *src* will be rendered with a string that contains a
+        postfixed path:
+
+        .. code-block:: python
+
+            render_file(src, dst, {"my_command": "echo postfix:some/path.txt"}, postfix="_1")
+            # replaces "{{my_command}}" in src with "echo some/path_1.txt" in dst
+        """
         with open(src, "r") as f:
             content = f.read()
 
@@ -449,7 +545,7 @@ class BaseJobFileFactory(object):
             # value might contain paths that should be postfixed, denoted by "postfix:..."
             if postfix:
                 value = re.sub("postfix:([^\s]+)", postfix_fn, value)
-            content = cls.render_text(content, key, value)
+            content = cls.render_string(content, key, value)
 
         # finally, replace all non-rendered keys with empty strings
         content = cls.render_key_cre.sub("", content)
@@ -457,17 +553,13 @@ class BaseJobFileFactory(object):
         with open(dst, "w") as f:
             f.write(content)
 
-    @classmethod
-    def render_text(cls, text, key, value):
-        return text.replace("{{" + key + "}}", value)
-
-    def cleanup(self, force=True):
-        if not self.is_tmp and not force:
-            return
-        if isinstance(self.dir, six.string_types) and os.path.exists(self.dir):
-            shutil.rmtree(self.dir)
-
-    def provide_input(self, src, postfix, dir=None, render_variables=None):
+    def provide_input(self, src, postfix=None, dir=None, render_variables=None):
+        """
+        Convenience methods that copies an input file to a target directory *dir* which defaults to
+        the :py:attr:`dir` attribute of this instance. The provided file has the same basename,
+        which is optionally postfixed with *postfix*. Essentially, this method calls
+        :py:meth:`render_file` when *render_variables* is set, or simply ``shutil.copy2`` otherwise.
+        """
         basename = os.path.basename(src)
         dst = os.path.join(dir or self.dir, self.postfix_file(basename, postfix))
         if render_variables:
@@ -477,13 +569,58 @@ class BaseJobFileFactory(object):
         return dst
 
     def get_config(self, kwargs):
+        """
+        The :py:meth:`create` method potentially takes a lot of keywork arguments for configuring
+        the content of job files. It is useful if some of these configuration values default to
+        attributes that can be set via constructor arguments of this class.
+
+        This method merges keyword arguments *kwargs* (e.g. passed to :py:meth:`create`) with
+        default values obtained from instance attributes given in :py:attr:`config_attrs`. It
+        returns the merged values in a dictionary that can be accessed via dot-notation (attribute
+        notation). Example:
+
+        .. code-block:: python
+
+            class MyJobFileFactory(BaseJobFileFactory):
+
+                config_attrs = ["stdout", "stderr"]
+
+                def __init__(self, stdout="stdout.txt", stderr="stderr.txt", **kwargs):
+                    super(MyJobFileFactory, self).__init__(**kwargs)
+
+                    self.stdout = stdout
+                    self.stderr = stderr
+
+            def create(self, **kwargs):
+                config = self.get_config(kwargs)
+
+                # when called as create(stdout="log.txt"):
+                # config.stderr is "stderr.txt"
+                # config.stdout is "log.txt"
+
+                ...
+        """
         cfg = self.Config()
         for attr in self.config_attrs:
             cfg[attr] = kwargs.get(attr, getattr(self, attr))
         return cfg
 
+    def cleanup(self, force=True):
+        """
+        Removes the directory that is held by this instance. When *force* is *False*, the directory
+        is only removed when it is temporary, i.e. :py:attr:`is_tmp` is *True*.
+        """
+        if not self.is_tmp and not force:
+            return
+        if isinstance(self.dir, six.string_types) and os.path.exists(self.dir):
+            shutil.rmtree(self.dir)
+
     @abstractmethod
-    def create(self, postfix=None, render=None, **kwargs):
+    def create(self, postfix=None, render_variables=None, **kwargs):
+        """
+        Abstract job file creation method that must be implemented by inheriting classes. *postfix*
+        and *render_variables* may be passed to :py:meth:`provide_input`.
+        """
         return
 
 
