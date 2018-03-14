@@ -1,12 +1,11 @@
 # -*- coding: utf-8 -*-
 
 """
-Base classes for implementing remote job management, job files and dashboard interfaces.
+Base classes for implementing remote job management and job file creation.
 """
 
 
-__all__ = ["BaseJobManager", "BaseJobFileFactory", "JobArguments", "BaseJobDashboard",
-           "NoJobDashboard", "cache_by_status"]
+__all__ = ["BaseJobManager", "BaseJobFileFactory", "JobArguments"]
 
 
 import os
@@ -16,8 +15,6 @@ import tempfile
 import fnmatch
 import base64
 import re
-import functools
-from contextlib import contextmanager
 from multiprocessing.pool import ThreadPool
 from abc import ABCMeta, abstractmethod
 
@@ -45,38 +42,32 @@ class BaseJobManager(object):
     *threads* is the default number of concurrent threads that are used in :py:meth:`submit_batch`,
     :py:meth:`cancel_batch`, :py:meth:`cleanup_batch` and :py:meth:`query_batch`.
 
-    .. py:attribute:: PENDING
-       classmember
+    .. py:classattribute:: PENDING
        type: string
 
        Flag that represents the ``PENDING`` status.
 
-    .. py:attribute:: RUNNING
-       classmember
+    .. py:classattribute:: RUNNING
        type: string
 
        Flag that represents the ``RUNNING`` status.
 
-    .. py:attribute:: FINISHED
-       classmember
+    .. py:classattribute:: FINISHED
        type: string
 
        Flag that represents the ``FINISHED`` status.
 
-    .. py:attribute:: RETRY
-       classmember
+    .. py:classattribute:: RETRY
        type: string
 
        Flag that represents the ``RETRY`` status.
 
-    .. py:attribute:: FAILED
-       classmember
+    .. py:classattribute:: FAILED
        type: string
 
        Flag that represents the ``FAILED`` status.
 
-    .. py:attribute:: status_names
-       classmember
+    .. py:classattribute:: status_names
        type: list
 
        The list of all status flags.
@@ -381,8 +372,7 @@ class BaseJobFileFactory(object):
     usually no need to call this method directly as implementations of this base class might use it
     in their :py:meth:`create` method.
 
-    .. py::attribute:: config_attrs
-       classmember
+    .. py::classattribute:: config_attrs
        type: list
 
        List of attributes that is used to create a configuration dictionary. See
@@ -555,7 +545,7 @@ class BaseJobFileFactory(object):
 
     def provide_input(self, src, postfix=None, dir=None, render_variables=None):
         """
-        Convenience methods that copies an input file to a target directory *dir* which defaults to
+        Convenience method that copies an input file to a target directory *dir* which defaults to
         the :py:attr:`dir` attribute of this instance. The provided file has the same basename,
         which is optionally postfixed with *postfix*. Essentially, this method calls
         :py:meth:`render_file` when *render_variables* is set, or simply ``shutil.copy2`` otherwise.
@@ -591,14 +581,14 @@ class BaseJobFileFactory(object):
                     self.stdout = stdout
                     self.stderr = stderr
 
-            def create(self, **kwargs):
-                config = self.get_config(kwargs)
+                def create(self, **kwargs):
+                    config = self.get_config(kwargs)
 
-                # when called as create(stdout="log.txt"):
-                # config.stderr is "stderr.txt"
-                # config.stdout is "log.txt"
+                    # when called as create(stdout="log.txt"):
+                    # config.stderr is "stderr.txt"
+                    # config.stdout is "log.txt"
 
-                ...
+                    ...
         """
         cfg = self.Config()
         for attr in self.config_attrs:
@@ -625,6 +615,43 @@ class BaseJobFileFactory(object):
 
 
 class JobArguments(object):
+    """
+    Wrapper class for job arguments. Currently it stores the *task_module*, the *task_family*, the
+    list of *task_params*, the list of covered *branches*, the *auto_retry* flag, and custom
+    *dashboard_data*. It also handles argument encoding as reqired by the job wrapper script at
+    `law/job/job.sh <https://github.com/riga/law/blob/master/law/job/job.sh>`_.
+
+    .. py:attribute:: task_module
+       type: string
+
+       The task module id.
+
+    .. py:attribute:: task_family
+       type: string
+
+       The task family name.
+
+    .. py:attribute:: task_params
+       type: list
+
+       The list of task parameters.
+
+    .. py:attribute:: branches
+       type: list
+
+       The list of branch numbers covered by the task.
+
+    .. py:attribute:: auto_retry
+       type: bool
+
+       A flag denoting if the job-internal automatic retry mechanism should be used.
+
+    .. py:attribute:: dashboard_data
+       type: list
+
+       If a job dashboard is used, this is a list of configuration values as returned by
+       :py:meth:`law.job.dashboard.BaseJobDashboard.remote_hook_data`.
+    """
 
     def __init__(self, task_module, task_family, task_params, branches, auto_retry=False,
             dashboard_data=None):
@@ -639,14 +666,24 @@ class JobArguments(object):
 
     @classmethod
     def encode_bool(cls, value):
+        """
+        Encodes a boolean *value* into a string (``"yes"`` or ``"no"``).
+        """
         return "yes" if value else "no"
 
     @classmethod
     def encode_list(cls, value):
+        """
+        Encodes a list *value* into a string via base64 encoding.
+        """
         encoded = base64.b64encode(six.b(" ".join(str(v) for v in value) or "-"))
         return encoded.decode("utf-8") if six.PY3 else encoded
 
     def pack(self):
+        """
+        Returns the list of encoded job arguments. The order of this list corresponds to the
+        arguments expected by the job wrapper script.
+        """
         return [
             self.task_module,
             self.task_family,
@@ -657,91 +694,8 @@ class JobArguments(object):
         ]
 
     def join(self):
+        """
+        Returns the list of job arguments from :py:meth:`pack`, joined to a string using a single
+        space character.
+        """
         return " ".join(str(item) for item in self.pack())
-
-
-def cache_by_status(func):
-    @functools.wraps(func)
-    def wrapper(self, event, job_num, job_data, *args, **kwargs):
-        job_id = job_data["job_id"]
-        dashboard_status = self.map_status(job_data.get("status"), event)
-
-        # nothing to do when the status is invalid or did not change
-        if not dashboard_status or self._last_states.get(job_id) == dashboard_status:
-            return None
-
-        # set the new status
-        self._last_states[job_id] = dashboard_status
-
-        return func(self, event, job_num, job_data, *args, **kwargs)
-
-    return wrapper
-
-
-class BaseJobDashboard(object):
-
-    cache_by_status = None
-
-    persistent_attributes = []
-
-    def __init__(self, max_rate=0):
-        super(BaseJobDashboard, self).__init__()
-
-        # maximum number of events per second
-        self.max_rate = max_rate
-
-        # timestamp of last event, used to ensure that max_rate is not exceeded
-        self._last_event_time = 0.
-
-        # last dashboard status per job_id, used to prevent subsequent requests for jobs
-        # without any status change
-        self._last_states = {}
-
-    def get_persistent_config(self):
-        return {attr: getattr(self, attr) for attr in self.persistent_attributes}
-
-    def apply_config(self, config):
-        for attr, value in six.iteritems(config):
-            if hasattr(self, attr):
-                setattr(self, attr, value)
-
-    @contextmanager
-    def rate_guard(self):
-        now = 0.
-
-        if self.max_rate > 0:
-            now = time.time()
-            diff = self._last_event_time + 1. / self.max_rate - now
-            if diff > 0:
-                time.sleep(diff)
-
-        yield
-
-        self._last_event_time = now
-
-    def remote_hook_file(self):
-        return None
-
-    def remote_hook_data(self, job_num, attempt):
-        return None
-
-    def create_tracking_url(self):
-        return None
-
-    @abstractmethod
-    def map_status(self, job_status, event):
-        return
-
-    @abstractmethod
-    def publish(self, event, job_num, job_data, *args, **kwargs):
-        return
-
-
-BaseJobDashboard.cache_by_status = staticmethod(cache_by_status)
-
-
-class NoJobDashboard(BaseJobDashboard):
-
-    def publish(self, *args, **kwargs):
-        # as the name of the class says, this does just nothing
-        return

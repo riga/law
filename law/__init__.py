@@ -59,5 +59,6 @@ from law.sandbox.base import SandboxTask
 import law.sandbox.docker
 import law.sandbox.bash
 import law.job.base
+import law.job.dashboard
 import law.workflow.remote
 import law.contrib

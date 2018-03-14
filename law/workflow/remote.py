@@ -19,7 +19,7 @@ import luigi
 import six
 
 from law.workflow.base import BaseWorkflow, BaseWorkflowProxy
-from law.job.base import NoJobDashboard
+from law.job.dashboard import NoJobDashboard
 from law.parameter import NO_FLOAT, NO_INT, is_no_param
 from law.decorator import log
 from law.util import iter_chunks, ShorthandDict

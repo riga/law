@@ -7,3 +7,4 @@ law.job
    :maxdepth: 2
 
    base
+   dashboard

@@ -15,7 +15,8 @@ import threading
 import six
 
 import law
-from law.job.base import BaseJobManager, BaseJobDashboard
+from law.job.base import BaseJobManager
+from law.job.dashboard import BaseJobDashboard
 
 
 class CMSJobDashboard(BaseJobDashboard):

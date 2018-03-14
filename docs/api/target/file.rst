@@ -6,12 +6,6 @@ law.target.file
 .. contents::
 
 
-Module ``law.target.file``
---------------------------
-
-.. automodule:: law.target.file
-
-
 Class ``FileSystem``
 ^^^^^^^^^^^^^^^^^^^^
 
