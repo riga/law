@@ -22,9 +22,10 @@ templates_path = ["_templates"]
 html_static_path = ["_static"]
 master_doc = "index"
 source_suffix = ".rst"
-
 exclude_patterns = []
 pygments_style = "sphinx"
+add_module_names = False
+
 html_title = project + " Documentation"
 html_logo = "../logo.png"
 html_sidebars = {"**": [
@@ -32,7 +33,6 @@ html_sidebars = {"**": [
     "localtoc.html",
     "searchbox.html",
 ]}
-
 html_theme = "sphinx_rtd_theme"
 html_theme_options = {}
 if html_theme == "sphinx_rtd_theme":
