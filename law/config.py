@@ -40,8 +40,8 @@ class Config(ConfigParser):
             "tmp_dir_permission": 0o0770,
             "gfal2_log_level": "WARNING",
             # contrib
-            "default_dropbox_fs": "dropbox",
-            "default_wlcg_fs": "wlcg",
+            "default_dropbox_fs": "dropbox_fs",
+            "default_wlcg_fs": "wlcg_fs",
         },
         "job": {
             "job_file_dir": tempfile.gettempdir(),
