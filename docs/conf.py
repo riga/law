@@ -4,7 +4,11 @@
 import sys
 import os
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+thisdir = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(thisdir, "_extensions"))
+sys.path.insert(0, os.path.dirname(thisdir))
+
 import law
 
 
@@ -44,7 +48,7 @@ elif html_theme == "alabaster":
         "travis_button": True,
     })
 
-extensions = ["sphinx.ext.autodoc"]
+extensions = ["sphinx.ext.autodoc", "pydomain_patch"]
 
 autodoc_member_order = "bysource"
 
