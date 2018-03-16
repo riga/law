@@ -9,7 +9,7 @@ __all__ = ["no_value", "rel_path", "law_src_path", "law_home_path", "print_err",
            "uncolored", "query_choice", "multi_match", "make_list", "flatten", "which",
            "map_verbose", "map_struct", "mask_struct", "tmp_file", "interruptable_popen",
            "create_hash", "copy_no_perm", "makedirs_perm", "user_owns_file", "iter_chunks",
-           "human_bytes", "ShorthandDict", "is_file_exists_error"]
+           "human_bytes", "ShorthandDict", "is_file_exists_error", "check_bool_flag"]
 
 
 import os
@@ -490,7 +490,7 @@ def makedirs_perm(path, perm=None):
 def user_owns_file(path, uid=None):
     """
     Returns whether a file located at *path* is owned by the user with *uid*. When *uid* is *None*,
-    the current user id is used.
+    the user id of the current process is used.
     """
     if uid is None:
         uid = os.getuid()
@@ -537,10 +537,13 @@ def human_bytes(n, unit=None):
     Takes a number of bytes *n*, assigns the best matching unit and returns the respective number
     and unit string in a tuple. When *unit* is set, that unit is used. Example:
 
-    .. code-block::
+    .. code-block:: python
 
-        human_bytes(3407872)       # -> (3.25, "MB")
-        human_bytes(3407872, "kB") # -> (3328.0, "kB")
+        human_bytes(3407872)
+        # -> (3.25, "MB")
+
+        human_bytes(3407872, "kB")
+        # -> (3328.0, "kB")
     """
     if n == 0:
         idx = 0
@@ -591,3 +594,12 @@ def is_file_exists_error(e):
         return isinstance(e, FileExistsError)  # noqa: F821
     else:
         return isinstance(e, OSError) and e.errno == 17
+
+
+def check_bool_flag(s):
+    """
+    Takes a string flag *s* and returns whether it evaluates to *True* (values ``"1"``, ``"true"``
+    and ``"yes"``, case-insensitive) or *False* (any other value). When *s* is not a string, *s* is
+    returned unchanged.
+    """
+    return s.lower() in ("1", "yes", "true") if isinstance(s, six.string_types) else s

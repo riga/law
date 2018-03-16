@@ -40,7 +40,7 @@ class install(_install):
     def run(self):
         _install.run(self)
 
-        if os.getenv("LAW_INSTALL_CUSTOM_SCRIPT", "").lower() in ("1", "yes", "true"):
+        if law.util.check_bool_flag(os.getenv("LAW_INSTALL_CUSTOM_SCRIPT", "")):
             try:
                 with open(os.path.join(this_dir, "law", "cli", "law")) as f:
                     content = f.read()
