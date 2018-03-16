@@ -84,7 +84,7 @@ _law_complete() {
 
     # complete db
     if [ "$sub_cmd" = "db" ]; then
-        local words="modules remove verbose help"
+        local words="modules no-externals remove verbose help"
         local inp="${cur##-}"
         inp="${inp##-}"
         COMPREPLY=( $( compgen -W "$( echo $words )" -P "--" -- "$inp" ) )

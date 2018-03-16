@@ -14,7 +14,7 @@ from collections import OrderedDict
 import luigi
 import six
 
-from law.task.base import Task
+from law.task.base import Task, ExternalTask
 from law.config import Config
 from law.util import multi_match, colored
 
@@ -26,6 +26,7 @@ def setup_parser(sub_parsers):
     parser = sub_parsers.add_parser("db", prog="law db", description="law db file updater")
 
     parser.add_argument("--modules", "-m", nargs="+", help="additional modules to traverse")
+    parser.add_argument("--no-externals", "-e", action="store_true", help="skip external tasks")
     parser.add_argument("--remove", "-r", action="store_true", help="just remove the db file")
     parser.add_argument("--verbose", "-v", action="store_true", help="verbose output")
 
@@ -78,14 +79,27 @@ def execute(args):
         cls = lookup.pop(0)
         lookup.extend(cls.__subclasses__())
 
+        # skip already seen task families
         if cls.task_family in seen_families:
             continue
         seen_families.append(cls.task_family)
 
-        skip = cls.exclude_db or not callable(getattr(cls, "run", None)) \
-            or getattr(cls.run, "__isabstractmethod__", False)
-        if not skip:
-            task_classes.append(cls)
+        # skip when explicitly excluded
+        if cls.exclude_db:
+            continue
+
+        # skip external tasks
+        is_external_task = issubclass(cls, ExternalTask)
+        if args.no_externals and is_external_task:
+            continue
+
+        # skip non-external tasks without run implementation
+        run_is_callable = callable(getattr(cls, "run", None))
+        run_is_abstract = getattr(cls.run, "__isabstractmethod__", False)
+        if not is_external_task and (not run_is_callable or run_is_abstract):
+            continue
+
+        task_classes.append(cls)
 
     def get_task_params(cls):
         params = []
