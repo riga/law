@@ -41,6 +41,13 @@ Class ``WrapperTask``
    :members:
 
 
+Class ``ExternalTask``
+^^^^^^^^^^^^^^^^^^^^^^
+
+.. autoclass:: ExternalTask
+   :members:
+
+
 Class ``ProxyTask``
 ^^^^^^^^^^^^^^^^^^^
 

@@ -10,3 +10,10 @@ API Reference
    sandbox/index
    job/index
    cli/index
+   config
+   decorator
+   parameter
+   logger
+   parser
+   patches
+   util
