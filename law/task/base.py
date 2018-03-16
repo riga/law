@@ -5,7 +5,7 @@ Custom luigi base task definitions.
 """
 
 
-__all__ = ["Task", "WrapperTask"]
+__all__ = ["Task", "WrapperTask", "ExternalTask"]
 
 
 import sys
@@ -22,7 +22,9 @@ import six
 
 from law.parameter import NO_STR, TaskInstanceParameter, CSVParameter
 from law.parser import global_cmdline_values
-from law.util import abort, colored, uncolored, make_list, query_choice, multi_match, flatten
+from law.util import (
+    abort, colored, uncolored, make_list, query_choice, multi_match, flatten, check_bool_flag,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -304,6 +306,11 @@ class WrapperTask(Task):
         return
 
 
+class ExternalTask(Task):
+
+    run = None
+
+
 class ProxyTask(BaseTask):
 
     task = TaskInstanceParameter()
@@ -369,10 +376,14 @@ def print_task_status(task, max_depth=0, target_depth=0):
                 print("{}  -> {}".format(offset, status_text))
 
 
-def remove_task_output(task, max_depth=0, mode=None):
+def remove_task_output(task, max_depth=0, mode=None, include_external=False):
     max_depth = int(max_depth)
 
     print("remove task output with max_depth {}".format(max_depth))
+
+    include_external = check_bool_flag(include_external)
+    if include_external:
+        print("include external tasks")
 
     # determine the mode, i.e., all, dry, interactive
     modes = ["i", "a", "d"]
@@ -396,6 +407,10 @@ def remove_task_output(task, max_depth=0, mode=None):
         print("{}> remove output of {}".format(offset, dep.colored_repr()))
         offset += ind
 
+        if not include_external and isinstance(dep, ExternalTask):
+            print(offset + "- " + colored("task is external, skip", "yellow"))
+            continue
+
         if mode == "i":
             task_mode = query_choice(offset + "  walk through outputs?", ("y", "n"), default="y")
             if task_mode == "n":
@@ -403,18 +418,19 @@ def remove_task_output(task, max_depth=0, mode=None):
 
         if dep in done:
             print(offset + "- " + colored("outputs already removed", "yellow"))
-        else:
-            done.append(dep)
+            continue
 
-            for outp in luigi.task.flatten(dep.output()):
-                print("{}- remove {}".format(offset, outp.colored_repr()))
+        done.append(dep)
 
-                if mode == "d":
+        for outp in luigi.task.flatten(dep.output()):
+            print("{}- remove {}".format(offset, outp.colored_repr()))
+
+            if mode == "d":
+                continue
+            elif mode == "i":
+                if query_choice(offset + "  remove?", ("y", "n"), default="n") == "n":
+                    print(offset + colored("  skipped", "yellow"))
                     continue
-                elif mode == "i":
-                    if query_choice(offset + "  remove?", ("y", "n"), default="n") == "n":
-                        print(offset + colored("  skipped", "yellow"))
-                        continue
 
-                outp.remove()
-                print(offset + "  " + colored("removed", "red", style="bright"))
+            outp.remove()
+            print(offset + "  " + colored("removed", "red", style="bright"))

@@ -17,7 +17,8 @@ __status__ = "Development"
 __version__ = "0.0.21"
 
 __all__ = [
-    "Task", "WrapperTask", "SandboxTask",
+    "Task", "WrapperTask", "ExternalTask",
+    "SandboxTask",
     "BaseWorkflow", "LocalWorkflow", "workflow_property", "cached_workflow_property",
     "FileSystemTarget", "FileSystemFileTarget", "FileSystemDirectoryTarget",
     "LocalFileSystem", "LocalTarget", "LocalFileTarget, LocalDirectoryTarget",
@@ -52,7 +53,7 @@ from law.target.file import FileSystemTarget, FileSystemFileTarget, FileSystemDi
 from law.target.local import LocalFileSystem, LocalTarget, LocalFileTarget, LocalDirectoryTarget
 from law.target.collection import TargetCollection, SiblingFileCollection
 import law.decorator
-from law.task.base import Task, WrapperTask
+from law.task.base import Task, WrapperTask, ExternalTask
 from law.workflow.base import BaseWorkflow, workflow_property, cached_workflow_property
 from law.workflow.local import LocalWorkflow
 from law.sandbox.base import SandboxTask
