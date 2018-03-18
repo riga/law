@@ -94,8 +94,8 @@ class BaseJobDashboard(object):
     @contextmanager
     def rate_guard(self):
         """
-        Context guard that ensures that decorated contexts are delayed in order to :py:attr:`max_rate`
-        Example:
+        Context guard that ensures that decorated contexts are delayed in order to limit the number
+        of status publications per second, defined by :py:attr:`max_rate`. Example:
 
         .. code-block:: python
 
