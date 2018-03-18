@@ -18,7 +18,7 @@ import six
 
 def cache_by_status(func):
     @functools.wraps(func)
-    def wrapper(self, event, job_num, job_data, *args, **kwargs):
+    def wrapper(self, job_data, event, job_num, *args, **kwargs):
         job_id = job_data["job_id"]
         dashboard_status = self.map_status(job_data.get("status"), event)
 
@@ -29,7 +29,7 @@ def cache_by_status(func):
         # set the new status
         self._last_states[job_id] = dashboard_status
 
-        return func(self, event, job_num, job_data, *args, **kwargs)
+        return func(self, job_data, event, job_num, *args, **kwargs)
 
     return wrapper
 
@@ -94,7 +94,7 @@ class BaseJobDashboard(object):
         return
 
     @abstractmethod
-    def publish(self, event, job_num, job_data, *args, **kwargs):
+    def publish(self, job_data, event, job_num, *args, **kwargs):
         return
 
 

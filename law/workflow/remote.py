@@ -249,7 +249,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
         # inform the dashboard
         for job_num, job_data in six.iteritems(self.submission_data.jobs):
-            task.forward_dashboard_event(self.dashboard, "action.cancel", job_num, job_data)
+            task.forward_dashboard_event(self.dashboard, job_data, "action.cancel", job_num)
 
     def cleanup(self):
         task = self.task
@@ -356,7 +356,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
             # set attempts and inform the dashboard
             self.attempts[job_num] = 0
-            task.forward_dashboard_event(self.dashboard, "action.submit", job_num, job_data)
+            task.forward_dashboard_event(self.dashboard, job_data, "action.submit", job_num)
 
         # dump the submission data to the output file
         self.dump_submission_data()
@@ -453,14 +453,14 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             for job_num, data in six.iteritems(states):
                 if data["status"] == self.job_manager.PENDING:
                     pending_jobs[job_num] = data
-                    task.forward_dashboard_event(self.dashboard, "status.pending", job_num, data)
+                    task.forward_dashboard_event(self.dashboard, data, "status.pending", job_num)
                 elif data["status"] == self.job_manager.RUNNING:
                     running_jobs[job_num] = data
-                    task.forward_dashboard_event(self.dashboard, "status.running", job_num, data)
+                    task.forward_dashboard_event(self.dashboard, data, "status.running", job_num)
                 elif data["status"] == self.job_manager.FINISHED:
                     finished_jobs[job_num] = data
                     active_jobs.pop(job_num)
-                    task.forward_dashboard_event(self.dashboard, "status.finished", job_num, data)
+                    task.forward_dashboard_event(self.dashboard, data, "status.finished", job_num)
                 elif data["status"] in (self.job_manager.FAILED, self.job_manager.RETRY):
                     failed_jobs[job_num] = data
                 else:
@@ -485,9 +485,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                         self.submission_data.jobs[job_num]["attempt"] += 1
                         data["status"] = self.job_manager.RETRY
                         retry_jobs[job_num] = self.submission_data.jobs[job_num]["branches"]
-                        task.forward_dashboard_event(self.dashboard, "status.retry", job_num, data)
+                        task.forward_dashboard_event(self.dashboard, data, "status.retry", job_num)
                     else:
-                        task.forward_dashboard_event(self.dashboard, "status.failed", job_num, data)
+                        task.forward_dashboard_event(self.dashboard, data, "status.failed", job_num)
 
             n_retry = len(retry_jobs)
             n_failed -= n_retry
@@ -619,7 +619,7 @@ class BaseRemoteWorkflow(BaseWorkflow):
     def create_job_dashboard(self):
         return None
 
-    def forward_dashboard_event(self, dashboard, event, job_num, job_data):
+    def forward_dashboard_event(self, dashboard, job_data, event, job_num):
         # possible events:
         #   - action.submit
         #   - action.cancel
@@ -629,4 +629,4 @@ class BaseRemoteWorkflow(BaseWorkflow):
         #   - status.retry
         #   - status.failed
         # forward to dashboard in any event by default
-        return dashboard.publish(event, job_num, job_data)
+        return dashboard.publish(job_data, event, job_num)
