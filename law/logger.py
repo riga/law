@@ -14,10 +14,17 @@ from law.util import colored
 from law.config import Config
 
 
+#: Instance of a ``logging.StreamHandler`` that is used by logs in law. Its formatting is done by
+#: :py:class:`LogFormatter`.
 console_handler = None
 
 
 def setup_logging():
+    """
+    Sets up the internal logging mechanism, i.e., it creates the :py:attr:`console_handler`, sets
+    its formatting, and mounts on on the main ``"law"`` logger. It also sets the levels of all
+    loggers that are given in the law config.
+    """
     global console_handler
 
     # make sure logging is setup only once
@@ -38,6 +45,19 @@ def setup_logging():
 
 
 class LogFormatter(logging.Formatter):
+    """
+    Law log formatter class using timestamps and colored log levels.
+
+    .. py:classattribute:: tmpl
+       type: string
+
+       Template for log messages.
+
+    .. py:classattribute:: level_styles
+       type: dict
+
+       Style attributes per log level for coloring and highlighting via :py:func:`law.util.colored`.
+    """
 
     tmpl = "{level}{spaces}: {name} - {msg}"
 
@@ -50,12 +70,13 @@ class LogFormatter(logging.Formatter):
         "CRITICAL": {"color": "red", "style": "bright"},
     }
 
-    max_level_len = max(map(len, level_styles))
+    _max_level_len = max(map(len, level_styles))
 
     def format(self, record):
+        """"""
         return self.tmpl.format(
             level=colored(record.levelname, **self.level_styles.get(record.levelname, {})),
-            spaces=" " * (self.max_level_len - len(record.levelname)),
+            spaces=" " * (self._max_level_len - len(record.levelname)),
             name=record.name,
             msg=record.msg,
         )
