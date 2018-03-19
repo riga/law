@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
 """
-Luigi patches.
+Collection of minor patches for luigi. These patches are only intended to support extra features for
+law, rather than changing default luigi behavior.
 """
 
 
@@ -21,6 +22,9 @@ _patched = False
 
 
 def patch_all():
+    """
+    Runs all patches. This function ensures that a second invocation has no effect.
+    """
     global _patched
 
     if _patched:
@@ -37,6 +41,16 @@ def patch_all():
 
 
 def patch_default_retcodes():
+    """
+    Sets the default luigi return codes in ``luigi.retcodes.retcode`` to:
+
+        - already_running: 10
+        - missing_data: 20
+        - not_run: 30
+        - task_failed: 40
+        - scheduling_error: 50
+        - unhandled_exception: 60
+    """
     import luigi.retcodes
 
     retcode = luigi.retcodes.retcode
@@ -50,6 +64,10 @@ def patch_default_retcodes():
 
 
 def patch_worker_run_task():
+    """
+    Patches the ``luigi.worker.Worker._run_task`` method to store the worker id and the id of its
+    first task in the task. This information is required by the sandboxing mechanism
+    """
     _run_task = luigi.worker.Worker._run_task
 
     def run_task(self, task_id):
@@ -72,6 +90,10 @@ def patch_worker_run_task():
 
 
 def patch_worker_factory():
+    """
+    Patches the ``luigi.interface._WorkerSchedulerFactory`` to include sandboxing information when
+    create a worker instance.
+    """
     def create_worker(self, scheduler, worker_processes, assistant=False):
         worker = luigi.worker.Worker(scheduler=scheduler, worker_processes=worker_processes,
             assistant=assistant, worker_id=os.getenv("LAW_SANDBOX_WORKER_ID"))
@@ -82,6 +104,10 @@ def patch_worker_factory():
 
 
 def patch_keepalive_run():
+    """
+    Patches the ``luigi.worker.KeepAliveThread.run`` to immediately stop the keep-alive thread when
+    running within a sandbox.
+    """
     _run = luigi.worker.KeepAliveThread.run
 
     def run(self):
@@ -95,6 +121,10 @@ def patch_keepalive_run():
 
 
 def patch_cmdline_parser():
+    """
+    Patches the ``luigi.cmdline_parser.CmdlineParser`` to store the original command line arguments
+    for later processing in the :py:class:`law.config.Config`.
+    """
     # store original functions
     _init = luigi.cmdline_parser.CmdlineParser.__init__
 
