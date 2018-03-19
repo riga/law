@@ -20,7 +20,7 @@ arguments when configuring decorators. Default arguments are applied in either c
 """
 
 
-__all__ = ["log", "safe_output", "delay"]
+__all__ = ["factory", "log", "safe_output", "delay"]
 
 
 import sys
@@ -37,6 +37,37 @@ from law.target.local import LocalFileTarget
 
 
 def factory(**default_opts):
+    """
+    Factory function to create decorators for tasks's run methods. Default options for the decorator
+    function can be given in *default_opts*. The returned decorator can be used with or without
+    actual invocation. Example:
+
+    .. code-block:: python
+
+        @factory(digits=2)
+        def runtime(fn, opts, task, *args, **kwargs):
+            t0 = time.time()
+            try:
+                return fn(task, *args, **kwargs)
+            finally:
+                t1 = time.time()
+                diff = round(t1 - t0, opts["digits"])
+                print("runtime:")
+                print(diff)
+
+        ...
+
+        class MyTask(law.Task):
+
+            @runtime
+            def run(self):
+                ...
+
+            # or
+            @runtime(digits=3):
+            def run(self):
+                ...
+    """
     def wrapper(decorator):
         @functools.wraps(decorator)
         def wrapper(fn=None, **opts):
