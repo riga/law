@@ -45,14 +45,14 @@ class BaseJobDashboard(object):
     Base class of a minimal job dashboard interface that is used from within
     :py:class:`law.workflow.remote.BaseRemoteWorkflow`'s.
 
-    .. py::classattribute:: persistent_attributes
+    .. py:classattribute:: persistent_attributes
        type: list
 
        List of instance attributes that should be marked as being persistent. This is (e.g.) used in
        the :py:class:`law.workflow.remote.BaseRemoteWorkflow` when saving job and submission
        information to submission files. Common use cases are user information.
 
-    .. py::attribute:: max_rate
+    .. py:attribute:: max_rate
        type: int
 
        Maximum number of events that can be published per second. :py:meth:`rate_guard` uses this

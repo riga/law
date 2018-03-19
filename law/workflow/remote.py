@@ -27,8 +27,12 @@ from law.util import iter_chunks, ShorthandDict
 
 class SubmissionData(ShorthandDict):
 
-    attributes = ["jobs", "waiting_jobs", "tasks_per_job", "dashboard_config"]
-    defaults = [{}, {}, 1, {}]
+    attributes = {
+        "jobs": {},
+        "waiting_jobs": {},
+        "tasks_per_job": 1,
+        "dashboard_config": {},
+    }
 
     dummy_job_id = "dummy_job_id"
 
@@ -39,8 +43,7 @@ class SubmissionData(ShorthandDict):
 
 class StatusData(ShorthandDict):
 
-    attributes = ["jobs"]
-    defaults = [{}]
+    attributes = {"jobs": {}}
 
     dummy_job_id = SubmissionData.dummy_job_id
 

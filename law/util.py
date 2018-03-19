@@ -9,7 +9,7 @@ __all__ = ["no_value", "rel_path", "law_src_path", "law_home_path", "print_err",
            "uncolored", "query_choice", "multi_match", "make_list", "flatten", "which",
            "map_verbose", "map_struct", "mask_struct", "tmp_file", "interruptable_popen",
            "create_hash", "copy_no_perm", "makedirs_perm", "user_owns_file", "iter_chunks",
-           "human_bytes", "ShorthandDict", "is_file_exists_error", "check_bool_flag"]
+           "human_bytes", "is_file_exists_error", "check_bool_flag", "ShorthandDict"]
 
 
 import os
@@ -39,6 +39,7 @@ class NoValue(object):
         return False
 
 
+#: Unique dummy value that evaluates to *False*.
 no_value = NoValue()
 
 
@@ -146,8 +147,11 @@ def colored(msg, color=None, background=None, style=None, force=False):
     return "\033[{};{};{}m{}\033[0m".format(style, background, color, msg)
 
 
-def uncolored(msg):
-    return uncolor_cre.sub("", msg)
+def uncolored(s):
+    """
+    Returns color codes from a string *s* and returns it.
+    """
+    return uncolor_cre.sub("", s)
 
 
 def query_choice(msg, choices, default=None, descriptions=None, lower=True):
@@ -372,6 +376,23 @@ def map_struct(func, struct, cls=None, map_dict=True, map_list=True, map_tuple=F
 
 
 def mask_struct(mask, struct, replace=no_value):
+    """
+    Masks a complex structured object *struct* with a *mask* and returns the remaining values. When
+    *replace* is set, masked values are replaced with that value instead of being removed. The
+    *mask* can have a complex structure as well. Examples:
+
+    .. code-block:: python
+
+        struct = {"a": [1, 2], "b": [3, ["foo", "bar"]]}
+
+        # simple example
+        mask_struct({"a": [False, True], "b": False}, struct)
+        # => {"a": [2]}
+
+        # omitting mask information results in keeping values
+        mask_struct({"a": [False, True]}, struct)
+        # => {"a": [2], "b": [3, ["foo", "bar"]]}
+    """
     # interpret generators and views as lists
     if isinstance(struct, (types.GeneratorType, MappingView)):
         struct = list(struct)
@@ -387,7 +408,7 @@ def mask_struct(mask, struct, replace=no_value):
             if i >= len(mask):
                 new_struct.append(val)
             else:
-                repl = no_value
+                repl = replace
                 if isinstance(replace, (list, tuple)) and len(replace) > i:
                     repl = replace[i]
                 val = mask_struct(mask[i], val, replace=repl)
@@ -403,7 +424,7 @@ def mask_struct(mask, struct, replace=no_value):
             if key not in mask:
                 new_struct[key] = val
             else:
-                repl = no_value
+                repl = replace
                 if isinstance(replace, dict) and key in replace:
                     repl = replace[key]
                 val = mask_struct(mask[key], val, replace=repl)
@@ -418,6 +439,11 @@ def mask_struct(mask, struct, replace=no_value):
 
 @contextmanager
 def tmp_file(*args, **kwargs):
+    """
+    Context manager that generates a temporary file, yields the file descriptor number and temporary
+    path, and eventually removes the files. All *args* and *kwargs* are passed to
+    :py:meth:`tempfile.mkstemp`.
+    """
     fileno, path = tempfile.mkstemp(*args, **kwargs)
 
     # create the file
@@ -433,6 +459,12 @@ def tmp_file(*args, **kwargs):
 
 
 def interruptable_popen(*args, **kwargs):
+    """
+    Shorthand to :py:class:`Popen` followed by :py:meth:`Popen.communicate`. All *args* and *kwargs*
+    are forwatded to the :py:class:`Popen` constructor. The return code, standard output and
+    standard error are returned in a tuple. The call :py:meth:`Popen.communicate` is interruptable
+    by the user.
+    """
     kwargs["preexec_fn"] = os.setsid
 
     p = subprocess.Popen(*args, **kwargs)
@@ -555,37 +587,6 @@ def human_bytes(n, unit=None):
     return n / 1024. ** idx, byte_units[idx]
 
 
-class ShorthandDict(OrderedDict):
-
-    attributes = []
-    defaults = []
-
-    def __init__(self, **kwargs):
-        super(ShorthandDict, self).__init__()
-
-        for attr, default in six.moves.zip(self.attributes, self.defaults):
-            self[attr] = kwargs.pop(attr, copy.deepcopy(default))
-
-        self.update(kwargs)
-
-    def copy(self):
-        # deep copy
-        kwargs = {key: copy.deepcopy(value) for key, value in six.iteritems(self)}
-        return self.__class__(**kwargs)
-
-    def __getattr__(self, attr):
-        if attr in self.attributes:
-            return self[attr]
-        else:
-            return super(ShorthandDict, self).__getattr__(attr)
-
-    def __setattr__(self, attr, value):
-        if attr in self.attributes:
-            self[attr] = value
-        else:
-            super(ShorthandDict, self).__setattr__(attr, value)
-
-
 def is_file_exists_error(e):
     """
     Returns whether the exception *e* was raised due to an already existing file or directory.
@@ -603,3 +604,61 @@ def check_bool_flag(s):
     returned unchanged.
     """
     return s.lower() in ("1", "yes", "true") if isinstance(s, six.string_types) else s
+
+
+class ShorthandDict(OrderedDict):
+    """
+    Subclass of *OrderedDict* that implements ``__getattr__`` and ``__setattr__`` for a configurable
+    list of attributes. Example:
+
+    .. code-block:: python
+
+        MyDict(ShorthandDict):
+
+            attributes = {"foo": 1, "bar": 2}
+
+        d = MyDict(foo=9)
+
+        print(d.foo)
+        # => 9
+
+        print(d.bar)
+        # => 2
+
+        d.foo = 3
+        print(d.foo)
+        # => 3
+
+    .. py:classattribute: attributes
+       type: dict
+
+       Mapping of attribute names to default values. ``__getattr__`` and ``__setattr__`` support is
+       provided for these attributes.
+    """
+
+    attributes = {}
+
+    def __init__(self, **kwargs):
+        super(ShorthandDict, self).__init__()
+
+        for attr, default in six.iteritems(self.attributes):
+            self[attr] = kwargs.pop(attr, copy.deepcopy(default))
+
+        self.update(kwargs)
+
+    def copy(self):
+        """"""
+        kwargs = {key: copy.deepcopy(value) for key, value in six.iteritems(self)}
+        return self.__class__(**kwargs)
+
+    def __getattr__(self, attr):
+        if attr in self.attributes:
+            return self[attr]
+        else:
+            return super(ShorthandDict, self).__getattr__(attr)
+
+    def __setattr__(self, attr, value):
+        if attr in self.attributes:
+            self[attr] = value
+        else:
+            super(ShorthandDict, self).__setattr__(attr, value)
