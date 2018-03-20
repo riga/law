@@ -308,6 +308,8 @@ class WrapperTask(Task):
 
 class ExternalTask(Task):
 
+    exclude_db = True
+
     run = None
 
 
