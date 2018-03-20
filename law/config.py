@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-law Config interface.
+law config parser implementation.
 """
 
 
@@ -22,6 +22,32 @@ logger = logging.getLogger(__name__)
 
 
 class Config(ConfigParser):
+    """
+    Custom law configuration parser with a few additions on top of the standard python
+    ``ConfigParser``. Most notably, this class adds config *inheritance* via :py:meth:`update` and
+    :py:meth:`include`.
+
+    When *config_file* is set, it is loaded during setup. When empty, and *skip_fallbacks* is
+    *False*, the default config file locations defined in :py:attr:`_config_files` are checked. By
+    default, the default configuration :py:attr:`_default_config` is loaded, which can be prevented
+    by setting *skip_defaults* to *True*.
+
+    .. py:classattribute:: _instance
+       type: Config
+
+       Global instance of this class.
+
+    .. py:classattribute:: _default_config
+       type: dict
+
+       Default configuration.
+
+    .. py:classattribute:: _config_files
+       type: list
+
+       List of configuration files that are checked during setup (unless *skip_fallbacks* is
+       *True*). When a file exists, the check is stopped. Therefore, the order is important here.
+    """
 
     _instance = None
 
@@ -71,9 +97,14 @@ class Config(ConfigParser):
     _config_files = ["$LAW_CONFIG_FILE", "law.cfg", law_home_path("config"), "etc/law/config"]
 
     @classmethod
-    def instance(cls, config_file=""):
+    def instance(cls, *args, **kwargs):
+        """
+        Creates an instance of this class with all *args* and *kwargs*, saves it in
+        :py:attr:`_instance`, and returns it. When :py:attr:`_instance` was already set before, no
+        new instance is created.
+        """
         if cls._instance is None:
-            cls._instance = cls(config_file=config_file)
+            cls._instance = cls(*args, **kwargs)
         return cls._instance
 
     def __init__(self, config_file="", skip_defaults=False, skip_fallbacks=False):
@@ -112,21 +143,37 @@ class Config(ConfigParser):
                     self.include(filename, overwrite_options=overwrite_options)
 
     def optionxform(self, option):
+        """"""
         return option
 
     def get_default(self, section, option, default=None):
+        """
+        Returns the config value defined by *section* and *option*. When either the section or the
+        option does not exist, the *default* value is returned instead.
+        """
         if self.has_section(section) and self.has_option(section, option):
             return self.get(section, option)
         else:
             return default
 
     def get_expanded(self, section, option, default=None):
+        """
+        Same as :py:meth:`get_default`, but also expands environment and user variables when the
+        returned config is a string.
+        """
         value = self.get_default(section, option, default=default)
         if isinstance(value, six.string_types):
             value = os.path.expandvars(os.path.expanduser(value))
         return value
 
     def update(self, data, overwrite=None, overwrite_sections=True, overwrite_options=True):
+        """
+        Updates the currently stored configuration with new *data*, given as a dictionary. When
+        *overwrite_sections* is *False*, sections in *data* that are already present in the current
+        config are skipped. When *overwrite_options* is *False*, existing options are not
+        overwritten. When *overwrite* is not *None*, both *overwrite_sections* and
+        *overwrite_options* are set to its value.
+        """
         if overwrite is not None:
             overwrite_sections = overwrite
             overwrite_options = overwrite
@@ -142,8 +189,15 @@ class Config(ConfigParser):
                     self.set(section, option, str(value))
 
     def include(self, filename, *args, **kwargs):
+        """
+        Updates the current configc with the config found in *filename*. All *args* and *kwargs* are
+        forwarded to :py:meth:`update`.
+        """
         p = self.__class__(filename, skip_defaults=True, skip_fallbacks=True)
         self.update(p._sections, *args, **kwargs)
 
     def keys(self, section):
+        """
+        Returns all keys of a *section* in a list.
+        """
         return [key for key, _ in self.items(section)]
