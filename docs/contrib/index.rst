@@ -20,6 +20,7 @@ To use on of the following packages in your code, you must import them explicitl
    git
    glite
    htcondor
+   keras
    lsf
    matplotlib
    mercurial
