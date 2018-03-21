@@ -76,7 +76,7 @@ law run CreateAlphabet --print-status 1
 When step 4 succeeded, all output targets should exist:
 
 ```shell
-print task status with max_depth -1 and target_depth 0
+print task status with max_depth 1 and target_depth 0
 
 > check status of CreateAlphabet()
 |   - check LocalFileTarget(path=/law/examples/workflows/data/CreateAlphabet/alphabet.txt)
