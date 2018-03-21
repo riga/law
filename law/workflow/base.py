@@ -231,11 +231,13 @@ class BaseWorkflow(Task):
        Reference to :py:func:`cached_workflow_property`.
 
     .. py:attribute:: branch_map
+       read-only
        type: dict
 
        Shorthand for :py:meth:`get_branch_map`.
 
     .. py:attribute:: branch_data
+       read-only
 
        Shorthand for ``self.branch_map[self.branch]``.
     """
