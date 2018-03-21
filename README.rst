@@ -59,7 +59,7 @@ Examples
 ========
 
 - `loremipsum <https://github.com/riga/law/tree/master/examples/loremipsum>`_: The *hello world* of law.
-- `workflows <https://github.com/riga/law/tree/master/examples/workflows>`_: Law workflows. TODO.
+- `workflows <https://github.com/riga/law/tree/master/examples/workflows>`_: Law workflows.
 - `docker_sandboxes <https://github.com/riga/law/tree/master/examples/docker_sandboxes>`_: Environment sandboxing using Docker. TODO.
 - `dropbox_targets <https://github.com/riga/law/tree/master/examples/dropbox_targets>`_: Working with targets that are stored on Dropbox.
 - `wlcg_targets <https://github.com/riga/law/tree/master/examples/wlcg_targets>`_: Working with targets that are stored on WLCG storage elements (dCache, EOS, ...). TODO.

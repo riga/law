@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Workflow base class definitions.
+Workflow and workflow proxy base class definitions.
 """
 
 
@@ -29,15 +29,37 @@ _forward_attributes = ("requires", "output", "run")
 
 
 class BaseWorkflowProxy(ProxyTask):
+    """
+    Base class of all workflow proxies.
+
+    .. py:classattribute:: workflow_type
+       type: string
+
+       The named type of the workflow. This attribute refers to the value of the ``--workflow``
+       parameter on the command line to select a particular workflow.
+
+    .. py:attribute:: task
+       type: Task
+
+       Reference to the actual *workflow* task.
+    """
 
     workflow_type = None
 
     def requires(self):
+        """
+        Returns the default workflow requirements in an ordered dictionary, which is updated with
+        the return value of the tasks *workflow_requires* method.
+        """
         reqs = OrderedDict()
         reqs.update(self.task.workflow_requires())
         return reqs
 
     def output(self):
+        """
+        Returns the default workflow outputs in an ordered dictionary. At the moment this is just
+        the collection of outputs of the branch tasks, stored with the key ``"collection"``.
+        """
         if self.task.target_collection_cls is not None:
             cls = self.task.target_collection_cls
         elif self.task.outputs_siblings:
@@ -51,6 +73,15 @@ class BaseWorkflowProxy(ProxyTask):
         return OrderedDict([("collection", collection)])
 
     def threshold(self, n=None):
+        """
+        Returns the threshold number of tasks that need to be complete in order to consider the
+        workflow as being complete itself. This takes into account the
+        :py:attr:`law.BaseWorkflow.acceptance` and :py:attr:`law.BaseWorkflow.tolerance`
+        parameters of the workflow. The threshold is passed to the :py:class:`law.TargetCollection`
+        (or :py:class:`law.SiblingFileCollection`) within :py:meth:`output`. By default, the maximum
+        number of tasks is taken from the length of the branch map. For performance purposes, you
+        can set this value, *n*, directly.
+        """
         if n is None:
             n = len(self.task.branch_map())
 
@@ -63,6 +94,27 @@ class BaseWorkflowProxy(ProxyTask):
 
 
 def workflow_property(func):
+    """
+    Decorator to declare a property that is stored only on a workflow but makes it also accessible
+    from branch tasks. Internally, branch tasks are re-instantiated with ``branch=-1``, and its
+    decorated property is invoked. You might want to use this decorator in case of a property that
+    is common (and mutable) to a workflow and all its branch tasks, e.g. for static data. Example:
+
+    .. code-block:: python
+
+        class MyTask(Workflow):
+
+            def __init__(self, *args, **kwargs):
+                super(MyTask, self).__init__(*args, **kwargs)
+
+                if self.is_workflow():
+                    self._common_data = some_demanding_computation()
+
+            @workflow_property
+            def common_data(self):
+                # this method is always called with *self* is the *workflow*
+                return self._common_data
+    """
     @functools.wraps(func)
     def wrapper(self):
         return func(self.as_workflow())
@@ -71,6 +123,21 @@ def workflow_property(func):
 
 
 def cached_workflow_property(func=None, attr=None):
+    """
+    Decorator to declare an attribute that is stored only on a workflow and also cached for
+    subsequent calls. Therefore, the decorated method is expected to (lazily) provide the value to
+    cache. The the resulting value is stored as ``_workflow_cached_<func.__name__>`` on the
+    workflow, which can be overwritten by setting the *attr* argument. Example:
+
+    .. code-block:: python
+
+        class MyTask(Workflow):
+
+            @cached_workflow_property
+            def common_data(self):
+                # this method is always called with *self* is the *workflow*
+                return some_demanding_computation()
+    """
     def wrapper(func):
         _attr = attr or "_workflow_cached_" + func.__name__
 
@@ -87,14 +154,99 @@ def cached_workflow_property(func=None, attr=None):
 
 
 class BaseWorkflow(Task):
+    """
+    Base class of all workflows.
+
+    .. py:classattribute:: workflow
+       type: luigi.Parameter
+
+       Workflow type that refers to the workflow proxy implementation at instantiation / execution
+       time.
+
+    .. py:classattribute:: acceptance
+       type: luigi.FloatParameter
+
+       Number of complete tasks to consider the workflow successful. Values larger than one are
+       interpreted as absolute numbers, and as fractions otherwise.
+
+    .. py:classattribute:: tolerance
+       type: luigi.FloatParameter
+
+       Number of failed tasks to still consider the workflow successful. Values larger than one are
+       interpreted as absolute numbers, and as fractions otherwise.
+
+    .. py:classattribute:: branch
+       type: luigi.IntParameter
+
+       The branch number to run this task for. *-1* (the default) means that this task is the actual
+       *workflow*, rather than a *branch* task.
+
+    .. py:classattribute:: start_branch
+       type: luigi.IntParameter
+
+       First branch to process.
+
+    .. py:classattribute:: end_branch
+       type: luigi.IntParameter
+
+       First branch that is *not* processed (pythonic).
+
+    .. py:classattribute:: branches
+       type: law.CSVParameter
+
+       Explicit list of branches to process.
+
+    .. py:classattribute:: workflow_proxy_cls
+       type: BaseWorkflowProxy
+
+       Reference to the workflow proxy class associated to this workflow.
+
+    .. py:classattribute:: outputs_siblings
+       type: bool
+
+       Flag that denotes whether the outputs of all branches of this workflow are stored in the same
+       directory. If *True*, the :py:meth:`BaseWorkflowProxy.output` method will use a
+       :py:class:`law.SiblingFileCollection`, or a plain :py:class:`law.TargetCollection` otherwise.
+
+    .. py:classattribute:: target_collection_cls
+       type: TargetCollection
+
+       Configurable target collection class to use. When set, the attribute has precedence over the
+       :py:attr:`outputs_siblings` flag.
+
+    .. py:classattribute:: force_contiguous_branches
+       type: bool
+
+       Flag that denotes if this workflow is forced to use contiguous branch numbers, starting from
+       0. If *False*, an exception is raised otherwise.
+
+    .. py:classattribute:: workflow_property
+       type: function
+
+       Reference to :py:func:`workflow_property`.
+
+    .. py:classattribute:: cached_workflow_property
+       type: function
+
+       Reference to :py:func:`cached_workflow_property`.
+
+    .. py:attribute:: branch_map
+       type: dict
+
+       Shorthand for :py:meth:`get_branch_map`.
+
+    .. py:attribute:: branch_data
+
+       Shorthand for ``self.branch_map[self.branch]``.
+    """
 
     workflow = luigi.Parameter(default=NO_STR, significant=False, description="the type of the "
         "workflow to use")
     acceptance = luigi.FloatParameter(default=1.0, significant=False, description="number of "
-        "finished jobs to consider the task successful, relative fraction (<= 1) or absolute value "
-        "(> 1), default: 1.0")
+        "finished tasks to consider the task successful, relative fraction (<= 1) or absolute "
+        "value (> 1), default: 1.0")
     tolerance = luigi.FloatParameter(default=0.0, significant=False, description="number of failed "
-        "jobs to still consider the task successful, relative fraction (<= 1) or absolute value "
+        "tasks to still consider the task successful, relative fraction (<= 1) or absolute value "
         "(> 1), default: 0.0")
     pilot = luigi.BoolParameter(significant=False, description="disable requirements of the "
         "workflow to let branch tasks resolve requirements on their own")
@@ -109,8 +261,8 @@ class BaseWorkflow(Task):
 
     workflow_proxy_cls = BaseWorkflowProxy
 
-    target_collection_cls = None
     outputs_siblings = False
+    target_collection_cls = None
     force_contiguous_branches = False
 
     workflow_property = None
@@ -169,27 +321,44 @@ class BaseWorkflow(Task):
         return super(BaseWorkflow, self).cli_args(exclude=exclude, replace=replace)
 
     def is_branch(self):
+        """
+        Returns whether or not this task refers to a *branch*.
+        """
         return self.branch != -1
 
     def is_workflow(self):
+        """
+        Returns whether or not this task refers to the *workflow*.
+        """
         return not self.is_branch()
 
     def as_branch(self, branch=0):
+        """
+        When this task refers to the workflow, a re-instantiated task with a certain *branch* and
+        identical parameters is returned. Otherwise, the branch task itself is returned.
+        """
         if self.is_branch():
             return self
         else:
             return self.req(self, branch=branch)
 
     def as_workflow(self):
+        """
+        When this task refers to a branch task, a re-instantiated task with ``branch=-1`` and
+        identical parameters is returned. Otherwise, the workflow itself is returned.
+        """
         if self.is_workflow():
             return self
         else:
             if self._workflow_task is None:
-                self._workflow_task = self.req(self, branch=NO_INT)
+                self._workflow_task = self.req(self, branch=-1)
             return self._workflow_task
 
     @abstractmethod
     def create_branch_map(self):
+        """
+        Abstract method that must be overwritten by inheriting tasks to define the branch map.
+        """
         return
 
     def _reset_branch_boundaries(self, branches=None):
@@ -226,6 +395,12 @@ class BaseWorkflow(Task):
                     del self._branch_map[b]
 
     def get_branch_map(self, reset_boundaries=True, reduce=True):
+        """
+        Creates and returns the branch map defined in :py:meth:`create_branch_map`. If
+        *reset_boundaries* is *True*, the *start_branch* and *end_branch* attributes are rearranged
+        to not exceed the actual branch map length. If *reduce* is *True* and an explicit list of
+        branch numbers was set, the branch map is filtered accordingly. The branch map is cached.
+        """
         if self.is_branch():
             return self.as_workflow().get_branch_map(reset_boundaries=reset_boundaries,
                 reduce=reduce)
@@ -269,6 +444,10 @@ class BaseWorkflow(Task):
         return self.branch_map[self.branch]
 
     def get_branch_tasks(self):
+        """
+        Returns a dictionary that maps branch numbers to instantiated branch tasks. As this might be
+        computationally intensive, the return value is cached.
+        """
         if self.is_branch():
             return self.as_workflow().get_branch_tasks()
         else:
@@ -285,18 +464,33 @@ class BaseWorkflow(Task):
             return self._branch_tasks
 
     def workflow_requires(self):
+        """
+        Hook to add workflow requirements. This method is expected to return a dictionary. When
+        this method is called from a branch task, an exception is raised.
+        """
         if self.is_branch():
             raise Exception("calls to workflow_requires are forbidden for branch tasks")
 
         return OrderedDict()
 
     def workflow_input(self):
+        """
+        Returns the output targets if all workflow requirements, comparable to the normal
+        ``input()`` method of plain tasks. When this method is called from a branch task, an
+        exception is raised.
+        """
         if self.is_branch():
             raise Exception("calls to workflow_input are forbidden for branch tasks")
 
         return luigi.task.getpaths(self.workflow_proxy.requires())
 
     def requires_from_branch(self):
+        """
+        Returns the requirements defined in the standard ``requires()`` method, but called in the
+        context of the workflow. This method is only recommended in case all required tasks that
+        would normally take a branch number, are intended to be instantiated with ``branch=-1``.
+        When this method is called from a branch task, an exception is raised.
+        """
         if self.is_branch():
             raise Exception("calls to requires_from_branch are forbidden for branch tasks")
 
