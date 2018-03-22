@@ -161,40 +161,40 @@ class BaseWorkflow(Task):
        type: luigi.Parameter
 
        Workflow type that refers to the workflow proxy implementation at instantiation / execution
-       time.
+       time. Empty default value.
 
     .. py:classattribute:: acceptance
        type: luigi.FloatParameter
 
        Number of complete tasks to consider the workflow successful. Values larger than one are
-       interpreted as absolute numbers, and as fractions otherwise.
+       interpreted as absolute numbers, and as fractions otherwise. Defaults to *1.0*.
 
     .. py:classattribute:: tolerance
        type: luigi.FloatParameter
 
        Number of failed tasks to still consider the workflow successful. Values larger than one are
-       interpreted as absolute numbers, and as fractions otherwise.
+       interpreted as absolute numbers, and as fractions otherwise. Defaults to *0.0*.
 
     .. py:classattribute:: branch
        type: luigi.IntParameter
 
-       The branch number to run this task for. *-1* (the default) means that this task is the actual
-       *workflow*, rather than a *branch* task.
+       The branch number to run this task for. *-1* means that this task is the actual *workflow*,
+       rather than a *branch* task. Defaults to *-1*.
 
     .. py:classattribute:: start_branch
        type: luigi.IntParameter
 
-       First branch to process.
+       First branch to process. Defaults to *0*.
 
     .. py:classattribute:: end_branch
        type: luigi.IntParameter
 
-       First branch that is *not* processed (pythonic).
+       First branch that is *not* processed (pythonic). Defaults to *-1*.
 
     .. py:classattribute:: branches
        type: law.CSVParameter
 
-       Explicit list of branches to process.
+       Explicit list of branches to process. Empty default value.
 
     .. py:classattribute:: workflow_proxy_cls
        type: BaseWorkflowProxy

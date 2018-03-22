@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Base definition of remote workflows based on submission and status polling.
+Base definition of remote workflows based on job submission and status polling.
 """
 
 
@@ -26,6 +26,16 @@ from law.util import iter_chunks, ShorthandDict
 
 
 class SubmissionData(ShorthandDict):
+    """
+    Sublcass of :py:class:`law.util.ShorthandDict` that adds shorthands for the attributes *jobs*,
+    *waiting_jobs*, *tasks_per_job*, and *dashboard_config*. The content is saved in the submission
+    files of the :py:class:`BaseRemoteWorkflow`.
+
+    .. py:classattribute:: dummy_job_id
+       type: string
+
+       A unique, dummy job id (``"dummy_job_id"``).
+    """
 
     attributes = {
         "jobs": {},
@@ -38,10 +48,23 @@ class SubmissionData(ShorthandDict):
 
     @classmethod
     def job_data(cls, job_id=dummy_job_id, branches=None, attempt=0, **kwargs):
+        """
+        Returns a dictionary containing default job submission information such as the *job_id*,
+        task *branches* covered by the job, and the current *attempt*.
+        """
         return dict(job_id=job_id, branches=branches or [], attempt=attempt)
 
 
 class StatusData(ShorthandDict):
+    """
+    Sublcass of :py:class:`law.util.ShorthandDict` that adds shorthands for the *jobs* attribute.
+    The content is saved in the status files of the :py:class:`BaseRemoteWorkflow`.
+
+    .. py:classattribute:: dummy_job_id
+       type: string
+
+       A unique, dummy job id (``"dummy_job_id"``).
+    """
 
     attributes = {"jobs": {}}
 
@@ -49,10 +72,55 @@ class StatusData(ShorthandDict):
 
     @classmethod
     def job_data(cls, job_id=dummy_job_id, status=None, code=None, error=None, **kwargs):
+        """
+        Returns a dictionary containing default job status information such as the *job_id*, a job
+        *status* string, a job return code, and an *error* message.
+        """
         return dict(job_id=job_id, status=status, code=code, error=error)
 
 
 class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
+    """
+    Workflow proxy class for the remove workflows.
+
+    .. py:attribute:: job_manager
+       type: law.job.base.BaseJobManager
+
+       Reference to the job manager object that handles the actual job submission, status queries,
+       etc. The instance is created and configured by :py:meth:`create_job_manager`.
+
+    .. py:attribute:: job_file_factory
+       type: law.job.base.BaseJobFileFactory
+
+       Reference to a job file factory. The instance is created and configured by
+       :py:meth:`create_job_file_factory`.
+
+    .. py:attribute:: submission_data
+       type: SubmissionData
+
+       The submission data instance holding job information.
+
+    .. py:attribute:: dashboard
+       type: law.job.dashboard.BaseJobDashboard
+
+       Reference to the dashboard instance that is used by the workflow.
+
+    .. py:attribute:: show_errors
+       type: int
+
+       Numbers of errors to explicity show during job submission and status polling. Further errors
+       are shown abbreviated.
+
+    .. py:attribute:: submission_data_cls
+       read-only
+
+       Class for instantiating :py:attr:`submission_data`.
+
+    .. py:attribute:: status_data_cls
+       read-only
+
+       Class for instantiating status data (used internally).
+    """
 
     def __init__(self, *args, **kwargs):
         super(BaseRemoteWorkflowProxy, self).__init__(*args, **kwargs)
@@ -80,21 +148,43 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
     @abstractmethod
     def create_job_manager(self):
+        """
+        Hook to instantiate and return a derived class of :py:class:`law.job.base.BaseJobManager`.
+        This method must be implemented by inheriting classes.
+        """
         return
 
     @abstractmethod
     def create_job_file_factory(self):
+        """
+        Hook to instantiate and return a derived class of
+        :py:class:`law.job.base.BaseJobFileFactory`. This method must be implemented by inheriting
+        classes.
+        """
         return
 
     @abstractmethod
     def create_job_file(self, job_num, branches):
+        """
+        Creates a job file using the :py:attr:`job_file_factory` given the job number *job_num* and
+        the list of branch numbers *branches* covered by the job. The path of the job file is
+        returned. This method must be implemented by inheriting classes.
+        """
         return
 
     @abstractmethod
     def submit_jobs(self, job_files):
+        """
+        Submits all jobs given by a list of *job_files*. This method must be implemented by
+        inheriting classes.
+        """
         return
 
     def destination_info(self):
+        """
+        Hook that should return a string containing information on the run location that jobs are
+        submitted to. The information string is appended to the submission and status messages.
+        """
         return ""
 
     @property
@@ -123,6 +213,12 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         return reqs
 
     def output(self):
+        """
+        Returns the default workflow outputs in an ordered dictionary. At the moment, this is the
+        collection of outputs of the branch tasks (key ``"collection"``), the submission file (key
+        ``"submission"``), and the status file (key ``"status"``). These two *control outputs* are
+        optional, i.e., they are not considered when checking the task's completeness.
+        """
         task = self.task
 
         # get the directory where the control outputs are stored
@@ -150,6 +246,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         return outputs
 
     def dump_submission_data(self):
+        """
+        Dumps the current submission data to the submission file.
+        """
         # renew the dashboard config
         self.submission_data["dashboard_config"] = self.dashboard.get_persistent_config()
 
@@ -158,6 +257,10 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
     @log
     def run(self):
+        """
+        Actual run method that starts the processing of jobs and initiates the status polling, or
+        performs job cancelling or cleaning, depending on the task parameters.
+        """
         task = self.task
         self._outputs = self.output()
 
@@ -225,6 +328,10 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                     self.job_file_factory.cleanup(force=False)
 
     def cancel(self):
+        """
+        Cancels running jobs. The job ids are read from the submission file which has to exist
+        for obvious reasons.
+        """
         task = self.task
 
         # get job ids from submission data
@@ -255,6 +362,10 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             task.forward_dashboard_event(self.dashboard, job_data, "action.cancel", job_num)
 
     def cleanup(self):
+        """
+        Cleans up jobs on the remote run location. The job ids are read from the submission file
+        which has to exist for obvious reasons.
+        """
         task = self.task
 
         # get job ids from submission data
@@ -281,6 +392,11 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                     break
 
     def submit(self, retry_jobs=None):
+        """
+        Submits all jobs. When *retry_jobs* is *None*, a new job list is built. Otherwise,
+        previously failed jobs defined in the *retry_jobs* dictionary, which maps job numbers to
+        lists of branch numbers, are used.
+        """
         task = self.task
 
         # helper to check if a job can be skipped
@@ -382,6 +498,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         return new_submission_data
 
     def poll(self):
+        """
+        Initiates the job status polling loop.
+        """
         task = self.task
 
         # get job counts
@@ -556,6 +675,10 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             raise Exception("walltime exceeded")
 
     def touch_control_outputs(self):
+        """
+        Creates and saves dummy submission and status files. This method is called in case the
+        collection of branch task outputs exists.
+        """
         task = self.task
 
         # create the parent directory
@@ -586,6 +709,88 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
 
 class BaseRemoteWorkflow(BaseWorkflow):
+    """
+    Opinionated base class for remote workflows that works in 2 phases:
+
+       1. Create and submit *m* jobs that process *n* tasks. Submission data is stored in the
+       so-called *submission* file, which is an output target of this workflow.
+
+       2. Use the submission data and start status polling. When done, status data is stored in the
+       so-called *status* file, which is an output target of this workflow.
+
+    .. py:classattribute:: retries
+       type: luigi.IntParameter
+
+       Maximum number of automatic resubmission attempts per job before considering it failed.
+       Defaults to *5*.
+
+    .. py:classattribute:: tasks_per_job
+       type: luigi.IntParameter
+
+       Number of tasks to be processed by per job. Defaults to *1*.
+
+    .. py:classattribute:: parallel_jobs
+       type: luigi.IntParameter
+
+       Maximum number of parallel running jobs, e.g. to protect a very busy queue of a batch system.
+       Empty default value (infinity).
+
+    .. py:classattribute:: only_missing
+       type: luigi.BoolParameter
+
+       When *True*, only consider incomplete tasks for job submisson. Defaults to *False*.
+
+    .. py:classattribute:: no_poll
+       type: luigi.BoolParameter
+
+       When *True*, only submit jobs and skip status polling. Defaults to *False*.
+
+    .. py:classattribute:: threads
+       type: luigi.IntParameter
+
+       Number of threads to use for both job submission and job status polling. Defaults to *4*.
+
+    .. py:classattribute:: walltime
+       type: luigi.FloatParameter
+
+       Maximum job walltime in hours after which a job will be considered failed. Empty default
+       value.
+
+    .. py:classattribute:: poll_interval
+       type: luigi.FloatParameter
+
+       Interval in minutes between two job status polls. Defaults to *1*.
+
+    .. py:classattribute:: poll_fails
+       type: luigi.IntParameter
+
+       Maximum number of consecutive errors during status polling after which a job is considered
+       failed. This can occur due to networking problems. Defaults to *5*.
+
+    .. py:classattribute:: shuffle_jobs
+       type: luigi.BoolParameter
+
+       When *True*, the order of jobs is shuffled before submission. Defaults to *False*.
+
+    .. py:classattribute:: cancel_jobs
+       type: luigi.BoolParameter
+
+       When *True*, already running jobs are cancelled and no new ones are submitted. The job ids
+       are read from the job submission file which must exist for obvious reasons. Defaults to
+       *False*.
+
+    .. py:classattribute:: cleanup_jobs
+       type: luigi.BoolParameter
+
+       When *True*, already running jobs are cleaned up and no new ones are submitted. The job ids
+       are read from the job submission file which must exist for obvious reasons. Defaults to
+       *False*.
+
+    .. py:classattribute:: transfer_logs
+       type: luigi.BoolParameter
+
+       Transfer the combined log file back to the output directory. Defaults to *False*.
+    """
 
     retries = luigi.IntParameter(default=5, significant=False, description="number of automatic "
         "resubmission attempts per job, default: 5")
@@ -620,9 +825,17 @@ class BaseRemoteWorkflow(BaseWorkflow):
     exclude_db = True
 
     def create_job_dashboard(self):
+        """
+        Hook method to return a configured :py:class:`law.job.BaseJobDashboard` instance that will
+        be used by the worflow.
+        """
         return None
 
     def forward_dashboard_event(self, dashboard, job_data, event, job_num):
+        """
+        Hook to preprocess and publish dashboard events. By default, every event is passed to the
+        dashboard's :py:meth:`law.job.dashboard.BaseJobDashboard.publish` method unchanged.
+        """
         # possible events:
         #   - action.submit
         #   - action.cancel
