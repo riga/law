@@ -277,8 +277,6 @@ class RemoteCache(object):
             auto_flush = True
         else:
             base = os.path.join(root, name)
-
-        if not os.path.exists(root):
             makedirs_perm(base, dir_perm)
 
         # save attributes and configs

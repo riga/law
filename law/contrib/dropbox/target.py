@@ -52,9 +52,10 @@ class DropboxFileSystem(RemoteFileSystem):
             cache_prefix = "cache_"
             others = ("retries", "retry_delay", "validate_copy", "atomic_contexts", "permissions")
             for key, value in cfg.items(config):
+                if not value:
+                    continue
                 if key.startswith(cache_prefix):
-                    if value.strip():
-                        kwargs["cache_config"][key[len(cache_prefix):]] = value
+                    kwargs["cache_config"][key[len(cache_prefix):]] = value
                 elif key in others:
                     kwargs[key] = value
 
@@ -84,8 +85,8 @@ try:
     DropboxFileSystem.default_instance = DropboxFileSystem()
     logger.debug("created default DropboxFileSystem instance '{}'".format(
         DropboxFileSystem.default_instance))
-except:
-    logger.debug("could not create default DropboxFileSystem instance")
+except Exception as e:
+    logger.debug("could not create default DropboxFileSystem instance: {}".format(e))
 
 
 class DropboxTarget(RemoteTarget):

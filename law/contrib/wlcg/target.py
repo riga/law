@@ -51,12 +51,12 @@ class WLCGFileSystem(RemoteFileSystem):
             cache_prefix = "cache_"
             others = ("retries", "retry_delay", "validate_copy", "atomic_contexts", "permissions")
             for key, value in cfg.items(config):
+                if not value:
+                    continue
                 if key.startswith(base_prefix):
-                    if value.strip():
-                        bases[key[len(base_prefix):]] = value
+                    bases[key[len(base_prefix):]] = value
                 elif key.startswith(cache_prefix):
-                    if value.strip():
-                        kwargs["cache_config"][key[len(cache_prefix):]] = value
+                    kwargs["cache_config"][key[len(cache_prefix):]] = value
                 elif key in others:
                     kwargs[key] = value
 
@@ -73,8 +73,8 @@ try:
     WLCGFileSystem.default_instance = WLCGFileSystem()
     logger.debug("created default WLCGFileSystem instance '{}'".format(
         WLCGFileSystem.default_instance))
-except:
-    logger.debug("could not create default WLCGFileSystem instance")
+except Exception as e:
+    logger.debug("could not create default WLCGFileSystem instance: {}".format(e))
 
 
 class WLCGTarget(RemoteTarget):
