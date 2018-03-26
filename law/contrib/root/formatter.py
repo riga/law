@@ -21,7 +21,7 @@ class ROOTFormatter(Formatter):
 
     @classmethod
     @contextmanager
-    def load(cls, path, *args, **kwargs):
+    def open(cls, path, *args, **kwargs):
         import ROOT
 
         tfile = ROOT.TFile.Open(get_path(path), *args, **kwargs)
@@ -30,6 +30,14 @@ class ROOTFormatter(Formatter):
         finally:
             if tfile.IsOpen():
                 tfile.Close()
+
+    @classmethod
+    def load(cls, *args, **kwargs):
+        return cls.open(*args, **kwargs)
+
+    @classmethod
+    def dump(cls, *args, **kwargs):
+        return cls.open(*args, **kwargs)
 
 
 class ROOTNumpyFormatter(Formatter):
