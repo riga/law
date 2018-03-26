@@ -44,7 +44,7 @@ class HTCondorJobManager(BaseJobManager):
         cmd = ["condor_version"]
         code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE)
         if code == 0:
-            m = re.match("^\$CondorVersion: (\d+)\.(\d+)\.(\d+) .+$", out)
+            m = re.match("^\$CondorVersion: (\d+)\.(\d+)\.(\d+) .+$", out.split("\n")[0].strip())
             if m:
                 return tuple(map(int, m.groups()))
         return None
