@@ -53,7 +53,8 @@ class DropboxFileSystem(RemoteFileSystem):
             others = ("retries", "retry_delay", "validate_copy", "atomic_contexts", "permissions")
             for key, value in cfg.items(config):
                 if key.startswith(cache_prefix):
-                    kwargs["cache_config"][key[len(cache_prefix):]] = value
+                    if value.strip():
+                        kwargs["cache_config"][key[len(cache_prefix):]] = value
                 elif key in others:
                     kwargs[key] = value
 

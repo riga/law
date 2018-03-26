@@ -542,10 +542,10 @@ class RemoteFileSystem(FileSystem):
         self.validate_copy = validate_copy
 
         # set the cache
-        if cache_config is None:
-            self.cache = None
-        else:
+        if cache_config:
             self.cache = RemoteCache(self, **cache_config)
+        else:
+            self.cache = None
 
     def __del__(self):
         # cleanup the cache
