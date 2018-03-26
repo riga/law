@@ -271,14 +271,15 @@ class RemoteCache(object):
 
         # create the root dir, handle tmp
         root = os.path.expandvars(os.path.expanduser(root)) or self.TMP
+        if not os.path.exists(root) and root == self.TMP:
+            tmp_dir = Config.instance().get_expanded("target", "tmp_dir")
+            base = tempfile.mkdtemp(dir=tmp_dir)
+            auto_flush = True
+        else:
+            base = os.path.join(root, name)
+
         if not os.path.exists(root):
-            if root == self.TMP:
-                tmp_dir = Config.instance().get_expanded("target", "tmp_dir")
-                base = tempfile.mkdtemp(dir=tmp_dir)
-                auto_flush = True
-            else:
-                base = os.path.join(root, name)
-                makedirs_perm(base, dir_perm)
+            makedirs_perm(base, dir_perm)
 
         # save attributes and configs
         self.root = root
