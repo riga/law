@@ -82,8 +82,8 @@ def root_task_parser():
 
 def global_cmdline_args():
     """
-    Returns a list of command line arguments that do not belong to the root task. The returned list
-    is cached. Example:
+    Returns the list of command line arguments that do not belong to the root task. The returned
+    list is cached. Example:
 
     .. code-block:: python
 
@@ -134,3 +134,49 @@ def global_cmdline_values():
             _global_cmdline_values[action.dest] = getattr(luigi_parser.known_args, action.dest)
 
     return _global_cmdline_values
+
+
+def add_cmdline_arg(args, arg, *values):
+    """
+    Adds a command line argument *arg* to a list of argument *args*, e.g. as returned from
+    :py:func:`global_cmdline_args`. When *arg* exists, *args* is returned unchanged. Otherwise,
+    *arg* is appended to the end with optional argument *values*. Example:
+
+    .. code-block:: python
+
+        args = global_cmdline_values()
+        # -> ["--local-scheduler"]
+
+        add_cmdline_arg(args, "--local-scheduler")
+        # -> ["--local-scheduler"]
+
+        add_cmdline_arg(args, "--workers", 4)
+        # -> ["--local-scheduler", "--workers", "4"]
+    """
+    if arg not in args:
+        args = list(args) + [arg] + list(values)
+    return args
+
+
+def remove_cmdline_arg(args, arg, n=1):
+    """
+    Removes the command line argument *args* from a list of arguments *args*, e.g. as returned from
+    :py:func:`global_cmdline_args`. When *n* is 1 or less, only the argument is removed. Otherwise,
+    the following *n-1* values are removed. Example:
+
+    .. code-block:: python
+
+        args = global_cmdline_values()
+        # -> ["--local-scheduler", "--workers", "4"]
+
+        remove_cmdline_arg(args, "--local-scheduler")
+        # -> ["--workers", "4"]
+
+        remove_cmdline_arg(args, "--workers", 2)
+        # -> ["--local-scheduler"]
+    """
+    if arg in args:
+        idx = args.index(arg)
+        args = list(args)
+        del args[idx:idx + max(n, 1)]
+    return args
