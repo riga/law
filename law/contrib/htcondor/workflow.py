@@ -95,10 +95,6 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
             config.input_files.append(dashboard_file)
             config.render_variables["dashboard_file"] = pf(os.path.basename(dashboard_file))
 
-        # determine basenames of input files and add that list to the render data
-        input_basenames = [pf(os.path.basename(path)) for path in config.input_files[1:]]
-        config.render_variables["input_files"] = " ".join(input_basenames)
-
         # output files
         config.output_files = []
 
@@ -127,6 +123,10 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
 
         # task hook
         config = task.htcondor_job_config(config, job_num, branches)
+
+        # determine basenames of input files and add that list to the render data
+        input_basenames = [pf(os.path.basename(path)) for path in config.input_files[1:]]
+        config.render_variables["input_files"] = " ".join(input_basenames)
 
         return self.job_file_factory(**config.__dict__)
 
