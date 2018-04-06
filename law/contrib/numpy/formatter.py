@@ -28,7 +28,15 @@ class NumpyFormatter(Formatter):
         import numpy as np
 
         path = get_path(path)
-        func = np.loadtxt if path.endswith(".txt") else np.load
+        if path.endswith(".txt"):
+            func = np.loadtxt
+        elif path.endswith(".npz"):
+            def load_with_context(*args, **kwargs):
+                with np.load(*args, **kwargs) as npz_file:
+                    return {key: npz_file[key] for key in npz_file.keys()}
+            func = load_with_context
+        else:
+            func = np.load
         return func(path, *args, **kwargs)
 
     @classmethod
