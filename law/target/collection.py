@@ -50,7 +50,7 @@ class TargetCollection(Target):
     def __iter__(self):
         raise TypeError("'{}' object is not iterable".format(self.__class__.__name__))
 
-    def _repr_pairs(self):
+    def _repr_pairs(self, color=True):
         return Target._repr_pairs(self) + [("len", len(self)), ("threshold", self.threshold)]
 
     def _iter_flat(self):
@@ -169,7 +169,7 @@ class SiblingFileCollection(TargetCollection):
         else:  # SiblingFileCollection
             self.dir = first_target.dir
 
-    def _repr_pairs(self):
+    def _repr_pairs(self, color=True):
         return TargetCollection._repr_pairs(self) + [("dir", self.dir.path)]
 
     def exists(self, basenames=None):

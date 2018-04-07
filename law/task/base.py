@@ -252,22 +252,41 @@ class Task(BaseTask):
             self._last_progress_percentage = percentage
             self.set_progress_percentage(percentage)
 
-    def colored_repr(self):
+    def colored_repr(self, color=True):
+        family = self._repr_family(self.task_family, color=color)
+
+        parts = [self._repr_param(*pair, color=color) for pair in self._repr_params(color=color)]
+        parts += [self._repr_flag(flag, color=color) for flag in self._repr_flags(color=color)]
+
+        return "{}({})".format(family, ", ".join(parts))
+
+    def _repr_params(self, color=True):
+        # build key value pairs of all significant parameters
         params = self.get_params()
         param_values = self.get_param_values(params, [], self.param_kwargs)
-
-        # build the parameter signature
-        sig_parts = []
         param_objs = dict(params)
+
+        pairs = []
         for param_name, param_value in param_values:
             if param_objs[param_name].significant:
-                n = colored(param_name, "blue", style="bright")
-                v = param_objs[param_name].serialize(param_value)
-                sig_parts.append("{}={}".format(n, v))
+                pairs.append((param_name, param_objs[param_name].serialize(param_value)))
 
-        task_str = "{}({})".format(colored(self.task_family, "green"), ", ".join(sig_parts))
+        return pairs
 
-        return task_str
+    def _repr_flags(self, color=True):
+        return []
+
+    @classmethod
+    def _repr_family(cls, family, color=True):
+        return colored(family, "green") if color else family
+
+    @classmethod
+    def _repr_param(cls, name, value, color=True):
+        return "{}={}".format(colored(name, color="blue", style="bright") if color else name, value)
+
+    @classmethod
+    def _repr_flag(cls, name, color=True):
+        return colored(name, color="blue", style="bright") if color else name
 
     def create_progress_callback(self, n_total, reach=(0, 100)):
         def make_callback(n, start, end):
@@ -299,6 +318,9 @@ class WrapperTask(Task):
     """
     exclude_db = True
 
+    def _repr_flags(self, color=True):
+        return super(WrapperTask, self)._repr_flags(color=color) + ["wrapper"]
+
     def complete(self):
         return all(task.complete() for task in flatten(self.requires()))
 
@@ -311,6 +333,9 @@ class ExternalTask(Task):
     exclude_db = True
 
     run = None
+
+    def _repr_flags(self, color=True):
+        return super(ExternalTask, self)._repr_flags(color=color) + ["external"]
 
 
 class ProxyTask(BaseTask):

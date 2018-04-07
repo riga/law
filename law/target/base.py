@@ -26,29 +26,25 @@ class Target(luigi.target.Target):
         return self.colored_repr(color=False)
 
     def colored_repr(self, color=True):
-        pairs = self._repr_pairs()
-        flags = ", ".join(self._repr_flags(color=color))
+        class_name = self._repr_class_name(self.__class__.__name__, color=color)
 
-        tmpl = "{}("
-        tmpl += ", ".join(len(pairs) * ["{}"])
-        if flags:
-            tmpl += ", " + flags
-        tmpl += ")"
+        parts = [self._repr_pair(*pair, color=color) for pair in self._repr_pairs(color=color)]
+        parts += [self._repr_flag(flag, color=color) for flag in self._repr_flags(color=color)]
 
-        parts = [self._repr_class(color=color)]
-        parts += [self._repr_pair(*tpl, color=color) for tpl in pairs]
+        return "{}({})".format(class_name, ", ".join(parts))
 
-        return tmpl.format(*parts)
-
-    def _repr_pairs(self):
+    def _repr_pairs(self, color=True):
         return []
 
     def _repr_flags(self, color=True):
-        return [self.optional_text(color=color) if self.optional else ""]
+        flags = []
+        if self.optional:
+            flags.append(self.optional_text())
+        return flags
 
     @classmethod
-    def _repr_class(cls, color=True):
-        return colored(cls.__name__, "cyan") if color else cls.__name__
+    def _repr_class_name(cls, name, color=True):
+        return colored(name, "cyan") if color else name
 
     @classmethod
     def _repr_pair(cls, key, value, color=True):
@@ -68,9 +64,8 @@ class Target(luigi.target.Target):
 
         return colored(text, _color, style="bright") if color else text
 
-    def optional_text(self, color=True):
-        text = "optional" if self.optional else "non-optional"
-        return colored(text, color="blue", style="bright") if color else text
+    def optional_text(self):
+        return "optional" if self.optional else "non-optional"
 
     @abstractmethod
     def exists(self):

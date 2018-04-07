@@ -132,7 +132,7 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
             self.fs == other.fs and \
             self.fs.abspath(self.path) == other.fs.abspath(other.path)
 
-    def _repr_pairs(self):
+    def _repr_pairs(self, color=True):
         return Target._repr_pairs(self) + [("path", self.path)]
 
     @property
