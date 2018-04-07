@@ -5,10 +5,36 @@ ROOT target formatters.
 """
 
 
-from contextlib import contextmanager
-
 from law.target.formatter import Formatter
 from law.target.file import get_path
+
+
+guarded_tfile_cls = None
+
+
+def GuardedTFile(*args, **kwargs):
+    """
+    Factory function that lazily creates the guarded TFile class, and creates and returns an
+    instance with all passed *args* and *kwargs*. This is required as we do not want to import ROOT
+    in the global scope.
+    """
+    global guarded_tfile_cls
+
+    if not guarded_tfile_cls:
+        import ROOT
+
+        class GuardedTFile(ROOT.TFile):
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_value, traceback):
+                if self.IsOpen():
+                    self.Close()
+
+        guarded_tfile_cls = GuardedTFile
+
+    return guarded_tfile_cls(*args, **kwargs)
 
 
 class ROOTFormatter(Formatter):
@@ -20,24 +46,12 @@ class ROOTFormatter(Formatter):
         return get_path(path).endswith(".root")
 
     @classmethod
-    @contextmanager
-    def open(cls, path, *args, **kwargs):
-        import ROOT
-
-        tfile = ROOT.TFile.Open(get_path(path), *args, **kwargs)
-        try:
-            yield tfile
-        finally:
-            if tfile.IsOpen():
-                tfile.Close()
+    def load(cls, path, *args, **kwargs):
+        return GuardedTFile(get_path(path), *args, **kwargs)
 
     @classmethod
-    def load(cls, *args, **kwargs):
-        return cls.open(*args, **kwargs)
-
-    @classmethod
-    def dump(cls, *args, **kwargs):
-        return cls.open(*args, **kwargs)
+    def dump(cls, path, *args, **kwargs):
+        return GuardedTFile(get_path(path), *args, **kwargs)
 
 
 class ROOTNumpyFormatter(Formatter):
