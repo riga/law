@@ -13,7 +13,7 @@ import os
 
 import luigi
 import law
-import law.contrib.htcondor
+law.contrib.load("htcondor")
 
 
 class Task(law.Task):
@@ -36,7 +36,7 @@ class Task(law.Task):
         return law.LocalFileTarget(self.local_path(*path))
 
 
-class HTCondorWorkflow(law.contrib.htcondor.HTCondorWorkflow):
+class HTCondorWorkflow(law.HTCondorWorkflow):
     """
     Batch systems are typically very heterogeneous by design, and so is HTCondor. Law does not aim
     to "magically" adapt to all possible HTCondor setups which would certainly end in a mess.

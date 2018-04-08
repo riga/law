@@ -13,7 +13,7 @@ import os
 
 import luigi
 import law
-import law.contrib.lsf
+law.contrib.load("lsf")
 
 
 class Task(law.Task):
@@ -36,7 +36,7 @@ class Task(law.Task):
         return law.LocalFileTarget(self.local_path(*path))
 
 
-class LSFWorkflow(law.contrib.lsf.LSFWorkflow):
+class LSFWorkflow(law.LSFWorkflow):
     """
     Batch systems are typically very heterogeneous by design, and so is LSF. Law does not aim to
     "magically" adapt to all possible LSF setups which would certainly end in a mess. Therefore we

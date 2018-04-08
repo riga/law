@@ -1,7 +1,9 @@
-import os
-import law
-import luigi
+# -*- coding: utf-8 -*-
 
+import os
+
+import luigi
+import law
 law.contrib.load("matplotlib")
 
 

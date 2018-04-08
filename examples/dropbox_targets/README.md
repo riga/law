@@ -128,7 +128,7 @@ with data_file.open("w") as f:
 
 # method 3: via target formatters, which provide load/dump methods
 # for a number of file extensions, such as json, the formatter is automatically selected
-# (current formatters: text, json, yaml, pickle, zip, tar, numpy, root, uproot, root_numpy, tf_const_graph)
+# (current formatters: text, json, yaml, pickle, zip, tar, numpy, root, uproot, root_numpy, keras, tf_const_graph)
 data_file.dump(data, indent=4)
 ```
 
