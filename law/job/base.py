@@ -442,7 +442,7 @@ class BaseJobFileFactory(object):
     @classmethod
     def postfix_file(cls, path, postfix):
         """
-        Adds a *postfix* to a file *path*, right before the last file extension denoted by ``"."``.
+        Adds a *postfix* to a file *path*, right before the first file extension in the base name.
         Example:
 
         .. code-block:: python
@@ -450,21 +450,26 @@ class BaseJobFileFactory(object):
             postfix_file("/path/to/file.txt", "_1")
             # -> "/path/to/file_1.txt"
 
+            postfix_file("/path/to/file.tar.gz", "_1")
+            # -> "/path/to/file_1.tar.gz"
+
         *postfix* might also be a dictionary that maps patterns to actual postfix strings. When a
         pattern matches the base name of the file, the associated postfix is applied and the path is
         returned. You might want to use an ordered dictionary to control the first match.
         """
         if postfix:
+            dirname, basename = os.path.split(path)
             if isinstance(postfix, six.string_types):
                 _postfix = postfix
             else:
-                basename = os.path.basename(path)
                 for pattern, _postfix in six.iteritems(postfix):
                     if fnmatch.fnmatch(basename, pattern):
                         break
                 else:
                     _postfix = ""
-            path = "{1}{0}{2}".format(_postfix, *os.path.splitext(path))
+            parts = basename.split(".", 1)
+            parts[0] += _postfix
+            path = os.path.join(dirname, ".".join(parts))
         return path
 
     @classmethod
