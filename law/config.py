@@ -156,14 +156,17 @@ class Config(ConfigParser):
         else:
             return default
 
-    def get_expanded(self, section, option, default=None):
+    def get_expanded(self, section, option, default=None, expand_user=True):
         """
         Same as :py:meth:`get_default`, but also expands environment and user variables when the
-        returned config is a string.
+        returned config value is a string. When *expand_user* is *False*, user variables are not
+        expanded.
         """
         value = self.get_default(section, option, default=default)
         if isinstance(value, six.string_types):
-            value = os.path.expandvars(os.path.expanduser(value))
+            if expand_user:
+                value = os.path.expanduser(value)
+            value = os.path.expandvars(value)
         return value
 
     def update(self, data, overwrite=None, overwrite_sections=True, overwrite_options=True):

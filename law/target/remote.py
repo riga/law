@@ -112,7 +112,11 @@ class GFALInterface(object):
 
         # convert base(s) to list for round-robin
         self.base = make_list(base)
-        self.bases = {k: make_list(v) for k, v in six.iteritems(bases)} if bases else {}
+        self.bases = {k: make_list(b) for k, b in six.iteritems(bases)} if bases else {}
+
+        # expand variables in base and bases
+        self.base = map(os.path.expandvars, self.base)
+        self.bases = {k: map(os.path.expandvars, b) for k, b in six.iteritems(bases)}
 
         # prepare gfal options
         self.gfal_options = gfal_options or {}
