@@ -30,7 +30,7 @@ _law_complete() {
 
     # complete the subcommand
     if [ "$COMP_CWORD" = "1" ]; then
-        COMPREPLY=( $( compgen -W "run db config software completion" -- "$cur" ) )
+        COMPREPLY=( $( compgen -W "run db config software completion --help --version" -- "$cur" ) )
         return
     fi
     local sub_cmd="${COMP_WORDS[1]}"

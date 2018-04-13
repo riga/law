@@ -9,6 +9,8 @@ import sys
 from importlib import import_module
 from argparse import ArgumentParser
 
+import law
+
 
 progs = ["run", "db", "config", "software", "completion"]
 forward_progs = ["run"]
@@ -20,7 +22,8 @@ def run():
     requested subprogram.
     """
     # setup the main parser and sub parsers
-    parser = ArgumentParser(prog="law", description="law command line tool")
+    parser = ArgumentParser(prog="law", description="law command line tool",
+        version=law.__version__)
     sub_parsers = parser.add_subparsers(help="subcommands", dest="command")
 
     # setup all progs
