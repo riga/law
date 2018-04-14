@@ -25,7 +25,7 @@ from law.parameter import NO_STR, NO_INT, CSVParameter
 logger = logging.getLogger(__name__)
 
 
-_forward_attributes = ("requires", "output", "run")
+_forward_attributes = ("requires", "output", "run", "complete")
 
 
 class BaseWorkflowProxy(ProxyTask):
