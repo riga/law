@@ -94,31 +94,53 @@ def abort(msg=None, exitcode=1):
 
 
 colors = {
+    "default": 39,
+    "black": 30,
     "red": 31,
     "green": 32,
     "yellow": 33,
     "blue": 34,
-    "pink": 35,
+    "magenta": 35,
     "cyan": 36,
-    "white": 37,
-    "grey": 90,
+    "light_gray": 37,
+    "dark_gray": 90,
+    "light_red": 91,
+    "light_green": 92,
+    "light_yellow": 93,
+    "light_blue": 94,
+    "light_magenta": 95,
+    "light_cyan": 96,
+    "white": 97,
 }
 
 backgrounds = {
-    "none": 49,
+    "default": 49,
+    "black": 40,
     "red": 41,
     "green": 42,
     "yellow": 43,
     "blue": 44,
-    "pink": 45,
+    "magenta": 45,
     "cyan": 46,
-    "grey": 47,
+    "light_gray": 47,
+    "dark_gray": 100,
+    "light_red": 101,
+    "light_green": 102,
+    "light_yellow": 103,
+    "light_blue": 104,
+    "light_magenta": 105,
+    "light_cyan": 106,
+    "white": 107,
 }
 
 styles = {
-    "none": 0,
+    "default": 0,
     "bright": 1,
-    "underline": 4,
+    "dim": 2,
+    "underlined": 4,
+    "blink": 5,
+    "inverted": 7,
+    "hidden": 8,
 }
 
 uncolor_cre = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
@@ -126,10 +148,9 @@ uncolor_cre = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
 
 def colored(msg, color=None, background=None, style=None, force=False):
     """
-    Return the colored version of a string *msg*. *color*'s: red, green, yellow, blue, pink,
-    cyan, white. *background*'s: none, red, green, yellow, blue, pink, cyan, grey. *style*'s: none,
-    bright, underline. Unless *force* is *True*, the *msg* string is returned unchanged in case the
-    output is not a tty.
+    Return the colored version of a string *msg*. For *color*, *background* and *style* options, see
+    https://misc.flogisoft.com/bash/tip_colors_and_formatting. Unless *force* is *True*, the *msg*
+    string is returned unchanged in case the output is not a tty.
     """
     try:
         if not force and not os.isatty(sys.stdout.fileno()):
@@ -137,12 +158,12 @@ def colored(msg, color=None, background=None, style=None, force=False):
     except:
         return msg
 
-    color = colors.get(color, colors["white"])
-    background = backgrounds.get(background, backgrounds["none"])
+    color = colors.get(color, colors["default"])
+    background = backgrounds.get(background, backgrounds["default"])
 
     if not isinstance(style, (tuple, list, set)):
         style = (style,)
-    style = ";".join(str(styles.get(s, styles["none"])) for s in style)
+    style = ";".join(str(styles.get(s, styles["default"])) for s in style)
 
     return "\033[{};{};{}m{}\033[0m".format(style, background, color, msg)
 

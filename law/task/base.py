@@ -291,7 +291,7 @@ class Task(BaseTask):
 
     @classmethod
     def _repr_flag(cls, name, color=True):
-        return colored(name, color="blue", style="bright") if color else name
+        return colored(name, color="magenta") if color else name
 
     def create_progress_callback(self, n_total, reach=(0, 100)):
         def make_callback(n, start, end):

@@ -124,7 +124,7 @@ class TargetCollection(Target):
             _color = "green"
         else:
             text = "absent"
-            _color = "red" if not self.optional else "grey"
+            _color = "red" if not self.optional else "dark_grey"
 
         text = colored(text, _color, style="bright") if color else text
         text += " ({}/{})".format(count, len(self))
