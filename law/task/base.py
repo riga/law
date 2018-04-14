@@ -227,6 +227,11 @@ class Task(BaseTask):
         print(msg)
         sys.stdout.flush()
 
+        self._publish_message(*args)
+
+    def _publish_message(self, *args):
+        msg = " ".join(str(arg) for arg in args)
+
         # add to message cache and handle overflow
         msg = uncolored(msg)
         self._message_cache.append(msg)
