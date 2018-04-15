@@ -143,3 +143,29 @@ def execute(args):
         print("")
 
     print("written {} task(s) to db file '{}'".format(len(task_classes), db_file))
+
+
+def get_global_parameters(config_names=("core", "scheduler", "worker", "retcode")):
+    """
+    Returns a list of global, luigi-internal configuration parameters. Each list item is a 4-tuple
+    containing the configuration class, the parameter instance, the parameter name, and the full
+    parameter name in the cli. When *config_names* is set, it should be a list of configuration
+    class names that should be taken into account.
+    """
+    params = []
+    for cls in luigi.task.Config.__subclasses__():
+        if config_names and cls.__name__ not in config_names:
+            continue
+
+        for attr in dir(cls):
+            param = getattr(cls, attr)
+            if not isinstance(param, luigi.Parameter):
+                continue
+
+            full_name = attr.replace("_", "-")
+            if getattr(cls, "use_cmdline_section", True):
+                full_name = "{}-{}".format(cls.__name__.replace("_", "-"), full_name)
+
+            params.append((cls, param, attr, full_name))
+
+    return params
