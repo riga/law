@@ -52,7 +52,7 @@ class BaseWorkflowProxy(ProxyTask):
         just does the default completion check otherwise.
         """
         if callable(self.task.workflow_complete):
-            return self.task.workflow_complete
+            return self.task.workflow_complete()
         else:
             return super(BaseWorkflowProxy, self).complete()
 
