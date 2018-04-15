@@ -250,17 +250,17 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
 
 class LocalFileTarget(LocalTarget, FileSystemFileTarget):
 
-    def copy_to_local(self, *args, **kwargs):
+    def copy_to_local(self, dst, *args, **kwargs):
         return self.copy_to(*args, **kwargs)
 
     def copy_from_local(self, *args, **kwargs):
-        return self.copy_from_local(*args, **kwargs)
+        return self.copy_from(*args, **kwargs)
 
     def move_to_local(self, *args, **kwargs):
-        return self.move_to_local(*args, **kwargs)
+        return self.move_to(*args, **kwargs)
 
     def move_from_local(self, *args, **kwargs):
-        return self.move_from_local(*args, **kwargs)
+        return self.move_from(*args, **kwargs)
 
     @contextmanager
     def localize(self, mode="r", perm=None, parent_perm=None, **kwargs):
@@ -276,10 +276,10 @@ class LocalFileTarget(LocalTarget, FileSystemFileTarget):
         if mode == "r":
             if is_tmp:
                 # create a temporary target
-                tmp = self.__class__(is_tmp=self.ext(n=0) or True)
+                tmp = self.__class__(is_tmp=self.ext(n=1) or True)
 
                 # always copy
-                self.copy(tmp)
+                self.copy_to_local(tmp)
 
                 # yield the copy
                 try:
@@ -293,11 +293,11 @@ class LocalFileTarget(LocalTarget, FileSystemFileTarget):
         else:  # write mode
             if is_tmp:
                 # create a temporary target
-                tmp = self.__class__(is_tmp=self.ext(n=0) or True)
+                tmp = self.__class__(is_tmp=self.ext(n=1) or True)
 
                 # copy when existing
                 if not skip_copy and self.exists():
-                    self.copy(tmp)
+                    self.copy_to_local(tmp)
 
                 # yield the copy
                 try:
@@ -305,7 +305,7 @@ class LocalFileTarget(LocalTarget, FileSystemFileTarget):
 
                     # move back again
                     if tmp.exists():
-                        tmp.move_to(self, dir_perm=parent_perm)
+                        tmp.move_to_local(self, dir_perm=parent_perm)
                     else:
                         logger.warning("cannot move non-existing localized file target {!r}".format(
                             self))
