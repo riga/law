@@ -46,10 +46,20 @@ class BaseWorkflowProxy(ProxyTask):
 
     workflow_type = None
 
+    def complete(self):
+        """
+        Custom completion check that invokes the task's *workflow_complete* if it is callable, or
+        just does the default completion check otherwise.
+        """
+        if callable(self.task.workflow_complete):
+            return self.task.workflow_complete
+        else:
+            return super(BaseWorkflowProxy, self).complete()
+
     def requires(self):
         """
         Returns the default workflow requirements in an ordered dictionary, which is updated with
-        the return value of the tasks *workflow_requires* method.
+        the return value of the task's *workflow_requires* method.
         """
         reqs = OrderedDict()
         reqs.update(self.task.workflow_requires())
@@ -201,6 +211,11 @@ class BaseWorkflow(Task):
 
        Reference to the workflow proxy class associated to this workflow.
 
+    .. py:classattribute:: workflow_complete
+       type: None, callable
+
+       Custom completion check that is used by the workflow's proxy when callable.
+
     .. py:classattribute:: outputs_siblings
        type: bool
 
@@ -262,6 +277,8 @@ class BaseWorkflow(Task):
         description="branches to use")
 
     workflow_proxy_cls = BaseWorkflowProxy
+
+    workflow_complete = None
 
     outputs_siblings = False
     target_collection_cls = None
