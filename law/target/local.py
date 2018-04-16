@@ -250,7 +250,7 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
 
 class LocalFileTarget(LocalTarget, FileSystemFileTarget):
 
-    def copy_to_local(self, dst, *args, **kwargs):
+    def copy_to_local(self, *args, **kwargs):
         return self.copy_to(*args, **kwargs)
 
     def copy_from_local(self, *args, **kwargs):

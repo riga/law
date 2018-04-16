@@ -150,7 +150,7 @@ def get_global_parameters(config_names=("core", "scheduler", "worker", "retcode"
     Returns a list of global, luigi-internal configuration parameters. Each list item is a 4-tuple
     containing the configuration class, the parameter instance, the parameter name, and the full
     parameter name in the cli. When *config_names* is set, it should be a list of configuration
-    class names that should be taken into account.
+    class names that are exclusively taken into account.
     """
     params = []
     for cls in luigi.task.Config.__subclasses__():

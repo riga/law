@@ -265,7 +265,7 @@ class SandboxProxy(ProxyTask):
         map_struct(find_and_move, stageout_info.targets)
 
     @contextmanager
-    def _run_log(self, cmd=None, color="pink"):
+    def _run_log(self, cmd=None, color="magenta"):
         # start banner
         print("")
         line = " entering sandbox '{}' ".format(self.sandbox_inst.key).center(100, "=")
