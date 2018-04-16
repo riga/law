@@ -116,7 +116,7 @@ class GFALInterface(object):
 
         # expand variables in base and bases
         self.base = map(os.path.expandvars, self.base)
-        self.bases = {k: map(os.path.expandvars, b) for k, b in six.iteritems(bases)}
+        self.bases = {k: map(os.path.expandvars, b) for k, b in six.iteritems(self.bases)}
 
         # prepare gfal options
         self.gfal_options = gfal_options or {}
