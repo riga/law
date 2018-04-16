@@ -15,6 +15,7 @@ import luigi
 
 
 from law import Task, LocalFileTarget, NO_STR
+from law.target.file import get_path
 from law.decorator import log
 from law.util import rel_path, interruptable_popen
 
@@ -41,7 +42,7 @@ class BundleCMSSW(Task):
             self.bundle(tmp.path)
 
     def bundle(self, dst_path):
-        cmd = [rel_path(__file__, "bundle_cmssw.sh"), self.cmssw_path, dst_path]
+        cmd = [rel_path(__file__, "bundle_cmssw.sh"), self.cmssw_path, get_path(dst_path)]
         if self.exclude != NO_STR:
             cmd += [self.exclude]
 
