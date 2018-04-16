@@ -23,17 +23,17 @@ class BundleCMSSW(Task):
 
     task_namespace = "law.cms"
 
-    path = luigi.Parameter(description="the path to the CMSSW checkout to bundle")
+    cmssw_path = luigi.Parameter(description="the path to the CMSSW checkout to bundle")
     exclude = luigi.Parameter(default=NO_STR, description="regular expression for excluding files "
         "or directories, relative to the CMSSW checkout path")
 
     def __init__(self, *args, **kwargs):
         super(BundleCMSSW, self).__init__(*args, **kwargs)
 
-        self.path = os.path.expandvars(os.path.expanduser(os.path.abspath(self.path)))
+        self.cmssw_path = os.path.expandvars(os.path.expanduser(os.path.abspath(self.cmssw_path)))
 
     def output(self):
-        return LocalFileTarget("{}.tgz".format(os.path.basename(self.path)))
+        return LocalFileTarget("{}.tgz".format(os.path.basename(self.cmssw_path)))
 
     @log
     def run(self):
@@ -41,7 +41,7 @@ class BundleCMSSW(Task):
             self.bundle(tmp.path)
 
     def bundle(self, dst_path):
-        cmd = [rel_path(__file__, "bundle_cmssw.sh"), self.path, dst_path]
+        cmd = [rel_path(__file__, "bundle_cmssw.sh"), self.cmssw_path, dst_path]
         if self.exclude != NO_STR:
             cmd += [self.exclude]
 
