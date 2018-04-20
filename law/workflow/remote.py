@@ -239,7 +239,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             outputs["status"] = out_dir.child(status_file, type="f")
             outputs["status"].optional = True
 
-        # update with upstream output when npt just controlling running jobs
+        # update with upstream output when not just controlling running jobs
         if not self._control_jobs:
             outputs.update(super(BaseRemoteWorkflowProxy, self).output())
 

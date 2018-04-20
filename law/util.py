@@ -6,8 +6,8 @@ Helpful utility functions.
 
 
 __all__ = ["no_value", "rel_path", "law_src_path", "law_home_path", "print_err", "abort", "colored",
-           "uncolored", "query_choice", "multi_match", "make_list", "flatten", "which",
-           "map_verbose", "map_struct", "mask_struct", "tmp_file", "interruptable_popen",
+           "uncolored", "query_choice", "multi_match", "is_lazy_iterable", "make_list", "flatten",
+           "which", "map_verbose", "map_struct", "mask_struct", "tmp_file", "interruptable_popen",
            "create_hash", "copy_no_perm", "makedirs_perm", "user_owns_file", "iter_chunks",
            "human_bytes", "is_file_exists_error", "check_bool_flag", "ShorthandDict"]
 
@@ -222,6 +222,13 @@ def multi_match(name, patterns, mode=any, regex=False):
         return mode(re.match(pattern, name) for pattern in patterns)
 
 
+def is_lazy_iterable(obj):
+    """
+    Returns whether *obj* is iterable lazily, such as generators, range objects, etc.
+    """
+    return isinstance(obj, (types.GeneratorType, MappingView, six.moves.range))
+
+
 def make_list(obj, cast=True):
     """
     Converts an object *obj* to a list and returns it. Objects of types *tuple* and *set* are
@@ -229,9 +236,9 @@ def make_list(obj, cast=True):
     """
     if isinstance(obj, list):
         return list(obj)
-    if isinstance(obj, (types.GeneratorType, MappingView)):
+    elif is_lazy_iterable(obj):
         return list(obj)
-    if isinstance(obj, (tuple, set)) and cast:
+    elif isinstance(obj, (tuple, set)) and cast:
         return list(obj)
     else:
         return [obj]
@@ -241,11 +248,9 @@ def flatten(struct):
     """
     Flattens and returns a complex structured object *struct*.
     """
-    if isinstance(struct, types.GeneratorType):
-        return flatten(list(struct))
-    elif isinstance(struct, dict):
+    if isinstance(struct, dict):
         return flatten(struct.values())
-    elif isinstance(struct, (list, tuple, set, MappingView)):
+    elif isinstance(struct, (list, tuple, set)) or is_lazy_iterable(struct):
         objs = []
         for obj in struct:
             objs.extend(flatten(obj))
@@ -334,7 +339,7 @@ def map_struct(func, struct, cls=None, map_dict=True, map_list=True, map_tuple=F
     that define the depth of that setting in the struct.
     """
     # interpret generators and views as lists
-    if isinstance(struct, (types.GeneratorType, MappingView)):
+    if is_lazy_iterable(struct):
         struct = list(struct)
 
     valid_types = tuple()
@@ -559,7 +564,7 @@ def iter_chunks(l, size):
     if isinstance(l, six.integer_types):
         l = six.moves.range(l)
 
-    if isinstance(l, (types.GeneratorType, six.moves.range)):
+    if is_lazy_iterable(l):
         if size < 1:
             yield list(l)
         else:
