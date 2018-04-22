@@ -36,7 +36,7 @@ action() {
         find src -maxdepth 3 -type d \
             | grep -e "^src/.*/.*/\(interface\|data\|python\)" \
             | grep -v -e "$exclude" \
-            | tar -czf "$dst_path" lib biglib bin --exclude="*.pyc" --files-from -
+            | tar -czf "$dst_path" --dereference lib biglib bin --exclude="*.pyc" --files-from -
     )
     local ret="$?"
 
