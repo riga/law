@@ -5,7 +5,7 @@
 
 # Arguments:
 # 1. the path to the CMSSW checkout
-# 2. the path where the bundle should be stored, should end with .tgz
+# 2. the path where the bundle should be stored, should be absolute and end with .tgz
 # 3. (optional) regex for excluding files or directories in src, should start with (e.g.) ^src/
 
 action() {
@@ -28,7 +28,9 @@ action() {
 
     local exclude="$3"
     if [ -z "$exclude" ]; then
-        exclude="_"
+        # to make the bundling call below not too complex, set a value here that really
+        # should not match any path in src
+        exclude="???"
     fi
 
     ( \
@@ -36,7 +38,7 @@ action() {
         find src -maxdepth 3 -type d \
             | grep -e "^src/.*/.*/\(interface\|data\|python\)" \
             | grep -v -e "$exclude" \
-            | tar -czf "$dst_path" --dereference lib biglib bin --exclude="*.pyc" --files-from -
+            | tar -czf "$dst_path" --dereference lib biglib bin cfipython --exclude="*.pyc" --files-from -
     )
     local ret="$?"
 
