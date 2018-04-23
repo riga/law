@@ -9,6 +9,7 @@ __all__ = ["TargetCollection", "SiblingFileCollection"]
 
 
 import types
+import random
 
 import six
 
@@ -114,6 +115,12 @@ class TargetCollection(Target):
                 n += 1
 
         return n if existing else len(self) - n
+
+    def random_target(self):
+        if isinstance(self.targets, (list, tuple)):
+            return random.choice(self.targets)
+        else:  # dict
+            return random.choice(list(self.targets.values()))
 
     def status_text(self, max_depth=0, color=True):
         count = self.count()
