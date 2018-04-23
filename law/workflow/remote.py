@@ -12,7 +12,7 @@ import sys
 import time
 import math
 import random
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from abc import abstractmethod
 
 import luigi
@@ -130,7 +130,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         self.submission_data = self.submission_data_cls(tasks_per_job=self.task.tasks_per_job)
         self.skip_data = {}
         self.last_status_counts = None
-        self.attempts = {}
+        self.attempts = defaultdict(int)
         self.show_errors = 5
         self.dashboard = None
         self.n_active_jobs = None
@@ -273,6 +273,8 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             self.submission_data.update(self._outputs["submission"].load(formatter="json"))
             task.tasks_per_job = self.submission_data.tasks_per_job
             self.dashboard.apply_config(self.submission_data.dashboard_config)
+            for job_num in self.submission_data.jobs:
+                self.attempts[int(job_num)] = -1
 
         # when the branch outputs, i.e. the "collection" exists, just create dummy control outputs
         if "collection" in self._outputs and self._outputs["collection"].exists():
@@ -473,8 +475,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             self.submission_data.jobs[job_num] = job_data
             new_submission_data[job_num] = job_data
 
-            # set attempts and inform the dashboard
-            self.attempts[job_num] = 0
+            # inform the dashboard
             task.forward_dashboard_event(self.dashboard, job_data, "action.submit", job_num)
 
         # dump the submission data to the output file
@@ -601,7 +602,6 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             retry_jobs = OrderedDict()
             if n_failed:
                 for job_num, data in six.iteritems(failed_jobs):
-                    self.attempts.setdefault(job_num, -1)
                     if self.attempts[job_num] < task.retries:
                         self.attempts[job_num] += 1
                         self.submission_data.jobs[job_num]["attempt"] += 1
