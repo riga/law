@@ -268,7 +268,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         self.dashboard = task.create_job_dashboard() or NoJobDashboard()
 
         # read submission data and reset some values
-        submitted = self._outputs["submission"].exists()
+        submitted = not task.ignore_submission and self._outputs["submission"].exists()
         if submitted:
             self.submission_data.update(self._outputs["submission"].load(formatter="json"))
             task.tasks_per_job = self.submission_data.tasks_per_job
@@ -813,13 +813,15 @@ class BaseRemoteWorkflow(BaseWorkflow):
     shuffle_jobs = luigi.BoolParameter(description="shuffled job submission")
     cancel_jobs = luigi.BoolParameter(description="cancel all submitted jobs, no new submission")
     cleanup_jobs = luigi.BoolParameter(description="cleanup all submitted jobs, no new submission")
+    ignore_submission = luigi.BoolParameter(significant=False, description="ignore any existing "
+        "submission file and do a fresh submission")
     transfer_logs = luigi.BoolParameter(significant=False, description="transfer job logs to the "
         "output directory")
 
     exclude_params_branch = {
         "retries", "tasks_per_job", "parallel_jobs", "only_missing", "no_poll", "threads",
         "walltime", "poll_interval", "poll_fails", "shuffle_jobs", "cancel_jobs", "cleanup_jobs",
-        "transfer_logs",
+        "ignore_submission", "transfer_logs",
     }
 
     exclude_db = True
