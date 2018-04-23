@@ -52,7 +52,7 @@ class Target(luigi.target.Target):
 
     @classmethod
     def _repr_flag(cls, name, color=True):
-        return colored(name, color="blue", style="bright") if color else name
+        return colored(name, color="magenta") if color else name
 
     def status_text(self, max_depth=0, color=True):
         if self.exists():
