@@ -19,6 +19,7 @@ from contextlib import contextmanager
 import luigi
 import six
 
+from law.target.base import split_transfer_kwargs
 from law.target.file import (FileSystem, FileSystemTarget, FileSystemFileTarget,
     FileSystemDirectoryTarget, get_scheme, remove_scheme)
 from law.target.formatter import AUTO_FORMATTER, get_formatter, find_formatters
@@ -181,6 +182,7 @@ class LocalFileSystem(FileSystem):
         return open(self._unscheme(path), mode)
 
     def load(self, path, formatter, *args, **kwargs):
+        _, kwargs = split_transfer_kwargs(kwargs)
         path = self._unscheme(path)
         if formatter == AUTO_FORMATTER:
             errors = []
@@ -196,6 +198,7 @@ class LocalFileSystem(FileSystem):
             return get_formatter(formatter, silent=False).load(path, *args, **kwargs)
 
     def dump(self, path, formatter, *args, **kwargs):
+        _, kwargs = split_transfer_kwargs(kwargs)
         path = self._unscheme(path)
         if formatter == AUTO_FORMATTER:
             errors = []

@@ -27,6 +27,7 @@ from contextlib import contextmanager
 import six
 
 from law.config import Config
+from law.target.base import split_transfer_kwargs
 from law.target.file import FileSystem, FileSystemTarget, FileSystemFileTarget, \
     FileSystemDirectoryTarget, get_path, get_scheme, has_scheme, add_scheme, remove_scheme
 from law.target.local import LocalFileSystem, LocalFileTarget
@@ -904,7 +905,8 @@ class RemoteFileSystem(FileSystem):
             raise Exception("unknown mode {}, use r or w".format(mode))
 
     def load(self, path, formatter, *args, **kwargs):
-        with self.open(path, "r", _yield_path=True) as lpath:
+        transfer_kwargs, kwargs = split_transfer_kwargs(kwargs)
+        with self.open(path, "r", _yield_path=True, **transfer_kwargs) as lpath:
             if formatter == AUTO_FORMATTER:
                 errors = []
                 for f in find_formatters(lpath, silent=False):
@@ -919,7 +921,8 @@ class RemoteFileSystem(FileSystem):
                 return get_formatter(formatter, silent=False).load(lpath, *args, **kwargs)
 
     def dump(self, path, formatter, *args, **kwargs):
-        with self.open(path, "w", _yield_path=True) as lpath:
+        transfer_kwargs, kwargs = split_transfer_kwargs(kwargs)
+        with self.open(path, "w", _yield_path=True, **transfer_kwargs) as lpath:
             if formatter == AUTO_FORMATTER:
                 errors = []
                 for f in find_formatters(lpath, silent=False):

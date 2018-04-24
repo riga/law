@@ -5,14 +5,14 @@ Custom base target definition.
 """
 
 
-__all__ = ["Target"]
+__all__ = ["Target", "split_transfer_kwargs"]
 
 
 from abc import abstractmethod, abstractproperty
 
 import luigi
 
-from law.util import colored
+from law.util import colored, make_list
 
 
 class Target(luigi.target.Target):
@@ -78,3 +78,22 @@ class Target(luigi.target.Target):
     @abstractproperty
     def hash(self):
         return
+
+
+def split_transfer_kwargs(kwargs, skip=None):
+    """
+    Takes keyword arguments *kwargs*, splits them into two separate dictionaries depending on their
+    content, and returns them in a tuple. The first one will contain arguments related to file
+    transfer operations (e.g. ``"cache"`` or ``"retries"``), while the second one will contain all
+    remaining arguments. This function is used internally to decide which arguments to pass to
+    target formatters. *skip* can be a list of argument keys that are ignored.
+    """
+    skip = make_list(skip) if skip else []
+    transfer_kwargs = {}
+    if "cache" not in skip:
+        transfer_kwargs["cache"] = kwargs.pop("cache", True)
+    if "retries" not in skip:
+        transfer_kwargs["retries"] = kwargs.pop("retries", None)
+    if "retry_delay" not in skip:
+        transfer_kwargs["retry_delay"] = kwargs.pop("retry_delay", None)
+    return transfer_kwargs, kwargs

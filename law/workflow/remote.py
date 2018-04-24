@@ -814,7 +814,7 @@ class BaseRemoteWorkflow(BaseWorkflow):
     cancel_jobs = luigi.BoolParameter(description="cancel all submitted jobs, no new submission")
     cleanup_jobs = luigi.BoolParameter(description="cleanup all submitted jobs, no new submission")
     ignore_submission = luigi.BoolParameter(significant=False, description="ignore any existing "
-        "submission file and do a fresh submission")
+        "submission file from a previous submission and start a new one")
     transfer_logs = luigi.BoolParameter(significant=False, description="transfer job logs to the "
         "output directory")
 
