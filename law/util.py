@@ -226,7 +226,7 @@ def is_lazy_iterable(obj):
     """
     Returns whether *obj* is iterable lazily, such as generators, range objects, etc.
     """
-    return isinstance(obj, 
+    return isinstance(obj,
         (types.GeneratorType, collections.MappingView, six.moves.range, enumerate))
 
 
