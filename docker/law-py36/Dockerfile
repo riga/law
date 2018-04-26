@@ -2,7 +2,7 @@ FROM centos:7
 
 # labels
 LABEL name="law-py36"
-LABEL version="0.0.23"
+LABEL version="0.0.24"
 
 # workdir
 WORKDIR /root
@@ -66,7 +66,7 @@ RUN pip3.6 install luigi six
 
 # install law master
 RUN git clone https://github.com/riga/law && \
-    cd law && git checkout tags/v0.0.23 && \
+    cd law && git checkout tags/v0.0.24 && \
     python3.6 setup.py install && \
     cd .. && rm -rf law
 
