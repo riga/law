@@ -24,8 +24,8 @@ import signal
 import hashlib
 import shutil
 import copy
-from collections import OrderedDict, MappingView
-from contextlib import contextmanager
+import collections
+import contextlib
 
 import six
 
@@ -226,7 +226,8 @@ def is_lazy_iterable(obj):
     """
     Returns whether *obj* is iterable lazily, such as generators, range objects, etc.
     """
-    return isinstance(obj, (types.GeneratorType, MappingView, six.moves.range))
+    return isinstance(obj, 
+        (types.GeneratorType, collections.MappingView, six.moves.range, enumerate))
 
 
 def make_list(obj, cast=True):
@@ -383,7 +384,7 @@ def map_struct(func, struct, cls=None, map_dict=True, map_list=True, map_tuple=F
         # recursively fill the new struct
         for key, value in gen:
             value = map_struct(func, value, cls=cls, map_dict=map_dict, map_list=map_list,
-                    map_tuple=map_tuple, map_set=map_set)
+                map_tuple=map_tuple, map_set=map_set)
             add(key, value)
 
         # convert tuples
@@ -419,8 +420,8 @@ def mask_struct(mask, struct, replace=no_value):
         mask_struct({"a": [False, True]}, struct)
         # => {"a": [2], "b": [3, ["foo", "bar"]]}
     """
-    # interpret generators and views as lists
-    if isinstance(struct, (types.GeneratorType, MappingView)):
+    # interpret lazy iterables lists
+    if is_lazy_iterable(struct):
         struct = list(struct)
 
     # when mask is a bool, or struct is not a dict or sequence, apply the mask immediately
@@ -463,7 +464,7 @@ def mask_struct(mask, struct, replace=no_value):
             type(struct)))
 
 
-@contextmanager
+@contextlib.contextmanager
 def tmp_file(*args, **kwargs):
     """
     Context manager that generates a temporary file, yields the file descriptor number and temporary
@@ -632,7 +633,7 @@ def check_bool_flag(s):
     return s.lower() in ("1", "yes", "true") if isinstance(s, six.string_types) else s
 
 
-class ShorthandDict(OrderedDict):
+class ShorthandDict(collections.OrderedDict):
     """
     Subclass of *OrderedDict* that implements ``__getattr__`` and ``__setattr__`` for a configurable
     list of attributes. Example:
