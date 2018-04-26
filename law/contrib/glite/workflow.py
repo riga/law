@@ -183,8 +183,8 @@ class GLiteWorkflow(BaseRemoteWorkflow):
         return OrderedDict()
 
     def glite_output_postfix(self):
-        # TODO (riga): use start/end branch by default?
-        return ""
+        self.get_branch_map()
+        return "_{}To{}".format(self.start_branch, self.end_branch)
 
     def glite_output_uri(self):
         return self.glite_output_directory().url()

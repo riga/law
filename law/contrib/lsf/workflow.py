@@ -169,8 +169,8 @@ class LSFWorkflow(BaseRemoteWorkflow):
         return OrderedDict()
 
     def lsf_output_postfix(self):
-        # TODO (riga): use start/end branch by default?
-        return ""
+        self.get_branch_map()
+        return "_{}To{}".format(self.start_branch, self.end_branch)
 
     def lsf_create_job_manager(self):
         return LSFJobManager()

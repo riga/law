@@ -13,6 +13,10 @@ import os
 
 import luigi
 import law
+
+
+# the htcondor workflow implementation is part of a law contrib package
+# so we need to explicitly load it
 law.contrib.load("htcondor")
 
 

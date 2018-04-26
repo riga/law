@@ -172,8 +172,8 @@ class ARCWorkflow(BaseRemoteWorkflow):
         return OrderedDict()
 
     def arc_output_postfix(self):
-        # TODO (riga): use start/end branch by default?
-        return ""
+        self.get_branch_map()
+        return "_{}To{}".format(self.start_branch, self.end_branch)
 
     def arc_output_uri(self):
         return self.arc_output_directory().url()

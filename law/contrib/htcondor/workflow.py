@@ -180,8 +180,8 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
         return None
 
     def htcondor_output_postfix(self):
-        # TODO: use start/end branch by default?
-        return ""
+        self.get_branch_map()
+        return "_{}To{}".format(self.start_branch, self.end_branch)
 
     def htcondor_create_job_manager(self):
         return HTCondorJobManager()

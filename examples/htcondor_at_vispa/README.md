@@ -57,9 +57,9 @@ print task status with max_depth -1 and target_depth 0
 |     -> absent
 |
 |   > check status of CreateChars(branch=-1, version=v1, ...)
-|   |   - check LocalFileTarget(path=/examplepath/data/CreateChars/v1/htcondor_submission.json, optional)
+|   |   - check LocalFileTarget(path=/examplepath/data/CreateChars/v1/htcondor_submission_0To26.json, optional)
 |   |     -> absent
-|   |   - check LocalFileTarget(path=/examplepath/data/CreateChars/v1/htcondor_status.json, optional)
+|   |   - check LocalFileTarget(path=/examplepath/data/CreateChars/v1/htcondor_status_0To26.json, optional)
 |   |     -> absent
 |   |   - check TargetCollection(len=26, threshold=1.0)
 |   |     -> absent (0/26)
@@ -94,9 +94,9 @@ print task status with max_depth -1 and target_depth 0
 |     -> existent
 |
 |   > check status of CreateChars(branch=-1, version=v1, ...)
-|   |   - check LocalFileTarget(path=/examplepath/data/CreateChars/v1/htcondor_submission.json, optional)
+|   |   - check LocalFileTarget(path=/examplepath/data/CreateChars/v1/htcondor_submission_0To26.json, optional)
 |   |     -> existent
-|   |   - check LocalFileTarget(path=/examplepath/data/CreateChars/v1/htcondor_status.json, optional)
+|   |   - check LocalFileTarget(path=/examplepath/data/CreateChars/v1/htcondor_status_0To26.json, optional)
 |   |     -> existent
 |   |   - check TargetCollection(len=26, threshold=1.0)
 |   |     -> existent (26/26)
