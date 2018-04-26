@@ -22,7 +22,7 @@
 
 **Note**: This project is currently under development. Version 0.1.0 will be the first, fully documented alpha release.
 
-Use law to build complex and large-scale task workflows. It is build on top of `luigi <https://github.com/spotify/luigi>`_ and adds abstractions for **run locations**, **storage locations** and **software environments**. Law strictly disentangles these building blocks and ensures they remain interchangeable and resource-opportunistic.
+Use law to build complex and large-scale task workflows. It is build on top of `luigi <https://github.com/spotify/luigi>`__ and adds abstractions for **run locations**, **storage locations** and **software environments**. Law strictly disentangles these building blocks and ensures they remain interchangeable and resource-opportunistic.
 
 Key features:
 
@@ -44,38 +44,38 @@ First steps
 Installation and Dependencies
 -----------------------------
 
-Install via `pip <https://pypi.python.org/pypi/law>`_:
+Install via `pip <https://pypi.python.org/pypi/law>`__:
 
 .. code-block:: bash
 
    pip install law
 
-This command also installs `luigi <https://pypi.python.org/pypi/luigi>`_ and `six <https://pypi.python.org/pypi/six>`_.
+This command also installs `luigi <https://pypi.python.org/pypi/luigi>`__ and `six <https://pypi.python.org/pypi/six>`__.
 
-Remote targets also require `gfal2 <http://dmc.web.cern.ch/projects/gfal-2/home>`_ and `gfal2-python <https://pypi.python.org/pypi/gfal2-python>`_ (also via pip) to be installed.
+Remote targets also require `gfal2 <http://dmc.web.cern.ch/projects/gfal-2/home>`__ and `gfal2-python <https://pypi.python.org/pypi/gfal2-python>`__ (also via pip) to be installed.
 
 
 Examples
 ========
 
-- `loremipsum <https://github.com/riga/law/tree/master/examples/loremipsum>`_: The *hello world* of law.
-- `workflows <https://github.com/riga/law/tree/master/examples/workflows>`_: Law workflows.
-- `docker_sandboxes <https://github.com/riga/law/tree/master/examples/docker_sandboxes>`_: Environment sandboxing using Docker. TODO.
-- `dropbox_targets <https://github.com/riga/law/tree/master/examples/dropbox_targets>`_: Working with targets that are stored on Dropbox.
-- `wlcg_targets <https://github.com/riga/law/tree/master/examples/wlcg_targets>`_: Working with targets that are stored on WLCG storage elements (dCache, EOS, ...). TODO.
-- `htcondor_at_vispa <https://github.com/riga/law/tree/master/examples/htcondor_at_vispa>`_: HTCondor workflows at the `VISPA service <https://vispa.physik.rwth-aachen.de>`_.
-- `htcondor_at_cern <https://github.com/riga/law/tree/master/examples/htcondor_at_cern>`_: HTCondor workflows at the CERN batch infrastructure.
-- `grid_at_cern <https://github.com/riga/law/tree/master/examples/grid_at_cern>`_: Workflows that run on the WLCG. TODO.
-- `lsf_at_cern <https://github.com/riga/law/tree/master/examples/lsf_at_cern>`_: LSF workflows at the CERN batch infrastructure.
-- `parallel_optimization <https://github.com/riga/law/tree/master/examples/parallel_optimization>`_: Parallel optimization using `scikit optimize <https://scikit-optimize.github.io>`_.
-- `CMS Single Top Analysis <https://github.com/riga/law_example_CMSSingleTopAnalysis>`_: Simple physics analysis using law.
+- `loremipsum <https://github.com/riga/law/tree/master/examples/loremipsum>`__: The *hello world* of law.
+- `workflows <https://github.com/riga/law/tree/master/examples/workflows>`__: Law workflows.
+- `docker_sandboxes <https://github.com/riga/law/tree/master/examples/docker_sandboxes>`__: Environment sandboxing using Docker. TODO.
+- `dropbox_targets <https://github.com/riga/law/tree/master/examples/dropbox_targets>`__: Working with targets that are stored on Dropbox.
+- `wlcg_targets <https://github.com/riga/law/tree/master/examples/wlcg_targets>`__: Working with targets that are stored on WLCG storage elements (dCache, EOS, ...). TODO.
+- `htcondor_at_vispa <https://github.com/riga/law/tree/master/examples/htcondor_at_vispa>`__: HTCondor workflows at the `VISPA service <https://vispa.physik.rwth-aachen.de>`__.
+- `htcondor_at_cern <https://github.com/riga/law/tree/master/examples/htcondor_at_cern>`__: HTCondor workflows at the CERN batch infrastructure.
+- `grid_at_cern <https://github.com/riga/law/tree/master/examples/grid_at_cern>`__: Workflows that run on the WLCG. TODO.
+- `lsf_at_cern <https://github.com/riga/law/tree/master/examples/lsf_at_cern>`__: LSF workflows at the CERN batch infrastructure.
+- `parallel_optimization <https://github.com/riga/law/tree/master/examples/parallel_optimization>`__: Parallel optimization using `scikit optimize <https://scikit-optimize.github.io>`__.
+- `CMS Single Top Analysis <https://github.com/riga/law_example_CMSSingleTopAnalysis>`__: Simple physics analysis using law.
 
 
 Development
 ===========
 
-- Source hosted at `GitHub <https://github.com/riga/law>`_
-- Report issues, questions, feature requests on `GitHub Issues <https://github.com/riga/law/issues>`_
+- Source hosted at `GitHub <https://github.com/riga/law>`__
+- Report issues, questions, feature requests on `GitHub Issues <https://github.com/riga/law/issues>`__
 
 
 .. marker-after-body
@@ -84,7 +84,7 @@ Development
 Authors
 =======
 
-- `Marcel R. <https://github.com/riga>`_
+- `Marcel R. <https://github.com/riga>`__
 
 
 License
