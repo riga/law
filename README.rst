@@ -64,8 +64,9 @@ Examples
 - `dropbox_targets <https://github.com/riga/law/tree/master/examples/dropbox_targets>`_: Working with targets that are stored on Dropbox.
 - `wlcg_targets <https://github.com/riga/law/tree/master/examples/wlcg_targets>`_: Working with targets that are stored on WLCG storage elements (dCache, EOS, ...). TODO.
 - `htcondor_at_vispa <https://github.com/riga/law/tree/master/examples/htcondor_at_vispa>`_: HTCondor workflows at the `VISPA service <https://vispa.physik.rwth-aachen.de>`_.
-- `lsf_at_cern <https://github.com/riga/law/tree/master/examples/lsf_at_cern>`_: LSF workflows at the CERN batch infrastructure.
+- `htcondor_at_cern <https://github.com/riga/law/tree/master/examples/htcondor_at_cern>`_: HTCondor workflows at the CERN batch infrastructure.
 - `grid_at_cern <https://github.com/riga/law/tree/master/examples/grid_at_cern>`_: Workflows that run on the WLCG. TODO.
+- `lsf_at_cern <https://github.com/riga/law/tree/master/examples/lsf_at_cern>`_: LSF workflows at the CERN batch infrastructure.
 - `parallel_optimization <https://github.com/riga/law/tree/master/examples/parallel_optimization>`_: Parallel optimization using `scikit optimize <https://scikit-optimize.github.io>`_.
 - `CMS Single Top Analysis <https://github.com/riga/law_example_CMSSingleTopAnalysis>`_: Simple physics analysis using law.
 
