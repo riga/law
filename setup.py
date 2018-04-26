@@ -2,6 +2,7 @@
 
 
 import os
+from subprocess import PIPE
 from setuptools import setup
 from setuptools.command.install import install as _install
 
@@ -11,8 +12,15 @@ import law
 this_dir = os.path.dirname(os.path.abspath(__file__))
 
 
-with open(os.path.join(this_dir, "README.rst"), "r") as f:
-    long_description = f.read()
+# read the rst readme file and try to convert with pandoc
+readme_file = os.path.join(this_dir, "README.rst")
+code, out, _ = law.util.interruptable_popen(["pandoc", readme_file, "-f", "rst", "-t", "markdown"],
+    stdout=PIPE, stderr=PIPE)
+if code == 0:
+    long_description = out
+else:
+    with open(readme_file, "r") as f:
+        long_description = f.read()
 
 keywords = ["luigi", "workflow", "pipeline", "remote", "submission", "grid"]
 
