@@ -15,6 +15,8 @@ import luigi
 import law
 
 
+# the htcondor workflow implementation is part of a law contrib package
+# so we need to explicitly load it
 law.contrib.load("htcondor")
 
 
@@ -68,4 +70,7 @@ class HTCondorWorkflow(law.HTCondorWorkflow):
         config.render_variables["analysis_path"] = os.getenv("ANALYSIS_PATH")
         # copy the entire environment
         config.custom_content.append(("getenv", "true"))
+        # the CERN htcondor setup requires a "log" config, but we can safely set it to /dev/null
+        # if you are interested in the logs of the batch system itself, set a meaningful value here
+        config.custom_content.append(("log", "/dev/null"))
         return config
