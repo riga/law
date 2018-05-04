@@ -290,7 +290,7 @@ action() {
         echo
 
         echo "dependecy tree:"
-        eval "$cmd --print-deps 2"
+        $cmd --print-deps 2
         exec_ret="$?"
         if [ "$?" != "0" ]; then
             2>&1 echo "dependency tree for branch $branch failed, abort"
@@ -303,7 +303,7 @@ action() {
         echo
 
         echo "execute attempt 1:"
-        eval "$cmd"
+        $cmd
         exec_ret="$?"
         echo "return code: $exec_ret"
 
@@ -311,7 +311,7 @@ action() {
             echo
 
             echo "execute attempt 2:"
-            eval "$cmd"
+            $cmd
             exec_ret="$?"
             echo "return code: $exec_ret"
         fi
