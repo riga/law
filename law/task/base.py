@@ -156,7 +156,8 @@ class BaseTask(luigi.Task):
             val = param.serialize(raw)
             arg = "--{}".format(name.replace("_", "-"))
             if isinstance(param, luigi.BoolParameter):
-                args.extend([arg, "True" if raw else "False"])
+                if raw:
+                    args.extend([arg])
             elif isinstance(param, (luigi.IntParameter, luigi.FloatParameter)):
                 args.extend([arg, str(val)])
             else:
