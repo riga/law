@@ -5,8 +5,8 @@ Custom luigi parameters.
 """
 
 
-__all__ = ["NO_STR", "NO_INT", "NO_FLOAT", "NO_BOOL", "is_no_param", "get_param",
-           "TaskInstanceParameter", "CSVParameter"]
+__all__ = ["NO_STR", "NO_INT", "NO_FLOAT", "is_no_param", "get_param", "TaskInstanceParameter",
+           "CSVParameter"]
 
 
 import luigi
@@ -21,16 +21,13 @@ NO_INT = -1
 #: Float value denoting an empty parameter.
 NO_FLOAT = -1.
 
-#: Integer value denoting an empty boolean parameter
-NO_BOOL = NO_INT
-
 
 def is_no_param(value):
     """
     Checks whether a parameter *value* denotes an empty parameter, i.e., if the value is either
-    :py:attr:`NO_STR`, :py:attr:`NO_INT`, :py:attr:`NO_FLOAT`, or :py:attr:`NO_BOOL`.
+    :py:attr:`NO_STR`, :py:attr:`NO_INT`, or :py:attr:`NO_FLOAT`.
     """
-    return value in (NO_STR, NO_INT, NO_FLOAT, NO_BOOL)
+    return value in (NO_STR, NO_INT, NO_FLOAT)
 
 
 def get_param(value, default=None):
