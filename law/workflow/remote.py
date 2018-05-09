@@ -427,25 +427,29 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         n_active = self.n_active_jobs or 0
         n_parallel = sys.maxsize if task.parallel_jobs < 0 else task.parallel_jobs
         new_jobs = OrderedDict()
-        for job_num, branches in six.iteritems(self.submission_data.waiting_jobs):
+        for job_num, branches in list(self.submission_data.waiting_jobs.items()):
             if n_active + len(new_jobs) >= n_parallel:
                 break
+
+            # remove job from the waiting list
+            del self.submission_data.waiting_jobs[job_num]
 
             if skip_job(job_num, branches):
                 continue
 
             new_jobs[job_num] = sorted(branches)
 
-        # remove new jobs from the waiting list
-        for job_num in new_jobs:
-            del self.submission_data.waiting_jobs[job_num]
-
         # add new jobs to the jobs to submit, maybe also shuffle
+        new_submission_data = OrderedDict()
         new_job_nums = list(new_jobs.keys())
         if task.shuffle_jobs:
             random.shuffle(new_job_nums)
         for job_num in new_job_nums:
             submit_jobs[job_num] = new_jobs[job_num]
+
+        # when there is nothing to submit, stop here
+        if not submit_jobs:
+            return new_submission_data
 
         # create job submission files
         job_files = [self.create_job_file(*tpl) for tpl in six.iteritems(submit_jobs)]
@@ -461,7 +465,6 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
         # store submission data
         errors = []
-        new_submission_data = OrderedDict()
         for job_num, job_id in six.moves.zip(submit_jobs, job_ids):
             # handle errors
             error = (job_num, job_id) if isinstance(job_id, Exception) else None
