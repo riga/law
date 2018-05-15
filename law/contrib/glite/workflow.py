@@ -68,8 +68,7 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
 
         # job script arguments
         job_args = JobArguments(
-            task_module=task.__class__.__module__,
-            task_family=task.task_family,
+            task_cls=task.__class__,
             task_params=task_params,
             branches=branches,
             auto_retry=False,

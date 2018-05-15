@@ -621,20 +621,15 @@ class BaseJobFileFactory(object):
 
 class JobArguments(object):
     """
-    Wrapper class for job arguments. Currently it stores the *task_module*, the *task_family*, the
-    list of *task_params*, the list of covered *branches*, the *auto_retry* flag, and custom
-    *dashboard_data*. It also handles argument encoding as reqired by the job wrapper script at
-    `law/job/job.sh <https://github.com/riga/law/blob/master/law/job/job.sh>`_.
+    Wrapper class for job arguments. Currently, it stores a task class *task_cls*, a list of
+    *task_params*, a list of covered *branches*, an *auto_retry* flag, and custom *dashboard_data*.
+    It also handles argument encoding as reqired by the job wrapper script at
+    `law/job/job.sh <https://github.com/riga/law/blob/master/law/job/job.sh>`__.
 
-    .. py:attribute:: task_module
-       type: string
+    .. py:attribute:: task_cls
+       type: Register
 
-       The task module id.
-
-    .. py:attribute:: task_family
-       type: string
-
-       The task family name.
+       The task class.
 
     .. py:attribute:: task_params
        type: list
@@ -658,12 +653,10 @@ class JobArguments(object):
        :py:meth:`law.job.dashboard.BaseJobDashboard.remote_hook_data`.
     """
 
-    def __init__(self, task_module, task_family, task_params, branches, auto_retry=False,
-            dashboard_data=None):
+    def __init__(self, task_cls, task_params, branches, auto_retry=False, dashboard_data=None):
         super(JobArguments, self).__init__()
 
-        self.task_module = task_module
-        self.task_family = task_family
+        self.task_cls = task_cls
         self.task_params = task_params
         self.branches = branches
         self.auto_retry = auto_retry
@@ -684,14 +677,14 @@ class JobArguments(object):
         encoded = base64.b64encode(six.b(" ".join(str(v) for v in value) or "-"))
         return encoded.decode("utf-8") if six.PY3 else encoded
 
-    def pack(self):
+    def get_args(self):
         """
         Returns the list of encoded job arguments. The order of this list corresponds to the
         arguments expected by the job wrapper script.
         """
         return [
-            self.task_module,
-            self.task_family,
+            self.task_cls.__module__,
+            self.task_cls.__name__,
             self.encode_list(self.task_params),
             self.encode_list(self.branches),
             self.encode_bool(self.auto_retry),
@@ -703,4 +696,4 @@ class JobArguments(object):
         Returns the list of job arguments from :py:meth:`pack`, joined to a string using a single
         space character.
         """
-        return " ".join(str(item) for item in self.pack())
+        return " ".join(str(item) for item in self.get_args())

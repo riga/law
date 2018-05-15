@@ -13,7 +13,7 @@
 
 # arguments:
 # 1. task_module
-# 2. task_family
+# 2. task_class
 # 3. task_params (base64 encoded list)
 # 4. branches (base64 encoded list)
 # 5. auto_retry
@@ -28,7 +28,7 @@ action() {
     #
 
     local task_module="$1"
-    local task_family="$2"
+    local task_class="$2"
     local task_params="$( echo "$3" | base64 --decode )"
     local branches="$( echo "$4" | base64 --decode )"
     local auto_retry="$5"
@@ -176,7 +176,7 @@ action() {
     echo "python: '$( 2>&1 python --version )' ($( which python ))"
     echo
     echo "task module   : $task_module"
-    echo "task family   : $task_family"
+    echo "task family   : $task_class"
     echo "task params   : $task_params"
     echo "branches      : $branches"
     echo "auto retry    : $auto_retry"
@@ -284,7 +284,7 @@ action() {
     for branch in $branches; do
         section "branch $branch"
 
-        local cmd="law run $task_module.$task_family --branch $branch $task_params"
+        local cmd="law run $task_module.$task_class --branch $branch $task_params"
         echo "cmd: $cmd"
 
         echo
