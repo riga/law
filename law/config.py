@@ -12,10 +12,11 @@ import os
 import tempfile
 import logging
 
+import luigi
 import six
 from six.moves.configparser import ConfigParser
 
-from law.util import law_home_path
+from law.util import law_home_path, check_bool_flag
 
 
 logger = logging.getLogger(__name__)
@@ -25,7 +26,7 @@ class Config(ConfigParser):
     """
     Custom law configuration parser with a few additions on top of the standard python
     ``ConfigParser``. Most notably, this class adds config *inheritance* via :py:meth:`update` and
-    :py:meth:`include`.
+    :py:meth:`include`, as well as a mechanism to synchronize with the luigi configuration parser.
 
     When *config_file* is set, it is loaded during setup. When empty, and *skip_fallbacks* is
     *False*, the default config file locations defined in :py:attr:`_config_files` are checked. By
@@ -57,6 +58,7 @@ class Config(ConfigParser):
             "software_dir": law_home_path("software"),
             "inherit_configs": "",
             "extend_configs": "",
+            "sync_luigi_config": check_bool_flag(os.getenv("LAW_SYNC_LUIGI_CONFIG", "yes")),
         },
         "logging": {
             "law": os.getenv("LAW_LOG_LEVEL", "WARNING"),
@@ -142,6 +144,10 @@ class Config(ConfigParser):
                         filename = os.path.normpath(os.path.join(basedir, filename))
                     self.include(filename, overwrite_options=overwrite_options)
 
+        # sync with luigi configuration
+        if self.getboolean("core", "sync_luigi_config"):
+            self.sync_luigi_config()
+
     def optionxform(self, option):
         """"""
         return option
@@ -204,3 +210,41 @@ class Config(ConfigParser):
         Returns all keys of a *section* in a list.
         """
         return [key for key, _ in self.items(section)]
+
+    def sync_luigi_config(self, push=True, pull=True, expand=True):
+        """
+        Synchronizes sections starting with ``"luigi_"`` with the luigi configuration parser. First,
+        when *push* is *True*, options that exist in law but **not** in luigi are stored as defaults
+        in the luigi config. Then, when *pull* is *True*, all luigi-related sections and options in
+        the law config are overwritten with those from luigi. When *expand* is *True*, environment
+        variables are expanded before pushing them to the luigi config.
+        """
+        prefix = "luigi_"
+        lparser = luigi.configuration.LuigiConfigParser.instance()
+
+        if push:
+            for section in self.sections():
+                if not section.startswith(prefix):
+                    continue
+                lsection = section[len(prefix):]
+
+                if not lparser.has_section(lsection):
+                    lparser.add_section(lsection)
+
+                for option in self.options(section):
+                    if not lparser.has_option(lsection, option):
+                        if expand:
+                            value = self.get_expanded(section, option)
+                        else:
+                            value = self.get(section, option)
+                        lparser.set(lsection, option, value)
+
+        if pull:
+            for lsection in lparser.sections():
+                section = prefix + lsection
+
+                if not self.has_section(section):
+                    self.add_section(section)
+
+                for option, value in lparser.items(lsection):
+                    self.set(section, option, value)
