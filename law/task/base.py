@@ -205,6 +205,8 @@ class Task(BaseTask):
 
     interactive_params = ["print_deps", "print_status", "remove_output"]
 
+    message_cache_size = 10
+
     exclude_db = True
     exclude_params_req = set(interactive_params)
 
@@ -213,7 +215,6 @@ class Task(BaseTask):
 
         # cache for messages published to the scheduler
         self._message_cache = []
-        self._message_cache_size = 10
 
         # cache for the last progress published to the scheduler
         self._last_progress_percentage = None
@@ -235,8 +236,9 @@ class Task(BaseTask):
         # add to message cache and handle overflow
         msg = uncolored(msg)
         self._message_cache.append(msg)
-        if self._message_cache_size >= 0:
-            self._message_cache[:] = self._message_cache[-self._message_cache_size:]
+        if self.message_cache_size >= 0:
+            end = max(len(self._message_cache) - self.message_cache_size, 0)
+            del self._message_cache[:end]
 
         # set status message using the current message cache
         self.set_status_message("\n".join(self._message_cache))
