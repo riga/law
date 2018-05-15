@@ -215,9 +215,11 @@ class Config(ConfigParser):
         """
         Synchronizes sections starting with ``"luigi_"`` with the luigi configuration parser. First,
         when *push* is *True*, options that exist in law but **not** in luigi are stored as defaults
-        in the luigi config. Then, when *pull* is *True*, all luigi-related sections and options in
-        the law config are overwritten with those from luigi. When *expand* is *True*, environment
-        variables are expanded before pushing them to the luigi config.
+        in the luigi config. Then, when *pull* is *True*, all luigi-related options in the law
+        config are overwritten with those from luigi. This way, options set via luigi defaults
+        (environment variables, global configuration files, `LUIGI_CONFIG_PATH`) always have
+        precendence. When *expand* is *True*, environment variables are expanded before pushing them
+        to the luigi config.
         """
         prefix = "luigi_"
         lparser = luigi.configuration.LuigiConfigParser.instance()

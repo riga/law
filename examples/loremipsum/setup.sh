@@ -17,7 +17,6 @@ action() {
 
     export LAW_HOME="$base/.law"
     export LAW_CONFIG_FILE="$base/law.cfg"
-    export LUIGI_CONFIG_PATH="$base/luigi.cfg"
     export LOREMIPSUM_DATA_PATH="$base/data"
 
     source "$( law completion )"
