@@ -60,13 +60,15 @@ Examples
 
 - `loremipsum <https://github.com/riga/law/tree/master/examples/loremipsum>`__: The *hello world* of law.
 - `workflows <https://github.com/riga/law/tree/master/examples/workflows>`__: Law workflows.
-- `docker_sandboxes <https://github.com/riga/law/tree/master/examples/docker_sandboxes>`__: Environment sandboxing using Docker. TODO.
 - `dropbox_targets <https://github.com/riga/law/tree/master/examples/dropbox_targets>`__: Working with targets that are stored on Dropbox.
 - `wlcg_targets <https://github.com/riga/law/tree/master/examples/wlcg_targets>`__: Working with targets that are stored on WLCG storage elements (dCache, EOS, ...). TODO.
 - `htcondor_at_vispa <https://github.com/riga/law/tree/master/examples/htcondor_at_vispa>`__: HTCondor workflows at the `VISPA service <https://vispa.physik.rwth-aachen.de>`__.
 - `htcondor_at_cern <https://github.com/riga/law/tree/master/examples/htcondor_at_cern>`__: HTCondor workflows at the CERN batch infrastructure.
 - `grid_at_cern <https://github.com/riga/law/tree/master/examples/grid_at_cern>`__: Workflows that run on the WLCG. TODO.
 - `lsf_at_cern <https://github.com/riga/law/tree/master/examples/lsf_at_cern>`__: LSF workflows at the CERN batch infrastructure.
+- `docker_sandboxes <https://github.com/riga/law/tree/master/examples/docker_sandboxes>`__: Environment sandboxing using Docker. TODO.
+- `singularity_sandboxes <https://github.com/riga/law/tree/master/examples/singularity_sandboxes>`__: Environment sandboxing using Singularity. TODO.
+- `subshell_sandboxes <https://github.com/riga/law/tree/master/examples/subshell_sandboxes>`__: Environment sandboxing using Subshells. TODO.
 - `parallel_optimization <https://github.com/riga/law/tree/master/examples/parallel_optimization>`__: Parallel optimization using `scikit optimize <https://scikit-optimize.github.io>`__.
 - `CMS Single Top Analysis <https://github.com/riga/law_example_CMSSingleTopAnalysis>`__: Simple physics analysis using law.
 
