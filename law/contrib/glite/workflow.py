@@ -65,6 +65,11 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
         task_params = remove_cmdline_arg(task_params, "--workers", 2)
         if task.glite_use_local_scheduler():
             task_params = add_cmdline_arg(task_params, "--local-scheduler")
+        for arg in task.glite_cmdline_args() or []:
+            if isinstance(arg, tuple):
+                task_params = add_cmdline_arg(task_params, *arg)
+            else:
+                task_params = add_cmdline_arg(task_params, arg)
 
         # job script arguments
         job_args = JobArguments(
@@ -203,3 +208,6 @@ class GLiteWorkflow(BaseRemoteWorkflow):
 
     def glite_use_local_scheduler(self):
         return True
+
+    def glite_cmdline_args(self):
+        return []

@@ -55,6 +55,11 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         task_params = remove_cmdline_arg(task_params, "--workers", 2)
         if task.htcondor_use_local_scheduler():
             task_params = add_cmdline_arg(task_params, "--local-scheduler")
+        for arg in task.htcondor_cmdline_args() or []:
+            if isinstance(arg, tuple):
+                task_params = add_cmdline_arg(task_params, *arg)
+            else:
+                task_params = add_cmdline_arg(task_params, arg)
 
         # job script arguments
         job_args = JobArguments(
@@ -193,3 +198,6 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
 
     def htcondor_use_local_scheduler(self):
         return False
+
+    def htcondor_cmdline_args(self) or []:
+        return []

@@ -53,6 +53,11 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
         task_params = remove_cmdline_arg(task_params, "--workers", 2)
         if task.lsf_use_local_scheduler():
             task_params = add_cmdline_arg(task_params, "--local-scheduler")
+        for arg in task.lsf_cmdline_args() or []:
+            if isinstance(arg, tuple):
+                task_params = add_cmdline_arg(task_params, *arg)
+            else:
+                task_params = add_cmdline_arg(task_params, arg)
 
         # job script arguments
         job_args = JobArguments(
@@ -182,3 +187,6 @@ class LSFWorkflow(BaseRemoteWorkflow):
 
     def lsf_use_local_scheduler(self):
         return True
+
+    def lsf_cmdline_args(self):
+        return []

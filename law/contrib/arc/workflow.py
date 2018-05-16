@@ -60,6 +60,11 @@ class ARCWorkflowProxy(BaseRemoteWorkflowProxy):
         task_params = remove_cmdline_arg(task_params, "--workers", 2)
         if task.arc_use_local_scheduler():
             task_params = add_cmdline_arg(task_params, "--local-scheduler")
+        for arg in task.arc_cmdline_args() or []:
+            if isinstance(arg, tuple):
+                task_params = add_cmdline_arg(task_params, *arg)
+            else:
+                task_params = add_cmdline_arg(task_params, arg)
 
         # job script arguments
         job_args = JobArguments(
@@ -188,3 +193,6 @@ class ARCWorkflow(BaseRemoteWorkflow):
 
     def arc_use_local_scheduler(self):
         return True
+
+    def arc_cmdline_args(self):
+        return []
