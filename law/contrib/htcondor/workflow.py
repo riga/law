@@ -199,5 +199,5 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
     def htcondor_use_local_scheduler(self):
         return False
 
-    def htcondor_cmdline_args(self) or []:
+    def htcondor_cmdline_args(self):
         return []
