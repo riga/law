@@ -632,10 +632,12 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             # log failed jobs
             if failed_jobs:
                 print("{} failed job(s) in task {}:".format(len(failed_jobs), task.task_id))
-                tmpl = "    {}: id: {}, status: {status}, code: {code}, error: {error}"
+                tmpl = "    job: {}, branches: {}, id: {}, status: {status}, code: {code}, " \
+                    "error: {error}"
                 for i, (job_num, data) in enumerate(six.iteritems(failed_jobs)):
                     job_id = self.submission_data.jobs[job_num]["job_id"]
-                    print(tmpl.format(job_num, job_id, **data))
+                    branches = self.submission_data.jobs[job_num]["branches"]
+                    print(tmpl.format(job_num, ",".join(str(b) for b in branches), job_id, **data))
                     if i + 1 >= self.show_errors:
                         remaining = len(failed_jobs) - self.show_errors
                         if remaining > 0:
