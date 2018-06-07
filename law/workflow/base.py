@@ -273,8 +273,7 @@ class BaseWorkflow(Task):
         "default: 0")
     end_branch = luigi.IntParameter(default=NO_INT, description="the branch to end at, NO_INT "
         "means end, default: NO_INT")
-    branches = CSVParameter(cls=luigi.IntParameter, default=[], significant=False,
-        description="branches to use")
+    branches = CSVParameter(default=[], significant=False, description="branches to use")
 
     workflow_proxy_cls = BaseWorkflowProxy
 
@@ -409,9 +408,33 @@ class BaseWorkflow(Task):
 
         # reduce by branches
         if self.branches:
-            for b in list(self._branch_map.keys()):
-                if b not in self.branches:
-                    del self._branch_map[b]
+            # helper to expand slices, e.g. "1-3" -> 1,2,3 or "4-" -> 4,5,6,...
+            def expand(b):
+                if "-" in str(b):
+                    parts = str(b).strip().split("-")
+                    if len(parts) == 2:
+                        start = int(parts[0]) if parts[0] else None
+                        end = int(parts[1]) if parts[1] else None
+                        return start, end
+                return int(b)
+
+            # determine branches to remove
+            remove_branches = sorted(list(self._branch_map.keys()))
+            for b in self.branches:
+                b = expand(b)
+                if isinstance(b, tuple):
+                    start = b[0] if b[0] is not None else min(remove_branches)
+                    end = b[1] if b[1] is not None else max(remove_branches)
+                    for b in range(start, end + 1):
+                        if b in remove_branches:
+                            remove_branches.remove(b)
+                else:
+                    if b in remove_branches:
+                        remove_branches.remove(b)
+
+            # actual removal
+            for b in remove_branches:
+                del self._branch_map[b]
 
     def get_branch_map(self, reset_boundaries=True, reduce=True):
         """
