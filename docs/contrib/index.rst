@@ -19,6 +19,7 @@ To use on of the following packages in your code, you must import them explicitl
    dropbox
    git
    glite
+   hdf5
    htcondor
    keras
    lsf
