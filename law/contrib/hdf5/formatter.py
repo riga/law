@@ -4,6 +4,7 @@
 HDF5 target formatters.
 """
 
+
 from law.target.formatter import Formatter
 from law.target.file import get_path
 
@@ -21,10 +22,10 @@ class H5pyFormatter(Formatter):
     def load(cls, path, *args, **kwargs):
         import h5py
 
-        return h5py.File(get_path(path), 'r', *args, **kwargs)
+        return h5py.File(get_path(path), "r", *args, **kwargs)
 
     @classmethod
     def dump(cls, path, *args, **kwargs):
         import h5py
 
-        return h5py.File(get_path(path), 'w', *args, **kwargs)
+        return h5py.File(get_path(path), "w", *args, **kwargs)
