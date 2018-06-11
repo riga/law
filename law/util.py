@@ -287,8 +287,8 @@ def map_verbose(func, seq, msg="{}", every=25, start=True, end=True, offset=0, c
     When *start* (*stop*) is *True*, the *msg* is also printed after the first (last) iteration.
     Note that *msg* is supposed to be a template string that will be formatted with the current
     iteration number (starting at 0) plus *offset* using ``str.format``. When *callback* is
-    callable, it is invoked instead of the default print method with the current iteration number as
-    the only argument. Example:
+    callable, it is invoked instead of the default print method with the current iteration number
+    (without *offset*) as the only argument. Example:
 
     .. code-block:: python
 
@@ -304,17 +304,17 @@ def map_verbose(func, seq, msg="{}", every=25, start=True, end=True, offset=0, c
     # default callable
     if not callable(callback):
         def callback(i):
-            print(msg.format(i))
+            print(msg.format(i + offset))
 
     results = []
     for i, obj in enumerate(seq):
         results.append(func(obj))
         do_call = (start and i == 0) or (i + 1) % every == 0
         if do_call:
-            callback(i + offset)
+            callback(i)
     else:
         if end and results and not do_call:
-            callback(i + offset)
+            callback(i)
 
     return results
 
