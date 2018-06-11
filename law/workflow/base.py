@@ -166,11 +166,11 @@ def cached_workflow_property(func=None, attr=None, setter=True):
         prop = property(wrapper)
 
         if setter:
-            def setter(self, value):
+            def _setter(self, value):
                 wf = self.as_workflow()
                 setattr(wf, _attr, value)
 
-            prop.setter(setter)
+            prop.setter(_setter)
 
         return prop
 
