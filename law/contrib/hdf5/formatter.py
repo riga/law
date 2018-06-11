@@ -21,11 +21,9 @@ class H5pyFormatter(Formatter):
     @classmethod
     def load(cls, path, *args, **kwargs):
         import h5py
-
         return h5py.File(get_path(path), "r", *args, **kwargs)
 
     @classmethod
     def dump(cls, path, *args, **kwargs):
         import h5py
-
         return h5py.File(get_path(path), "w", *args, **kwargs)
