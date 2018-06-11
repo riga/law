@@ -105,17 +105,17 @@ class CascadeMerge(LocalWorkflow):
         if self.merge_factor == 1:
             raise ValueError("the merge factor should not be 1")
 
-        self._build = False
+        self._forest_built = False
 
     @cached_workflow_property
     def cascade_forest(self):
         self._build_cascade_forest()
-        return self._cascade_forest
+        return self.cascade_forest
 
     @cached_workflow_property
     def leaves_per_tree(self):
         self._build_cascade_forest()
-        return self._leaves_per_tree
+        return self.leaves_per_tree
 
     def _build_cascade_forest(self):
         # a node in the tree can be described by a tuple of integers, where each value denotes the
@@ -124,7 +124,7 @@ class CascadeMerge(LocalWorkflow):
         # the tree itself is a dict that maps depths to lists of nodes with that depth
         # when multiple trees are used (a forest), each one handles ``n_leaves / n_trees`` leaves
 
-        if self._build:
+        if self._forest_built:
             return
 
         # helper to convert nested lists of leaf number chunks into a list of nodes in the format
@@ -182,9 +182,9 @@ class CascadeMerge(LocalWorkflow):
             forest.append(tree)
 
         # store values
-        self._leaves_per_tree = leaves_per_tree
-        self._cascade_forest = forest
-        self._build = True
+        self.leaves_per_tree = leaves_per_tree
+        self.cascade_forest = forest
+        self._forest_built = True
 
     def create_branch_map(self):
         tree = self.cascade_forest[self.cascade_tree]
