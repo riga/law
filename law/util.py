@@ -285,10 +285,10 @@ def map_verbose(func, seq, msg="{}", every=25, start=True, end=True, offset=0, c
     """
     Same as the built-in map function but prints a *msg* after chunks of size *every* iterations.
     When *start* (*stop*) is *True*, the *msg* is also printed after the first (last) iteration.
-    When *callback* is callable, it is invoked everytime something is printed with the current
-    iteration number as the only argument. Note that *msg* is supposed to be a template string that
-    will be formatted with the current iteration number (starting at 0) plus *offset* using
-    ``str.format``. Example:
+    Note that *msg* is supposed to be a template string that will be formatted with the current
+    iteration number (starting at 0) plus *offset* using ``str.format``. When *callback* is
+    callable, it is invoked instead of the default print method with the current iteration number as
+    the only argument. Example:
 
     .. code-block:: python
 
@@ -301,21 +301,20 @@ def map_verbose(func, seq, msg="{}", every=25, start=True, end=True, offset=0, c
        # computing square of 5
        # computing square of 6
     """
-    def cb(i):
-        i += offset
-        print(msg.format(i))
-        if callable(callback):
-            callback(i)
+    # default callable
+    if not callable(callback):
+        def callback(i):
+            print(msg.format(i))
 
     results = []
     for i, obj in enumerate(seq):
         results.append(func(obj))
         do_call = (start and i == 0) or (i + 1) % every == 0
         if do_call:
-            cb(i)
+            callback(i + offset)
     else:
         if end and results and not do_call:
-            cb(i)
+            callback(i + offset)
 
     return results
 
