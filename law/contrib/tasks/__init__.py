@@ -203,6 +203,14 @@ class CascadeMerge(LocalWorkflow):
 
     def trace_cascade_workflow_inputs(self, inputs):
         # should convert inputs to an object with a length (e.g. list, tuple, TargetCollection, ...)
+
+        # for convenience, check if inputs results from the default workflow output, i.e. a dict
+        # which stores a TargetCollection in the "collection" field
+        if isinstance(inputs, dict) and "collection" in inputs:
+            collection = inputs["collection"]
+            if isinstance(collection, TargetCollection):
+                return collection
+
         return inputs
 
     def trace_cascade_inputs(self, inputs):
