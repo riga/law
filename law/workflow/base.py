@@ -157,22 +157,21 @@ def cached_workflow_property(func=None, attr=None, setter=True):
         _attr = attr or "_workflow_cached_" + func.__name__
 
         @functools.wraps(func)
-        def wrapper(self):
+        def getter(self):
             wf = self.as_workflow()
             if not hasattr(wf, _attr):
                 setattr(wf, _attr, func(wf))
             return getattr(wf, _attr)
 
-        prop = property(wrapper)
-
+        _setter = None
         if setter:
             def _setter(self, value):
                 wf = self.as_workflow()
                 setattr(wf, _attr, value)
 
-            prop.setter(_setter)
+            _setter.__name__ = func.__name__
 
-        return prop
+        return property(fget=getter, fset=_setter)
 
     return wrapper if not func else wrapper(func)
 
