@@ -281,14 +281,14 @@ def which(prog):
     return None
 
 
-def map_verbose(func, seq, msg="{}", every=25, start=True, end=True, callback=None):
+def map_verbose(func, seq, msg="{}", every=25, start=True, end=True, offset=0, callback=None):
     """
     Same as the built-in map function but prints a *msg* after chunks of size *every* iterations.
     When *start* (*stop*) is *True*, the *msg* is also printed after the first (last) iteration.
     When *callback* is callable, it is invoked everytime something is printed with the current
     iteration number as the only argument. Note that *msg* is supposed to be a template string that
-    will be formatted with the current iteration number (starting at 0) using ``str.format``.
-    Example:
+    will be formatted with the current iteration number (starting at 0) plus *offset* using
+    ``str.format``. Example:
 
     .. code-block:: python
 
@@ -302,6 +302,7 @@ def map_verbose(func, seq, msg="{}", every=25, start=True, end=True, callback=No
        # computing square of 6
     """
     def cb(i):
+        i += offset
         print(msg.format(i))
         if callable(callback):
             callback(i)
