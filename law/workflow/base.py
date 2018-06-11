@@ -132,12 +132,13 @@ def workflow_property(func):
     return property(wrapper)
 
 
-def cached_workflow_property(func=None, attr=None):
+def cached_workflow_property(func=None, attr=None, setter=True):
     """
     Decorator to declare an attribute that is stored only on a workflow and also cached for
     subsequent calls. Therefore, the decorated method is expected to (lazily) provide the value to
-    cache. The the resulting value is stored as ``_workflow_cached_<func.__name__>`` on the
-    workflow, which can be overwritten by setting the *attr* argument. Example:
+    cache. The resulting value is stored as ``_workflow_cached_<func.__name__>`` on the workflow,
+    which can be overwritten by setting the *attr* argument. By default, a setter is provded to
+    overwrite the cache value. Set *setter* to *False* to disable this feature. Example:
 
     .. code-block:: python
 
@@ -147,6 +148,10 @@ def cached_workflow_property(func=None, attr=None):
             def common_data(self):
                 # this method is always called with *self* is the *workflow*
                 return some_demanding_computation()
+
+            @cached_workflow_property(attr="my_own_property", setter=False)
+            def common_data2(self):
+                return some_other_computation()
     """
     def wrapper(func):
         _attr = attr or "_workflow_cached_" + func.__name__
@@ -158,7 +163,16 @@ def cached_workflow_property(func=None, attr=None):
                 setattr(wf, _attr, func(wf))
             return getattr(wf, _attr)
 
-        return property(wrapper)
+        prop = property(wrapper)
+
+        if setter:
+            def setter(self, value):
+                wf = self.as_workflow()
+                setattr(wf, _attr, value)
+
+            prop.setter(setter)
+
+        return prop
 
     return wrapper if not func else wrapper(func)
 
