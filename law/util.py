@@ -5,11 +5,13 @@ Helpful utility functions.
 """
 
 
-__all__ = ["no_value", "rel_path", "law_src_path", "law_home_path", "print_err", "abort", "colored",
-           "uncolored", "query_choice", "multi_match", "is_lazy_iterable", "make_list", "flatten",
-           "which", "map_verbose", "map_struct", "mask_struct", "tmp_file", "interruptable_popen",
-           "create_hash", "copy_no_perm", "makedirs_perm", "user_owns_file", "iter_chunks",
-           "human_bytes", "is_file_exists_error", "check_bool_flag", "ShorthandDict"]
+__all__ = [
+    "no_value", "rel_path", "law_src_path", "law_home_path", "print_err", "abort", "colored",
+    "uncolored", "query_choice", "multi_match", "is_lazy_iterable", "make_list", "flatten", "which",
+    "map_verbose", "map_struct", "mask_struct", "tmp_file", "interruptable_popen", "create_hash",
+    "copy_no_perm", "makedirs_perm", "user_owns_file", "iter_chunks", "human_bytes",
+    "is_file_exists_error", "check_bool_flag", "ShorthandDict", "TeeStream", "FilteredStream",
+]
 
 
 import os
@@ -689,3 +691,82 @@ class ShorthandDict(collections.OrderedDict):
             self[attr] = value
         else:
             super(ShorthandDict, self).__setattr__(attr, value)
+
+
+class TeeStream(object):
+    """
+    Multi-stream object that forwards calls to :py:meth:`write` and :py:meth:`flush` to all
+    registered *consumer* streams. When a *consumer* is a string, it is interpreted as a file which
+    is opened for writing (similar to *tee* in bash). Example:
+
+    .. code-block:: python
+
+        tee = TeeStream("/path/to/log.txt", sys.__stdout__)
+        sys.stdout = tee
+    """
+
+    def __init__(self, *consumers, **kwargs):
+        """ __init__(*consumers, mode="w")
+        """
+        super(TeeStream, self).__init__()
+
+        mode = kwargs.get("mode", "w")
+
+        self.consumers = []
+        self.open_files = []
+
+        for consumer in consumers:
+            # interpret strings as file paths
+            if isinstance(consumer, six.string_types):
+                consumer = open(consumer, mode)
+                self.open_files.append(consumer)
+            self.consumers.append(consumer)
+
+    def __del__(self):
+        self.flush()
+
+        # close open files
+        for f in self.open_files:
+            f.close()
+
+    def write(self, *args, **kwargs):
+        """
+        Writes to all registered consumer streams, passing *args* and *kwargs*.
+        """
+        for consumer in self.consumers:
+            consumer.write(*args, **kwargs)
+
+    def flush(self, *args, **kwargs):
+        """
+        Flushes all registered consumer streams, passing *args* and *kwargs*.
+        """
+        for consumer in self.consumers:
+            consumer.flush(*args, **kwargs)
+
+
+class FilteredStream(object):
+    """
+    Stream object that accepts in input *stream* and a function *filter_fn* which is called upon
+    every call to :py:meth:`write`. The payload is written when the returned value evaluates to
+    *True*.
+    """
+
+    def __init__(self, stream, filter_fn):
+        super(FilteredStream, self).__init__()
+
+        self.stream = stream
+        self.filter_fn = filter_fn
+
+    def write(self, *args, **kwargs):
+        """
+        Writes to the consumer stream when *filter_fn* evaluates to *True*, passing *args* and
+        *kwargs*.
+        """
+        if self.filter_fn(*args, **kwargs):
+            self.stream.write(*args, **kwargs)
+
+    def flush(self, *args, **kwargs):
+        """
+        Flushes the consumer stream, passing *args* and *kwargs*.
+        """
+        self.stream(*args, **kwargs)
