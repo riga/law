@@ -1,20 +1,6 @@
 # -*- coding: utf-8 -*-
 # flake8: noqa
 
-"""
-Build large-scale task workflows using luigi, remote job submission, remote targets, and environment
-sandboxing.
-"""
-
-
-__author__ = "Marcel Rieger"
-__email__ = "python-law@googlegroups.com"
-__copyright__ = "Copyright 2018, Marcel Rieger"
-__credits__ = ["Marcel Rieger"]
-__contact__ = "https://github.com/riga/law"
-__license__ = "MIT"
-__status__ = "Development"
-__version__ = "0.0.24"
 
 __all__ = [
     "Task", "WrapperTask", "ExternalTask",
@@ -27,6 +13,13 @@ __all__ = [
     "CSVParameter",
     "Config",
 ]
+
+
+# package infos
+from law.__version__ import (
+    __doc__, __author__, __email__, __copyright__, __credits__, __contact__, __license__,
+    __status__, __version__,
+)
 
 
 # use cached software

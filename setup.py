@@ -5,8 +5,6 @@ import os
 from setuptools import setup
 from setuptools.command.install import install as _install
 
-import law
-
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -40,7 +38,7 @@ class install(_install):
     def run(self):
         _install.run(self)
 
-        if law.util.check_bool_flag(os.getenv("LAW_INSTALL_CUSTOM_SCRIPT", "")):
+        if os.getenv("LAW_INSTALL_CUSTOM_SCRIPT", "0") == "1":
             try:
                 with open(os.path.join(this_dir, "law", "cli", "law")) as f:
                     content = f.read()
@@ -50,18 +48,23 @@ class install(_install):
                 print("could not update the law executable: {}".format(e))
 
 
+# load package infos
+pkg = {}
+with open(os.path.join(this_dir, "law", "__version__.py"), "r") as f:
+    exec(f.read(), pkg)
+
+
 setup(
-    name=law.__name__,
-    version=law.__version__,
-    author=law.__author__,
-    author_email=law.__email__,
-    description=law.__doc__.strip().replace("\n", " "),
-    license=law.__license__,
-    url=law.__contact__,
+    name="law",
+    version=pkg["__version__"],
+    author=pkg["__author__"],
+    author_email=pkg["__email__"],
+    description=pkg["__doc__"].strip().replace("\n", " "),
+    license=pkg["__license__"],
+    url=pkg["__contact__"],
     keywords=" ".join(keywords),
     classifiers=classifiers,
     long_description=long_description,
-    long_description_content_type="text/x-rst",
     install_requires=install_requires,
     python_requires=">=2.7",
     zip_safe=False,
