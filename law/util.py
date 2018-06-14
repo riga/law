@@ -723,11 +723,22 @@ class TeeStream(object):
             self.consumers.append(consumer)
 
     def __del__(self):
-        self.flush()
+        self.close()
 
-        # close open files
+    def __enter__(self):
+        return self
+
+    def __exit__(self):
+        self.close()
+
+    def close(self):
+        """
+        Flushes all registered consumer streams and closes opened files.
+        """
+        self.flush()
         for f in self.open_files:
-            f.close()
+            if not getattr(f, "closed", False):
+                f.close()
 
     def write(self, *args, **kwargs):
         """
