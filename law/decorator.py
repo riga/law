@@ -34,6 +34,7 @@ import luigi
 from law.task.base import ProxyTask
 from law.parameter import get_param
 from law.target.local import LocalFileTarget
+from law.util import TeeStream
 
 
 def factory(**default_opts):
@@ -105,17 +106,18 @@ def log(fn, opts, task, *args, **kwargs):
         # use the local target functionality to create the parent directory
         LocalFileTarget(log).parent.touch()
         with open(log, "a", 1) as f:
-            sys.stdout = f
-            sys.stderr = f
+            tee = TeeStream(f, sys.__stdout__)
+            sys.stdout = tee
+            sys.stderr = tee
             try:
                 ret = fn(task, *args, **kwargs)
             except Exception as e:
-                traceback.print_exc(file=f)
+                traceback.print_exc(file=tee)
                 raise e
             finally:
                 sys.stdout = sys.__stdout__
                 sys.stderr = sys.__stderr__
-                f.flush()
+                tee.flush()
         return ret
 
 
