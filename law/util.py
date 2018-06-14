@@ -8,9 +8,10 @@ Helpful utility functions.
 __all__ = [
     "no_value", "rel_path", "law_src_path", "law_home_path", "print_err", "abort", "colored",
     "uncolored", "query_choice", "multi_match", "is_lazy_iterable", "make_list", "flatten", "which",
-    "map_verbose", "map_struct", "mask_struct", "tmp_file", "interruptable_popen", "create_hash",
-    "copy_no_perm", "makedirs_perm", "user_owns_file", "iter_chunks", "human_bytes",
-    "is_file_exists_error", "check_bool_flag", "ShorthandDict", "TeeStream", "FilteredStream",
+    "map_verbose", "map_struct", "mask_struct", "tmp_file", "interruptable_popen", "readable_popen",
+    "create_hash", "copy_no_perm", "makedirs_perm", "user_owns_file", "iter_chunks", "human_bytes",
+    "is_file_exists_error", "check_bool_flag", "ShorthandDict", "BaseStream", "TeeStream",
+    "FilteredStream",
 ]
 
 
@@ -511,6 +512,37 @@ def interruptable_popen(*args, **kwargs):
             err = err.decode("utf-8")
 
     return p.returncode, out, err
+
+
+def readable_popen(*args, **kwargs):
+    """
+    Shorthand to :py:class:`Popen` which yields the output live line-by-line. All *args* and
+    *kwargs* are forwatded to the :py:class:`Popen` constructor. When EOF is reached, the subprocess
+    itself is yielded. Example:
+
+    .. code-block:: python
+
+        for line in readable_popen(["some_executable", "--args"]):
+            if isinstance(line, str):
+                print(line)
+            else:
+                process = line
+                if process.returncode != 0:
+                    raise Exception("complain ...")
+    """
+    # force pipes
+    kwargs["stdout"] = subprocess.PIPE
+    kwargs["stderr"] = subprocess.STDOUT
+
+    p = subprocess.Popen(*args, **kwargs)
+
+    for line in iter(lambda: p.stdout.readline(), ""):
+        if six.PY3:
+            line = line.decode("utf-8")
+        yield line.rstrip()
+
+    # yield the process itself in the end
+    yield p
 
 
 def create_hash(inp, l=10, algo="sha256"):
