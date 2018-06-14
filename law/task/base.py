@@ -243,8 +243,8 @@ class Task(BaseTask):
         # set status message using the current message cache
         self.set_status_message("\n".join(self._message_cache))
 
-    def create_message_stream(self):
-        return TaskMessageStream(self)
+    def create_message_stream(self, *args, **kwargs):
+        return TaskMessageStream(self, *args, **kwargs)
 
     @contextmanager
     def publish_step(self, msg, success_message="done", fail_message="failed"):
@@ -475,12 +475,16 @@ def remove_task_output(task, max_depth=0, mode=None, include_external=False):
 
 class TaskMessageStream(object):
 
-    def __init__(self, task):
+    def __init__(self, task, stdout=True):
         super(TaskMessageStream, self).__init__()
         self.task = task
+        self.stdout = stdout
 
     def write(self, *args):
-        self.task.publish_message(*args)
+        if self.stdout:
+            self.task.publish_message(*args)
+        else:
+            self.task._publish_message(*args)
 
     def flush(self):
         return
