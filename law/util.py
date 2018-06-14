@@ -725,7 +725,50 @@ class ShorthandDict(collections.OrderedDict):
             super(ShorthandDict, self).__setattr__(attr, value)
 
 
-class TeeStream(object):
+class BaseStream(object):
+
+    FLUSH_AFTER_WRITE = True
+
+    def __init__(self):
+        super(BaseStream, self).__init__()
+        self.closed = False
+
+    def __del__(self):
+        self.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self):
+        self.close()
+
+    def close(self):
+        if not self.closed:
+            self.flush()
+            self._close()
+            self.closed = True
+
+    def flush(self):
+        if not self.closed:
+            self._flush()
+
+    def write(self, *args, **kwargs):
+        if not self.closed:
+            self._write(*args, **kwargs)
+            if self.FLUSH_AFTER_WRITE:
+                self.flush()
+
+    def _close(self):
+        return
+
+    def _flush(self):
+        return
+
+    def _write(self, *args, **kwargs):
+        return
+
+
+class TeeStream(BaseStream):
     """
     Multi-stream object that forwards calls to :py:meth:`write` and :py:meth:`flush` to all
     registered *consumer* streams. When a *consumer* is a string, it is interpreted as a file which
@@ -754,40 +797,30 @@ class TeeStream(object):
                 self.open_files.append(consumer)
             self.consumers.append(consumer)
 
-    def __del__(self):
-        self.close()
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self):
-        self.close()
-
-    def close(self):
+    def _close(self):
         """
-        Flushes all registered consumer streams and closes opened files.
+        Closes opened files.
         """
-        self.flush()
         for f in self.open_files:
             if not getattr(f, "closed", False):
                 f.close()
 
-    def write(self, *args, **kwargs):
+    def _write(self, *args, **kwargs):
         """
         Writes to all registered consumer streams, passing *args* and *kwargs*.
         """
         for consumer in self.consumers:
             consumer.write(*args, **kwargs)
 
-    def flush(self, *args, **kwargs):
+    def _flush(self):
         """
-        Flushes all registered consumer streams, passing *args* and *kwargs*.
+        Flushes all registered consumer streams.
         """
         for consumer in self.consumers:
-            consumer.flush(*args, **kwargs)
+            consumer.flush()
 
 
-class FilteredStream(object):
+class FilteredStream(BaseStream):
     """
     Stream object that accepts in input *stream* and a function *filter_fn* which is called upon
     every call to :py:meth:`write`. The payload is written when the returned value evaluates to
@@ -796,11 +829,10 @@ class FilteredStream(object):
 
     def __init__(self, stream, filter_fn):
         super(FilteredStream, self).__init__()
-
         self.stream = stream
         self.filter_fn = filter_fn
 
-    def write(self, *args, **kwargs):
+    def _write(self, *args, **kwargs):
         """
         Writes to the consumer stream when *filter_fn* evaluates to *True*, passing *args* and
         *kwargs*.
@@ -808,8 +840,8 @@ class FilteredStream(object):
         if self.filter_fn(*args, **kwargs):
             self.stream.write(*args, **kwargs)
 
-    def flush(self, *args, **kwargs):
+    def _flush(self):
         """
-        Flushes the consumer stream, passing *args* and *kwargs*.
+        Flushes the consumer stream.
         """
-        self.stream(*args, **kwargs)
+        self.stream.flush()

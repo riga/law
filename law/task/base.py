@@ -24,6 +24,7 @@ from law.parameter import NO_STR, TaskInstanceParameter, CSVParameter
 from law.parser import global_cmdline_values
 from law.util import (
     abort, colored, uncolored, make_list, query_choice, multi_match, flatten, check_bool_flag,
+    BaseStream,
 )
 
 
@@ -473,18 +474,15 @@ def remove_task_output(task, max_depth=0, mode=None, include_external=False):
             print(offset + "  " + colored("removed", "red", style="bright"))
 
 
-class TaskMessageStream(object):
+class TaskMessageStream(BaseStream):
 
     def __init__(self, task, stdout=True):
         super(TaskMessageStream, self).__init__()
         self.task = task
         self.stdout = stdout
 
-    def write(self, *args):
+    def _write(self, *args):
         if self.stdout:
             self.task.publish_message(*args)
         else:
             self.task._publish_message(*args)
-
-    def flush(self):
-        return
