@@ -211,7 +211,7 @@ class CascadeMerge(LocalWorkflow):
 
     @property
     def is_leaf(self):
-        if self.is_root:
+        if self.is_forest:
             return False
 
         tree = self.cascade_forest[self.cascade_tree]
@@ -290,19 +290,7 @@ class CascadeMerge(LocalWorkflow):
             n_trees = len(self.cascade_forest)
             reqs["forest"] = {t: self.req(self, branch=-1, cascade_tree=t) for t in range(n_trees)}
 
-        elif self.is_root:
-            # get all child nodes in the next layer at depth = depth + 1, store their branches
-            # note: child node tuples contain the exact same values plus an additional one
-            node = self.branch_data
-            tree = self.cascade_forest[self.cascade_tree]
-            branches = [i for i, n in enumerate(tree[self.cascade_depth + 1]) if n[:-1] == node]
-
-            # add to requirements
-            reqs["cascade"] = {
-                b: self.req(self, branch=b, cascade_depth=self.cascade_depth + 1) for b in branches
-            }
-
-        else:  # is_leaf
+        elif self.is_leaf:
             # this is simply the cascade requirement
             # also determine and pass the corresponding leaf number range
             self.cascade_forest
@@ -314,6 +302,18 @@ class CascadeMerge(LocalWorkflow):
             start_leaf = offset + self.branch * merge_factor
             end_leaf = min(start_leaf + merge_factor, sum_n_leaves)
             reqs["cascade"] = self.cascade_requires(start_leaf, end_leaf)
+
+        else:
+            # get all child nodes in the next layer at depth = depth + 1, store their branches
+            # note: child node tuples contain the exact same values plus an additional one
+            node = self.branch_data
+            tree = self.cascade_forest[self.cascade_tree]
+            branches = [i for i, n in enumerate(tree[self.cascade_depth + 1]) if n[:-1] == node]
+
+            # add to requirements
+            reqs["cascade"] = {
+                b: self.req(self, branch=b, cascade_depth=self.cascade_depth + 1) for b in branches
+            }
 
         return reqs
 
