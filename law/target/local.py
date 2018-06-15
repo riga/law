@@ -20,9 +20,11 @@ import luigi
 import six
 
 from law.target.base import split_transfer_kwargs
-from law.target.file import (FileSystem, FileSystemTarget, FileSystemFileTarget,
-    FileSystemDirectoryTarget, get_scheme, remove_scheme)
-from law.target.formatter import AUTO_FORMATTER, get_formatter, find_formatters
+from law.target.file import (
+    FileSystem, FileSystemTarget, FileSystemFileTarget, FileSystemDirectoryTarget, get_scheme,
+    remove_scheme,
+)
+from law.target.formatter import find_formatter
 from law.config import Config
 from law.util import is_file_exists_error
 
@@ -184,34 +186,12 @@ class LocalFileSystem(FileSystem):
     def load(self, path, formatter, *args, **kwargs):
         _, kwargs = split_transfer_kwargs(kwargs)
         path = self._unscheme(path)
-        if formatter == AUTO_FORMATTER:
-            errors = []
-            for f in find_formatters(path, silent=False):
-                try:
-                    return f.load(path, *args, **kwargs)
-                except ImportError as e:
-                    errors.append(str(e))
-            else:
-                raise Exception("could not automatically load '{}', errors:\n{}".format(
-                    path, "\n".join(errors)))
-        else:
-            return get_formatter(formatter, silent=False).load(path, *args, **kwargs)
+        return find_formatter(formatter, path).load(path, *args, **kwargs)
 
     def dump(self, path, formatter, *args, **kwargs):
         _, kwargs = split_transfer_kwargs(kwargs)
         path = self._unscheme(path)
-        if formatter == AUTO_FORMATTER:
-            errors = []
-            for f in find_formatters(path, silent=False):
-                try:
-                    return f.dump(path, *args, **kwargs)
-                except ImportError as e:
-                    errors.append(str(e))
-            else:
-                raise Exception("could not automatically dump '{}', errors:\n{}".format(
-                    path, "\n".join(errors)))
-        else:
-            return get_formatter(formatter, silent=False).dump(path, *args, **kwargs)
+        return find_formatter(formatter, path).dump(path, *args, **kwargs)
 
 
 LocalFileSystem.default_instance = LocalFileSystem()

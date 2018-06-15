@@ -5,7 +5,7 @@ Formatter classes for file targets.
 """
 
 
-__all__ = ["AUTO_FORMATTER", "Formatter", "get_formatter", "find_formatters"]
+__all__ = ["AUTO_FORMATTER", "Formatter", "get_formatter", "find_formatters", "find_formatter"]
 
 
 import os
@@ -68,6 +68,18 @@ def find_formatters(path, silent=True):
         return formatters
     else:
         raise Exception("cannot find formatter for path '{}'".format(path))
+
+
+def find_formatter(name, path):
+    """
+    Returns the formatter class whose name attribute is *name* when *name* is not *AUTO_FORMATTER*.
+    Otherwise, the first formatter that accepts *path* is returned. Internally, this method simply
+    uses :py:func:`get_formatter` or :py:func:`find_formatters` depending on the value of *name*.
+    """
+    if name == AUTO_FORMATTER:
+        return find_formatters(path, silent=False)[0]
+    else:
+        return get_formatter(name, silent=False)
 
 
 @six.add_metaclass(FormatterRegister)

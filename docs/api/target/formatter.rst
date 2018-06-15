@@ -27,6 +27,8 @@ Functions
 
 .. autofunction:: find_formatters
 
+.. autofunction:: find_formatter
+
 
 Formatters
 ^^^^^^^^^^

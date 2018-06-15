@@ -31,7 +31,7 @@ from law.target.base import split_transfer_kwargs
 from law.target.file import FileSystem, FileSystemTarget, FileSystemFileTarget, \
     FileSystemDirectoryTarget, get_path, get_scheme, has_scheme, add_scheme, remove_scheme
 from law.target.local import LocalFileSystem, LocalFileTarget
-from law.target.formatter import AUTO_FORMATTER, get_formatter, find_formatters
+from law.target.formatter import find_formatter
 from law.util import make_list, copy_no_perm, makedirs_perm, human_bytes, create_hash, \
     user_owns_file
 
@@ -851,16 +851,16 @@ class RemoteFileSystem(FileSystem):
 
         return dst
 
-    @contextmanager
     def open(self, path, mode, cache=None, **kwargs):
         if cache is None:
             cache = self.cache is not None
         elif cache and self.cache is None:
             cache = False
 
-        path = self.abspath(path)
-
         yield_path = kwargs.pop("_yield_path", False)
+
+        path = self.abspath(path)
+        tmp = None
 
         if mode == "r":
             if cache:
@@ -871,70 +871,46 @@ class RemoteFileSystem(FileSystem):
                 lpath = tmp.path
 
                 self._cached_copy(path, add_scheme(lpath, "file"), cache=False, **kwargs)
-            try:
-                if yield_path:
-                    yield lpath
-                else:
-                    f = open(lpath, "r")
-                    yield f
-                    if not f.closed:
-                        f.close()
-            finally:
-                if not cache:
-                    del tmp
+
+            def cleanup():
+                if not cache and tmp.exists():
+                    tmp.remove()
+
+            f = lpath if yield_path else open(lpath, "r")
+            return RemoteFileProxy(f, success_fn=cleanup, failure_fn=cleanup)
 
         elif mode == "w":
             tmp = LocalFileTarget(is_tmp=self.ext(path, n=0) or True)
             lpath = tmp.path
 
-            try:
-                if yield_path:
-                    yield lpath
-                else:
-                    f = open(lpath, "w")
-                    yield f
-                    if not f.closed:
-                        f.close()
-
+            def cleanup():
                 if tmp.exists():
-                    self._cached_copy(add_scheme(lpath, "file"), path, cache=cache, **kwargs)
-            finally:
-                del tmp
+                    tmp.remove()
+
+            def copy_and_cleanup():
+                try:
+                    if tmp.exists():
+                        self._cached_copy(add_scheme(lpath, "file"), path, cache=cache, **kwargs)
+                finally:
+                    cleanup()
+
+            f = lpath if yield_path else open(lpath, "w")
+            return RemoteFileProxy(f, success_fn=copy_and_cleanup, failure_fn=cleanup)
 
         else:
             raise Exception("unknown mode {}, use r or w".format(mode))
 
     def load(self, path, formatter, *args, **kwargs):
+        fmt = find_formatter(formatter, path)
         transfer_kwargs, kwargs = split_transfer_kwargs(kwargs)
         with self.open(path, "r", _yield_path=True, **transfer_kwargs) as lpath:
-            if formatter == AUTO_FORMATTER:
-                errors = []
-                for f in find_formatters(lpath, silent=False):
-                    try:
-                        return f.load(lpath, *args, **kwargs)
-                    except ImportError as e:
-                        errors.append(str(e))
-                else:
-                    raise Exception("could not automatically load '{}', errors:\n{}".format(
-                        lpath, "\n".join(errors)))
-            else:
-                return get_formatter(formatter, silent=False).load(lpath, *args, **kwargs)
+            return fmt.load(lpath, *args, **kwargs)
 
     def dump(self, path, formatter, *args, **kwargs):
+        fmt = find_formatter(formatter, path)
         transfer_kwargs, kwargs = split_transfer_kwargs(kwargs)
         with self.open(path, "w", _yield_path=True, **transfer_kwargs) as lpath:
-            if formatter == AUTO_FORMATTER:
-                errors = []
-                for f in find_formatters(lpath, silent=False):
-                    try:
-                        return f.dump(lpath, *args, **kwargs)
-                    except ImportError as e:
-                        errors.append(str(e))
-                else:
-                    raise Exception("could not automatically dump '{}', errors:\n{}".format(
-                        lpath, "\n".join(errors)))
-            else:
-                return get_formatter(formatter, silent=False).dump(lpath, *args, **kwargs)
+            return fmt.dump(lpath, *args, **kwargs)
 
 
 class RemoteTarget(FileSystemTarget):
@@ -991,14 +967,11 @@ class RemoteFileTarget(RemoteTarget, FileSystemFileTarget):
 
     @contextmanager
     def localize(self, mode="r", perm=None, parent_perm=None, **kwargs):
-        if mode not in ("r", "w"):
-            raise Exception("unknown mode '{}', use r or w".format(mode))
-
         if mode == "r":
             with self.fs.open(self.path, "r", _yield_path=True, **kwargs) as lpath:
                 yield LocalFileTarget(lpath)
 
-        else:  # w
+        elif mode == "w":
             tmp = LocalFileTarget(is_tmp=self.ext() or True)
 
             try:
@@ -1013,6 +986,9 @@ class RemoteFileTarget(RemoteTarget, FileSystemFileTarget):
             finally:
                 del tmp
 
+        else:
+            raise Exception("unknown mode '{}', use r or w".format(mode))
+
 
 class RemoteDirectoryTarget(RemoteTarget, FileSystemDirectoryTarget):
 
@@ -1021,3 +997,48 @@ class RemoteDirectoryTarget(RemoteTarget, FileSystemDirectoryTarget):
 
 RemoteTarget.file_class = RemoteFileTarget
 RemoteTarget.directory_class = RemoteDirectoryTarget
+
+
+class RemoteFileProxy(object):
+
+    def __init__(self, f, close_fn=None, success_fn=None, failure_fn=None):
+        super(RemoteFileProxy, self).__init__()
+
+        self.f = f
+        self.is_file = not isinstance(f, six.string_types)
+
+        self.close_fn = close_fn
+        self.success_fn = success_fn
+        self.failure_fn = failure_fn
+
+    def __call__(self):
+        return self.f
+
+    def __getattr__(self, attr):
+        return getattr(self.f, attr)
+
+    def __enter__(self):
+        return self.f.__enter__() if self.is_file else self.f
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        if getattr(self.f, "__exit__", None) is not None:
+            success = self.f.__exit__(exc_type, exc_value, traceback)
+        else:
+            success = not exc_type
+
+        if success:
+            if callable(self.success_fn):
+                self.success_fn()
+        else:
+            if callable(self.failure_fn):
+                self.failure_fn()
+
+        return success
+
+    def close(self, *args, **kwargs):
+        ret = self.f.close(*args, **kwargs)
+
+        if callable(self.close_fn):
+            self.close_fn()
+
+        return ret
