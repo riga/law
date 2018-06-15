@@ -18,7 +18,7 @@ import six
 from law import Task, LocalWorkflow, FileSystemTarget, LocalFileTarget, TargetCollection, \
     SiblingFileCollection, cached_workflow_property, NO_INT
 from law.decorator import log
-from law.util import iter_chunks
+from law.util import flatten, iter_chunks
 
 
 class TransferLocalFile(Task):
@@ -76,8 +76,9 @@ class TransferLocalFile(Task):
 
 class CascadeMerge(LocalWorkflow):
 
-    cascade_tree = luigi.IntParameter(default=0, description="the index of the cascade tree, in "
-        "case multiple trees (a forrest) are used, default: 0")
+    cascade_tree = luigi.IntParameter(default=0, description="the index of the cascade tree, only "
+        "necessary when multiple trees (a forrest) are used, -1 denotes a wrapper that requires "
+        "and outputs all trees, default: 0")
     cascade_depth = luigi.IntParameter(default=0, description="the depth of this workflow in the "
         "cascade tree with 0 being the root of the tree, default: 0")
     keep_nodes = luigi.BoolParameter(significant=False, description="keep merged results from "
@@ -97,6 +98,17 @@ class CascadeMerge(LocalWorkflow):
     exclude_params_db = {"n_cascade_leaves"}
 
     exclude_db = True
+
+    @classmethod
+    def _is_forest(cls, cascade_tree):
+        return cascade_tree < 0
+
+    @classmethod
+    def modify_param_values(cls, params):
+        params = super(CascadeMerge, cls).modify_param_values(params)
+        if "cascade_tree" in params and cls._is_forest(params["cascade_tree"]):
+            params["branch"] = 0
+        return params
 
     def __init__(self, *args, **kwargs):
         super(CascadeMerge, self).__init__(*args, **kwargs)
@@ -186,20 +198,33 @@ class CascadeMerge(LocalWorkflow):
         self.cascade_forest = forest
         self._forest_built = True
 
-    def create_branch_map(self):
-        tree = self.cascade_forest[self.cascade_tree]
-        nodes = tree[self.cascade_depth]
-        return dict(enumerate(nodes))
+    @property
+    def is_forest(self):
+        return self._is_forest(self.cascade_tree)
 
     @property
     def is_root(self):
+        if self.is_forest:
+            return False
+
         return self.cascade_depth == 0
 
     @property
     def is_leaf(self):
+        if self.is_root:
+            return False
+
         tree = self.cascade_forest[self.cascade_tree]
         max_depth = max(tree.keys())
         return self.cascade_depth == max_depth
+
+    def create_branch_map(self):
+        if self.is_forest:
+            raise Exception("cannot define a branch map when in forest mode (cascade_tree < 0)")
+
+        tree = self.cascade_forest[self.cascade_tree]
+        nodes = tree[self.cascade_depth]
+        return dict(enumerate(nodes))
 
     def trace_cascade_workflow_inputs(self, inputs):
         # should convert inputs to an object with a length (e.g. list, tuple, TargetCollection, ...)
@@ -229,8 +254,8 @@ class CascadeMerge(LocalWorkflow):
 
     @abstractmethod
     def cascade_output(self):
-        # this should return a single target to explicitely denote a single tree
-        # or a target collection whose targets are accessible as items via the tree numbers
+        # this should return a single target when the output should be a single tree
+        # or a target collection whose targets are accessible as items via cascade tree numbers
         return
 
     @abstractmethod
@@ -250,10 +275,34 @@ class CascadeMerge(LocalWorkflow):
 
         return reqs
 
+    def complete(self):
+        if self.is_forest:
+            return all(task.complete() for task in flatten(self.requires()))
+        else:
+            return super(CascadeMerge, self).complete()
+
     def requires(self):
         reqs = OrderedDict()
 
-        if self.is_leaf:
+        if self.is_forest:
+            # require the workflows for all cascade trees
+            self._build_cascade_forest()
+            n_trees = len(self.cascade_forest)
+            reqs["forest"] = {t: self.req(self, branch=-1, cascade_tree=t) for t in range(n_trees)}
+
+        elif self.is_root:
+            # get all child nodes in the next layer at depth = depth + 1, store their branches
+            # note: child node tuples contain the exact same values plus an additional one
+            node = self.branch_data
+            tree = self.cascade_forest[self.cascade_tree]
+            branches = [i for i, n in enumerate(tree[self.cascade_depth + 1]) if n[:-1] == node]
+
+            # add to requirements
+            reqs["cascade"] = {
+                b: self.req(self, branch=b, cascade_depth=self.cascade_depth + 1) for b in branches
+            }
+
+        else:  # is_leaf
             # this is simply the cascade requirement
             # also determine and pass the corresponding leaf number range
             self.cascade_forest
@@ -265,18 +314,6 @@ class CascadeMerge(LocalWorkflow):
             start_leaf = offset + self.branch * merge_factor
             end_leaf = min(start_leaf + merge_factor, sum_n_leaves)
             reqs["cascade"] = self.cascade_requires(start_leaf, end_leaf)
-
-        else:
-            # get all child nodes in the next layer at depth = depth + 1, store their branches
-            # note: child node tuples contain the exact same values plus an additional one
-            node = self.branch_data
-            tree = self.cascade_forest[self.cascade_tree]
-            branches = [i for i, n in enumerate(tree[self.cascade_depth + 1]) if n[:-1] == node]
-
-            # add to requirements
-            reqs["cascade"] = {
-                b: self.req(self, branch=b, cascade_depth=self.cascade_depth + 1) for b in branches
-            }
 
         return reqs
 
@@ -294,6 +331,10 @@ class CascadeMerge(LocalWorkflow):
 
     def output(self):
         output = self.cascade_output()
+
+        if self.is_forest:
+            return output
+
         if isinstance(output, TargetCollection):
             output = output[self.cascade_tree]
 
