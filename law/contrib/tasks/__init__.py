@@ -108,8 +108,8 @@ class CascadeMerge(LocalWorkflow):
 
         self._forest_built = False
 
-    def is_branch(self):
-        return self.is_forest() or super(CascadeMerge, self).is_branch()
+    def is_branch(self, default=False):
+        return super(CascadeMerge, self).is_branch() or (not default and self.is_forest())
 
     def is_forest(self):
         return self.cascade_tree < 0
@@ -171,7 +171,7 @@ class CascadeMerge(LocalWorkflow):
 
         # first, determine the number of files to merge in total when not already set via params
         if self.n_cascade_leaves == NO_INT:
-            if not self.is_workflow():
+            if self.is_branch(default=True):
                 raise Exception("number of files to merge cannot be computed for a branch")
             # get inputs, i.e. outputs of workflow requirements and trace actual inputs to merge
             # an integer number representing the number of inputs is also valid
