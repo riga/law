@@ -99,17 +99,6 @@ class CascadeMerge(LocalWorkflow):
 
     exclude_db = True
 
-    @classmethod
-    def _is_forest(cls, cascade_tree):
-        return cascade_tree < 0
-
-    @classmethod
-    def modify_param_values(cls, params):
-        params = super(CascadeMerge, cls).modify_param_values(params)
-        if "cascade_tree" in params and cls._is_forest(params["cascade_tree"]):
-            params["branch"] = 0
-        return params
-
     def __init__(self, *args, **kwargs):
         super(CascadeMerge, self).__init__(*args, **kwargs)
 
@@ -118,6 +107,26 @@ class CascadeMerge(LocalWorkflow):
             raise ValueError("the merge factor should not be 1")
 
         self._forest_built = False
+
+    def is_branch(self):
+        return self.is_forest() or super(CascadeMerge, self).is_branch()
+
+    def is_forest(self):
+        return self.cascade_tree < 0
+
+    def is_root(self):
+        if self.is_forest():
+            return False
+
+        return self.cascade_depth == 0
+
+    def is_leaf(self):
+        if self.is_forest():
+            return False
+
+        tree = self._get_tree()
+        max_depth = max(tree.keys())
+        return self.cascade_depth == max_depth
 
     @cached_workflow_property
     def cascade_forest(self):
@@ -128,6 +137,13 @@ class CascadeMerge(LocalWorkflow):
     def leaves_per_tree(self):
         self._build_cascade_forest()
         return self.leaves_per_tree
+
+    def _get_tree(self):
+        try:
+            return self.cascade_forest[self.cascade_tree]
+        except IndexError:
+            raise Exception("cascade tree {} not found, forest only contains {} tree(s)".format(
+                self.cascade_tree, len(self.cascade_forest)))
 
     def _build_cascade_forest(self):
         # a node in the tree can be described by a tuple of integers, where each value denotes the
@@ -155,6 +171,8 @@ class CascadeMerge(LocalWorkflow):
 
         # first, determine the number of files to merge in total when not already set via params
         if self.n_cascade_leaves == NO_INT:
+            if not self.is_workflow():
+                raise Exception("number of files to merge cannot be computed for a branch")
             # get inputs, i.e. outputs of workflow requirements and trace actual inputs to merge
             # an integer number representing the number of inputs is also valid
             inputs = luigi.task.getpaths(self.cascade_workflow_requires())
@@ -198,31 +216,11 @@ class CascadeMerge(LocalWorkflow):
         self.cascade_forest = forest
         self._forest_built = True
 
-    @property
-    def is_forest(self):
-        return self._is_forest(self.cascade_tree)
-
-    @property
-    def is_root(self):
-        if self.is_forest:
-            return False
-
-        return self.cascade_depth == 0
-
-    @property
-    def is_leaf(self):
-        if self.is_forest:
-            return False
-
-        tree = self.cascade_forest[self.cascade_tree]
-        max_depth = max(tree.keys())
-        return self.cascade_depth == max_depth
-
     def create_branch_map(self):
-        if self.is_forest:
+        if self.is_forest():
             raise Exception("cannot define a branch map when in forest mode (cascade_tree < 0)")
 
-        tree = self.cascade_forest[self.cascade_tree]
+        tree = self._get_tree()
         nodes = tree[self.cascade_depth]
         return dict(enumerate(nodes))
 
@@ -262,10 +260,18 @@ class CascadeMerge(LocalWorkflow):
     def merge(self, inputs, output):
         return
 
+    def complete(self):
+        if self.is_forest():
+            return all(task.complete() for task in flatten(self.requires()))
+        else:
+            return super(CascadeMerge, self).complete()
+
     def workflow_requires(self):
+        self._build_cascade_forest()
+
         reqs = super(CascadeMerge, self).workflow_requires()
 
-        if self.is_leaf:
+        if self.is_leaf():
             # this is simply the cascade requirement
             reqs["cascade"] = self.cascade_workflow_requires()
 
@@ -275,25 +281,17 @@ class CascadeMerge(LocalWorkflow):
 
         return reqs
 
-    def complete(self):
-        if self.is_forest:
-            return all(task.complete() for task in flatten(self.requires()))
-        else:
-            return super(CascadeMerge, self).complete()
-
     def requires(self):
         reqs = OrderedDict()
 
-        if self.is_forest:
+        if self.is_forest():
             # require the workflows for all cascade trees
-            self._build_cascade_forest()
             n_trees = len(self.cascade_forest)
             reqs["forest"] = {t: self.req(self, branch=-1, cascade_tree=t) for t in range(n_trees)}
 
-        elif self.is_leaf:
+        elif self.is_leaf():
             # this is simply the cascade requirement
             # also determine and pass the corresponding leaf number range
-            self.cascade_forest
             sum_n_leaves = sum(self.leaves_per_tree)
             offset = sum(self.leaves_per_tree[:self.cascade_tree])
             merge_factor = self.merge_factor
@@ -306,8 +304,8 @@ class CascadeMerge(LocalWorkflow):
         else:
             # get all child nodes in the next layer at depth = depth + 1, store their branches
             # note: child node tuples contain the exact same values plus an additional one
+            tree = self._get_tree()
             node = self.branch_data
-            tree = self.cascade_forest[self.cascade_tree]
             branches = [i for i, n in enumerate(tree[self.cascade_depth + 1]) if n[:-1] == node]
 
             # add to requirements
@@ -332,13 +330,13 @@ class CascadeMerge(LocalWorkflow):
     def output(self):
         output = self.cascade_output()
 
-        if self.is_forest:
+        if self.is_forest():
             return output
 
         if isinstance(output, TargetCollection):
             output = output[self.cascade_tree]
 
-        if self.is_root:
+        if self.is_root():
             return output
 
         else:
@@ -351,7 +349,7 @@ class CascadeMerge(LocalWorkflow):
     def run(self):
         # trace actual inputs to merge
         inputs = self.input()["cascade"]
-        if self.is_leaf:
+        if self.is_leaf():
             inputs = self.trace_cascade_inputs(inputs)
         else:
             inputs = inputs.values()
@@ -362,8 +360,8 @@ class CascadeMerge(LocalWorkflow):
         self.merge(inputs, self.output())
 
         # remove intermediate nodes
-        if not self.is_leaf and not self.keep_nodes:
-            with self.publish_step("removing intermediate results to node {}".format(
+        if not self.is_leaf() and not self.keep_nodes:
+            with self.publish_step("removing intermediate results of node {}".format(
                     self.branch_data)):
                 for inp in inputs:
                     inp.remove()

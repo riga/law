@@ -507,7 +507,7 @@ class BaseWorkflow(Task):
             return self.as_workflow().get_branch_tasks()
         else:
             if self._branch_tasks is None:
-                branch_map = self.branch_map
+                branch_map = self.get_branch_map()
                 if branch_map is None:
                     raise AttributeError("workflow task '{}' requires a branch_map".format(self))
 
