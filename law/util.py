@@ -517,8 +517,8 @@ def interruptable_popen(*args, **kwargs):
 def readable_popen(*args, **kwargs):
     """
     Shorthand to :py:class:`Popen` which yields the output live line-by-line. All *args* and
-    *kwargs* are forwatded to the :py:class:`Popen` constructor. When EOF is reached, the subprocess
-    itself is yielded. Example:
+    *kwargs* are forwatded to the :py:class:`Popen` constructor. When EOF is reached,
+    ``communicate()`` is called on the subprocess and it is yielded. Example:
 
     .. code-block:: python
 
@@ -542,6 +542,7 @@ def readable_popen(*args, **kwargs):
         yield line.rstrip()
 
     # yield the process itself in the end
+    p.communicate()
     yield p
 
 
