@@ -276,9 +276,16 @@ class ARCJobFileFactory(BaseJobFileFactory):
         elif not c.executable:
             raise ValueError("executable must not be empty")
 
+        # default render variables
+        if not render_variables:
+            render_variables = {}
+
+        # always add output_uri to render variables
+        if c.output_uri and "output_uri" not in render_variables:
+            render_variables["output_uri"] = c.output_uri
+
         # linearize render_variables
-        if render_variables:
-            render_variables = self.linearize_render_variables(render_variables)
+        render_variables = self.linearize_render_variables(render_variables)
 
         # prepare the job file
         job_file = self.postfix_file(os.path.join(c.dir, c.file_name), postfix)
