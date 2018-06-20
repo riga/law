@@ -20,7 +20,7 @@
 # 6. dashboard_data (base64 encoded list)
 
 action() {
-    export JOB_INIT_DIR="$( /bin/pwd )"
+    export LAW_JOB_INIT_DIR="$( /bin/pwd )"
 
 
     #
@@ -40,7 +40,7 @@ action() {
     #
 
     local job_hash="$( python -c "import uuid; print(str(uuid.uuid4())[-12:])" )"
-    export HOME="$JOB_INIT_DIR/job_${job_hash}"
+    export HOME="$LAW_JOB_INIT_DIR/job_${job_hash}"
     export TMP="$HOME/tmp"
     export TEMP="$TMP"
     export TMPDIR="$TMP"
@@ -145,7 +145,7 @@ action() {
     cleanup() {
         section "cleanup"
 
-        cd "$JOB_INIT_DIR"
+        cd "$LAW_JOB_INIT_DIR"
 
         echo "pre cleanup"
         echo "ls -la $HOME:"
@@ -155,8 +155,8 @@ action() {
         echo
 
         echo "post cleanup"
-        echo "ls -la $JOB_INIT_DIR:"
-        ls -la "$JOB_INIT_DIR"
+        echo "ls -la $LAW_JOB_INIT_DIR:"
+        ls -la "$LAW_JOB_INIT_DIR"
     }
 
 
@@ -169,7 +169,7 @@ action() {
     echo "script: $0"
     echo "shell : '$SHELL'"
     echo "args  : '$@'"
-    echo "init  : '$JOB_INIT_DIR'"
+    echo "init  : '$LAW_JOB_INIT_DIR'"
     echo "home  : '$HOME'"
     echo "tmp   : '$( python -c "from tempfile import gettempdir; print(gettempdir())" )'"
     echo "pwd   : '$( pwd )'"
