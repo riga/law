@@ -356,6 +356,20 @@ class ProxyTask(BaseTask):
     exclude_params_req = {"task"}
 
 
+class TaskMessageStream(BaseStream):
+
+    def __init__(self, task, stdout=True):
+        super(TaskMessageStream, self).__init__()
+        self.task = task
+        self.stdout = stdout
+
+    def _write(self, *args):
+        if self.stdout:
+            self.task.publish_message(*args)
+        else:
+            self.task._publish_message(*args)
+
+
 def getreqs(struct):
     # same as luigi.task.getpaths but for requires()
     if isinstance(struct, Task):
@@ -384,9 +398,11 @@ def print_task_deps(task, max_depth=1):
         print(depth * ind + "> " + dep.colored_repr())
 
 
-def print_task_status(task, max_depth=0, target_depth=0):
+def print_task_status(task, max_depth=0, target_depth=0, flags=None):
     max_depth = int(max_depth)
     target_depth = int(target_depth)
+    if flags:
+        flags = tuple(flags.lower().split("-"))
 
     print("print task status with max_depth {} and target_depth {}".format(
         max_depth, target_depth))
@@ -407,7 +423,7 @@ def print_task_status(task, max_depth=0, target_depth=0):
             for outp in luigi.task.flatten(dep.output()):
                 print("{}- check {}".format(offset, outp.colored_repr()))
 
-                status_lines = outp.status_text(max_depth=target_depth).split("\n")
+                status_lines = outp.status_text(max_depth=target_depth, flags=flags).split("\n")
                 status_text = status_lines[0]
                 for line in status_lines[1:]:
                     status_text += "\n" + offset + "     " + line
@@ -472,17 +488,3 @@ def remove_task_output(task, max_depth=0, mode=None, include_external=False):
 
             outp.remove()
             print(offset + "  " + colored("removed", "red", style="bright"))
-
-
-class TaskMessageStream(BaseStream):
-
-    def __init__(self, task, stdout=True):
-        super(TaskMessageStream, self).__init__()
-        self.task = task
-        self.stdout = stdout
-
-    def _write(self, *args):
-        if self.stdout:
-            self.task.publish_message(*args)
-        else:
-            self.task._publish_message(*args)

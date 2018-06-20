@@ -54,7 +54,7 @@ class Target(luigi.target.Target):
     def _repr_flag(cls, name, color=True):
         return colored(name, color="magenta") if color else name
 
-    def status_text(self, max_depth=0, color=True):
+    def status_text(self, max_depth=0, flags=None, color=True):
         if self.exists():
             text = "existent"
             _color = "green"

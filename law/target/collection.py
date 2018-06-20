@@ -54,11 +54,17 @@ class TargetCollection(Target):
     def _repr_pairs(self, color=True):
         return Target._repr_pairs(self) + [("len", len(self)), ("threshold", self.threshold)]
 
-    def _iter_flat(self):
+    def _iter_flat(self, keys=False):
         if isinstance(self._flat_targets, (list, tuple)):
-            return self._flat_targets
+            if keys:
+                return enumerate(self._flat_targets)
+            else:
+                return self._flat_targets
         else:  # dict
-            return six.itervalues(self._flat_targets)
+            if keys:
+                return six.iteritems(self._flat_targets)
+            else:
+                return six.itervalues(self._flat_targets)
 
     def iter_existing(self):
         for targets in self._iter_flat():
@@ -69,6 +75,12 @@ class TargetCollection(Target):
         for targets in self._iter_flat():
             if any(not t.exists() for t in targets):
                 yield targets
+
+    def keys(self):
+        if isinstance(self._flat_targets, (list, tuple)):
+            return list(range(len(self)))
+        else:  # dict
+            return list(self._flat_targets.keys())
 
     @property
     def hash(self):
@@ -107,14 +119,21 @@ class TargetCollection(Target):
 
         return False
 
-    def count(self, existing=True):
+    def count(self, existing=True, keys=False):
         # simple counting
         n = 0
-        for targets in self._iter_flat():
+        existing_keys = []
+        for key, targets in self._iter_flat(keys=True):
             if all(t.exists() for t in targets):
                 n += 1
+                existing_keys.append(key)
 
-        return n if existing else len(self) - n
+        if existing:
+            return n if not keys else (n, existing_keys)
+        else:
+            n = len(self) - n
+            missing_keys = [key for key in self.keys() if key not in existing_keys]
+            return n if not keys else (n, missing_keys)
 
     def random_target(self):
         if isinstance(self.targets, (list, tuple)):
@@ -122,8 +141,8 @@ class TargetCollection(Target):
         else:  # dict
             return random.choice(list(self.targets.values()))
 
-    def status_text(self, max_depth=0, color=True):
-        count = self.count()
+    def status_text(self, max_depth=0, flags=None, color=True):
+        count, existing_keys = self.count(keys=True)
         exists = count >= self._abs_threshold()
 
         if exists:
@@ -136,6 +155,10 @@ class TargetCollection(Target):
         text = colored(text, _color, style="bright") if color else text
         text += " ({}/{})".format(count, len(self))
 
+        if flags and "missing" in flags and count != len(self):
+            missing_keys = [str(key) for key in self.keys() if key not in existing_keys]
+            text += ", missing: " + ",".join(missing_keys)
+
         if max_depth > 0:
             if isinstance(self.targets, (list, tuple)):
                 gen = enumerate(self.targets)
@@ -146,13 +169,14 @@ class TargetCollection(Target):
                 text += "\n{}: ".format(key)
 
                 if isinstance(item, TargetCollection):
-                    text += "\n  ".join(item.status_text(max_depth - 1, color=color).split("\n"))
+                    t = item.status_text(max_depth - 1, color=color)
+                    text += "\n  ".join(t.split("\n"))
                 elif isinstance(item, Target):
-                    text += "{} ({})".format(item.status_text(color=color),
-                        item.colored_repr(color=color))
+                    t = item.status_text(color=color)
+                    text += "{} ({})".format(t, item.colored_repr(color=color))
                 else:
-                    text += "\n   ".join(
-                        self.__class__(item).status_text(max_depth - 1, color=color).split("\n"))
+                    t = self.__class__(item).status_text(max_depth - 1, color=color)
+                    text += "\n   ".join(t.split("\n"))
 
         return text
 
@@ -215,10 +239,13 @@ class SiblingFileCollection(TargetCollection):
 
         return False
 
-    def count(self, existing=True, basenames=None):
+    def count(self, existing=True, keys=False, basenames=None):
         # trivial case when the contained directory does not exist
         if not self.dir.exists():
-            return 0
+            if existing:
+                return 0 if not keys else (0, [])
+            else:
+                return len(self) if not keys else (len(self), self.keys())
 
         # get the basenames of all elements of the directory
         if basenames is None:
@@ -226,7 +253,8 @@ class SiblingFileCollection(TargetCollection):
 
         # simple counting
         n = 0
-        for i, targets in enumerate(self._iter_flat()):
+        existing_keys = []
+        for key, targets in self._iter_flat(keys=True):
             for target in targets:
                 if isinstance(target, FileSystemTarget):
                     if target.basename not in basenames:
@@ -236,5 +264,11 @@ class SiblingFileCollection(TargetCollection):
                         break
             else:
                 n += 1
+                existing_keys.append(key)
 
-        return n if existing else len(self) - n
+        if existing:
+            return n if not keys else (n, existing_keys)
+        else:
+            n = len(self) - n
+            missing_keys = [key for key in self.keys() if key not in existing_keys]
+            return n if not keys else (n, missing_keys)
