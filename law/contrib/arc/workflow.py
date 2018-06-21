@@ -154,6 +154,8 @@ class ARCWorkflow(BaseRemoteWorkflow):
 
     workflow_proxy_cls = ARCWorkflowProxy
 
+    arc_workflow_run_decorators = None
+
     arc_ce = CSVParameter(default=[], significant=False, description="target arc computing "
         "element(s)")
 

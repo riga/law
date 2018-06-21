@@ -46,6 +46,21 @@ class BaseWorkflowProxy(ProxyTask):
 
     workflow_type = None
 
+    def __init__(self, *args, **kwargs):
+        super(BaseWorkflowProxy, self).__init__(*args, **kwargs)
+
+        # find decorators for this proxy's run method that can be configured on the actual task
+        for prefix in [self.workflow_type + "_", ""]:
+            attr = "{}workflow_run_decorators".format(prefix)
+            decorators = getattr(self.task, attr, None)
+            if decorators is not None:
+                # found decorators, so unbound, decorate and re-bound
+                run_func = self.run.__func__
+                for decorator in decorators:
+                    run_func = decorator(run_func)
+                self.run = run_func.__get__(self)
+                break
+
     def complete(self):
         """
         Custom completion check that invokes the task's *workflow_complete* if it is callable, or
@@ -258,6 +273,13 @@ class BaseWorkflow(Task):
 
        Reference to :py:func:`cached_workflow_property`.
 
+    .. py:classattribute:: workflow_run_decorators
+       type: sequence, None
+
+       Sequence of decorator functions that will be conveniently used to decorate the workflow's run
+       method. This way, there is no need to subclass and reset the :py:attr:`workflow_proxy_cls`
+       just to add a decorator. The value is *None* by default.
+
     .. py:attribute:: branch_map
        read-only
        type: dict
@@ -298,6 +320,8 @@ class BaseWorkflow(Task):
 
     workflow_property = None
     cached_workflow_property = None
+
+    workflow_run_decorators = None
 
     exclude_db = True
     exclude_params_branch = {"print_deps", "print_status", "remove_output", "workflow",

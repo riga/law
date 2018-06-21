@@ -153,6 +153,8 @@ class LSFWorkflow(BaseRemoteWorkflow):
 
     workflow_proxy_cls = LSFWorkflowProxy
 
+    lsf_workflow_run_decorators = None
+
     lsf_queue = luigi.Parameter(default=NO_STR, significant=False, description="target lsf queue")
 
     exclude_params_branch = {"lsf_queue"}

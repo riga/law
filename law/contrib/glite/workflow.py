@@ -165,6 +165,8 @@ class GLiteWorkflow(BaseRemoteWorkflow):
 
     workflow_proxy_cls = GLiteWorkflowProxy
 
+    glite_workflow_run_decorators = None
+
     glite_ce = CSVParameter(default=[], significant=False, description="target glite computing "
         "element(s)")
 

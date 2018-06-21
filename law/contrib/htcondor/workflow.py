@@ -161,6 +161,8 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
 
     workflow_proxy_cls = HTCondorWorkflowProxy
 
+    htcondor_workflow_run_decorators = None
+
     htcondor_pool = luigi.Parameter(default=NO_STR, significant=False, description="target "
         "htcondor pool")
     htcondor_scheduler = luigi.Parameter(default=NO_STR, significant=False, description="target "
