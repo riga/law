@@ -26,7 +26,8 @@ class NotifySlackParameter(NotifyParameter):
                 "law.decorator.notify, a slack notification is sent once the task finishes"
 
     @staticmethod
-    def notify(success, title, parts, token=None, channel=None, **kwargs):
+    def notify(success, title, parts, token=None, channel=None,
+            success_text="success :tada:", failure_text="failure :exclamation:", **kwargs):
         import slackclient
 
         cfg = Config.instance()
@@ -41,9 +42,12 @@ class NotifySlackParameter(NotifyParameter):
                 "channel": channel,
                 "text": "Notification from:\n*{}*".format(parts["Task"]),
                 "attachments": {
-                    "color": "#4BB543" if success else "#FF0033",
-                    "title": title,
-                    "fields": [],
+                    "color": "#4bb543" if success else "#ff0033",
+                    "fields": [{
+                        "title": "Status",
+                        "value": success_text if success else failure_text,
+                        "short": True,
+                    }],
                     "fallback": "*{}*\n\n".format(title),
                 },
                 "as_user": True,
