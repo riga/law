@@ -149,13 +149,13 @@ class NotifyMailParameter(NotifyParameter):
         cfg = Config.instance()
 
         if not recipient:
-            recipient = cfg.get("notifications", "mail_recipient")
+            recipient = cfg.get_expanded("notifications", "mail_recipient")
         if not sender:
-            sender = cfg.get("notifications", "mail_sender")
+            sender = cfg.get_expanded("notifications", "mail_sender")
         if not smtp_host:
-            smtp_host = cfg.get("notifications", "mail_smtp_host")
+            smtp_host = cfg.get_expanded("notifications", "mail_smtp_host")
         if not smtp_port:
-            smtp_port = cfg.get("notifications", "mail_smtp_port")
+            smtp_port = cfg.get_expanded("notifications", "mail_smtp_port")
 
         if recipient and sender:
             send_mail(recipient, sender, title, message, smtp_host=smtp_host,
