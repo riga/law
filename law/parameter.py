@@ -111,11 +111,12 @@ class NotifyParameter(luigi.BoolParameter):
             }
 
     When a task has a specific notification parameter set to *True* and its run method is decorated
-    with the :py:func:`law.notify` function, *notification_func* is called with at least two
-    arguments: *title* and *message*. *title* is always a string. When *raw* is *False* (the
-    default), *message* is also a string. Otherwise, it is a list of tuples containing key value
-    pairs describing the message content. All options passed to :py:func:`law.notify` are forwarded
-    to *notification_func* as optional arguments.
+    with the :py:func:`law.notify` function, *notification_func* is called with at least three
+    arguments: *success*, *title* and *message*. *success* is a boolean which is *True* when the
+    decorated function did not raise an exception. *title* is always a string. When *raw* is *False*
+    (the default), *message* is also a string. Otherwise, it is a list of tuples containing key
+    value pairs describing the message content. All options passed to
+    :py:func:`law.decorator.notify` are forwarded to *notification_func* as optional arguments.
     """
 
     def get_transport(self):
@@ -136,10 +137,10 @@ class NotifyMailParameter(NotifyParameter):
 
         if not self.description:
             self.description = "when true, and the task's run method is decorated with " \
-                "law.notify, an email notification is sent once the task finishes"
+                "law.decorator.notify, an email notification is sent once the task finishes"
 
     @staticmethod
-    def notify(title, message, recipient=None, sender=None, smtp_host=None, smtp_port=None,
+    def notify(success, title, message, recipient=None, sender=None, smtp_host=None, smtp_port=None,
             **kwargs):
         """
         Notification method taking a *title* and a *message*. *recipient*, *sender*, *smtp_host* and

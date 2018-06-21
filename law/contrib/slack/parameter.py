@@ -18,10 +18,10 @@ class NotifySlackParameter(NotifyParameter):
 
         if not self.description:
             self.description = "when true, and the task's run method is decorated with " \
-                "law.notify, a slack notification is sent once the task finishes"
+                "law.decorator.notify, a slack notification is sent once the task finishes"
 
     @staticmethod
-    def notify(title, parts, token=None, channel=None, **kwargs):
+    def notify(success, title, parts, token=None, channel=None, **kwargs):
         import slackclient
 
         cfg = Config.instance()

@@ -160,7 +160,7 @@ def delay(fn, opts, task, *args, **kwargs):
     return fn(task, *args, **kwargs)
 
 
-@factory()
+@factory(on_success=True, on_failure=True)
 def notify(fn, opts, task, *args, **kwargs):
     """ notify(**kwargs)
     Wraps a bound method of a task and guards its execution. Information about the execution (task
@@ -209,9 +209,14 @@ def notify(fn, opts, task, *args, **kwargs):
         success = False
         raise
     finally:
+        if success and not opts["on_success"]:
+            return
+        elif not success and not opts["on_failure"]:
+            return
+
         duration = human_time_diff(seconds=round(time.time() - t0, 1))
-        status_string = "succeeded!" if success else "failed"
-        title = "Task {} {}".format(_task.get_task_family(), status_string)
+        status_string = "succeeded" if success else "failed"
+        title = "Task {} {}!".format(_task.get_task_family(), status_string)
         parts = [
             ("Host", socket.gethostname()),
             ("Duration", duration),
@@ -227,6 +232,6 @@ def notify(fn, opts, task, *args, **kwargs):
             fn = transport["func"]
             raw = transport.get("raw", False)
             try:
-                fn(title, parts if raw else message, **opts)
+                fn(success, title, parts if raw else message, **opts)
             except Exception as e:
                 logger.warning("notification failed via transport '{}': {}".format(fn, e))
