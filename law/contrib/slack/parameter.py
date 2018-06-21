@@ -5,10 +5,9 @@ Slack notification.
 """
 
 
-import logging
 import os
-import traceback
 import threading
+import logging
 
 from law.config import Config
 from law.parameter import NotifyParameter
@@ -29,7 +28,6 @@ class NotifySlackParameter(NotifyParameter):
     @staticmethod
     def notify(success, title, parts, token=None, channel=None, **kwargs):
         import slackclient
-        import json
 
         cfg = Config.instance()
 
@@ -63,6 +61,9 @@ class NotifySlackParameter(NotifyParameter):
                 })
 
             def notify_thread(token, request):
+                import json
+                import traceback
+
                 try:
                     # token might be a file
                     if os.path.isfile(token):
