@@ -6,9 +6,14 @@ Slack notification.
 
 
 import os
+import threading
+import logging
 
 from law.config import Config
 from law.parameter import NotifyParameter
+
+
+logger = logging.getLogger(__name__)
 
 
 class NotifySlackParameter(NotifyParameter):
@@ -27,27 +32,57 @@ class NotifySlackParameter(NotifyParameter):
         cfg = Config.instance()
 
         if not token:
-            token = cfg.get("notifications", "slack_token")
+            token = cfg.get_expanded("notifications", "slack_token")
         if not channel:
-            channel = cfg.get("notifications", "slack_channel")
+            channel = cfg.get_expanded("notifications", "slack_channel")
 
         if token and channel:
-            # minimal markup
-            text = "*{}*\n\n".format(title)
-            for key, value in parts:
-                text += "_{}_: {}\n".format(key, value)
+            request = {
+                "channel": channel,
+                "text": "*Notification from: {}!*".format(parts["Task"]),
+                "attachments": {
+                    "color": "#4BB543" if success else "#FF0033",
+                    "title": title,
+                    "fields": [],
+                    "fallback": "*{}*\n\n".format(title),
+                },
+                "as_user": True,
+                "parse": "full",
+            }
 
-            # token might be a file
-            if os.path.isfile(token):
-                with open(token, "r") as f:
-                    token = f.read().strip()
+            for key, value in parts.items():
+                if key == "Task":
+                    continue
+                request["attachments"]["fallback"] += "_{}_: {}\n".format(key, value)
+                request["attachments"]["fields"].append({
+                    "title": key,
+                    "value": "```{}```".format(value) if key == "Traceback" else value,
+                    "short": len(value) <= 40,
+                })
 
-            sc = slackclient.SlackClient(token)
-            sc.api_call(
-                "chat.postMessage",
-                channel=channel,
-                text=text,
-            )
+            def notify_thread(token, request):
+                import json
+                import traceback
+
+                try:
+                    # token might be a file
+                    if os.path.isfile(token):
+                        with open(token, "r") as f:
+                            token = f.read().strip()
+
+                    request["attachments"] = json.dumps([request["attachments"]])
+
+                    sc = slackclient.SlackClient(token)
+                    res = sc.api_call("chat.postMessage", **request)
+
+                    if not res["ok"]:
+                        logger.warning("unsuccessful Slack API call: {}".format(res))
+                except Exception as e:
+                    t = traceback.format_exc()
+                    logger.warning("could not send Slack notification: {}\n{}".format(e, t))
+
+            thread = threading.Thread(target=notify_thread, args=(token, request))
+            thread.start()
 
     def get_transport(self):
         return {

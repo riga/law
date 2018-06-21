@@ -114,7 +114,7 @@ class NotifyParameter(luigi.BoolParameter):
     with the :py:func:`law.notify` function, *notification_func* is called with at least three
     arguments: *success*, *title* and *message*. *success* is a boolean which is *True* when the
     decorated function did not raise an exception. *title* is always a string. When *raw* is *False*
-    (the default), *message* is also a string. Otherwise, it is a list of tuples containing key
+    (the default), *message* is also a string. Otherwise, it is an ordered dictionary containing key
     value pairs describing the message content. All options passed to
     :py:func:`law.decorator.notify` are forwarded to *notification_func* as optional arguments.
     """
