@@ -6,10 +6,13 @@ Custom luigi parameters.
 
 
 __all__ = ["NO_STR", "NO_INT", "NO_FLOAT", "is_no_param", "get_param", "TaskInstanceParameter",
-           "CSVParameter"]
+           "CSVParameter", "NotifyParameter", "NotifyMailParameter"]
 
 
 import luigi
+
+from law.config import Config
+from law.util import send_mail
 
 
 #: String value denoting an empty parameter.
@@ -92,3 +95,67 @@ class CSVParameter(luigi.Parameter):
             return ""
         else:
             return ",".join(str(self._inst.serialize(elem)) for elem in value)
+
+
+class NotifyParameter(luigi.BoolParameter):
+    """
+    Base class for notification parameters. A notification parameter must provide a notification
+    transport in :py:meth:`get_transport`, e.g.
+
+    .. code-block:: python
+
+        def get_transport(self):
+            return {
+                "func": notification_func,
+                "raw": True,  # or False
+            }
+
+    When a task has a specific notification parameter set to *True* and its run method is decorated
+    with the :py:func:`law.notify` function, *notification_func* is called with at least two
+    arguments: *title* and *message*. *title* is always a string. When *raw* is *False* (the
+    default), *message* is also a string. Otherwise, it is a list of tuples containing key value
+    pairs describing the message content. All options passed to :py:func:`law.notify` are forwarded
+    to *notification_func* as optional arguments.
+    """
+
+    def get_transport(self):
+        """
+        Method to configure the transport that is toggled by this parameter. Should return a
+        dictionary with ``"func"`` and ``"raw"`` (optional) fields.
+        """
+        return None
+
+
+class NotifyMailParameter(NotifyParameter):
+    """
+    Notification parameter defining a basic email transport.
+    """
+
+    @staticmethod
+    def notify(title, message, recipient=None, sender=None, smtp_host=None, smtp_port=None,
+            **kwargs):
+        """
+        Notification method taking a *title* and a *message*. *recipient*, *sender*, *smtp_host* and
+        *smtp_port* default to the configuration values in the [notifications] section.
+        """
+        cfg = Config.instance()
+
+        if not recipient:
+            recipient = cfg.get("notifications", "mail_recipient")
+        if not sender:
+            sender = cfg.get("notifications", "mail_sender")
+        if not smtp_host:
+            smtp_host = cfg.get("notifications", "mail_smtp_host")
+        if not smtp_port:
+            smtp_port = cfg.get("notifications", "mail_smtp_port")
+
+        if recipient and sender:
+            send_mail(recipient, sender, title, message, smtp_host=smtp_host,
+                smtp_port=smtp_port)
+
+    def get_transport(self):
+        """"""
+        return {
+            "func": self.notify,
+            "raw": False,
+        }

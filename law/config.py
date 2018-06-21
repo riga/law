@@ -94,6 +94,12 @@ class Config(ConfigParser):
         },
         "singularity_env": {},
         "singularity_volumes": {},
+        "notifications": {
+            "mail_recipient": "",
+            "mail_sender": "",
+            "mail_smtp_host": "127.0.0.1",
+            "mail_smtp_port": 25,
+        },
     }
 
     _config_files = ["$LAW_CONFIG_FILE", "law.cfg", law_home_path("config"), "etc/law/config"]

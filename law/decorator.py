@@ -20,7 +20,7 @@ arguments when configuring decorators. Default arguments are applied in either c
 """
 
 
-__all__ = ["factory", "log", "safe_output", "delay"]
+__all__ = ["factory", "log", "safe_output", "delay", "notify"]
 
 
 import sys
@@ -28,13 +28,18 @@ import time
 import traceback
 import functools
 import random
+import socket
+import logging
 
 import luigi
 
 from law.task.base import ProxyTask
-from law.parameter import get_param
+from law.parameter import get_param, NotifyParameter
 from law.target.local import LocalFileTarget
-from law.util import TeeStream
+from law.util import human_time_diff, TeeStream
+
+
+logger = logging.getLogger(__name__)
 
 
 def factory(**default_opts):
@@ -153,3 +158,75 @@ def delay(fn, opts, task, *args, **kwargs):
     time.sleep(t)
 
     return fn(task, *args, **kwargs)
+
+
+@factory()
+def notify(fn, opts, task, *args, **kwargs):
+    """ notify(**kwargs)
+    Wraps a bound method of a task and guards its execution. Information about the execution (task
+    name, duration, etc) is collected and dispatched to all notification transports registered on
+    wrapped task via adding :py:class:`law.NotifyParameter` parameters. Example:
+
+    .. code-block:: python
+
+        class MyTask(law.Task):
+
+            notify_mail = law.NotifyMailParameter()
+
+            @notify
+            # or
+            @notify(sender="foo@bar.com", recipient="user@host.tld")
+            def run(self):
+                ...
+
+    When the *notify_mail* parameter is *True*, a notification is sent to the configured email
+    address. Also see :ref:`config-notifications`.
+    """
+    _task = get_task(task)
+
+    # get notification transports
+    transports = []
+    for param_name, param in _task.get_params():
+        if isinstance(param, NotifyParameter) and getattr(_task, param_name):
+            try:
+                transport = param.get_transport()
+                if transport:
+                    transports.append(transport)
+            except Exception as e:
+                logger.warning("get_transport() failed for '{}' parameter: {}".format(
+                    param_name, e))
+
+    # nothing to do when there is no transport
+    if not transports:
+        return fn(task, *args, **kwargs)
+
+    # guard the fn call and gather infos
+    success = True
+    t0 = time.time()
+    try:
+        return fn(task, *args, **kwargs)
+    except:
+        success = False
+        raise
+    finally:
+        duration = human_time_diff(seconds=round(time.time() - t0, 1))
+        status_string = "succeeded!" if success else "failed"
+        title = "Task {} {}".format(_task.get_task_family(), status_string)
+        parts = [
+            ("Host", socket.gethostname()),
+            ("Duration", duration),
+            ("Last message", "-" if not len(_task._message_cache) else _task._message_cache[-1]),
+            ("Task", str(_task)),
+        ]
+        if not success:
+            parts.append(("Traceback", traceback.format_exc()))
+        message = "\n".join("{}: {}".format(*tpl) for tpl in parts)
+
+        # dispatch via all transports
+        for transport in transports:
+            fn = transport["func"]
+            raw = transport.get("raw", False)
+            try:
+                fn(title, parts if raw else message, **opts)
+            except Exception as e:
+                logger.warning("notification failed via transport '{}': {}".format(fn, e))

@@ -30,7 +30,6 @@ import copy
 import collections
 import contextlib
 import smtplib
-import socket
 import logging
 import datetime
 

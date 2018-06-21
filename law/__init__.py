@@ -10,7 +10,7 @@ __all__ = [
     "LocalFileSystem", "LocalTarget", "LocalFileTarget, LocalDirectoryTarget",
     "TargetCollection", "SiblingFileCollection",
     "NO_STR", "NO_INT", "NO_FLOAT", "is_no_param", "get_param", "TaskInstanceParameter",
-    "CSVParameter",
+    "CSVParameter", "NotifyParameter", "NotifyMailParameter",
     "Config",
 ]
 
@@ -41,6 +41,7 @@ law.logger.setup_logging()
 import law.util
 from law.parameter import (
     NO_STR, NO_INT, NO_FLOAT, is_no_param, get_param, TaskInstanceParameter, CSVParameter,
+    NotifyParameter, NotifyMailParameter,
 )
 from law.target.file import FileSystemTarget, FileSystemFileTarget, FileSystemDirectoryTarget
 from law.target.local import LocalFileSystem, LocalTarget, LocalFileTarget, LocalDirectoryTarget
