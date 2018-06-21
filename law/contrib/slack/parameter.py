@@ -32,9 +32,9 @@ class NotifySlackParameter(NotifyParameter):
         cfg = Config.instance()
 
         if not token:
-            token = cfg.get("notifications", "slack_token")
+            token = cfg.get_expanded("notifications", "slack_token")
         if not channel:
-            channel = cfg.get("notifications", "slack_channel")
+            channel = cfg.get_expanded("notifications", "slack_channel")
 
         if token and channel:
             parts = dict(parts)
