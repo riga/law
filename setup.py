@@ -96,6 +96,7 @@ setup(
         "law.contrib.mercurial",
         "law.contrib.numpy",
         "law.contrib.root",
+        "law.contrib.slack",
         "law.contrib.tasks",
         "law.contrib.tensorflow",
         "law.contrib.wlcg",

@@ -99,6 +99,9 @@ class Config(ConfigParser):
             "mail_sender": "",
             "mail_smtp_host": "127.0.0.1",
             "mail_smtp_port": 25,
+            # contrib
+            "slack_token": "",
+            "slack_channel": "",
         },
     }
 
