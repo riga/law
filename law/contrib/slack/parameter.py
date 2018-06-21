@@ -5,10 +5,14 @@ Slack notification.
 """
 
 
+import logging
 import os
 
 from law.config import Config
 from law.parameter import NotifyParameter
+
+
+logger = logging.getLogger(__name__)
 
 
 class NotifySlackParameter(NotifyParameter):
@@ -23,6 +27,7 @@ class NotifySlackParameter(NotifyParameter):
     @staticmethod
     def notify(success, title, parts, token=None, channel=None, **kwargs):
         import slackclient
+        import json
 
         cfg = Config.instance()
 
@@ -32,10 +37,31 @@ class NotifySlackParameter(NotifyParameter):
             channel = cfg.get("notifications", "slack_channel")
 
         if token and channel:
-            # minimal markup
-            text = "*{}*\n\n".format(title)
-            for key, value in parts:
-                text += "_{}_: {}\n".format(key, value)
+            parts = dict(parts)
+
+            if "Task" in parts:
+                text = "*Notification from: {}!*".format(parts["Task"])
+                del parts["Task"]
+            else:
+                text = "# New Notification!"
+
+            attachment = {
+                "color": "#4BB543" if success else "#FF0033",
+                "title": title,
+                "fields": [],
+            }
+
+            fallback = "*{}*\n\n".format(title)
+
+            for key, value in parts.items():
+                fallback += "_{}_: {}\n".format(key, value)
+                attachment["fields"].append({
+                    "title": key,
+                    "value": "```{}```".format(value) if key == "Traceback" else value,
+                    "short": len(value) <= 40,
+                })
+
+            attachment["fallback"] = fallback
 
             # token might be a file
             if os.path.isfile(token):
@@ -43,11 +69,17 @@ class NotifySlackParameter(NotifyParameter):
                     token = f.read().strip()
 
             sc = slackclient.SlackClient(token)
-            sc.api_call(
+            res = sc.api_call(
                 "chat.postMessage",
                 channel=channel,
                 text=text,
+                attachments=json.dumps([attachment]),
+                as_user=True,
+                parse="full",
             )
+
+            if not res["ok"]:
+                logger.warning("Unsuccessful Slack API call: %s".format(res))
 
     def get_transport(self):
         return {
