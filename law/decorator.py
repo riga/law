@@ -206,7 +206,7 @@ def notify(fn, opts, task, *args, **kwargs):
     t0 = time.time()
     try:
         return fn(task, *args, **kwargs)
-    except Exception as e:
+    except (Exception, KeyboardInterrupt) as e:
         error = e
         raise
     finally:

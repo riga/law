@@ -39,7 +39,7 @@ class NotifySlackParameter(NotifyParameter):
         if token and channel:
             request = {
                 "channel": channel,
-                "text": "*Notification from: {}!*".format(parts["Task"]),
+                "text": "Notification from:\n*{}*".format(parts["Task"]),
                 "attachments": {
                     "color": "#4BB543" if success else "#FF0033",
                     "title": title,
