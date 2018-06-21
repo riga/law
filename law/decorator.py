@@ -211,7 +211,7 @@ def notify(fn, opts, task, *args, **kwargs):
     finally:
         success = error is None
         # do nothing on KeyboardInterrupt, or when on_success / on_failure do not match the status
-        if isinstance(e, KeyboardInterrupt):
+        if isinstance(error, KeyboardInterrupt):
             return
         elif success and not opts["on_success"]:
             return
