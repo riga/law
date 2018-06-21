@@ -10,8 +10,8 @@ __all__ = [
     "uncolored", "query_choice", "multi_match", "is_lazy_iterable", "make_list", "flatten", "which",
     "map_verbose", "map_struct", "mask_struct", "tmp_file", "interruptable_popen", "readable_popen",
     "create_hash", "copy_no_perm", "makedirs_perm", "user_owns_file", "iter_chunks", "human_bytes",
-    "is_file_exists_error", "check_bool_flag", "ShorthandDict", "BaseStream", "TeeStream",
-    "FilteredStream",
+    "human_time_diff", "is_file_exists_error", "check_bool_flag", "send_mail", "ShorthandDict",
+    "BaseStream", "TeeStream", "FilteredStream",
 ]
 
 
@@ -29,6 +29,10 @@ import shutil
 import copy
 import collections
 import contextlib
+import smtplib
+import socket
+import logging
+import datetime
 
 import six
 
@@ -649,6 +653,35 @@ def human_bytes(n, unit=None):
     return n / 1024. ** idx, byte_units[idx]
 
 
+time_units = [("day", 86400), ("hour", 3600), ("minute", 60), ("second", 1)]
+
+
+def human_time_diff(*args, **kwargs):
+    """
+    Returns a human readable time difference. The largest unit is days. All *args* and *kwargs* are
+    passed to ``datetime.timedelta``. Example:
+
+    .. code-block:: python
+
+        human_time_diff(seconds=1233)
+        # -> "20 minutes, 33 seconds"
+
+        human_time_diff(seconds=90001)
+        # -> "1 day, 1 hour, 1 second"
+    """
+    secs = float(datetime.timedelta(*args, **kwargs).total_seconds())
+    parts = []
+    for unit, mul in time_units:
+        if secs / mul >= 1 or mul == 1:
+            if mul > 1:
+                n = int(math.floor(secs / mul))
+                secs -= n * mul
+            else:
+                n = secs if secs != int(secs) else int(secs)
+            parts.append("{} {}{}".format(n, unit, "" if n == 1 else "s"))
+    return ", ".join(parts)
+
+
 def is_file_exists_error(e):
     """
     Returns whether the exception *e* was raised due to an already existing file or directory.
@@ -666,6 +699,25 @@ def check_bool_flag(s):
     returned unchanged.
     """
     return s.lower() in ("1", "yes", "true") if isinstance(s, six.string_types) else s
+
+
+def send_mail(recipient, sender, subject="", content="", smtp_host="127.0.0.1", smtp_port=25):
+    """
+    Lightweight mail functionality. Sends an mail from *sender* to *recipient* with *subject* and
+    *content*. *smtp_host* and *smtp_port* are forwarded to the ``smtplib.SMTP`` constructor. *True*
+    is returned on success, *False* otherwise.
+    """
+    try:
+        server = smtplib.SMTP(smtp_host, smtp_port)
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.warning("cannot create SMTP server: {}".format(e))
+        return False
+
+    header = "From: {}\r\nTo: {}\r\nSubject: {}\r\n\r\n".format(sender, recipient, subject)
+    server.sendmail(sender, recipient, header + content)
+
+    return True
 
 
 class ShorthandDict(collections.OrderedDict):
