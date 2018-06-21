@@ -37,13 +37,8 @@ class NotifySlackParameter(NotifyParameter):
             channel = cfg.get_expanded("notifications", "slack_channel")
 
         if token and channel:
-            parts = dict(parts)
-
-            if "Task" in parts:
-                text = "*Notification from: {}!*".format(parts["Task"])
-                del parts["Task"]
-            else:
-                text = "# New Notification!"
+            text = "*Notification from: {}!*".format(parts["Task"])
+            del parts["Task"]
 
             attachment = {
                 "color": "#4BB543" if success else "#FF0033",

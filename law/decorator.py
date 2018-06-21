@@ -29,6 +29,7 @@ import traceback
 import functools
 import random
 import socket
+import collections
 import logging
 
 import luigi
@@ -221,15 +222,15 @@ def notify(fn, opts, task, *args, **kwargs):
         duration = human_time_diff(seconds=round(time.time() - t0, 1))
         status_string = "succeeded" if success else "failed"
         title = "Task {} {}!".format(_task.get_task_family(), status_string)
-        parts = [
+        parts = collections.OrderedDict([
             ("Host", socket.gethostname()),
             ("Duration", duration),
             ("Last message", "-" if not len(_task._message_cache) else _task._message_cache[-1]),
             ("Task", str(_task)),
-        ]
+        ])
         if not success:
-            parts.append(("Traceback", traceback.format_exc()))
-        message = "\n".join("{}: {}".format(*tpl) for tpl in parts)
+            parts["Traceback"] = traceback.format_exc()
+        message = "\n".join("{}: {}".format(*tpl) for tpl in parts.items())
 
         # dispatch via all transports
         for transport in transports:
