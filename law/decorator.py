@@ -162,7 +162,7 @@ def delay(fn, opts, task, *args, **kwargs):
 
 @factory(on_success=True, on_failure=True)
 def notify(fn, opts, task, *args, **kwargs):
-    """ notify(**kwargs)
+    """ notify(on_success=True, on_failure=True, **kwargs)
     Wraps a bound method of a task and guards its execution. Information about the execution (task
     name, duration, etc) is collected and dispatched to all notification transports registered on
     wrapped task via adding :py:class:`law.NotifyParameter` parameters. Example:
@@ -201,15 +201,19 @@ def notify(fn, opts, task, *args, **kwargs):
         return fn(task, *args, **kwargs)
 
     # guard the fn call and gather infos
-    success = True
+    error = None
     t0 = time.time()
     try:
         return fn(task, *args, **kwargs)
-    except:
-        success = False
+    except Exception as e:
+        error = e
         raise
     finally:
-        if success and not opts["on_success"]:
+        success = error is None
+        # do nothing on KeyboardInterrupt, or when on_success / on_failure do not match the status
+        if isinstance(e, KeyboardInterrupt):
+            return
+        elif success and not opts["on_success"]:
             return
         elif not success and not opts["on_failure"]:
             return
