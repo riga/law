@@ -238,4 +238,5 @@ def notify(fn, opts, task, *args, **kwargs):
             try:
                 fn(success, title, parts if raw else message, **opts)
             except Exception as e:
-                logger.warning("notification failed via transport '{}': {}".format(fn, e))
+                t = traceback.format_exc()
+                logger.warning("notification failed via transport '{}': {}\n{}".format(fn, e, t))
