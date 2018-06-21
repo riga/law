@@ -610,7 +610,7 @@ def iter_chunks(l, size):
                     chunk.append(elem)
                 else:
                     yield chunk
-                    chunk = []
+                    chunk = [elem]
             else:
                 if chunk:
                     yield chunk
