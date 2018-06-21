@@ -131,6 +131,13 @@ class NotifyMailParameter(NotifyParameter):
     Notification parameter defining a basic email transport.
     """
 
+    def __init__(self, *args, **kwargs):
+        super(NotifyMailParameter, self).__init__(*args, **kwargs)
+
+        if not self.description:
+            self.description = "when true, and the task's run method is decorated with " \
+                "law.notify, an email notification is sent once the task finishes"
+
     @staticmethod
     def notify(title, message, recipient=None, sender=None, smtp_host=None, smtp_port=None,
             **kwargs):
