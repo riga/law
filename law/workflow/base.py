@@ -101,21 +101,16 @@ class BaseWorkflowProxy(ProxyTask):
         """
         Returns the threshold number of tasks that need to be complete in order to consider the
         workflow as being complete itself. This takes into account the
-        :py:attr:`law.BaseWorkflow.acceptance` and :py:attr:`law.BaseWorkflow.tolerance`
-        parameters of the workflow. The threshold is passed to the :py:class:`law.TargetCollection`
-        (or :py:class:`law.SiblingFileCollection`) within :py:meth:`output`. By default, the maximum
-        number of tasks is taken from the length of the branch map. For performance purposes, you
-        can set this value, *n*, directly.
+        :py:attr:`law.BaseWorkflow.acceptance` parameter of the workflow. The threshold is passed
+        to the :py:class:`law.TargetCollection` (or :py:class:`law.SiblingFileCollection`) within
+        :py:meth:`output`. By default, the maximum number of tasks is taken from the length of the
+        branch map. For performance purposes, you can set this value, *n*, directly.
         """
         if n is None:
             n = len(self.task.branch_map())
 
         acceptance = self.task.acceptance
-        acceptance *= n if acceptance <= 1 else 1
-        tolerance = self.task.tolerance
-        tolerance *= n if tolerance <= 1 else 1
-
-        return min(acceptance, n - min(tolerance, n)) / float(n)
+        return (acceptance * n) if acceptance <= 1 else acceptance
 
 
 def workflow_property(func):
