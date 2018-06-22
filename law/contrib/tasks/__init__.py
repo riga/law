@@ -17,7 +17,6 @@ import six
 
 from law import Task, LocalWorkflow, FileSystemTarget, LocalFileTarget, TargetCollection, \
     SiblingFileCollection, cached_workflow_property, NO_INT
-from law.decorator import log
 from law.util import flatten, iter_chunks
 
 
@@ -55,7 +54,6 @@ class TransferLocalFile(Task):
             output_dir.child(basename(i), "f") for i in six.moves.range(self.replicas)
         ])
 
-    @log
     def run(self):
         self.transfer(self.get_source_target())
 
@@ -345,8 +343,10 @@ class CascadeMerge(LocalWorkflow):
                 depth=self.cascade_depth)
             return self.cascade_cache_directory().child(basename, "f")
 
-    @log
     def run(self):
+        if self.is_forest():
+            return
+
         # trace actual inputs to merge
         inputs = self.input()["cascade"]
         if self.is_leaf():
