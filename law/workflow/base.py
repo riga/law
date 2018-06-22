@@ -46,20 +46,23 @@ class BaseWorkflowProxy(ProxyTask):
 
     workflow_type = None
 
+    add_workflow_run_decorators = True
+
     def __init__(self, *args, **kwargs):
         super(BaseWorkflowProxy, self).__init__(*args, **kwargs)
 
         # find decorators for this proxy's run method that can be configured on the actual task
-        for prefix in [self.workflow_type + "_", ""]:
-            attr = "{}workflow_run_decorators".format(prefix)
-            decorators = getattr(self.task, attr, None)
-            if decorators is not None:
-                # found decorators, so unbound, decorate and re-bound
-                run_func = self.run.__func__
-                for decorator in decorators:
-                    run_func = decorator(run_func)
-                self.run = run_func.__get__(self)
-                break
+        if self.add_workflow_run_decorators:
+            for prefix in [self.workflow_type + "_", ""]:
+                attr = "{}workflow_run_decorators".format(prefix)
+                decorators = getattr(self.task, attr, None)
+                if decorators is not None:
+                    # found decorators, so unbound, decorate and re-bound
+                    run_func = self.run.__func__
+                    for decorator in decorators:
+                        run_func = decorator(run_func)
+                    self.run = run_func.__get__(self)
+                    break
 
     def complete(self):
         """

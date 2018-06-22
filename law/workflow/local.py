@@ -18,6 +18,8 @@ class LocalWorkflowProxy(BaseWorkflowProxy):
 
     workflow_type = "local"
 
+    add_workflow_run_decorators = False
+
     def __init__(self, *args, **kwargs):
         super(LocalWorkflowProxy, self).__init__(*args, **kwargs)
 
@@ -62,6 +64,10 @@ class LocalWorkflow(BaseWorkflow):
     workflow starts its branch tasks. See the :py:attr:`local_workflow_require_branches` attribute
     for more information.
 
+    Since local workflows trigger their branch tasks via requirements or dynamic dependencies, their
+    run methods do not support decorators. See :py:attr:`BaseWorkflow.workflow_run_decorators` for
+    more info.
+
     .. py:classattribute:: workflow_proxy_cls
        type: BaseWorkflowProxy
 
@@ -74,19 +80,10 @@ class LocalWorkflow(BaseWorkflow):
        :py:meth:`LocalWorkflowProxy.requires` so that the execution of the workflow indirectly
        starts all branch tasks. When *False*, the workflow uses dynamic dependencies by yielding its
        branch tasks within its own run method.
-
-    .. py:classattribute:: local_workflow_run_decorators
-       type: sequence, None
-
-       Sequence of decorator functions that will be conveniently used to decorate the local
-       workflow proxy's run method. This way, there is no need to subclass and reset the
-       :py:attr:`workflow_proxy_cls` just to add a decorator. The value is *None* by default. When
-       not *None*, it is favored over :py:attr:`BaseWorkflow.workflow_run_decorators`.
     """
 
     workflow_proxy_cls = LocalWorkflowProxy
 
     local_workflow_require_branches = False
-    local_workflow_run_decorators = None
 
     exclude_db = True

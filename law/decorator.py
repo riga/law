@@ -74,6 +74,11 @@ def factory(**default_opts):
             @runtime(digits=3):
             def run(self):
                 ...
+
+    .. note::
+
+        Decorators might not have the expected behavior when used to decorate generator functions
+        such as ``Task.run()`` methods that yield dynamic dependency.
     """
     def wrapper(decorator):
         @functools.wraps(decorator)
