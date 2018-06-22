@@ -79,7 +79,7 @@ class LocalWorkflow(BaseWorkflow):
        type: sequence, None
 
        Sequence of decorator functions that will be conveniently used to decorate the local
-       workflow's run method. This way, there is no need to subclass and reset the
+       workflow proxy's run method. This way, there is no need to subclass and reset the
        :py:attr:`workflow_proxy_cls` just to add a decorator. The value is *None* by default. When
        not *None*, it is favored over :py:attr:`BaseWorkflow.workflow_run_decorators`.
     """

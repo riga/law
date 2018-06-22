@@ -276,9 +276,9 @@ class BaseWorkflow(Task):
     .. py:classattribute:: workflow_run_decorators
        type: sequence, None
 
-       Sequence of decorator functions that will be conveniently used to decorate the workflow's run
-       method. This way, there is no need to subclass and reset the :py:attr:`workflow_proxy_cls`
-       just to add a decorator. The value is *None* by default.
+       Sequence of decorator functions that will be conveniently used to decorate the workflow
+       proxy's run method. This way, there is no need to subclass and reset the
+       :py:attr:`workflow_proxy_cls` just to add a decorator. The value is *None* by default.
 
     .. py:attribute:: branch_map
        read-only

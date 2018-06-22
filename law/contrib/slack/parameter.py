@@ -28,7 +28,8 @@ class NotifySlackParameter(NotifyParameter):
     @staticmethod
     def notify(success, title, parts, token=None, channel=None,
             success_text="success :tada:", failure_text="failure :exclamation:", **kwargs):
-        import slackclient
+        # test import
+        import slackclient  # noqa: F401
 
         cfg = Config.instance()
 
@@ -38,6 +39,7 @@ class NotifySlackParameter(NotifyParameter):
             channel = cfg.get_expanded("notifications", "slack_channel")
 
         if token and channel:
+            status_text = success_text if success else failure_text
             request = {
                 "channel": channel,
                 "text": "Notification from:\n*{}*".format(parts["Task"]),
@@ -45,8 +47,8 @@ class NotifySlackParameter(NotifyParameter):
                     "color": "#4bb543" if success else "#ff0033",
                     "fields": [{
                         "title": "Status",
-                        "value": success_text if success else failure_text,
-                        "short": True,
+                        "value": status_text,
+                        "short": is_short_value(status_text),
                     }],
                     "fallback": "*{}*\n\n".format(title),
                 },
@@ -61,29 +63,8 @@ class NotifySlackParameter(NotifyParameter):
                 request["attachments"]["fields"].append({
                     "title": key,
                     "value": "```{}```".format(value) if key == "Traceback" else value,
-                    "short": len(value) <= 40,
+                    "short": is_short_value(value),
                 })
-
-            def notify_thread(token, request):
-                import json
-                import traceback
-
-                try:
-                    # token might be a file
-                    if os.path.isfile(token):
-                        with open(token, "r") as f:
-                            token = f.read().strip()
-
-                    request["attachments"] = json.dumps([request["attachments"]])
-
-                    sc = slackclient.SlackClient(token)
-                    res = sc.api_call("chat.postMessage", **request)
-
-                    if not res["ok"]:
-                        logger.warning("unsuccessful Slack API call: {}".format(res))
-                except Exception as e:
-                    t = traceback.format_exc()
-                    logger.warning("could not send Slack notification: {}\n{}".format(e, t))
 
             thread = threading.Thread(target=notify_thread, args=(token, request))
             thread.start()
@@ -93,3 +74,30 @@ class NotifySlackParameter(NotifyParameter):
             "func": self.notify,
             "raw": True,
         }
+
+
+def is_short_value(value):
+    return len(value) <= 40
+
+
+def notify_thread(token, request):
+    import json
+    import traceback
+    import slackclient
+
+    try:
+        # token might be a file
+        if os.path.isfile(token):
+            with open(token, "r") as f:
+                token = f.read().strip()
+
+        request["attachments"] = json.dumps([request["attachments"]])
+
+        sc = slackclient.SlackClient(token)
+        res = sc.api_call("chat.postMessage", **request)
+
+        if not res["ok"]:
+            logger.warning("unsuccessful Slack API call: {}".format(res))
+    except Exception as e:
+        t = traceback.format_exc()
+        logger.warning("could not send Slack notification: {}\n{}".format(e, t))
