@@ -40,6 +40,7 @@ law.logger.setup_logging()
 
 # provisioning imports
 import law.util
+from law.config import Config
 from law.notification import notify_mail
 from law.parameter import (
     NO_STR, NO_INT, NO_FLOAT, is_no_param, get_param, TaskInstanceParameter, CSVParameter,
