@@ -11,8 +11,7 @@ __all__ = ["NO_STR", "NO_INT", "NO_FLOAT", "is_no_param", "get_param", "TaskInst
 
 import luigi
 
-from law.config import Config
-from law.util import send_mail
+from law.notification import notify_mail
 
 
 #: String value denoting an empty parameter.
@@ -129,7 +128,8 @@ class NotifyParameter(luigi.BoolParameter):
 
 class NotifyMailParameter(NotifyParameter):
     """
-    Notification parameter defining a basic email transport.
+    Notification parameter defining a basic email transport. Uses
+    :py:meth:`law.notification.notify_mail` internally.
     """
 
     def __init__(self, *args, **kwargs):
@@ -139,27 +139,10 @@ class NotifyMailParameter(NotifyParameter):
             self.description = "when true, and the task's run method is decorated with " \
                 "law.decorator.notify, an email notification is sent once the task finishes"
 
-    @staticmethod
-    def notify(success, title, message, recipient=None, sender=None, smtp_host=None, smtp_port=None,
-            **kwargs):
-        """
-        Notification method taking a *title* and a *message*. *recipient*, *sender*, *smtp_host* and
-        *smtp_port* default to the configuration values in the [notifications] section.
-        """
-        cfg = Config.instance()
-
-        if not recipient:
-            recipient = cfg.get_expanded("notifications", "mail_recipient")
-        if not sender:
-            sender = cfg.get_expanded("notifications", "mail_sender")
-        if not smtp_host:
-            smtp_host = cfg.get_expanded("notifications", "mail_smtp_host")
-        if not smtp_port:
-            smtp_port = cfg.get_expanded("notifications", "mail_smtp_port")
-
-        if recipient and sender:
-            send_mail(recipient, sender, title, message, smtp_host=smtp_host,
-                smtp_port=smtp_port)
+    @classmethod
+    def notify(success, *args, **kwargs):
+        """"""
+        return notify_mail(*args, **kwargs)
 
     def get_transport(self):
         """"""

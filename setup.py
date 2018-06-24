@@ -94,6 +94,7 @@ setup(
         "law.contrib.lsf",
         "law.contrib.matplotlib",
         "law.contrib.mercurial",
+        "law.contrib.notification",
         "law.contrib.numpy",
         "law.contrib.root",
         "law.contrib.slack",

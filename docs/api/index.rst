@@ -13,6 +13,7 @@ API Reference
    config
    decorator
    parameter
+   notification
    logger
    parser
    patches
