@@ -73,7 +73,7 @@ def _notify_slack(token, request):
             with open(token, "r") as f:
                 token = f.read().strip()
 
-        if isinstance(request["attachments"], six.string_types):
+        if not isinstance(request["attachments"], six.string_types):
             request["attachments"] = json.dumps([request["attachments"]])
 
         sc = slackclient.SlackClient(token)
