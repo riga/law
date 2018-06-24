@@ -1,19 +1,14 @@
 # -*- coding: utf-8 -*-
 
 """
-Slack notification.
+Slack-related parameters.
 """
 
 
-import os
-import threading
-import logging
+import collections
 
-from law.config import Config
 from law.parameter import NotifyParameter
-
-
-logger = logging.getLogger(__name__)
+from law.contrib.slack.notification import notify_slack
 
 
 class NotifySlackParameter(NotifyParameter):
@@ -26,78 +21,34 @@ class NotifySlackParameter(NotifyParameter):
                 "law.decorator.notify, a slack notification is sent once the task finishes"
 
     @staticmethod
-    def notify(success, title, parts, token=None, channel=None,
-            success_text="success :tada:", failure_text="failure :exclamation:", **kwargs):
+    def notify(success, title, content, token=None, channel=None, **kwargs):
         # test import
         import slackclient  # noqa: F401
 
-        cfg = Config.instance()
+        # title with slack markup
+        slack_title = "Notification from:\n*{}*".format(content["Task"])
+        del content["Task"]
 
-        if not token:
-            token = cfg.get_expanded("notifications", "slack_token")
-        if not channel:
-            channel = cfg.get_expanded("notifications", "slack_channel")
+        # markup for traceback
+        if "Traceback" in content:
+            content["Traceback"] = "```{}```".format(content["Traceback"])
 
-        if token and channel:
-            status_text = success_text if success else failure_text
-            request = {
-                "channel": channel,
-                "text": "Notification from:\n*{}*".format(parts["Task"]),
-                "attachments": {
-                    "color": "#4bb543" if success else "#ff0033",
-                    "fields": [{
-                        "title": "Status",
-                        "value": status_text,
-                        "short": is_short_value(status_text),
-                    }],
-                    "fallback": "*{}*\n\n".format(title),
-                },
-                "as_user": True,
-                "parse": "full",
-            }
+        # prepend the status text to the message content
+        parts = list(content.items())
+        status_text = "success :tada:" if success else "failure :exclamation:"
+        parts.insert(0, ("Status", status_text))
+        content = collections.OrderedDict(parts)
 
-            for key, value in parts.items():
-                if key == "Task":
-                    continue
-                request["attachments"]["fallback"] += "_{}_: {}\n".format(key, value)
-                request["attachments"]["fields"].append({
-                    "title": key,
-                    "value": "```{}```".format(value) if key == "Traceback" else value,
-                    "short": is_short_value(value),
-                })
+        # attachment color and fallback
+        color = "#4bb543" if success else "#ff0033"
+        fallback = "*{}*\n\n".format(title)
 
-            thread = threading.Thread(target=notify_thread, args=(token, request))
-            thread.start()
+        # send the notification
+        return notify_slack(slack_title, content, attachment_color=color,
+            attachment_fallback=fallback, token=token, channel=channel, **kwargs)
 
     def get_transport(self):
         return {
             "func": self.notify,
             "raw": True,
         }
-
-
-def is_short_value(value):
-    return len(value) <= 40
-
-
-def notify_thread(token, request):
-    import json
-    import traceback
-    import slackclient
-
-    try:
-        # token might be a file
-        if os.path.isfile(token):
-            with open(token, "r") as f:
-                token = f.read().strip()
-
-        request["attachments"] = json.dumps([request["attachments"]])
-
-        sc = slackclient.SlackClient(token)
-        res = sc.api_call("chat.postMessage", **request)
-
-        if not res["ok"]:
-            logger.warning("unsuccessful Slack API call: {}".format(res))
-    except Exception as e:
-        t = traceback.format_exc()
-        logger.warning("could not send Slack notification: {}\n{}".format(e, t))
