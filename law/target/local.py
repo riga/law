@@ -143,25 +143,7 @@ class LocalFileSystem(FileSystem):
 
         return elems
 
-    def copy(self, src, dst, dir_perm=None, **kwargs):
-        src = self._unscheme(src)
-        dst = self._unscheme(dst)
-
-        # dst might be an existing directory
-        if self.exists(dst) and self.isdir(dst):
-            dst = os.path.join(dst, os.path.basename(src))
-        else:
-            # create missing dirs
-            dst_dir = self.dirname(dst)
-            if dst_dir and not self.exists(dst_dir):
-                self.mkdir(dst_dir, dir_perm=dir_perm, recursive=True)
-
-        # copy the file
-        shutil.copy2(src, dst)
-
-        return dst
-
-    def move(self, src, dst, dir_perm=None, **kwargs):
+    def _prepare_paths(self, src, dst, dir_perm=None):
         src = self._unscheme(src)
         dst = self._unscheme(dst)
 
@@ -175,7 +157,18 @@ class LocalFileSystem(FileSystem):
             if dst_dir and not self.exists(dst_dir):
                 self.mkdir(dst_dir, dir_perm=dir_perm, recursive=True)
 
-        # simply move
+        return src, dst
+
+    def copy(self, src, dst, dir_perm=None, **kwargs):
+        src, dst = self._prepare_paths(src, dst, dir_perm=dir_perm)
+
+        shutil.copy2(src, dst)
+
+        return dst
+
+    def move(self, src, dst, dir_perm=None, **kwargs):
+        src, dst = self._prepare_paths(src, dst, dir_perm=dir_perm)
+
         shutil.move(src, dst)
 
         return dst
