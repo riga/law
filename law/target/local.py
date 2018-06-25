@@ -148,7 +148,7 @@ class LocalFileSystem(FileSystem):
         dst = self._unscheme(dst)
 
         # dst might be an existing directory
-        if self.isdir(dst):
+        if self.exists(dst) and self.isdir(dst):
             dst = os.path.join(dst, os.path.basename(src))
         else:
             # create missing dirs
