@@ -45,11 +45,17 @@ class LocalFileSystem(FileSystem):
     def abspath(self, path):
         return os.path.abspath(self._unscheme(path))
 
+    def stat(self, path, **kwargs):
+        return os.stat(self._unscheme(path))
+
     def exists(self, path):
         return os.path.exists(self._unscheme(path))
 
-    def stat(self, path, **kwargs):
-        return os.stat(self._unscheme(path))
+    def isdir(self, path, **kwargs):
+        return os.path.isdir(self._unscheme(path))
+
+    def isfile(self, path, **kwargs):
+        return os.path.isfile(self._unscheme(path))
 
     def chmod(self, path, perm, silent=True, **kwargs):
         if perm is not None and (not silent or self.exists(path)):
@@ -143,39 +149,31 @@ class LocalFileSystem(FileSystem):
 
         return elems
 
-    def copy(self, src, dst, dir_perm=None, **kwargs):
-        src = self._unscheme(src)
+    def _prepare_dst_dir(self, src, dst, perm=None):
         dst = self._unscheme(dst)
 
         # dst might be an existing directory
         if self.isdir(dst):
-            dst = os.path.join(dst, os.path.basename(src))
-        else:
-            # create missing dirs
-            dst_dir = self.dirname(dst)
-            if dst_dir and not self.exists(dst_dir):
-                self.mkdir(dst_dir, dir_perm=dir_perm, recursive=True)
-
-        # copy the file
-        shutil.copy2(src, dst)
-
-        return dst
-
-    def move(self, src, dst, dir_perm=None, **kwargs):
-        src = self._unscheme(src)
-        dst = self._unscheme(dst)
-
-        # dst might be an existing directory
-        if self.exists(dst) and self.isdir(dst):
             # add src basename to dst
             dst = os.path.join(dst, os.path.basename(src))
         else:
             # create missing dirs
             dst_dir = self.dirname(dst)
             if dst_dir and not self.exists(dst_dir):
-                self.mkdir(dst_dir, dir_perm=dir_perm, recursive=True)
+                self.mkdir(dst_dir, dir_perm=perm, recursive=True)
 
-        # simply move
+        return dst
+
+    def copy(self, src, dst, dir_perm=None, **kwargs):
+        src = self._unscheme(src)
+        dst = self._prepare_dst_dir(src, dst, perm=dir_perm)
+
+        return dst
+
+    def move(self, src, dst, dir_perm=None, **kwargs):
+        src = self._unscheme(src)
+        dst = self._prepare_dst_dir(src, dst, perm=dir_perm)
+
         shutil.move(src, dst)
 
         return dst

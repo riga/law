@@ -10,7 +10,6 @@ __all__ = ["FileSystem", "FileSystemTarget", "FileSystemFileTarget", "FileSystem
 
 
 import os
-import stat
 from abc import abstractmethod, abstractproperty
 from contextlib import contextmanager
 
@@ -49,9 +48,6 @@ class FileSystem(luigi.target.FileSystem):
         else:
             return ".".join(parts[1:][min(-n, 0):])
 
-    def isdir(self, path, **kwargs):
-        return stat.S_ISDIR(self.stat(path, **kwargs).st_mode)
-
     @abstractmethod
     def __eq__(self, other):
         return
@@ -65,11 +61,19 @@ class FileSystem(luigi.target.FileSystem):
         return
 
     @abstractmethod
+    def stat(self, path):
+        return
+
+    @abstractmethod
     def exists(self, path):
         return
 
     @abstractmethod
-    def stat(self, path):
+    def isdir(self, path, **kwargs):
+        return
+
+    @abstractmethod
+    def isfile(self, path, **kwargs):
         return
 
     @abstractmethod
