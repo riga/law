@@ -7,6 +7,7 @@ Slack-related parameters.
 
 import collections
 
+from law.config import Config
 from law.parameter import NotifyParameter
 from law.contrib.slack.notification import notify_slack
 
@@ -21,12 +22,18 @@ class NotifySlackParameter(NotifyParameter):
                 "law.decorator.notify, a slack notification is sent once the task finishes"
 
     @staticmethod
-    def notify(success, title, content, token=None, channel=None, **kwargs):
+    def notify(success, title, content, token=None, channel=None, mention_user=None, **kwargs):
         # test import
         import slackclient  # noqa: F401
 
+        if not mention_user:
+            cfg = Config.instance()
+            mention_user = cfg.get_expanded("notifications", "slack_mention_user")
+
         # title with slack markup
         slack_title = "Notification from *{}*".format(content["Task"])
+        if mention_user:
+            slack_title += " (@{})".format(mention_user)
         del content["Task"]
 
         # markup for traceback

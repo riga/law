@@ -102,6 +102,7 @@ class Config(ConfigParser):
             # contrib
             "slack_token": "",
             "slack_channel": "",
+            "slack_mention_user": "",
         },
     }
 
