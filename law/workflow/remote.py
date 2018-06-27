@@ -314,7 +314,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                     # set the initial job waiting list
                     branches = sorted(task.branch_map.keys())
                     branch_chunks = list(iter_chunks(branches, task.tasks_per_job))
-                    self.submission_data.waiting_jobs = dict(
+                    self.submission_data.waiting_jobs = OrderedDict(
                         (i + 1, branches) for i, branches in enumerate(branch_chunks)
                     )
                     self.submit()
@@ -409,12 +409,13 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 return self.skip_data[job_num]
             else:
                 self.skip_data[job_num] = all(task.as_branch(b).complete() for b in branches)
+                # when the job is skipped, write a dummy entry into submission data
                 if self.skip_data[job_num]:
                     self.submission_data.jobs[job_num] = self.submission_data_cls.job_data(
                         branches=branches)
                 return self.skip_data[job_num]
 
-        # collect data of jobs that should be submitted: num -> (branches, job_file)
+        # collect data of jobs that should be submitted: num -> branches (tuple)
         submit_jobs = OrderedDict()
 
         # handle jobs for resubmission
@@ -447,8 +448,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         for job_num in new_job_nums:
             submit_jobs[job_num] = new_jobs[job_num]
 
-        # when there is nothing to submit, stop here
+        # when there is nothing to submit, dump the submission data to the output file and stop here
         if not submit_jobs:
+            self.dump_submission_data()
             return new_submission_data
 
         # create job submission files
@@ -527,7 +529,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         active_jobs = OrderedDict()
         finished_jobs = OrderedDict()
 
-        # fill dicts from submission data, consider skipped jobs finished
+        # fill dicts from submission data, consider skipped jobs as finished
         for job_num, data in six.iteritems(self.submission_data.jobs):
             if self.skip_data.get(job_num):
                 finished_jobs[job_num] = self.status_data_cls.job_data(
