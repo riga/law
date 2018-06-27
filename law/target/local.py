@@ -168,12 +168,16 @@ class LocalFileSystem(FileSystem):
         src = self._unscheme(src)
         dst = self._prepare_dst_dir(src, dst, perm=dir_perm)
 
+        # copy the file
+        shutil.copy2(src, dst)
+
         return dst
 
     def move(self, src, dst, dir_perm=None, **kwargs):
         src = self._unscheme(src)
         dst = self._prepare_dst_dir(src, dst, perm=dir_perm)
 
+        # move the file
         shutil.move(src, dst)
 
         return dst

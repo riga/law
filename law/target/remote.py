@@ -818,28 +818,24 @@ class RemoteFileSystem(FileSystem):
 
             return full_dst if dst_local else dst
 
+    def _prepare_dst_dir(self, src, dst, **kwargs):
+        rstat = self.exists(dst, stat=True)
+        if rstat and stat.S_ISDIR(rstat.st_mode):
+            # add src basename to dst
+            dst = os.path.join(dst, os.path.basename(src))
+        else:
+            # create missing dirs
+            dst_dir = self.dirname(dst)
+            if dst_dir and (not rstat or not self.exists(dst_dir)):
+                self.mkdir(dst_dir, recursive=True, **kwargs)
+
     def copy(self, src, dst, dir_perm=None, cache=None, validate=None, **kwargs):
         # dst might be an existing directory
         if dst:
             if self.is_local(dst):
-                if _local_fs.exists(dst) and _local_fs.isdir(dst):
-                    # add src basename to dst
-                    dst = os.path.join(dst, os.path.basename(src))
-                else:
-                    # create missing dirs
-                    dst_dir = _local_fs.dirname(dst)
-                    if dst_dir and not _local_fs.exists(dst_dir):
-                        _local_fs.mkdir(dst_dir, perm=dir_perm, recursive=True)
+                _local_fs._prepare_dst_dir(src, dst, perm=dir_perm)
             else:
-                rstat = self.exists(dst, stat=True)
-                if rstat and stat.S_ISDIR(rstat.st_mode):
-                    # add src basename to dst
-                    dst = os.path.join(dst, os.path.basename(src))
-                else:
-                    # create missing dirs
-                    dst_dir = self.dirname(dst)
-                    if dst_dir and not self.exists(dst_dir):
-                        self.mkdir(dst_dir, perm=dir_perm, recursive=True, **kwargs)
+                self._prepare_dst_dir(src, dst, perm=dir_perm, **kwargs)
 
         # copy the file
         return self._cached_copy(src, dst, cache=cache, validate=validate, **kwargs)
