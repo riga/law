@@ -429,15 +429,17 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         n_parallel = sys.maxsize if task.parallel_jobs < 0 else task.parallel_jobs
         new_jobs = OrderedDict()
         for job_num, branches in list(self.submission_data.waiting_jobs.items()):
-            if n_active + len(new_jobs) >= n_parallel:
-                break
-
-            # remove job from the waiting list
-            del self.submission_data.waiting_jobs[job_num]
-
             if skip_job(job_num, branches):
+                # remove jobs that don't need to be submitted
+                del self.submission_data.waiting_jobs[job_num]
                 continue
 
+            # stop for now when n_parllel jobs are already running
+            if n_active + len(new_jobs) >= n_parallel:
+                continue
+
+            # remove jobs that are going to be submitted from the waiting list
+            del self.submission_data.waiting_jobs[job_num]
             new_jobs[job_num] = sorted(branches)
 
         # add new jobs to the jobs to submit, maybe also shuffle
