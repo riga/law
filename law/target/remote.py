@@ -197,8 +197,8 @@ class GFALInterface(object):
         cmd = "stat" if stat else ("exists", "stat")
         with self.context() as ctx:
             try:
-                _stat = ctx.stat(self.url(path, cmd=cmd))
-                return _stat if stat else True
+                rstat = ctx.stat(self.url(path, cmd=cmd))
+                return rstat if stat else True
             except gfal2.GError:
                 return None if stat else False
 
@@ -586,12 +586,14 @@ class RemoteFileSystem(FileSystem):
     def exists(self, path, stat=False):
         return self.gfal.exists(self.abspath(path), stat=stat)
 
-    def isdir(self, path, **kwargs):
-        rstat = self.gfal.exists(self.abspath(path), stat=True)
+    def isdir(self, path, rstat=None, **kwargs):
+        if rstat is None:
+            rstat = self.exists(path, stat=True)
         return stat.S_ISDIR(rstat.st_mode) if rstat else False
 
-    def isfile(self, path, **kwargs):
-        rstat = self.gfal.exists(self.abspath(path), stat=True)
+    def isfile(self, path, rstat=None, **kwargs):
+        if rstat is None:
+            rstat = self.exists(path, stat=True)
         return not stat.S_ISDIR(rstat.st_mode) if rstat else False
 
     def chmod(self, path, perm, silent=True, **kwargs):
@@ -607,20 +609,13 @@ class RemoteFileSystem(FileSystem):
             warnings.warn("refused request to remove base directory of {}".format(self))
             return
 
-        # first, check if path refers to a file or directory, or if it exists at all
-        try:
-            is_dir = self.isdir(path, retries=0)
-        except gfal2.GError:
-            # path might not exist
-            if silent:
-                return
-            else:
-                raise
+        # first get the remote stat object
+        rstat = self.exists(path, stat=True) if silent else self.stat(path, retries=0)
 
-        if not is_dir:
+        if self.isfile(path, rstat=rstat):
             # remove the file
             self.gfal.unlink(path, **kwargs)
-        else:
+        elif self.isdir(path, rstat=rstat):
             # when recursive, remove content first
             if recursive:
                 for elem in self.listdir(path, **kwargs):
