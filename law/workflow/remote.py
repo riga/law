@@ -432,15 +432,11 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             if skip_job(job_num, branches):
                 # remove jobs that don't need to be submitted
                 del self.submission_data.waiting_jobs[job_num]
-                continue
 
-            # stop for now when n_parllel jobs are already running
-            if n_active + len(new_jobs) >= n_parallel:
-                continue
-
-            # remove jobs that are going to be submitted from the waiting list
-            del self.submission_data.waiting_jobs[job_num]
-            new_jobs[job_num] = sorted(branches)
+            elif n_active + len(new_jobs) < n_parallel:
+                # mark jobs for submission as long as n_parallel is not reached
+                del self.submission_data.waiting_jobs[job_num]
+                new_jobs[job_num] = sorted(branches)
 
         # add new jobs to the jobs to submit, maybe also shuffle
         new_submission_data = OrderedDict()
