@@ -32,6 +32,7 @@ import contextlib
 import smtplib
 import logging
 import datetime
+import io
 
 import six
 
@@ -845,7 +846,7 @@ class TeeStream(BaseStream):
         for consumer in consumers:
             # interpret strings as file paths
             if isinstance(consumer, six.string_types):
-                consumer = open(consumer, mode)
+                consumer = io.open(consumer, mode)
                 self.open_files.append(consumer)
             self.consumers.append(consumer)
 
