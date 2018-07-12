@@ -11,7 +11,7 @@ __all__ = [
     "map_verbose", "map_struct", "mask_struct", "tmp_file", "interruptable_popen", "readable_popen",
     "create_hash", "copy_no_perm", "makedirs_perm", "user_owns_file", "iter_chunks", "human_bytes",
     "human_time_diff", "is_file_exists_error", "check_bool_flag", "send_mail", "ShorthandDict",
-    "BaseStream", "TeeStream", "FilteredStream",
+    "open_compat", "BaseStream", "TeeStream", "FilteredStream",
 ]
 
 
@@ -778,6 +778,31 @@ class ShorthandDict(collections.OrderedDict):
             super(ShorthandDict, self).__setattr__(attr, value)
 
 
+def open_compat(*args, **kwargs):
+    """
+    Polyfill for python's ``open`` factory, returning the plain ``open`` in python 3, and
+    ``io.open`` in python 2 with a patched ``write`` method that internally handles unicode
+    conversion of its first argument. All *args* and *kwargs* are forwarded.
+    """
+    if six.PY3:
+        return open(*args, **kwargs)
+
+    else:
+        f = io.open(*args, **kwargs)
+
+        if f.encoding and f.encoding.lower().replace("-", "") == "utf8":
+            write_orig = f.write
+
+            def write(data, *args, **kwargs):
+                if not isinstance(data, unicode):
+                    data = unicode(data)
+                write_orig(data, *args, **kwargs)
+
+            f.write = write
+
+        return f
+
+
 class BaseStream(object):
 
     FLUSH_AFTER_WRITE = True
@@ -846,7 +871,7 @@ class TeeStream(BaseStream):
         for consumer in consumers:
             # interpret strings as file paths
             if isinstance(consumer, six.string_types):
-                consumer = io.open(consumer, mode)
+                consumer = open_compat(consumer, mode)
                 self.open_files.append(consumer)
             self.consumers.append(consumer)
 
@@ -855,15 +880,7 @@ class TeeStream(BaseStream):
         Closes opened files.
         """
         for f in self.open_files:
-            if not getattr(f, "closed", False):
-                f.close()
-
-    def _write(self, *args, **kwargs):
-        """
-        Writes to all registered consumer streams, passing *args* and *kwargs*.
-        """
-        for consumer in self.consumers:
-            consumer.write(*args, **kwargs)
+            f.close()
 
     def _flush(self):
         """
@@ -871,6 +888,13 @@ class TeeStream(BaseStream):
         """
         for consumer in self.consumers:
             consumer.flush()
+
+    def _write(self, *args, **kwargs):
+        """
+        Writes to all registered consumer streams, passing *args* and *kwargs*.
+        """
+        for consumer in self.consumers:
+            consumer.write(*args, **kwargs)
 
 
 class FilteredStream(BaseStream):
@@ -885,6 +909,18 @@ class FilteredStream(BaseStream):
         self.stream = stream
         self.filter_fn = filter_fn
 
+    def _close(self):
+        """
+        Closes the consumer stream.
+        """
+        self.stream.close()
+
+    def _flush(self):
+        """
+        Flushes the consumer stream.
+        """
+        self.stream.flush()
+
     def _write(self, *args, **kwargs):
         """
         Writes to the consumer stream when *filter_fn* evaluates to *True*, passing *args* and
@@ -892,9 +928,3 @@ class FilteredStream(BaseStream):
         """
         if self.filter_fn(*args, **kwargs):
             self.stream.write(*args, **kwargs)
-
-    def _flush(self):
-        """
-        Flushes the consumer stream.
-        """
-        self.stream.flush()

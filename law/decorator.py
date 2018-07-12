@@ -37,7 +37,7 @@ import luigi
 from law.task.base import ProxyTask
 from law.parameter import get_param, NotifyParameter
 from law.target.local import LocalFileTarget
-from law.util import human_time_diff, TeeStream
+from law.util import human_time_diff, open_compat, TeeStream
 
 
 logger = logging.getLogger(__name__)
@@ -105,8 +105,8 @@ def get_task(task):
 def log(fn, opts, task, *args, **kwargs):
     """ log()
     Wraps a bound method of a task and redirects output of both stdout and stderr to the file
-    defined by the tasks's *log* parameter. If its value is ``"-"`` or *None*, the output is not
-    redirected.
+    defined by the tasks's *log_file* parameter or *default_log_file* attribute. If its value is
+    ``"-"`` or *None*, the output is not redirected.
     """
     _task = get_task(task)
     log = get_param(_task.log_file, _task.default_log_file)
@@ -116,7 +116,7 @@ def log(fn, opts, task, *args, **kwargs):
     else:
         # use the local target functionality to create the parent directory
         LocalFileTarget(log).parent.touch()
-        with open(log, "a", 1) as f:
+        with open_compat(log, "a", 1) as f:
             tee = TeeStream(f, sys.__stdout__)
             sys.stdout = tee
             sys.stderr = tee
