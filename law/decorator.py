@@ -104,8 +104,8 @@ def get_task(task):
 @factory()
 def log(fn, opts, task, *args, **kwargs):
     """ log()
-    Wraps a bound method of a task and redirects output of both stdin and stdout to the file
-    defined by the tasks's *log* parameter. It its value is ``"-"`` or *None*, the output is not
+    Wraps a bound method of a task and redirects output of both stdout and stderr to the file
+    defined by the tasks's *log* parameter. If its value is ``"-"`` or *None*, the output is not
     redirected.
     """
     _task = get_task(task)
