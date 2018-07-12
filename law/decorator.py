@@ -122,9 +122,9 @@ def log(fn, opts, task, *args, **kwargs):
             sys.stderr = tee
             try:
                 ret = fn(task, *args, **kwargs)
-            except Exception as e:
+            except:
                 traceback.print_exc(file=tee)
-                raise e
+                raise
             finally:
                 sys.stdout = sys.__stdout__
                 sys.stderr = sys.__stderr__
