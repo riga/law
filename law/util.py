@@ -794,9 +794,7 @@ def open_compat(*args, **kwargs):
             write_orig = f.write
 
             def write(data, *args, **kwargs):
-                if not isinstance(data, unicode):
-                    data = unicode(data)
-                write_orig(data, *args, **kwargs)
+                return write_orig(six.u(data), *args, **kwargs)
 
             f.write = write
 
