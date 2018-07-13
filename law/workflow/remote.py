@@ -508,8 +508,8 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         task = self.task
 
         # get job counts
-        n_active = float(len(self.submission_data.jobs))
-        n_waiting = float(len(self.submission_data.waiting_jobs))
+        n_active = len(self.submission_data.jobs)
+        n_waiting = len(self.submission_data.waiting_jobs)
         n_jobs = n_active + n_waiting
 
         # determine thresholds
@@ -632,12 +632,11 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             # log failed jobs
             if failed_jobs:
                 print("{} failed job(s) in task {}:".format(len(failed_jobs), task.task_id))
-                tmpl = "    job: {}, branches: {}, id: {}, status: {status}, code: {code}, " \
+                tmpl = "    job: {}, branches: {}, id: {job_id}, status: {status}, code: {code}, " \
                     "error: {error}"
                 for i, (job_num, data) in enumerate(six.iteritems(failed_jobs)):
-                    job_id = self.submission_data.jobs[job_num]["job_id"]
                     branches = self.submission_data.jobs[job_num]["branches"]
-                    print(tmpl.format(job_num, ",".join(str(b) for b in branches), job_id, **data))
+                    print(tmpl.format(job_num, ",".join(str(b) for b in branches), **data))
                     if i + 1 >= self.show_errors:
                         remaining = len(failed_jobs) - self.show_errors
                         if remaining > 0:
@@ -645,9 +644,10 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                         break
 
             # infer the overall status
+            reached_end = n_jobs == n_finished + n_failed
             finished = n_finished >= n_finished_min
             failed = n_failed > n_failed_max
-            unreachable = n_jobs - n_failed < n_finished_min - n_failed_max
+            unreachable = n_jobs - n_failed < n_finished_min
             if finished:
                 # write status output
                 if "status" in self._outputs:
@@ -660,8 +660,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 failed_nums = [job_num for job_num in failed_jobs if job_num not in retry_jobs]
                 raise Exception("tolerance exceeded for jobs {}".format(failed_nums))
             elif unreachable:
-                raise Exception("acceptance of {} unreachable, total: {}, failed: {}".format(
-                    n_finished_min, n_jobs, n_failed))
+                if task.check_unreachable_acceptance or reached_end:
+                    raise Exception("acceptance of {} unreachable, total: {}, failed: {}".format(
+                        n_finished_min, n_jobs, n_failed))
 
             # automatic resubmission and further processing of the waiting list
             if n_retry or (n_free > 0 and n_waiting > 0):
@@ -722,6 +723,13 @@ class BaseRemoteWorkflow(BaseWorkflow):
 
        2. Use the submission data and start status polling. When done, status data is stored in the
        so-called *status* file, which is an output target of this workflow.
+
+    .. py:classattribute:: check_unreachable_acceptance
+       type: bool
+
+       When *True*, stop the job status polling early if the minimum number of finsihed jobs as
+       defined by :py:attr:`acceptance` becomes unreachable. Otherwise, keep polling until all jobs
+       are either finished or failed. Defaults to *True*.
 
     .. py:classattribute:: retries
        type: luigi.IntParameter
@@ -822,6 +830,8 @@ class BaseRemoteWorkflow(BaseWorkflow):
         "submission file from a previous submission and start a new one")
     transfer_logs = luigi.BoolParameter(significant=False, description="transfer job logs to the "
         "output directory")
+
+    check_unreachable_acceptance = True
 
     exclude_params_branch = {
         "retries", "tasks_per_job", "parallel_jobs", "only_missing", "no_poll", "threads",
