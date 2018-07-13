@@ -523,9 +523,10 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         n_failed_max = task.tolerance * n_jobs if task.tolerance <= 1 else task.tolerance
 
         # bookkeeping dicts to avoid querying the status of finished jobs
-        # note: active_jobs holds submission data, finished_jobs holds status data
+        # note: active_jobs holds submission data, finished_jobs and failed_jobs hold status data
         active_jobs = OrderedDict()
         finished_jobs = OrderedDict()
+        failed_jobs = OrderedDict()
 
         # fill dicts from submission data, consider skipped jobs as finished
         for job_num, data in six.iteritems(self.submission_data.jobs):
@@ -575,7 +576,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             # store jobs per status, remove finished ones from active_jobs
             pending_jobs = OrderedDict()
             running_jobs = OrderedDict()
-            failed_jobs = OrderedDict()
+            newly_failed_jobs = OrderedDict()
             for job_num, data in six.iteritems(states):
                 if data["status"] == self.job_manager.PENDING:
                     pending_jobs[job_num] = data
@@ -588,7 +589,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                     active_jobs.pop(job_num)
                     task.forward_dashboard_event(self.dashboard, data, "status.finished", job_num)
                 elif data["status"] in (self.job_manager.FAILED, self.job_manager.RETRY):
-                    failed_jobs[job_num] = data
+                    newly_failed_jobs[job_num] = data
                 else:
                     raise Exception("unknown job status '{}'".format(data["status"]))
 
@@ -599,23 +600,26 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             n_pending = len(pending_jobs)
             n_running = len(running_jobs)
             n_finished = len(finished_jobs)
-            n_failed = len(failed_jobs)
 
-            # determine jobs that failed and might be resubmitted
+            # determine those newly failed jobs that might be resubmitted
+            # and those who ultimately failed
             retry_jobs = OrderedDict()
-            if n_failed:
-                for job_num, data in six.iteritems(failed_jobs):
-                    if self.attempts[job_num] < task.retries:
-                        self.attempts[job_num] += 1
-                        self.submission_data.jobs[job_num]["attempt"] += 1
-                        data["status"] = self.job_manager.RETRY
-                        retry_jobs[job_num] = self.submission_data.jobs[job_num]["branches"]
-                        task.forward_dashboard_event(self.dashboard, data, "status.retry", job_num)
-                    else:
-                        task.forward_dashboard_event(self.dashboard, data, "status.failed", job_num)
+            for job_num, data in six.iteritems(newly_failed_jobs):
+                if self.attempts[job_num] < task.retries:
+                    # the job can be resubmitted
+                    self.attempts[job_num] += 1
+                    self.submission_data.jobs[job_num]["attempt"] += 1
+                    data["status"] = self.job_manager.RETRY
+                    retry_jobs[job_num] = self.submission_data.jobs[job_num]["branches"]
+                    task.forward_dashboard_event(self.dashboard, data, "status.retry", job_num)
+                else:
+                    # the job ultimately failed
+                    failed_jobs[job_num] = data
+                    active_jobs.pop(job_num)
+                    task.forward_dashboard_event(self.dashboard, data, "status.failed", job_num)
 
             n_retry = len(retry_jobs)
-            n_failed -= n_retry
+            n_failed = len(failed_jobs)
 
             # log the status line
             counts = (n_pending, n_running, n_finished, n_retry, n_failed)
@@ -629,16 +633,16 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             # inform the scheduler about the progress
             task.publish_progress(100. * n_finished / n_jobs)
 
-            # log failed jobs
-            if failed_jobs:
-                print("{} failed job(s) in task {}:".format(len(failed_jobs), task.task_id))
+            # log newly failed jobs
+            if newly_failed_jobs:
+                print("{} failed job(s) in task {}:".format(len(newly_failed_jobs), task.task_id))
                 tmpl = "    job: {}, branches: {}, id: {job_id}, status: {status}, code: {code}, " \
                     "error: {error}"
-                for i, (job_num, data) in enumerate(six.iteritems(failed_jobs)):
+                for i, (job_num, data) in enumerate(six.iteritems(newly_failed_jobs)):
                     branches = self.submission_data.jobs[job_num]["branches"]
                     print(tmpl.format(job_num, ",".join(str(b) for b in branches), **data))
                     if i + 1 >= self.show_errors:
-                        remaining = len(failed_jobs) - self.show_errors
+                        remaining = len(newly_failed_jobs) - self.show_errors
                         if remaining > 0:
                             print("    ... and {} more".format(remaining))
                         break
