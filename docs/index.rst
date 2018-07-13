@@ -11,6 +11,7 @@
    sandboxing
    config
    cli
+   practices
    api/index
    contrib/index
 
