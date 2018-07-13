@@ -99,21 +99,21 @@ class BaseJobManager(object):
         return dict(job_id=job_id, status=status, code=code, error=error)
 
     @classmethod
-    def status_line(cls, counts, last_counts=None, sum_counts=None, skip=None, timestamp=True,
-            align=False, color=False):
+    def status_line(cls, counts, last_counts=None, sum_counts=None, status_names=None, skip=None,
+            timestamp=True, align=False, color=False):
         """
         Returns a job status line containing job counts per status. When *last_counts* is set, the
         status line also contains the differences in job counts with respect the passed values. The
         status line starts with the sum of jobs which is inferred from *counts*. When you want to
-        use a custom value, set *sum_counts*. *skip* can be a sequence of status names that will not
+        use a custom value, set *sum_counts*. *status_names* should be a sequence of status names to
+        show, and therefore, it's length should match the length of *counts*. It defaults to this
+        class' :py:attr:`status_names`. *skip* can be a sequence of status names that will not
         considered. When *timestamp* is *True*, the status line begins with the current timestamp.
         When *timestamp* is a non-empty string, it is used as the ``strftime`` format. *align*
         handles the alignment of the values in the status line by using a maximum width. *True* will
         result in the default width of 4. When *align* evaluates to *False*, no alignment is used.
         By default, some elements of the status line are colored. Set *color* to *False* to disable
-        this feature.
-
-        Example:
+        this feature. Example:
 
         .. code-block:: python
 
@@ -123,7 +123,9 @@ class BaseJobManager(object):
             status_line((0, 2, 0, 0), last_counts=(2, 0, 0, 0), skip=["retry"], timestamp=False)
             # all: 2, pending: 0 (-2), running: 2 (+2), finished: 2 (+0), failed: 0 (+0)
         """
-        status_names = cls.status_names
+        if not status_names:
+            status_names = cls.status_names
+
         if skip:
             status_names = [name for name in status_names if name not in skip]
 

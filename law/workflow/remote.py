@@ -28,8 +28,8 @@ from law.util import iter_chunks, ShorthandDict
 class SubmissionData(ShorthandDict):
     """
     Sublcass of :py:class:`law.util.ShorthandDict` that adds shorthands for the attributes *jobs*,
-    *waiting_jobs*, *tasks_per_job*, and *dashboard_config*. The content is saved in the submission
-    files of the :py:class:`BaseRemoteWorkflow`.
+    *unsubmitted_jobs*, *tasks_per_job*, and *dashboard_config*. The content is saved in the
+    submission files of the :py:class:`BaseRemoteWorkflow`.
 
     .. py:classattribute:: dummy_job_id
        type: string
@@ -39,7 +39,7 @@ class SubmissionData(ShorthandDict):
 
     attributes = {
         "jobs": {},
-        "waiting_jobs": {},
+        "unsubmitted_jobs": {},
         "tasks_per_job": 1,
         "dashboard_config": {},
     }
@@ -311,10 +311,10 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
                 # submit
                 if not submitted:
-                    # set the initial job waiting list
+                    # set the initial list of unsubmitted jobs
                     branches = sorted(task.branch_map.keys())
                     branch_chunks = list(iter_chunks(branches, task.tasks_per_job))
-                    self.submission_data.waiting_jobs = OrderedDict(
+                    self.submission_data.unsubmitted_jobs = OrderedDict(
                         (i + 1, branches) for i, branches in enumerate(branch_chunks)
                     )
                     self.submit()
@@ -424,18 +424,19 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 if not skip_job(job_num, branches):
                     submit_jobs[job_num] = sorted(branches)
 
-        # fill with jobs from the waiting list until maximum number of parallel jobs is reached
+        # fill with jobs from the list of unsubmitted jobs
+        # until maximum number of parallel jobs is reached
         n_active = self.n_active_jobs or 0
         n_parallel = sys.maxsize if task.parallel_jobs < 0 else task.parallel_jobs
         new_jobs = OrderedDict()
-        for job_num, branches in list(self.submission_data.waiting_jobs.items()):
+        for job_num, branches in list(self.submission_data.unsubmitted_jobs.items()):
             if skip_job(job_num, branches):
                 # remove jobs that don't need to be submitted
-                del self.submission_data.waiting_jobs[job_num]
+                del self.submission_data.unsubmitted_jobs[job_num]
 
             elif n_active + len(new_jobs) < n_parallel:
                 # mark jobs for submission as long as n_parallel is not reached
-                del self.submission_data.waiting_jobs[job_num]
+                del self.submission_data.unsubmitted_jobs[job_num]
                 new_jobs[job_num] = sorted(branches)
 
         # add new jobs to the jobs to submit, maybe also shuffle
@@ -507,10 +508,16 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         """
         task = self.task
 
+        # different status names when n_parallel is used
+        status_names = list(self.job_manager.status_names)
+        n_parallel_used = task.parallel_jobs > 0
+        if n_parallel_used:
+            status_names = ["unsubmitted"] + status_names
+
         # get job counts
         n_active = len(self.submission_data.jobs)
-        n_waiting = len(self.submission_data.waiting_jobs)
-        n_jobs = n_active + n_waiting
+        n_unsubmitted = len(self.submission_data.unsubmitted_jobs)
+        n_jobs = n_active + n_unsubmitted
 
         # determine thresholds
         if is_no_param(task.walltime):
@@ -574,59 +581,61 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 states[job_num] = self.status_data_cls.job_data(**_states[data["job_id"]])
 
             # store jobs per status, remove finished ones from active_jobs
+            # determine those newly failed jobs that might be resubmitted
+            # and those who ultimately failed
             pending_jobs = OrderedDict()
             running_jobs = OrderedDict()
             newly_failed_jobs = OrderedDict()
+            retry_jobs = OrderedDict()
             for job_num, data in six.iteritems(states):
                 if data["status"] == self.job_manager.PENDING:
                     pending_jobs[job_num] = data
                     task.forward_dashboard_event(self.dashboard, data, "status.pending", job_num)
+
                 elif data["status"] == self.job_manager.RUNNING:
                     running_jobs[job_num] = data
                     task.forward_dashboard_event(self.dashboard, data, "status.running", job_num)
+
                 elif data["status"] == self.job_manager.FINISHED:
                     finished_jobs[job_num] = data
                     active_jobs.pop(job_num)
                     task.forward_dashboard_event(self.dashboard, data, "status.finished", job_num)
+
                 elif data["status"] in (self.job_manager.FAILED, self.job_manager.RETRY):
                     newly_failed_jobs[job_num] = data
+                    # retry or ultimately failed?
+                    if self.attempts[job_num] < task.retries:
+                        self.attempts[job_num] += 1
+                        self.submission_data.jobs[job_num]["attempt"] += 1
+                        data["status"] = self.job_manager.RETRY
+                        retry_jobs[job_num] = self.submission_data.jobs[job_num]["branches"]
+                        task.forward_dashboard_event(self.dashboard, data, "status.retry", job_num)
+                    else:
+                        failed_jobs[job_num] = data
+                        active_jobs.pop(job_num)
+                        task.forward_dashboard_event(self.dashboard, data, "status.failed", job_num)
+
                 else:
                     raise Exception("unknown job status '{}'".format(data["status"]))
 
             # counts
             self.n_active_jobs = len(active_jobs)
             n_free = n_parallel - self.n_active_jobs
-            n_waiting = len(self.submission_data.waiting_jobs)
+            n_unsubmitted = len(self.submission_data.unsubmitted_jobs)
             n_pending = len(pending_jobs)
             n_running = len(running_jobs)
             n_finished = len(finished_jobs)
-
-            # determine those newly failed jobs that might be resubmitted
-            # and those who ultimately failed
-            retry_jobs = OrderedDict()
-            for job_num, data in six.iteritems(newly_failed_jobs):
-                if self.attempts[job_num] < task.retries:
-                    # the job can be resubmitted
-                    self.attempts[job_num] += 1
-                    self.submission_data.jobs[job_num]["attempt"] += 1
-                    data["status"] = self.job_manager.RETRY
-                    retry_jobs[job_num] = self.submission_data.jobs[job_num]["branches"]
-                    task.forward_dashboard_event(self.dashboard, data, "status.retry", job_num)
-                else:
-                    # the job ultimately failed
-                    failed_jobs[job_num] = data
-                    active_jobs.pop(job_num)
-                    task.forward_dashboard_event(self.dashboard, data, "status.failed", job_num)
-
             n_retry = len(retry_jobs)
             n_failed = len(failed_jobs)
 
             # log the status line
             counts = (n_pending, n_running, n_finished, n_retry, n_failed)
+            if n_parallel_used:
+                counts = (n_unsubmitted,) + counts
             if not self.last_status_counts:
                 self.last_status_counts = counts
             status_line = self.job_manager.status_line(counts, self.last_status_counts,
-                sum_counts=n_jobs, color=True, align=4)
+                sum_counts=n_jobs, status_names=status_names, color=True, align=4)
             task.publish_message(status_line)
             self.last_status_counts = counts
 
@@ -668,8 +677,8 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                     raise Exception("acceptance of {} unreachable, total: {}, failed: {}".format(
                         n_finished_min, n_jobs, n_failed))
 
-            # automatic resubmission and further processing of the waiting list
-            if n_retry or (n_free > 0 and n_waiting > 0):
+            # automatic resubmission and further processing of the list of unsubmitted jobs
+            if n_retry or (n_free > 0 and n_unsubmitted > 0):
                 submit_data = self.submit(retry_jobs)
 
                 # update data of active jobs so the poll next iteration is aware of the new job ids
