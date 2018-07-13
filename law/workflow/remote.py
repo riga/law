@@ -125,7 +125,11 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
     def __init__(self, *args, **kwargs):
         super(BaseRemoteWorkflowProxy, self).__init__(*args, **kwargs)
 
-        self.job_manager = self.create_job_manager()
+        self.n_parallel_used = self.task.parallel_jobs > 0
+        self.job_manager = self.create_job_manager(threads=self.task.threads)
+        if self.n_parallel_used:
+            self.job_manager.status_names.insert(0, "unsubmitted")
+            self.job_manager.status_diff_styles["unsubmitted"] = ({"color": "green"}, {}, {})
         self.job_file_factory = None
         self.submission_data = self.submission_data_cls(tasks_per_job=self.task.tasks_per_job)
         self.skip_data = {}
@@ -147,19 +151,21 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         return StatusData
 
     @abstractmethod
-    def create_job_manager(self):
+    def create_job_manager(self, **kwargs):
         """
         Hook to instantiate and return a derived class of :py:class:`law.job.base.BaseJobManager`.
-        This method must be implemented by inheriting classes.
+        This method must be implemented by inheriting classes and should update and forward all
+        *kwargs* to the constructor of the respective job manager.
         """
         return
 
     @abstractmethod
-    def create_job_file_factory(self):
+    def create_job_file_factory(self, **kwargs):
         """
         Hook to instantiate and return a derived class of
         :py:class:`law.job.base.BaseJobFileFactory`. This method must be implemented by inheriting
-        classes.
+        classes and should update and forward all *kwargs* to the constructor of the respective job
+        file factory.
         """
         return
 
@@ -307,6 +313,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 self._outputs["status"].remove()
 
             try:
+                # instantiate the configured job file factory, not kwargs yet
                 self.job_file_factory = self.create_job_file_factory()
 
                 # submit
@@ -344,7 +351,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
         # cancel jobs
         task.publish_message("going to cancel {} jobs".format(len(job_ids)))
-        errors = self.job_manager.cancel_batch(job_ids, threads=task.threads)
+        errors = self.job_manager.cancel_batch(job_ids)
 
         # print errors
         if errors:
@@ -378,7 +385,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
         # cleanup jobs
         task.publish_message("going to cleanup {} jobs".format(len(job_ids)))
-        errors = self.job_manager.cleanup_batch(job_ids, threads=task.threads)
+        errors = self.job_manager.cleanup_batch(job_ids)
 
         # print errors
         if errors:
@@ -508,12 +515,6 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         """
         task = self.task
 
-        # different status names when n_parallel is used
-        status_names = list(self.job_manager.status_names)
-        n_parallel_used = task.parallel_jobs > 0
-        if n_parallel_used:
-            status_names = ["unsubmitted"] + status_names
-
         # get job counts
         n_active = len(self.submission_data.jobs)
         n_unsubmitted = len(self.submission_data.unsubmitted_jobs)
@@ -554,7 +555,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
             # query job states
             job_ids = [data["job_id"] for data in six.itervalues(active_jobs)]
-            _states, errors = self.job_manager.query_batch(job_ids, threads=task.threads)
+            _states, errors = self.job_manager.query_batch(job_ids)
             if errors:
                 print("{} error(s) occured during job status query of task {}:".format(
                     len(errors), task.task_id))
@@ -630,12 +631,12 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
             # log the status line
             counts = (n_pending, n_running, n_finished, n_retry, n_failed)
-            if n_parallel_used:
+            if self.n_parallel_used:
                 counts = (n_unsubmitted,) + counts
             if not self.last_status_counts:
                 self.last_status_counts = counts
             status_line = self.job_manager.status_line(counts, self.last_status_counts,
-                sum_counts=n_jobs, status_names=status_names, color=True, align=4)
+                sum_counts=n_jobs, color=True, align=4)
             task.publish_message(status_line)
             self.last_status_counts = counts
 

@@ -39,7 +39,9 @@ class BaseJobManager(object):
     The particular job manager implementation should match its own, native states to these common
     states.
 
-    *threads* is the default number of concurrent threads that are used in :py:meth:`submit_batch`,
+    *status_names* and *status_diff_styles* are used in :py:meth:`status_line` and default to
+    :py:attr:`default_status_names` and :py:attr:`default_status_diff_styles`. *threads* is the
+    default number of concurrent threads that are used in :py:meth:`submit_batch`,
     :py:meth:`cancel_batch`, :py:meth:`cleanup_batch` and :py:meth:`query_batch`.
 
     .. py:classattribute:: PENDING
@@ -67,10 +69,16 @@ class BaseJobManager(object):
 
        Flag that represents the ``FAILED`` status.
 
-    .. py:classattribute:: status_names
+    .. py:classattribute:: default_status_names
        type: list
 
-       The list of all status flags.
+       The list of all default status flags that is used in :py:meth:`status_line`.
+
+    .. py:classattribute:: default_status_diff_styles
+       type: dict
+
+       A dictionary that defines to coloring styles per job status that is used in
+       :py:meth:`status_line`.
     """
 
     PENDING = "pending"
@@ -79,10 +87,10 @@ class BaseJobManager(object):
     RETRY = "retry"
     FAILED = "failed"
 
-    status_names = [PENDING, RUNNING, FINISHED, RETRY, FAILED]
+    default_status_names = [PENDING, RUNNING, FINISHED, RETRY, FAILED]
 
     # color styles per status when job count decreases / stagnates / increases
-    status_diff_styles = {
+    default_status_diff_styles = {
         PENDING: ({}, {}, {"color": "green"}),
         RUNNING: ({}, {}, {"color": "green"}),
         FINISHED: ({}, {}, {"color": "green"}),
@@ -98,84 +106,11 @@ class BaseJobManager(object):
         """
         return dict(job_id=job_id, status=status, code=code, error=error)
 
-    @classmethod
-    def status_line(cls, counts, last_counts=None, sum_counts=None, status_names=None, skip=None,
-            timestamp=True, align=False, color=False):
-        """
-        Returns a job status line containing job counts per status. When *last_counts* is set, the
-        status line also contains the differences in job counts with respect the passed values. The
-        status line starts with the sum of jobs which is inferred from *counts*. When you want to
-        use a custom value, set *sum_counts*. *status_names* should be a sequence of status names to
-        show, and therefore, it's length should match the length of *counts*. It defaults to this
-        class' :py:attr:`status_names`. *skip* can be a sequence of status names that will not
-        considered. When *timestamp* is *True*, the status line begins with the current timestamp.
-        When *timestamp* is a non-empty string, it is used as the ``strftime`` format. *align*
-        handles the alignment of the values in the status line by using a maximum width. *True* will
-        result in the default width of 4. When *align* evaluates to *False*, no alignment is used.
-        By default, some elements of the status line are colored. Set *color* to *False* to disable
-        this feature. Example:
-
-        .. code-block:: python
-
-            status_line((2, 0, 0, 0, 0))
-            # 12:45:18: all: 2, pending: 2, running: 0, finished: 0, retry: 0, failed: 0
-
-            status_line((0, 2, 0, 0), last_counts=(2, 0, 0, 0), skip=["retry"], timestamp=False)
-            # all: 2, pending: 0 (-2), running: 2 (+2), finished: 2 (+0), failed: 0 (+0)
-        """
-        if not status_names:
-            status_names = cls.status_names
-
-        if skip:
-            status_names = [name for name in status_names if name not in skip]
-
-        # check last counts
-        if last_counts and len(last_counts) != len(status_names):
-            raise Exception("{} last status counts expected, got {}".format(len(status_names),
-                len(last_counts)))
-
-        # check current counts
-        if len(counts) != len(status_names):
-            raise Exception("{} status counts expected, got {}".format(len(status_names),
-                len(counts)))
-
-        # calculate differences
-        if last_counts:
-            diffs = tuple(n - m for n, m in zip(counts, last_counts))
-
-        # number formatting
-        if isinstance(align, bool) or not isinstance(align, six.integer_types):
-            align = 4 if align else 0
-        count_fmt = "%d" if not align else "%{}d".format(align)
-        diff_fmt = "%+d" if not align else "%+{}d".format(align)
-
-        # build the status line
-        line = ""
-        if timestamp:
-            time_format = timestamp if isinstance(timestamp, six.string_types) else "%H:%M:%S"
-            line += "{}: ".format(time.strftime(time_format))
-        if sum_counts is None:
-            sum_counts = sum(counts)
-        line += "all: " + count_fmt % (sum_counts,)
-        for i, (status, count) in enumerate(zip(status_names, counts)):
-            count = count_fmt % count
-            if color:
-                count = colored(count, style="bright")
-            line += ", {}: {}".format(status, count)
-
-            if last_counts:
-                diff = diff_fmt % diffs[i]
-                if color:
-                    # 0 if negative, 1 if zero, 2 if positive
-                    style_idx = (diffs[i] > 0) + (diffs[i] >= 0)
-                    diff = colored(diff, **cls.status_diff_styles[status][style_idx])
-                line += " ({})".format(diff)
-
-        return line
-
-    def __init__(self, threads=1):
+    def __init__(self, status_names=None, status_diff_styles=None, threads=1):
         super(BaseJobManager, self).__init__()
 
+        self.status_names = status_names or list(self.default_status_names)
+        self.status_diff_styles = status_diff_styles or self.default_status_diff_styles.copy()
         self.threads = threads
 
     @abstractmethod
@@ -345,6 +280,72 @@ class BaseJobManager(object):
                 errors.append(e)
 
         return query_data, errors
+
+    def status_line(self, counts, last_counts=None, sum_counts=None, timestamp=True, align=False,
+            color=False):
+        """
+        Returns a job status line containing job counts per status. When *last_counts* is set, the
+        status line also contains the differences in job counts with respect the passed values. The
+        status line starts with the sum of jobs which is inferred from *counts*. When you want to
+        use a custom value, set *sum_counts*. The length of *counts* should match the length of
+        *status_names* of this instance. When *timestamp* is *True*, the status line begins with the
+        current timestamp. When *timestamp* is a non-empty string, it is used as the ``strftime``
+        format. *align* handles the alignment of the values in the status line by using a maximum
+        width. *True* will result in the default width of 4. When *align* evaluates to *False*, no
+        alignment is used. By default, some elements of the status line are colored. Set *color* to
+        *False* to disable this feature. Example:
+
+        .. code-block:: python
+
+            status_line((2, 0, 0, 0, 0))
+            # 12:45:18: all: 2, pending: 2, running: 0, finished: 0, retry: 0, failed: 0
+
+            status_line((0, 2, 0, 0), last_counts=(2, 0, 0, 0), skip=["retry"], timestamp=False)
+            # all: 2, pending: 0 (-2), running: 2 (+2), finished: 2 (+0), failed: 0 (+0)
+        """
+        # check last counts
+        if last_counts and len(last_counts) != len(self.status_names):
+            raise Exception("{} last status counts expected, got {}".format(len(self.status_names),
+                len(last_counts)))
+
+        # check current counts
+        if len(counts) != len(self.status_names):
+            raise Exception("{} status counts expected, got {}".format(len(self.status_names),
+                len(counts)))
+
+        # calculate differences
+        if last_counts:
+            diffs = tuple(n - m for n, m in zip(counts, last_counts))
+
+        # number formatting
+        if isinstance(align, bool) or not isinstance(align, six.integer_types):
+            align = 4 if align else 0
+        count_fmt = "%d" if not align else "%{}d".format(align)
+        diff_fmt = "%+d" if not align else "%+{}d".format(align)
+
+        # build the status line
+        line = ""
+        if timestamp:
+            time_format = timestamp if isinstance(timestamp, six.string_types) else "%H:%M:%S"
+            line += "{}: ".format(time.strftime(time_format))
+        if sum_counts is None:
+            sum_counts = sum(counts)
+        line += "all: " + count_fmt % (sum_counts,)
+        for i, (status, count) in enumerate(zip(self.status_names, counts)):
+            count = count_fmt % count
+            if color:
+                count = colored(count, style="bright")
+            line += ", {}: {}".format(status, count)
+
+            if last_counts:
+                diff = diff_fmt % diffs[i]
+                if color:
+                    # 0 if negative, 1 if zero, 2 if positive
+                    style_idx = (diffs[i] > 0) + (diffs[i] >= 0)
+                    diff = colored(diff, **self.status_diff_styles[status][style_idx])
+                line += " ({})".format(diff)
+
+        return line
 
 
 @six.add_metaclass(ABCMeta)

@@ -30,11 +30,11 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
 
     workflow_type = "lsf"
 
-    def create_job_manager(self):
-        return self.task.lsf_create_job_manager()
+    def create_job_manager(self, **kwargs):
+        return self.task.lsf_create_job_manager(**kwargs)
 
-    def create_job_file_factory(self):
-        return self.task.lsf_create_job_file_factory()
+    def create_job_file_factory(self, **kwargs):
+        return self.task.lsf_create_job_file_factory(**kwargs)
 
     def create_job_file(self, job_num, branches):
         task = self.task

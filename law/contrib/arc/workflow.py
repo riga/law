@@ -35,11 +35,11 @@ class ARCWorkflowProxy(BaseRemoteWorkflowProxy):
         if not self.task.arc_ce:
             raise Exception("please set at least one arc computing element (--arc-ce)")
 
-    def create_job_manager(self):
-        return self.task.arc_create_job_manager()
+    def create_job_manager(self, **kwargs):
+        return self.task.arc_create_job_manager(**kwargs)
 
-    def create_job_file_factory(self):
-        return self.task.arc_create_job_file_factory()
+    def create_job_file_factory(self, **kwargs):
+        return self.task.arc_create_job_file_factory(**kwargs)
 
     def create_job_file(self, job_num, branches):
         task = self.task
