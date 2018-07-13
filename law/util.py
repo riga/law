@@ -888,7 +888,8 @@ class TeeStream(BaseStream):
         Flushes all registered consumer streams.
         """
         for consumer in self.consumers:
-            consumer.flush()
+            if not getattr(consumer, "closed", False):
+                consumer.flush()
 
     def _write(self, *args, **kwargs):
         """
@@ -920,7 +921,8 @@ class FilteredStream(BaseStream):
         """
         Flushes the consumer stream.
         """
-        self.stream.flush()
+        if not getattr(self.stream, "closed", False):
+            self.stream.flush()
 
     def _write(self, *args, **kwargs):
         """
