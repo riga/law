@@ -178,11 +178,11 @@ class LSFWorkflow(BaseRemoteWorkflow):
         self.get_branch_map()
         return "_{}To{}".format(self.start_branch, self.end_branch)
 
-    def lsf_create_job_manager(self):
-        return LSFJobManager()
+    def lsf_create_job_manager(self, **kwargs):
+        return LSFJobManager(**kwargs)
 
-    def lsf_create_job_file_factory(self):
-        return LSFJobFileFactory()
+    def lsf_create_job_file_factory(self, **kwargs):
+        return LSFJobFileFactory(**kwargs)
 
     def lsf_job_config(self, config, job_num, branches):
         return config

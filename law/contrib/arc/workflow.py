@@ -184,11 +184,11 @@ class ARCWorkflow(BaseRemoteWorkflow):
     def arc_output_uri(self):
         return self.arc_output_directory().url()
 
-    def arc_create_job_manager(self):
-        return ARCJobManager()
+    def arc_create_job_manager(self, **kwargs):
+        return ARCJobManager(**kwargs)
 
-    def arc_create_job_file_factory(self):
-        return ARCJobFileFactory()
+    def arc_create_job_file_factory(self, **kwargs):
+        return ARCJobFileFactory(**kwargs)
 
     def arc_job_config(self, config, job_num, branches):
         return config

@@ -189,11 +189,11 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
         self.get_branch_map()
         return "_{}To{}".format(self.start_branch, self.end_branch)
 
-    def htcondor_create_job_manager(self):
-        return HTCondorJobManager()
+    def htcondor_create_job_manager(self, **kwargs):
+        return HTCondorJobManager(**kwargs)
 
-    def htcondor_create_job_file_factory(self):
-        return HTCondorJobFileFactory()
+    def htcondor_create_job_file_factory(self, **kwargs):
+        return HTCondorJobFileFactory(**kwargs)
 
     def htcondor_job_config(self, config, job_num, branches):
         return config

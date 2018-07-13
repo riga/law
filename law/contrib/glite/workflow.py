@@ -199,11 +199,11 @@ class GLiteWorkflow(BaseRemoteWorkflow):
         return delegate_voms_proxy_glite(endpoint, stdout=sys.stdout, stderr=sys.stderr,
             cache=True)
 
-    def glite_create_job_manager(self):
-        return GLiteJobManager()
+    def glite_create_job_manager(self, **kwargs):
+        return GLiteJobManager(**kwargs)
 
-    def glite_create_job_file_factory(self):
-        return GLiteJobFileFactory()
+    def glite_create_job_file_factory(self, **kwargs):
+        return GLiteJobFileFactory(**kwargs)
 
     def glite_job_config(self, config, job_num, branches):
         return config
