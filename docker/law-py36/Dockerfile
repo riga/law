@@ -41,7 +41,7 @@ RUN wget https://dl.bintray.com/boostorg/release/1.66.0/source/boost_1_66_0.tar.
 
 # WLCG software
 RUN rpm -Uvh https://repo.opensciencegrid.org/osg/3.4/osg-3.4-el7-release-latest.rpm
-RUN rpm --import https://repo.grid.iu.edu/osg/3.4/RPM-GPG-KEY-OSG
+RUN rpm --import https://repo.opensciencegrid.org/osg/3.4/RPM-GPG-KEY-OSG
 RUN yum -y update; yum clean all
 RUN yum -y install CERN-CA-certs osg-ca-certs osg-voms voms-clients; yum clean all
 
@@ -66,8 +66,7 @@ RUN pip3.6 install luigi six
 
 # install law master
 RUN git clone https://github.com/riga/law && \
-    cd law && git checkout tags/v0.0.27 && \
-    python3.6 setup.py install && \
+    cd law && python3.6 setup.py install && \
     cd .. && rm -rf law
 
 # shell initialization
