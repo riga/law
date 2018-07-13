@@ -636,7 +636,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             if not self.last_status_counts:
                 self.last_status_counts = counts
             status_line = self.job_manager.status_line(counts, self.last_status_counts,
-                sum_counts=n_jobs, color=True, align=4)
+                sum_counts=n_jobs, color=True, align=task.align_status_line)
             task.publish_message(status_line)
             self.last_status_counts = counts
 
@@ -745,6 +745,12 @@ class BaseRemoteWorkflow(BaseWorkflow):
        defined by :py:attr:`acceptance` becomes unreachable. Otherwise, keep polling until all jobs
        are either finished or failed. Defaults to *True*.
 
+    .. py:classattribute:: align_status_line
+       type: int, bool
+
+       Alignment value that is passed to :py:meth:`law.job.base.BaseJobManager.status_line` to print
+       the status line during job status polling. Defaults to *False*.
+
     .. py:classattribute:: retries
        type: luigi.IntParameter
 
@@ -845,6 +851,7 @@ class BaseRemoteWorkflow(BaseWorkflow):
     transfer_logs = luigi.BoolParameter(significant=False, description="transfer job logs to the "
         "output directory")
 
+    align_status_line = False
     check_unreachable_acceptance = True
 
     exclude_params_branch = {
