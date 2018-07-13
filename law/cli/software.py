@@ -31,11 +31,14 @@ def setup_parser(sub_parsers):
     """
     Sets up the command line parser for the *software* subprogram and adds it to *sub_parsers*.
     """
-    parser = sub_parsers.add_parser("software", prog="law software",
-        description="law software caching tool")
+    parser = sub_parsers.add_parser("software", prog="law software", description="Create or update"
+        " the law software cache ({}). This is only required for some sandboxes that need to"
+        " forward software into containers.".format(get_sw_dir()))
 
-    parser.add_argument("--remove", "-r", action="store_true",
-        help="just remove the software cache directory")
+    parser.add_argument("--location", "-l", action="store_true", help="print the location of the"
+        " software cache directory and exit")
+    parser.add_argument("--remove", "-r", action="store_true", help="remove the software cache"
+        " directory and exit")
 
 
 def execute(args):
@@ -43,6 +46,11 @@ def execute(args):
     Executes the *software* subprogram with parsed commandline *args*.
     """
     sw_dir = get_sw_dir()
+
+    # just print the cache location?
+    if args.location:
+        print(sw_dir)
+        return
 
     # just remove the current software cache?
     if args.remove:

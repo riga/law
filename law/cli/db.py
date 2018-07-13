@@ -23,11 +23,16 @@ def setup_parser(sub_parsers):
     """
     Sets up the command line parser for the *db* subprogram and adds it to *sub_parsers*.
     """
-    parser = sub_parsers.add_parser("db", prog="law db", description="law db file updater")
+    parser = sub_parsers.add_parser("db", prog="law db", description="Create or update the"
+        " (human-readable) law task database file ({}). This is only required for the shell"
+        " auto-completion.".format(Config.instance().get("core", "db_file")))
 
     parser.add_argument("--modules", "-m", nargs="+", help="additional modules to traverse")
     parser.add_argument("--no-externals", "-e", action="store_true", help="skip external tasks")
-    parser.add_argument("--remove", "-r", action="store_true", help="just remove the db file")
+    parser.add_argument("--location", "-l", action="store_true", help="print the location of the"
+        " database file and exit")
+    parser.add_argument("--remove", "-r", action="store_true", help="remove the database file and"
+        " exit")
     parser.add_argument("--verbose", "-v", action="store_true", help="verbose output")
 
 
@@ -35,9 +40,15 @@ def execute(args):
     """
     Executes the *db* subprogram with parsed commandline *args*.
     """
+    db_file = Config.instance().get_expanded("core", "db_file")
+
+    # just print the file location?
+    if args.location:
+        print(db_file)
+        return
+
     # just remove the db file?
     if args.remove:
-        db_file = Config.instance().get("core", "db_file")
         if os.path.exists(db_file):
             os.remove(db_file)
             print("removed db file {}".format(db_file))
@@ -118,7 +129,6 @@ def execute(args):
     stats = OrderedDict()
 
     # write the db file
-    db_file = Config.instance().get("core", "db_file")
     if not os.path.exists(os.path.dirname(db_file)):
         os.makedirs(os.path.dirname(db_file))
 

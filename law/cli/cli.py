@@ -22,7 +22,7 @@ def run():
     requested subprogram.
     """
     # setup the main parser and sub parsers
-    parser = ArgumentParser(prog="law", description="law command line tool")
+    parser = ArgumentParser(prog="law", description="The law command line tool.")
     sub_parsers = parser.add_subparsers(help="subcommands", dest="command")
 
     # add main arguments
