@@ -113,6 +113,15 @@ class BaseTask(luigi.Task):
 
         return params
 
+    def __init__(self, *args, **kwargs):
+        self.param_kwargs = {}
+        super(BaseTask, self).__init__(*args, **kwargs)
+
+    def __setattr__(self, attr, value):
+        if isinstance(getattr(self.__class__, attr, None), luigi.Parameter):
+            self.param_kwargs[attr] = value
+        super(BaseTask, self).__setattr__(attr, value)
+
     def complete(self):
         outputs = [t for t in flatten(self.output()) if not t.optional]
 
