@@ -426,17 +426,18 @@ def print_task_status(task, max_depth=0, target_depth=0, flags=None):
 
         if dep in done:
             print(offset + "- " + colored("outputs already checked", "yellow"))
-        else:
-            done.append(dep)
+            continue
 
-            for outp in luigi.task.flatten(dep.output()):
-                print("{}- check {}".format(offset, outp.colored_repr()))
+        done.append(dep)
 
-                status_lines = outp.status_text(max_depth=target_depth, flags=flags).split("\n")
-                status_text = status_lines[0]
-                for line in status_lines[1:]:
-                    status_text += "\n" + offset + "     " + line
-                print("{}  -> {}".format(offset, status_text))
+        for outp in luigi.task.flatten(dep.output()):
+            print("{}- check {}".format(offset, outp.colored_repr()))
+
+            status_lines = outp.status_text(max_depth=target_depth, flags=flags).split("\n")
+            status_text = status_lines[0]
+            for line in status_lines[1:]:
+                status_text += "\n" + offset + "     " + line
+            print("{}  -> {}".format(offset, status_text))
 
 
 def remove_task_output(task, max_depth=0, mode=None, include_external=False):
@@ -474,14 +475,14 @@ def remove_task_output(task, max_depth=0, mode=None, include_external=False):
             print(offset + "- " + colored("task is external, skip", "yellow"))
             continue
 
+        if dep in done:
+            print(offset + "- " + colored("outputs already removed", "yellow"))
+            continue
+
         if mode == "i":
             task_mode = query_choice(offset + "  walk through outputs?", ("y", "n"), default="y")
             if task_mode == "n":
                 continue
-
-        if dep in done:
-            print(offset + "- " + colored("outputs already removed", "yellow"))
-            continue
 
         done.append(dep)
 
