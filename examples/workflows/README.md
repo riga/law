@@ -66,6 +66,10 @@ This should take only a few seconds to process.
 
 If you want to see how the task tree is built and subsequently run, start a luigi scheduler in a second terminal with ``luigid`` (you might want to source the setup script again before). This will start a central scheduler at *localhost:8082* (the default address). Also remove the ``--local-scheduler`` from the ``law run`` command, so tasks (or *workers*) know they can communicate with a central scheduler. You might want to add the ``--slow`` parameter to make the tasks somewhat slower in order to see the actual progress in the scheduler (this is of course not a feature of law, but only implemented by the tasks in this example ;) ).
 
+The task tree should look like this in the scheduler app:
+
+![Workflow graph](https://www.dropbox.com/s/o2lcz42u4y6ncvg/law_workflows.png?raw=1 "Workflow graph")
+
 
 #### 5. Check the status again
 
