@@ -72,7 +72,7 @@ class Config(ConfigParser):
             "default_wlcg_fs": "wlcg_fs",
         },
         "job": {
-            "job_file_dir": tempfile.gettempdir(),
+            "job_file_dir": os.getenv("LAW_JOB_FILE_DIR", tempfile.gettempdir()),
         },
         "modules": {},
         "bash_env": {},
