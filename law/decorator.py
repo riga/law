@@ -45,9 +45,9 @@ logger = logging.getLogger(__name__)
 
 def factory(**default_opts):
     """
-    Factory function to create decorators for tasks's run methods. Default options for the decorator
+    Factory function to create decorators for tasks' run methods. Default options for the decorator
     function can be given in *default_opts*. The returned decorator can be used with or without
-    actual invocation. Example:
+    function invocation. Example:
 
     .. code-block:: python
 
@@ -78,7 +78,7 @@ def factory(**default_opts):
     .. note::
 
         Decorators might not have the expected behavior when used to decorate generator functions
-        such as ``Task.run()`` methods that yield dynamic dependency.
+        such as ``Task.run()`` methods that yield dynamic dependencies.
     """
     def wrapper(decorator):
         @functools.wraps(decorator)

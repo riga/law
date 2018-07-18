@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Simple ARC job manager. See http://www.nordugrid.org/arc/ce/ and
+Simple ARC job manager. See http://www.nordugrid.org/arc and
 http://www.nordugrid.org/documents/xrsl.pdf.
 """
 
