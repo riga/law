@@ -291,6 +291,7 @@ class LocalFileTarget(LocalTarget, FileSystemFileTarget):
                     # move back again
                     if tmp.exists():
                         tmp.move_to_local(self, dir_perm=parent_perm)
+                        self.chmod(perm)
                     else:
                         logger.warning("cannot move non-existing localized file target {!r}".format(
                             self))
@@ -303,7 +304,8 @@ class LocalFileTarget(LocalTarget, FileSystemFileTarget):
                 # simply yield
                 yield self
 
-            self.chmod(perm)
+                if self.exists():
+                    self.chmod(perm)
 
 
 class LocalDirectoryTarget(LocalTarget, FileSystemDirectoryTarget):
