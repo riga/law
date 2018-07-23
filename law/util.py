@@ -677,7 +677,7 @@ def human_time_diff(*args, **kwargs):
                 n = int(math.floor(secs / mul))
                 secs -= n * mul
             else:
-                n = secs if secs != int(secs) else int(secs)
+                n = round(secs, 1)
             parts.append("{} {}{}".format(n, unit, "" if n == 1 else "s"))
     return ", ".join(parts)
 
