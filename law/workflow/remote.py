@@ -153,6 +153,11 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         self.show_errors = 5
         self.dashboard = None
         self.n_active_jobs = None
+        self.poll_data = PollData(
+            n_parallel=self.task.parallel_jobs if self.n_parallel_used else sys.maxsize,
+            n_finished_min=-1,
+            n_failed_max=-1,
+        )
 
         # cached output() return value, set in run()
         self._outputs = None
@@ -449,14 +454,13 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         # fill with jobs from the list of unsubmitted jobs
         # until maximum number of parallel jobs is reached
         n_active = self.n_active_jobs or 0
-        n_parallel = sys.maxsize if task.parallel_jobs < 0 else task.parallel_jobs
         new_jobs = OrderedDict()
         for job_num, branches in list(self.submission_data.unsubmitted_jobs.items()):
             if skip_job(job_num, branches):
                 # remove jobs that don't need to be submitted
                 del self.submission_data.unsubmitted_jobs[job_num]
 
-            elif n_active + len(new_jobs) < n_parallel:
+            elif n_active + len(new_jobs) < self.poll_data.n_parallel:
                 # mark jobs for submission as long as n_parallel is not reached
                 del self.submission_data.unsubmitted_jobs[job_num]
                 new_jobs[job_num] = sorted(branches)
@@ -541,12 +545,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         else:
             max_polls = int(math.ceil((task.walltime * 3600.) / (task.poll_interval * 60.)))
         n_poll_fails = 0
-        # variable attributes for polling
-        poll_data = PollData(
-            n_parallel=sys.maxsize if task.parallel_jobs < 0 else task.parallel_jobs,
-            n_finished_min=task.acceptance * n_jobs if task.acceptance <= 1 else task.acceptance,
-            n_failed_max=task.tolerance * n_jobs if task.tolerance <= 1 else task.tolerance,
-        )
+        # update variable attributes for polling
+        self.poll_data.n_finished_min = task.acceptance * (1 if task.acceptance > 1 else n_jobs)
+        self.poll_data.n_failed_max = task.tolerance * (1 if task.tolerance > 1 else n_jobs)
 
         # bookkeeping dicts to avoid querying the status of finished jobs
         # note: active_jobs holds submission data, finished_jobs and failed_jobs hold status data
@@ -676,9 +677,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
             # infer the overall status
             reached_end = n_jobs == n_finished + n_failed
-            finished = n_finished >= poll_data.n_finished_min
-            failed = n_failed > poll_data.n_failed_max
-            unreachable = n_jobs - n_failed < poll_data.n_finished_min
+            finished = n_finished >= self.poll_data.n_finished_min
+            failed = n_failed > self.poll_data.n_failed_max
+            unreachable = n_jobs - n_failed < self.poll_data.n_finished_min
             if finished:
                 # write status output
                 if "status" in self._outputs:
@@ -693,13 +694,13 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             elif unreachable:
                 if task.check_unreachable_acceptance or reached_end:
                     raise Exception("acceptance of {} unreachable, total: {}, failed: {}".format(
-                        poll_data.n_finished_min, n_jobs, n_failed))
+                        self.poll_data.n_finished_min, n_jobs, n_failed))
 
             # configurable poll callback
-            task.poll_callback(poll_data)
+            task.poll_callback(self.poll_data)
 
             # automatic resubmission and further processing of the list of unsubmitted jobs
-            n_free = poll_data.n_parallel - self.n_active_jobs
+            n_free = self.poll_data.n_parallel - self.n_active_jobs
             if n_retry or (n_free > 0 and n_unsubmitted > 0):
                 submit_data = self.submit(retry_jobs)
 
