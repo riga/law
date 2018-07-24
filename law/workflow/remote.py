@@ -696,7 +696,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                         poll_data.n_finished_min, n_jobs, n_failed))
 
             # configurable poll callback
-            self.poll_callback(poll_data)
+            task.poll_callback(poll_data)
 
             # automatic resubmission and further processing of the list of unsubmitted jobs
             n_free = poll_data.n_parallel - self.n_active_jobs
@@ -714,14 +714,6 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         else:
             # walltime exceeded
             raise Exception("walltime exceeded")
-
-    def poll_callback(self, poll_data):
-        """
-        Configurable callback that is called after each job status query and before potential
-        resubmission. It receives the variable polling attributes *poll_data* (:py:class:`PollData`)
-        that can be changed within this method.
-        """
-        return
 
     def touch_control_outputs(self):
         """
@@ -890,6 +882,14 @@ class BaseRemoteWorkflow(BaseWorkflow):
     }
 
     exclude_db = True
+
+    def poll_callback(self, poll_data):
+        """
+        Configurable callback that is called after each job status query and before potential
+        resubmission. It receives the variable polling attributes *poll_data* (:py:class:`PollData`)
+        that can be changed within this method.
+        """
+        return
 
     def create_job_dashboard(self):
         """
