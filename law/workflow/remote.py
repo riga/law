@@ -79,6 +79,21 @@ class StatusData(ShorthandDict):
         return dict(job_id=job_id, status=status, code=code, error=error)
 
 
+class PollConfig(ShorthandDict):
+    """
+    Sublcass of :py:class:`law.util.ShorthandDict` that holds variable attributes used during job
+    status polling: the maximum number of parallel running jobs, *n_parallel*, the minimum number of
+    finished jobs to consider the task successful, *n_finished_min*, and the maximum number of
+    failed jobs to consider the task failed, *n_failed_max*.
+    """
+
+    attributes = {
+        "n_parallel": None,
+        "n_finished_min": None,
+        "n_failed_max": None,
+    }
+
+
 class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
     """
     Workflow proxy class for the remove workflows.
@@ -526,9 +541,12 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         else:
             max_polls = int(math.ceil((task.walltime * 3600.) / (task.poll_interval * 60.)))
         n_poll_fails = 0
-        n_parallel = sys.maxsize if task.parallel_jobs < 0 else task.parallel_jobs
-        n_finished_min = task.acceptance * n_jobs if task.acceptance <= 1 else task.acceptance
-        n_failed_max = task.tolerance * n_jobs if task.tolerance <= 1 else task.tolerance
+        # variable attributes for polling
+        poll_data = PollData(
+            n_parallel=sys.maxsize if task.parallel_jobs < 0 else task.parallel_jobs,
+            n_finished_min=task.acceptance * n_jobs if task.acceptance <= 1 else task.acceptance,
+            n_failed_max=task.tolerance * n_jobs if task.tolerance <= 1 else task.tolerance,
+        )
 
         # bookkeeping dicts to avoid querying the status of finished jobs
         # note: active_jobs holds submission data, finished_jobs and failed_jobs hold status data
@@ -621,7 +639,6 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
             # counts
             self.n_active_jobs = len(active_jobs)
-            n_free = n_parallel - self.n_active_jobs
             n_unsubmitted = len(self.submission_data.unsubmitted_jobs)
             n_pending = len(pending_jobs)
             n_running = len(running_jobs)
@@ -659,9 +676,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
             # infer the overall status
             reached_end = n_jobs == n_finished + n_failed
-            finished = n_finished >= n_finished_min
-            failed = n_failed > n_failed_max
-            unreachable = n_jobs - n_failed < n_finished_min
+            finished = n_finished >= poll_data.n_finished_min
+            failed = n_failed > poll_data.n_failed_max
+            unreachable = n_jobs - n_failed < poll_data.n_finished_min
             if finished:
                 # write status output
                 if "status" in self._outputs:
@@ -676,9 +693,13 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             elif unreachable:
                 if task.check_unreachable_acceptance or reached_end:
                     raise Exception("acceptance of {} unreachable, total: {}, failed: {}".format(
-                        n_finished_min, n_jobs, n_failed))
+                        poll_data.n_finished_min, n_jobs, n_failed))
+
+            # configurable poll callback
+            self.poll_callback(poll_data)
 
             # automatic resubmission and further processing of the list of unsubmitted jobs
+            n_free = poll_data.n_parallel - self.n_active_jobs
             if n_retry or (n_free > 0 and n_unsubmitted > 0):
                 submit_data = self.submit(retry_jobs)
 
@@ -693,6 +714,14 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         else:
             # walltime exceeded
             raise Exception("walltime exceeded")
+
+    def poll_callback(self, poll_data):
+        """
+        Configurable callback that is called after each job status query and before potential
+        resubmission. It receives the variable polling attributes *poll_data* (:py:class:`PollData`)
+        that can be changed within this method.
+        """
+        return
 
     def touch_control_outputs(self):
         """
