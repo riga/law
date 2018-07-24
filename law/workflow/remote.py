@@ -79,7 +79,7 @@ class StatusData(ShorthandDict):
         return dict(job_id=job_id, status=status, code=code, error=error)
 
 
-class PollConfig(ShorthandDict):
+class PollData(ShorthandDict):
     """
     Sublcass of :py:class:`law.util.ShorthandDict` that holds variable attributes used during job
     status polling: the maximum number of parallel running jobs, *n_parallel*, the minimum number of
