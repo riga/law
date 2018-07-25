@@ -545,6 +545,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         else:
             max_polls = int(math.ceil((task.walltime * 3600.) / (task.poll_interval * 60.)))
         n_poll_fails = 0
+
         # update variable attributes for polling
         self.poll_data.n_finished_min = task.acceptance * (1 if task.acceptance > 1 else n_jobs)
         self.poll_data.n_failed_max = task.tolerance * (1 if task.tolerance > 1 else n_jobs)
@@ -765,7 +766,7 @@ class BaseRemoteWorkflow(BaseWorkflow):
 
        When *True*, stop the job status polling early if the minimum number of finsihed jobs as
        defined by :py:attr:`acceptance` becomes unreachable. Otherwise, keep polling until all jobs
-       are either finished or failed. Defaults to *True*.
+       are either finished or failed. Defaults to *False*.
 
     .. py:classattribute:: align_status_line
        type: int, bool
@@ -874,7 +875,7 @@ class BaseRemoteWorkflow(BaseWorkflow):
         "output directory")
 
     align_status_line = False
-    check_unreachable_acceptance = True
+    check_unreachable_acceptance = False
 
     exclude_params_branch = {
         "retries", "tasks_per_job", "parallel_jobs", "only_missing", "no_poll", "threads",
