@@ -113,6 +113,8 @@ class BaseJobManager(object):
         self.status_diff_styles = status_diff_styles or self.default_status_diff_styles.copy()
         self.threads = threads
 
+        self.last_counts = None
+
     @abstractmethod
     def submit(self):
         """
@@ -284,16 +286,17 @@ class BaseJobManager(object):
     def status_line(self, counts, last_counts=None, sum_counts=None, timestamp=True, align=False,
             color=False):
         """
-        Returns a job status line containing job counts per status. When *last_counts* is set, the
-        status line also contains the differences in job counts with respect the passed values. The
-        status line starts with the sum of jobs which is inferred from *counts*. When you want to
-        use a custom value, set *sum_counts*. The length of *counts* should match the length of
-        *status_names* of this instance. When *timestamp* is *True*, the status line begins with the
-        current timestamp. When *timestamp* is a non-empty string, it is used as the ``strftime``
-        format. *align* handles the alignment of the values in the status line by using a maximum
-        width. *True* will result in the default width of 4. When *align* evaluates to *False*, no
-        alignment is used. By default, some elements of the status line are colored. Set *color* to
-        *False* to disable this feature. Example:
+        Returns a job status line containing job counts per status. When *last_counts* is *True*,
+        the status line also contains the differences in job counts with respect to the counts from
+        the previous call to this method. When you pass a list or tuple, those values are used
+        intead to compute the differences. The status line starts with the sum of jobs which is
+        inferred from *counts*. When you want to use a custom value, set *sum_counts*. The length of
+        *counts* should match the length of *status_names* of this instance. When *timestamp* is
+        *True*, the status line begins with the current timestamp. When *timestamp* is a non-empty
+        string, it is used as the ``strftime`` format. *align* handles the alignment of the values
+        in the status line by using a maximum width. *True* will result in the default width of 4.
+        When *align* evaluates to *False*, no alignment is used. By default, some elements of the
+        status line are colored. Set *color* to *False* to disable this feature. Example:
 
         .. code-block:: python
 
@@ -303,7 +306,10 @@ class BaseJobManager(object):
             status_line((0, 2, 0, 0), last_counts=(2, 0, 0, 0), skip=["retry"], timestamp=False)
             # all: 2, pending: 0 (-2), running: 2 (+2), finished: 2 (+0), failed: 0 (+0)
         """
-        # check last counts
+        # check and or set last counts
+        use_last_counts = bool(last_counts)
+        if use_last_counts and not isinstance(last_counts, (list, tuple)):
+            last_counts = self.last_counts or ([0] * len(self.status_names))
         if last_counts and len(last_counts) != len(self.status_names):
             raise Exception("{} last status counts expected, got {}".format(len(self.status_names),
                 len(last_counts)))
@@ -312,6 +318,9 @@ class BaseJobManager(object):
         if len(counts) != len(self.status_names):
             raise Exception("{} status counts expected, got {}".format(len(self.status_names),
                 len(counts)))
+
+        # store current counts for next call
+        self.last_counts = counts
 
         # calculate differences
         if last_counts:

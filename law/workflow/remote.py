@@ -20,7 +20,7 @@ import six
 
 from law.workflow.base import BaseWorkflow, BaseWorkflowProxy
 from law.job.dashboard import NoJobDashboard
-from law.parameter import NO_FLOAT, NO_INT, is_no_param
+from law.parameter import NO_FLOAT, NO_INT
 from law.decorator import log
 from law.util import iter_chunks, ShorthandDict
 
@@ -38,8 +38,9 @@ class SubmissionData(ShorthandDict):
     """
 
     attributes = {
-        "jobs": {},
-        "unsubmitted_jobs": {},
+        "jobs": {},  # job_num -> job_data (see classmethod below)
+        "unsubmitted_jobs": {},  # job_num -> branches
+        "attempts": {},  # job_num -> current attempt
         "tasks_per_job": 1,
         "dashboard_config": {},
     }
@@ -47,12 +48,26 @@ class SubmissionData(ShorthandDict):
     dummy_job_id = "dummy_job_id"
 
     @classmethod
-    def job_data(cls, job_id=dummy_job_id, branches=None, attempt=0, **kwargs):
+    def job_data(cls, job_id=dummy_job_id, branches=None, **kwargs):
         """
-        Returns a dictionary containing default job submission information such as the *job_id*,
-        task *branches* covered by the job, and the current *attempt*.
+        Returns a dictionary containing default job submission information such as the *job_id* and
+        task *branches* covered by the job.
         """
-        return dict(job_id=job_id, branches=branches or [], attempt=attempt)
+        return dict(job_id=job_id, branches=branches or [])
+
+    def __len__(self):
+        return len(self.jobs) + len(self.unsubmitted_jobs)
+
+    def update(self, other):
+        """"""
+        other = dict(other)
+        # ensure that keys (i.e. job nums) in job dicts are integers
+        for key in ["jobs", "unsubmitted_jobs", "attempts"]:
+            if key in other:
+                cls = other[key].__class__
+                other[key] = cls((int(job_num), val) for job_num, val in six.iteritems(other[key]))
+
+        super(SubmissionData, self).update(other)
 
 
 class StatusData(ShorthandDict):
@@ -66,7 +81,9 @@ class StatusData(ShorthandDict):
        A unique, dummy job id (``"dummy_job_id"``).
     """
 
-    attributes = {"jobs": {}}
+    attributes = {
+        "jobs": {},  # job_num -> job_data (see classmethod below)
+    }
 
     dummy_job_id = SubmissionData.dummy_job_id
 
@@ -83,14 +100,16 @@ class PollData(ShorthandDict):
     """
     Sublcass of :py:class:`law.util.ShorthandDict` that holds variable attributes used during job
     status polling: the maximum number of parallel running jobs, *n_parallel*, the minimum number of
-    finished jobs to consider the task successful, *n_finished_min*, and the maximum number of
-    failed jobs to consider the task failed, *n_failed_max*.
+    finished jobs to consider the task successful, *n_finished_min*, the maximum number of
+    failed jobs to consider the task failed, *n_failed_max*, the number of currently active jobs,
+    *n_active*.
     """
 
     attributes = {
         "n_parallel": None,
         "n_finished_min": None,
         "n_failed_max": None,
+        "n_active": None,
     }
 
 
@@ -140,24 +159,39 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
     def __init__(self, *args, **kwargs):
         super(BaseRemoteWorkflowProxy, self).__init__(*args, **kwargs)
 
-        self.n_parallel_used = self.task.parallel_jobs > 0
-        self.job_manager = self.create_job_manager(threads=self.task.threads)
-        if self.n_parallel_used:
+        task = self.task
+
+        # setup the job mananger
+        self.job_manager = self.create_job_manager(threads=task.threads)
+        if task.parallel_jobs > 0:
             self.job_manager.status_names.insert(0, "unsubmitted")
             self.job_manager.status_diff_styles["unsubmitted"] = ({"color": "green"}, {}, {})
+
+        # the job submission file factory
         self.job_file_factory = None
-        self.submission_data = self.submission_data_cls(tasks_per_job=self.task.tasks_per_job)
-        self.skip_data = {}
-        self.last_status_counts = None
-        self.attempts = defaultdict(int)
-        self.show_errors = 5
+
+        # the job dashboard
         self.dashboard = None
-        self.n_active_jobs = None
+
+        # submission data
+        self.submission_data = self.submission_data_cls(tasks_per_job=task.tasks_per_job)
+
+        # variable data that changes during / configures the job polling
         self.poll_data = PollData(
-            n_parallel=self.task.parallel_jobs if self.n_parallel_used else sys.maxsize,
+            n_parallel=task.parallel_jobs if task.parallel_jobs > 0 else sys.maxsize,
             n_finished_min=-1,
             n_failed_max=-1,
+            n_active=0,
         )
+
+        # boolean per job num denoting if a job should be / was skipped
+        self.skip_jobs = {}
+
+        # retry counts per job num
+        self.job_retries = defaultdict(int)
+
+        # configures how many job errors are shown (the rest is abbreviated)
+        self.show_errors = 5
 
         # cached output() return value, set in run()
         self._outputs = None
@@ -300,7 +334,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             task.tasks_per_job = self.submission_data.tasks_per_job
             self.dashboard.apply_config(self.submission_data.dashboard_config)
             for job_num in self.submission_data.jobs:
-                self.attempts[int(job_num)] = -1
+                self.job_retries[job_num] = -1
 
         # when the branch outputs, i.e. the "collection" exists, just create dummy control outputs
         if "collection" in self._outputs and self._outputs["collection"].exists():
@@ -322,7 +356,6 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             tracking_url = self.dashboard.create_tracking_url()
             if tracking_url:
                 task.set_tracking_url(tracking_url)
-                print("tracking url set to {}".format(tracking_url))
 
             # ensure the output directory exists
             if not submitted:
@@ -364,8 +397,10 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         task = self.task
 
         # get job ids from submission data
-        job_ids = [d["job_id"] for d in self.submission_data.jobs.values()
-                   if d["job_id"] not in (self.submission_data.dummy_job_id, None)]
+        job_ids = [
+            d["job_id"] for d in self.submission_data.jobs.values()
+            if d["job_id"] not in (self.submission_data.dummy_job_id, None)
+        ]
         if not job_ids:
             return
 
@@ -398,8 +433,10 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         task = self.task
 
         # get job ids from submission data
-        job_ids = [d["job_id"] for d in self.submission_data.jobs.values()
-                   if d["job_id"] not in (self.submission_data.dummy_job_id, None)]
+        job_ids = [
+            d["job_id"] for d in self.submission_data.jobs.values()
+            if d["job_id"] not in (self.submission_data.dummy_job_id, None)
+        ]
         if not job_ids:
             return
 
@@ -429,41 +466,58 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         task = self.task
 
         # helper to check if a job can be skipped
+        # rule: skip a job when only_missing is set to True and all its branch tasks are complete
         def skip_job(job_num, branches):
             if not task.only_missing:
                 return False
-            elif job_num in self.skip_data:
-                return self.skip_data[job_num]
+            elif job_num in self.skip_jobs:
+                return self.skip_jobs[job_num]
             else:
-                self.skip_data[job_num] = all(task.as_branch(b).complete() for b in branches)
+                self.skip_jobs[job_num] = all(task.as_branch(b).complete() for b in branches)
                 # when the job is skipped, write a dummy entry into submission data
-                if self.skip_data[job_num]:
+                if self.skip_jobs[job_num]:
                     self.submission_data.jobs[job_num] = self.submission_data_cls.job_data(
                         branches=branches)
-                return self.skip_data[job_num]
+                return self.skip_jobs[job_num]
 
-        # collect data of jobs that should be submitted: num -> branches (tuple)
+        # collect data of jobs that should be submitted: num -> branches
         submit_jobs = OrderedDict()
 
         # handle jobs for resubmission
         if retry_jobs:
             for job_num, branches in six.iteritems(retry_jobs):
-                if not skip_job(job_num, branches):
-                    submit_jobs[job_num] = sorted(branches)
+                # even retry jobs can be skipped
+                if skip_job(job_num, branches):
+                    continue
 
-        # fill with jobs from the list of unsubmitted jobs
-        # until maximum number of parallel jobs is reached
-        n_active = self.n_active_jobs or 0
+                # the number of parallel jobs might be reached as well
+                # in that case, add the jobs back to the unsubmitted ones and update the job id
+                n = self.poll_data.n_active + len(submit_jobs)
+                if n >= self.poll_data.n_parallel:
+                    self.submission_data.unsubmitted_jobs[job_num] = branches
+                    del self.submission_data.jobs[job_num]
+                    continue
+
+                # mark job for resubmission
+                submit_jobs[job_num] = sorted(branches)
+
+        # fill with jobs from the list of unsubmitted jobs until maximum number of parallel jobs is
+        # reached
         new_jobs = OrderedDict()
         for job_num, branches in list(self.submission_data.unsubmitted_jobs.items()):
+            # remove jobs that don't need to be submitted
             if skip_job(job_num, branches):
-                # remove jobs that don't need to be submitted
                 del self.submission_data.unsubmitted_jobs[job_num]
+                continue
 
-            elif n_active + len(new_jobs) < self.poll_data.n_parallel:
-                # mark jobs for submission as long as n_parallel is not reached
-                del self.submission_data.unsubmitted_jobs[job_num]
-                new_jobs[job_num] = sorted(branches)
+            # do nothing when n_parallel is already reached
+            n = self.poll_data.n_active + len(submit_jobs) + len(new_jobs)
+            if n >= self.poll_data.n_parallel:
+                continue
+
+            # mark jobs for submission
+            del self.submission_data.unsubmitted_jobs[job_num]
+            new_jobs[job_num] = sorted(branches)
 
         # add new jobs to the jobs to submit, maybe also shuffle
         new_submission_data = OrderedDict()
@@ -475,7 +529,8 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
         # when there is nothing to submit, dump the submission data to the output file and stop here
         if not submit_jobs:
-            self.dump_submission_data()
+            if retry_jobs or self.submission_data.unsubmitted_jobs:
+                self.dump_submission_data()
             return new_submission_data
 
         # create job submission files
@@ -504,6 +559,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             job_data = self.submission_data_cls.job_data(job_id=job_id, branches=branches)
             self.submission_data.jobs[job_num] = job_data
             new_submission_data[job_num] = job_data
+
+            # set the attempt number in the submission data
+            self.submission_data.attempts.setdefault(job_num, 0)
 
             # inform the dashboard
             task.forward_dashboard_event(self.dashboard, job_data, "action.submit", job_num)
@@ -534,47 +592,47 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         """
         task = self.task
 
-        # get job counts
-        n_active = len(self.submission_data.jobs)
-        n_unsubmitted = len(self.submission_data.unsubmitted_jobs)
-        n_jobs = n_active + n_unsubmitted
+        # total job count
+        n_jobs = len(self.submission_data)
 
-        # determine thresholds
-        if is_no_param(task.walltime):
+        # store the number of consecutive polling failures and get the maximum number of polls
+        n_poll_fails = 0
+        if task.walltime == NO_FLOAT:
             max_polls = sys.maxsize
         else:
             max_polls = int(math.ceil((task.walltime * 3600.) / (task.poll_interval * 60.)))
-        n_poll_fails = 0
 
         # update variable attributes for polling
         self.poll_data.n_finished_min = task.acceptance * (1 if task.acceptance > 1 else n_jobs)
         self.poll_data.n_failed_max = task.tolerance * (1 if task.tolerance > 1 else n_jobs)
 
-        # bookkeeping dicts to avoid querying the status of finished jobs
-        # note: active_jobs holds submission data, finished_jobs and failed_jobs hold status data
-        active_jobs = OrderedDict()
+        # track finished and failed jobs in dicts holding status data
         finished_jobs = OrderedDict()
         failed_jobs = OrderedDict()
 
-        # fill dicts from submission data, consider skipped jobs as finished
-        for job_num, data in six.iteritems(self.submission_data.jobs):
-            if self.skip_data.get(job_num):
-                finished_jobs[job_num] = self.status_data_cls.job_data(
-                    status=self.job_manager.FINISHED, code=0)
-            else:
-                active_jobs[job_num] = data.copy()
-                # make sure that job ids are reasonable
-                if not active_jobs[job_num]["job_id"]:
-                    active_jobs[job_num]["job_id"] = self.status_data_cls.dummy_job_id
-
-        # use maximum number of polls for looping
+        # start the poll loop
         for i in six.moves.range(max_polls):
             # sleep
             if i > 0:
                 time.sleep(task.poll_interval * 60)
 
+            # determine the currently active jobs, i.e., the jobs whose states should be checked
+            active_jobs = OrderedDict()
+            for job_num, data in six.iteritems(self.submission_data.jobs):
+                if job_num in finished_jobs or job_num in failed_jobs:
+                    continue
+                if self.skip_jobs.get(job_num):
+                    finished_jobs[job_num] = self.status_data_cls.job_data(
+                        status=self.job_manager.FINISHED, code=0)
+                else:
+                    data = data.copy()
+                    if not data["job_id"]:
+                        data["job_id"] = self.status_data_cls.dummy_job_id
+                    active_jobs[job_num] = data
+            self.poll_data.n_active = len(active_jobs)
+
             # query job states
-            job_ids = [data["job_id"] for data in six.itervalues(active_jobs)]
+            job_ids = [data["job_id"] for data in six.itervalues(active_jobs)]  # noqa: F812
             _states, errors = self.job_manager.query_batch(job_ids)
             if errors:
                 print("{} error(s) occured during job status query of task {}:".format(
@@ -589,7 +647,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                         break
 
                 n_poll_fails += 1
-                if n_poll_fails > task.poll_fails:
+                if task.poll_fails > 0 and n_poll_fails > task.poll_fails:
                     raise Exception("poll_fails exceeded")
                 else:
                     continue
@@ -601,9 +659,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             for job_num, data in six.iteritems(active_jobs):
                 states[job_num] = self.status_data_cls.job_data(**_states[data["job_id"]])
 
-            # store jobs per status, remove finished ones from active_jobs
-            # determine those newly failed jobs that might be resubmitted
-            # and those who ultimately failed
+            # store jobs per status and take further actions depending on the status
             pending_jobs = OrderedDict()
             running_jobs = OrderedDict()
             newly_failed_jobs = OrderedDict()
@@ -619,43 +675,41 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
                 elif data["status"] == self.job_manager.FINISHED:
                     finished_jobs[job_num] = data
-                    active_jobs.pop(job_num)
+                    self.poll_data.n_active -= 1
                     task.forward_dashboard_event(self.dashboard, data, "status.finished", job_num)
 
                 elif data["status"] in (self.job_manager.FAILED, self.job_manager.RETRY):
                     newly_failed_jobs[job_num] = data
+                    self.poll_data.n_active -= 1
+
                     # retry or ultimately failed?
-                    if self.attempts[job_num] < task.retries:
-                        self.attempts[job_num] += 1
-                        self.submission_data.jobs[job_num]["attempt"] += 1
+                    if self.job_retries[job_num] < task.retries:
+                        self.job_retries[job_num] += 1
+                        self.submission_data.attempts[job_num] += 1
                         data["status"] = self.job_manager.RETRY
                         retry_jobs[job_num] = self.submission_data.jobs[job_num]["branches"]
                         task.forward_dashboard_event(self.dashboard, data, "status.retry", job_num)
                     else:
                         failed_jobs[job_num] = data
-                        active_jobs.pop(job_num)
                         task.forward_dashboard_event(self.dashboard, data, "status.failed", job_num)
 
                 else:
                     raise Exception("unknown job status '{}'".format(data["status"]))
 
-            # counts
-            self.n_active_jobs = len(active_jobs)
-            n_unsubmitted = len(self.submission_data.unsubmitted_jobs)
+            # gather some counts
             n_pending = len(pending_jobs)
             n_running = len(running_jobs)
             n_finished = len(finished_jobs)
             n_retry = len(retry_jobs)
             n_failed = len(failed_jobs)
+            n_unsubmitted = len(self.submission_data.unsubmitted_jobs)
 
             # log the status line
             counts = (n_pending, n_running, n_finished, n_retry, n_failed)
-            if self.n_parallel_used:
+            if task.parallel_jobs > 0:
                 counts = (n_unsubmitted,) + counts
-            if not self.last_status_counts:
-                self.last_status_counts = counts
-            status_line = self.job_manager.status_line(counts, self.last_status_counts,
-                sum_counts=n_jobs, color=True, align=task.align_status_line)
+            status_line = self.job_manager.status_line(counts, last_counts=True, sum_counts=n_jobs,
+                color=True, align=task.align_status_line)
             task.publish_message(status_line)
             self.last_status_counts = counts
 
@@ -693,20 +747,19 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 failed_nums = [job_num for job_num in failed_jobs if job_num not in retry_jobs]
                 raise Exception("tolerance exceeded for jobs {}".format(failed_nums))
             elif unreachable:
-                if task.check_unreachable_acceptance or reached_end:
-                    raise Exception("acceptance of {} unreachable, total: {}, failed: {}".format(
-                        self.poll_data.n_finished_min, n_jobs, n_failed))
+                err = None
+                if reached_end:
+                    err = "acceptance of {} not reached, total jobs: {}, failed jobs: {}"
+                elif task.check_unreachable_acceptance:
+                    err = "acceptance of {} unreachable, total jobs: {}, failed jobs: {}"
+                if err:
+                    raise Exception(err.format(self.poll_data.n_finished_min, n_jobs, n_failed))
 
             # configurable poll callback
             task.poll_callback(self.poll_data)
 
-            # automatic resubmission and further processing of the list of unsubmitted jobs
-            n_free = self.poll_data.n_parallel - self.n_active_jobs
-            if n_retry or (n_free > 0 and n_unsubmitted > 0):
-                submit_data = self.submit(retry_jobs)
-
-                # update data of active jobs so the poll next iteration is aware of the new job ids
-                active_jobs.update(submit_data)
+            # trigger automatic resubmission and submission of unsubmitted jobs
+            self.submit(retry_jobs)
 
             # break when no polling is desired
             # we can get to this point when there was already a submission and the no_poll
