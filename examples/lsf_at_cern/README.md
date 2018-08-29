@@ -21,7 +21,7 @@ source setup.sh
 ```
 
 
-#### 2. Let law scan your the tasks and their parameters (for autocompletion)
+#### 2. Let law scan your tasks and their parameters (for autocompletion)
 
 ```shell
 law db --verbose
@@ -41,7 +41,7 @@ written 2 task(s) to db file '/examplepath/.law/db'
 ```
 
 
-#### 3. Check the status of the CreateAlphabet task
+#### 3. Check the status of the `CreateAlphabet` task
 
 ```shell
 law run CreateAlphabet --version v1 --print-status -1
@@ -66,7 +66,7 @@ print task status with max_depth -1 and target_depth 0
 ```
 
 
-#### 4. Run the CreateAlphabet task
+#### 4. Run the `CreateAlphabet` task
 
 
 ```shell
