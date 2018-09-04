@@ -586,15 +586,18 @@ class RemoteFileSystem(FileSystem):
     def exists(self, path, stat=False):
         return self.gfal.exists(self.abspath(path), stat=stat)
 
+    def _s_isdir(self, st_mode):
+        return stat.S_ISDIR(st_mode)
+
     def isdir(self, path, rstat=None, **kwargs):
         if rstat is None:
             rstat = self.exists(path, stat=True)
-        return stat.S_ISDIR(rstat.st_mode) if rstat else False
+        return self._s_isdir(rstat.st_mode) if rstat else False
 
     def isfile(self, path, rstat=None, **kwargs):
         if rstat is None:
             rstat = self.exists(path, stat=True)
-        return not stat.S_ISDIR(rstat.st_mode) if rstat else False
+        return not self._s_isdir(rstat.st_mode) if rstat else False
 
     def chmod(self, path, perm, silent=True, **kwargs):
         if self.permissions and perm is not None:

@@ -8,6 +8,7 @@ WLCG remote file system and targets.
 __all__ = ["WLCGFileSystem", "WLCGTarget", "WLCGFileTarget", "WLCGDirectoryTarget"]
 
 
+import stat
 import logging
 
 import six
@@ -66,6 +67,13 @@ class WLCGFileSystem(RemoteFileSystem):
                 "target.default_wlcg_fs option in your law config")
 
         RemoteFileSystem.__init__(self, base, bases, **kwargs)
+
+    def _s_isdir(self, st_mode):
+        # some WLCG file protocols do not return standard st_mode values in stat requests,
+        # e.g. srm returns file type bits 0o50000 for directories instead of 0o40000,
+        # these differences are rather distinct and can be taken into account here,
+        # see http://man7.org/linux/man-pages/man7/inode.7.html for info on st_mode values
+        return stat.S_ISDIR(st_mode) or stat.S_IFMT(st_mode) == 0o50000
 
 
 # try to set the default fs instance
