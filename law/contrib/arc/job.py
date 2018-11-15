@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 class ARCJobManager(BaseJobManager):
 
     submission_job_id_cre = re.compile("^Job submitted with jobid: (.+)$")
-    status_block_cre = re.compile("\s*([^:]+): (.*)\n")
+    status_block_cre = re.compile(r"\s*([^:]+): (.*)\n")
     status_invalid_job_cre = re.compile("^.+: Job not found in job list: (.+)$")
     status_missing_job_cre = re.compile(
         "^.+: Job information not found in the information system: (.+)$")

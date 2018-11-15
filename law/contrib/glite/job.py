@@ -26,8 +26,8 @@ logger = logging.getLogger(__name__)
 
 class GLiteJobManager(BaseJobManager):
 
-    submission_job_id_cre = re.compile("^https?\:\/\/.+\:\d+\/.+")
-    status_block_cre = re.compile("(\w+)\s*\=\s*\[([^\]]*)\]")
+    submission_job_id_cre = re.compile(r"^https?\:\/\/.+\:\d+\/.+")
+    status_block_cre = re.compile(r"(\w+)\s*\=\s*\[([^\]]*)\]")
 
     def __init__(self, ce=None, delegation_id=None, threads=1):
         super(GLiteJobManager, self).__init__()

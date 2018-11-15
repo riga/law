@@ -405,7 +405,7 @@ class BaseJobFileFactory(object):
 
     config_attrs = ["dir"]
 
-    render_key_cre = re.compile("\{\{(\w+)\}\}")
+    render_key_cre = re.compile(r"\{\{(\w+)\}\}")
 
     class Config(object):
 
@@ -551,7 +551,7 @@ class BaseJobFileFactory(object):
         for key, value in six.iteritems(render_variables):
             # value might contain paths that should be postfixed, denoted by "postfix:..."
             if postfix:
-                value = re.sub("postfix:([^\s]+)", postfix_fn, value)
+                value = re.sub(r"postfix:([^\s]+)", postfix_fn, value)
             content = cls.render_string(content, key, value)
 
         # finally, replace all non-rendered keys with empty strings

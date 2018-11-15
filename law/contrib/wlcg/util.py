@@ -36,7 +36,7 @@ def get_voms_proxy_user():
     """
     out = _voms_proxy_info(["--identity"])[1].strip()
     try:
-        return re.match(".*\/CN\=([^\/]+).*", out.strip()).group(1)
+        return re.match(r".*\/CN\=([^\/]+).*", out.strip()).group(1)
     except:
         raise Exception("no valid identity found in voms proxy: {}".format(out))
 

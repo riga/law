@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 class LSFJobManager(BaseJobManager):
 
-    submission_job_id_cre = re.compile("^Job <(\d+)> is submitted.+$")
+    submission_job_id_cre = re.compile(r"^Job <(\d+)> is submitted.+$")
 
     def __init__(self, queue=None, threads=1):
         super(LSFJobManager, self).__init__()

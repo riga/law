@@ -24,10 +24,10 @@ logger = logging.getLogger(__name__)
 
 class HTCondorJobManager(BaseJobManager):
 
-    submission_job_id_cre = re.compile("^(\d+) job\(s\) submitted to cluster (\d+)\.$")
-    status_header_cre = re.compile("^\s*ID\s+.+$")
-    status_line_cre = re.compile("^(\d+\.\d+)" + 4 * "\s+[^\s]+" + "\s+([UIRXCHE])\s+.*$")
-    history_block_cre = re.compile("(\w+) \= \"?(.*)\"?\n")
+    submission_job_id_cre = re.compile(r"^(\d+) job\(s\) submitted to cluster (\d+)\.$")
+    status_header_cre = re.compile(r"^\s*ID\s+.+$")
+    status_line_cre = re.compile(r"^(\d+\.\d+)" + 4 * r"\s+[^\s]+" + r"\s+([UIRXCHE])\s+.*$")
+    history_block_cre = re.compile(r"(\w+) \= \"?(.*)\"?\n")
 
     def __init__(self, pool=None, scheduler=None, threads=1):
         super(HTCondorJobManager, self).__init__()
@@ -44,7 +44,7 @@ class HTCondorJobManager(BaseJobManager):
         cmd = ["condor_version"]
         code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE)
         if code == 0:
-            m = re.match("^\$CondorVersion: (\d+)\.(\d+)\.(\d+) .+$", out.split("\n")[0].strip())
+            m = re.match(r"^\$CondorVersion: (\d+)\.(\d+)\.(\d+) .+$", out.split("\n")[0].strip())
             if m:
                 return tuple(map(int, m.groups()))
         return None
