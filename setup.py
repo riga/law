@@ -98,6 +98,7 @@ setup(
         "law.contrib.root",
         "law.contrib.slack",
         "law.contrib.tasks",
+        "law.contrib.telegram",
         "law.contrib.tensorflow",
         "law.contrib.wlcg",
     ],
