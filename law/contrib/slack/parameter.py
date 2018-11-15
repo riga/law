@@ -26,7 +26,7 @@ class NotifySlackParameter(NotifyParameter):
         import slackclient  # noqa: F401
 
         # overwrite title with slack markdown markup
-        title = "Notification from *{}*".format(content["Task"])
+        title = "*Notification from* `{}`".format(content["Task"])
         del content["Task"]
 
         # markup for traceback

@@ -58,14 +58,14 @@ def notify_slack(title, content, attachment_color="#4bb543", short_threshold=40,
 
     # standard or attachment content?
     if isinstance(content, six.string_types):
-        request["text"] = "*{}*{}\n\n{}".format(title, mention_text, content)
+        request["text"] = "{}{}\n\n{}".format(title, mention_text, content)
     else:
         # content is a dict, send its data as an attachment
         request["text"] = "{} {}".format(title, mention_text)
         request["attachments"] = at = {
             "color": attachment_color,
             "fields": [],
-            "fallback": "*{}*\n\n".format(title),
+            "fallback": "{}{}\n\n".format(title, mention_text),
         }
 
         # fill the attachment fields and extend the fallback

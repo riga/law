@@ -26,7 +26,7 @@ class NotifyTelegramParameter(NotifyParameter):
         import telegram  # noqa: F401
 
         # overwrite title with telegram markdown markup
-        title = "Notification from *{}*".format(content["Task"])
+        title = "*Notification from* `{}`".format(content["Task"])
         del content["Task"]
 
         # markup for traceback

@@ -52,10 +52,10 @@ def notify_telegram(title, content, token=None, chat=None, mention_user=None, **
 
     # standard or attachment content?
     if isinstance(content, six.string_types):
-        request["text"] = "*{}*{}\n\n{}".format(title, mention_text, content)
+        request["text"] = "{}{}\n\n{}".format(title, mention_text, content)
     else:
         # content is a dict, add some formatting
-        request["text"] = "*{}*{}\n\n".format(title, mention_text)
+        request["text"] = "{}{}\n\n".format(title, mention_text)
 
         for key, value in content.items():
             request["text"] += "_{}_: {}\n".format(key, value)
