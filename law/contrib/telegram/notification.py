@@ -39,10 +39,11 @@ def notify_telegram(title, content, token=None, chat=None, mention_user=None, **
 
     # append the user to mention to the title
     # unless explicitly set to empty string
+    mention_text = ""
     if mention_user is None:
-        mention_user = cfg.get_expanded("notifications", "slack_mention_user")
+        mention_user = cfg.get_expanded("notifications", "telegram_mention_user")
     if mention_user:
-        title += " (@{})".format(mention_user)
+        mention_text = " (@{})".format(mention_user)
 
     # request data for the API call
     request = {
@@ -51,10 +52,10 @@ def notify_telegram(title, content, token=None, chat=None, mention_user=None, **
 
     # standard or attachment content?
     if isinstance(content, six.string_types):
-        request["text"] = "*{}*\n\n{}".format(title, content)
+        request["text"] = "*{}*{}\n\n{}".format(title, mention_text, content)
     else:
         # content is a dict, add some formatting
-        request["text"] = "*{}*\n\n".format(title)
+        request["text"] = "*{}*{}\n\n".format(title, mention_text)
 
         for key, value in content.items():
             request["text"] += "_{}_: {}\n".format(key, value)

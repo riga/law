@@ -43,10 +43,11 @@ def notify_slack(title, content, attachment_color="#4bb543", short_threshold=40,
 
     # append the user to mention to the title
     # unless explicitly set to empty string
+    mention_text = ""
     if mention_user is None:
         mention_user = cfg.get_expanded("notifications", "slack_mention_user")
     if mention_user:
-        title += " (@{})".format(mention_user)
+        mention_text = " (@{})".format(mention_user)
 
     # request data for the API call
     request = {
@@ -57,10 +58,10 @@ def notify_slack(title, content, attachment_color="#4bb543", short_threshold=40,
 
     # standard or attachment content?
     if isinstance(content, six.string_types):
-        request["text"] = "*{}*\n\n{}".format(title, content)
+        request["text"] = "*{}*{}\n\n{}".format(title, mention_text, content)
     else:
         # content is a dict, send its data as an attachment
-        request["text"] = title
+        request["text"] = "{} {}".format(title, mention_text)
         request["attachments"] = at = {
             "color": attachment_color,
             "fields": [],
