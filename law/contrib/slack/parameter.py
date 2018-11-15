@@ -7,7 +7,6 @@ Slack-related parameters.
 
 import collections
 
-from law.config import Config
 from law.parameter import NotifyParameter
 from law.contrib.slack.notification import notify_slack
 
@@ -19,21 +18,15 @@ class NotifySlackParameter(NotifyParameter):
 
         if not self.description:
             self.description = "when true, and the task's run method is decorated with " \
-                "law.decorator.notify, a slack notification is sent once the task finishes"
+                "law.decorator.notify, a Slack notification is sent once the task finishes"
 
     @staticmethod
-    def notify(success, title, content, token=None, channel=None, mention_user=None, **kwargs):
+    def notify(success, title, content, **kwargs):
         # test import
         import slackclient  # noqa: F401
 
-        if not mention_user:
-            cfg = Config.instance()
-            mention_user = cfg.get_expanded("notifications", "slack_mention_user")
-
-        # title with slack markup
-        slack_title = "Notification from *{}*".format(content["Task"])
-        if mention_user:
-            slack_title += " (@{})".format(mention_user)
+        # overwrite title with slack markdown markup
+        title = "Notification from *{}*".format(content["Task"])
         del content["Task"]
 
         # markup for traceback
@@ -41,18 +34,17 @@ class NotifySlackParameter(NotifyParameter):
             content["Traceback"] = "```{}```".format(content["Traceback"])
 
         # prepend the status text to the message content
+        # emojis are "party popper" and "exclamation mark"
         parts = list(content.items())
-        status_text = "success :tada:" if success else "failure :exclamation:"
+        status_text = "success \xF0\x9F\x8E\x89" if success else "failure \xE2\x9D\x97"
         parts.insert(0, ("Status", status_text))
         content = collections.OrderedDict(parts)
 
-        # attachment color and fallback
+        # attachment color depends on success
         color = "#4bb543" if success else "#ff0033"
-        fallback = "*{}*\n\n".format(title)
 
         # send the notification
-        return notify_slack(slack_title, content, attachment_color=color,
-            attachment_fallback=fallback, token=token, channel=channel, **kwargs)
+        return notify_slack(title, content, attachment_color=color, **kwargs)
 
     def get_transport(self):
         return {

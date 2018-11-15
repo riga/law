@@ -8,51 +8,78 @@ Slack notifications.
 import threading
 import logging
 
+import six
+
 from law.config import Config
 
 
 logger = logging.getLogger(__name__)
 
 
-def notify_slack(title, content, attachment_color="#4bb543", attachment_fallback=None,
-        short_threshold=40, token=None, channel=None, **kwargs):
+def notify_slack(title, content, attachment_color="#4bb543", short_threshold=40, token=None,
+        channel=None, mention_user=None, **kwargs):
+    """
+    Sends a slack notification and returns *True* on success. The communication with the slack API
+    might have some delays and is therefore handled by a thread. The format of the notification
+    depends on *content*. If it is a string, a simple text notification is sent. Otherwise, it
+    should be a dictionary whose fields are used to build a message attachment with two-column
+    formatting.
+    """
     # test import
     import slackclient  # noqa: F401
 
     cfg = Config.instance()
 
+    # get default token and channel
     if not token:
         token = cfg.get_expanded("notifications", "slack_token")
     if not channel:
         channel = cfg.get_expanded("notifications", "slack_channel")
 
     if not token or not channel:
-        logger.warning("cannot send slack notification, token ({}) or channel ({}) empty".format(
+        logger.warning("cannot send Slack notification, token ({}) or channel ({}) empty".format(
             token, channel))
         return False
 
+    # append the user to mention to the title
+    # unless explicitly set to empty string
+    if mention_user is None:
+        mention_user = cfg.get_expanded("notifications", "slack_mention_user")
+    if mention_user:
+        title += " (@{})".format(mention_user)
+
+    # request data for the API call
     request = {
         "channel": channel,
-        "text": title,
-        "attachments": {
-            "color": attachment_color,
-            "fields": [],
-        },
         "as_user": True,
         "parse": "full",
     }
 
-    if attachment_fallback:
-        request["attachments"]["fallback"] = attachment_fallback
+    # standard or attachment content?
+    if isinstance(content, six.string_types):
+        request["text"] = "*{}*\n\n{}".format(title, content)
+    else:
+        # content is a dict, send its data as an attachment
+        request["text"] = title
+        request["attachments"] = at = {
+            "color": attachment_color,
+            "fields": [],
+            "fallback": "*{}*\n\n".format(title),
+        }
 
-    for key, value in content.items():
-        request["attachments"]["fields"].append({
-            "title": key,
-            "value": value,
-            "short": len(value) <= short_threshold,
-        })
-        request["attachments"]["fallback"] += "_{}_: {}\n\n".format(key, value)
+        # fill the attachment fields and extend the fallback
+        for key, value in content.items():
+            at["fields"].append({
+                "title": key,
+                "value": value,
+                "short": len(value) <= short_threshold,
+            })
+            at["fallback"] += "_{}_: {}\n".format(key, value)
 
+    # extend by arbitrary kwargs
+    request.update(kwargs)
+
+    # threaded, non-blocking API communication
     thread = threading.Thread(target=_notify_slack, args=(token, request))
     thread.start()
 
@@ -64,16 +91,16 @@ def _notify_slack(token, request):
     import json
     import traceback
 
-    import six
     import slackclient
 
     try:
         # token might be a file
-        if os.path.isfile(token):
-            with open(token, "r") as f:
+        token_file = os.path.expanduser(os.path.expandvars(token))
+        if os.path.isfile(token_file):
+            with open(token_file, "r") as f:
                 token = f.read().strip()
 
-        if not isinstance(request["attachments"], six.string_types):
+        if "attachments" in request and not isinstance(request["attachments"], six.string_types):
             request["attachments"] = json.dumps([request["attachments"]])
 
         sc = slackclient.SlackClient(token)
