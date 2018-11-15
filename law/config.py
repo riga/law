@@ -103,6 +103,9 @@ class Config(ConfigParser):
             "slack_token": "",
             "slack_channel": "",
             "slack_mention_user": "",
+            "telegram_token": "",
+            "telegram_chat": "",
+            "telegram_mention_user": "",
         },
     }
 

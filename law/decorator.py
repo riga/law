@@ -242,7 +242,7 @@ def notify(fn, opts, task, *args, **kwargs):
             fn = transport["func"]
             raw = transport.get("raw", False)
             try:
-                fn(success, title, parts if raw else message, **opts)
+                fn(success, title, parts.copy() if raw else message, **opts)
             except Exception as e:
                 t = traceback.format_exc()
                 logger.warning("notification failed via transport '{}': {}\n{}".format(fn, e, t))
