@@ -7,11 +7,12 @@ Helpful utility functions.
 
 __all__ = [
     "no_value", "rel_path", "law_src_path", "law_home_path", "print_err", "abort", "colored",
-    "uncolored", "query_choice", "multi_match", "is_lazy_iterable", "make_list", "flatten", "which",
-    "map_verbose", "map_struct", "mask_struct", "tmp_file", "interruptable_popen", "readable_popen",
-    "create_hash", "copy_no_perm", "makedirs_perm", "user_owns_file", "iter_chunks", "human_bytes",
-    "human_time_diff", "is_file_exists_error", "check_bool_flag", "send_mail", "ShorthandDict",
-    "open_compat", "BaseStream", "TeeStream", "FilteredStream",
+    "uncolored", "query_choice", "multi_match", "is_lazy_iterable", "make_list", "flatten",
+    "merge_dicts", "which", "map_verbose", "map_struct", "mask_struct", "tmp_file",
+    "interruptable_popen", "readable_popen", "create_hash", "copy_no_perm", "makedirs_perm",
+    "user_owns_file", "iter_chunks", "human_bytes", "human_time_diff", "is_file_exists_error",
+    "check_bool_flag", "send_mail", "ShorthandDict", "open_compat", "BaseStream", "TeeStream",
+    "FilteredStream",
 ]
 
 
@@ -265,6 +266,32 @@ def flatten(struct):
         return objs
     else:
         return [struct]
+
+
+def merge_dicts(*dicts, **kwargs):
+    """ merge_dicts(*dicts, cls=None)
+    Takes multiple *dicts* and returns a single merged dict. The merging takes place in order of the
+    passed dicts and therefore, values of rear objects have precedence in case of field collisions.
+    The class of the returned merged dict is configurable via *cls*. If it is *None*, the class is
+    inferred from the first dict object in *dicts*.
+    """
+    # get or infer the class
+    cls = kwargs.get("cls", None)
+    if cls is None:
+        for d in dicts:
+            if isinstance(d, dict):
+                cls = d.__class__
+                break
+        else:
+            raise TypeError("cannot infer dict type as none of the passed objects is of type dict")
+
+    # start merging
+    merged_dict = cls()
+    for d in dicts:
+        if isinstance(d, dict):
+            merged_dict.update(d)
+
+    return merged_dict
 
 
 def which(prog):
