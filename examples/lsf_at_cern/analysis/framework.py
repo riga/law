@@ -48,18 +48,18 @@ class LSFWorkflow(law.LSFWorkflow):
     most cases, like in this example, only a minimal amount of configuration is required.
     """
 
+    # internally, the job files required for lsf submission are created in a "job file factory"
+    # here, we can configure the factory to store the job files for subsequent inspection, and also
+    # tell it that law will handle the file stagein and stageout manually
+    lsf_job_file_factory_defaults = {
+        "is_tmp": False,
+        "manual_stagein": True,
+        "manual_stageout": True,
+    }
+
     def lsf_output_directory(self):
         # the directory where submission meta data should be stored
         return law.LocalDirectoryTarget(self.local_path())
-
-    def lsf_create_job_file_factory(self):
-        # tell the factory, which is responsible for creating our job files,
-        # that the files are not temporary, i.e., it should not delete them after submission
-        factory = super(LSFWorkflow, self).lsf_create_job_file_factory()
-        factory.is_tmp = False
-        factory.manual_stagein = True
-        factory.manual_stageout = True
-        return factory
 
     def lsf_bootstrap_file(self):
         # each job can define a bootstrap file that is executed prior to the actual job
