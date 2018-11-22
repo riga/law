@@ -18,7 +18,7 @@ from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments
 from law.contrib.arc.job import ARCJobManager, ARCJobFileFactory
 from law.parser import global_cmdline_args, add_cmdline_arg, remove_cmdline_arg
-from law.util import law_src_path
+from law.util import law_src_path, merge_dicts
 
 
 logger = logging.getLogger(__name__)
@@ -155,6 +155,8 @@ class ARCWorkflow(BaseRemoteWorkflow):
     workflow_proxy_cls = ARCWorkflowProxy
 
     arc_workflow_run_decorators = None
+    arc_job_manager_defaults = None
+    arc_job_file_factory_defaults = None
 
     arc_ce = CSVParameter(default=[], significant=False, description="target arc computing "
         "element(s)")
@@ -185,9 +187,11 @@ class ARCWorkflow(BaseRemoteWorkflow):
         return self.arc_output_directory().url()
 
     def arc_create_job_manager(self, **kwargs):
+        kwargs = merge_dicts(self.arc_job_manager_defaults, kwargs)
         return ARCJobManager(**kwargs)
 
     def arc_create_job_file_factory(self, **kwargs):
+        kwargs = merge_dicts(self.arc_job_file_factory_defaults, kwargs)
         return ARCJobFileFactory(**kwargs)
 
     def arc_job_config(self, config, job_num, branches):

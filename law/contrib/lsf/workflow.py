@@ -20,7 +20,7 @@ from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments
 from law.contrib.lsf.job import LSFJobManager, LSFJobFileFactory
 from law.parser import global_cmdline_args, add_cmdline_arg, remove_cmdline_arg
-from law.util import law_src_path
+from law.util import law_src_path, merge_dicts
 
 
 logger = logging.getLogger(__name__)
@@ -154,6 +154,8 @@ class LSFWorkflow(BaseRemoteWorkflow):
     workflow_proxy_cls = LSFWorkflowProxy
 
     lsf_workflow_run_decorators = None
+    lsf_job_manager_defaults = None
+    lsf_job_file_factory_defaults = None
 
     lsf_queue = luigi.Parameter(default=NO_STR, significant=False, description="target lsf queue")
 
@@ -179,9 +181,11 @@ class LSFWorkflow(BaseRemoteWorkflow):
         return "_{}To{}".format(self.start_branch, self.end_branch)
 
     def lsf_create_job_manager(self, **kwargs):
+        kwargs = merge_dicts(self.lsf_job_manager_defaults, kwargs)
         return LSFJobManager(**kwargs)
 
     def lsf_create_job_file_factory(self, **kwargs):
+        kwargs = merge_dicts(self.lsf_job_file_factory_defaults, kwargs)
         return LSFJobFileFactory(**kwargs)
 
     def lsf_job_config(self, config, job_num, branches):

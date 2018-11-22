@@ -20,7 +20,7 @@ from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments
 from law.contrib.glite.job import GLiteJobManager, GLiteJobFileFactory
 from law.parser import global_cmdline_args, add_cmdline_arg, remove_cmdline_arg
-from law.util import law_src_path
+from law.util import law_src_path, merge_dicts
 from law.contrib.wlcg import delegate_voms_proxy_glite, get_ce_endpoint
 
 
@@ -166,6 +166,8 @@ class GLiteWorkflow(BaseRemoteWorkflow):
     workflow_proxy_cls = GLiteWorkflowProxy
 
     glite_workflow_run_decorators = None
+    glite_job_manager_defaults = None
+    glite_job_file_factory_defaults = None
 
     glite_ce = CSVParameter(default=[], significant=False, description="target glite computing "
         "element(s)")
@@ -200,9 +202,11 @@ class GLiteWorkflow(BaseRemoteWorkflow):
             cache=True)
 
     def glite_create_job_manager(self, **kwargs):
+        kwargs = merge_dicts(self.glite_job_manager_defaults, kwargs)
         return GLiteJobManager(**kwargs)
 
     def glite_create_job_file_factory(self, **kwargs):
+        kwargs = merge_dicts(self.glite_job_file_factory_defaults, kwargs)
         return GLiteJobFileFactory(**kwargs)
 
     def glite_job_config(self, config, job_num, branches):

@@ -20,7 +20,7 @@ from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments
 from law.contrib.htcondor.job import HTCondorJobManager, HTCondorJobFileFactory
 from law.parser import global_cmdline_args, add_cmdline_arg, remove_cmdline_arg
-from law.util import law_src_path
+from law.util import law_src_path, merge_dicts
 
 
 logger = logging.getLogger(__name__)
@@ -162,6 +162,8 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
     workflow_proxy_cls = HTCondorWorkflowProxy
 
     htcondor_workflow_run_decorators = None
+    htcondor_job_manager_defaults = None
+    htcondor_job_file_factory_defaults = None
 
     htcondor_pool = luigi.Parameter(default=NO_STR, significant=False, description="target "
         "htcondor pool")
@@ -190,9 +192,11 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
         return "_{}To{}".format(self.start_branch, self.end_branch)
 
     def htcondor_create_job_manager(self, **kwargs):
+        kwargs = merge_dicts(self.htcondor_job_manager_defaults, kwargs)
         return HTCondorJobManager(**kwargs)
 
     def htcondor_create_job_file_factory(self, **kwargs):
+        kwargs = merge_dicts(self.htcondor_job_file_factory_defaults, kwargs)
         return HTCondorJobFileFactory(**kwargs)
 
     def htcondor_job_config(self, config, job_num, branches):
