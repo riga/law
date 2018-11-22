@@ -22,9 +22,6 @@ class NotifySlackParameter(NotifyParameter):
 
     @staticmethod
     def notify(success, title, content, **kwargs):
-        # test import
-        import slackclient  # noqa: F401
-
         # overwrite title with slack markdown markup
         title = "*Notification from* `{}`".format(content["Task"])
         del content["Task"]

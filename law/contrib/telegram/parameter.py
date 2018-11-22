@@ -22,9 +22,6 @@ class NotifyTelegramParameter(NotifyParameter):
 
     @staticmethod
     def notify(success, title, content, **kwargs):
-        # test import
-        import telegram  # noqa: F401
-
         # overwrite title with telegram markdown markup
         title = "*Notification from* `{}`".format(content["Task"])
         del content["Task"]
