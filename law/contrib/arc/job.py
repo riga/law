@@ -242,14 +242,14 @@ class ARCJobFileFactory(BaseJobFileFactory):
     config_attrs = BaseJobFileFactory.config_attrs + [
         "file_name", "executable", "arguments", "input_files", "output_files",
         "postfix_output_files", "output_uri", "overwrite_output_files", "job_name", "log", "stdout",
-        "stderr", "custom_content", "absolute_paths", "dir",
+        "stderr", "custom_content", "absolute_paths",
     ]
 
     def __init__(self, file_name="job.xrsl", executable=None, arguments=None, input_files=None,
             output_files=None, postfix_output_files=True, output_uri=None,
             overwrite_output_files=True, job_name=None, log="log.txt", stdout="stdout.txt",
-            stderr="stderr.txt", custom_content=None, absolute_paths=False, dir=None):
-        super(ARCJobFileFactory, self).__init__(dir=dir)
+            stderr="stderr.txt", custom_content=None, absolute_paths=False, **kwargs):
+        super(ARCJobFileFactory, self).__init__(**kwargs)
 
         self.file_name = file_name
         self.executable = executable

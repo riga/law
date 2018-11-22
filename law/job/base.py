@@ -427,17 +427,22 @@ class BaseJobFileFactory(object):
         def __contains__(self, attr):
             return attr in self.__dict__
 
-    def __init__(self, dir=None):
+    def __init__(self, dir=None, is_tmp=None):
         super(BaseJobFileFactory, self).__init__()
 
+        # store dir, and if empty, create a new directory
         self.dir = dir
-        self.is_tmp = dir is None
-
-        if self.is_tmp:
+        if self.dir is None:
             base = Config.instance().get_expanded("job", "job_file_dir")
             if not os.path.exists(base):
                 os.makedirs(base)
             self.dir = tempfile.mkdtemp(dir=base)
+
+        # store and/or infer is_tmp
+        if is_tmp is None:
+            self.is_tmp = dir is None
+        else:
+            self.is_tmp = is_tmp
 
     def __del__(self):
         self.cleanup(force=False)

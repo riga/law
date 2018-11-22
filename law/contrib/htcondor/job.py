@@ -274,14 +274,14 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
     config_attrs = BaseJobFileFactory.config_attrs + [
         "file_name", "universe", "executable", "arguments", "input_files", "output_files",
         "postfix_output_files", "log", "stdout", "stderr", "notification", "custom_content",
-        "absolute_paths"
+        "absolute_paths",
     ]
 
     def __init__(self, file_name="job.jdl", universe="vanilla", executable=None, arguments=None,
             input_files=None, output_files=None, postfix_output_files=True, log="log.txt",
             stdout="stdout.txt", stderr="stderr.txt", notification="Never", custom_content=None,
-            absolute_paths=False, dir=None):
-        super(HTCondorJobFileFactory, self).__init__(dir=dir)
+            absolute_paths=False, **kwargs):
+        super(HTCondorJobFileFactory, self).__init__(**kwargs)
 
         self.file_name = file_name
         self.universe = universe

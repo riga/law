@@ -227,8 +227,8 @@ class GLiteJobFileFactory(BaseJobFileFactory):
 
     def __init__(self, file_name="job.jdl", executable=None, arguments=None, input_files=None,
             output_files=None, postfix_output_files=True, output_uri=None, stdout="stdout.txt",
-            stderr="stderr.txt", vo=None, custom_content=None, absolute_paths=False, dir=None):
-        super(GLiteJobFileFactory, self).__init__(dir=dir)
+            stderr="stderr.txt", vo=None, custom_content=None, absolute_paths=False, **kwargs):
+        super(GLiteJobFileFactory, self).__init__(**kwargs)
 
         self.file_name = file_name
         self.executable = executable

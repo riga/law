@@ -190,8 +190,8 @@ class LSFJobFileFactory(BaseJobFileFactory):
     def __init__(self, file_name="job.job", command=None, queue=None, cwd=None, input_files=None,
             output_files=None, postfix_output_files=True, manual_stagein=False,
             manual_stageout=False, job_name=None, stdout="stdout.txt", stderr="stderr.txt",
-            shell="bash", emails=False, custom_content=None, absolute_paths=False, dir=None):
-        super(LSFJobFileFactory, self).__init__(dir=dir)
+            shell="bash", emails=False, custom_content=None, absolute_paths=False, **kwargs):
+        super(LSFJobFileFactory, self).__init__(**kwargs)
 
         self.file_name = file_name
         self.command = command
