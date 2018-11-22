@@ -379,6 +379,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                     )
                     self.submit()
 
+                    # sleep once to give the job interface time to register the jobs
+                    time.sleep(task.poll_interval * 60)
+
                 # start status polling when a) no_poll is not set, or b) the jobs were already
                 # submitted so that failed jobs are resubmitted after a single polling iteration
                 if not task.no_poll or submitted:
@@ -612,7 +615,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
         # start the poll loop
         for i in six.moves.range(max_polls):
-            # sleep
+            # sleep after the first iteration
             if i > 0:
                 time.sleep(task.poll_interval * 60)
 
