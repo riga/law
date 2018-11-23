@@ -1,7 +1,7 @@
 FROM centos:7
 
 # labels
-LABEL name="law-py36"
+LABEL name="law-py37"
 LABEL version="0.0.28"
 
 # workdir
@@ -11,9 +11,9 @@ WORKDIR /root
 EXPOSE 8082
 
 # basic environment variables
-ENV LAW_SANDBOX docker::riga/law:py36
+ENV LAW_SANDBOX docker::riga/law:py37,docker::riga/law:latest,docker::riga/law
 ENV WORKDIR /root
-ENV CPATH /usr/local/include/python3.6m:$CPATH
+ENV CPATH /usr/local/include/python3.7m:$CPATH
 ENV LD_LIBRARY_PATH /usr/local/lib:$LD_LIBRARY_PATH
 ENV GFAL_PLUGIN_DIR /usr/lib64/gfal2-plugins
 
@@ -27,22 +27,22 @@ RUN yum -y install libffi-devel openssl-devel bzip2-devel json-c-devel which cur
     wget nano screen git cmake; yum clean all
 
 # python software
-RUN wget -nv https://www.python.org/ftp/python/3.6.7/Python-3.6.7.tgz && \
-    tar -xzf Python-3.6.7.tgz && \
-    cd Python-3.6.7 && \
+RUN wget -nv https://www.python.org/ftp/python/3.7.1/Python-3.7.1.tgz && \
+    tar -xzf Python-3.7.1.tgz && \
+    cd Python-3.7.1 && \
     ./configure --enable-optimizations --enable-shared && \
     make altinstall && \
     cd .. && \
-    rm -rf Python-3.6.7 && \
-    rm Python-3.6.7.tgz && \
-    python3.6 --version
+    rm -rf Python-3.7.1 && \
+    rm Python-3.7.1.tgz && \
+    python3.7 --version
 
-# boost for system python 2.7 and custom 3.6
+# boost for system python 2.7 and custom 3.7
 RUN yum -y install boost-devel boost-python; yum clean all
 RUN wget -nv https://dl.bintray.com/boostorg/release/1.68.0/source/boost_1_68_0.tar.gz && \
     tar -xzf boost_1_68_0.tar.gz && \
     cd boost_1_68_0 && \
-    ./bootstrap.sh --with-libraries=system,thread,python --with-python=$( which python3.6 ) && \
+    ./bootstrap.sh --with-libraries=system,thread,python --with-python=$( which python3.7 ) && \
     perl -pi -e 's!(\Qincludes ?= $(prefix)/include/python$(version)\E)!\1m!' tools/build/src/tools/python.jam && \
     ./b2 install --prefix=/usr && \
     ldconfig && \
@@ -61,7 +61,7 @@ RUN yum -y install gfal2-all gfal2-devel; yum clean all
 RUN git clone https://gitlab.cern.ch/mrieger/gfal2-bindings.git && \
     cd gfal2-bindings && \
     git checkout remotes/origin/fix/python3_install && \
-    python3.6 setup.py install && \
+    python3.7 setup.py install && \
     cd .. && \
     rm -rf gfal2-bindings
 RUN git clone https://github.com/cern-it-sdc-id/gfal2-dropbox.git && \
@@ -78,12 +78,12 @@ RUN git clone https://github.com/cern-it-sdc-id/gfal2-dropbox.git && \
 RUN cd /usr/bin; curl https://getmic.ro | bash
 
 # python packages
-RUN pip3.6 install luigi six
+RUN pip3.7 install luigi six
 
 # install law master
 RUN git clone https://github.com/riga/law && \
     cd law && \
-    python3.6 setup.py install && \
+    python3.7 setup.py install && \
     cd .. && \
     rm -rf law
 
