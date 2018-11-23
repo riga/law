@@ -53,7 +53,7 @@ RUN wget -nv https://dl.bintray.com/boostorg/release/1.68.0/source/boost_1_68_0.
 # WLCG software
 RUN rpm -Uvh https://repo.opensciencegrid.org/osg/3.4/osg-3.4-el7-release-latest.rpm
 RUN yum -y update; yum clean all
-RUN yum -y install CERN-CA-certs 0osg-ca-certs osg-voms voms-clients; yum clean all
+RUN yum -y install CERN-CA-certs osg-ca-certs osg-voms voms-clients; yum clean all
 
 # gfal2
 RUN yum install -y epel-release; yum clean all
