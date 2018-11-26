@@ -11,20 +11,21 @@ WORKDIR /root
 EXPOSE 8082
 
 # basic environment variables
-ENV LAW_SANDBOX docker::riga/law:py37,docker::riga/law:latest,docker::riga/law
 ENV WORKDIR /root
 ENV CPATH /usr/local/include/python3.7m:$CPATH
 ENV LD_LIBRARY_PATH /usr/local/lib:$LD_LIBRARY_PATH
 ENV GFAL_PLUGIN_DIR /usr/lib64/gfal2-plugins
+ENV LAW_SANDBOX docker::riga/law:py37,docker::riga/law:latest,docker::riga/law
 
 # prepare yum
 RUN yum -y update; yum clean all
 RUN yum -y install yum-plugin-priorities yum-utils; yum clean all
+RUN yum install -y epel-release; yum clean all
 
 # basic software
 RUN yum -y groupinstall development; yum clean all
-RUN yum -y install libffi-devel openssl-devel bzip2-devel json-c-devel which curl-devel gcc-c++ \
-    wget nano screen git cmake; yum clean all
+RUN yum -y install libffi-devel openssl-devel bzip2-devel json-c-devel curl-devel gcc-c++ which \
+    wget nano screen git cmake cmake3; yum clean all
 
 # python software
 RUN wget -nv https://www.python.org/ftp/python/3.7.1/Python-3.7.1.tgz && \
@@ -52,12 +53,12 @@ RUN wget -nv https://dl.bintray.com/boostorg/release/1.68.0/source/boost_1_68_0.
 
 # WLCG software
 RUN rpm -Uvh https://repo.opensciencegrid.org/osg/3.4/osg-3.4-el7-release-latest.rpm
+RUN yum-config-manager --add-repo http://linuxsoft.cern.ch/cern/centos/7/cern/x86_64
 RUN yum -y update; yum clean all
 RUN yum -y install CERN-CA-certs osg-ca-certs osg-voms voms-clients; yum clean all
 
 # gfal2
-RUN yum install -y epel-release; yum clean all
-RUN yum -y install gfal2-all gfal2-devel; yum clean all
+RUN yum -y install gfal2-all gfal2-devel gfal2-util; yum clean all
 RUN git clone https://gitlab.cern.ch/mrieger/gfal2-bindings.git && \
     cd gfal2-bindings && \
     git checkout remotes/origin/fix/python3_install && \

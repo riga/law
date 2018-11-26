@@ -11,19 +11,20 @@ WORKDIR /root
 EXPOSE 8082
 
 # basic environment variables
-ENV LAW_SANDBOX docker::riga/law:py27
 ENV WORKDIR /root
 ENV LD_LIBRARY_PATH /usr/lib64:$LD_LIBRARY_PATH
 ENV GFAL_PLUGIN_DIR /usr/lib64/gfal2-plugins
+ENV LAW_SANDBOX docker::riga/law:py27
 
 # prepare yum
 RUN yum -y update; yum clean all
 RUN yum -y install yum-plugin-priorities yum-utils; yum clean all
+RUN yum install -y epel-release; yum clean all
 
 # basic software
 RUN yum -y groupinstall development; yum clean all
-RUN yum -y install libffi-devel openssl-devel bzip2-devel json-c-devel which curl-devel gcc-c++ \
-    wget nano screen git cmake; yum clean all
+RUN yum -y install libffi-devel openssl-devel bzip2-devel json-c-devel curl-devel gcc-c++ which \
+    wget nano screen git cmake cmake3; yum clean all
 
 # python software
 RUN yum -y install python-setuptools python-docutils; yum clean all
@@ -31,12 +32,12 @@ RUN easy_install pip
 
 # WLCG software
 RUN rpm -Uvh https://repo.opensciencegrid.org/osg/3.4/osg-3.4-el7-release-latest.rpm
+RUN yum-config-manager --add-repo http://linuxsoft.cern.ch/cern/centos/7/cern/x86_64
 RUN yum -y update; yum clean all
 RUN yum -y install CERN-CA-certs osg-ca-certs osg-voms voms-clients; yum clean all
 
 # gfal2
-RUN yum install -y epel-release; yum clean all
-RUN yum -y install gfal2-all gfal2-devel gfal2-python; yum clean all
+RUN yum -y install gfal2-all gfal2-devel gfal2-util gfal2-python; yum clean all
 RUN git clone https://github.com/cern-it-sdc-id/gfal2-dropbox.git && \
     cd gfal2-dropbox && \
     mkdir build && \
