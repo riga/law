@@ -38,12 +38,14 @@ RUN wget -nv https://www.python.org/ftp/python/3.7.1/Python-3.7.1.tgz && \
     rm Python-3.7.1.tgz && \
     python3.7 --version
 
-# boost for system python 2.7 and custom 3.7
+# boost for system python 2.7
 RUN yum -y install boost-devel boost-python; yum clean all
+
+# boost for custom python 3.7
 RUN wget -nv https://dl.bintray.com/boostorg/release/1.68.0/source/boost_1_68_0.tar.gz && \
     tar -xzf boost_1_68_0.tar.gz && \
     cd boost_1_68_0 && \
-    ./bootstrap.sh --with-libraries=system,thread,python --with-python=$( which python3.7 ) && \
+    ./bootstrap.sh --with-libraries=system,thread,python --with-python="$( which python3.7 )" && \
     perl -pi -e 's!(\Qincludes ?= $(prefix)/include/python$(version)\E)!\1m!' tools/build/src/tools/python.jam && \
     ./b2 install --prefix=/usr && \
     ldconfig && \
@@ -59,9 +61,8 @@ RUN yum -y install CERN-CA-certs osg-ca-certs osg-voms voms-clients; yum clean a
 
 # gfal2
 RUN yum -y install gfal2-all gfal2-devel gfal2-util; yum clean all
-RUN git clone https://gitlab.cern.ch/mrieger/gfal2-bindings.git && \
+RUN git clone https://gitlab.cern.ch/dmc/gfal2-bindings.git && \
     cd gfal2-bindings && \
-    git checkout remotes/origin/fix/python3_install && \
     python3.7 setup.py install && \
     cd .. && \
     rm -rf gfal2-bindings
