@@ -255,10 +255,6 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
     def _cleanup_jobs(self):
         return isinstance(getattr(self.task, "cleanup_jobs", None), bool) and self.task.cleanup_jobs
 
-    @property
-    def _control_jobs(self):
-        return self._cancel_jobs or self._cleanup_jobs
-
     def _get_task_hook(self, name):
         return getattr(self.task, "{}_{}".format(self.workflow_type, name))
 
@@ -266,7 +262,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         reqs = OrderedDict()
 
         # add upstream and workflow specific requirements when not controlling running jobs
-        if not self._control_jobs:
+        if not self.task.is_controlling_remote_jobs():
             reqs.update(super(BaseRemoteWorkflowProxy, self).requires())
             reqs.update(self._get_task_hook("workflow_requires")())
 
@@ -300,7 +296,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             outputs["status"].optional = True
 
         # update with upstream output when not just controlling running jobs
-        if not self._control_jobs:
+        if not task.is_controlling_remote_jobs():
             outputs.update(super(BaseRemoteWorkflowProxy, self).output())
 
         return outputs
@@ -940,6 +936,13 @@ class BaseRemoteWorkflow(BaseWorkflow):
     }
 
     exclude_db = True
+
+    def is_controlling_remote_jobs(self):
+        """
+        Returns *True* if the remote workflow is only controlling remote jobs instead of handling
+        new ones. This is the case when either *cancel_jobs* or *cleanup_jobs* is *True*.
+        """
+        return self.cancel_jobs or self.cleanup_jobs
 
     def poll_callback(self, poll_data):
         """

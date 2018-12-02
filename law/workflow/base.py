@@ -278,6 +278,17 @@ class BaseWorkflow(Task):
        proxy's run method. This way, there is no need to subclass and reset the
        :py:attr:`workflow_proxy_cls` just to add a decorator. The value is *None* by default.
 
+    .. py:attribute:: workflow_cls
+       type: law.task.Register
+
+       Reference to the class of the realized workflow. This is especially helpful in case your
+       derived class inherits from multiple workflows.
+
+    .. py:attribute:: workflow_proxy
+       type: BaseWorkflowProxy
+
+       Reference to the underlying workflow proxy instance.
+
     .. py:attribute:: branch_map
        read-only
        type: dict
@@ -337,6 +348,7 @@ class BaseWorkflow(Task):
                     continue
                 if self.workflow in (NO_STR, cls.workflow_proxy_cls.workflow_type):
                     self.workflow = cls.workflow_proxy_cls.workflow_type
+                    self.workflow_cls = cls
                     self.workflow_proxy = cls.workflow_proxy_cls(task=self)
                     logger.debug("created workflow proxy instance of type '{}'".format(
                         cls.workflow_proxy_cls.workflow_type))
