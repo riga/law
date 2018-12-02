@@ -56,7 +56,7 @@ def rel_path(anchor, *paths):
     Returns a path made of framgment *paths* relativ to an *anchor* path. When *anchor* is a file,
     its absolute directory is used instead.
     """
-    anchor = os.path.expandvars(os.path.expanduser(os.path.abspath(anchor)))
+    anchor = os.path.abspath(os.path.expandvars(os.path.expanduser(anchor)))
     if os.path.exists(anchor) and os.path.isfile(anchor):
         anchor = os.path.dirname(anchor)
     return os.path.normpath(os.path.join(anchor, *paths))
@@ -283,7 +283,7 @@ def merge_dicts(*dicts, **kwargs):
                 cls = d.__class__
                 break
         else:
-            raise TypeError("cannot infer dict type as none of the passed objects is of type dict")
+            raise TypeError("cannot infer cls as none of the passed objects is of type dict")
 
     # start merging
     merged_dict = cls()
