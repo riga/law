@@ -488,16 +488,12 @@ class RemoteCache(object):
                 file_stats.append((cpath, os.stat(cpath)))
             current_size = sum(stat.st_size for _, stat in file_stats)
 
-            # get the available space of the disk that contains the cache
+            # get the available space of the disk that contains the cache in bytes, leave 10%
             fs_stat = os.statvfs(self.base)
-            full_size = fs_stat.f_frsize * fs_stat.f_blocks
-            free_size = fs_stat.f_frsize * fs_stat.f_bavail
+            free_size = fs_stat.f_frsize * fs_stat.f_bavail * 0.9
 
-            # leave 10% total free space
-            free_size -= 0.1 * full_size
-            full_size *= 0.9
-
-            # make sure max_size is always smaller than what is actually possible
+            # determine the maximum size of the cache
+            # make sure it is always smaller than what is available
             if self.max_size < 0:
                 max_size = current_size + free_size
             else:
@@ -510,7 +506,8 @@ class RemoteCache(object):
                     human_bytes(-delete_size)))
                 return
 
-            logger.debug("need to delete {0[0]:.2f} {0[1]} bytes".format(human_bytes(delete_size)))
+            logger.info("need to delete {0[0]:.2f} {0[1]} bytes from cache".format(
+                human_bytes(delete_size)))
 
             # delete files, ordered by their access time, skip locked ones
             for cpath, cstat in sorted(file_stats, key=lambda tpl: tpl[1].st_atime):
@@ -521,7 +518,7 @@ class RemoteCache(object):
                 if delete_size <= 0:
                     break
             else:
-                logger.warning("could not allocate remaining {0[0]:.2f} {0[1]}".format(
+                logger.warning("could not allocate remaining {0[0]:.2f} {0[1]} in cache".format(
                     human_bytes(delete_size)))
 
     def _touch(self, cpath, times=None):
