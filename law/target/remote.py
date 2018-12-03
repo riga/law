@@ -133,6 +133,11 @@ class GFALInterface(object):
         self.retries = retries
         self.retry_delay = retry_delay
 
+    @classmethod
+    def gfal_str(cls, s):
+        # in python 2, the gfal2-bindings do not support unicode but expect strings
+        return str(s) if isinstance(s, six.string_types) else s
+
     def __del__(self):
         # clear gfal contexts
         for ctx in self._contexts.values():
@@ -191,7 +196,7 @@ class GFALInterface(object):
         else:
             base = random.choice(bases)
 
-        return os.path.join(base, path.strip("/"))
+        return os.path.join(base, self.gfal_str(path).strip("/"))
 
     def exists(self, path, stat=False):
         cmd = "stat" if stat else ("exists", "stat")
@@ -241,7 +246,7 @@ class GFALInterface(object):
     @retry
     def filecopy(self, src, dst):
         with self.context() as ctx, self.transfer_parameters(ctx) as params:
-            return ctx.filecopy(params, src, dst)
+            return ctx.filecopy(params, self.gfal_str(src), self.gfal_str(dst))
 
 
 class RemoteCache(object):
