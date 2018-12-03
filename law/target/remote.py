@@ -547,7 +547,7 @@ class RemoteFileSystem(FileSystem):
         self.validate_copy = validate_copy
 
         # set the cache
-        if cache_config:
+        if cache_config and cache_config.get("enabled", True):
             self.cache = RemoteCache(self, **cache_config)
         else:
             self.cache = None
