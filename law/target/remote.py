@@ -309,6 +309,30 @@ class RemoteCache(object):
 
         logger.debug("created RemoteCache at '{}'".format(self.base))
 
+    @classmethod
+    def parse_config(cls, section, config=None):
+        # reads a law config section and returns parsed file system configs
+        cfg = Config.instance()
+
+        if config is None:
+            config = {}
+
+        # helper to add a config value if it exists, extracted with a config parser method
+        def add(key, func):
+            cache_key = "cache_" + key
+            if cfg.has_option(section, cache_key):
+                config[key] = func(section, cache_key)
+
+        add("root", cfg.get_expanded)
+        add("auto_flush", cfg.getboolean)
+        add("max_size", cfg.getint)
+        add("dir_perm", cfg.getint)
+        add("file_perm", cfg.getint)
+        add("wait_delay", cfg.getfloat)
+        add("max_waits", cfg.getint)
+
+        return config
+
     def __del__(self):
         self.cleanup()
 
@@ -551,11 +575,57 @@ class RemoteFileSystem(FileSystem):
         self.permissions = permissions
         self.validate_copy = validate_copy
 
-        # set the cache
-        if cache_config and cache_config.get("enabled", True):
+        # set the cache when a cache root is set
+        if cache_config and cache_config.get("root"):
             self.cache = RemoteCache(self, **cache_config)
         else:
             self.cache = None
+
+    @classmethod
+    def parse_config(cls, section, config=None):
+        # reads a law config section and returns parsed file system configs
+        cfg = Config.instance()
+
+        if config is None:
+            config = {}
+
+        # helper to expand config a string and split by commas
+        def expand_split(key):
+            return [s.strip() for s in cfg.get_expanded(section, key).strip().split(",")]
+
+        # helper to add a config value if it exists, extracted with a config parser method
+        def add(key, func):
+            if cfg.has_option(section, key):
+                config[key] = func(section, key)
+
+        # base path(s)
+        config["base"] = expand_split("base")
+
+        # base path(s) per operation
+        keys = cfg.keys(section, prefix="base_")
+        if keys:
+            config["bases"] = {key[5:]: expand_split(key) for key in keys}
+
+        # atomic contexts
+        add("atomic_contexts", cfg.getboolean)
+
+        # number of retries
+        add("retries", cfg.getint)
+
+        # delay between retries
+        add("retry_delay", cfg.getfloat)
+
+        # permissions
+        add("permissions", cfg.getboolean)
+
+        # validation after copy
+        add("validate", cfg.getboolean)
+
+        # cache options
+        if cfg.keys(section, prefix="cache_"):
+            RemoteCache.parse_config(section, config.setdefault("cache_config", {}))
+
+        return config
 
     def __del__(self):
         # cleanup the cache
@@ -859,10 +929,10 @@ class RemoteFileSystem(FileSystem):
         return dst
 
     def open(self, path, mode, cache=None, **kwargs):
-        if cache is None:
-            cache = self.cache is not None
-        elif cache and self.cache is None:
+        if self.cache is None:
             cache = False
+        elif cache is None:
+            cache = self.cache is not None
 
         yield_path = kwargs.pop("_yield_path", False)
 
@@ -876,8 +946,7 @@ class RemoteFileSystem(FileSystem):
             else:
                 tmp = LocalFileTarget(is_tmp=self.ext(path, n=0) or True)
                 lpath = tmp.path
-
-                self._cached_copy(path, add_scheme(lpath, "file"), cache=False, **kwargs)
+                self.copy(path, add_scheme(lpath, "file"), cache=False, **kwargs)
 
             def cleanup():
                 if not cache and tmp.exists():

@@ -39,29 +39,23 @@ class WLCGFileSystem(RemoteFileSystem):
         # prepare the gfal options
         # resolution order: config, base+bases, default wlcg fs section
         cfg = Config.instance()
-        if not config and not base:
+        if not config:
             config = cfg.get("target", "default_wlcg_fs")
 
-        if config and cfg.has_section(config):
-            # load the base from the config
-            base = cfg.get_default(config, "base")
+        # config might be a section in the law config
+        if cfg.has_section(config):
+            # parse it
+            self.parse_config(config, kwargs)
 
-            # loop through items and load additional configs
-            bases = bases or {}
-            base_prefix = "base_"
-            cache_prefix = "cache_"
-            others = ("retries", "retry_delay", "validate_copy", "atomic_contexts", "permissions")
-            for key, value in cfg.items(config):
-                if not value:
-                    continue
-                if key.startswith(base_prefix):
-                    bases[key[len(base_prefix):]] = value
-                elif key.startswith(cache_prefix):
-                    kwargs["cache_config"][key[len(cache_prefix):]] = value
-                elif key in others:
-                    kwargs[key] = value
+            # set base and bases explicitely
+            _base = kwargs.pop("base", None)
+            if base is None:
+                base = _base
+            _bases = kwargs.pop("bases", None)
+            if bases is None:
+                bases = _bases
 
-        # base is mandatory
+        # base is required
         if base is None:
             raise Exception("invalid arguments, set either config, base or the "
                 "target.default_wlcg_fs option in your law config")

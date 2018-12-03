@@ -38,46 +38,47 @@ class DropboxFileSystem(RemoteFileSystem):
         # prepare the gfal options
         # resolution order: config, key+secret+token, default dropbox fs section
         cfg = Config.instance()
-        if not config and not app_key and not app_secret and not access_token:
+        if not config:
             config = cfg.get("target", "default_dropbox_fs")
 
-        if config and cfg.has_section(config):
-            # load options from the config
-            opts = {attr: cfg.get_default(config, attr)
-                    for attr in ("app_key", "app_secret", "access_token")}
+        # config might be a section in the law config
+        if cfg.has_section(config):
+            # parse it
+            self.parse_config(config, kwargs)
+
+            # set base explicitely
+            _base = kwargs.pop("base", None)
             if base is None:
-                base = cfg.get_default(config, "base")
+                base = _base
 
-            # loop through items and load optional configs
-            cache_prefix = "cache_"
-            others = ("retries", "retry_delay", "validate_copy", "atomic_contexts", "permissions")
-            for key, value in cfg.items(config):
-                if not value:
-                    continue
-                if key.startswith(cache_prefix):
-                    kwargs["cache_config"][key[len(cache_prefix):]] = value
-                elif key in others:
-                    kwargs[key] = value
+            # set dropbox options explicitely
+            if not app_key:
+                app_key = cfg.get_default(config, "app_key")
+            if not app_secret:
+                app_secret = cfg.get_default(config, "app_secret")
+            if not access_token:
+                access_token = cfg.get_default(config, "access_token")
 
-        elif app_key and app_secret and access_token:
-            opts = {"app_key": app_key, "app_secret": app_secret, "access_token": access_token}
-
-        else:
-            raise Exception("invalid arguments, set either config, app_key+app_secret+access_token "
-                "or the target.default_dropbox_fs option in your law config")
-
-        # base is mandatory
+        # base is required
         if base is None:
             raise Exception("no base directory set")
 
-        # special dropbox options
+        # dropbox options are required
+        if not app_key or not app_secret or not access_token:
+            raise Exception("invalid arguments, set either config, app_key+app_secret+access_token "
+                "or the target.default_dropbox_fs option in your law config")
+
+        # pass dropbox options to gfal options
         gfal_options = {
             "integer": [("DROPBOX", "OAUTH", 2)],
-            "string": [("DROPBOX", key.upper(), str(value)) for key, value in opts.items()],
+            "string": [
+                ("DROPBOX", "APP_KEY", str(app_key)),
+                ("DROPBOX", "APP_SECRET", str(app_secret)),
+                ("DROPBOX", "ACCESS_TOKEN", str(access_token)),
+            ],
         }
 
-        base_url = "dropbox://dropbox.com/" + base.strip("/")
-        RemoteFileSystem.__init__(self, base_url, gfal_options=gfal_options, **kwargs)
+        RemoteFileSystem.__init__(self, base, gfal_options=gfal_options, **kwargs)
 
 
 # try to set the default fs instance
