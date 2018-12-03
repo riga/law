@@ -59,7 +59,7 @@ class LogFormatter(logging.Formatter):
        Style attributes per log level for coloring and highlighting via :py:func:`law.util.colored`.
     """
 
-    tmpl = "{level}{spaces}: {name} - {msg}"
+    tmpl = "{level}: {name} - {msg}"
 
     level_styles = {
         "NOTSET": {},
@@ -70,13 +70,10 @@ class LogFormatter(logging.Formatter):
         "CRITICAL": {"color": "red", "style": "bright"},
     }
 
-    _max_level_len = max(map(len, level_styles))
-
     def format(self, record):
         """"""
         return self.tmpl.format(
             level=colored(record.levelname, **self.level_styles.get(record.levelname, {})),
-            spaces=" " * (self._max_level_len - len(record.levelname)),
             name=record.name,
             msg=record.msg,
         )
