@@ -19,6 +19,7 @@ from law import CSVParameter
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments
 from law.contrib.glite.job import GLiteJobManager, GLiteJobFileFactory
+from law.target.file import get_path
 from law.parser import global_cmdline_args, add_cmdline_arg, remove_cmdline_arg
 from law.util import law_src_path, merge_dicts
 from law.contrib.wlcg import delegate_voms_proxy_glite, get_ce_endpoint
@@ -55,8 +56,9 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
         config.postfix = postfix
         pf = lambda s: "postfix:{}".format(s)
 
-        # executable
-        config.executable = "bash_wrapper.sh"
+        # get the actual wrapper file that will be executed by the remote job
+        wrapper_file = get_path(task.glite_wrapper_file())
+        config.executable = os.path.basename(wrapper_file)
 
         # collect task parameters
         task_params = task.as_branch(branches[0]).cli_args(exclude={"branch"})
@@ -89,9 +91,7 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
         config.render_variables = {}
 
         # input files
-        config.input_files = [
-            law_src_path("job", "bash_wrapper.sh"), law_src_path("job", "job.sh")
-        ]
+        config.input_files = [wrapper_file, law_src_path("job", "job.sh")]
         config.render_variables["job_file"] = pf("job.sh")
 
         # add the bootstrap file
@@ -183,6 +183,9 @@ class GLiteWorkflow(BaseRemoteWorkflow):
     @abstractmethod
     def glite_bootstrap_file(self):
         return None
+
+    def glite_wrapper_file(self):
+        return law_src_path("job", "bash_wrapper.sh")
 
     def glite_stageout_file(self):
         return None

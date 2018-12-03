@@ -19,6 +19,7 @@ from law import LocalDirectoryTarget, NO_STR, get_param
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments
 from law.contrib.lsf.job import LSFJobManager, LSFJobFileFactory
+from law.target.file import get_path
 from law.parser import global_cmdline_args, add_cmdline_arg, remove_cmdline_arg
 from law.util import law_src_path, merge_dicts
 
@@ -68,7 +69,11 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
             dashboard_data=self.dashboard.remote_hook_data(
                 job_num, self.submission_data.attempts.get(job_num, 0)),
         )
-        config.command = "bash {} {}".format(_postfix("job.sh"), job_args.join())
+
+        # get the actual wrapper file that will be executed by the remote job
+        wrapper_file = get_path(task.lsf_wrapper_file())
+        config.command = "bash {} {}".format(
+            _postfix(os.path.basename(wrapper_file)), job_args.join())
 
         # meta infos
         config.job_name = task.task_id
@@ -78,7 +83,7 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
         config.render_variables = {}
 
         # input files
-        config.input_files = [law_src_path("job", "job.sh")]
+        config.input_files = [wrapper_file, law_src_path("job", "job.sh")]
 
         # add the bootstrap file
         bootstrap_file = task.lsf_bootstrap_file()
@@ -169,6 +174,9 @@ class LSFWorkflow(BaseRemoteWorkflow):
 
     def lsf_bootstrap_file(self):
         return None
+
+    def lsf_wrapper_file(self):
+        return law_src_path("job", "bash_wrapper.sh")
 
     def lsf_stageout_file(self):
         return None
