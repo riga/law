@@ -41,7 +41,7 @@ def setup_logging():
         if hasattr(logging, level):
             logger = logging.getLogger(name)
             logger.setLevel(getattr(logging, level))
-            logger.info("registered logger with level '{}'".format(level))
+            logger.debug("registered logger with level '{}'".format(level))
 
 
 class LogFormatter(logging.Formatter):

@@ -6,8 +6,8 @@ Helpers for working with the WLCG.
 
 
 __all__ = [
-    "get_voms_proxy_user", "get_voms_proxy_lifetime", "get_voms_proxy_vo", "renew_voms_proxy",
-    "delegate_voms_proxy_glite", "get_ce_endpoint",
+    "get_voms_proxy_file", "get_voms_proxy_user", "get_voms_proxy_lifetime", "get_voms_proxy_vo",
+    "check_voms_proxy_validity", "renew_voms_proxy", "delegate_voms_proxy_glite", "get_ce_endpoint",
 ]
 
 
@@ -16,18 +16,29 @@ import re
 import subprocess
 import uuid
 import json
+import logging
 
 import six
 
 from law.util import interruptable_popen, tmp_file, create_hash
 
 
-def _voms_proxy_info(args=None):
+logger = logging.getLogger(__name__)
+
+
+def _voms_proxy_info(args=None, silent=False):
     cmd = ["voms-proxy-info"] + (args or [])
     code, out, err = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if code != 0:
+    if not silent and code != 0:
         raise Exception("voms-proxy-info failed: {}".format(err))
     return code, out, err
+
+
+def get_voms_proxy_file():
+    """
+    Returns the path to the voms proxy file.
+    """
+    return os.getenv("X509_USER_PROXY", "/tmp/x509up_u{}".format(os.getuid()))
 
 
 def get_voms_proxy_user():
@@ -59,6 +70,17 @@ def get_voms_proxy_vo():
     return _voms_proxy_info(["--vo"])[1].strip()
 
 
+def check_voms_proxy_validity(log=False):
+    """
+    Returns *True* when a valid voms proxy exists, *False* otherwise. When *log* is *True*, a
+    warning will be logged.
+    """
+    valid = _voms_proxy_info(["--exists"], silent=True)[0] == 0
+    if log and not valid:
+        logger.warning("no valid voms proxy found")
+    return valid
+
+
 def renew_voms_proxy(passwd="", vo=None, lifetime="196:00"):
     """
     Renews the voms proxy using a password *passwd*, an optional virtual organization name *vo*, and
@@ -88,7 +110,7 @@ def delegate_voms_proxy_glite(endpoint, stdout=None, stderr=None, cache=True):
     id is returned.
     """
     # get the proxy file
-    proxy_file = os.getenv("X509_USER_PROXY", "/tmp/x509up_u%i" % os.getuid())
+    proxy_file = get_voms_proxy_file()
     if not os.path.exists(proxy_file):
         raise Exception("proxy file '{}' does not exist".format(proxy_file))
 
