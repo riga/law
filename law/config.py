@@ -165,23 +165,30 @@ class Config(ConfigParser):
         """"""
         return option
 
-    def get_default(self, section, option, default=None):
+    def get_default(self, section, option, default=None, type=None):
         """
         Returns the config value defined by *section* and *option*. When either the section or the
-        option does not exist, the *default* value is returned instead.
+        option does not exist, the *default* value is returned instead. When *type* is set, it must
+        be either `"int"`, `"float"`, or `"boolean"`.
         """
         if self.has_section(section) and self.has_option(section, option):
-            return self.get(section, option)
+            if type:
+                if type not in ("int", "float", "boolean"):
+                    raise ValueError("unknown 'type' argument ({}), must be 'int', 'float', or "
+                        "'boolean'".format(type))
+                return getattr(self, "get" + type)(section, option)
+            else:
+                return self.get(section, option)
         else:
             return default
 
-    def get_expanded(self, section, option, default=None, expand_user=True):
+    def get_expanded(self, section, option, default=None, type=None, expand_user=True):
         """
         Same as :py:meth:`get_default`, but also expands environment and user variables when the
         returned config value is a string. When *expand_user* is *False*, user variables are not
         expanded.
         """
-        value = self.get_default(section, option, default=default)
+        value = self.get_default(section, option, default=default, type=type)
         if isinstance(value, six.string_types):
             if expand_user:
                 value = os.path.expanduser(value)
@@ -218,11 +225,12 @@ class Config(ConfigParser):
         p = self.__class__(filename, skip_defaults=True, skip_fallbacks=True)
         self.update(p._sections, *args, **kwargs)
 
-    def keys(self, section):
+    def keys(self, section, prefix=None):
         """
-        Returns all keys of a *section* in a list.
+        Returns all keys of a *section* in a list. When *prefix* is set, only keys starting with
+        that prefix are returned
         """
-        return [key for key, _ in self.items(section)]
+        return [key for key, _ in self.items(section) if (not prefix or key.startswith(prefix))]
 
     def sync_luigi_config(self, push=True, pull=True, expand=True):
         """
