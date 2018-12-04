@@ -17,7 +17,7 @@ from abc import abstractmethod
 import luigi
 import six
 
-from law.task.base import Task, ProxyTask
+from law.task.base import Task, ProxyTask, Register
 from law.target.collection import TargetCollection, SiblingFileCollection
 from law.parameter import NO_STR, NO_INT, CSVParameter
 
@@ -189,6 +189,17 @@ def cached_workflow_property(func=None, attr=None, setter=True):
     return wrapper if not func else wrapper(func)
 
 
+class WorkflowRegister(Register):
+
+    def __init__(cls, name, bases, classdict):
+        super(WorkflowRegister, cls).__init__(name, bases, classdict)
+
+        # store a flag on the created class whether it defined a new workflow_proxy_cls
+        # this flag will define the classes in the mro to consider for instantiating the proxy
+        cls._defined_workflow_proxy = "workflow_proxy_cls" in classdict
+
+
+@six.add_metaclass(WorkflowRegister)
 class BaseWorkflow(Task):
     """
     Base class of all workflows.
@@ -345,6 +356,8 @@ class BaseWorkflow(Task):
             classes = self.__class__.mro()
             for cls in classes:
                 if not issubclass(cls, BaseWorkflow):
+                    continue
+                if not cls._defined_workflow_proxy:
                     continue
                 if self.workflow in (NO_STR, cls.workflow_proxy_cls.workflow_type):
                     self.workflow = cls.workflow_proxy_cls.workflow_type
