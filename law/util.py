@@ -7,8 +7,8 @@ Helpful utility functions.
 
 __all__ = [
     "no_value", "rel_path", "law_src_path", "law_home_path", "print_err", "abort", "colored",
-    "uncolored", "query_choice", "multi_match", "is_lazy_iterable", "make_list", "flatten",
-    "merge_dicts", "which", "map_verbose", "map_struct", "mask_struct", "tmp_file",
+    "uncolored", "query_choice", "multi_match", "is_lazy_iterable", "make_list", "make_tuple",
+    "flatten", "merge_dicts", "which", "map_verbose", "map_struct", "mask_struct", "tmp_file",
     "interruptable_popen", "readable_popen", "create_hash", "copy_no_perm", "makedirs_perm",
     "user_owns_file", "iter_chunks", "human_bytes", "human_time_diff", "is_file_exists_error",
     "check_bool_flag", "send_mail", "ShorthandDict", "open_compat", "BaseStream", "TeeStream",
@@ -251,6 +251,21 @@ def make_list(obj, cast=True):
         return list(obj)
     else:
         return [obj]
+
+
+def make_tuple(obj, cast=True):
+    """
+    Converts an object *obj* to a tuple and returns it. Objects of types *list* and *set* are
+    converted if *cast* is *True*. Otherwise, and for all other types, *obj* is put in a new tuple.
+    """
+    if isinstance(obj, tuple):
+        return tuple(obj)
+    elif is_lazy_iterable(obj):
+        return tuple(obj)
+    elif isinstance(obj, (list, set)) and cast:
+        return tuple(obj)
+    else:
+        return (obj,)
 
 
 def flatten(struct):
