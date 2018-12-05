@@ -246,3 +246,18 @@ def notify(fn, opts, task, *args, **kwargs):
             except Exception as e:
                 t = traceback.format_exc()
                 logger.warning("notification failed via transport '{}': {}\n{}".format(fn, e, t))
+
+
+@factory()
+def timeit(fn, opts, task, *args, **kwargs):
+    """
+    Wraps a bound method of a task and logs its execution time in a human readable format.
+    Logs in info mode.
+    """
+    timeit_logger = logger.getChild("timeit")
+    start_time = time.time()
+    try:
+        return fn(task, *args, **kwargs)
+    finally:
+        duration = human_time_diff(seconds=round(time.time() - start_time, 1))
+        timeit_logger.info("runtime of {}: {}".format(str(task), duration))
