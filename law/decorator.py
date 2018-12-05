@@ -260,4 +260,4 @@ def timeit(fn, opts, task, *args, **kwargs):
     finally:
         duration = human_time_diff(seconds=round(time.time() - start_time, 1))
         timeit_logger = logger.getChild("timeit")
-        timeit_logger.info("runtime of {}: {}".format(str(task), duration))
+        timeit_logger.info("runtime of {}: {}".format(task.task_id, duration))

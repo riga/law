@@ -272,6 +272,19 @@ class Task(BaseTask):
             self._last_progress_percentage = percentage
             self.set_progress_percentage(percentage)
 
+    def create_progress_callback(self, n_total, reach=(0, 100)):
+        def make_callback(n, start, end):
+            def callback(i):
+                self.publish_progress(start + (i + 1) / float(n) * (end - start))
+            return callback
+
+        if isinstance(n_total, (list, tuple)):
+            width = 100. / len(n_total)
+            reaches = [(width * i, width * (i + 1)) for i in range(len(n_total))]
+            return n_total.__class__(make_callback(n, *r) for n, r in zip(n_total, reaches))
+        else:
+            return make_callback(n_total, *reach)
+
     def colored_repr(self, color=True):
         family = self._repr_family(self.task_family, color=color)
 
@@ -307,19 +320,6 @@ class Task(BaseTask):
     @classmethod
     def _repr_flag(cls, name, color=True):
         return colored(name, color="magenta") if color else name
-
-    def create_progress_callback(self, n_total, reach=(0, 100)):
-        def make_callback(n, start, end):
-            def callback(i):
-                self.publish_progress(start + (i + 1) / float(n) * (end - start))
-            return callback
-
-        if isinstance(n_total, (list, tuple)):
-            width = 100. / len(n_total)
-            reaches = [(width * i, width * (i + 1)) for i in range(len(n_total))]
-            return n_total.__class__(make_callback(n, *r) for n, r in zip(n_total, reaches))
-        else:
-            return make_callback(n_total, *reach)
 
     def _print_deps(self, *args, **kwargs):
         return print_task_deps(self, *args, **kwargs)
