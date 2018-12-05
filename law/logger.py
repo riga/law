@@ -38,6 +38,7 @@ def setup_logging():
 
     # set levels for all loggers
     for name, level in Config.instance().items("logging"):
+        level = level.upper()
         if hasattr(logging, level):
             logger = logging.getLogger(name)
             logger.setLevel(getattr(logging, level))
