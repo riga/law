@@ -20,7 +20,7 @@ arguments when configuring decorators. Default arguments are applied in either c
 """
 
 
-__all__ = ["factory", "log", "safe_output", "delay", "notify"]
+__all__ = ["factory", "log", "safe_output", "delay", "notify", "timeit"]
 
 
 import sys
