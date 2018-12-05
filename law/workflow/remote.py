@@ -935,7 +935,7 @@ class BaseRemoteWorkflow(BaseWorkflow):
         "ignore_submission", "transfer_logs",
     }
 
-    exclude_db = True
+    exclude_index = True
 
     def is_controlling_remote_jobs(self):
         """

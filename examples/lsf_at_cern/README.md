@@ -21,10 +21,10 @@ source setup.sh
 ```
 
 
-#### 2. Let law scan your tasks and their parameters (for autocompletion)
+#### 2. Let law index your tasks and their parameters (for autocompletion)
 
 ```shell
-law db --verbose
+law index --verbose
 ```
 
 You should see:
@@ -37,7 +37,7 @@ module 'analysis.tasks', 2 task(s):
     - CreateChars
     - CreateAlphabet
 
-written 2 task(s) to db file '/examplepath/.law/db'
+written 2 task(s) to index file '/examplepath/.law/index'
 ```
 
 

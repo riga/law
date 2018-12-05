@@ -14,10 +14,10 @@ source setup.sh
 ```
 
 
-#### 2. Let law scan your the tasks and their parameters (for autocompletion)
+#### 2. Let law index your the tasks and their parameters (for autocompletion)
 
 ```shell
-law db --verbose
+law index --verbose
 ```
 
 You should see:
@@ -25,12 +25,14 @@ You should see:
 ```shell
 loading tasks from 1 module(s)
 loading module 'tasks'
-written 4 task(s) to db file '/examplepath/.law/db'
+
 module 'tasks', 4 task(s):
     FetchLoremIpsum
     CountChars
     MergeCounts
     ShowFrequencies
+
+written 4 task(s) to index file '/examplepath/.law/index'
 ```
 
 

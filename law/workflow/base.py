@@ -343,7 +343,8 @@ class BaseWorkflow(Task):
 
     workflow_run_decorators = None
 
-    exclude_db = True
+    exclude_index = True
+
     exclude_params_branch = {"print_deps", "print_status", "remove_output", "workflow",
         "acceptance", "tolerance", "pilot", "start_branch", "end_branch", "branches"}
     exclude_params_workflow = {"branch"}

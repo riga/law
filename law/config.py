@@ -54,7 +54,7 @@ class Config(ConfigParser):
 
     _default_config = {
         "core": {
-            "db_file": os.getenv("LAW_DB_FILE", law_home_path("db")),
+            "index_file": os.getenv("LAW_INDEX_FILE", law_home_path("index")),
             "software_dir": law_home_path("software"),
             "inherit_configs": "",
             "extend_configs": "",

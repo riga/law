@@ -28,7 +28,7 @@ class TransferLocalFile(Task):
 
     replica_format = "{name}.{i}{ext}"
 
-    exclude_db = True
+    exclude_index = True
 
     def get_source_target(self):
         # when self.source_path is set, return a target around it
@@ -93,10 +93,10 @@ class CascadeMerge(LocalWorkflow):
     node_format = "{name}.d{depth}.b{branch}{ext}"
     merge_factor = 2
 
-    exclude_params_req_pass = {"start_branch", "end_branch", "branches"}
-    exclude_params_db = {"n_cascade_leaves"}
+    exclude_index = True
 
-    exclude_db = True
+    exclude_params_req_pass = {"start_branch", "end_branch", "branches"}
+    exclude_params_index = {"n_cascade_leaves"}
 
     def __init__(self, *args, **kwargs):
         super(CascadeMerge, self).__init__(*args, **kwargs)

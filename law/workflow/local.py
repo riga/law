@@ -86,4 +86,4 @@ class LocalWorkflow(BaseWorkflow):
 
     local_workflow_require_branches = False
 
-    exclude_db = True
+    exclude_index = True

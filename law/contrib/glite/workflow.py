@@ -174,7 +174,7 @@ class GLiteWorkflow(BaseRemoteWorkflow):
 
     exclude_params_branch = {"glite_ce"}
 
-    exclude_db = True
+    exclude_index = True
 
     @abstractmethod
     def glite_output_directory(self):

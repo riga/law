@@ -12,8 +12,11 @@ from argparse import ArgumentParser
 import law
 
 
-progs = ["run", "db", "config", "software", "completion"]
+progs = ["run", "index", "config", "software", "completion"]
 forward_progs = ["run"]
+
+# temporary command to show renaming note
+progs.append("db")
 
 
 def run():

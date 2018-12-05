@@ -163,7 +163,7 @@ class ARCWorkflow(BaseRemoteWorkflow):
 
     exclude_params_branch = {"arc_ce"}
 
-    exclude_db = True
+    exclude_index = True
 
     @abstractmethod
     def arc_output_directory(self):

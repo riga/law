@@ -166,7 +166,7 @@ class LSFWorkflow(BaseRemoteWorkflow):
 
     exclude_params_branch = {"lsf_queue"}
 
-    exclude_db = True
+    exclude_index = True
 
     @abstractmethod
     def lsf_output_directory(self):

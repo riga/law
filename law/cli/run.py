@@ -54,13 +54,13 @@ def execute(args):
             logger.debug("import error in module {}: {}".format(modid, e))
             error = e
 
-    # read task info from the db file and import it
+    # read task info from the index file and import it
     if task_family is None:
-        db_file = Config.instance().get_expanded("core", "db_file")
-        if os.path.exists(db_file):
-            info = read_task_from_db(args.task_family, db_file)
+        index_file = Config.instance().get_expanded("core", "index_file")
+        if os.path.exists(index_file):
+            info = read_task_from_index(args.task_family, index_file)
             if not info:
-                abort("task family '{}' not found in db".format(args.task_family))
+                abort("task family '{}' not found in index".format(args.task_family))
             modid, task_family, _ = info
             __import__(modid, globals(), locals())
 
@@ -75,18 +75,18 @@ def execute(args):
     luigi_run([task_family] + sys.argv[3:])
 
 
-def read_task_from_db(task_family, db_file=None):
+def read_task_from_index(task_family, index_file=None):
     """
     Returns module id, task family and space-separated parameters in a tuple for a task given by
-    *task_family* from the *db_file*. When *None*, the *db_file* refers to the default as defined in
-    :py:mod:`law.config`. Returns *None* when the task could not be found.
+    *task_family* from the *index_file*. When *None*, the *index_file* refers to the default as
+    defined in :py:mod:`law.config`. Returns *None* when the task could not be found.
     """
-    # read task information from the db file given a task family
-    if db_file is None:
-        db_file = Config.instance().get_expanded("core", "db_file")
+    # read task information from the index file given a task family
+    if index_file is None:
+        index_file = Config.instance().get_expanded("core", "index_file")
 
     # open and go through lines
-    with open(db_file, "r") as f:
+    with open(index_file, "r") as f:
         for line in f.readlines():
             line = line.strip()
             if line.count(":") >= 2:

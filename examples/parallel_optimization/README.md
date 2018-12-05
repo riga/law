@@ -20,10 +20,10 @@ pip install luigi scikit-optimize matplotlib
 source setup.sh
 ```
 
-#### 3. Let law scan your the tasks and their parameters (for autocompletion)
+#### 3. Let law index your the tasks and their parameters (for autocompletion)
 
 ```shell
-law db --verbose
+law index --verbose
 ```
 
 You should see:
@@ -37,7 +37,7 @@ module 'tasks', 3 task(s):
     - OptimizerPlot
     - Objective
 
-written 3 task(s) to db file '/examplepath/.law/db'
+written 3 task(s) to index file '/examplepath/.law/index'
 ```
 
 #### 4. Check the status of the OptimizerPlot task

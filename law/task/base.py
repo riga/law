@@ -35,7 +35,7 @@ class BaseRegister(luigi.task_register.Register):
 
     def __new__(metacls, classname, bases, classdict):
         # default attributes
-        classdict.setdefault("exclude_db", False)
+        classdict.setdefault("exclude_index", False)
 
         # union "exclude_params_*" sets with those of all base classes
         for base in bases:
@@ -50,8 +50,8 @@ class BaseRegister(luigi.task_register.Register):
 @six.add_metaclass(BaseRegister)
 class BaseTask(luigi.Task):
 
-    exclude_db = True
-    exclude_params_db = set()
+    exclude_index = True
+    exclude_params_index = set()
     exclude_params_req = set()
     exclude_params_req_pass = set()
     exclude_params_req_get = set()
@@ -217,7 +217,7 @@ class Task(BaseTask):
 
     message_cache_size = 10
 
-    exclude_db = True
+    exclude_index = True
     exclude_params_req = set(interactive_params)
 
     def __init__(self, *args, **kwargs):
@@ -336,7 +336,8 @@ class WrapperTask(Task):
     Use for tasks that only wrap other tasks and that by definition are done
     if all their requirements exist.
     """
-    exclude_db = True
+
+    exclude_index = True
 
     def _repr_flags(self, color=True):
         return super(WrapperTask, self)._repr_flags(color=color) + ["wrapper"]
@@ -350,7 +351,7 @@ class WrapperTask(Task):
 
 class ExternalTask(Task):
 
-    exclude_db = True
+    exclude_index = True
 
     run = None
 

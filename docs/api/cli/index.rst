@@ -8,7 +8,7 @@ law.cli
 
    cli
    run
-   db
+   indexcmd
    completion
    config
    software

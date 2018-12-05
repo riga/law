@@ -8,7 +8,7 @@ action() {
     local sw_dir="$base/tmp"
     if [ ! -d "$sw_dir" ]; then
         mkdir -p "$sw_dir"
-        git clone --depth 1 https://github.com/spotify/luigi.git "$sw_dir/luigi"
+        git clone --depth 1 --branch "2.7.6" https://github.com/spotify/luigi.git "$sw_dir/luigi"
         git clone --depth 1 https://github.com/benjaminp/six.git "$sw_dir/six"
     fi
 

@@ -172,7 +172,7 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
 
     exclude_params_branch = {"htcondor_pool", "htcondor_scheduler"}
 
-    exclude_db = True
+    exclude_index = True
 
     @abstractmethod
     def htcondor_output_directory(self):
