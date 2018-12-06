@@ -275,7 +275,7 @@ class RemoteCache(object):
                 pass
 
     def __init__(self, fs, root=TMP, auto_flush=False, max_size=-1, dir_perm=0o0770,
-            file_perm=0o0660, wait_delay=5, max_waits=120):
+            file_perm=0o0660, wait_delay=5, max_waits=120, global_lock=False):
         object.__init__(self)
 
         # create a unique name based on fs attributes
@@ -302,6 +302,7 @@ class RemoteCache(object):
         self.file_perm = file_perm
         self.wait_delay = wait_delay
         self.max_waits = max_waits
+        self.global_lock = global_lock
 
         # path to the global lock file which should guard global actions such as allocations
         self._global_lock_path = self._lock_path(os.path.join(base, "global"))
@@ -332,6 +333,7 @@ class RemoteCache(object):
         add("file_perm", cfg.getint)
         add("wait_delay", cfg.getfloat)
         add("max_waits", cfg.getint)
+        add("global_lock", cfg.getboolean)
 
         return config
 
@@ -358,6 +360,7 @@ class RemoteCache(object):
                 self._unlock(cpath)
                 self._remove(cpath)
             self._locked_cpaths.clear()
+            self._unlock_global()
         logger.debug("cleanup RemoteCache at '{}'".format(self.base))
 
     def cache_path(self, rpath):
@@ -405,15 +408,16 @@ class RemoteCache(object):
 
         return True
 
-    def _await(self, cpath, delay=None, max_waits=None, silent=False, skip_global=False):
+    def _await(self, cpath, delay=None, max_waits=None, silent=False, global_lock=None):
         delay = delay if delay is not None else self.wait_delay
         max_waits = max_waits if max_waits is not None else self.max_waits
         _max_waits = max_waits
+        global_lock = self.global_lock if global_lock is None else global_lock
 
         # strategy: wait as long the file is locked and if the file size did not change, reduce
         # max_waits per iteration and raise when 0 is reached
         last_size = -1
-        while self._is_locked(cpath) or (not skip_global and self.is_locked_global()):
+        while self._is_locked(cpath) or (global_lock and self.is_locked_global()):
             if max_waits <= 0:
                 if silent:
                     return False
@@ -429,16 +433,15 @@ class RemoteCache(object):
                 size = os.stat(cpath).st_size
                 if size != last_size:
                     last_size = size
-                    max_waits = _max_waits
-                    continue
+                    max_waits = _max_waits + 1
 
             max_waits -= 1
 
         return True
 
     @contextmanager
-    def _lock_global(self):
-        self._await_global()
+    def _lock_global(self, **kwargs):
+        self._await_global(**kwargs)
 
         try:
             with threading.Lock():
@@ -451,10 +454,10 @@ class RemoteCache(object):
             self._unlock_global()
 
     @contextmanager
-    def _lock(self, cpath):
+    def _lock(self, cpath, **kwargs):
         lock_path = self._lock_path(cpath)
 
-        self._await(cpath)
+        self._await(cpath, **kwargs)
 
         try:
             with threading.Lock():
@@ -480,48 +483,47 @@ class RemoteCache(object):
     def allocate(self, size):
         logger.debug("allocating {0[0]:.2f} {0[1]} in cache '{1}'".format(human_bytes(size), self))
 
-        with self._lock_global():
-            # determine stats and current cache size
-            file_stats = []
-            for elem in os.listdir(self.base):
-                if elem.endswith(self.lock_postfix):
-                    continue
-                cpath = os.path.join(self.base, elem)
-                file_stats.append((cpath, os.stat(cpath)))
-            current_size = sum(stat.st_size for _, stat in file_stats)
+        # determine stats and current cache size
+        file_stats = []
+        for elem in os.listdir(self.base):
+            if elem.endswith(self.lock_postfix):
+                continue
+            cpath = os.path.join(self.base, elem)
+            file_stats.append((cpath, os.stat(cpath)))
+        current_size = sum(stat.st_size for _, stat in file_stats)
 
-            # get the available space of the disk that contains the cache in bytes, leave 10%
-            fs_stat = os.statvfs(self.base)
-            free_size = fs_stat.f_frsize * fs_stat.f_bavail * 0.9
+        # get the available space of the disk that contains the cache in bytes, leave 10%
+        fs_stat = os.statvfs(self.base)
+        free_size = fs_stat.f_frsize * fs_stat.f_bavail * 0.9
 
-            # determine the maximum size of the cache
-            # make sure it is always smaller than what is available
-            if self.max_size < 0:
-                max_size = current_size + free_size
-            else:
-                max_size = min(self.max_size, current_size + free_size)
+        # determine the maximum size of the cache
+        # make sure it is always smaller than what is available
+        if self.max_size < 0:
+            max_size = current_size + free_size
+        else:
+            max_size = min(self.max_size, current_size + free_size)
 
-            # determine the size of files that need to be deleted
-            delete_size = current_size + size - max_size
+        # determine the size of files that need to be deleted
+        delete_size = current_size + size - max_size
+        if delete_size <= 0:
+            logger.debug("cache space sufficient, {0[0]:.2f} {0[1]} bytes remaining".format(
+                human_bytes(-delete_size)))
+            return
+
+        logger.info("need to delete {0[0]:.2f} {0[1]} bytes from cache".format(
+            human_bytes(delete_size)))
+
+        # delete files, ordered by their access time, skip locked ones
+        for cpath, cstat in sorted(file_stats, key=lambda tpl: tpl[1].st_atime):
+            if self._is_locked(cpath):
+                continue
+            self._remove(cpath)
+            delete_size -= cstat.st_size
             if delete_size <= 0:
-                logger.debug("cache space sufficient, {0[0]:.2f} {0[1]} bytes remaining".format(
-                    human_bytes(-delete_size)))
-                return
-
-            logger.info("need to delete {0[0]:.2f} {0[1]} bytes from cache".format(
+                break
+        else:
+            logger.warning("could not allocate remaining {0[0]:.2f} {0[1]} in cache".format(
                 human_bytes(delete_size)))
-
-            # delete files, ordered by their access time, skip locked ones
-            for cpath, cstat in sorted(file_stats, key=lambda tpl: tpl[1].st_atime):
-                if self._is_locked(cpath):
-                    continue
-                self._remove(cpath)
-                delete_size -= cstat.st_size
-                if delete_size <= 0:
-                    break
-            else:
-                logger.warning("could not allocate remaining {0[0]:.2f} {0[1]} in cache".format(
-                    human_bytes(delete_size)))
 
     def _touch(self, cpath, times=None):
         if os.path.exists(cpath):
