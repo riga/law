@@ -248,16 +248,23 @@ def notify(fn, opts, task, *args, **kwargs):
                 logger.warning("notification failed via transport '{}': {}\n{}".format(fn, e, t))
 
 
-@factory()
+@factory(publish_message=False)
 def timeit(fn, opts, task, *args, **kwargs):
     """
-    Wraps a bound method of a task and logs its execution time in a human readable format.
-    Logs in info mode.
+    Wraps a bound method of a task and logs its execution time in a human readable format. Logs in
+    info mode. When *publish_message* is *True*, the duration is also published as a task message to
+    the scheduler.
     """
     start_time = time.time()
     try:
         return fn(task, *args, **kwargs)
     finally:
         duration = human_time_diff(seconds=round(time.time() - start_time, 1))
+
+        # log
         timeit_logger = logger.getChild("timeit")
         timeit_logger.info("runtime of {}: {}".format(task.task_id, duration))
+
+        # optionally publish a task message to the scheduler
+        if opts["publish_message"] and callable(getattr(task, "publish_message", None)):
+            task.publish_message("runtime: {}".format(duration))
