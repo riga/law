@@ -801,12 +801,17 @@ class RemoteFileSystem(FileSystem):
             if not fs.exists(dst):
                 raise Exception("validation failed after copying {} to {}".format(src, dst))
 
+    def _use_cache(self, cache):
+        if self.cache is None:
+            return False
+        elif cache is None:
+            return self.cache is not None
+        else:
+            return bool(cache)
+
     # generic copy with caching ability (local paths must have "file" scheme)
-    def _cached_copy(self, src, dst, cache=None, validate=None, **kwargs):
-        if cache is None:
-            cache = self.cache is not None
-        elif cache and self.cache is None:
-            cache = False
+    def _cached_copy(self, src, dst, cache=None, prefer_cache=False, validate=None, **kwargs):
+        cache = self._use_cache(cache)
 
         # ensure absolute paths
         src = self.abspath(src)
@@ -862,18 +867,23 @@ class RemoteFileSystem(FileSystem):
             else:  # rl, rc
                 # strategy: copy to cache when not up to date, sync stats, opt. copy to local
 
-                # check if cached and up to date
-                rstat = self.stat(src, **kwargs_no_retries)
+                # build the full cache path of the src file
                 full_csrc = add_scheme(self.cache.cache_path(src), "file")
-                with self.cache.lock(src):
-                    # in cache and outdated?
-                    if src in self.cache and abs(self.cache.mtime(src) - rstat.st_mtime) > 1:
-                        self.cache.remove(src, lock=False)
-                    # in cache at all?
-                    if src not in self.cache:
-                        self.cache.allocate(rstat.st_size)
-                        self._atomic_copy(full_src, full_csrc, validate=validate, **kwargs)
-                        self.cache.touch(src, (int(time.time()), rstat.st_mtime))
+
+                # if the file is cached and prefer_cache is true,
+                # return the cache path, no questions asked
+                # otherwise, check if the file is there and up to date
+                if not prefer_cache or src not in self.cache:
+                    with self.cache.lock(src):
+                        # in cache and outdated?
+                        rstat = self.stat(src, **kwargs_no_retries)
+                        if src in self.cache and abs(self.cache.mtime(src) - rstat.st_mtime) > 1:
+                            self.cache.remove(src, lock=False)
+                        # in cache at all?
+                        if src not in self.cache:
+                            self.cache.allocate(rstat.st_size)
+                            self._atomic_copy(full_src, full_csrc, validate=validate, **kwargs)
+                            self.cache.touch(src, (int(time.time()), rstat.st_mtime))
 
                 if mode == "rl":
                     # copy to local without permission bits
@@ -926,10 +936,7 @@ class RemoteFileSystem(FileSystem):
         return dst
 
     def open(self, path, mode, cache=None, **kwargs):
-        if self.cache is None:
-            cache = False
-        elif cache is None:
-            cache = self.cache is not None
+        cache = self._use_cache(cache)
 
         yield_path = kwargs.pop("_yield_path", False)
 
