@@ -5,8 +5,10 @@ Custom luigi file system and target objects.
 """
 
 
-__all__ = ["FileSystem", "FileSystemTarget", "FileSystemFileTarget", "FileSystemDirectoryTarget",
-           "get_path", "get_scheme", "has_scheme", "add_scheme", "remove_scheme"]
+__all__ = [
+    "FileSystem", "FileSystemTarget", "FileSystemFileTarget", "FileSystemDirectoryTarget",
+    "get_path", "get_scheme", "has_scheme", "add_scheme", "remove_scheme", "split_transfer_kwargs",
+]
 
 
 import os
@@ -18,7 +20,7 @@ import luigi
 import luigi.task
 
 from law.target.base import Target
-from law.util import create_hash
+from law.util import create_hash, make_list
 
 
 class FileSystem(luigi.target.FileSystem):
@@ -312,6 +314,23 @@ def remove_scheme(path):
     # ftp://path/to/file -> /path/to/file
     # /path/to/file -> /path/to/file
     return six.moves.urllib_parse.urlparse(path).path or None
+
+
+def split_transfer_kwargs(kwargs, skip=None):
+    """
+    Takes keyword arguments *kwargs*, splits them into two separate dictionaries depending on their
+    content, and returns them in a tuple. The first one will contain arguments related to potential
+    file transfer operations (e.g. ``"cache"`` or ``"retries"``), while the second one will contain
+    all remaining arguments. This function is used internally to decide which arguments to pass to
+    target formatters. *skip* can be a list of argument keys that are ignored.
+    """
+    skip = make_list(skip) if skip else []
+    transfer_kwargs = {
+        name: kwargs.pop(name)
+        for name in ["cache", "prefer_cache", "retries", "retry_delay"]
+        if name in kwargs and name not in skip
+    }
+    return transfer_kwargs, kwargs
 
 
 # trailing imports

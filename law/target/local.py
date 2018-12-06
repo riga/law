@@ -19,10 +19,9 @@ from contextlib import contextmanager
 import luigi
 import six
 
-from law.target.base import split_transfer_kwargs
 from law.target.file import (
     FileSystem, FileSystemTarget, FileSystemFileTarget, FileSystemDirectoryTarget, get_scheme,
-    remove_scheme,
+    remove_scheme, split_transfer_kwargs,
 )
 from law.target.formatter import find_formatter
 from law.config import Config

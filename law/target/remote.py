@@ -27,13 +27,15 @@ from contextlib import contextmanager
 import six
 
 from law.config import Config
-from law.target.base import split_transfer_kwargs
-from law.target.file import FileSystem, FileSystemTarget, FileSystemFileTarget, \
-    FileSystemDirectoryTarget, get_path, get_scheme, has_scheme, add_scheme, remove_scheme
+from law.target.file import (
+    FileSystem, FileSystemTarget, FileSystemFileTarget, FileSystemDirectoryTarget, get_path,
+    get_scheme, has_scheme, add_scheme, remove_scheme, split_transfer_kwargs,
+)
 from law.target.local import LocalFileSystem, LocalFileTarget
 from law.target.formatter import find_formatter
-from law.util import make_list, copy_no_perm, makedirs_perm, human_bytes, create_hash, \
-    user_owns_file
+from law.util import (
+    make_list, copy_no_perm, makedirs_perm, human_bytes, create_hash, user_owns_file,
+)
 
 
 logger = logging.getLogger(__name__)
