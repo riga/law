@@ -4,7 +4,7 @@
 
 action() {
     # ensure that the polyfills are loaded only once
-    [ ! -z "${_law_polyfills_loaded}" ] && return
+    [ ! -z "${_law_polyfills_loaded}" ] && return "0"
     export _law_polyfills_loaded="1"
 
 
@@ -25,7 +25,7 @@ action() {
     _law_grep() {
         ${_law_grep_path} $@
     }
-    export -f _law_grep
+    [ ! -z "$BASH_VERSION" ] && export -f _law_grep
 
 
     # cross-OS grep -Po
@@ -38,6 +38,6 @@ action() {
             _law_grep -Po $@
         }
     fi
-    export -f _law_grep_Po
+    [ ! -z "$BASH_VERSION" ] && export -f _law_grep_Po
 }
 action

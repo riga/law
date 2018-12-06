@@ -29,10 +29,10 @@ def setup_parser(sub_parsers):
 
     parser.add_argument("--modules", "-m", nargs="+", help="additional modules to traverse")
     parser.add_argument("--no-externals", "-e", action="store_true", help="skip external tasks")
-    parser.add_argument("--location", "-l", action="store_true", help="print the location of the"
-        " database file and exit")
     parser.add_argument("--remove", "-r", action="store_true", help="remove the database file and"
         " exit")
+    parser.add_argument("--location", "-l", action="store_true", help="print the location of the"
+        " database file and exit")
     parser.add_argument("--verbose", "-v", action="store_true", help="verbose output")
 
 

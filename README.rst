@@ -73,6 +73,28 @@ Examples
 - `CMS Single Top Analysis <https://github.com/riga/law_example_CMSSingleTopAnalysis>`__: Simple physics analysis using law.
 
 
+Auto Completion
+===============
+
+bash
+----
+
+.. code-block:: shell
+
+   source "$( law completion )"
+
+
+zsh
+---
+
+.. code-block:: shell
+
+   autoload -Uz compinstall && compinstall
+   autoload -Uz bashcompinit && bashcompinit
+
+   source "$( law completion )"
+
+
 Development
 ===========
 

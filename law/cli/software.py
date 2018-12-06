@@ -35,10 +35,10 @@ def setup_parser(sub_parsers):
         " the law software cache ({}). This is only required for some sandboxes that need to"
         " forward software into containers.".format(get_sw_dir()))
 
-    parser.add_argument("--location", "-l", action="store_true", help="print the location of the"
-        " software cache directory and exit")
     parser.add_argument("--remove", "-r", action="store_true", help="remove the software cache"
         " directory and exit")
+    parser.add_argument("--location", "-l", action="store_true", help="print the location of the"
+        " software cache directory and exit")
 
 
 def execute(args):

@@ -1,13 +1,22 @@
 #!/usr/bin/env bash
 
-# Bash completion function that is registered for the law executable.
-# It repeatedly grep's the law index file which should be cached by the fileystem.
+# bash/zsh completion function that is registered on the law executable.
+# It repeatedly grep's the law index file which is cached by the fileystem.
+# For zsh, make sure to autoload compinstall and bashcompinit:
+# > autoload -Uz compinstall && compinstall
+# > autoload -Uz bashcompinit && bashcompinit
 
 _law_complete() {
-    local base="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+    # determine the directy of this file
+    if [ ! -z "$ZSH_VERSION" ]; then
+        local this_file="${(%):-%x}"
+    else
+        local this_file="${BASH_SOURCE[0]}"
+    fi
+    local this_dir="$( cd "$( dirname "$this_file" )" && pwd )"
 
     # load polyfills
-    source "$base/../polyfills.sh"
+    source "$this_dir/../polyfills.sh"
 
     # determine LAW_HOME
     local law_home="$LAW_HOME"
@@ -18,7 +27,7 @@ _law_complete() {
     [ -z "$index_file" ] && index_file="$law_home/index"
 
     # common task run parameters
-    local common_run_params="workers local-scheduler help log-level"
+    local common_run_params="workers local-scheduler log-level help"
 
     # the current word
     local cur="${COMP_WORDS[COMP_CWORD]}"
@@ -84,7 +93,7 @@ _law_complete() {
 
     # complete index
     if [ "$sub_cmd" = "index" ]; then
-        local words="modules no-externals remove verbose help"
+        local words="modules no-externals remove location verbose help"
         local inp="${cur##-}"
         inp="${inp##-}"
         COMPREPLY=( $( compgen -W "$( echo $words )" -P "--" -- "$inp" ) )
@@ -92,12 +101,22 @@ _law_complete() {
 
     # complete software
     if [ "$sub_cmd" = "software" ]; then
-        local words="remove help"
+        local words="location remove help"
+        local inp="${cur##-}"
+        inp="${inp##-}"
+        COMPREPLY=( $( compgen -W "$( echo $words )" -P "--" -- "$inp" ) )
+    fi
+
+    # complete config
+    if [ "$sub_cmd" = "config" ]; then
+        local words="remove expand location help"
         local inp="${cur##-}"
         inp="${inp##-}"
         COMPREPLY=( $( compgen -W "$( echo $words )" -P "--" -- "$inp" ) )
     fi
 }
-export -f _law_complete
+
+# export the function when in bash, zsh would complain
+[ ! -z "$BASH_VERSION" ] && export -f _law_complete
 
 complete -o bashdefault -o default -F _law_complete law
