@@ -199,6 +199,9 @@ class LSFWorkflow(BaseRemoteWorkflow):
     def lsf_job_config(self, config, job_num, branches):
         return config
 
+    def lsf_post_submit_delay(self):
+        return self.poll_interval * 60
+
     def lsf_use_local_scheduler(self):
         return True
 

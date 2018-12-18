@@ -200,6 +200,9 @@ class ARCWorkflow(BaseRemoteWorkflow):
     def arc_job_config(self, config, job_num, branches):
         return config
 
+    def arc_post_submit_delay(self):
+        return self.poll_interval * 60
+
     def arc_use_local_scheduler(self):
         return True
 

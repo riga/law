@@ -205,6 +205,9 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
     def htcondor_job_config(self, config, job_num, branches):
         return config
 
+    def htcondor_post_submit_delay(self):
+        return self.poll_interval * 60
+
     def htcondor_use_local_scheduler(self):
         return False
 

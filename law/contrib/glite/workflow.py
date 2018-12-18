@@ -215,6 +215,9 @@ class GLiteWorkflow(BaseRemoteWorkflow):
     def glite_job_config(self, config, job_num, branches):
         return config
 
+    def glite_post_submit_delay(self):
+        return self.poll_interval * 60
+
     def glite_use_local_scheduler(self):
         return True
 

@@ -376,7 +376,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                     self.submit()
 
                     # sleep once to give the job interface time to register the jobs
-                    time.sleep(task.poll_interval * 60)
+                    post_submit_delay = self._get_task_hook("post_submit_delay")()
+                    if post_submit_delay:
+                        time.sleep(post_submit_delay)
 
                 # start status polling when a) no_poll is not set, or b) the jobs were already
                 # submitted so that failed jobs are resubmitted after a single polling iteration
