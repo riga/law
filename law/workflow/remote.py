@@ -22,7 +22,7 @@ from law.workflow.base import BaseWorkflow, BaseWorkflowProxy
 from law.job.dashboard import NoJobDashboard
 from law.parameter import NO_FLOAT, NO_INT
 from law.decorator import log
-from law.util import iter_chunks, ShorthandDict
+from law.util import no_value, iter_chunks, ShorthandDict
 
 
 class SubmissionData(ShorthandDict):
@@ -255,8 +255,19 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
     def _cleanup_jobs(self):
         return isinstance(getattr(self.task, "cleanup_jobs", None), bool) and self.task.cleanup_jobs
 
-    def _get_task_hook(self, name):
-        return getattr(self.task, "{}_{}".format(self.workflow_type, name))
+    def _get_task_attribute(self, name, fallback=False):
+        """
+        Return an attribute of the actial task named ``<workflow_type>_<name>``.
+        When the attribute does not exist and *fallback* is *True*, try to return the task attribute
+        simply named *name*. In any case, if a requested task attribute is eventually not found, an
+        AttributeError is raised.
+        """
+        attr = "{}_{}".format(self.workflow_type, name)
+        if not fallback:
+            return getattr(self.task, attr)
+        else:
+            value = getattr(self.task, attr, no_value)
+            return value if value != no_value else getattr(self.task, name)
 
     def requires(self):
         reqs = OrderedDict()
@@ -264,7 +275,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         # add upstream and workflow specific requirements when not controlling running jobs
         if not self.task.is_controlling_remote_jobs():
             reqs.update(super(BaseRemoteWorkflowProxy, self).requires())
-            reqs.update(self._get_task_hook("workflow_requires")())
+            reqs.update(self._get_task_attribute("workflow_requires")())
 
         return reqs
 
@@ -278,11 +289,11 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         task = self.task
 
         # get the directory where the control outputs are stored
-        out_dir = self._get_task_hook("output_directory")()
+        out_dir = self._get_task_attribute("output_directory")()
 
         # define outputs
         outputs = OrderedDict()
-        postfix = self._get_task_hook("output_postfix")()
+        postfix = self._get_task_attribute("output_postfix")()
 
         # a file containing the submission data, i.e. job ids etc
         submission_file = "{}_submission{}.json".format(self.workflow_type, postfix)
@@ -376,7 +387,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                     self.submit()
 
                     # sleep once to give the job interface time to register the jobs
-                    post_submit_delay = self._get_task_hook("post_submit_delay")()
+                    post_submit_delay = self._get_task_attribute("post_submit_delay")()
                     if post_submit_delay:
                         time.sleep(post_submit_delay)
 
