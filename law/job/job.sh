@@ -203,9 +203,10 @@ action() {
     }
 
     load_dashboard_file
+    local bootstrap_ret="$?"
 
-    if [ "$?" != "0" ]; then
-        2>&1 echo "dashboard file failed"
+    if [ "$bootstrap_ret" != "0" ]; then
+        2>&1 echo "dashboard file failed with code $bootstrap_ret"
     fi
 
 
@@ -226,10 +227,10 @@ action() {
     }
 
     run_bootstrap_file
-    local bootstrap_ret="$?"
+    bootstrap_ret="$?"
 
     if [ "$bootstrap_ret" != "0" ]; then
-        2>&1 echo "bootstrap file failed, abort"
+        2>&1 echo "bootstrap file failed with code $bootstrap_ret, abort"
         stageout
         cleanup
         return "$bootstrap_ret"
@@ -249,7 +250,7 @@ action() {
     bootstrap_ret="$?"
 
     if [ "$bootstrap_ret" != "0" ]; then
-        2>&1 echo "bootstrap command failed, abort"
+        2>&1 echo "bootstrap command failed with code $bootstrap_ret, abort"
         stageout
         cleanup
         return "$bootstrap_ret"
@@ -293,7 +294,7 @@ action() {
         eval "$cmd --print-deps 2"
         exec_ret="$?"
         if [ "$?" != "0" ]; then
-            2>&1 echo "dependency tree for branch $branch failed, abort"
+            2>&1 echo "dependency tree for branch $branch failed with code $exec_ret, abort"
             call_hook law_hook_job_failed "$exec_ret"
             stageout
             cleanup
@@ -317,7 +318,7 @@ action() {
         fi
 
         if [ "$exec_ret" != "0" ]; then
-            2>&1 echo "branch $branch failed with exit code $exec_ret, abort"
+            2>&1 echo "branch $branch failed with code $exec_ret, abort"
             call_hook law_hook_job_failed "$exec_ret"
             stageout
             cleanup
