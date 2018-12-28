@@ -9,24 +9,51 @@ from setuptools.command.install import install as _install
 this_dir = os.path.dirname(os.path.abspath(__file__))
 
 
-# workaround to change the installed law script to _not_ use pkg_resources
+# workaround to change the installed law executable
 class install(_install):
 
     def run(self):
+        # run the install command
         _install.run(self)
 
-        if os.getenv("LAW_INSTALL_CUSTOM_SCRIPT", "0") == "1":
+        # get the path of the executable
+        law_exec = os.path.join(self.install_scripts, "law")
+
+        def write(content):
             try:
-                with open(os.path.join(this_dir, "law", "cli", "law")) as f:
-                    content = f.read()
-                with open(os.path.join(self.install_scripts, "law"), "w") as f:
+                with open(law_exec, "w") as f:
                     f.write(content)
+                return True
             except Exception as e:
                 print("could not update the law executable: {}".format(e))
+                return False
+
+        # when LAW_INSTALL_CUSTOM_SCRIPT is "1", replace the executable with law/cli/law
+        if os.getenv("LAW_INSTALL_CUSTOM_SCRIPT", "0") == "1":
+            with open(os.path.join(this_dir, "law", "cli", "law"), "r") as f:
+                content = f.read()
+            if not write(content):
+                return
+
+        # when LAW_INSTALL_CUSTOM_SHEBANG is set, replace the shebang in the executable
+        shebang = os.getenv("LAW_INSTALL_CUSTOM_SHEBANG")
+        if shebang:
+            with open(law_exec, "r") as f:
+                lines = f.readlines()
+            if lines[0].startswith("#!"):
+                lines.pop(0)
+            if not shebang.startswith("#!"):
+                shebang = "#!" + shebang
+            content = "".join([shebang + "\n"] + lines)
+            if not write(content):
+                return
 
 
 # package keyworkds
-keywords = ["luigi", "workflow", "pipeline", "remote", "submission", "grid"]
+keywords = [
+    "luigi", "workflow", "pipeline", "remote", "gfal", "submission", "cluster", "grid", "condor",
+    "lsf", "glite", "arc", "sandboxing", "docker", "singularity",
+]
 
 
 # package classifiers
@@ -65,7 +92,7 @@ setup(
     version=pkg["__version__"],
     author=pkg["__author__"],
     author_email=pkg["__email__"],
-    description=pkg["__doc__"].strip().replace("\n", " "),
+    description=pkg["__doc__"].strip().split("\n")[0].strip(),
     license=pkg["__license__"],
     url=pkg["__contact__"],
     keywords=" ".join(keywords),
