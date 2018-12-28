@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# coding: utf-8
 
 """
 Simple ARC job manager. See http://www.nordugrid.org/arc and

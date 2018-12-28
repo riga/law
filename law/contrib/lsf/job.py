@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# coding: utf-8
 
 """
 LSF job manager. See https://www.ibm.com/support/knowledgecenter/en/SSETD4_9.1.3.

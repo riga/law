@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# coding: utf-8
 
 """
 Simple law tasks that demonstrate how to build up a task tree with some outputs and dependencies.

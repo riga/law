@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# coding: utf-8
 
 """
 HTCondor job manager. See https://research.cs.wisc.edu/htcondor.

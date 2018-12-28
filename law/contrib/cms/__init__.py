@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# coding: utf-8
 
 """
 CMS-related contrib package. https://home.cern/about/experiments/cms

@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# coding: utf-8
 
 """
 ARC remote workflow implementation. See http://www.nordugrid.org/arc/ce.

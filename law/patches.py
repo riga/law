@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# coding: utf-8
 
 """
 Collection of minor patches for luigi. These patches are only intended to support extra features for

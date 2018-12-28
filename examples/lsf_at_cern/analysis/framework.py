@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# coding: utf-8
 
 """
 Law example tasks to demonstrate LSF workflows at CERN.

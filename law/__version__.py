@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# coding: utf-8
 
 """
 Build large-scale task workflows using luigi, remote job submission, remote targets, and environment

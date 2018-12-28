@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# coding: utf-8
 
 """
 Remote filesystem and targets, based on gfal2 bindings.
