@@ -15,8 +15,8 @@
    :target: https://pypi.python.org/pypi/law
    :alt: Package version
 
-.. image:: https://img.shields.io/pypi/l/law.svg?style=flat
-   :target: https://pypi.python.org/pypi/law
+.. image:: https://img.shields.io/github/license/riga/law.svg
+   :target: https://github.com/riga/law/blob/master/LICENSE
    :alt: License
 
 
