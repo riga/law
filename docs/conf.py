@@ -15,6 +15,7 @@ import law
 project = law.__name__
 author = law.__author__
 copyright = law.__copyright__
+copyright = copyright[10:] if copyright.startswith("Copyright ") else copyright
 version = law.__version__[:law.__version__.index(".", 2)]
 release = law.__version__
 
