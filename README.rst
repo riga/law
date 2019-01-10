@@ -104,11 +104,3 @@ Development
 
 .. marker-after-body
 
-
-Contributors
-============
-
-- `Marcel R. <https://github.com/riga>`__ (author)
-- `Erik G. <https://github.com/erikgeiser>`__
-- `Lukas G. <https://github.com/lgeiger>`__
-- `Florian v. C. <https://github.com/rfvc>`__
