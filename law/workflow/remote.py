@@ -397,9 +397,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                     self.poll()
 
             finally:
-                # finally, cleanup the job file
+                # in any event, cleanup the job file
                 if self.job_file_factory:
-                    self.job_file_factory.cleanup(force=False)
+                    self.job_file_factory.cleanup_dir(force=False)
 
     def cancel(self):
         """
