@@ -69,7 +69,7 @@ class ROOTNumpyFormatter(Formatter):
         return root_numpy.root2array(get_path(path), *args, **kwargs)
 
     @classmethod
-    def dump(cls, arr, path, *args, **kwargs):
+    def dump(cls, path, arr, *args, **kwargs):
         import root_numpy
 
         return root_numpy.array2root(arr, get_path(path), *args, **kwargs)

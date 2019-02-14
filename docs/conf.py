@@ -18,6 +18,7 @@ copyright = law.__copyright__
 copyright = copyright[10:] if copyright.startswith("Copyright ") else copyright
 version = law.__version__[:law.__version__.index(".", 2)]
 release = law.__version__
+language = "en"
 
 templates_path = ["_templates"]
 html_static_path = ["_static"]
