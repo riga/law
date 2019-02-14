@@ -110,6 +110,10 @@ class CascadeMerge(LocalWorkflow):
     def is_branch(self, default=False):
         return super(CascadeMerge, self).is_branch() or (not default and self.is_forest())
 
+    def max_depth(self):
+        tree = self._get_tree()
+        return max(tree.keys())
+
     def is_forest(self):
         return self.cascade_tree < 0
 
@@ -123,9 +127,7 @@ class CascadeMerge(LocalWorkflow):
         if self.is_forest():
             return False
 
-        tree = self._get_tree()
-        max_depth = max(tree.keys())
-        return self.cascade_depth == max_depth
+        return self.cascade_depth == self.max_depth()
 
     @cached_workflow_property
     def cascade_forest(self):
@@ -214,6 +216,11 @@ class CascadeMerge(LocalWorkflow):
         self.leaves_per_tree = leaves_per_tree
         self.cascade_forest = forest
         self._forest_built = True
+
+        # complain when the cascade_depth is too large
+        max_depth = self.max_depth()
+        if self.cascade_depth > max_depth:
+            raise ValueError("cascade_depth too large, maximum depth is {}".format(max_depth))
 
     def create_branch_map(self):
         if self.is_forest():
