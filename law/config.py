@@ -5,7 +5,7 @@ law config parser implementation.
 """
 
 
-__all__ = ["Config"]
+__all__ = ["Config", "get", "get_default", "get_expanded", "keys"]
 
 
 import os
@@ -271,3 +271,16 @@ class Config(ConfigParser):
 
                 for option, value in lparser.items(lsection):
                     self.set(section, option, value)
+
+
+# register convenience functions on module-level
+for name in ["get", "get_default", "get_expanded", "keys"]:
+    def closure(name):
+        def func(*args, **kwargs):
+            config = Config.instance()
+            return getattr(config, name)(*args, **kwargs)
+
+        func.__name__ = name
+        return func
+
+    locals()[name] = closure(name)
