@@ -49,10 +49,6 @@ class HTCondorWorkflow(law.HTCondorWorkflow):
     configuration is required.
     """
 
-    # internally, the job files required for htcondor submission are created in a "job file factory"
-    # here, we can configure the factory to store the job files for subsequent inspection
-    htcondor_job_file_factory_defaults = {"is_tmp": False}
-
     def htcondor_output_directory(self):
         # the directory where submission meta data should be stored
         return law.LocalDirectoryTarget(self.local_path())

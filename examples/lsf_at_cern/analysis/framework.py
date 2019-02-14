@@ -52,7 +52,6 @@ class LSFWorkflow(law.LSFWorkflow):
     # here, we can configure the factory to store the job files for subsequent inspection, and also
     # tell it that law will handle the file stagein and stageout manually
     lsf_job_file_factory_defaults = {
-        "is_tmp": False,
         "manual_stagein": True,
         "manual_stageout": True,
     }

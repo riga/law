@@ -395,11 +395,11 @@ class BaseJobFileFactory(object):
 
        The path to the internal job file directory.
 
-    .. py::attribute: is_tmp
+    .. py::attribute: cleanup
        type: bool
 
-       Boolean that denotes whether this internal job file directory is temporary. If *True*, it
-       will be deleted in the desctructor. It defaults to *True* when the *dir* constructor argument
+       Boolean that denotes whether this internal job file directory is temporary and should be
+       cleaned up upon instance deletion. It defaults to *True* when the *dir* constructor argument
        is *None*.
     """
 
@@ -427,25 +427,35 @@ class BaseJobFileFactory(object):
         def __contains__(self, attr):
             return attr in self.__dict__
 
-    def __init__(self, dir=None, is_tmp=None):
+    def __init__(self, dir=None, mkdtemp=None, cleanup=None):
         super(BaseJobFileFactory, self).__init__()
 
-        # store dir, and if empty, create a new directory
-        self.dir = dir
-        if self.dir is None:
-            base = Config.instance().get_expanded("job", "job_file_dir")
-            if not os.path.exists(base):
-                os.makedirs(base)
-            self.dir = tempfile.mkdtemp(dir=base)
+        # get default values from config if None
+        if mkdtemp is None:
+            mkdtemp = Config.instance().get_expanded("job", "job_file_dir_mkdtemp", type=bool)
+        if cleanup is None:
+            cleanup = Config.instance().get_expanded("job", "job_file_dir_cleanup", type=bool)
 
-        # store and/or infer is_tmp
-        if is_tmp is None:
-            self.is_tmp = dir is None
-        else:
-            self.is_tmp = is_tmp
+        # store the cleanup flag
+        self.cleanup = cleanup
+
+        # when dir ist None, a temporary directory is forced
+        if not dir:
+            mkdtemp = True
+
+        # store the directory, default to the job.job_file_dir config
+        self.dir = dir or Config.instance().get_expanded("job", "job_file_dir")
+
+        # create the directory
+        if not os.path.exists(self.dir):
+            os.makedirs(self.dir)
+
+        # check if it should be extended by a temporary dir
+        if mkdtemp:
+            self.dir = tempfile.mkdtemp(dir=self.dir)
 
     def __del__(self):
-        self.cleanup(force=False)
+        self.cleanup_dir(force=False)
 
     def __call__(self, *args, **kwargs):
         return self.create(*args, **kwargs)
@@ -617,12 +627,12 @@ class BaseJobFileFactory(object):
             cfg[attr] = kwargs.get(attr, getattr(self, attr))
         return cfg
 
-    def cleanup(self, force=True):
+    def cleanup_dir(self, force=True):
         """
         Removes the directory that is held by this instance. When *force* is *False*, the directory
-        is only removed when it is temporary, i.e. :py:attr:`is_tmp` is *True*.
+        is only removed when :py:attr:`cleanup` is *True*.
         """
-        if not self.is_tmp and not force:
+        if not self.cleanup and not force:
             return
         if isinstance(self.dir, six.string_types) and os.path.exists(self.dir):
             shutil.rmtree(self.dir)
