@@ -5,7 +5,10 @@ law config parser implementation.
 """
 
 
-__all__ = ["Config", "get", "get_default", "get_expanded", "keys"]
+__all__ = [
+    "Config", "get", "getint", "getfloat", "getboolean", "get_default", "get_expanded", "keys",
+    "items", "set", "has_section", "has_option", "remove_option",
+]
 
 
 import os
@@ -73,6 +76,8 @@ class Config(ConfigParser):
         },
         "job": {
             "job_file_dir": os.getenv("LAW_JOB_FILE_DIR", tempfile.gettempdir()),
+            "job_file_dir_mkdtemp": True,
+            "job_file_dir_cleanup": True,
         },
         "modules": {},
         "bash_env": {},
@@ -161,39 +166,60 @@ class Config(ConfigParser):
         if self.getboolean("core", "sync_luigi_config"):
             self.sync_luigi_config()
 
+    def _convert_to_boolean(self, value):
+        # py2 backport
+        if six.PY3:
+            return super(Config, self)._convert_to_boolean(value)
+        else:
+            if value.lower() not in self._boolean_states:
+                raise ValueError("Not a boolean: {}".format(value))
+            return self._boolean_states[value.lower()]
+
+    def _get_type_converter(self, type):
+        if type in (str, "str"):
+            return str
+        if type in (int, "int"):
+            return int
+        elif type in (float, "float"):
+            return float
+        elif type in (bool, "bool", "boolean"):
+            return self._convert_to_boolean
+        else:
+            raise ValueError("unknown 'type' argument ({}), must be 'str', 'int', 'float', or "
+                "'bool'".format(type))
+
     def optionxform(self, option):
         """"""
         return option
 
-    def get_default(self, section, option, default=None, type=None):
+    def get_default(self, section, option, default=None, type=None, expandvars=False,
+            expanduser=False):
         """
         Returns the config value defined by *section* and *option*. When either the section or the
         option does not exist, the *default* value is returned instead. When *type* is set, it must
-        be either `"int"`, `"float"`, or `"boolean"`.
+        be either `"str"`, `"int"`, `"float"`, or `"boolean"`. When *expandvars* is *True*,
+        environment variables are expanded. When *expanduser* is *True*, user variables are
+        expanded as well.
         """
         if self.has_section(section) and self.has_option(section, option):
-            if type:
-                if type not in ("int", "float", "boolean"):
-                    raise ValueError("unknown 'type' argument ({}), must be 'int', 'float', or "
-                        "'boolean'".format(type))
-                return getattr(self, "get" + type)(section, option)
-            else:
-                return self.get(section, option)
+            value = self.get(section, option)
+            if isinstance(value, six.string_types):
+                if expandvars:
+                    value = os.path.expandvars(value)
+                if expanduser:
+                    value = os.path.expanduser(value)
+            return value if not type else self._get_type_converter(type)(value)
         else:
             return default
 
-    def get_expanded(self, section, option, default=None, type=None, expand_user=True):
+    def get_expanded(self, *args, **kwargs):
         """
-        Same as :py:meth:`get_default`, but also expands environment and user variables when the
-        returned config value is a string. When *expand_user* is *False*, user variables are not
-        expanded.
+        Same as :py:meth:`get_default`, but *expandvars* and *expanduser* arguments are set to
+        *True* by default.
         """
-        value = self.get_default(section, option, default=default, type=type)
-        if isinstance(value, six.string_types):
-            if expand_user:
-                value = os.path.expanduser(value)
-            value = os.path.expandvars(value)
-        return value
+        kwargs.setdefault("expandvars", True)
+        kwargs.setdefault("expanduser", True)
+        return self.get_default(*args, **kwargs)
 
     def update(self, data, overwrite=None, overwrite_sections=True, overwrite_options=True):
         """
@@ -274,7 +300,7 @@ class Config(ConfigParser):
 
 
 # register convenience functions on module-level
-for name in ["get", "get_default", "get_expanded", "keys"]:
+for name in __all__[__all__.index("get"):]:
     def closure(name):
         def func(*args, **kwargs):
             config = Config.instance()
