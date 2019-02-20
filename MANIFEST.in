@@ -1,4 +1,4 @@
-exclude *
-recursive-exclude . *
-recursive-include law *
+graft law
+graft bin
 include setup.py requirements.txt README.rst LICENSE
+global-exclude *.py[cod] __pycache__

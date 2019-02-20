@@ -2,7 +2,7 @@
 
 
 import os
-from setuptools import setup
+from setuptools import setup, find_packages
 from setuptools.command.install import install as _install
 
 
@@ -101,43 +101,8 @@ setup(
     install_requires=install_requires,
     python_requires=">=2.7",
     zip_safe=False,
-    packages=[
-        "law",
-        "law.task",
-        "law.target",
-        "law.sandbox",
-        "law.workflow",
-        "law.job",
-        "law.cli",
-        "law.contrib",
-        "law.contrib.arc",
-        "law.contrib.cms",
-        "law.contrib.dropbox",
-        "law.contrib.git",
-        "law.contrib.glite",
-        "law.contrib.hdf5",
-        "law.contrib.htcondor",
-        "law.contrib.keras",
-        "law.contrib.lsf",
-        "law.contrib.matplotlib",
-        "law.contrib.mercurial",
-        "law.contrib.numpy",
-        "law.contrib.root",
-        "law.contrib.slack",
-        "law.contrib.tasks",
-        "law.contrib.telegram",
-        "law.contrib.tensorflow",
-        "law.contrib.wlcg",
-    ],
-    package_data={
-        "": ["LICENSE", "requirements.txt", "README.rst"],
-        "law": ["polyfills.sh"],
-        "law.job": ["job.sh", "bash_wrapper.sh"],
-        "law.cli": ["law", "completion.sh"],
-        "law.contrib.cms": ["bundle_cmssw.sh", "cmsdashb_hooks.sh", "bin/apmon"],
-        "law.contrib.git": ["bundle_repository.sh", "repository_checksum.sh"],
-        "law.contrib.mercurial": ["bundle_repository.sh", "repository_checksum.sh"],
-    },
+    packages=find_packages(exclude=["tests"]),
+    include_package_data=True,
     cmdclass={"install": install},
     entry_points={"console_scripts": ["law = law.cli:run"]},
 )
