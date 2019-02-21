@@ -11,8 +11,8 @@ __all__ = [
     "flatten", "merge_dicts", "which", "map_verbose", "map_struct", "mask_struct", "tmp_file",
     "interruptable_popen", "readable_popen", "create_hash", "copy_no_perm", "makedirs_perm",
     "user_owns_file", "iter_chunks", "human_bytes", "human_time_diff", "is_file_exists_error",
-    "check_bool_flag", "send_mail", "ShorthandDict", "open_compat", "BaseStream", "TeeStream",
-    "FilteredStream",
+    "check_bool_flag", "send_mail", "ShorthandDict", "open_compat", "patch_object", "BaseStream",
+    "TeeStream", "FilteredStream",
 ]
 
 
@@ -844,6 +844,28 @@ def open_compat(*args, **kwargs):
             f.write = write
 
         return f
+
+
+@contextlib.contextmanager
+def patch_object(obj, attr, value):
+    """
+    Context manager that temporarily patches an object *obj* by replacing its attribute *attr* with
+    *value*. The original value is set again when the context is closed.
+    """
+    orig = getattr(obj, attr, no_value)
+
+    try:
+        setattr(obj, attr, value)
+
+        yield obj
+    finally:
+        try:
+            if orig is no_value:
+                delattr(obj, attr)
+            else:
+                setattr(obj, attr, orig)
+        except:
+            pass
 
 
 class BaseStream(object):
