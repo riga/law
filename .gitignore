@@ -12,4 +12,5 @@ tmp
 docs/_build
 data
 .law
-MANIFEST
+MANIFEST.in
+law_test.cfg
