@@ -41,7 +41,8 @@ class BundleMercurialRepository(Task):
             return self.custom_checksum
 
         if self._checksum is None:
-            cmd = [rel_path(__file__, "repository_checksum.sh"), self.repo_path]
+            checksum_script = rel_path(__file__, "scripts", "repository_checksum.sh")
+            cmd = [checksum_script, self.repo_path]
 
             code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE)
             if code != 0:
@@ -60,7 +61,8 @@ class BundleMercurialRepository(Task):
             self.bundle(tmp.path)
 
     def bundle(self, dst_path):
-        cmd = [rel_path(__file__, "bundle_repository.sh"), self.repo_path, get_path(dst_path)]
+        bundle_script = rel_path(__file__, "scripts", "bundle_repository.sh")
+        cmd = [bundle_script, self.repo_path, get_path(dst_path)]
         cmd += [" ".join(self.exclude_files)]
         cmd += [" ".join(self.include_files)]
 

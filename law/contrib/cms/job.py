@@ -126,7 +126,7 @@ class CMSJobDashboard(BaseJobDashboard):
         }.get(event)
 
     def remote_hook_file(self):
-        return law.util.rel_path(__file__, "cmsdashb_hooks.sh")
+        return law.util.rel_path(__file__, "scripts", "cmsdashb_hooks.sh")
 
     def remote_hook_data(self, job_num, attempt):
         data = [
