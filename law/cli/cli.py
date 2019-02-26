@@ -12,7 +12,7 @@ from argparse import ArgumentParser
 import law
 
 
-progs = ["run", "index", "config", "software", "completion"]
+progs = ["run", "index", "config", "software", "completion", "location"]
 forward_progs = ["run"]
 
 # temporary command to show renaming note

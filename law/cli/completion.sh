@@ -5,11 +5,6 @@
 # For zsh, make sure to enable bash completion scripts via 'compinstall':
 # > autoload -Uz compinstall && compinstall
 
-# run bashcompinit in zsh automatically
-if [ ! -z "$ZSH_VERSION" ]; then
-    autoload -Uz bashcompinit && bashcompinit
-fi
-
 # the law cli completion function
 _law_complete() {
     # determine the directory of this file
@@ -44,12 +39,12 @@ _law_complete() {
 
     # complete the subcommand
     if [ "$COMP_CWORD" = "1" ]; then
-        COMPREPLY=( $( compgen -W "run index config software completion --help --version" -- "$cur" ) )
+        COMPREPLY=( $( compgen -W "run index config software completion location --help --version" -- "$cur" ) )
         return
     fi
     local sub_cmd="${COMP_WORDS[1]}"
 
-    # complete run
+    # complete the "run" subcommand
     if [ "$sub_cmd" = "run" ]; then
         if [ ! -f "$index_file" ]; then
             COMPREPLY=()
@@ -96,7 +91,7 @@ _law_complete() {
         fi
     fi
 
-    # complete index
+    # complete the "index" subcommand
     if [ "$sub_cmd" = "index" ]; then
         local words="modules no-externals remove location verbose help"
         local inp="${cur##-}"
@@ -104,7 +99,7 @@ _law_complete() {
         COMPREPLY=( $( compgen -W "$( echo $words )" -P "--" -- "$inp" ) )
     fi
 
-    # complete software
+    # complete the "software" subcommand
     if [ "$sub_cmd" = "software" ]; then
         local words="location remove help"
         local inp="${cur##-}"
@@ -112,16 +107,36 @@ _law_complete() {
         COMPREPLY=( $( compgen -W "$( echo $words )" -P "--" -- "$inp" ) )
     fi
 
-    # complete config
+    # complete the "config" subcommand
     if [ "$sub_cmd" = "config" ]; then
         local words="remove expand location help"
         local inp="${cur##-}"
         inp="${inp##-}"
         COMPREPLY=( $( compgen -W "$( echo $words )" -P "--" -- "$inp" ) )
     fi
+
+    # complete the "completion" subcommand
+    if [ "$sub_cmd" = "completion" ]; then
+        local words="help"
+        local inp="${cur##-}"
+        inp="${inp##-}"
+        COMPREPLY=( $( compgen -W "$( echo $words )" -P "--" -- "$inp" ) )
+    fi
+
+    # complete the "location" subcommand
+    if [ "$sub_cmd" = "location" ]; then
+        local words="help"
+        local inp="${cur##-}"
+        inp="${inp##-}"
+        COMPREPLY=( $( compgen -W "$( echo $words )" -P "--" -- "$inp" ) )
+    fi
 }
 
-# export the function when in bash, zsh would complain
-[ ! -z "$BASH_VERSION" ] && export -f _law_complete
+# run bashcompinit in zsh, export the completion function in bash
+if [ ! -z "$ZSH_VERSION" ]; then
+    autoload -Uz bashcompinit && bashcompinit
+else
+    export -f _law_complete
+fi
 
 complete -o bashdefault -o default -F _law_complete law
