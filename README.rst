@@ -94,9 +94,9 @@ zsh is able to load and evaluate bash completion scripts via ``bashcompinit``. I
 
    autoload -Uz compinstall && compinstall
 
-After following the instructions, the following lines should be present in your `~/.zshrc`:
+After following the instructions, these lines should be present in your ~/.zshrc:
 
-.. clode-block::
+.. code-block::
 
    # The following lines were added by compinstall
    zstyle :compinstall filename '~/.zshrc'
