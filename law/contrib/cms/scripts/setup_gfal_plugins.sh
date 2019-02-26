@@ -2,7 +2,7 @@
 
 # Sets up gfal plugins for use in a CMSSW environment.
 # In fact, all plugins seem to work out of the box except for the xrootd plugin.
-# Therefore, all other plugins are symlinked into a specified directy, and a precompiled xrootd
+# Therefore, all other plugins are symlinked into a specified directory, and a precompiled xrootd
 # plugin is copied from eos through a CERNBox link.
 # Tested with SCRAM_ARCH's slc{6,7}_amd64_gcc{630,700} and CMSSW 9 and 10.
 
@@ -30,7 +30,7 @@ action() {
                 2>&1 echo "could not detect the default gfal2 plugin directory"
                 return "1"
             fi
-            echo "detected the default gfal2 plugin directy ($src_dir)"
+            echo "detected the default gfal2 plugin directory ($src_dir)"
         fi
     fi
 

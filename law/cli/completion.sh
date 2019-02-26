@@ -7,7 +7,7 @@
 # > autoload -Uz bashcompinit && bashcompinit
 
 _law_complete() {
-    # determine the directy of this file
+    # determine the directory of this file
     if [ ! -z "$ZSH_VERSION" ]; then
         local this_file="${(%):-%x}"
     else

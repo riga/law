@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 
 action() {
-    local base="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+    # determine the directory of this file
+    if [ ! -z "$ZSH_VERSION" ]; then
+        local this_file="${(%):-%x}"
+    else
+        local this_file="${BASH_SOURCE[0]}"
+    fi
+    local base="$( cd "$( dirname "$this_file" )" && pwd )"
     local law_base="$( dirname "$( dirname "$base" )" )"
 
     # setup external software once

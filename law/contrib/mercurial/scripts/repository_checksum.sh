@@ -10,7 +10,12 @@
 
 action() {
     # load polyfills
-    local base="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+    if [ ! -z "$ZSH_VERSION" ]; then
+        local this_file="${(%):-%x}"
+    else
+        local this_file="${BASH_SOURCE[0]}"
+    fi
+    local base="$( cd "$( dirname "$this_file" )" && pwd )"
     source "$base/../../polyfills.sh"
 
     # handle arguments
