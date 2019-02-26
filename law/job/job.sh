@@ -291,7 +291,7 @@ action() {
         echo
 
         echo "dependecy tree:"
-        eval "$cmd --print-deps 2"
+        eval "LAW_LOG_LEVEL=debug $cmd --print-deps 2"
         exec_ret="$?"
         if [ "$?" != "0" ]; then
             2>&1 echo "dependency tree for branch $branch failed with code $exec_ret, abort"

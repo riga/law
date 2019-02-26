@@ -51,7 +51,7 @@ def execute(args):
                     abort("object '{}' is not a Task".format(args.task_family))
                 task_family = task_cls.task_family
         except ImportError as e:
-            logger.debug("import error in module {}: {}".format(modid, e))
+            logger.warning("import error in module {}: {}".format(modid, e))
             error = e
 
     # read task info from the index file and import it
