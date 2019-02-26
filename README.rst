@@ -54,6 +54,9 @@ This command also installs `luigi <https://pypi.python.org/pypi/luigi>`__ and `s
 
 Remote targets also require `gfal2 <http://dmc.web.cern.ch/projects/gfal-2/home>`__ and `gfal2-python <https://pypi.python.org/pypi/gfal2-python>`__ (optional, also via pip) to be installed.
 
+`Usage at CERN <../../wiki/Usage-at-CERN>`__
+--------------------------------------------
+
 
 Examples
 ========
