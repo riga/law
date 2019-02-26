@@ -2,10 +2,15 @@
 
 # bash/zsh completion function that is registered on the law executable.
 # It repeatedly grep's the law index file which is cached by the fileystem.
-# For zsh, make sure to autoload compinstall and bashcompinit:
+# For zsh, make sure to enable bash completion scripts via 'compinstall':
 # > autoload -Uz compinstall && compinstall
-# > autoload -Uz bashcompinit && bashcompinit
 
+# run bashcompinit in zsh automatically
+if [ ! -z "$ZSH_VERSION" ]; then
+    autoload -Uz bashcompinit && bashcompinit
+fi
+
+# the law cli completion function
 _law_complete() {
     # determine the directory of this file
     if [ ! -z "$ZSH_VERSION" ]; then

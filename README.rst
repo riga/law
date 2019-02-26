@@ -74,8 +74,8 @@ Examples
 - `CMS Single Top Analysis <https://github.com/riga/law_example_CMSSingleTopAnalysis>`__: Simple physics analysis using law.
 
 
-Auto Completion
-===============
+Auto completion on the command-line
+===================================
 
 bash
 ----
@@ -88,10 +88,26 @@ bash
 zsh
 ---
 
+zsh is able to load and evaluate bash completion scripts via ``bashcompinit``. In order for ``bashcompinit`` to work, you should run ``compinstall`` to enable completion scripts:
+
 .. code-block:: shell
 
    autoload -Uz compinstall && compinstall
-   autoload -Uz bashcompinit && bashcompinit
+
+After following the instructions, the following lines should be present in your `~/.zshrc`:
+
+.. clode-block::
+
+   # The following lines were added by compinstall
+   zstyle :compinstall filename '~/.zshrc'
+
+   autoload -Uz compinit
+   compinit
+   # End of lines added by compinstall
+
+If this is the case, just source the law completion script (which internally enables ``bashcompinit``) and you're good to go:
+
+.. code-block:: shell
 
    source "$( law completion )"
 
