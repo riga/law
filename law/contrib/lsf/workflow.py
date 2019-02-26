@@ -193,7 +193,14 @@ class LSFWorkflow(BaseRemoteWorkflow):
         return LSFJobManager(**kwargs)
 
     def lsf_create_job_file_factory(self, **kwargs):
-        kwargs = merge_dicts(self.lsf_job_file_factory_defaults, kwargs)
+        # job file fectory config priority: config file < class defaults < kwargs
+        get_prefixed_config = self.workflow_proxy.get_prefixed_config
+        cfg = {
+            "dir": get_prefixed_config("job", "job_file_dir"),
+            "mkdtemp": get_prefixed_config("job", "job_file_dir_mkdtemp", type=bool),
+            "cleanup": get_prefixed_config("job", "job_file_dir_cleanup", type=bool),
+        }
+        kwargs = merge_dicts(cfg, self.lsf_job_file_factory_defaults, kwargs)
         return LSFJobFileFactory(**kwargs)
 
     def lsf_job_config(self, config, job_num, branches):

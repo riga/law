@@ -194,7 +194,14 @@ class ARCWorkflow(BaseRemoteWorkflow):
         return ARCJobManager(**kwargs)
 
     def arc_create_job_file_factory(self, **kwargs):
-        kwargs = merge_dicts(self.arc_job_file_factory_defaults, kwargs)
+        # job file fectory config priority: config file < class defaults < kwargs
+        get_prefixed_config = self.workflow_proxy.get_prefixed_config
+        cfg = {
+            "dir": get_prefixed_config("job", "job_file_dir"),
+            "mkdtemp": get_prefixed_config("job", "job_file_dir_mkdtemp", type=bool),
+            "cleanup": get_prefixed_config("job", "job_file_dir_cleanup", type=bool),
+        }
+        kwargs = merge_dicts(cfg, self.arc_job_file_factory_defaults, kwargs)
         return ARCJobFileFactory(**kwargs)
 
     def arc_job_config(self, config, job_num, branches):

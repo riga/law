@@ -78,6 +78,9 @@ class Config(ConfigParser):
             "job_file_dir": os.getenv("LAW_JOB_FILE_DIR", tempfile.gettempdir()),
             "job_file_dir_mkdtemp": True,
             "job_file_dir_cleanup": True,
+            # contrib
+            # the three options above can be also be set per workflow type (currently htcondor,
+            # lsf, glite, arc) by prefixing the option, e.g. "htcondor_job_file_dir"
         },
         "modules": {},
         "bash_env": {},

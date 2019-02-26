@@ -17,6 +17,7 @@ from abc import abstractmethod
 import luigi
 import six
 
+from law.config import Config
 from law.task.base import Task, ProxyTask, Register
 from law.target.collection import TargetCollection, SiblingFileCollection
 from law.parameter import NO_STR, NO_INT, CSVParameter
@@ -114,6 +115,15 @@ class BaseWorkflowProxy(ProxyTask):
 
         acceptance = self.task.acceptance
         return (acceptance * n) if acceptance <= 1 else acceptance
+
+    def get_prefixed_config(self, section, option, **kwargs):
+        """
+        TODO.
+        """
+        cfg = Config.instance()
+        default = cfg.get_expanded(section, option, **kwargs)
+        return cfg.get_expanded(section, "{}_{}".format(self.workflow_type, option),
+            default=default, **kwargs)
 
 
 def workflow_property(func):
