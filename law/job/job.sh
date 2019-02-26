@@ -36,24 +36,24 @@ action() {
 
 
     #
-    # create a new home and tmp dirs, and change into the new home dir and copy all input files
+    # create a job home directory and tmp dirs, change into the job home dir, copy all input files
     #
 
     local job_hash="$( python -c "import uuid; print(str(uuid.uuid4())[-12:])" )"
-    export HOME="$LAW_JOB_INIT_DIR/job_${job_hash}"
-    export TMP="$HOME/tmp"
+    export LAW_JOB_HOME="$LAW_JOB_INIT_DIR/job_${job_hash}"
+    export TMP="$LAW_JOB_HOME/tmp"
     export TEMP="$TMP"
     export TMPDIR="$TMP"
     export LAW_TARGET_TMP_DIR="$TMP"
 
-    mkdir -p "$HOME"
+    mkdir -p "$LAW_JOB_HOME"
     mkdir -p "$TMP"
 
     if [ ! -z "{{input_files}}" ]; then
-        cp {{input_files}} "$HOME/"
+        cp {{input_files}} "$LAW_JOB_HOME/"
     fi
 
-    cd "$HOME"
+    cd "$LAW_JOB_HOME"
 
 
     #
@@ -148,9 +148,9 @@ action() {
         cd "$LAW_JOB_INIT_DIR"
 
         echo "pre cleanup"
-        echo "ls -la $HOME:"
-        ls -la "$HOME"
-        rm -rf "$HOME"
+        echo "ls -la $LAW_JOB_HOME:"
+        ls -la "$LAW_JOB_HOME"
+        rm -rf "$LAW_JOB_HOME"
 
         echo
 
@@ -166,14 +166,14 @@ action() {
 
     section "environment"
 
-    echo "script: $0"
-    echo "shell : '$SHELL'"
-    echo "args  : '$@'"
-    echo "init  : '$LAW_JOB_INIT_DIR'"
-    echo "home  : '$HOME'"
-    echo "tmp   : '$( python -c "from tempfile import gettempdir; print(gettempdir())" )'"
-    echo "pwd   : '$( pwd )'"
-    echo "python: '$( 2>&1 python --version )' ($( which python ))"
+    echo "script  : $0"
+    echo "shell   : '$SHELL'"
+    echo "args    : '$@'"
+    echo "init    : '$LAW_JOB_INIT_DIR'"
+    echo "job home: '$LAW_JOB_HOME'"
+    echo "tmp     : '$( python -c "from tempfile import gettempdir; print(gettempdir())" )'"
+    echo "pwd     : '$( pwd )'"
+    echo "python  : '$( 2>&1 python --version )' ($( which python ))"
     echo
     echo "task module   : $task_module"
     echo "task family   : $task_class"
