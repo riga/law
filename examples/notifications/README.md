@@ -51,7 +51,7 @@ telegram_mention_user: ... (optional, a telegram user name to @mention in the no
 ##### Telegram
 
 1. Start chat with Telegram admin bot "@BotFather".
-2. Type `\newbot` and follow instructions to get a bot token.
+2. Type `/newbot` and follow instructions to get a bot token.
 3. Start a new chat with your newly created bot ("@<bot_name>") and write a message. The content is not important.
 4. Visit [api.telegram.org/bot\<bot_token\>/getUpdates](https://api.telegram.org/bot<bot_token>/getUpdates). It will show the last JSON encoded messages. Your chat ID is shown in `result[0].chat.id`.
 
