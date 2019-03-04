@@ -12,7 +12,6 @@ import os
 import time
 import re
 import subprocess
-import getpass
 import logging
 
 from law.job.base import BaseJobManager, BaseJobFileFactory
@@ -25,9 +24,7 @@ logger = logging.getLogger(__name__)
 class HTCondorJobManager(BaseJobManager):
 
     submission_job_id_cre = re.compile(r"^(\d+) job\(s\) submitted to cluster (\d+)\.$")
-    status_header_cre = re.compile(r"^\s*ID\s+.+$")
-    status_line_cre = re.compile(r"^(\d+\.\d+)" + 4 * r"\s+[^\s]+" + r"\s+([UIRXCHE])\s+.*$")
-    history_block_cre = re.compile(r"(\w+) \= \"?(.*)\"?\n")
+    long_block_cre = re.compile(r"(\w+) \= \"?(.*)\"?\n")
 
     def __init__(self, pool=None, scheduler=None, threads=1):
         super(HTCondorJobManager, self).__init__()
@@ -38,6 +35,9 @@ class HTCondorJobManager(BaseJobManager):
 
         # determine the htcondor version once
         self.htcondor_version = self.get_htcondor_version()
+
+        # flags for versions with some important changes
+        self.htcondor_v856 = self.htcondor_version and self.htcondor_version >= (8, 5, 6)
 
     @classmethod
     def get_htcondor_version(cls):
@@ -132,16 +132,23 @@ class HTCondorJobManager(BaseJobManager):
         multi = isinstance(job_id, (list, tuple))
         job_ids = make_list(job_id)
 
-        # query the condor queue
-        cmd = ["condor_q"]
-        # since htcondor 8.5.6, batch mode is default, so use -nobatch
-        if self.htcondor_version and self.htcondor_version >= (8, 5, 6):
+        # default ClassAds to getch
+        ads = "ClusterId,ProcId,JobStatus,ExitCode,ExitStatus,HoldReason,RemoveReason"
+
+        # build the condor_q command
+        cmd = ["condor_q"] + job_ids
+        # batch mode is default since v8.5.6, so use -nobatch
+        if self.htcondor_v856:
             cmd += ["-nobatch"]
         if pool:
             cmd += ["-pool", pool]
         if scheduler:
             cmd += ["-name", scheduler]
-        cmd += job_ids
+        cmd += ["-long"]
+        # since v8.5.6, one can define the attributes to fetch
+        if self.htcondor_version and self.htcondor_version >= (8, 5, 6):
+            cmd += ["-attributes", ads]
+
         logger.debug("query htcondor job(s) with command '{}'".format(cmd))
         code, out, err = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
@@ -154,21 +161,22 @@ class HTCondorJobManager(BaseJobManager):
                     job_id, err))
 
         # parse the output and extract the status per job
-        query_data = self.parse_queue_output(out)
+        query_data = self.parse_long_output(out)
 
-        # find missing jobs, and query the condor history for the exit code
+        # some jobs might already be in the condor history, so query for missing job ids
         missing_ids = [_job_id for _job_id in job_ids if _job_id not in query_data]
         if missing_ids:
-            cmd = ["condor_history"]
-            cmd += [user or getpass.getuser()] if multi else [job_id]
-            cmd += ["-long"]
-            # since htcondor 8.5.6, one can define the attributes to fetch
-            if self.htcondor_version and self.htcondor_version >= (8, 5, 6):
-                cmd += ["-attributes", "ClusterId,ProcId,ExitCode,RemoveReason,HoldReason"]
+            # build the condor_history command, which is fairly similar to the condor_q command
+            cmd = ["condor_history"] + missing_ids
             if pool:
                 cmd += ["-pool", pool]
             if scheduler:
                 cmd += ["-name", scheduler]
+            cmd += ["-long"]
+            # since v8.5.6, one can define the attributes to fetch
+            if self.htcondor_version and self.htcondor_version >= (8, 5, 6):
+                cmd += ["-attributes", ads]
+
             logger.debug("query htcondor job history with command '{}'".format(cmd))
             code, out, err = interruptable_popen(cmd, stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE)
@@ -182,7 +190,7 @@ class HTCondorJobManager(BaseJobManager):
                         job_id, err))
 
             # parse the output and update query data
-            query_data.update(self.parse_history_output(out, job_ids=missing_ids))
+            query_data.update(self.parse_long_output(out, job_ids=missing_ids))
 
         # compare to the requested job ids and perform some checks
         for _job_id in job_ids:
@@ -200,35 +208,11 @@ class HTCondorJobManager(BaseJobManager):
         return query_data if multi else query_data[job_id]
 
     @classmethod
-    def parse_queue_output(cls, out):
-        query_data = {}
-
-        header = None
-        for line in out.strip().split("\n"):
-            if cls.status_header_cre.match(line):
-                header = line
-            elif header:
-                m = cls.status_line_cre.match(line)
-                if m:
-                    job_id = m.group(1)
-                    status_flag = m.group(2)
-
-                    # map the status
-                    status = cls.map_status(status_flag)
-
-                    # save the result
-                    query_data[job_id] = cls.job_status_dict(job_id=job_id, status=status)
-                else:
-                    break
-
-        return query_data
-
-    @classmethod
-    def parse_history_output(cls, out, job_ids=None):
+    def parse_long_output(cls, out, job_ids=None):
         # retrieve information per block mapped to the job id
         query_data = {}
         for block in out.strip().split("\n\n"):
-            data = dict(cls.history_block_cre.findall(block + "\n"))
+            data = dict(cls.long_block_cre.findall(block + "\n"))
             if not data:
                 continue
 
@@ -237,16 +221,20 @@ class HTCondorJobManager(BaseJobManager):
                 continue
             job_id = "{ClusterId}.{ProcId}".format(**data)
 
-            # interpret data
-            code = data.get("ExitCode") and int(data["ExitCode"])
+            # get the job status code
+            status = cls.map_status(data.get("JobStatus"))
+
+            # get the exit code
+            code = data.get("ExitCode") or data.get("ExitStatus")
+            if code:
+                code = int(code)
+
+            # get the error message (if any)
             error = data.get("HoldReason") or data.get("RemoveReason")
 
-            # special cases
+            # sometimes the exit code is 0 or empty, while an error message is given
             if error and code in (0, None):
                 code = 1
-
-            # in condor_history, the status can only be finished or failed
-            status = cls.FINISHED if code == 0 else cls.FAILED
 
             # store it
             query_data[job_id] = cls.job_status_dict(job_id=job_id, status=status, code=code,
@@ -257,13 +245,13 @@ class HTCondorJobManager(BaseJobManager):
     @classmethod
     def map_status(cls, status_flag):
         # see http://pages.cs.wisc.edu/~adesmet/status.html
-        if status_flag in ("U", "I"):
+        if status_flag in ("0", "1", "U", "I"):
             return cls.PENDING
-        elif status_flag in ("R",):
+        elif status_flag in ("2", "R"):
             return cls.RUNNING
-        elif status_flag in ("C",):
+        elif status_flag in ("4", "C"):
             return cls.FINISHED
-        elif status_flag in ("H", "E"):
+        elif status_flag in ("5", "6", "H", "E"):
             return cls.FAILED
         else:
             return cls.FAILED
