@@ -119,11 +119,11 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         # we can use condor's file stageout only when the output directory is local
         # otherwise, one should use the stageout_file and stageout manually
         output_dir = task.htcondor_output_directory()
-        if not isinstance(output_dir, LocalDirectoryTarget):
-            del config.output_files[:]
-        else:
+        if isinstance(output_dir, LocalDirectoryTarget):
             config.absolute_paths = True
             config.custom_content.append(("initialdir", output_dir.path))
+        else:
+            del config.output_files[:]
 
         # task hook
         config = task.htcondor_job_config(config, job_num, branches)

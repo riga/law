@@ -9,6 +9,7 @@ __all__ = ["HTCondorJobManager", "HTCondorJobFileFactory"]
 
 
 import os
+import stat
 import time
 import re
 import subprocess
@@ -137,9 +138,6 @@ class HTCondorJobManager(BaseJobManager):
 
         # build the condor_q command
         cmd = ["condor_q"] + job_ids
-        # batch mode is default since v8.5.6, so use -nobatch
-        if self.htcondor_v856:
-            cmd += ["-nobatch"]
         if pool:
             cmd += ["-pool", pool]
         if scheduler:
@@ -225,16 +223,18 @@ class HTCondorJobManager(BaseJobManager):
             status = cls.map_status(data.get("JobStatus"))
 
             # get the exit code
-            code = data.get("ExitCode") or data.get("ExitStatus")
-            if code:
-                code = int(code)
+            code = int(data.get("ExitCode") or data.get("ExitStatus") or "0")
 
             # get the error message (if any)
             error = data.get("HoldReason") or data.get("RemoveReason")
 
-            # sometimes the exit code is 0 or empty, while an error message is given
-            if error and code in (0, None):
-                code = 1
+            # handle inconsistencies between status, code and the presence of an error message
+            if code != 0:
+                if status != cls.FAILED:
+                    status = cls.FAILED
+                    if not error:
+                        error = "job status set to '{}' due to non-zero exit code {}".format(
+                            cls.FAILED, code)
 
             # store it
             query_data[job_id] = cls.job_status_dict(job_id=job_id, status=status, code=code,
@@ -314,6 +314,17 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
             return path
 
         c.input_files = list(map(prepare_input, c.input_files))
+
+        # make the executable file executable for the user
+        if executable_is_file:
+            for input_file in c.input_files:
+                if os.path.basename(input_file) == c.executable:
+                    if not c.absolute_paths:
+                        input_file = os.path.join(c.dir, input_file)
+                    if not os.path.exists(input_file):
+                        raise IOError("could not find input file '{}'".format(input_file))
+                    os.chmod(input_file, os.stat(input_file).st_mode | stat.S_IXUSR)
+                    break
 
         # output files
         if c.postfix_output_files:
