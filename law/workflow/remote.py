@@ -340,8 +340,6 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             self.submission_data.update(self._outputs["submission"].load(formatter="json"))
             task.tasks_per_job = self.submission_data.tasks_per_job
             self.dashboard.apply_config(self.submission_data.dashboard_config)
-            for job_num in self.submission_data.jobs:
-                self.job_retries[job_num] = -1
 
         # when the branch outputs, i.e. the "collection" exists, just create dummy control outputs
         if "collection" in self._outputs and self._outputs["collection"].exists():
