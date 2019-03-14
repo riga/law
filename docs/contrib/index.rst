@@ -8,7 +8,11 @@ To use on of the following packages in your code, you must import them explicitl
 .. code-block:: python
 
    import law
+
    import law.contrib.git
+   import law.contrib.htcondor
+   # or
+   law.contrib.load("git", "htcondor")
 
 
 .. toctree::
