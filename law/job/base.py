@@ -5,7 +5,7 @@ Base classes for implementing remote job management and job file creation.
 """
 
 
-__all__ = ["BaseJobManager", "BaseJobFileFactory", "JobArguments"]
+__all__ = ["BaseJobManager", "BaseJobFileFactory", "JobFileContent", "JobArguments"]
 
 
 import os
@@ -15,6 +15,7 @@ import tempfile
 import fnmatch
 import base64
 import re
+from collections import OrderedDict
 from multiprocessing.pool import ThreadPool
 from abc import ABCMeta, abstractmethod
 
@@ -644,6 +645,36 @@ class BaseJobFileFactory(object):
         and *render_variables* may be passed to :py:meth:`provide_input`.
         """
         return
+
+
+class JobFileContent(OrderedDict):
+    """
+    Simple container object for storing job file content. The object is basically an ``OrderedDict``
+    with an additional :py:meth:`append` method that takes a single value of a 2-tuple containing
+    a key-value pair. Example:
+
+    .. code-block:: python
+
+        content = JobFileContent()
+
+        content["key"] = "value"
+        # same as
+        content.append(("key", "value"))
+
+        content["key"] = None
+        # same as
+        content.append("key")
+    """
+
+    def append(self, item):
+        """
+        Adds a new *item* to the job content. If *item* is a tuple with length 2, it is intepreted
+        as a key-value pair. Otherwise, it is considered a key with a value of *None*.
+        """
+        if isinstance(item, tuple) and len(item) == 2:
+            self[item[0]] = item[1]
+        else:
+            self[item] = None
 
 
 class JobArguments(object):
