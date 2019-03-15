@@ -15,7 +15,9 @@ import re
 import subprocess
 import logging
 
-from law.job.base import BaseJobManager, BaseJobFileFactory
+import six
+
+from law.job.base import BaseJobManager, BaseJobFileFactory, JobFileContent
 from law.util import interruptable_popen, make_list
 
 
@@ -282,7 +284,9 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
         self.stdout = stdout
         self.stderr = stderr
         self.notification = notification
-        self.custom_content = custom_content
+        self.custom_content = JobFileContent()
+        if custom_content:
+            self.custom_content.update(custom_content)
         self.absolute_paths = absolute_paths
 
     def create(self, postfix=None, render_variables=None, **kwargs):
@@ -334,39 +338,39 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
             c.stderr = c.stdout and self.postfix_file(c.stderr, postfix)
 
         # job file content
-        content = []
-        content.append(("universe", c.universe))
-        content.append(("executable", c.executable))
+        content = JobFileContent()
+        content["universe"] = c.universe
+        content["executable"] = c.executable
         if c.log:
-            content.append(("log", c.log))
+            content["log"] = c.log
         if c.stdout:
-            content.append(("output", c.stdout))
+            content["output"] = c.stdout
         if c.stderr:
-            content.append(("error", c.stderr))
+            content["error"] = c.stderr
         if c.input_files or c.output_files:
-            content.append(("should_transfer_files", "YES"))
+            content["should_transfer_files"] = "YES"
         if c.input_files:
-            content.append(("transfer_input_files", c.input_files))
+            content["transfer_input_files"] = c.input_files
         if c.output_files:
-            content.append(("transfer_output_files", c.output_files))
-            content.append(("when_to_transfer_output", "ON_EXIT"))
+            content["transfer_output_files"] = c.output_files
+            content["when_to_transfer_output"] = "ON_EXIT"
         if c.notification:
-            content.append(("notification", c.notification))
+            content["notification"] = c.notification
 
         # add custom content
         if c.custom_content:
-            content += c.custom_content
+            content.update(c.custom_content)
 
         # finally arguments and queuing statements
         if c.arguments:
             for _arguments in make_list(c.arguments):
-                content.append(("arguments", _arguments))
+                content["arguments"] = _arguments
                 content.append("queue")
 
         # write the job file
         with open(job_file, "w") as f:
-            for obj in content:
-                line = self.create_line(*make_list(obj))
+            for key, value in six.iteritems(content):
+                line = self.create_line(key, value)
                 f.write(line + "\n")
 
         logger.debug("created htcondor job file at '{}'".format(job_file))
