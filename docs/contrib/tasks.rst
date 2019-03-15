@@ -7,14 +7,14 @@ tasks
 
 
 Task ``TransferLocalFile``
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+--------------------------
 
 .. autoclass:: TransferLocalFile
    :members:
 
 
 Task ``CascadeMerge``
-^^^^^^^^^^^^^^^^^^^^^
+---------------------
 
 .. autoclass:: CascadeMerge
    :members:

@@ -7,56 +7,56 @@ law.task.base
 
 
 Class ``BaseRegister``
-^^^^^^^^^^^^^^^^^^^^^^
+----------------------
 
 .. autoclass:: BaseRegister
    :members:
 
 
 Class ``BaseTask``
-^^^^^^^^^^^^^^^^^^
+------------------
 
 .. autoclass:: BaseTask
    :members:
 
 
 Class ``Register``
-^^^^^^^^^^^^^^^^^^
+------------------
 
 .. autoclass:: Register
    :members:
 
 
 Class ``Task``
-^^^^^^^^^^^^^^
+--------------
 
 .. autoclass:: Task
    :members:
 
 
 Class ``WrapperTask``
-^^^^^^^^^^^^^^^^^^^^^
+---------------------
 
 .. autoclass:: WrapperTask
    :members:
 
 
 Class ``ExternalTask``
-^^^^^^^^^^^^^^^^^^^^^^
+----------------------
 
 .. autoclass:: ExternalTask
    :members:
 
 
 Class ``ProxyTask``
-^^^^^^^^^^^^^^^^^^^
+-------------------
 
 .. autoclass:: ProxyTask
    :members:
 
 
 Functions
-^^^^^^^^^
+---------
 
 .. autofunction:: getreqs
 

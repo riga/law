@@ -7,7 +7,7 @@ law.sandbox.docker
 
 
 Class ``DockerSandbox``
-^^^^^^^^^^^^^^^^^^^^^^^
+-----------------------
 
 .. autoclass:: DockerSandbox
    :members:

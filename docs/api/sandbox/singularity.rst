@@ -7,7 +7,7 @@ law.sandbox.singularity
 
 
 Class ``SingularitySandbox``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+----------------------------
 
 .. autoclass:: SingularitySandbox
    :members:

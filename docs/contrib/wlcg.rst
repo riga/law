@@ -7,35 +7,35 @@ wlcg
 
 
 Class ``WLCGFileSystem``
-^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------
 
 .. autoclass:: WLCGFileSystem
    :members:
 
 
 Class ``WLCGTarget``
-^^^^^^^^^^^^^^^^^^^^
+--------------------
 
 .. autoclass:: WLCGTarget
    :members:
 
 
 Class ``WLCGFileTarget``
-^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------
 
 .. autoclass:: WLCGFileTarget
    :members:
 
 
 Class ``WLCGDirectoryTarget``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-----------------------------
 
 .. autoclass:: WLCGDirectoryTarget
    :members:
 
 
 Functions
-^^^^^^^^^
+---------
 
 .. autofunction:: get_voms_proxy_file
 

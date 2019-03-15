@@ -7,7 +7,7 @@ law.sandbox.bash
 
 
 Class ``BashSandbox``
-^^^^^^^^^^^^^^^^^^^^^
+---------------------
 
 .. autoclass:: BashSandbox
    :members:

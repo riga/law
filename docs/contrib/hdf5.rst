@@ -7,7 +7,7 @@ hdf5
 
 
 Class ``H5pyFormatter``
-^^^^^^^^^^^^^^^^^^^^^^^
+-----------------------
 
 .. autoclass:: H5pyFormatter
    :members:

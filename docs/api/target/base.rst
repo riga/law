@@ -7,7 +7,7 @@ law.target.base
 
 
 Class ``Target``
-^^^^^^^^^^^^^^^^
+----------------
 
 .. autoclass:: Target
    :members:

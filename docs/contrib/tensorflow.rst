@@ -7,7 +7,7 @@ tensorflow
 
 
 Class ``TFConstantGraphFormatter``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+----------------------------------
 
 .. autoclass:: TFConstantGraphFormatter
    :members:

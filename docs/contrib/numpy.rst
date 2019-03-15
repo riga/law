@@ -7,7 +7,7 @@ numpy
 
 
 Class ``NumpyFormatter``
-^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------
 
 .. autoclass:: NumpyFormatter
    :members:

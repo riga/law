@@ -7,14 +7,14 @@ law.target.collection
 
 
 Class ``TargetCollection``
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+--------------------------
 
 .. autoclass:: TargetCollection
    :members:
 
 
 Class ``SiblingFileCollection``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-------------------------------
 
 .. autoclass:: SiblingFileCollection
    :members:

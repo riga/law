@@ -7,14 +7,14 @@ law.job.dashboard
 
 
 Class ``BaseJobDashboard``
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+--------------------------
 
 .. autoclass:: BaseJobDashboard
    :members:
 
 
 Class ``NoJobDashboard``
-^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------
 
 .. autoclass:: NoJobDashboard
    :members:

@@ -99,7 +99,7 @@ zsh is able to load and evaluate bash completion scripts via ``bashcompinit``. I
 
 After following the instructions, these lines should be present in your ~/.zshrc:
 
-.. code-block::
+.. code-block:: shell
 
    # The following lines were added by compinstall
    zstyle :compinstall filename '~/.zshrc'

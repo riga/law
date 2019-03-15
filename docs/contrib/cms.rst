@@ -7,14 +7,14 @@ cms
 
 
 Class ``CMSJobDashboard``
-^^^^^^^^^^^^^^^^^^^^^^^^^
+-------------------------
 
 .. autoclass:: CMSJobDashboard
    :members:
 
 
 Task ``BundleCMSSW``
-^^^^^^^^^^^^^^^^^^^^
+--------------------
 
 .. autoclass:: BundleCMSSW
    :members:

@@ -7,21 +7,21 @@ lsf
 
 
 Class ``LSFWorkflow``
-^^^^^^^^^^^^^^^^^^^^^
+---------------------
 
 .. autoclass:: LSFWorkflow
    :members:
 
 
 Class ``LSFJobManager``
-^^^^^^^^^^^^^^^^^^^^^^^
+-----------------------
 
 .. autoclass:: LSFJobManager
    :members:
 
 
 Class ``LSFJobFileFactory``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+---------------------------
 
 .. autoclass:: LSFJobFileFactory
    :members:

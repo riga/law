@@ -7,7 +7,7 @@ matplotlib
 
 
 Class ``MatplotlibFormatter``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-----------------------------
 
 .. autoclass:: MatplotlibFormatter
    :members:

@@ -7,28 +7,28 @@ law.job.base
 
 
 Class ``BaseJobManager``
-^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------
 
 .. autoclass:: BaseJobManager
    :members:
 
 
 Class ``BaseJobFileFactory``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+----------------------------
 
 .. autoclass:: BaseJobFileFactory
    :members:
 
 
 Class ``JobFileContent``
-^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------
 
 .. autoclass:: JobFileContent
    :members:
 
 
 Class ``JobArguments``
-^^^^^^^^^^^^^^^^^^^^^^
+----------------------
 
 .. autoclass:: JobArguments
    :members:

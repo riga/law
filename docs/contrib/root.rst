@@ -7,21 +7,21 @@ root
 
 
 Class ``ROOTFormatter``
-^^^^^^^^^^^^^^^^^^^^^^^
+-----------------------
 
 .. autoclass:: ROOTFormatter
    :members:
 
 
 Class ``ROOTNumpyFormatter``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+----------------------------
 
 .. autoclass:: ROOTNumpyFormatter
    :members:
 
 
 Class ``UprootFormatter``
-^^^^^^^^^^^^^^^^^^^^^^^^^
+-------------------------
 
 .. autoclass:: UprootFormatter
    :members:

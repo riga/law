@@ -7,21 +7,21 @@ law.workflow.base
 
 
 Class ``BaseWorkflow``
-^^^^^^^^^^^^^^^^^^^^^^
+----------------------
 
 .. autoclass:: BaseWorkflow
    :members:
 
 
 Class ``BaseWorkflowProxy``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+---------------------------
 
 .. autoclass:: BaseWorkflowProxy
    :members:
 
 
 Functions
-^^^^^^^^^
+---------
 
 .. autofunction:: workflow_property
 

@@ -7,7 +7,7 @@ git
 
 
 Task ``BundleGitRepository``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+----------------------------
 
 .. autoclass:: BundleGitRepository
    :members:

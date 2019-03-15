@@ -7,7 +7,7 @@ mercurial
 
 
 Task ``BundleMercurialRepository``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+----------------------------------
 
 .. autoclass:: BundleMercurialRepository
    :members:

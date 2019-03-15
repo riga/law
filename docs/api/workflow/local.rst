@@ -7,14 +7,14 @@ law.workflow.local
 
 
 Class ``LocalWorkflow``
-^^^^^^^^^^^^^^^^^^^^^^^
+-----------------------
 
 .. autoclass:: LocalWorkflow
    :members:
 
 
 Class ``LocalWorkflowProxy``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+----------------------------
 
 .. autoclass:: LocalWorkflowProxy
    :members:
