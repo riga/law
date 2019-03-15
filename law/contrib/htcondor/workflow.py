@@ -17,7 +17,7 @@ import luigi
 
 from law import LocalDirectoryTarget, NO_STR, get_param
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
-from law.job.base import JobFileContent, JobArguments
+from law.job.base import JobArguments
 from law.contrib.htcondor.job import HTCondorJobManager, HTCondorJobFileFactory
 from law.target.file import get_path
 from law.parser import global_cmdline_args, add_cmdline_arg, remove_cmdline_arg
@@ -103,7 +103,7 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         config.output_files = []
 
         # custom content
-        config.custom_content = JobFileContent()
+        config.custom_content = []
 
         # logging
         # we do not use condor's logging mechanism since it requires that the submission directory
@@ -121,7 +121,7 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         output_dir = task.htcondor_output_directory()
         if isinstance(output_dir, LocalDirectoryTarget):
             config.absolute_paths = True
-            config.custom_content["initialdir"] = output_dir.path
+            config.custom_content.append(("initialdir", output_dir.path))
         else:
             del config.output_files[:]
 
