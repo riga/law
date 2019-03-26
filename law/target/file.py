@@ -183,6 +183,10 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
     def fs(self):
         return
 
+    @abstractmethod
+    def touch(self):
+        return
+
 
 class FileSystemFileTarget(FileSystemTarget):
 

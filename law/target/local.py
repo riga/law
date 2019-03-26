@@ -72,25 +72,27 @@ class LocalFileSystem(FileSystem):
                 os.remove(path)
 
     def mkdir(self, path, perm=None, recursive=True, silent=True, **kwargs):
-        if not self.exists(path) or not silent:
-            # the mode passed to os.mkdir or os.makedirs is ignored on some systems, so the strategy
-            # here is to disable the process' current umask, create the directories and use chmod
-            if perm is not None:
-                orig = os.umask(0)
+        if self.exists(path):
+            return
 
+        # the mode passed to os.mkdir or os.makedirs is ignored on some systems, so the strategy
+        # here is to disable the process' current umask, create the directories and use chmod again
+        if perm is not None:
+            orig = os.umask(0)
+
+        try:
+            args = (self._unscheme(path),)
+            if perm is not None:
+                args += (perm,)
             try:
-                args = (self._unscheme(path),)
-                if perm is not None:
-                    args += (perm,)
-                try:
-                    (os.makedirs if recursive else os.mkdir)(*args)
-                except Exception as e:
-                    if not is_file_exists_error(e):
-                        raise
-                self.chmod(path, perm)
-            finally:
-                if perm is not None:
-                    os.umask(orig)
+                (os.makedirs if recursive else os.mkdir)(*args)
+            except Exception as e:
+                if not silent and not is_file_exists_error(e):
+                    raise
+            self.chmod(path, perm)
+        finally:
+            if perm is not None:
+                os.umask(orig)
 
     def listdir(self, path, pattern=None, type=None, **kwargs):
         path = self._unscheme(path)
