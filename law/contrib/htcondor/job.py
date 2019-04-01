@@ -245,7 +245,7 @@ class HTCondorJobManager(BaseJobManager):
     @classmethod
     def map_status(cls, status_flag):
         # see http://pages.cs.wisc.edu/~adesmet/status.html
-        if status_flag in ("0", "1", "U", "I"):
+        if status_flag in ("0", "1", "7", "U", "I"):
             return cls.PENDING
         elif status_flag in ("2", "R"):
             return cls.RUNNING
