@@ -368,25 +368,35 @@ def map_verbose(func, seq, msg="{}", every=25, start=True, end=True, offset=0, c
     return results
 
 
-def map_struct(func, struct, cls=None, map_dict=True, map_list=True, map_tuple=False,
-        map_set=False):
+def map_struct(func, struct, map_dict=True, map_list=True, map_tuple=False, map_set=False,
+        cls=None, custom_mappings=None):
     """
     Applies a function *func* to each value of a complex structured object *struct* and returns the
     output in the same structure. Example:
 
     .. code-block:: python
 
-       struct = {"foo": [123, 456], "bar": [{"1": 1}, {"2": 2}]}
-       def times_two(i):
-           return i * 2
+        struct = {"foo": [123, 456], "bar": [{"1": 1}, {"2": 2}]}
+        def times_two(i):
+            return i * 2
 
-       map_struct(struct, times_two)
-       # -> {"foo": [246, 912], "bar": [{"1": 2}, {"2": 4}]}
+        map_struct(times_two, struct)
+        # -> {"foo": [246, 912], "bar": [{"1": 2}, {"2": 4}]}
 
-    When *cls* is not *None*, it exclusively defines the class of objects that *func* is applied on.
-    All other objects are unchanged. *map_dict*, *map_list*, *map_tuple* and *map_set* configure if
-    objects of the respective types are traversed or mapped. The can be booleans or integer values
-    that define the depth of that setting in the struct.
+    *map_dict*, *map_list*, *map_tuple* and *map_set* configure if objects of the respective types
+    are traversed or mapped as a whole. They can be booleans or integer values defining the depth of
+    that setting in the struct. When *cls* is not *None*, it exclusively defines the class of
+    objects that *func* is applied on. All other objects are unchanged. *custom_mappings* key be a
+    dictionary that maps custom types to custom object traversal methods. The following example
+    would tranverse lists backwards:
+
+    .. code-block:: python
+
+        def traverse_lists(func, l, **kwargs):
+            return [map_struct(func, v, **kwargs) for v in l[::-1]]
+
+        map_struct(times_two, struct, custom_mappings={list: traverse_lists})
+        # -> {"foo": [912, 246], "bar": [{"1": 2}, {"2": 4}]}
     """
     # interpret generators and views as lists
     if is_lazy_iterable(struct):
@@ -410,9 +420,17 @@ def map_struct(func, struct, cls=None, map_dict=True, map_list=True, map_tuple=F
         if isinstance(map_set, int) and not isinstance(map_set, bool):
             map_set -= 1
 
-    # is an instance of cls?
-    if cls is not None and isinstance(struct, cls):
-        return func(struct)
+    # is an explicit cls set?
+    if cls is not None:
+        return func(struct) if isinstance(struct, cls) else struct
+
+    # custom mapping?
+    elif custom_mappings and isinstance(struct, tuple(flatten(custom_mappings.keys()))):
+        # get the mapping function
+        for mapping_types, mapping_func in six.iteritems(custom_mappings):
+            if isinstance(struct, mapping_types):
+                return mapping_func(func, struct, map_dict=map_dict, map_list=map_list,
+                    map_tuple=map_tuple, map_set=map_set, cls=cls, custom_mappings=custom_mappings)
 
     # traverse?
     elif isinstance(struct, valid_types):
@@ -432,8 +450,8 @@ def map_struct(func, struct, cls=None, map_dict=True, map_list=True, map_tuple=F
 
         # recursively fill the new struct
         for key, value in gen:
-            value = map_struct(func, value, cls=cls, map_dict=map_dict, map_list=map_list,
-                map_tuple=map_tuple, map_set=map_set)
+            value = map_struct(func, value, map_dict=map_dict, map_list=map_list,
+                map_tuple=map_tuple, map_set=map_set, cls=cls, custom_mappings=custom_mappings)
             add(key, value)
 
         # convert tuples
@@ -442,11 +460,7 @@ def map_struct(func, struct, cls=None, map_dict=True, map_list=True, map_tuple=F
 
         return new_struct
 
-    # when cls is set, just return
-    elif cls is not None:
-        return struct
-
-    # apply func
+    # apply the mapping function on everything else
     else:
         return func(struct)
 
