@@ -14,6 +14,7 @@ import logging
 from abc import ABCMeta, abstractmethod, abstractproperty
 from contextlib import contextmanager
 from fnmatch import fnmatch
+from collections import OrderedDict
 
 import luigi
 import six
@@ -37,6 +38,12 @@ _sandbox_switched = os.getenv("LAW_SANDBOX_SWITCHED", "") == "1"
 _sandbox_stagein_dir = os.getenv("LAW_SANDBOX_STAGEIN_DIR", "")
 
 _sandbox_stageout_dir = os.getenv("LAW_SANDBOX_STAGEOUT_DIR", "")
+
+_sandbox_task_id = os.getenv("LAW_SANDBOX_WORKER_TASK", "")
+
+# the task id must be set when in a sandbox
+if not _sandbox_task_id and _sandbox_switched:
+    raise Exception("LAW_SANDBOX_WORKER_TASK must be set in a sandbox")
 
 
 class StageInfo(object):
@@ -133,11 +140,21 @@ class Sandbox(object):
 
         return image_section if cfg.has_section(image_section) else section
 
-    def get_config_env(self):
+    def _get_env(self):
+        # environment variables to set
+        env = OrderedDict()
+
+        # default sandboxing variables
+        env["LAW_SANDBOX"] = self.key
+        env["LAW_SANDBOX_SWITCHED"] = "1"
+        if getattr(self.task, "_worker_id", None):
+            env["LAW_SANDBOX_WORKER_ID"] = self.task._worker_id
+        if getattr(self.task, "_worker_task", None):
+            env["LAW_SANDBOX_WORKER_TASK"] = self.task._worker_task
+
+        # variables from the config file
         cfg = Config.instance()
         section = self.get_config_section(postfix="env")
-
-        env = {}
         for name, value in cfg.items(section):
             if "*" in name or "?" in name:
                 names = [key for key in os.environ.keys() if fnmatch(key, name)]
@@ -146,25 +163,28 @@ class Sandbox(object):
             for name in names:
                 env[name] = value if value is not None else os.getenv(name, "")
 
+        # from the task config
+        getter = getattr(self.task, "get_{}_env".format(self.sandbox_type), None)
+        if callable(getter):
+            env.update(getter())
+
         return env
 
-    def get_config_volumes(self):
+    def _get_volumes(self):
+        volumes = OrderedDict()
+
+        # volumes from the config file
         cfg = Config.instance()
         section = self.get_config_section(postfix="volumes")
-
-        vols = {}
         for hdir, cdir in cfg.items(section):
-            vols[os.path.expandvars(os.path.expanduser(hdir))] = cdir
+            volumes[os.path.expandvars(os.path.expanduser(hdir))] = cdir
 
-        return vols
-
-    def get_task_env(self):
-        getter = getattr(self.task, "get_{}_env".format(self.sandbox_type), None)
-        return getter() if callable(getter) else {}
-
-    def get_task_volumes(self):
+        # from the task config
         getter = getattr(self.task, "get_{}_volumes".format(self.sandbox_type), None)
-        return getter() if callable(getter) else {}
+        if callable(getter):
+            volumes.update(getter())
+
+        return volumes
 
 
 class SandboxProxy(ProxyTask):
@@ -240,8 +260,8 @@ class SandboxProxy(ProxyTask):
         stagein_dir = tmp_dir.child(cfg.get(section, "stagein_dir"), type="d")
 
         def stagein_target(target):
-            logger.debug("staging in {}".format(target))
             staged_target = make_staged_target(stagein_dir, target)
+            logger.debug("staging in {} to {}".format(target, staged_target.path))
             target.copy_to_local(staged_target)
             return staged_target
 
@@ -275,8 +295,8 @@ class SandboxProxy(ProxyTask):
         # traverse actual outputs, try to identify them in tmp_dir
         # and move them to their proper location
         def stageout_target(target):
-            logger.debug("staging out {}".format(target))
             tmp_target = make_staged_target(stageout_info.stage_dir, target)
+            logger.debug("staging out {} to {}".format(tmp_target.path, target))
             if tmp_target.exists():
                 target.copy_from_local(tmp_target)
             else:
@@ -334,7 +354,7 @@ class SandboxTask(Task):
                 self.effective_sandbox = self.sandbox
 
             # can we run in the requested sandbox?
-            elif multi_match(self.sandbox, self.valid_sandboxes, any):
+            elif multi_match(self.sandbox, self.valid_sandboxes, mode=any):
                 self.effective_sandbox = self.sandbox
 
             # we have to fallback
@@ -344,7 +364,7 @@ class SandboxTask(Task):
                     raise Exception("cannot determine fallback sandbox for {} in task {}".format(
                         self.sandbox, self))
 
-        if not self.sandboxed:
+        if not self.is_sandboxed():
             self.sandbox_inst = Sandbox.new(self.effective_sandbox, self)
             self.sandbox_proxy = SandboxProxy(task=self)
             logger.debug("created sandbox proxy instance of type '{}'".format(
@@ -353,9 +373,8 @@ class SandboxTask(Task):
             self.sandbox_inst = None
             self.sandbox_proxy = None
 
-    @property
-    def sandboxed(self):
-        return self.effective_sandbox in _current_sandbox
+    def is_sandboxed(self):
+        return self.effective_sandbox in _current_sandbox and self.task_id == _sandbox_task_id
 
     @property
     def sandbox_user(self):
@@ -369,11 +388,11 @@ class SandboxTask(Task):
                 if BaseWorkflow._forward_attribute(self, attr):
                     return BaseWorkflow.__getattribute__(self, attr, force=True)
 
-            if attr == "run" and not self.sandboxed:
+            if attr == "run" and not self.is_sandboxed():
                 return self.sandbox_proxy.run
-            elif attr == "input" and _sandbox_stagein_dir and self.sandboxed:
+            elif attr == "input" and _sandbox_stagein_dir and self.is_sandboxed():
                 return self._staged_input
-            elif attr == "output" and _sandbox_stageout_dir and self.sandboxed:
+            elif attr == "output" and _sandbox_stageout_dir and self.is_sandboxed():
                 return self._staged_output
 
         return Task.__getattribute__(self, attr)
@@ -398,7 +417,7 @@ class SandboxTask(Task):
 
     @property
     def env(self):
-        return os.environ if self.sandboxed else self.sandbox_inst.env
+        return os.environ if self.is_sandboxed() else self.sandbox_inst.env
 
     def fallback_sandbox(self, sandbox):
         return None

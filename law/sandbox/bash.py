@@ -51,12 +51,6 @@ class BashSandbox(Sandbox):
                 with open(tmp_path, "r") as f:
                     env = six.moves.cPickle.load(f)
 
-            # add env variables defined in the config
-            env.update(self.get_config_env())
-
-            # add env variables defined by the task
-            env.update(self.get_task_env())
-
             # cache
             self._envs[script] = env
 
@@ -64,11 +58,9 @@ class BashSandbox(Sandbox):
 
     def cmd(self, proxy_cmd):
         # environment variables to set
-        env = OrderedDict()
+        env = self._get_env()
 
-        # sandboxing variables
-        env["LAW_SANDBOX"] = self.key
-        env["LAW_SANDBOX_SWITCHED"] = "1"
+        # add staging directories
         if self.stagein_info:
             env["LAW_SANDBOX_STAGEIN_DIR"] = self.stagein_info.stage_dir.path
         if self.stageout_info:
@@ -78,15 +70,6 @@ class BashSandbox(Sandbox):
         ls_flag = "--local-scheduler"
         if self.force_local_scheduler() and ls_flag not in proxy_cmd:
             proxy_cmd.append(ls_flag)
-        if ls_flag not in proxy_cmd:
-            if getattr(self.task, "_worker_id", None):
-                env["LAW_SANDBOX_WORKER_ID"] = self.task._worker_id
-            if getattr(self.task, "_worker_task", None):
-                env["LAW_SANDBOX_WORKER_TASK"] = self.task._worker_task
-
-        # add env variables defined in the config and by the task
-        env.update(self.get_config_env())
-        env.update(self.get_task_env())
 
         # build commands to add env variables
         pre_cmds = []
