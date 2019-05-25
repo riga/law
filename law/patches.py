@@ -32,6 +32,8 @@ def patch_all():
     _patched = True
 
     patch_default_retcodes()
+    patch_worker_add_task()
+    patch_worker_add()
     patch_worker_run_task()
     patch_worker_factory()
     patch_keepalive_run()
@@ -63,10 +65,45 @@ def patch_default_retcodes():
     retcode.unhandled_exception._default = 60
 
 
+def patch_worker_add_task():
+    """
+    Patches the ``luigi.worker.Worker._add_task`` method to skip dependencies of the triggered task
+    when running in a sandbox, as dependencies are already controlled from outside the sandbox.
+    """
+    _add_task = luigi.worker.Worker._add_task
+
+    def add_task(self, *args, **kwargs):
+        if os.getenv("LAW_SANDBOX_SWITCHED") == "1" and "deps" in kwargs:
+            kwargs["deps"] = None
+        return _add_task(self, *args, **kwargs)
+
+    luigi.worker.Worker._add_task = add_task
+
+
+def patch_worker_add():
+    """
+    Patches the ``luigi.worker.Worker._add`` method to make sure that no dependencies are yielded
+    when the triggered task is added to the worker when running in a sandbox.
+    """
+    _add = luigi.worker.Worker._add
+
+    def add(self, *args, **kwargs):
+        # _add returns a generator, which we simply drain here
+        # when we are in a sandbox
+        if os.getenv("LAW_SANDBOX_SWITCHED") == "1":
+            for _ in _add(self, *args, **kwargs):
+                pass
+            return []
+        else:
+            return _add(self, *args, **kwargs)
+
+    luigi.worker.Worker._add = add
+
+
 def patch_worker_run_task():
     """
     Patches the ``luigi.worker.Worker._run_task`` method to store the worker id and the id of its
-    first task in the task. This information is required by the sandboxing mechanism
+    first task in the task. This information is required by the sandboxing mechanism.
     """
     _run_task = luigi.worker.Worker._run_task
 
@@ -92,7 +129,7 @@ def patch_worker_run_task():
 def patch_worker_factory():
     """
     Patches the ``luigi.interface._WorkerSchedulerFactory`` to include sandboxing information when
-    create a worker instance.
+    creating a worker instance.
     """
     def create_worker(self, scheduler, worker_processes, assistant=False):
         worker = luigi.worker.Worker(scheduler=scheduler, worker_processes=worker_processes,
