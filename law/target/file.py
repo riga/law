@@ -141,9 +141,8 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
     def _repr_pairs(self, color=True):
         return Target._repr_pairs(self) + [("path", self.path)]
 
-    @property
-    def init_args(self):
-        return tuple()
+    def _parent_args(self):
+        return (), {}
 
     @property
     def hash(self):
@@ -155,7 +154,8 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
     @property
     def parent(self):
         dirname = self.dirname
-        return self.directory_class(dirname, *self.init_args) if dirname is not None else None
+        args, kwargs = self._parent_args()
+        return self.directory_class(dirname, *args, **kwargs) if dirname is not None else None
 
     @property
     def stat(self):
@@ -259,7 +259,10 @@ class FileSystemDirectoryTarget(FileSystemTarget):
 
     open = None
 
-    def child(self, path, type=None):
+    def _child_args(self):
+        return (), {}
+
+    def child(self, path, type=None, **kwargs):
         if type not in (None, "f", "d"):
             raise ValueError("invalid child type, use 'f' or 'd'")
 
@@ -276,7 +279,9 @@ class FileSystemDirectoryTarget(FileSystemTarget):
         else:
             cls = self.file_class
 
-        return cls(path, *self.init_args)
+        args, _kwargs = self._child_args()
+        _kwargs.update(kwargs)
+        return cls(path, *args, **_kwargs)
 
     def listdir(self, pattern=None, type=None, **kwargs):
         return self.fs.listdir(self.path, pattern=pattern, type=type, **kwargs)

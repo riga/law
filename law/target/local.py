@@ -222,7 +222,7 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
                 if not self.fs.exists(path):
                     break
 
-            # is_tmp might be an extension
+            # is_tmp might be a file extension
             if isinstance(is_tmp, six.string_types):
                 if is_tmp[0] != ".":
                     is_tmp = "." + is_tmp

@@ -1010,9 +1010,10 @@ class RemoteTarget(FileSystemTarget):
 
         FileSystemTarget.__init__(self, path, **kwargs)
 
-    @property
-    def init_args(self):
-        return (self.fs,)
+    def _parent_args(self):
+        args, kwargs = FileSystemTarget._parent_args(self)
+        args += (self.fs,)
+        return args, kwargs
 
     @property
     def path(self):
@@ -1076,7 +1077,10 @@ class RemoteFileTarget(RemoteTarget, FileSystemFileTarget):
 
 class RemoteDirectoryTarget(RemoteTarget, FileSystemDirectoryTarget):
 
-    pass
+    def _child_args(self):
+        args, kwargs = FileSystemDirectoryTarget._child_args(self)
+        args += (self.fs,)
+        return args, kwargs
 
 
 RemoteTarget.file_class = RemoteFileTarget
