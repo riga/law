@@ -65,14 +65,17 @@ class BaseTask(luigi.Task):
     @classmethod
     def get_param_values(cls, *args, **kwargs):
         values = super(BaseTask, cls).get_param_values(*args, **kwargs)
-        if six.callable(cls.modify_param_values):
+        if callable(cls.modify_param_values):
             return cls.modify_param_values(OrderedDict(values)).items()
         else:
             return values
 
-    @classmethod
-    def modify_param_values(cls, params):
-        return params
+    # method that can be implemented to update parameters via get_param_values before instantiation
+    # example:
+    # @classmethod
+    # def modify_param_values(cls, params):
+    #     return params
+    modify_param_values = None
 
     @classmethod
     def req(cls, *args, **kwargs):
