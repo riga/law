@@ -83,25 +83,29 @@ class Config(ConfigParser):
             # lsf, glite, arc) by prefixing the option, e.g. "htcondor_job_file_dir"
         },
         "modules": {},
-        "bash_env": {},
-        "docker": {
+        "sandbox_bash": {
+            "stagein_dir": "stagein",
+            "stageout_dir": "stageout",
+        },
+        "sandbox_env_bash": {},
+        "sandbox_docker": {
             "forward_dir": "/law_forward",
             "python_dir": "py",
             "bin_dir": "bin",
             "stagein_dir": "stagein",
             "stageout_dir": "stageout",
         },
-        "docker_env": {},
-        "docker_volumes": {},
-        "singularity": {
+        "sandbox_env_docker": {},
+        "sandbox_volumes_docker": {},
+        "sandbox_singularity": {
             "forward_dir": "/law_forward",
             "python_dir": "py",
             "bin_dir": "bin",
             "stagein_dir": "stagein",
             "stageout_dir": "stageout",
         },
-        "singularity_env": {},
-        "singularity_volumes": {},
+        "sandbox_env_singularity": {},
+        "sandbox_volumes_singularity": {},
         "notifications": {
             "mail_recipient": "",
             "mail_sender": "",

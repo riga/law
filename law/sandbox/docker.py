@@ -77,7 +77,6 @@ class DockerSandbox(Sandbox):
         cfg = Config.instance()
 
         # get args for the docker command as configured in the task
-        # TODO: this looks pretty random
         args = make_list(getattr(self.task, "docker_args", self.default_docker_args))
 
         # container name
@@ -87,8 +86,7 @@ class DockerSandbox(Sandbox):
         args.extend(["--hostname", "'{}'".format(socket.gethostname())])
 
         # helper to build forwarded paths
-        section = "docker_" + self.image
-        section = section if cfg.has_section(section) else "docker"
+        section = self.get_config_section()
         forward_dir = cfg.get(section, "forward_dir")
         python_dir = cfg.get(section, "python_dir")
         bin_dir = cfg.get(section, "bin_dir")
@@ -121,10 +119,10 @@ class DockerSandbox(Sandbox):
         env["LAW_SANDBOX"] = self.key
         env["LAW_SANDBOX_SWITCHED"] = "1"
         if self.stagein_info:
-            env["LAW_SANDBOX_STAGEIN_DIR"] = "{}".format(dst(stagein_dir))
+            env["LAW_SANDBOX_STAGEIN_DIR"] = dst(stagein_dir)
             mount(self.stagein_info.stage_dir.path, dst(stagein_dir))
         if self.stageout_info:
-            env["LAW_SANDBOX_STAGEOUT_DIR"] = "{}".format(dst(stageout_dir))
+            env["LAW_SANDBOX_STAGEOUT_DIR"] = dst(stageout_dir)
             mount(self.stageout_info.stage_dir.path, dst(stageout_dir))
 
         # prevent python from writing byte code files
@@ -209,19 +207,6 @@ class DockerSandbox(Sandbox):
             proxy_cmd=" ".join(proxy_cmd))
 
         return cmd
-
-    def get_config_env(self):
-        return super(DockerSandbox, self).get_config_env("docker_env_" + self.image, "docker_env")
-
-    def get_task_env(self):
-        return super(DockerSandbox, self).get_task_env("get_docker_env")
-
-    def get_config_volumes(self):
-        return super(DockerSandbox, self).get_config_volumes("docker_volumes_" + self.image,
-            "docker_volumes")
-
-    def get_task_volumes(self):
-        return super(DockerSandbox, self).get_task_volumes("get_docker_volumes")
 
     def get_host_ip(self):
         # in host network mode, docker containers can normally be accessed via 127.0.0.1 on Linux

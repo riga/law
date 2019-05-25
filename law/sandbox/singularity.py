@@ -70,13 +70,11 @@ class SingularitySandbox(Sandbox):
         cfg = Config.instance()
 
         # get args for the singularity command as configured in the task
-        # TODO: this looks pretty random
         args = make_list(getattr(self.task, "singularity_args",
             self.default_singularity_args))
 
         # helper to build forwarded paths
-        section = "singularity_" + self.image
-        section = section if cfg.has_section(section) else "singularity"
+        section = self.get_config_section()
         forward_dir = cfg.get(section, "forward_dir")
         python_dir = cfg.get(section, "python_dir")
         bin_dir = cfg.get(section, "bin_dir")
@@ -109,10 +107,10 @@ class SingularitySandbox(Sandbox):
         env["LAW_SANDBOX"] = self.key
         env["LAW_SANDBOX_SWITCHED"] = "1"
         if self.stagein_info:
-            env["LAW_SANDBOX_STAGEIN_DIR"] = "{}".format(dst(stagein_dir))
+            env["LAW_SANDBOX_STAGEIN_DIR"] = dst(stagein_dir)
             mount(self.stagein_info.stage_dir.path, dst(stagein_dir))
         if self.stageout_info:
-            env["LAW_SANDBOX_STAGEOUT_DIR"] = "{}".format(dst(stageout_dir))
+            env["LAW_SANDBOX_STAGEOUT_DIR"] = dst(stageout_dir)
             mount(self.stageout_info.stage_dir.path, dst(stageout_dir))
 
         # adjust path variables
@@ -182,17 +180,3 @@ class SingularitySandbox(Sandbox):
             proxy_cmd=" ".join(proxy_cmd))
 
         return cmd
-
-    def get_config_env(self):
-        return super(SingularitySandbox, self).get_config_env("singularity_env_" + self.image,
-            "singularity_env")
-
-    def get_task_env(self):
-        return super(SingularitySandbox, self).get_task_env("get_singularity_env")
-
-    def get_config_volumes(self):
-        return super(SingularitySandbox, self).get_config_volumes(
-            "singularity_volumes_" + self.image, "singularity_volumes")
-
-    def get_task_volumes(self):
-        return super(SingularitySandbox, self).get_task_volumes("get_singularity_volumes")

@@ -15,6 +15,7 @@ from collections import OrderedDict
 import six
 
 from law.sandbox.base import Sandbox
+from law.config import Config
 from law.util import tmp_file, interruptable_popen
 
 
@@ -68,10 +69,10 @@ class BashSandbox(Sandbox):
         # sandboxing variables
         env["LAW_SANDBOX"] = self.key
         env["LAW_SANDBOX_SWITCHED"] = "1"
-
-        # add env variables defined in the config and by the task
-        env.update(self.get_config_env())
-        env.update(self.get_task_env())
+        if self.stagein_info:
+            env["LAW_SANDBOX_STAGEIN_DIR"] = self.stagein_info.stage_dir.path
+        if self.stageout_info:
+            env["LAW_SANDBOX_STAGEOUT_DIR"] = self.stageout_info.stage_dir.path
 
         # handle scheduling within the container
         ls_flag = "--local-scheduler"
@@ -83,6 +84,10 @@ class BashSandbox(Sandbox):
             if getattr(self.task, "_worker_task", None):
                 env["LAW_SANDBOX_WORKER_TASK"] = self.task._worker_task
 
+        # add env variables defined in the config and by the task
+        env.update(self.get_config_env())
+        env.update(self.get_task_env())
+
         # build commands to add env variables
         pre_cmds = []
         for tpl in env.items():
@@ -93,9 +98,3 @@ class BashSandbox(Sandbox):
             proxy_cmd=" ".join(proxy_cmd), pre_cmd="; ".join(pre_cmds), script=self.script)
 
         return cmd
-
-    def get_config_env(self):
-        return super(BashSandbox, self).get_config_env("bash_env_" + self.script, "bash_env")
-
-    def get_task_env(self):
-        return super(BashSandbox, self).get_task_env("get_bash_env")

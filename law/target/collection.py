@@ -51,6 +51,11 @@ class TargetCollection(Target):
     def __iter__(self):
         raise TypeError("'{}' object is not iterable".format(self.__class__.__name__))
 
+    def _stage_kwargs(self):
+        kwargs = Target._stage_kwargs(self)
+        kwargs["threshold"] = self.threshold
+        return kwargs
+
     def _repr_pairs(self, color=True):
         return Target._repr_pairs(self) + [("len", len(self)), ("threshold", self.threshold)]
 
