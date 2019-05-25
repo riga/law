@@ -99,7 +99,7 @@ setup(
     classifiers=classifiers,
     long_description=long_description,
     install_requires=install_requires,
-    python_requires=">=2.7",
+    python_requires=">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, <4'",
     zip_safe=False,
     packages=find_packages(exclude=["tests"]),
     include_package_data=True,
