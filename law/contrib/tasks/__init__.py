@@ -16,13 +16,13 @@ import luigi
 import six
 
 from law import Task, LocalWorkflow, FileSystemTarget, LocalFileTarget, TargetCollection, \
-    SiblingFileCollection, cached_workflow_property, NO_INT
+    SiblingFileCollection, cached_workflow_property, NO_INT, NO_STR
 from law.util import flatten, iter_chunks
 
 
 class TransferLocalFile(Task):
 
-    source_path = luigi.Parameter(description="path to the file to transfer")
+    source_path = luigi.Parameter(default=NO_STR, description="path to the file to transfer")
     replicas = luigi.IntParameter(default=0, description="number of replicas to generate, uses "
         "replica_format when > 0 for creating target basenames, default: 0")
 
@@ -33,7 +33,10 @@ class TransferLocalFile(Task):
     def get_source_target(self):
         # when self.source_path is set, return a target around it
         # otherwise assume self.requires() returns a task with a single local target
-        return LocalFileTarget(self.source_path) if self.source_path else self.input()
+        if self.source_path not in (NO_STR, None):
+            return LocalFileTarget(self.source_path)
+        else:
+            return self.input()
 
     @abstractmethod
     def single_output(self):
