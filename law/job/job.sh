@@ -196,7 +196,7 @@ action() {
         local dashboard_file="{{dashboard_file}}"
         if [ ! -z "$dashboard_file" ]; then
             echo "load dashboard file $dashboard_file"
-            source "$dashboard_file"
+            source "$dashboard_file" ""
         else
             echo "dashboard file empty, skip"
         fi
@@ -220,7 +220,7 @@ action() {
         local bootstrap_file="{{bootstrap_file}}"
         if [ ! -z "$bootstrap_file" ]; then
             echo "run bootstrap file '$bootstrap_file'"
-            source "$bootstrap_file"
+            source "$bootstrap_file" ""
         else
             echo "bootstrap file empty, skip"
         fi

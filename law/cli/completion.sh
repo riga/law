@@ -16,7 +16,7 @@ _law_complete() {
     local this_dir="$( cd "$( dirname "$this_file" )" && pwd )"
 
     # load polyfills
-    source "$this_dir/../polyfills.sh"
+    source "$this_dir/../polyfills.sh" ""
 
     # determine LAW_HOME
     local law_home="$LAW_HOME"

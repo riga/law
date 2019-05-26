@@ -103,5 +103,4 @@ for line in s.getvalue().split('\\\\n'):\n\
 "
     GFAL_PLUGIN_DIR= echo -e "$pycmd" | python
 }
-
 action "$@"

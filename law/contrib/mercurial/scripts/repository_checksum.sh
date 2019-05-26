@@ -16,7 +16,7 @@ action() {
         local this_file="${BASH_SOURCE[0]}"
     fi
     local base="$( cd "$( dirname "$this_file" )" && pwd )"
-    source "$base/../../polyfills.sh"
+    source "$base/../../../polyfills.sh" ""
 
     # handle arguments
     local repo_path="$1"
