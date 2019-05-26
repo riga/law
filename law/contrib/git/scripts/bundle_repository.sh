@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
 # Bundles a git repository into a tar archive considering
-# all local changes that are not excluded by the .gitignore file.
+# all local changes that are not excluded by the .gitignore file
+# and all recursive submodules.
 
 # Arguments:
 # 1. the absolute path to the repository
@@ -33,26 +34,38 @@ action() {
         return "4"
     fi
 
+    local repo_name="$( basename "$repo_path" )"
     local tmp_dir="$( mktemp -d )"
+    local tmp_arc="$( mktemp -p "$tmp_dir" --suffix .tar -u )"
+    local rnd="$RANDOM"
 
     # on nfs systems the .git/index.lock might be re-appear due to sync purposes
     sgit() {
         rm -f .git/index.lock
         git "$@"
     }
+    export -f sgit
 
     ( \
         cp -R "$repo_path" "$tmp_dir/" && \
-        cd "$tmp_dir/$( basename "$repo_path" )" && \
+        cd "$tmp_dir/$repo_name" && \
         rm -rf $3 && \
         sgit add -A . &> /dev/null && \
         sgit add -f $4 &> /dev/null; \
-        sgit commit -m "[tmp] Add all changes." > /dev/null; \
-        sgit archive --prefix="$( basename "$repo_path" )/" --format=tar.gz -o "$dst_path" HEAD \
+        sgit commit -m "[tmp] Add all changes." > /dev/null && \
+        # sgit archive --prefix="$repo_name/" --format=tar.gz -o "$dst_path" HEAD \
+        sgit archive --prefix="$repo_name/" --format=tar -o "$tmp_arc" HEAD && \
+        sgit submodule foreach --recursive "\
+            sgit archive --prefix=\"$repo_name/\$path/\" --format=tar --output=\"$rnd_\$sha1.tar\" HEAD && \
+            tar --concatenate --file=\"$tmp_arc\" \"$rnd_\$sha1.tar\" \
+            && rm \"$rnd_\$sha1.tar\"" && \
+        mkdir -p "$( dirname "$dst_path" )" && \
+        gzip -c "$tmp_arc" > "$dst_path"
     )
     local ret="$?"
 
     rm -rf "$tmp_dir"
+    unset sgit
 
     return "$ret"
 }
