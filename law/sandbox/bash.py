@@ -10,12 +10,10 @@ __all__ = ["BashSandbox"]
 
 import os
 import subprocess
-from collections import OrderedDict
 
 import six
 
 from law.sandbox.base import Sandbox
-from law.config import Config
 from law.util import tmp_file, interruptable_popen
 
 

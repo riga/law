@@ -10,7 +10,6 @@ __all__ = ["SingularitySandbox"]
 
 import os
 import subprocess
-from collections import OrderedDict
 
 import luigi
 import six

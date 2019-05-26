@@ -13,7 +13,6 @@ import sys
 import uuid
 import socket
 import subprocess
-from collections import OrderedDict
 
 import luigi
 import six
