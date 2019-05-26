@@ -6,6 +6,13 @@ tasks
 .. contents::
 
 
+Task ``RunOnceTask``
+--------------------
+
+.. autoclass:: RunOnceTask
+   :members:
+
+
 Task ``TransferLocalFile``
 --------------------------
 

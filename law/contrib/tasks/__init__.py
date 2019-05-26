@@ -5,7 +5,7 @@ Tasks that provide common and often used functionality.
 """
 
 
-__all__ = ["TransferLocalFile", "CascadeMerge"]
+__all__ = ["RunOnceTask", "TransferLocalFile", "CascadeMerge"]
 
 
 import os
@@ -18,6 +18,24 @@ import six
 from law import Task, LocalWorkflow, FileSystemTarget, LocalFileTarget, TargetCollection, \
     SiblingFileCollection, cached_workflow_property, NO_INT, NO_STR
 from law.util import flatten, iter_chunks
+
+
+class RunOnceTask(Task):
+
+    def __init__(self, *args, **kwargs):
+        super(RunOnceTask, self).__init__(*args, **kwargs)
+
+        self._has_run = False
+
+    @property
+    def has_run(self):
+        return self._has_run
+
+    def mark_complete(self):
+        self._has_run = True
+
+    def complete(self):
+        return self.has_run
 
 
 class TransferLocalFile(Task):
