@@ -28,15 +28,15 @@ class Target(luigi.target.Target):
     def colored_repr(self, color=True):
         class_name = self._repr_class_name(self.__class__.__name__, color=color)
 
-        parts = [self._repr_pair(*pair, color=color) for pair in self._repr_pairs(color=color)]
-        parts += [self._repr_flag(flag, color=color) for flag in self._repr_flags(color=color)]
+        parts = [self._repr_pair(*pair, color=color) for pair in self._repr_pairs()]
+        parts += [self._repr_flag(flag, color=color) for flag in self._repr_flags()]
 
         return "{}({})".format(class_name, ", ".join(parts))
 
-    def _repr_pairs(self, color=True):
+    def _repr_pairs(self):
         return []
 
-    def _repr_flags(self, color=True):
+    def _repr_flags(self):
         flags = []
         if self.optional:
             flags.append(self.optional_text())

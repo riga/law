@@ -291,12 +291,12 @@ class Task(BaseTask):
     def colored_repr(self, color=True):
         family = self._repr_family(self.task_family, color=color)
 
-        parts = [self._repr_param(*pair, color=color) for pair in self._repr_params(color=color)]
-        parts += [self._repr_flag(flag, color=color) for flag in self._repr_flags(color=color)]
+        parts = [self._repr_param(*pair, color=color) for pair in self._repr_params()]
+        parts += [self._repr_flag(flag, color=color) for flag in self._repr_flags()]
 
         return "{}({})".format(family, ", ".join(parts))
 
-    def _repr_params(self, color=True):
+    def _repr_params(self):
         # build key value pairs of all significant parameters
         params = self.get_params()
         param_values = self.get_param_values(params, [], self.param_kwargs)
@@ -309,7 +309,7 @@ class Task(BaseTask):
 
         return pairs
 
-    def _repr_flags(self, color=True):
+    def _repr_flags(self):
         return []
 
     @classmethod
@@ -342,8 +342,8 @@ class WrapperTask(Task):
 
     exclude_index = True
 
-    def _repr_flags(self, color=True):
-        return super(WrapperTask, self)._repr_flags(color=color) + ["wrapper"]
+    def _repr_flags(self):
+        return super(WrapperTask, self)._repr_flags() + ["wrapper"]
 
     def complete(self):
         return all(task.complete() for task in flatten(self.requires()))
@@ -358,8 +358,8 @@ class ExternalTask(Task):
 
     run = None
 
-    def _repr_flags(self, color=True):
-        return super(ExternalTask, self)._repr_flags(color=color) + ["external"]
+    def _repr_flags(self):
+        return super(ExternalTask, self)._repr_flags() + ["external"]
 
 
 class ProxyTask(BaseTask):

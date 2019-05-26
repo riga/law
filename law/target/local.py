@@ -233,6 +233,12 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
         luigi.LocalTarget.__init__(self, path=path, is_tmp=is_tmp)
         FileSystemTarget.__init__(self, self.path, **kwargs)
 
+    def _repr_flags(self):
+        flags = FileSystemTarget._repr_flags(self)
+        if self.is_tmp:
+            flags.append("temporary")
+        return flags
+
 
 class LocalFileTarget(LocalTarget, FileSystemFileTarget):
 
