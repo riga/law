@@ -150,7 +150,7 @@ class Sandbox(object):
         if getattr(self.task, "_worker_id", None):
             env["LAW_SANDBOX_WORKER_ID"] = self.task._worker_id
         if getattr(self.task, "_worker_task", None):
-            env["LAW_SANDBOX_WORKER_TASK"] = self.task._worker_task
+            env["LAW_SANDBOX_WORKER_TASK"] = self.task.task_id
 
         # variables from the config file
         cfg = Config.instance()
@@ -261,7 +261,7 @@ class SandboxProxy(ProxyTask):
 
         def stagein_target(target):
             staged_target = make_staged_target(stagein_dir, target)
-            logger.debug("staging in {} to {}".format(target, staged_target.path))
+            logger.debug("stage-in {} to {}".format(target, staged_target.path))
             target.copy_to_local(staged_target)
             return staged_target
 
@@ -272,7 +272,7 @@ class SandboxProxy(ProxyTask):
         staged_inputs = map_struct(stagein_target, inputs,
             custom_mappings={TargetCollection: map_collection})
 
-        logger.info("staged-in {} files".format(len(stagein_dir.listdir())))
+        logger.info("staged-in {} file(s)".format(len(stagein_dir.listdir())))
 
         return StageInfo(inputs, stagein_dir, staged_inputs)
 
@@ -296,7 +296,7 @@ class SandboxProxy(ProxyTask):
         # and move them to their proper location
         def stageout_target(target):
             tmp_target = make_staged_target(stageout_info.stage_dir, target)
-            logger.debug("staging out {} to {}".format(tmp_target.path, target))
+            logger.debug("stage-out {} to {}".format(tmp_target.path, target))
             if tmp_target.exists():
                 target.copy_from_local(tmp_target)
             else:
@@ -308,15 +308,20 @@ class SandboxProxy(ProxyTask):
         map_struct(stageout_target, stageout_info.targets,
             custom_mappings={TargetCollection: map_collection})
 
-        logger.info("staged-out {} files".format(len(stageout_info.stage_dir.listdir())))
+        logger.info("staged-out {} file(s)".format(len(stageout_info.stage_dir.listdir())))
 
     @contextmanager
-    def _run_log(self, cmd=None, color="magenta"):
+    def _run_log(self, cmd=None):
+        def print_banner(msg, color):
+            print("")
+            print(colored(" {} ".format(msg).center(80, "="), color=color))
+            print(colored("sandbox: ", color=color) + colored(self.sandbox_inst.key, style="bright"))
+            print(colored("task   : ", color=color) + colored(self.task.task_id, style="bright"))
+            print(colored(80 * "=", color=color))
+            print("")
+
         # start banner
-        print("")
-        line = " entering sandbox '{}' ".format(self.sandbox_inst.key).center(100, "=")
-        print(colored(line, color) if color else line)
-        print("")
+        print_banner("entering sandbox", "magenta")
 
         # log the command
         if cmd:
@@ -326,9 +331,7 @@ class SandboxProxy(ProxyTask):
             yield
         finally:
             # end banner
-            line = " leaving sandbox '{}' ".format(self.sandbox_inst.key).center(100, "=")
-            print(colored(line, color) if color else line)
-            print("")
+            print_banner("leaving sandbox", "cyan")
 
 
 class SandboxTask(Task):
