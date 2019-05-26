@@ -10,6 +10,7 @@ __all__ = ["BundleGitRepository"]
 
 import os
 import subprocess
+from abc import abstractmethod
 
 import luigi
 
@@ -23,7 +24,6 @@ class BundleGitRepository(Task):
 
     task_namespace = "law.git"
 
-    repo_path = luigi.Parameter(description="the path to the repository to bundle")
     exclude_files = CSVParameter(default=[], description="patterns of files to exclude")
     include_files = CSVParameter(default=[], description="patterns of files to force-include, "
         "takes precedence over .gitignore")
@@ -32,8 +32,11 @@ class BundleGitRepository(Task):
     def __init__(self, *args, **kwargs):
         super(BundleGitRepository, self).__init__(*args, **kwargs)
 
-        self.repo_path = os.path.expandvars(os.path.expanduser(os.path.abspath(self.repo_path)))
         self._checksum = None
+
+    @abstractmethod
+    def get_repo_path(self):
+        return
 
     @property
     def checksum(self):
@@ -42,7 +45,7 @@ class BundleGitRepository(Task):
 
         if self._checksum is None:
             checksum_script = rel_path(__file__, "scripts", "repository_checksum.sh")
-            cmd = [checksum_script, self.repo_path]
+            cmd = [checksum_script, self.get_repo_path()]
 
             code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE)
             if code != 0:
@@ -53,7 +56,8 @@ class BundleGitRepository(Task):
         return self._checksum
 
     def output(self):
-        return LocalFileTarget("{}_{}.tgz".format(os.path.basename(self.repo_path), self.checksum))
+        repo_base = os.path.basename(self.get_repo_path())
+        return LocalFileTarget("{}_{}.tgz".format(repo_base, self.checksum))
 
     @log
     def run(self):
@@ -62,7 +66,7 @@ class BundleGitRepository(Task):
 
     def bundle(self, dst_path):
         bundle_script = rel_path(__file__, "scripts", "bundle_repository.sh")
-        cmd = [bundle_script, self.repo_path, get_path(dst_path)]
+        cmd = [bundle_script, self.get_repo_path(), get_path(dst_path)]
         cmd += [" ".join(self.exclude_files)]
         cmd += [" ".join(self.include_files)]
 
