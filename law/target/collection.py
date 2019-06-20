@@ -146,7 +146,7 @@ class TargetCollection(Target):
         else:  # dict
             return random.choice(list(self.targets.values()))
 
-    def status_text(self, max_depth=0, flags=None, color=True):
+    def status_text(self, max_depth=0, flags=None, color=True, exists=None):
         count, existing_keys = self.count(keys=True)
         exists = count >= self._abs_threshold()
 
@@ -174,13 +174,13 @@ class TargetCollection(Target):
                 text += "\n{}: ".format(key)
 
                 if isinstance(item, TargetCollection):
-                    t = item.status_text(max_depth - 1, color=color)
+                    t = item.status_text(max_depth=max_depth - 1, color=color)
                     text += "\n  ".join(t.split("\n"))
                 elif isinstance(item, Target):
-                    t = item.status_text(color=color)
+                    t = item.status_text(color=color, exists=key in existing_keys)
                     text += "{} ({})".format(t, item.colored_repr(color=color))
                 else:
-                    t = self.__class__(item).status_text(max_depth - 1, color=color)
+                    t = self.__class__(item).status_text(max_depth=max_depth - 1, color=color)
                     text += "\n   ".join(t.split("\n"))
 
         return text

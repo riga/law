@@ -57,8 +57,11 @@ class Target(luigi.target.Target):
     def _stage_kwargs(self):
         return {"optional": self.optional}
 
-    def status_text(self, max_depth=0, flags=None, color=True):
-        if self.exists():
+    def status_text(self, max_depth=0, flags=None, color=True, exists=None):
+        if exists is None:
+            exists = self.exists()
+
+        if exists:
             text = "existent"
             _color = "green"
         else:
