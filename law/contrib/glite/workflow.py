@@ -195,7 +195,10 @@ class GLiteWorkflow(BaseRemoteWorkflow):
 
     def glite_output_postfix(self):
         self.get_branch_map()
-        return "_{}To{}".format(self.start_branch, self.end_branch)
+        if self.branches:
+            return "_" + "_".join(self.branches)
+        else:
+            return "_{}To{}".format(self.start_branch, self.end_branch)
 
     def glite_output_uri(self):
         return self.glite_output_directory().url()

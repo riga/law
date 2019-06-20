@@ -184,7 +184,10 @@ class ARCWorkflow(BaseRemoteWorkflow):
 
     def arc_output_postfix(self):
         self.get_branch_map()
-        return "_{}To{}".format(self.start_branch, self.end_branch)
+        if self.branches:
+            return "_" + "_".join(self.branches)
+        else:
+            return "_{}To{}".format(self.start_branch, self.end_branch)
 
     def arc_output_uri(self):
         return self.arc_output_directory().url()

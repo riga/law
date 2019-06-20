@@ -192,7 +192,10 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
 
     def htcondor_output_postfix(self):
         self.get_branch_map()
-        return "_{}To{}".format(self.start_branch, self.end_branch)
+        if self.branches:
+            return "_" + "_".join(self.branches)
+        else:
+            return "_{}To{}".format(self.start_branch, self.end_branch)
 
     def htcondor_create_job_manager(self, **kwargs):
         kwargs = merge_dicts(self.htcondor_job_manager_defaults, kwargs)
