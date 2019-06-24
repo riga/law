@@ -12,6 +12,7 @@ import sys
 import time
 import math
 import random
+import logging
 from collections import OrderedDict, defaultdict
 from abc import abstractmethod
 
@@ -23,6 +24,9 @@ from law.job.dashboard import NoJobDashboard
 from law.parameter import NO_FLOAT, NO_INT
 from law.decorator import log
 from law.util import no_value, iter_chunks, ShorthandDict
+
+
+logger = logging.getLogger(__name__)
 
 
 class SubmissionData(ShorthandDict):
@@ -196,6 +200,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         # cached output() return value, set in run()
         self._outputs = None
 
+        # initially existing keys of the "collection" output (= complete branch tasks), set in run()
+        self._initially_existing_branches = []
+
     @property
     def submission_data_cls(self):
         return SubmissionData
@@ -269,6 +276,26 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             value = getattr(self.task, attr, no_value)
             return value if value != no_value else getattr(self.task, name)
 
+    def _can_skip_job(self, job_num, branches):
+        """
+        Returns *True* when a job can be potentially skipped, which is the case when
+        :py:attr:`only_missing` is *True* and all branch tasks given by *branches* are complete.
+        """
+        if not self.task.only_missing:
+            return False
+        elif job_num in self.skip_jobs:
+            return self.skip_jobs[job_num]
+        else:
+            self.skip_jobs[job_num] = all(
+                (b in self._initially_existing_branches) or self.task.as_branch(b).complete()
+                for b in branches
+            )
+            # when the job is skipped, write a dummy entry into submission data
+            if self.skip_jobs[job_num]:
+                self.submission_data.jobs[job_num] = self.submission_data_cls.job_data(
+                    branches=branches)
+            return self.skip_jobs[job_num]
+
     def requires(self):
         reqs = OrderedDict()
 
@@ -341,12 +368,14 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             task.tasks_per_job = self.submission_data.tasks_per_job
             self.dashboard.apply_config(self.submission_data.dashboard_config)
 
-        # when the branch outputs, i.e. the "collection" exists, just create dummy control outputs
-        if "collection" in self._outputs and self._outputs["collection"].exists():
-            self.touch_control_outputs()
+        # store the initially complete branches
+        if "collection" in self._outputs:
+            collection = self._outputs["collection"]
+            count, keys = collection.count(keys=True)
+            self._initially_existing_branches = keys
 
         # cancel jobs?
-        elif self._cancel_jobs:
+        if self._cancel_jobs:
             if submitted:
                 self.cancel()
 
@@ -371,7 +400,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 self._outputs["status"].remove()
 
             try:
-                # instantiate the configured job file factory, not kwargs yet
+                # instantiate the configured job file factory
                 self.job_file_factory = self.create_job_file_factory()
 
                 # submit
@@ -387,6 +416,8 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                     # sleep once to give the job interface time to register the jobs
                     post_submit_delay = self._get_task_attribute("post_submit_delay")()
                     if post_submit_delay:
+                        logger.debug("sleep for {} seconds due to post_submit_delay".format(
+                            post_submit_delay))
                         time.sleep(post_submit_delay)
 
                 # start status polling when a) no_poll is not set, or b) the jobs were already
@@ -475,29 +506,14 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         """
         task = self.task
 
-        # helper to check if a job can be skipped
-        # rule: skip a job when only_missing is set to True and all its branch tasks are complete
-        def skip_job(job_num, branches):
-            if not task.only_missing:
-                return False
-            elif job_num in self.skip_jobs:
-                return self.skip_jobs[job_num]
-            else:
-                self.skip_jobs[job_num] = all(task.as_branch(b).complete() for b in branches)
-                # when the job is skipped, write a dummy entry into submission data
-                if self.skip_jobs[job_num]:
-                    self.submission_data.jobs[job_num] = self.submission_data_cls.job_data(
-                        branches=branches)
-                return self.skip_jobs[job_num]
-
         # collect data of jobs that should be submitted: num -> branches
         submit_jobs = OrderedDict()
 
         # handle jobs for resubmission
         if retry_jobs:
             for job_num, branches in six.iteritems(retry_jobs):
-                # even retry jobs can be skipped
-                if skip_job(job_num, branches):
+                # some retry jobs can be skipped
+                if self._can_skip_job(job_num, branches):
                     continue
 
                 # the number of parallel jobs might be reached as well
@@ -516,7 +532,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         new_jobs = OrderedDict()
         for job_num, branches in list(self.submission_data.unsubmitted_jobs.items()):
             # remove jobs that don't need to be submitted
-            if skip_job(job_num, branches):
+            if self._can_skip_job(job_num, branches):
                 del self.submission_data.unsubmitted_jobs[job_num]
                 continue
 
@@ -559,8 +575,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         errors = []
         for job_num, job_id in six.moves.zip(submit_jobs, job_ids):
             # handle errors
-            error = (job_num, job_id) if isinstance(job_id, Exception) else None
-            if error:
+            if isinstance(job_id, Exception):
                 errors.append((job_num, job_id))
                 job_id = self.submission_data_cls.dummy_job_id
 
@@ -626,20 +641,24 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             if i > 0:
                 time.sleep(task.poll_interval * 60)
 
-            # determine the currently active jobs, i.e., the jobs whose states should be checked
+            # determine the currently active jobs, i.e., the jobs whose states should be checked,
+            # and also store jobs whose ids are unknown
             active_jobs = OrderedDict()
+            unknown_jobs = OrderedDict()
             for job_num, data in six.iteritems(self.submission_data.jobs):
                 if job_num in finished_jobs or job_num in failed_jobs:
                     continue
-                if self.skip_jobs.get(job_num):
+                elif self._can_skip_job(job_num, data["branches"]):
                     finished_jobs[job_num] = self.status_data_cls.job_data(
                         status=self.job_manager.FINISHED, code=0)
                 else:
                     data = data.copy()
-                    if not data["job_id"]:
+                    if data["job_id"] in (None, self.status_data_cls.dummy_job_id):
                         data["job_id"] = self.status_data_cls.dummy_job_id
-                    active_jobs[job_num] = data
-            self.poll_data.n_active = len(active_jobs)
+                        unknown_jobs[job_num] = data
+                    else:
+                        active_jobs[job_num] = data
+            self.poll_data.n_active = len(active_jobs) + len(unknown_jobs)
 
             # query job states
             job_ids = [data["job_id"] for data in six.itervalues(active_jobs)]  # noqa: F812
@@ -668,6 +687,11 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             states = OrderedDict()
             for job_num, data in six.iteritems(active_jobs):
                 states[job_num] = self.status_data_cls.job_data(**_states[data["job_id"]])
+
+            # consider jobs with unknown ids as retry jobs
+            for job_num, data in six.iteritems(unknown_jobs):
+                states[job_num] = self.status_data_cls.job_data(status=self.job_manager.RETRY,
+                    error="unknown job id")
 
             # store jobs per status and take further actions depending on the status
             pending_jobs = OrderedDict()
@@ -779,39 +803,6 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         else:
             # walltime exceeded
             raise Exception("walltime exceeded")
-
-    def touch_control_outputs(self):
-        """
-        Creates and saves dummy submission and status files. This method is called in case the
-        collection of branch task outputs exists.
-        """
-        task = self.task
-
-        # create the parent directory
-        self._outputs["submission"].parent.touch()
-
-        # get all branch indexes and chunk them by tasks_per_job
-        branch_chunks = list(iter_chunks(task.branch_map.keys(), task.tasks_per_job))
-
-        # submission output
-        if not self._outputs["submission"].exists():
-            submission_data = self.submission_data.copy()
-            # set dummy submission data
-            submission_data.jobs.clear()
-            for i, branches in enumerate(branch_chunks):
-                job_num = i + 1
-                submission_data.jobs[job_num] = self.submission_data_cls.job_data(branches=branches)
-            self._outputs["submission"].dump(submission_data, formatter="json", indent=4)
-
-        # status output
-        if "status" in self._outputs and not self._outputs["status"].exists():
-            status_data = self.status_data_cls()
-            # set dummy status data
-            for i, branches in enumerate(branch_chunks):
-                job_num = i + 1
-                status_data.jobs[job_num] = self.status_data_cls.job_data(
-                    status=self.job_manager.FINISHED, code=0)
-            self._outputs["status"].dump(status_data, formatter="json", indent=4)
 
 
 class BaseRemoteWorkflow(BaseWorkflow):
