@@ -104,12 +104,16 @@ class TargetCollection(Target):
         else:
             return min(len(self), max(self.threshold, 0.))
 
-    def exists(self):
+    def exists(self, count=None):
         threshold = self._abs_threshold()
 
         # trivial case
         if threshold == 0:
             return True
+
+        # when a count was passed, simple compare with the threshold
+        if count is not None:
+            return count >= threshold
 
         # simple counting with early stopping criteria for both success and fail
         n = 0
@@ -208,16 +212,20 @@ class SiblingFileCollection(TargetCollection):
     def _repr_pairs(self, color=True):
         return TargetCollection._repr_pairs(self) + [("dir", self.dir.path)]
 
-    def exists(self, basenames=None):
+    def exists(self, count=None, basenames=None):
         threshold = self._abs_threshold()
-
-        # check the dir
-        if not self.dir.exists():
-            return False
 
         # trivial case
         if threshold == 0:
             return True
+
+        # when a count was passed, simple compare with the threshold
+        if count is not None:
+            return count >= threshold
+
+        # check the dir
+        if not self.dir.exists():
+            return False
 
         # get the basenames of all elements of the directory
         if basenames is None:
