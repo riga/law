@@ -39,7 +39,7 @@ action() {
     # create a job home directory and tmp dirs, change into the job home dir, copy all input files
     #
 
-    local job_hash="$( python -c "import uuid; print(str(uuid.uuid4())[-12:])" )"
+    local job_hash="$( tr -dc a-f0-9 < /dev/urandom | dd bs=12 count=1 2> /dev/null )"
     export LAW_JOB_HOME="$LAW_JOB_INIT_DIR/job_${job_hash}"
     export TMP="$LAW_JOB_HOME/tmp"
     export TEMP="$TMP"
