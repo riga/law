@@ -8,6 +8,8 @@ Local workflow implementation.
 __all__ = ["LocalWorkflow"]
 
 
+import collections
+
 from law.workflow.base import BaseWorkflow, BaseWorkflowProxy
 
 
@@ -39,6 +41,8 @@ class LocalWorkflowProxy(BaseWorkflowProxy):
 
     def requires(self):
         reqs = super(LocalWorkflowProxy, self).requires()
+
+        reqs.update(self.task.local_workflow_requires())
 
         if self.task.local_workflow_require_branches:
             reqs["branches"] = self.task.get_branch_tasks()
@@ -87,3 +91,6 @@ class LocalWorkflow(BaseWorkflow):
     local_workflow_require_branches = False
 
     exclude_index = True
+
+    def local_workflow_requires(self):
+        return collections.OrderedDict()
