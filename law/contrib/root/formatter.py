@@ -64,6 +64,8 @@ class ROOTNumpyFormatter(Formatter):
 
     @classmethod
     def load(cls, path, *args, **kwargs):
+        import ROOT
+        ROOT.gROOT.SetBatch()
         import root_numpy
 
         return root_numpy.root2array(get_path(path), *args, **kwargs)
