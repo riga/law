@@ -51,8 +51,8 @@ class TargetCollection(Target):
     def __iter__(self):
         raise TypeError("'{}' object is not iterable".format(self.__class__.__name__))
 
-    def _stage_kwargs(self):
-        kwargs = Target._stage_kwargs(self)
+    def _copy_kwargs(self):
+        kwargs = Target._copy_kwargs(self)
         kwargs["threshold"] = self.threshold
         return kwargs
 

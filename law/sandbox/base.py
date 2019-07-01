@@ -446,7 +446,7 @@ def make_staged_target_struct(stage_dir, struct):
 
     def map_collection(func, collection, **kwargs):
         staged_targets = map_struct(func, collection.targets, **kwargs)
-        return collection.__class__(staged_targets, **collection._stage_kwargs())
+        return collection.__class__(staged_targets, **collection._copy_kwargs())
 
     return map_struct(map_target, struct, custom_mappings={TargetCollection: map_collection})
 
@@ -455,4 +455,4 @@ def make_staged_target(stage_dir, target):
     if not isinstance(stage_dir, LocalDirectoryTarget):
         stage_dir = LocalDirectoryTarget(stage_dir)
 
-    return stage_dir.child(target.unique_basename, type=target.type, **target._stage_kwargs())
+    return stage_dir.child(target.unique_basename, type=target.type, **target._copy_kwargs())

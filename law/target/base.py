@@ -54,7 +54,7 @@ class Target(luigi.target.Target):
     def _repr_flag(cls, name, color=True):
         return colored(name, color="magenta") if color else name
 
-    def _stage_kwargs(self):
+    def _copy_kwargs(self):
         return {"optional": self.optional}
 
     def status_text(self, max_depth=0, flags=None, color=True, exists=None):
