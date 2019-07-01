@@ -249,7 +249,7 @@ class FileSystemFileTarget(FileSystemTarget):
 
     @abstractmethod
     @contextmanager
-    def localize(self, mode="r", perm=None, parent_perm=None, **kwargs):
+    def localize(self, mode="r", perm=None, parent_perm=None, tmp_dir=None, **kwargs):
         return
 
 

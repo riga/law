@@ -255,20 +255,21 @@ class LocalFileTarget(LocalTarget, FileSystemFileTarget):
         return self.move_from(*args, **kwargs)
 
     @contextmanager
-    def localize(self, mode="r", perm=None, parent_perm=None, **kwargs):
-        """ localize(mode="r", perm=None, parent_perm=None, skip_copy=False, is_tmp=None, **kwargs)
+    def localize(self, mode="r", perm=None, parent_perm=None, tmp_dir=None, **kwargs):
+        """ localize(mode="r", perm=None, parent_perm=None, tmp_dir=None, is_tmp=None, **kwargs)
         """
-        if mode not in ("r", "w"):
-            raise Exception("unknown mode '{}', use r or w".format(mode))
+        if mode not in ("r", "w", "a"):
+            raise Exception("unknown mode '{}', use 'r', 'w' or 'a'".format(mode))
+
+        logger.debug("localizing file target {!r} with mode '{}'".format(self, mode))
 
         # get additional arguments
-        skip_copy = kwargs.pop("skip_copy", False)
-        is_tmp = kwargs.pop("is_tmp", mode == "w")
+        is_tmp = kwargs.pop("is_tmp", mode in ("w", "a"))
 
         if mode == "r":
             if is_tmp:
                 # create a temporary target
-                tmp = self.__class__(is_tmp=self.ext(n=1) or True)
+                tmp = self.__class__(is_tmp=self.ext(n=1) or True, tmp_dir=tmp_dir)
 
                 # always copy
                 self.copy_to_local(tmp)
@@ -282,13 +283,13 @@ class LocalFileTarget(LocalTarget, FileSystemFileTarget):
                 # simply yield
                 yield self
 
-        else:  # write mode
+        else:  # mode "w" or "a"
             if is_tmp:
                 # create a temporary target
-                tmp = self.__class__(is_tmp=self.ext(n=1) or True)
+                tmp = self.__class__(is_tmp=self.ext(n=1) or True, tmp_dir=tmp_dir)
 
-                # copy when existing
-                if not skip_copy and self.exists():
+                # copy in append mode
+                if mode == "a" and self.exists():
                     self.copy_to_local(tmp)
 
                 # yield the copy

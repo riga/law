@@ -1051,13 +1051,22 @@ class RemoteFileTarget(RemoteTarget, FileSystemFileTarget):
         return FileSystemFileTarget.move_from(self, src, dir_perm=dir_perm, **kwargs)
 
     @contextmanager
-    def localize(self, mode="r", perm=None, parent_perm=None, **kwargs):
+    def localize(self, mode="r", perm=None, parent_perm=None, tmp_dir=None, **kwargs):
+        if mode not in ("r", "w", "a"):
+            raise Exception("unknown mode '{}', use 'r', 'w' or 'a'".format(mode))
+
+        logger.debug("localizing file target {!r} with mode '{}'".format(self, mode))
+
         if mode == "r":
             with self.fs.open(self.path, "r", _yield_path=True, **kwargs) as lpath:
                 yield LocalFileTarget(lpath)
 
-        elif mode == "w":
-            tmp = LocalFileTarget(is_tmp=self.ext() or True)
+        else:  # mode "w" or "a"
+            tmp = LocalFileTarget(is_tmp=self.ext(n=1) or True, tmp_dir=tmp_dir)
+
+            # copy to local in append mode
+            if mode == "a" and self.exists():
+                self.copy_to_local(tmp)
 
             try:
                 yield tmp
@@ -1069,10 +1078,7 @@ class RemoteFileTarget(RemoteTarget, FileSystemFileTarget):
                     logger.warning("cannot move non-existing localized file target {!r}".format(
                         self))
             finally:
-                del tmp
-
-        else:
-            raise Exception("unknown mode '{}', use r or w".format(mode))
+                tmp.remove()
 
 
 class RemoteDirectoryTarget(RemoteTarget, FileSystemDirectoryTarget):
