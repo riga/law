@@ -44,6 +44,7 @@ class LocalWorkflowProxy(BaseWorkflowProxy):
 
         reqs.update(self.task.local_workflow_requires())
 
+        # when local_workflow_require_branches is True, add all branch tasks as dependencies
         if self.task.local_workflow_require_branches:
             reqs["branches"] = self.task.get_branch_tasks()
 

@@ -19,8 +19,9 @@ import six
 
 from law.config import Config
 from law.task.base import Task, ProxyTask, Register
-from law.target.collection import TargetCollection, SiblingFileCollection
+from law.target.collection import TargetCollection
 from law.parameter import NO_STR, NO_INT, CSVParameter
+from law.util import no_value
 
 
 logger = logging.getLogger(__name__)
@@ -65,6 +66,23 @@ class BaseWorkflowProxy(ProxyTask):
                     self.run = run_func.__get__(self)
                     break
 
+    def _get_task_attribute(self, name, fallback=False):
+        """
+        Return an attribute of the actual task named ``<workflow_type>_<name>``.
+        When the attribute does not exist and *fallback* is *True*, try to return the task attribute
+        simply named *name*. In any case, if a requested task attribute is eventually not found, an
+        AttributeError is raised.
+        """
+        attr = "{}_{}".format(self.workflow_type, name)
+        if not fallback:
+            return getattr(self.task, attr)
+        else:
+            value = getattr(self.task, attr, no_value)
+            if value != no_value:
+                return value
+            else:
+                return getattr(self.task, name)
+
     def complete(self):
         """
         Custom completion check that invokes the task's *workflow_complete* if it is callable, or
@@ -89,13 +107,7 @@ class BaseWorkflowProxy(ProxyTask):
         Returns the default workflow outputs in an ordered dictionary. At the moment this is just
         the collection of outputs of the branch tasks, stored with the key ``"collection"``.
         """
-        if self.task.target_collection_cls is not None:
-            cls = self.task.target_collection_cls
-        elif self.task.outputs_siblings:
-            cls = SiblingFileCollection
-        else:
-            cls = TargetCollection
-
+        cls = self.task.output_collection_cls or TargetCollection
         targets = luigi.task.getpaths(self.task.get_branch_tasks())
         collection = cls(targets, threshold=self.threshold(len(targets)))
 
@@ -263,18 +275,12 @@ class BaseWorkflow(Task):
 
        Custom completion check that is used by the workflow's proxy when callable.
 
-    .. py:classattribute:: outputs_siblings
-       type: bool
-
-       Flag that denotes whether the outputs of all branches of this workflow are stored in the same
-       directory. If *True*, the :py:meth:`BaseWorkflowProxy.output` method will use a
-       :py:class:`law.SiblingFileCollection`, or a plain :py:class:`law.TargetCollection` otherwise.
-
-    .. py:classattribute:: target_collection_cls
+    .. py:classattribute:: output_collection_cls
        type: TargetCollection
 
-       Configurable target collection class to use. When set, the attribute has precedence over the
-       :py:attr:`outputs_siblings` flag.
+       Configurable target collection class to use, such as
+       :py:class:`target.collection.TargetCollection`, :py:class:`target.collection.FileCollection`
+       or :py:class:`target.collection.SiblingFileCollection`.
 
     .. py:classattribute:: force_contiguous_branches
        type: bool
@@ -344,8 +350,7 @@ class BaseWorkflow(Task):
 
     workflow_complete = None
 
-    outputs_siblings = False
-    target_collection_cls = None
+    output_collection_cls = None
     force_contiguous_branches = False
 
     workflow_property = None

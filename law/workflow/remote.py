@@ -23,7 +23,7 @@ from law.workflow.base import BaseWorkflow, BaseWorkflowProxy
 from law.job.dashboard import NoJobDashboard
 from law.parameter import NO_FLOAT, NO_INT
 from law.decorator import log
-from law.util import no_value, iter_chunks, ShorthandDict
+from law.util import iter_chunks, ShorthandDict
 
 
 logger = logging.getLogger(__name__)
@@ -261,20 +261,6 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
     @property
     def _cleanup_jobs(self):
         return isinstance(getattr(self.task, "cleanup_jobs", None), bool) and self.task.cleanup_jobs
-
-    def _get_task_attribute(self, name, fallback=False):
-        """
-        Return an attribute of the actial task named ``<workflow_type>_<name>``.
-        When the attribute does not exist and *fallback* is *True*, try to return the task attribute
-        simply named *name*. In any case, if a requested task attribute is eventually not found, an
-        AttributeError is raised.
-        """
-        attr = "{}_{}".format(self.workflow_type, name)
-        if not fallback:
-            return getattr(self.task, attr)
-        else:
-            value = getattr(self.task, attr, no_value)
-            return value if value != no_value else getattr(self.task, name)
 
     def _can_skip_job(self, job_num, branches):
         """
