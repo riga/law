@@ -347,10 +347,10 @@ def split_transfer_kwargs(kwargs, skip=None):
 @contextmanager
 def localize_targets(struct, *args, **kwargs):
     """
-    Takes an arbitrary *struct* of targets, opens the context returned by their
-    :py:meth:`FileSystemFileTarget.localize` implementation and yields their localized
-    representations and the same structure as passed in *struct*. When the context is closed, the
-    contexts of all localized targets are transparently closed.
+    Takes an arbitrary *struct* of targets, opens the contexts returned by their
+    :py:meth:`FileSystemFileTarget.localize` implementations and yields their localized
+    representations in the same structure as passed in *struct*. When the context is closed, the
+    contexts of all localized targets are closed.
     """
     managers = []
 

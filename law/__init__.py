@@ -54,7 +54,6 @@ from law.task.base import Task, WrapperTask, ExternalTask
 from law.workflow.base import BaseWorkflow, workflow_property, cached_workflow_property
 from law.workflow.local import LocalWorkflow
 from law.sandbox.base import SandboxTask
-import law.sandbox.docker
 import law.sandbox.bash
 import law.job.base
 import law.job.dashboard
