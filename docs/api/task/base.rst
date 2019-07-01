@@ -58,8 +58,6 @@ Class ``ProxyTask``
 Functions
 ---------
 
-.. autofunction:: getreqs
-
 .. autofunction:: print_task_deps
 
 .. autofunction:: print_task_status

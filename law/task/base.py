@@ -383,24 +383,6 @@ class TaskMessageStream(BaseStream):
             self.task._publish_message(*args)
 
 
-def getreqs(struct):
-    # same as luigi.task.getpaths but for requires()
-    if isinstance(struct, Task):
-        return struct.requires()
-    elif isinstance(struct, dict):
-        r = struct.__class__()
-        for k, v in six.iteritems(struct):
-            r[k] = getreqs(v)
-        return r
-    else:
-        try:
-            s = list(struct)
-        except TypeError:
-            raise Exception("Cannot map {} to Task/dict/list".format(struct))
-
-        return struct.__class__(getreqs(r) for r in s)
-
-
 def print_task_deps(task, max_depth=1):
     max_depth = int(max_depth)
 
