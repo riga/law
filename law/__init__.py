@@ -8,7 +8,7 @@ __all__ = [
     "BaseWorkflow", "LocalWorkflow", "workflow_property", "cached_workflow_property",
     "FileSystemTarget", "FileSystemFileTarget", "FileSystemDirectoryTarget",
     "LocalFileSystem", "LocalTarget", "LocalFileTarget, LocalDirectoryTarget",
-    "TargetCollection", "SiblingFileCollection",
+    "TargetCollection", "FileCollection", "SiblingFileCollection",
     "NO_STR", "NO_INT", "NO_FLOAT", "is_no_param", "get_param", "TaskInstanceParameter",
     "CSVParameter", "NotifyParameter", "NotifyMailParameter",
     "Config",
@@ -48,7 +48,7 @@ from law.parameter import (
 )
 from law.target.file import FileSystemTarget, FileSystemFileTarget, FileSystemDirectoryTarget
 from law.target.local import LocalFileSystem, LocalTarget, LocalFileTarget, LocalDirectoryTarget
-from law.target.collection import TargetCollection, SiblingFileCollection
+from law.target.collection import TargetCollection, FileCollection, SiblingFileCollection
 import law.decorator
 from law.task.base import Task, WrapperTask, ExternalTask
 from law.workflow.base import BaseWorkflow, workflow_property, cached_workflow_property

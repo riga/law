@@ -5,20 +5,25 @@ Collections that wrap multiple targets.
 """
 
 
-__all__ = ["TargetCollection", "SiblingFileCollection"]
+__all__ = ["TargetCollection", "FileCollection", "SiblingFileCollection"]
 
 
 import types
 import random
+from contextlib import contextmanager
 
 import six
 
 from law.target.base import Target
-from law.target.file import FileSystemTarget
+from law.target.file import FileSystemTarget, localize_targets
+from law.target.local import LocalDirectoryTarget
 from law.util import colored, flatten, create_hash
 
 
 class TargetCollection(Target):
+    """
+    Collection of arbitrary targets.
+    """
 
     def __init__(self, targets, threshold=1.0, **kwargs):
         if isinstance(targets, types.GeneratorType):
@@ -91,6 +96,14 @@ class TargetCollection(Target):
     def hash(self):
         target_hashes = "".join(target.hash for target in self._flat_target_list)
         return create_hash(self.__class__.__name__ + target_hashes)
+
+    @property
+    def first_target(self):
+        target = self._flat_target_list[0]
+        if isinstance(target, TargetCollection):
+            return target.first_target
+        else:
+            return target
 
     def remove(self, silent=True):
         for target in self._flat_target_list:
@@ -190,24 +203,58 @@ class TargetCollection(Target):
         return text
 
 
-class SiblingFileCollection(TargetCollection):
+class FileCollection(TargetCollection):
+    """
+    Collection of targets that represent files or other FileCollection's.
+    """
 
     def __init__(self, *args, **kwargs):
         TargetCollection.__init__(self, *args, **kwargs)
 
-        # check if all targets are file system targets or nested SiblingFileCollection's
-        # (it's the user's responsibility to pass targets that are really in the same directory)
+        # check if all targets are either FileSystemTarget's or FileCollection's
         for target in self._flat_target_list:
-            if not isinstance(target, (FileSystemTarget, SiblingFileCollection)):
-                raise TypeError("SiblingFileCollection's only wrap FileSystemTarget's and "
-                    "other SiblingFileCollection's, got {}".format(target.__class__))
+            if not isinstance(target, (FileSystemTarget, FileCollection)):
+                raise TypeError("FileCollection's only wrap FileSystemTarget's and other "
+                    "FileCollection's, got {}".format(target.__class__))
+
+    @contextmanager
+    def localize(self, *args, **kwargs):
+        # when localizing collections using temporary files, it makes sense to put
+        # them all in the same temporary directory
+        tmp_dir = kwargs.get("tmp_dir")
+        tmp_dir_created = False
+        if not tmp_dir:
+            tmp_dir = LocalDirectoryTarget(is_tmp=True)
+            tmp_dir_created = True
+            kwargs["tmp_dir"] = tmp_dir.path
+
+        # enter localize contexts of all targets
+        with localize_targets(self.targets, *args, **kwargs) as localized_targets:
+            # create a copy of this collection that wraps the localized targets
+            copy = self.__class__(localized_targets, **self._copy_kwargs())
+
+            try:
+                yield copy
+
+            finally:
+                # although tmp_dir would clean itself during garbage collection, an error might have
+                # occurred, so for larger collections it is safer to delete the tmp_dir manually
+                if tmp_dir_created:
+                    tmp_dir.remove()
+
+
+class SiblingFileCollection(FileCollection):
+    """
+    Collection of targets that represent files which are all located in the same directory. This is
+    especially beneficial for large collections of remote files. It is the user's responsibility to
+    ensure that all targets are really located in the same directory.
+    """
+
+    def __init__(self, *args, **kwargs):
+        FileCollection.__init__(self, *args, **kwargs)
 
         # find the first target and store its directory
-        first_target = self._flat_target_list[0]
-        if isinstance(first_target, FileSystemTarget):
-            self.dir = first_target.parent
-        else:  # SiblingFileCollection
-            self.dir = first_target.dir
+        self.dir = self.first_target.parent
 
     def _repr_pairs(self, color=True):
         return TargetCollection._repr_pairs(self) + [("dir", self.dir.path)]
