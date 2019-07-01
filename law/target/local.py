@@ -20,8 +20,8 @@ import luigi
 import six
 
 from law.target.file import (
-    FileSystem, FileSystemTarget, FileSystemFileTarget, FileSystemDirectoryTarget, get_scheme,
-    remove_scheme, split_transfer_kwargs,
+    FileSystem, FileSystemTarget, FileSystemFileTarget, FileSystemDirectoryTarget, get_path,
+    get_scheme, remove_scheme, split_transfer_kwargs,
 )
 from law.target.formatter import find_formatter
 from law.config import Config
@@ -204,21 +204,25 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
 
     fs = LocalFileSystem.default_instance
 
-    def __init__(self, path=None, is_tmp=False, **kwargs):
+    def __init__(self, path=None, is_tmp=False, tmp_dir=None, **kwargs):
         # handle tmp paths manually since luigi uses the env tmp dir
         if not path:
             if not is_tmp:
                 raise Exception("either path or is_tmp must be set")
 
-            # get the tmp dir from the config and ensure it exists
-            tmp_dir = os.path.realpath(Config.instance().get_expanded("target", "tmp_dir"))
+            # if not set, get the tmp dir from the config and ensure that it exists
+            if tmp_dir:
+                tmp_dir = get_path(tmp_dir)
+            else:
+                tmp_dir = os.path.realpath(Config.instance().get_expanded("target", "tmp_dir"))
             if not self.fs.exists(tmp_dir):
                 perm = Config.instance().get("target", "tmp_dir_permission")
                 self.fs.mkdir(tmp_dir, perm=perm and int(perm))
 
             # create a random path
             while True:
-                path = os.path.join(tmp_dir, "luigi-tmp-%09d" % (random.randint(0, 999999999,)))
+                basename = "luigi-tmp-{:09d}".format(random.randint(0, 999999999))
+                path = os.path.join(tmp_dir, basename)
                 if not self.fs.exists(path):
                     break
 
@@ -228,7 +232,9 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
                     is_tmp = "." + is_tmp
                 path += is_tmp
         else:
-            path = self.fs.abspath(os.path.expandvars(os.path.expanduser(remove_scheme(path))))
+            # ensure path is not a target and does not contain, then normalize
+            path = remove_scheme(get_path(path))
+            path = self.fs.abspath(os.path.expandvars(os.path.expanduser(path)))
 
         luigi.LocalTarget.__init__(self, path=path, is_tmp=is_tmp)
         FileSystemTarget.__init__(self, self.path, **kwargs)
