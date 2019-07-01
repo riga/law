@@ -22,6 +22,7 @@ def GuardedTFile(*args, **kwargs):
 
     if not guarded_tfile_cls:
         import ROOT
+        ROOT.gROOT.SetBatch()
 
         class GuardedTFile(ROOT.TFile):
 
