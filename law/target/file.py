@@ -8,10 +8,12 @@ Custom luigi file system and target objects.
 __all__ = [
     "FileSystem", "FileSystemTarget", "FileSystemFileTarget", "FileSystemDirectoryTarget",
     "get_path", "get_scheme", "has_scheme", "add_scheme", "remove_scheme", "split_transfer_kwargs",
+    "localize_targets",
 ]
 
 
 import os
+import sys
 from abc import abstractmethod, abstractproperty
 from contextlib import contextmanager
 
@@ -20,7 +22,7 @@ import luigi
 import luigi.task
 
 from law.target.base import Target
-from law.util import create_hash, make_list
+from law.util import create_hash, make_list, map_struct
 
 
 class FileSystem(luigi.target.FileSystem):
@@ -340,6 +342,35 @@ def split_transfer_kwargs(kwargs, skip=None):
         if name in kwargs and name not in skip
     }
     return transfer_kwargs, kwargs
+
+
+@contextmanager
+def localize_targets(struct, *args, **kwargs):
+    """
+    Takes an arbitrary *struct* of targets, opens the context returned by their
+    :py:meth:`FileSystemFileTarget.localize` implementation and yields their localized
+    representations and the same structure as passed in *struct*. When the context is closed, the
+    contexts of all localized targets are transparently closed.
+    """
+    managers = []
+
+    def enter(target):
+        if callable(getattr(target, "localize", None)):
+            manager = target.localize(*args, **kwargs)
+            managers.append(manager)
+            return manager.__enter__()
+        else:
+            return target
+
+    localized_targets = map_struct(enter, struct)
+
+    try:
+        yield localized_targets
+
+    finally:
+        exc_info = sys.exc_info()
+        for manager in managers:
+            manager.__exit__(*exc_info)
 
 
 # trailing imports
