@@ -13,8 +13,8 @@ from random import random
 import luigi
 
 import law
-from law.sandbox.docker import DockerSandbox
 
+law.contrib.load("docker")
 
 luigi.namespace("example.docker")
 
@@ -39,7 +39,9 @@ class BinNumbers(law.SandboxTask):
 
     sandbox = "docker::34b598324f19"
     force_sandbox = True
-    docker_args = DockerSandbox.default_docker_args + ["-v", os.getcwd() + "/data:/notebooks/data"]
+    docker_args = law.DockerSandbox.default_docker_args + [
+        "-v", os.getcwd() + "/data:/notebooks/data",
+    ]
 
     def requires(self):
         return CreateNumbers.req(self)

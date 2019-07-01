@@ -20,6 +20,7 @@ To use on of the following packages in your code, you must import them explicitl
 
    arc
    cms
+   docker
    dropbox
    git
    glite
@@ -31,6 +32,7 @@ To use on of the following packages in your code, you must import them explicitl
    mercurial
    numpy
    root
+   singularity
    slack
    tasks
    telegram
