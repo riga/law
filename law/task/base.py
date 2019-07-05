@@ -11,7 +11,6 @@ __all__ = ["Task", "WrapperTask", "ExternalTask"]
 import sys
 import socket
 import logging
-import warnings
 from collections import OrderedDict
 from contextlib import contextmanager
 from abc import abstractmethod
@@ -130,8 +129,8 @@ class BaseTask(luigi.Task):
         outputs = [t for t in flatten(self.output()) if not t.optional]
 
         if len(outputs) == 0:
-            msg = "task {!r} has either no non-optional outputs or no custom complete() method"
-            warnings.warn(msg.format(self), stacklevel=2)
+            logger.warning("task {!r} has either no non-optional outputs or no custom complete() "
+                "method".format(self))
             return False
 
         return all(t.exists() for t in outputs)

@@ -20,7 +20,6 @@ import atexit
 import gc
 import random
 import threading
-import warnings
 import logging
 from contextlib import contextmanager
 
@@ -685,7 +684,7 @@ class RemoteFileSystem(FileSystem):
 
     def remove(self, path, recursive=True, silent=True, **kwargs):
         if self.abspath(path) == "/":
-            warnings.warn("refused request to remove base directory of {}".format(self))
+            logger.warning("refused request to remove base directory of {!r}".format(self))
             return
 
         # first get the remote stat object
