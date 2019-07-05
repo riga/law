@@ -542,6 +542,8 @@ class BaseWorkflow(Task):
                 # some type and sanity checks
                 if isinstance(self._branch_map, (list, tuple)):
                     self._branch_map = dict(enumerate(self._branch_map))
+                elif isinstance(self._branch_map, six.integer_types):
+                    self._branch_map = dict(enumerate(range(self._branch_map)))
                 elif self.force_contiguous_branches:
                     n = len(self._branch_map)
                     if set(self._branch_map.keys()) != set(range(n)):
