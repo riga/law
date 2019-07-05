@@ -99,7 +99,11 @@ class TargetCollection(Target):
 
     @property
     def first_target(self):
+        if not self._flat_target_list:
+            return None
+
         target = self._flat_target_list[0]
+
         if isinstance(target, TargetCollection):
             return target.first_target
         else:
@@ -254,6 +258,8 @@ class SiblingFileCollection(FileCollection):
         FileCollection.__init__(self, *args, **kwargs)
 
         # find the first target and store its directory
+        if self.first_target is None:
+            raise Exception("{} requires at least one file target".format(self.__class__.__name__))
         self.dir = self.first_target.parent
 
     def _repr_pairs(self, color=True):
