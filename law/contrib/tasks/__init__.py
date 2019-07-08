@@ -106,7 +106,7 @@ class CascadeMerge(LocalWorkflow):
     # internal parameter
     n_cascade_leaves = luigi.IntParameter(default=NO_INT, significant=False)
 
-    # fixate some workflow parameters
+    # fix some workflow parameters
     acceptance = 1.
     tolerance = 0.
     pilot = False
@@ -206,7 +206,7 @@ class CascadeMerge(LocalWorkflow):
         n_trees = 1 if not isinstance(output, TargetCollection) else len(output)
 
         if self.n_cascade_leaves < n_trees:
-            raise Exception("too many leaves ({}) for number of requested trees ({})".format(
+            raise Exception("too few leaves ({}) for number of requested trees ({})".format(
                 self.n_cascade_leaves, n_trees))
 
         # determine the number of leaves per tree
