@@ -22,6 +22,7 @@ def GuardedTFile(*args, **kwargs):
 
     if not guarded_tfile_cls:
         import ROOT
+        ROOT.PyConfig.IgnoreCommandLineOptions = True
         ROOT.gROOT.SetBatch()
 
         class GuardedTFile(ROOT.TFile):
@@ -66,6 +67,7 @@ class ROOTNumpyFormatter(Formatter):
     @classmethod
     def load(cls, path, *args, **kwargs):
         import ROOT
+        ROOT.PyConfig.IgnoreCommandLineOptions = True
         ROOT.gROOT.SetBatch()
         import root_numpy
 
