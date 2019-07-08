@@ -36,27 +36,27 @@ class WLCGFileSystem(RemoteFileSystem):
         kwargs.setdefault("atomic_contexts", True)
         kwargs.setdefault("permissions", False)
 
-        # prepare the gfal options
-        # resolution order: config, base+bases, default wlcg fs section
-        cfg = Config.instance()
-        if not config:
-            config = cfg.get("target", "default_wlcg_fs")
+        # prepare the gfal options, prefer base[+bases] over config
+        if not base:
+            cfg = Config.instance()
+            if not config:
+                config = cfg.get("target", "default_wlcg_fs")
 
-        # config might be a section in the law config
-        if cfg.has_section(config):
-            # parse it
-            self.parse_config(config, kwargs)
+            # config might be a section in the law config
+            if cfg.has_section(config):
+                # parse it
+                self.parse_config(config, kwargs)
 
-            # set base and bases explicitely
-            _base = kwargs.pop("base", None)
-            if base is None:
-                base = _base
-            _bases = kwargs.pop("bases", None)
-            if bases is None:
-                bases = _bases
+                # set base and bases explicitely
+                _base = kwargs.pop("base", None)
+                if base is None:
+                    base = _base
+                _bases = kwargs.pop("bases", None)
+                if bases is None:
+                    bases = _bases
 
         # base is required
-        if base is None:
+        if not base:
             raise Exception("invalid arguments, set either config, base or the "
                 "target.default_wlcg_fs option in your law config")
 
