@@ -53,9 +53,8 @@ action() {
         sgit add -A . &> /dev/null && \
         sgit add -f $4 &> /dev/null; \
         sgit commit -m "[tmp] Add all changes." > /dev/null && \
-        # sgit archive --prefix="$repo_name/" --format=tar.gz -o "$dst_path" HEAD \
         sgit archive --prefix="$repo_name/" --format=tar -o "$tmp_arc" HEAD && \
-        sgit submodule foreach --recursive "\
+        sgit submodule foreach --recursive --quiet "\
             sgit archive --prefix=\"$repo_name/\$path/\" --format=tar --output=\"$rnd_\$sha1.tar\" HEAD && \
             tar --concatenate --file=\"$tmp_arc\" \"$rnd_\$sha1.tar\" \
             && rm \"$rnd_\$sha1.tar\"" && \
