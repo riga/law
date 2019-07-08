@@ -10,6 +10,7 @@ __all__ = ["Task", "WrapperTask", "ExternalTask"]
 
 import sys
 import socket
+import time
 import logging
 from collections import OrderedDict
 from contextlib import contextmanager
@@ -24,7 +25,7 @@ from law.parser import global_cmdline_values
 from law.target.file import localize_targets
 from law.util import (
     abort, colored, uncolored, make_list, query_choice, multi_match, flatten, check_bool_flag,
-    BaseStream,
+    BaseStream, human_time_diff,
 )
 
 
@@ -260,14 +261,19 @@ class Task(BaseTask):
         return TaskMessageStream(self, *args, **kwargs)
 
     @contextmanager
-    def publish_step(self, msg, success_message="done", fail_message="failed"):
+    def publish_step(self, msg, success_message="done", fail_message="failed", runtime=False):
         self.publish_message(msg)
         success = False
+        t0 = time.time()
         try:
             yield
             success = True
         finally:
-            self.publish_message(success_message if success else fail_message)
+            msg = success_message if success else fail_message
+            if runtime:
+                diff = time.time() - t0
+                msg = "{} (took {})".format(msg, human_time_diff(seconds=diff))
+            self.publish_message(msg)
 
     def publish_progress(self, percentage, precision=0):
         percentage = round(percentage, precision)
