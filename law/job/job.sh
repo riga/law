@@ -20,7 +20,7 @@
 # 6. dashboard_data (base64 encoded list)
 
 action() {
-    export LAW_JOB_INIT_DIR="$( /bin/pwd )"
+    echo "running law remote job script"
 
 
     #
@@ -39,6 +39,7 @@ action() {
     # create a job home directory and tmp dirs, change into the job home dir, copy all input files
     #
 
+    export LAW_JOB_INIT_DIR="$( /bin/pwd )"
     export LAW_JOB_HOME="$( mktemp -d "$LAW_JOB_INIT_DIR/job_XXXXXXXXXXXX" )"
     export TMP="$LAW_JOB_HOME/tmp"
     export TEMP="$TMP"
@@ -168,11 +169,11 @@ action() {
     echo "script  : $0"
     echo "shell   : '$SHELL'"
     echo "args    : '$@'"
-    echo "init    : '$LAW_JOB_INIT_DIR'"
+    echo "init dir: '$LAW_JOB_INIT_DIR'"
     echo "job home: '$LAW_JOB_HOME'"
-    echo "tmp     : '$( python -c "from tempfile import gettempdir; print(gettempdir())" )'"
+    echo "tmp dir : '$( python -c "from tempfile import gettempdir; print(gettempdir())" )'"
     echo "pwd     : '$( pwd )'"
-    echo "python  : '$( 2>&1 python --version )' ($( which python ))"
+    echo "python  : $( 2>&1 python --version ), $( which python )"
     echo
     echo "task module   : $task_module"
     echo "task family   : $task_class"
