@@ -38,7 +38,7 @@ class BashSandbox(Sandbox):
                 tmp_path = os.path.realpath(tmp[1])
 
                 cmd = "bash -l -c 'source \"{0}\"; python -c \"" \
-                    "import os,pickle;pickle.dump(dict(os.environ),open(\\\"{1}\\\",\\\"wb\\\"))\"'"
+                    "import os,pickle;pickle.dump(dict(os.environ),open(\\\"{1}\\\",\\\"wb\\\"),protocol=2)\"'"
                 cmd = cmd.format(script, tmp_path)
 
                 returncode, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
