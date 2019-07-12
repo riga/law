@@ -38,7 +38,7 @@ class BashSandbox(Sandbox):
                 tmp_path = os.path.realpath(tmp[1])
 
                 cmd = "bash -l -c 'source \"{0}\"; python -c \"" \
-                    "import os,pickle;pickle.dump(os.environ,open(\\\"{1}\\\",\\\"w\\\"))\"'"
+                    "import os,pickle;pickle.dump(dict(os.environ),open(\\\"{1}\\\",\\\"wb\\\"))\"'"
                 cmd = cmd.format(script, tmp_path)
 
                 returncode, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
@@ -46,7 +46,7 @@ class BashSandbox(Sandbox):
                 if returncode != 0:
                     raise Exception("bash sandbox env loading failed: " + str(out))
 
-                with open(tmp_path, "r") as f:
+                with open(tmp_path, "rb") as f:
                     env = six.moves.cPickle.load(f)
 
             # cache
