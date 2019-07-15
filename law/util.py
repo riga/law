@@ -619,7 +619,7 @@ def copy_no_perm(src, dst):
     """
     Copies a file from *src* to *dst* including meta data except for permission bits.
     """
-    shutil.copy(src, dst)
+    shutil.copyfile(src, dst)
     perm = os.stat(dst).st_mode
     shutil.copystat(src, dst)
     os.chmod(dst, perm)
