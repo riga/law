@@ -200,14 +200,14 @@ class FileSystemFileTarget(FileSystemTarget):
     def ext(self, n=1):
         return self.fs.ext(self.path, n=n)
 
-    def touch(self, content=" ", perm=None, parent_perm=None, **kwargs):
+    def touch(self, content=" ", perm=None, dir_perm=None, **kwargs):
         if perm is None:
             perm = self.fs.default_file_perm
 
         # create the parent
         parent = self.parent
         if parent is not None:
-            parent.touch(perm=parent_perm, **kwargs)
+            parent.touch(perm=dir_perm, **kwargs)
 
         # create the file via open and write content
         with self.open("w", **kwargs) as f:
