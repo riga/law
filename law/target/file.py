@@ -30,6 +30,15 @@ class FileSystem(luigi.target.FileSystem):
     default_file_perm = None
     default_directory_perm = None
 
+    def __init__(self, default_file_perm=None, default_directory_perm=None):
+        luigi.target.FileSystem.__init__(self)
+
+        if default_file_perm is not None:
+            self.default_file_perm = default_file_perm
+
+        if default_directory_perm is not None:
+            self.default_directory_perm = default_directory_perm
+
     def __repr__(self):
         return "{}({})".format(self.__class__.__name__, hex(id(self)))
 
@@ -134,7 +143,10 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
     file_class = None
     directory_class = None
 
-    def __init__(self, path, **kwargs):
+    def __init__(self, path, fs=None, **kwargs):
+        if fs:
+            self.fs = fs
+
         Target.__init__(self, **kwargs)
         luigi.target.FileSystemTarget.__init__(self, path)
 
@@ -201,9 +213,6 @@ class FileSystemFileTarget(FileSystemTarget):
         return self.fs.ext(self.path, n=n)
 
     def touch(self, content=" ", perm=None, dir_perm=None, **kwargs):
-        if perm is None:
-            perm = self.fs.default_file_perm
-
         # create the parent
         parent = self.parent
         if parent is not None:
@@ -213,6 +222,9 @@ class FileSystemFileTarget(FileSystemTarget):
         with self.open("w", **kwargs) as f:
             if content:
                 f.write(content)
+
+        if perm is None:
+            perm = self.fs.default_file_perm
 
         self.chmod(perm, **kwargs)
 

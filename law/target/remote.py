@@ -320,7 +320,7 @@ class RemoteCache(object):
         # helper to add a config value if it exists, extracted with a config parser method
         def add(key, func):
             cache_key = "cache_" + key
-            if cfg.has_option(section, cache_key):
+            if key not in config and not cfg.is_missing_or_none(section, cache_key):
                 config[key] = func(section, cache_key)
 
         add("root", cfg.get_expanded)
@@ -561,29 +561,6 @@ class RemoteFileSystem(FileSystem):
 
     local_fs = _local_fs
 
-    def __init__(self, base, bases=None, gfal_options=None, transfer_config=None,
-            atomic_contexts=False, retries=0, retry_delay=0, permissions=True, validate_copy=False,
-            cache_config=None, local_fs=None):
-        FileSystem.__init__(self)
-
-        # configure the gfal interface
-        self.gfal = GFALInterface(base, bases, gfal_options=gfal_options,
-            transfer_config=transfer_config, atomic_contexts=atomic_contexts, retries=retries,
-            retry_delay=retry_delay)
-
-        # store other configs
-        self.permissions = permissions
-        self.validate_copy = validate_copy
-
-        # set the cache when a cache root is set
-        if cache_config and cache_config.get("root"):
-            self.cache = RemoteCache(self, **cache_config)
-        else:
-            self.cache = None
-
-        if local_fs:
-            self.local_fs = local_fs
-
     @classmethod
     def parse_config(cls, section, config=None):
         # reads a law config section and returns parsed file system configs
@@ -598,7 +575,7 @@ class RemoteFileSystem(FileSystem):
 
         # helper to add a config value if it exists, extracted with a config parser method
         def add(key, func):
-            if cfg.has_option(section, key):
+            if key not in config and not cfg.is_missing_or_none(section, key):
                 config[key] = func(section, key)
 
         # base path(s)
@@ -628,7 +605,34 @@ class RemoteFileSystem(FileSystem):
         if cfg.keys(section, prefix="cache_"):
             RemoteCache.parse_config(section, config.setdefault("cache_config", {}))
 
+        # permissions
+        add("default_file_perm", cfg.getint)
+        add("default_directory_perm", cfg.getint)
+
         return config
+
+    def __init__(self, base, bases=None, gfal_options=None, transfer_config=None,
+            atomic_contexts=False, retries=0, retry_delay=0, permissions=True, validate_copy=False,
+            cache_config=None, local_fs=None, **kwargs):
+        FileSystem.__init__(self, **kwargs)
+
+        # configure the gfal interface
+        self.gfal = GFALInterface(base, bases, gfal_options=gfal_options,
+            transfer_config=transfer_config, atomic_contexts=atomic_contexts, retries=retries,
+            retry_delay=retry_delay)
+
+        # store other configs
+        self.permissions = permissions
+        self.validate_copy = validate_copy
+
+        # set the cache when a cache root is set
+        if cache_config and cache_config.get("root"):
+            self.cache = RemoteCache(self, **cache_config)
+        else:
+            self.cache = None
+
+        if local_fs:
+            self.local_fs = local_fs
 
     def __del__(self):
         # cleanup the cache

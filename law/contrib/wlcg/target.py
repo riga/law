@@ -43,7 +43,7 @@ class WLCGFileSystem(RemoteFileSystem):
                 config = cfg.get("target", "default_wlcg_fs")
 
             # config might be a section in the law config
-            if cfg.has_section(config):
+            if isinstance(config, six.string_types) and cfg.has_section(config):
                 # parse it
                 self.parse_config(config, kwargs)
 

@@ -35,6 +35,37 @@ class LocalFileSystem(FileSystem):
 
     default_instance = None
 
+    @classmethod
+    def parse_config(cls, section, config=None):
+        # reads a law config section and returns parsed file system configs
+        cfg = Config.instance()
+
+        if config is None:
+            config = {}
+
+        # helper to add a config value if it exists, extracted with a config parser method
+        def add(key, func):
+            if key not in config and not cfg.is_missing_or_none(section, key):
+                config[key] = func(section, key)
+
+        # permissions
+        add("default_file_perm", cfg.getint)
+        add("default_directory_perm", cfg.getint)
+
+        return config
+
+    def __init__(self, config=None, **kwargs):
+        cfg = Config.instance()
+        if not config:
+            config = cfg.get("target", "default_local_fs")
+
+        # config might be a section in the law config
+        if isinstance(config, six.string_types) and cfg.has_section(config):
+            # parse it
+            kwargs = self.parse_config(config, kwargs)
+
+        FileSystem.__init__(self, **kwargs)
+
     def __eq__(self, other):
         return self.__class__ == other.__class__
 
@@ -217,7 +248,11 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
 
     fs = LocalFileSystem.default_instance
 
-    def __init__(self, path=None, is_tmp=False, tmp_dir=None, **kwargs):
+    def __init__(self, path=None, fs=LocalFileSystem.default_instance, is_tmp=False, tmp_dir=None,
+            **kwargs):
+        if isinstance(fs, six.string_types):
+            fs = LocalFileSystem(fs)
+
         # handle tmp paths manually since luigi uses the env tmp dir
         if not path:
             if not is_tmp:
@@ -228,15 +263,15 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
                 tmp_dir = get_path(tmp_dir)
             else:
                 tmp_dir = os.path.realpath(Config.instance().get_expanded("target", "tmp_dir"))
-            if not self.fs.exists(tmp_dir):
+            if not fs.exists(tmp_dir):
                 perm = Config.instance().get("target", "tmp_dir_permission")
-                self.fs.mkdir(tmp_dir, perm=perm and int(perm))
+                fs.mkdir(tmp_dir, perm=perm and int(perm))
 
             # create a random path
             while True:
                 basename = "luigi-tmp-{:09d}".format(random.randint(0, 999999999))
                 path = os.path.join(tmp_dir, basename)
-                if not self.fs.exists(path):
+                if not fs.exists(path):
                     break
 
             # is_tmp might be a file extension
@@ -247,10 +282,10 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
         else:
             # ensure path is not a target and does not contain, then normalize
             path = remove_scheme(get_path(path))
-            path = self.fs.abspath(os.path.expandvars(os.path.expanduser(path)))
+            path = fs.abspath(os.path.expandvars(os.path.expanduser(path)))
 
         luigi.LocalTarget.__init__(self, path=path, is_tmp=is_tmp)
-        FileSystemTarget.__init__(self, self.path, **kwargs)
+        FileSystemTarget.__init__(self, self.path, fs=fs, **kwargs)
 
     def _repr_flags(self):
         flags = FileSystemTarget._repr_flags(self)

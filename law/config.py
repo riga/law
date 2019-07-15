@@ -67,12 +67,17 @@ class Config(ConfigParser):
             "law": os.getenv("LAW_LOG_LEVEL", "WARNING"),
         },
         "target": {
+            "default_local_fs": "local_fs",
             "tmp_dir": os.getenv("LAW_TARGET_TMP_DIR", tempfile.gettempdir()),
             "tmp_dir_permission": 0o0770,
             "gfal2_log_level": "WARNING",
             # contrib
             "default_dropbox_fs": "dropbox_fs",
             "default_wlcg_fs": "wlcg_fs",
+        },
+        "local_fs": {
+            "default_file_perm": None,
+            "default_directory_perm": None,
         },
         "job": {
             "job_file_dir": os.getenv("LAW_JOB_FILE_DIR", tempfile.gettempdir()),
@@ -227,6 +232,13 @@ class Config(ConfigParser):
         kwargs.setdefault("expandvars", True)
         kwargs.setdefault("expanduser", True)
         return self.get_default(*args, **kwargs)
+
+    def is_missing_or_none(self, section, option):
+        """
+        Returns *True* if the value defined by *section* and *option* is missing or ``"None"``, and
+        *False* otherwise.
+        """
+        return self.get_default(section, option) in ("None", None)
 
     def update(self, data, overwrite=None, overwrite_sections=True, overwrite_options=True):
         """
