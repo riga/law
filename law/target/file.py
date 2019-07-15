@@ -27,6 +27,9 @@ from law.util import create_hash, make_list, map_struct
 
 class FileSystem(luigi.target.FileSystem):
 
+    default_file_perm = None
+    default_directory_perm = None
+
     def __repr__(self):
         return "{}({})".format(self.__class__.__name__, hex(id(self)))
 
@@ -105,11 +108,11 @@ class FileSystem(luigi.target.FileSystem):
         return
 
     @abstractmethod
-    def copy(self, src, dst, dir_perm=None, **kwargs):
+    def copy(self, src, dst, perm=None, dir_perm=None, **kwargs):
         return
 
     @abstractmethod
-    def move(self, src, dst, dir_perm=None, **kwargs):
+    def move(self, src, dst, perm=None, dir_perm=None, **kwargs):
         return
 
     @abstractmethod
@@ -198,6 +201,9 @@ class FileSystemFileTarget(FileSystemTarget):
         return self.fs.ext(self.path, n=n)
 
     def touch(self, content=" ", perm=None, parent_perm=None, **kwargs):
+        if perm is None:
+            perm = self.fs.default_file_perm
+
         # create the parent
         parent = self.parent
         if parent is not None:
@@ -221,17 +227,17 @@ class FileSystemFileTarget(FileSystemTarget):
         formatter = kwargs.pop("_formatter", None) or kwargs.pop("formatter", AUTO_FORMATTER)
         return self.fs.dump(self.path, formatter, *args, **kwargs)
 
-    def copy_to(self, dst, dir_perm=None, **kwargs):
-        return self.fs.copy(self.path, get_path(dst), dir_perm=dir_perm, **kwargs)
+    def copy_to(self, dst, perm=None, dir_perm=None, **kwargs):
+        return self.fs.copy(self.path, get_path(dst), perm=perm, dir_perm=dir_perm, **kwargs)
 
-    def copy_from(self, src, dir_perm=None, **kwargs):
-        return self.fs.copy(get_path(src), self.path, dir_perm=dir_perm, **kwargs)
+    def copy_from(self, src, perm=None, dir_perm=None, **kwargs):
+        return self.fs.copy(get_path(src), self.path, perm=perm, dir_perm=dir_perm, **kwargs)
 
-    def move_to(self, dst, dir_perm=None, **kwargs):
-        return self.fs.move(self.path, get_path(dst), dir_perm=dir_perm, **kwargs)
+    def move_to(self, dst, perm=None, dir_perm=None, **kwargs):
+        return self.fs.move(self.path, get_path(dst), perm=perm, dir_perm=dir_perm, **kwargs)
 
-    def move_from(self, src, dir_perm=None, **kwargs):
-        return self.fs.move(get_path(src), self.path, dir_perm=dir_perm, **kwargs)
+    def move_from(self, src, perm=None, dir_perm=None, **kwargs):
+        return self.fs.move(get_path(src), self.path, perm=perm, dir_perm=dir_perm, **kwargs)
 
     @abstractmethod
     def copy_to_local(self, *args, **kwargs):
@@ -251,7 +257,7 @@ class FileSystemFileTarget(FileSystemTarget):
 
     @abstractmethod
     @contextmanager
-    def localize(self, mode="r", perm=None, parent_perm=None, tmp_dir=None, **kwargs):
+    def localize(self, mode="r", perm=None, dir_perm=None, tmp_dir=None, **kwargs):
         return
 
 

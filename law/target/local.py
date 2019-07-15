@@ -75,6 +75,9 @@ class LocalFileSystem(FileSystem):
         if self.exists(path):
             return
 
+        if perm is None:
+            perm = self.default_directory_perm
+
         # the mode passed to os.mkdir or os.makedirs is ignored on some systems, so the strategy
         # here is to disable the process' current umask, create the directories and use chmod again
         if perm is not None:
@@ -161,25 +164,35 @@ class LocalFileSystem(FileSystem):
             # create missing dirs
             dst_dir = self.dirname(dst)
             if dst_dir and not self.exists(dst_dir):
-                self.mkdir(dst_dir, dir_perm=perm, recursive=True)
+                self.mkdir(dst_dir, perm=perm, recursive=True)
 
         return dst
 
-    def copy(self, src, dst, dir_perm=None, **kwargs):
+    def copy(self, src, dst, perm=None, dir_perm=None, **kwargs):
         src = self._unscheme(src)
         dst = self._prepare_dst_dir(src, dst, perm=dir_perm)
 
         # copy the file
         shutil.copy2(src, dst)
 
+        # set permissions
+        if perm is None:
+            perm = self.default_file_perm
+        self.chmod(dst, perm)
+
         return dst
 
-    def move(self, src, dst, dir_perm=None, **kwargs):
+    def move(self, src, dst, perm=None, dir_perm=None, **kwargs):
         src = self._unscheme(src)
         dst = self._prepare_dst_dir(src, dst, perm=dir_perm)
 
         # move the file
         shutil.move(src, dst)
+
+        # set permissions
+        if perm is None:
+            perm = self.default_file_perm
+        self.chmod(dst, perm)
 
         return dst
 
@@ -261,8 +274,8 @@ class LocalFileTarget(LocalTarget, FileSystemFileTarget):
         return self.move_from(*args, **kwargs)
 
     @contextmanager
-    def localize(self, mode="r", perm=None, parent_perm=None, tmp_dir=None, **kwargs):
-        """ localize(mode="r", perm=None, parent_perm=None, tmp_dir=None, is_tmp=None, **kwargs)
+    def localize(self, mode="r", perm=None, dir_perm=None, tmp_dir=None, **kwargs):
+        """ localize(mode="r", perm=None, dir_perm=None, tmp_dir=None, is_tmp=None, **kwargs)
         """
         if mode not in ("r", "w", "a"):
             raise Exception("unknown mode '{}', use 'r', 'w' or 'a'".format(mode))
@@ -304,8 +317,7 @@ class LocalFileTarget(LocalTarget, FileSystemFileTarget):
 
                     # move back again
                     if tmp.exists():
-                        tmp.move_to_local(self, dir_perm=parent_perm)
-                        self.chmod(perm)
+                        tmp.move_to_local(self, perm=perm, dir_perm=dir_perm)
                     else:
                         logger.warning("cannot move non-existing localized file target {!r}".format(
                             self))
@@ -313,7 +325,7 @@ class LocalFileTarget(LocalTarget, FileSystemFileTarget):
                     tmp.remove()
             else:
                 # create the parent dir
-                self.parent.touch(perm=parent_perm)
+                self.parent.touch(perm=dir_perm)
 
                 # simply yield
                 yield self
