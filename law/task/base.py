@@ -171,6 +171,8 @@ class BaseTask(luigi.Task):
             arg = "--{}".format(name.replace("_", "-"))
             if isinstance(param, (luigi.IntParameter, luigi.FloatParameter)):
                 args.extend([arg, str(val)])
+            elif isinstance(param, luigi.BoolParameter):
+                args.extend([arg, "{}".format(val)])
             else:
                 args.extend([arg, "\"{}\"".format(val)])
 
