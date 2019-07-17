@@ -169,10 +169,7 @@ class BaseTask(luigi.Task):
             raw = replace.get(name, getattr(self, name))
             val = param.serialize(raw)
             arg = "--{}".format(name.replace("_", "-"))
-            if isinstance(param, luigi.BoolParameter):
-                if raw:
-                    args.extend([arg])
-            elif isinstance(param, (luigi.IntParameter, luigi.FloatParameter)):
+            if isinstance(param, (luigi.IntParameter, luigi.FloatParameter)):
                 args.extend([arg, str(val)])
             else:
                 args.extend([arg, "\"{}\"".format(val)])
