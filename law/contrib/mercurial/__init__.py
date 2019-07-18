@@ -70,6 +70,6 @@ class BundleMercurialRepository(Task):
         cmd += [" ".join(self.exclude_files)]
         cmd += [" ".join(self.include_files)]
 
-        code = interruptable_popen(cmd)[0]
+        code = interruptable_popen(cmd, executable="/bin/bash")[0]
         if code != 0:
             raise Exception("repository bundling failed")
