@@ -166,14 +166,15 @@ action() {
 
     section "environment"
 
-    echo "script  : $0"
-    echo "shell   : '$SHELL'"
-    echo "args    : '$@'"
-    echo "init dir: '$LAW_JOB_INIT_DIR'"
-    echo "job home: '$LAW_JOB_HOME'"
-    echo "tmp dir : '$( python -c "from tempfile import gettempdir; print(gettempdir())" )'"
-    echo "pwd     : '$( pwd )'"
+    echo "shell   : $SHELL"
+    echo "hostname: $( hostname )"
     echo "python  : $( 2>&1 python --version ), $( which python )"
+    echo "init dir: $LAW_JOB_INIT_DIR"
+    echo "job home: $LAW_JOB_HOME"
+    echo "tmp dir : $( python -c "from tempfile import gettempdir; print(gettempdir())" )"
+    echo "pwd     : $( pwd )"
+    echo "script  : $0"
+    echo "args    : $@"
     echo
     echo "task module   : $task_module"
     echo "task family   : $task_class"
