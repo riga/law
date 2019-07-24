@@ -43,8 +43,6 @@ action() {
     local repo_name="$( basename "$repo_path" )"
     local tmp_dir="$( mktemp -d )"
     local tmp_list="$( mktemp -u "$tmp_dir/tmp.XXXXXXXXXX" ).txt"
-    local tmp_arc="$( mktemp -u "$tmp_dir/tmp.XXXXXXXXXX" ).tar"
-    local rnd="$RANDOM$RANDOM"
 
     # on nfs systems the .git/index.lock might be re-appear due to sync issues
     sgit() {
