@@ -14,7 +14,7 @@ source setup.sh
 ```
 
 
-#### 2. Let law index your the tasks and their parameters (for autocompletion)
+#### 2. Let law index your the tasks and their parameters (only for autocompletion)
 
 ```shell
 law index --verbose
@@ -50,15 +50,15 @@ print task status with max_depth -1 and target_depth 0
 > check status of ShowFrequencies(slow=False)
 |
 |   > check status of MergeCounts(slow=False)
-|   |   - check LocalFileTarget(path=/Users/marcel/repos/law/examples/loremipsum/data/chars_merged.json)
+|   |   - check LocalFileTarget(path=/examplepath/data/chars_merged.json)
 |   |     -> absent
 |   |
 |   |   > check status of CountChars(file_index=1, slow=False)
-|   |   |   - check LocalFileTarget(path=/Users/marcel/repos/law/examples/loremipsum/data/chars_1.json)
+|   |   |   - check LocalFileTarget(path=/examplepath/data/chars_1.json)
 |   |   |     -> absent
 |   |   |
 |   |   |   > check status of FetchLoremIpsum(file_index=1, slow=False)
-|   |   |   |   - check LocalFileTarget(path=/Users/marcel/repos/law/examples/loremipsum/data/loremipsum_1.txt)
+|   |   |   |   - check LocalFileTarget(path=/examplepath/data/loremipsum_1.txt)
 |   |   |   |     -> absent
 ...
 ```
@@ -92,15 +92,15 @@ print task status with max_depth -1 and target_depth 0
 > check status of ShowFrequencies(slow=False)
 |
 |   > check status of MergeCounts(slow=False)
-|   |   - check LocalFileTarget(path=/Users/marcel/repos/law/examples/loremipsum/data/chars_merged.json)
+|   |   - check LocalFileTarget(path=/examplepath/data/chars_merged.json)
 |   |     -> existent
 |   |
 |   |   > check status of CountChars(file_index=1, slow=False)
-|   |   |   - check LocalFileTarget(path=/Users/marcel/repos/law/examples/loremipsum/data/chars_1.json)
+|   |   |   - check LocalFileTarget(path=/examplepath/data/chars_1.json)
 |   |   |     -> existent
 |   |   |
 |   |   |   > check status of FetchLoremIpsum(file_index=1, slow=False)
-|   |   |   |   - check LocalFileTarget(path=/Users/marcel/repos/law/examples/loremipsum/data/loremipsum_1.txt)
+|   |   |   |   - check LocalFileTarget(path=/examplepath/data/loremipsum_1.txt)
 |   |   |   |     -> existent
 ...
 ```
