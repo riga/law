@@ -15,7 +15,7 @@ from contextlib import contextmanager
 import six
 
 from law.target.base import Target
-from law.target.file import FileSystemTarget, localize_targets
+from law.target.file import FileSystemTarget, localize_file_targets
 from law.target.local import LocalDirectoryTarget
 from law.util import colored, flatten, create_hash
 
@@ -233,7 +233,7 @@ class FileCollection(TargetCollection):
             kwargs["tmp_dir"] = tmp_dir.path
 
         # enter localize contexts of all targets
-        with localize_targets(self.targets, *args, **kwargs) as localized_targets:
+        with localize_file_targets(self.targets, *args, **kwargs) as localized_targets:
             # create a copy of this collection that wraps the localized targets
             copy = self.__class__(localized_targets, **self._copy_kwargs())
 
