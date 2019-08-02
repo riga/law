@@ -22,7 +22,8 @@ import six
 
 from law.parameter import NO_STR, TaskInstanceParameter, CSVParameter
 from law.parser import global_cmdline_values
-from law.target.file import localize_targets
+from law.target.file import FileSystemTarget, localize_targets
+from law.target.collection import TargetCollection
 from law.util import (
     abort, colored, uncolored, make_list, query_choice, multi_match, flatten, check_bool_flag,
     BaseStream, human_time_diff,
@@ -198,7 +199,7 @@ class Register(BaseRegister):
                     getattr(inst, "_" + param)(*value)
                 except KeyboardInterrupt:
                     print("\naborted")
-                abort("", exitcode=0)
+                abort(exitcode=0)
 
         return inst
 
@@ -213,10 +214,13 @@ class Task(BaseTask):
     print_status = CSVParameter(default=[], significant=False, description="print the task status, "
         "do not run any task, the passed numbers set the recursion depth (0 means non-recursive) "
         "and optionally the collection depth")
+    print_output = CSVParameter(default=[], significant=False, description="print a flat list of "
+        "output targets, do not run any task, the passed number sets the recursion depth (0 means "
+        "non-recursive")
     remove_output = CSVParameter(default=[], significant=False, description="remove all outputs, "
         "do not run any task, the passed number sets the recursion depth (0 means non-recursive)")
 
-    interactive_params = ["print_deps", "print_status", "remove_output"]
+    interactive_params = ["print_deps", "print_status", "print_output", "remove_output"]
 
     message_cache_size = 10
 
@@ -335,6 +339,9 @@ class Task(BaseTask):
     def _print_status(self, *args, **kwargs):
         return print_task_status(self, *args, **kwargs)
 
+    def _print_output(self, *args, **kwargs):
+        return print_task_output(self, *args, **kwargs)
+
     def _remove_output(self, *args, **kwargs):
         return remove_task_output(self, *args, **kwargs)
 
@@ -435,6 +442,29 @@ def print_task_status(task, max_depth=0, target_depth=0, flags=None):
             for line in status_lines[1:]:
                 status_text += "\n" + offset + "     " + line
             print("{}  -> {}".format(offset, status_text))
+
+
+def print_task_output(task, max_depth=0):
+    max_depth = int(max_depth)
+
+    print("print task output with max_depth {}\n".format(max_depth))
+
+    def print_target(target):
+        if isinstance(target, FileSystemTarget):
+            print(target.uri())
+        else:
+            logger.warning("target listing not yet implemented for {}".format(target.__class__))
+
+    done = []
+    for dep, _, depth in task.walk_deps(max_depth=max_depth, order="pre"):
+        done.append(dep)
+
+        for outp in luigi.task.flatten(dep.output()):
+            if isinstance(outp, TargetCollection):
+                for t in outp._flat_target_list:
+                    print_target(t)
+            else:
+                print_target(outp)
 
 
 def remove_task_output(task, max_depth=0, mode=None, include_external=False):

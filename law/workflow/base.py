@@ -373,8 +373,8 @@ class BaseWorkflow(Task):
 
     exclude_index = True
 
-    exclude_params_branch = {"print_deps", "print_status", "remove_output", "workflow",
-        "acceptance", "tolerance", "pilot", "start_branch", "end_branch", "branches"}
+    exclude_params_branch = {"print_deps", "print_status", "print_output", "remove_output",
+        "workflow", "acceptance", "tolerance", "pilot", "start_branch", "end_branch", "branches"}
     exclude_params_workflow = {"branch"}
 
     def __init__(self, *args, **kwargs):
