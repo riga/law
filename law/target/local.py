@@ -21,7 +21,7 @@ import six
 
 from law.target.file import (
     FileSystem, FileSystemTarget, FileSystemFileTarget, FileSystemDirectoryTarget, get_path,
-    get_scheme, remove_scheme, split_transfer_kwargs,
+    get_scheme, add_scheme, remove_scheme, split_transfer_kwargs,
 )
 from law.target.formatter import find_formatter
 from law.config import Config
@@ -292,6 +292,9 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
         if self.is_tmp:
             flags.append("temporary")
         return flags
+
+    def uri(self):
+        return add_scheme(self.fs.abspath(self.path), "file")
 
 
 class LocalFileTarget(LocalTarget, FileSystemFileTarget):

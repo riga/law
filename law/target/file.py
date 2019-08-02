@@ -201,6 +201,10 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
         return
 
     @abstractmethod
+    def uri(self):
+        return
+
+    @abstractmethod
     def touch(self):
         return
 
@@ -324,14 +328,14 @@ def get_path(target):
     return target.path if isinstance(target, FileSystemTarget) else target
 
 
-def get_scheme(path):
+def get_scheme(uri):
     # ftp://path/to/file -> ftp
     # /path/to/file -> None
-    return six.moves.urllib_parse.urlparse(path).scheme or None
+    return six.moves.urllib_parse.urlparse(uri).scheme or None
 
 
-def has_scheme(path):
-    return get_scheme(path) is not None
+def has_scheme(uri):
+    return get_scheme(uri) is not None
 
 
 def add_scheme(path, scheme):
@@ -339,10 +343,10 @@ def add_scheme(path, scheme):
     return "{}://{}".format(scheme, path) if not has_scheme(path) else path
 
 
-def remove_scheme(path):
+def remove_scheme(uri):
     # ftp://path/to/file -> /path/to/file
     # /path/to/file -> /path/to/file
-    return six.moves.urllib_parse.urlparse(path).path or None
+    return six.moves.urllib_parse.urlparse(uri).path or None
 
 
 def split_transfer_kwargs(kwargs, skip=None):

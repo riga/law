@@ -180,7 +180,7 @@ class GFALInterface(object):
             if self.atomic_contexts and pid in self._transfer_parameters:
                 del self._transfer_parameters[pid]
 
-    def url(self, path, cmd=None, rnd=True):
+    def uri(self, path, cmd=None, rnd=True):
         # get potential bases for the given cmd
         bases = self.base
         if cmd:
@@ -201,7 +201,7 @@ class GFALInterface(object):
         cmd = "stat" if stat else ("exists", "stat")
         with self.context() as ctx:
             try:
-                rstat = ctx.stat(self.url(path, cmd=cmd))
+                rstat = ctx.stat(self.uri(path, cmd=cmd))
                 return rstat if stat else True
             except gfal2.GError:
                 return None if stat else False
@@ -209,38 +209,38 @@ class GFALInterface(object):
     @retry
     def stat(self, path):
         with self.context() as ctx:
-            return ctx.stat(self.url(path, "stat"))
+            return ctx.stat(self.uri(path, "stat"))
 
     @retry
     def chmod(self, path, perm):
         if perm:
             with self.context() as ctx:
-                return ctx.chmod(self.url(path, "chmod"), perm)
+                return ctx.chmod(self.uri(path, "chmod"), perm)
 
     @retry
     def unlink(self, path):
         with self.context() as ctx:
-            return ctx.unlink(self.url(path, "unlink"))
+            return ctx.unlink(self.uri(path, "unlink"))
 
     @retry
     def rmdir(self, path):
         with self.context() as ctx:
-            return ctx.rmdir(self.url(path, "rmdir"))
+            return ctx.rmdir(self.uri(path, "rmdir"))
 
     @retry
     def mkdir(self, path, perm):
         with self.context() as ctx:
-            return ctx.mkdir(self.url(path, "mkdir"), perm or 0o0770)
+            return ctx.mkdir(self.uri(path, "mkdir"), perm or 0o0770)
 
     @retry
     def mkdir_rec(self, path, perm):
         with self.context() as ctx:
-            return ctx.mkdir_rec(self.url(path, ("mkdir_rec", "mkdir")), perm or 0o0770)
+            return ctx.mkdir_rec(self.uri(path, ("mkdir_rec", "mkdir")), perm or 0o0770)
 
     @retry
     def listdir(self, path):
         with self.context() as ctx:
-            return ctx.listdir(self.url(path, "listdir"))
+            return ctx.listdir(self.uri(path, "listdir"))
 
     @retry
     def filecopy(self, src, dst):
@@ -853,11 +853,11 @@ class RemoteFileSystem(FileSystem):
         if dst is None and not cache:
             raise Exception("copy destination must not be empty when caching is disabled")
 
-        # paths including scheme and base
-        full_src = src if has_scheme(src) else self.gfal.url(src, cmd="filecopy")
-        full_dst = None
+        # create paths including scheme and base, i.e., uri's
+        src_uri = src if has_scheme(src) else self.gfal.uri(src, cmd="filecopy")
+        dst_uri = None
         if dst:
-            full_dst = dst if has_scheme(dst) else self.gfal.url(dst, cmd="filecopy")
+            dst_uri = dst if has_scheme(dst) else self.gfal.uri(dst, cmd="filecopy")
 
         if cache:
             kwargs_no_retries = kwargs.copy()
@@ -869,7 +869,7 @@ class RemoteFileSystem(FileSystem):
                 # strategy: copy to remote, copy to cache, sync stats
 
                 # copy to remote, no need to validate as we compute the stat anyway
-                self._atomic_copy(src, full_dst, perm=perm, validate=False, **kwargs)
+                self._atomic_copy(src, dst_uri, perm=perm, validate=False, **kwargs)
                 rstat = self.stat(dst, **kwargs_no_retries)
 
                 # remove the cache entry
@@ -879,9 +879,9 @@ class RemoteFileSystem(FileSystem):
                 # allocate cache space and copy to cache
                 lstat = self.local_fs.stat(src)
                 self.cache.allocate(lstat.st_size)
-                full_cdst = add_scheme(self.cache.cache_path(dst), "file")
+                cdst_uri = add_scheme(self.cache.cache_path(dst), "file")
                 with self.cache.lock(dst):
-                    self._atomic_copy(src, full_cdst, validate=False)
+                    self._atomic_copy(src, cdst_uri, validate=False)
                     self.cache.touch(dst, (int(time.time()), rstat.st_mtime))
 
                 return dst
@@ -889,8 +889,8 @@ class RemoteFileSystem(FileSystem):
             else:  # rl, rc
                 # strategy: copy to cache when not up to date, sync stats, opt. copy to local
 
-                # build the full cache path of the src file
-                full_csrc = add_scheme(self.cache.cache_path(src), "file")
+                # build the uri to the cache path of the src file
+                csrc_uri = add_scheme(self.cache.cache_path(src), "file")
 
                 # if the file is cached and prefer_cache is true,
                 # return the cache path, no questions asked
@@ -904,20 +904,20 @@ class RemoteFileSystem(FileSystem):
                         # in cache at all?
                         if src not in self.cache:
                             self.cache.allocate(rstat.st_size)
-                            self._atomic_copy(full_src, full_csrc, validate=validate, **kwargs)
+                            self._atomic_copy(src_uri, csrc_uri, validate=validate, **kwargs)
                             self.cache.touch(src, (int(time.time()), rstat.st_mtime))
 
                 if mode == "rl":
                     # simply use the local_fs for copying
-                    self.local_fs.copy(full_csrc, full_dst, perm=perm)
+                    self.local_fs.copy(csrc_uri, dst_uri, perm=perm)
                     return dst
                 else:  # rc
-                    return full_csrc
+                    return csrc_uri
 
         else:
             # simply copy and return the dst path
-            self._atomic_copy(full_src, full_dst, perm=perm, validate=validate, **kwargs)
-            return full_dst if dst_local else dst
+            self._atomic_copy(src_uri, dst_uri, perm=perm, validate=validate, **kwargs)
+            return dst_uri if dst_local else dst
 
     def _prepare_dst_dir(self, src, dst, perm=None, **kwargs):
         rstat = self.exists(dst, stat=True)
@@ -1044,8 +1044,15 @@ class RemoteTarget(FileSystemTarget):
 
         self._path = self.fs.abspath(path)
 
+    def uri(self, *args, **kwargs):
+        return self.fs.gfal.uri(self.path, *args, **kwargs)
+
     def url(self, *args, **kwargs):
-        return self.fs.gfal.url(self.path, *args, **kwargs)
+        # deprecation warning until v0.1
+        logger.warning("the use of {0}.url() is deprecated, please use {0}.uri() instead".format(
+            self.__class__.__name__))
+
+        return self.uri(*args, **kwargs)
 
 
 class RemoteFileTarget(RemoteTarget, FileSystemFileTarget):
