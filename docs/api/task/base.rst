@@ -62,4 +62,6 @@ Functions
 
 .. autofunction:: print_task_status
 
+.. autofunction:: print_output
+
 .. autofunction:: remove_task_output
