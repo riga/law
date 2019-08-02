@@ -20,7 +20,7 @@ arguments when configuring decorators. Default arguments are applied in either c
 """
 
 
-__all__ = ["factory", "log", "safe_output", "delay", "notify", "timeit"]
+__all__ = ["factory", "log", "safe_output", "delay", "notify", "timeit", "localize"]
 
 
 import sys
@@ -36,6 +36,7 @@ import luigi
 
 from law.task.base import ProxyTask
 from law.parameter import get_param, NotifyParameter
+from law.target.file import localize_file_targets
 from law.target.local import LocalFileTarget
 from law.util import human_time_diff, open_compat, TeeStream
 
@@ -256,6 +257,7 @@ def timeit(fn, opts, task, *args, **kwargs):
     the scheduler.
     """
     start_time = time.time()
+
     try:
         return fn(task, *args, **kwargs)
     finally:
@@ -268,3 +270,47 @@ def timeit(fn, opts, task, *args, **kwargs):
         # optionally publish a task message to the scheduler
         if opts["publish_message"] and callable(getattr(task, "publish_message", None)):
             task.publish_message("runtime: {}".format(duration))
+
+
+@factory(input=True, output=True, input_kwargs=None, output_kwargs=None)
+def localize(fn, opts, task, *args, **kwargs):
+    """
+    Wraps a bound method of a task and temporarily changes the input and output methods to return
+    localized targets. When *input* (*output*) is *True*, :py:meth:`Task.input`
+    (:py:meth:`Task.output`) is adjusted. *input_kwargs* and *output_kwargs* can be dictionaries
+    that are passed as keyword arguments to the respective localization method.
+    """
+    # get actual input and outputs
+    input_struct = task.input() if opts["input"] else None
+    output_struct = task.output() if opts["output"] else None
+
+    # store original input and output methods
+    input_orig = task.output
+    output_orig = task.output
+
+    # input and output kwargs
+    input_kwargs = opts["input_kwargs"] or {}
+    output_kwargs = opts["output_kwargs"] or {}
+
+    try:
+        # localize both target structs
+        with localize_file_targets(input_struct, "r", **input_kwargs) as localized_inputs, \
+                localize_file_targets(output_struct, "w", **output_kwargs) as localized_outputs:
+            # patch the input method to always return the localized inputs
+            if opts["input"]:
+                def input_patched(self):
+                    return localized_inputs
+                task.input = input_patched.__get__(task)
+
+            # patch the output method to always return the localized outputs
+            if opts["output"]:
+                def output_patched(self):
+                    return localized_outputs
+                task.output = output_patched.__get__(task)
+
+            return fn(task, *args, **kwargs)
+
+    finally:
+        # restore the methods
+        task.input = input_orig
+        task.output = output_orig

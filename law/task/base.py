@@ -22,7 +22,7 @@ import six
 
 from law.parameter import NO_STR, TaskInstanceParameter, CSVParameter
 from law.parser import global_cmdline_values
-from law.target.file import FileSystemTarget, localize_targets
+from law.target.file import FileSystemTarget, localize_file_targets
 from law.target.collection import TargetCollection
 from law.util import (
     abort, colored, uncolored, make_list, query_choice, multi_match, flatten, check_bool_flag,
@@ -346,10 +346,10 @@ class Task(BaseTask):
         return remove_task_output(self, *args, **kwargs)
 
     def localize_input(self, *args, **kwargs):
-        return localize_targets(self.input(), *args, **kwargs)
+        return localize_file_targets(self.input(), *args, **kwargs)
 
     def localize_output(self, *args, **kwargs):
-        return localize_targets(self.output(), *args, **kwargs)
+        return localize_file_targets(self.output(), *args, **kwargs)
 
 
 class WrapperTask(Task):

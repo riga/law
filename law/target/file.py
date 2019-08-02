@@ -8,7 +8,7 @@ Custom luigi file system and target objects.
 __all__ = [
     "FileSystem", "FileSystemTarget", "FileSystemFileTarget", "FileSystemDirectoryTarget",
     "get_path", "get_scheme", "has_scheme", "add_scheme", "remove_scheme", "split_transfer_kwargs",
-    "localize_targets",
+    "localize_file_targets",
 ]
 
 
@@ -367,7 +367,7 @@ def split_transfer_kwargs(kwargs, skip=None):
 
 
 @contextmanager
-def localize_targets(struct, *args, **kwargs):
+def localize_file_targets(struct, *args, **kwargs):
     """
     Takes an arbitrary *struct* of targets, opens the contexts returned by their
     :py:meth:`FileSystemFileTarget.localize` implementations and yields their localized
@@ -384,15 +384,32 @@ def localize_targets(struct, *args, **kwargs):
         else:
             return target
 
+    # localize all targets, maintain the structure
     localized_targets = map_struct(enter, struct)
+
+    # prepare exception info
+    exc = None
+    exc_info = (None, None, None)
 
     try:
         yield localized_targets
 
-    finally:
+    except Exception as exc:
         exc_info = sys.exc_info()
+        raise
+
+    finally:
+        exit_exc = []
         for manager in managers:
-            manager.__exit__(*exc_info)
+            try:
+                manager.__exit__(*exc_info)
+            except Exception as e:
+                exit_exc.append(e)
+
+        # when there was no exception during the actual yield and
+        # an exception occured in one of the exit methods, raise the first one
+        if not exc and exit_exc:
+            raise exit_exc[0]
 
 
 # trailing imports
