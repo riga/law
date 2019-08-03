@@ -739,8 +739,8 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             # log newly failed jobs
             if newly_failed_jobs:
                 print("{} failed job(s) in task {}:".format(len(newly_failed_jobs), task.task_id))
-                tmpl = "    job: {}, branches: {}, id: {job_id}, status: {status}, code: {code}, " \
-                    "error: {error}"
+                tmpl = "    job: {}, branch(es): {}, id: {job_id}, status: {status}, " \
+                    "code: {code}, error: {error}"
                 for i, (job_num, data) in enumerate(six.iteritems(newly_failed_jobs)):
                     branches = self.submission_data.jobs[job_num]["branches"]
                     print(tmpl.format(job_num, ",".join(str(b) for b in branches), **data))

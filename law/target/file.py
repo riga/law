@@ -394,7 +394,8 @@ def localize_file_targets(struct, *args, **kwargs):
     try:
         yield localized_targets
 
-    except Exception as exc:
+    except Exception as e:
+        exc = e
         exc_info = sys.exc_info()
         raise
 
