@@ -1142,7 +1142,7 @@ class RemoteFileProxy(object):
         if getattr(self.f, "__exit__", None) is not None:
             success = self.f.__exit__(exc_type, exc_value, traceback)
         else:
-            success = not exc_type
+            success = exc_type is None
 
         if success:
             if callable(self.success_fn):
