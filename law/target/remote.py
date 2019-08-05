@@ -274,6 +274,7 @@ class RemoteCache(object):
     def __init__(self, fs, root=TMP, auto_flush=False, max_size=-1, dir_perm=0o0770,
             file_perm=0o0660, wait_delay=5, max_waits=120, global_lock=False):
         object.__init__(self)
+        # max_size is in MB, wait_delay is in seconds
 
         # create a unique name based on fs attributes
         name = "{}_{}".format(fs.__class__.__name__, create_hash(fs.gfal.base[0]))
@@ -495,17 +496,17 @@ class RemoteCache(object):
 
         # determine the maximum size of the cache
         # make sure it is always smaller than what is available
-        if self.max_size < 0:
+        if self.max_size <= 0:
             max_size = current_size + free_size
         else:
-            max_size = min(self.max_size, current_size + free_size)
+            max_size = min(self.max_size * 1024**2, current_size + free_size)
 
         # determine the size of files that need to be deleted
         delete_size = current_size + size - max_size
         if delete_size <= 0:
             logger.debug("cache space sufficient, {0[0]:.2f} {0[1]} bytes remaining".format(
                 human_bytes(-delete_size)))
-            return
+            return True
 
         logger.info("need to delete {0[0]:.2f} {0[1]} bytes from cache".format(
             human_bytes(delete_size)))
@@ -517,10 +518,12 @@ class RemoteCache(object):
             self._remove(cpath)
             delete_size -= cstat.st_size
             if delete_size <= 0:
-                break
-        else:
-            logger.warning("could not allocate remaining {0[0]:.2f} {0[1]} in cache".format(
-                human_bytes(delete_size)))
+                return True
+
+        logger.warning("could not allocate remaining {0[0]:.2f} {0[1]} in cache".format(
+            human_bytes(delete_size)))
+
+        return False
 
     def _touch(self, cpath, times=None):
         if os.path.exists(cpath):
