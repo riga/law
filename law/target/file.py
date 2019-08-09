@@ -174,6 +174,13 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
         args, kwargs = self._parent_args()
         return self.directory_class(dirname, *args, **kwargs) if dirname is not None else None
 
+    def sibling(self, *args, **kwargs):
+        parent = self.parent
+        if not parent:
+            raise Exception("cannot determine file parent")
+
+        return parent.child(*args, **kwargs)
+
     @property
     def stat(self):
         return self.fs.stat(self.path)
