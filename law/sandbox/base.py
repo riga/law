@@ -150,7 +150,12 @@ class Sandbox(object):
         if getattr(self.task, "_worker_id", None):
             env["LAW_SANDBOX_WORKER_ID"] = self.task._worker_id
         if getattr(self.task, "_worker_task", None):
-            env["LAW_SANDBOX_WORKER_TASK"] = self.task.task_id
+            # recompute the task_id as parameters might have changed since it was created and
+            # we want that the sandboxed task with the current parameters gets the same id
+            # exactly what to expect
+            task_id = luigi.task.task_id_str(self.task.get_task_family(), self.task.to_str_params(
+                only_significant=True, only_public=True))
+            env["LAW_SANDBOX_WORKER_TASK"] = task_id
 
         # variables from the config file
         cfg = Config.instance()
