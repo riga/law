@@ -145,17 +145,12 @@ class Sandbox(object):
         env = OrderedDict()
 
         # default sandboxing variables
-        env["LAW_SANDBOX"] = self.key
+        env["LAW_SANDBOX"] = self.key.replace("$", r"\$")
         env["LAW_SANDBOX_SWITCHED"] = "1"
         if getattr(self.task, "_worker_id", None):
             env["LAW_SANDBOX_WORKER_ID"] = self.task._worker_id
         if getattr(self.task, "_worker_task", None):
-            # recompute the task_id as parameters might have changed since it was created and
-            # we want that the sandboxed task with the current parameters gets the same id
-            # exactly what to expect
-            task_id = luigi.task.task_id_str(self.task.get_task_family(), self.task.to_str_params(
-                only_significant=True, only_public=True))
-            env["LAW_SANDBOX_WORKER_TASK"] = task_id
+            env["LAW_SANDBOX_WORKER_TASK"] = self.task.live_task_id
 
         # variables from the config file
         cfg = Config.instance()
@@ -341,8 +336,9 @@ class SandboxProxy(ProxyTask):
 
 class SandboxTask(Task):
 
-    sandbox = luigi.Parameter(default=_current_sandbox[0], significant=False, description="name of "
-        "the sandbox to run the task in, default: $LAW_SANDBOX")
+    sandbox = luigi.Parameter(default=_current_sandbox[0] or luigi.parameter._no_value,
+        description="name of the sandbox to run the task in, default: $LAW_SANDBOX when set, "
+        "otherwise no default")
 
     force_sandbox = False
 
