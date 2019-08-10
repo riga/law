@@ -20,7 +20,9 @@ arguments when configuring decorators. Default arguments are applied in either c
 """
 
 
-__all__ = ["factory", "log", "safe_output", "delay", "notify", "timeit", "localize"]
+__all__ = [
+    "factory", "log", "safe_output", "delay", "notify", "timeit", "localize", "require_sandbox",
+]
 
 
 import sys
@@ -35,10 +37,11 @@ import logging
 import luigi
 
 from law.task.base import ProxyTask
+from law.sandbox.base import SandboxTask
 from law.parameter import get_param, NotifyParameter
 from law.target.file import localize_file_targets
 from law.target.local import LocalFileTarget
-from law.util import human_time_diff, open_compat, TeeStream
+from law.util import make_list, multi_match, human_time_diff, open_compat, TeeStream
 
 
 logger = logging.getLogger(__name__)
@@ -314,3 +317,28 @@ def localize(fn, opts, task, *args, **kwargs):
         # restore the methods
         task.input = input_orig
         task.output = output_orig
+
+
+@factory(sandbox=None)
+def require_sandbox(fn, opts, task, *args, **kwargs):
+    """
+    Wraps a bound method of a sandbox task and throws an exception when the method is called while
+    the task is not sandboxed yet. This is intended to prevent undesired results or non-verbose
+    error messages when the method is invoked outside the requested sandbox. When *sandbox* is set,
+    it can be a (list of) pattern(s) to compare against the task's effective sandbox and in error is
+    raised if they don't match.
+    """
+    if not isinstance(task, SandboxTask):
+        raise TypeError("require_sandbox can only be used to decorate methods of tasks that "
+            "inherit from SandboxTask")
+
+    if not task.is_sandboxed():
+        raise Exception("the invocation of method {} requires task {!r} to be sandboxed".format(
+            fn.__name__, task))
+
+    if opts["sandbox"] and not multi_match(task.effective_sandbox, make_list(opts["sandbox"])):
+        raise Exception("the invocation of method {} requires the sandbox of task {!r} to match "
+            "'{}'" .format(fn.__name__, task, opts["sandbox"]))
+
+    # all checks passed
+    return fn(task, *args, **kwargs)
