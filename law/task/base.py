@@ -56,7 +56,7 @@ class BaseTask(luigi.Task):
     exclude_index = True
     exclude_params_index = set()
     exclude_params_req = set()
-    exclude_params_req_pass = set()
+    exclude_params_req_set = set()
     exclude_params_req_get = set()
 
     @staticmethod
@@ -92,10 +92,13 @@ class BaseTask(luigi.Task):
         # determine parameters to exclude
         _exclude = set() if _exclude is None else set(make_list(_exclude))
 
+        # always exclude interactive parameters
+        _exclude |= set(inst.interactive_params)
+
         # also use this class' req and req_get sets
-        # and the req and req_pass sets of the instance's class
+        # and the req and req_set sets of the instance's class
         _exclude.update(cls.exclude_params_req, cls.exclude_params_req_get)
-        _exclude.update(inst.exclude_params_req, inst.exclude_params_req_pass)
+        _exclude.update(inst.exclude_params_req, inst.exclude_params_req_set)
 
         # remove excluded parameters
         for name in list(params.keys()):
