@@ -185,6 +185,9 @@ class BaseTask(luigi.Task):
         if replace is None:
             replace = {}
 
+        # always exclude interactive parameters
+        exclude |= set(self.interactive_params)
+
         args = []
         for name, param in self.get_params():
             if multi_match(name, exclude, any):

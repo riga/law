@@ -373,8 +373,8 @@ class BaseWorkflow(Task):
 
     exclude_index = True
 
-    exclude_params_branch = {"print_deps", "print_status", "print_output", "remove_output",
-        "workflow", "acceptance", "tolerance", "pilot", "start_branch", "end_branch", "branches"}
+    exclude_params_branch = {"workflow", "acceptance", "tolerance", "pilot", "start_branch",
+        "end_branch", "branches", "branch"}
     exclude_params_workflow = {"branch"}
 
     def __init__(self, *args, **kwargs):
@@ -447,7 +447,7 @@ class BaseWorkflow(Task):
         if self.is_branch():
             return self
         else:
-            return self.req(self, branch=branch)
+            return self.req(self, branch=branch, _exclude=self.exclude_params_branch)
 
     def as_workflow(self):
         """
@@ -458,7 +458,8 @@ class BaseWorkflow(Task):
             return self
         else:
             if self._workflow_task is None:
-                self._workflow_task = self.req(self, branch=-1)
+                self._workflow_task = self.req(self, branch=-1,
+                    _exclude=self.exclude_params_workflow)
             return self._workflow_task
 
     @abstractmethod
