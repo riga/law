@@ -88,15 +88,18 @@ def print_err(*args, **kwargs):
         sys.stderr.flush()
 
 
-def abort(msg=None, exitcode=1):
+def abort(msg=None, exitcode=1, color=True):
     """
     Aborts the process (*sys.exit*) with an *exitcode*. If *msg* is not *None*, it is printed first
-    to stdout if *exitcode* is 0 or *None*, and to stderr otherwise.
+    to stdout if *exitcode* is 0 or *None*, and to stderr otherwise. When *color* is *True* and
+    *exitcode* is not 0 or *None*, the message is printed in red.
     """
     if msg is not None:
         if exitcode in (None, 0):
             print(msg)
         else:
+            if color:
+                msg = colored(msg, color="red")
             print_err(msg)
     sys.exit(exitcode)
 
