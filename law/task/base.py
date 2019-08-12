@@ -215,7 +215,7 @@ class Register(BaseRegister):
                 try:
                     logger.debug("evaluating interactive parameter '{}' with value '{}'".format(
                         param, value))
-                    getattr(inst, "_" + param)(*value)
+                    getattr(inst, "_" + param)(value)
                 except KeyboardInterrupt:
                     print("\naborted")
                 abort(exitcode=0)
@@ -352,17 +352,17 @@ class Task(BaseTask):
     def _repr_flag(cls, name, color=True):
         return colored(name, color="magenta") if color else name
 
-    def _print_deps(self, *args, **kwargs):
-        return print_task_deps(self, *args, **kwargs)
+    def _print_deps(self, args):
+        return print_task_deps(self, *args)
 
-    def _print_status(self, *args, **kwargs):
-        return print_task_status(self, *args, **kwargs)
+    def _print_status(self, args):
+        return print_task_status(self, *args)
 
-    def _print_output(self, *args, **kwargs):
-        return print_task_output(self, *args, **kwargs)
+    def _print_output(self, args):
+        return print_task_output(self, *args)
 
-    def _remove_output(self, *args, **kwargs):
-        return remove_task_output(self, *args, **kwargs)
+    def _remove_output(self, args):
+        return remove_task_output(self, *args)
 
     def localize_input(self, *args, **kwargs):
         return localize_file_targets(self.input(), *args, **kwargs)
