@@ -293,7 +293,7 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
             flags.append("temporary")
         return flags
 
-    def uri(self):
+    def uri(self, *args, **kwargs):
         return add_scheme(self.fs.abspath(self.path), "file")
 
 

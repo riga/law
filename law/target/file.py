@@ -208,7 +208,7 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
         return
 
     @abstractmethod
-    def uri(self):
+    def uri(self, *args, **kwargs):
         return
 
     @abstractmethod
