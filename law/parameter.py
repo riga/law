@@ -5,8 +5,10 @@ Custom luigi parameters.
 """
 
 
-__all__ = ["NO_STR", "NO_INT", "NO_FLOAT", "is_no_param", "get_param", "TaskInstanceParameter",
-           "CSVParameter", "NotifyParameter", "NotifyMailParameter"]
+__all__ = [
+    "NO_STR", "NO_INT", "NO_FLOAT", "is_no_param", "get_param", "TaskInstanceParameter",
+    "CSVParameter", "NotifyParameter", "NotifyMultiParameter", "NotifyMailParameter",
+]
 
 
 import luigi
@@ -128,6 +130,32 @@ class NotifyParameter(luigi.BoolParameter):
         dictionary with ``"func"`` and ``"raw"`` (optional) fields.
         """
         return None
+
+
+class NotifyMultiParameter(NotifyParameter):
+    """
+    Parameter that takes multiple other :py:class:`NotifyParameter`'s to join their notification
+    functionality in a single parameter. Example:
+
+    .. code-block:: python
+
+        class MyTask(law.Task):
+
+            notify = law.NotifyMultiParameter(parameters=[
+                law.NotifyMailParameter(significant=False),
+                ...  # further NotifyParameters
+            ])
+    """
+
+    def __init__(self, *args, **kwargs):
+        """ __init__(parameters=[], *args, **kwargs) """
+        self.parameters = kwargs.pop("parameters", [])
+
+        super(NotifyMultiParameter, self).__init__(*args, **kwargs)
+
+    def get_transport(self):
+        """"""
+        return [param.get_transport() for param in self.parameters]
 
 
 class NotifyMailParameter(NotifyParameter):

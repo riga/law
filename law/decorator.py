@@ -201,7 +201,7 @@ def notify(fn, opts, task, *args, **kwargs):
             try:
                 transport = param.get_transport()
                 if transport:
-                    transports.append(transport)
+                    transports += make_list(transport)
             except Exception as e:
                 logger.warning("get_transport() failed for '{}' parameter: {}".format(
                     param_name, e))
