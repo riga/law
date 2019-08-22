@@ -271,19 +271,26 @@ def make_tuple(obj, cast=True):
         return (obj,)
 
 
-def flatten(struct):
+def flatten(*structs):
     """
-    Flattens and returns a complex structured object *struct*.
+    Takes one or multiple complex structured objects *structs*, flattens them, and returns a single
+    list.
     """
-    if isinstance(struct, dict):
-        return flatten(struct.values())
-    elif isinstance(struct, (list, tuple, set)) or is_lazy_iterable(struct):
-        objs = []
-        for obj in struct:
-            objs.extend(flatten(obj))
-        return objs
+    if len(structs) == 0:
+        return []
+    elif len(structs) > 1:
+        return flatten(structs)
     else:
-        return [struct]
+        struct = structs[0]
+        if isinstance(struct, dict):
+            return flatten(struct.values())
+        elif isinstance(struct, (list, tuple, set)) or is_lazy_iterable(struct):
+            objs = []
+            for obj in struct:
+                objs.extend(flatten(obj))
+            return objs
+        else:
+            return [struct]
 
 
 def merge_dicts(*dicts, **kwargs):
