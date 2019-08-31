@@ -344,7 +344,7 @@ class SandboxTask(Task):
 
     sandbox = luigi.Parameter(default=_current_sandbox[0] or luigi.parameter._no_value,
         description="name of the sandbox to run the task in, default: $LAW_SANDBOX when set, "
-        "otherwise no default")
+        "otherwise no default. Use 'NO_SANDBOX' to run task without a sandbox.")
 
     force_sandbox = False
 
@@ -374,7 +374,7 @@ class SandboxTask(Task):
                     raise Exception("cannot determine fallback sandbox for {} in task {}".format(
                         self.sandbox, self))
 
-        if not self.is_sandboxed():
+        if not self.is_sandboxed() and self.sandbox != "NO_SANDBOX":
             self.sandbox_inst = Sandbox.new(self.effective_sandbox, self)
             self.sandbox_proxy = SandboxProxy(task=self)
             logger.debug("created sandbox proxy instance of type '{}'".format(
@@ -391,19 +391,20 @@ class SandboxTask(Task):
         return (os.getuid(), os.getgid())
 
     def __getattribute__(self, attr, proxy=True):
-        if proxy and attr != "__class__":
+        if proxy and attr not in ["__class__", "workflow_proxy", "sandbox"]:
             # be aware of workflows independent of the MRO as sandboxing should be the last
             # modification of a task, i.e., this enforces granular sandbox diping instead of nesting
             if hasattr(self, "workflow_proxy"):
                 if BaseWorkflow._forward_attribute(self, attr):
                     return BaseWorkflow.__getattribute__(self, attr, force=True)
 
-            if attr == "run" and not self.is_sandboxed():
-                return self.sandbox_proxy.run
-            elif attr == "input" and _sandbox_stagein_dir and self.is_sandboxed():
-                return self._staged_input
-            elif attr == "output" and _sandbox_stageout_dir and self.is_sandboxed():
-                return self._staged_output
+            if self.sandbox != "NO_SANDBOX":
+                if attr == "run" and not self.is_sandboxed():
+                    return self.sandbox_proxy.run
+                elif attr == "input" and _sandbox_stagein_dir and self.is_sandboxed():
+                    return self._staged_input
+                elif attr == "output" and _sandbox_stageout_dir and self.is_sandboxed():
+                    return self._staged_output
 
         return Task.__getattribute__(self, attr)
 
@@ -427,7 +428,7 @@ class SandboxTask(Task):
 
     @property
     def env(self):
-        return os.environ if self.is_sandboxed() else self.sandbox_inst.env
+        return os.environ if self.sandbox_inst is None else self.sandbox_inst.env
 
     def fallback_sandbox(self, sandbox):
         return None
