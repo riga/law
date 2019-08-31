@@ -42,8 +42,8 @@ class SingularitySandbox(Sandbox):
                 tmp_path = os.path.realpath(tmp[1])
                 env_path = os.path.join("/tmp", str(hash(tmp_path))[-8:])
 
-                cmd = "singularity exec -B {1}:{2} {0} python -c \"" \
-                    "import os,pickle;pickle.dump(os.environ,open('{2}','w'))\""
+                cmd = " env -i singularity exec -B {1}:{2} {0} python -c \"" \
+                    "import os,pickle;pickle.dump(dict(os.environ),open('{2}','wb'))\""
                 cmd = cmd.format(self.image, tmp_path, env_path)
 
                 returncode, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
@@ -51,7 +51,7 @@ class SingularitySandbox(Sandbox):
                 if returncode != 0:
                     raise Exception("singularity sandbox env loading failed: " + str(out))
 
-                with open(tmp_path, "r") as f:
+                with open(tmp_path, "rb") as f:
                     env = six.moves.cPickle.load(f)
 
             # cache

@@ -50,15 +50,15 @@ class DockerSandbox(Sandbox):
                 env_path = os.path.join("/tmp", str(hash(tmp_path))[-8:])
 
                 cmd = "docker run --rm -v {1}:{2} {0} python -c \"" \
-                    "import os,pickle;pickle.dump(os.environ,open('{2}','w'))\""
-                cmd = cmd.format(self.image, tmp_path, env_path)
+                    "import os,pickle;pickle.dump(dict(os.environ),open('{2}','wb'))\""
+                cmd = cmd.format(self.image, tmp_path, env_path, " ".join(extra_args))
 
                 returncode, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                 if returncode != 0:
                     raise Exception("docker sandbox env loading failed: " + str(out))
 
-                with open(tmp_path, "r") as f:
+                with open(tmp_path, "rb") as f:
                     env = six.moves.cPickle.load(f)
 
             # cache
