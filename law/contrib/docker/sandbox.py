@@ -178,9 +178,7 @@ class DockerSandbox(Sandbox):
                 proxy_cmd.extend(["--scheduler-host", "\"{}\"".format(self.get_host_ip())])
 
         # build commands to add env variables
-        pre_cmds = []
-        for tpl in env.items():
-            pre_cmds.append("export {}=\"{}\"".format(*tpl))
+        pre_cmds = self.pre_cmds(env)
 
         # build the final command
         cmd = "docker run {args} {image} bash -l -c '{pre_cmd}; {proxy_cmd}'".format(

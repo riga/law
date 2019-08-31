@@ -71,9 +71,7 @@ class BashSandbox(Sandbox):
             proxy_cmd.append(ls_flag)
 
         # build commands to add env variables
-        pre_cmds = []
-        for tpl in env.items():
-            pre_cmds.append("export {}=\"{}\"".format(*tpl))
+        pre_cmds = self.pre_cmds(env)
 
         # build the final command
         cmd = "bash -l -c 'source \"{script}\"; {pre_cmd}; {proxy_cmd}'".format(

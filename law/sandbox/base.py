@@ -115,6 +115,12 @@ class Sandbox(object):
     def env(self):
         return
 
+    def pre_cmds(self, env):
+        pre_cmds = []
+        for tpl in env.items():
+            pre_cmds.append("export {}=\"{}\"".format(*tpl))
+        return pre_cmds
+
     @abstractmethod
     def cmd(self, proxy_cmd):
         return
