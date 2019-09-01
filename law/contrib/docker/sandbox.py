@@ -40,6 +40,16 @@ class DockerSandbox(Sandbox):
     def tag(self):
         return None if ":" not in self.image else self.image.split(":", 1)[1]
 
+    def common_args(self):
+        # get docker args needed for both the env loading and job execution
+        args = []
+        sandbox_user = self.task.sandbox_user
+        if sandbox_user:
+            if not isinstance(sandbox_user, (tuple, list)) or len(sandbox_user) != 2:
+                raise Exception("sandbox_user must return 2-tuple")
+            args.append("-u={}:{}".format(*sandbox_user))
+        return args
+
     @property
     def env(self):
         # strategy: create a tempfile, forward it to a container, let python dump its full env,
@@ -49,7 +59,9 @@ class DockerSandbox(Sandbox):
                 tmp_path = os.path.realpath(tmp[1])
                 env_path = os.path.join("/tmp", str(hash(tmp_path))[-8:])
 
-                cmd = "docker run --rm -v {1}:{2} {0} python -c \"" \
+                extra_args = self.common_args()
+
+                cmd = "docker run --rm -v {1}:{2} {3} {0} python -c \"" \
                     "import os,pickle;pickle.dump(dict(os.environ),open('{2}','wb'))\""
                 cmd = cmd.format(self.image, tmp_path, env_path, " ".join(extra_args))
 
@@ -159,12 +171,8 @@ class DockerSandbox(Sandbox):
                 cdir = cdir.replace("${PY}", dst(python_dir)).replace("${BIN}", dst(bin_dir))
                 mount(hdir, cdir)
 
-        # the command may run as a certain user
-        sandbox_user = self.task.sandbox_user
-        if sandbox_user:
-            if not isinstance(sandbox_user, (tuple, list)) or len(sandbox_user) != 2:
-                raise Exception("sandbox_user must return 2-tuple")
-            args.append("-u={}:{}".format(*sandbox_user))
+        # docker arguments needed for both env loading and executing the job
+        args.extend(self.common_args())
 
         # handle scheduling within the container
         ls_flag = "--local-scheduler"
