@@ -23,6 +23,7 @@ from law.task.base import Task, ProxyTask
 from law.workflow.base import BaseWorkflow
 from law.target.local import LocalDirectoryTarget
 from law.target.collection import TargetCollection
+from law.parameter import CSVParameter
 from law.config import Config
 from law.parser import global_cmdline_args
 from law.util import colored, multi_match, mask_struct, map_struct, interruptable_popen
@@ -90,11 +91,12 @@ class Sandbox(object):
 
         raise Exception("no Sandbox with type '{}' found".format(_type))
 
-    def __init__(self, name, task):
+    def __init__(self, name, task, setup_cmds=None):
         super(Sandbox, self).__init__()
 
         self.name = name
         self.task = task
+        self.setup_cmds = setup_cmds
 
         # target staging info
         self.stagein_info = None
@@ -346,6 +348,9 @@ class SandboxTask(Task):
         description="name of the sandbox to run the task in, default: $LAW_SANDBOX when set, "
         "otherwise no default. Use 'NO_SANDBOX' to run task without a sandbox.")
 
+    setup_cmds = CSVParameter(default=[], description="List of commands to setup "
+        "the environment inside the sandbox.")
+
     force_sandbox = False
 
     valid_sandboxes = ["*"]
@@ -375,7 +380,7 @@ class SandboxTask(Task):
                         self.sandbox, self))
 
         if not self.is_sandboxed() and self.sandbox != "NO_SANDBOX":
-            self.sandbox_inst = Sandbox.new(self.effective_sandbox, self)
+            self.sandbox_inst = Sandbox.new(self.effective_sandbox, self, setup_cmds=self.setup_cmds)
             self.sandbox_proxy = SandboxProxy(task=self)
             logger.debug("created sandbox proxy instance of type '{}'".format(
                 self.effective_sandbox))
