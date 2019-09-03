@@ -61,8 +61,9 @@ class DockerSandbox(Sandbox):
 
                 extra_args = self.common_args()
 
-                cmd = "docker run --rm -v {1}:{2} {3} {0} python -c \"" \
-                    "import os,pickle;pickle.dump(dict(os.environ),open('{2}','wb'))\""
+                cmd = "docker run --rm -v {1}:{2} {3} {0}"
+                cmd += "; ".join(self.task.sandbox_setup_cmds + "; " if self.task.sandbox_setup_cmds else ""
+                cmd += "python -c \"import os,pickle;pickle.dump(dict(os.environ),open('{2}','wb'))\""
                 cmd = cmd.format(self.image, tmp_path, env_path, " ".join(extra_args))
 
                 returncode, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
@@ -187,6 +188,7 @@ class DockerSandbox(Sandbox):
 
         # build commands to add env variables
         pre_cmds = self.pre_cmds(env)
+        pre_cmds.extend(self.task.sandbox_setup_cmds)
 
         # build the final command
         cmd = "docker run {args} {image} bash -l -c '{pre_cmd}; {proxy_cmd}'".format(

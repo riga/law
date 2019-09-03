@@ -91,12 +91,11 @@ class Sandbox(object):
 
         raise Exception("no Sandbox with type '{}' found".format(_type))
 
-    def __init__(self, name, task, setup_cmds=None):
+    def __init__(self, name, task):
         super(Sandbox, self).__init__()
 
         self.name = name
         self.task = task
-        self.setup_cmds = setup_cmds
 
         # target staging info
         self.stagein_info = None
@@ -348,9 +347,6 @@ class SandboxTask(Task):
         description="name of the sandbox to run the task in, default: $LAW_SANDBOX when set, "
         "otherwise no default. Use 'NO_SANDBOX' to run task without a sandbox.")
 
-    setup_cmds = CSVParameter(default=[], description="List of commands to setup "
-        "the environment inside the sandbox.")
-
     force_sandbox = False
 
     valid_sandboxes = ["*"]
@@ -380,7 +376,7 @@ class SandboxTask(Task):
                         self.sandbox, self))
 
         if not self.is_sandboxed() and self.sandbox != "NO_SANDBOX":
-            self.sandbox_inst = Sandbox.new(self.effective_sandbox, self, setup_cmds=self.setup_cmds)
+            self.sandbox_inst = Sandbox.new(self.effective_sandbox, self)
             self.sandbox_proxy = SandboxProxy(task=self)
             logger.debug("created sandbox proxy instance of type '{}'".format(
                 self.effective_sandbox))
@@ -394,6 +390,11 @@ class SandboxTask(Task):
     @property
     def sandbox_user(self):
         return (os.getuid(), os.getgid())
+
+    @property
+    def sandbox_setup_cmds(self):
+        # return list of commands to setup environment inside sandbox
+        return []
 
     def __getattribute__(self, attr, proxy=True):
         if proxy and attr not in ["__class__", "workflow_proxy", "sandbox"]:
