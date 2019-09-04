@@ -72,6 +72,7 @@ def load(*packages):
                     """
                     Dummy class throwing an *AttributeError* when instantiated.
                     """
+                    name = str(id(object()))
                     def __new__(cls, *args, **kwargs):
                         _raise()
 
