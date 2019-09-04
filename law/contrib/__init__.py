@@ -7,6 +7,7 @@ Package containing optional and third-party functionality.
 
 import os
 import logging
+import types
 
 import law
 from law.util import law_src_path, flatten
@@ -54,20 +55,32 @@ def load(*packages):
         # negligible any longer, so for the moment add dummy objects only for callables to the law
         # module that, when used, raise verbose exceptions
         # (to be removed for v0.1)
-        def dummy_factory(pkg, attr):
-            def dummy(*args, **kwargs):
-                """
-                Dummy object raising an *AttributeError* when called.
-                """
+        def dummy_factory(pkg, attr, member):
+            def _raise():
                 raise AttributeError("due to a change in 'law.contrib.load()', the attribute '{0}' "
                     "is no longer accessible on the global 'law' namespace, please use "
                     "'law.{1}.{0}' instead".format(attr, pkg))
+
+            if isinstance(member, types.FunctionType):
+                def dummy(*args, **kwargs):
+                    """
+                    Dummy function throwing an *AttributeError* when called.
+                    """
+                    _raise()
+            else:
+                class dummy(member):
+                    """
+                    Dummy class throwing an *AttributeError* when instantiated.
+                    """
+                    def __new__(cls, *args, **kwargs):
+                        _raise()
+
             return dummy
 
         for attr in mod.__all__:
             member = getattr(mod, attr)
             if callable(member):
-                setattr(law, attr, dummy_factory(pkg, attr))
+                setattr(law, attr, dummy_factory(pkg, attr, member))
             else:
                 logger.debug("skip creating dummy object for attribute {} of package {}".format(
                     attr, pkg))
