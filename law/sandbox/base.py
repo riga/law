@@ -63,6 +63,17 @@ class Sandbox(object):
     delimiter = "::"
 
     @staticmethod
+    def check_key(key, silent=False):
+        valid = True
+        if "," in key:
+            valid = False
+
+        if not valid and not silent:
+            raise ValueError("invalid sandbox key format '{}'".format(key))
+        else:
+            return valid
+
+    @staticmethod
     def split_key(key):
         parts = str(key).split(Sandbox.delimiter, 1)
         if len(parts) != 2 or any(not p.strip() for p in parts):
@@ -78,9 +89,13 @@ class Sandbox(object):
 
     @classmethod
     def new(cls, key, *args, **kwargs):
+        # check for key format
+        cls.check_key(key)
+
+        # split the key into the sandbox type and name
         _type, name = cls.split_key(key)
 
-        # loop recursively through subclasses and find class with matching sandbox_type
+        # loop recursively through subclasses and find class that matches the sandbox_type
         classes = list(cls.__subclasses__())
         while classes:
             _cls = classes.pop(0)
@@ -89,7 +104,7 @@ class Sandbox(object):
             else:
                 classes.extend(_cls.__subclasses__())
 
-        raise Exception("no Sandbox with type '{}' found".format(_type))
+        raise Exception("no sandbox with type '{}' found".format(_type))
 
     def __init__(self, name, task):
         super(Sandbox, self).__init__()
