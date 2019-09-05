@@ -62,8 +62,10 @@ class DockerSandbox(Sandbox):
                 extra_args = self.common_args()
 
                 cmd = "docker run --rm -v {1}:{2} {3} {0} "
-                cmd += "; ".join(self.task.sandbox_setup_cmds) + "; " if self.task.sandbox_setup_cmds else ""
-                cmd += "python -c \"import os,pickle;pickle.dump(dict(os.environ),open('{2}','wb'))\""
+                cmd += "; ".join(self.task.sandbox_setup_cmds) + "; " \
+                    if self.task.sandbox_setup_cmds else ""
+                cmd += "python -c \"import os,pickle;" \
+                    "pickle.dump(dict(os.environ),open('{2}','wb'))\""
                 cmd = cmd.format(self.image, tmp_path, env_path, " ".join(extra_args))
 
                 returncode, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",

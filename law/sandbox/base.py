@@ -23,7 +23,6 @@ from law.task.base import Task, ProxyTask
 from law.workflow.base import BaseWorkflow
 from law.target.local import LocalDirectoryTarget
 from law.target.collection import TargetCollection
-from law.parameter import CSVParameter
 from law.config import Config
 from law.parser import global_cmdline_args
 from law.util import colored, multi_match, mask_struct, map_struct, interruptable_popen
