@@ -37,6 +37,8 @@ Class ``WLCGDirectoryTarget``
 Functions
 ---------
 
+.. autofunction:: ensure_voms_proxy
+
 .. autofunction:: get_voms_proxy_file
 
 .. autofunction:: get_voms_proxy_user

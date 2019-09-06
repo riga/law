@@ -21,8 +21,8 @@ law.contrib.load("slack", "telegram")
 
 class MyTask(law.Task):
 
-    notify_slack = law.NotifySlackParameter()
-    notify_telegram = law.NotifyTelegramParameter()
+    notify_slack = law.slack.NotifySlackParameter()
+    notify_telegram = law.telegram.NotifyTelegramParameter()
 
     fail = luigi.BoolParameter()
 

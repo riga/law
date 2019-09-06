@@ -5,6 +5,9 @@ Slack-related parameters.
 """
 
 
+__all__ = ["NotifySlackParameter"]
+
+
 import collections
 
 from law.parameter import NotifyParameter

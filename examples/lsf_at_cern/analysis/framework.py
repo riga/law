@@ -40,7 +40,7 @@ class Task(law.Task):
         return law.LocalFileTarget(self.local_path(*path))
 
 
-class LSFWorkflow(law.LSFWorkflow):
+class LSFWorkflow(law.lsf.LSFWorkflow):
     """
     Batch systems are typically very heterogeneous by design, and so is LSF. Law does not aim to
     "magically" adapt to all possible LSF setups which would certainly end in a mess. Therefore we
