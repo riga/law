@@ -61,11 +61,11 @@ class DockerSandbox(Sandbox):
 
                 extra_args = self.common_args()
 
-                cmd = "docker run --rm -v {1}:{2} {3} {0} "
+                cmd = "docker run --rm -v {1}:{2} {3} {0} bash -l -c \""
                 cmd += "; ".join(self.task.sandbox_setup_cmds) + "; " \
                     if self.task.sandbox_setup_cmds else ""
-                cmd += "python -c \"import os,pickle;" \
-                    "pickle.dump(dict(os.environ),open('{2}','wb'))\""
+                cmd += "python -c \\\"import os,pickle;" \
+                    "pickle.dump(dict(os.environ),open('{2}','wb'))\\\"\""
                 cmd = cmd.format(self.image, tmp_path, env_path, " ".join(extra_args))
 
                 returncode, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
@@ -188,7 +188,7 @@ class DockerSandbox(Sandbox):
                 args.extend(["--network", "host"])
                 proxy_cmd.extend(["--scheduler-host", "\"{}\"".format(self.get_host_ip())])
 
-        # build commands to add env variables
+        # build commands to set up environment
         pre_cmds = self.pre_cmds(env)
         pre_cmds.extend(self.task.sandbox_setup_cmds)
 
