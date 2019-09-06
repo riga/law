@@ -23,6 +23,7 @@ from law.task.base import Task
 from law.task.proxy import ProxyTask, get_proxy_attribute
 from law.target.local import LocalDirectoryTarget
 from law.target.collection import TargetCollection
+from law.parameter import NO_STR
 from law.config import Config
 from law.parser import global_cmdline_args
 from law.util import colored, multi_match, mask_struct, map_struct, interruptable_popen
@@ -88,7 +89,7 @@ class Sandbox(object):
     @classmethod
     def new(cls, key, *args, **kwargs):
         # check for key format
-        cls.check_key(key)
+        cls.check_key(key, silent=False)
 
         # split the key into the sandbox type and name
         _type, name = cls.split_key(key)
@@ -356,39 +357,48 @@ class SandboxProxy(ProxyTask):
 
 class SandboxTask(Task):
 
-    sandbox = luigi.Parameter(default=_current_sandbox[0] or luigi.parameter._no_value,
+    sandbox = luigi.Parameter(default=_current_sandbox[0] or NO_STR,
         description="name of the sandbox to run the task in, default: $LAW_SANDBOX when set, "
-        "otherwise no default. Use 'NO_SANDBOX' to run task without a sandbox.")
+        "otherwise no default")
 
+    allow_empty_sandbox = False
     force_sandbox = False
-
-    valid_sandboxes = ["*"]
+    valid_sandboxes = []
 
     exclude_params_sandbox = {"sandbox"}
 
     def __init__(self, *args, **kwargs):
         super(SandboxTask, self).__init__(*args, **kwargs)
 
+        # check if the sandbox parameter is set
+        if self.sandbox == NO_STR:
+            if not self.allow_empty_sandbox:
+                raise Exception("task {!r} requires the sandbox parameter to be set".format(self))
+            self.effective_sandbox = NO_STR
+
         # check if the task execution must be sandboxed
-        if _sandbox_switched:
+        elif _sandbox_switched:
             self.effective_sandbox = _current_sandbox[0]
+
+        # is the switch forced?
+        elif self.force_sandbox:
+            self.effective_sandbox = self.sandbox
+
+        # can we run in the requested sandbox?
+        elif multi_match(self.sandbox, self.valid_sandboxes, mode=any):
+            self.effective_sandbox = self.sandbox
+
+        # we have to determine a fallback
         else:
-            # is the switch forced?
-            if self.force_sandbox:
-                self.effective_sandbox = self.sandbox
+            self.effective_sandbox = self.fallback_sandbox(self.sandbox)
 
-            # can we run in the requested sandbox?
-            elif multi_match(self.sandbox, self.valid_sandboxes, mode=any):
-                self.effective_sandbox = self.sandbox
+        # at this point the effective sandbox must be set
+        if self.effective_sandbox is None:
+            raise Exception("cannot determine fallback for sandbox {} in task {!r}".format(
+                self.sandbox, self))
 
-            # we have to fallback
-            else:
-                self.effective_sandbox = self.fallback_sandbox(self.sandbox)
-                if self.effective_sandbox is None:
-                    raise Exception("cannot determine fallback sandbox for {} in task {}".format(
-                        self.sandbox, self))
-
-        if not self.is_sandboxed() and self.sandbox != "NO_SANDBOX":
+        # create the sandbox proxy when required
+        if not self.is_sandboxed():
             self.sandbox_inst = Sandbox.new(self.effective_sandbox, self)
             self.sandbox_proxy = SandboxProxy(task=self)
             logger.debug("created sandbox proxy instance of type '{}'".format(
@@ -398,11 +408,10 @@ class SandboxTask(Task):
             self.sandbox_proxy = None
 
     def is_sandboxed(self):
-        return self.effective_sandbox in _current_sandbox and self.task_id == _sandbox_task_id
-
-    @property
-    def sandbox_user(self):
-        return (os.getuid(), os.getgid())
+        if self.effective_sandbox == NO_STR:
+            return True
+        else:
+            return self.effective_sandbox in _current_sandbox and self.task_id == _sandbox_task_id
 
     @property
     def sandbox_setup_cmds(self):
@@ -436,6 +445,9 @@ class SandboxTask(Task):
 
     def fallback_sandbox(self, sandbox):
         return None
+
+    def sandbox_user(self):
+        return (os.getuid(), os.getgid())
 
     def sandbox_stagein_mask(self):
         # disable stage-in by default

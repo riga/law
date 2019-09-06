@@ -397,13 +397,12 @@ class BaseWorkflow(Task):
             else:
                 raise ValueError("unknown workflow type {}".format(self.workflow))
 
-            # cached attributes for the workflow
-            self._branch_map = None
-            self._branch_tasks = None
+        # cached attributes for the workflow
+        self._branch_map = None
+        self._branch_tasks = None
 
-        else:
-            # cached attributes for branches
-            self._workflow_task = None
+        # cached attributes for branches
+        self._workflow_task = None
 
     def __getattribute__(self, attr, proxy=True):
         return get_proxy_attribute(self, attr, proxy=proxy, super_cls=Task)

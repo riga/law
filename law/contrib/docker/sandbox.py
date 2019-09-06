@@ -43,10 +43,10 @@ class DockerSandbox(Sandbox):
     def common_args(self):
         # get docker args needed for both the env loading and job execution
         args = []
-        sandbox_user = self.task.sandbox_user
+        sandbox_user = self.task.sandbox_user()
         if sandbox_user:
             if not isinstance(sandbox_user, (tuple, list)) or len(sandbox_user) != 2:
-                raise Exception("sandbox_user must return 2-tuple")
+                raise Exception("sandbox_user() must return 2-tuple")
             args.append("-u={}:{}".format(*sandbox_user))
         return args
 

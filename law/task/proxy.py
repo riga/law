@@ -28,7 +28,7 @@ def get_proxy_attribute(task, attr, proxy=True, super_cls=Task):
     """
     Returns an attribute *attr* of a *task* taking into account possible proxies such as owned by
     workflow (:py:class:`BaseWorkflow`) or sandbox tasks (:py:class:`SandboxTask`). The reason for
-    having an external function to evaluate possible attribute forwarding is the the complexity of
+    having an external function to evaluate possible attribute forwarding is the complexity of
     attribute lookup independent of the method resolution order. When the requested attribute is not
     forwarded or *proxy* is *False*, the default lookup implemented in *super_cls* is used.
     """
