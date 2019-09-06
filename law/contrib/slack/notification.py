@@ -5,6 +5,9 @@ Slack notifications.
 """
 
 
+__all__ = ["notify_slack"]
+
+
 import threading
 import logging
 

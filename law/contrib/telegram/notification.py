@@ -5,6 +5,9 @@ Telegram notifications.
 """
 
 
+__all__ = ["notify_telegram"]
+
+
 import threading
 import logging
 

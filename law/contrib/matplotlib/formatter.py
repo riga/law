@@ -5,6 +5,9 @@ Matplotlib target formatter.
 """
 
 
+__all__ = ["MatplotlibFormatter"]
+
+
 from law.target.formatter import Formatter
 from law.target.file import get_path
 

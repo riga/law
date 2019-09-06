@@ -5,6 +5,9 @@ TensorFlow target formatters.
 """
 
 
+__all__ = ["TFConstantGraphFormatter"]
+
+
 import os
 
 from law.target.formatter import Formatter
@@ -20,15 +23,24 @@ class TFConstantGraphFormatter(Formatter):
         return get_path(path).endswith(".pb")
 
     @classmethod
-    def load(cls, path, graph_def=None):
+    def load(cls, path, graph=None, graph_def=None, as_text=False):
         import tensorflow as tf
-        from tensorflow.python.platform import gfile
 
-        if not graph_def:
-            graph_def = tf.GraphDef()
+        if not graph:
+            graph = tf.Graph()
 
-        with gfile.FastGFile(get_path(path), "rb") as f:
-            graph_def.ParseFromString(f.read())
+        with graph.as_default():
+            if not graph_def:
+                graph_def = tf.GraphDef()
+
+            if as_text:
+                from google.protobuf import text_format
+                with open(get_path(path), "r") as f:
+                    text_format.Merge(f.read(), graph_def)
+            else:
+                from tensorflow.python.platform import gfile
+                with gfile.FastGFile(get_path(path), "rb") as f:
+                    graph_def.ParseFromString(f.read())
 
         return graph_def
 

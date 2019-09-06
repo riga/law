@@ -39,7 +39,7 @@ class BinNumbers(law.SandboxTask):
 
     sandbox = "docker::34b598324f19"
     force_sandbox = True
-    docker_args = law.DockerSandbox.default_docker_args + [
+    docker_args = law.docker.DockerSandbox.default_docker_args + [
         "-v", os.getcwd() + "/data:/notebooks/data",
     ]
 

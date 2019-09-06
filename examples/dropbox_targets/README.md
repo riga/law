@@ -63,7 +63,7 @@ law.contrib.load("dropbox")
 
 # the top directory was already created by dropbox
 # after setting up the API credentials
-top_dir = law.DropboxDirectoryTarget("/")
+top_dir = law.dropbox.DropboxDirectoryTarget("/")
 
 top_dir.path
 # => "/"
@@ -81,7 +81,7 @@ Now, we create a file target called `data.json`:
 
 ```python
 # method 1: use the full path
-data_file = law.DropboxFileTarget("/data.json")
+data_file = law.dropbox.DropboxFileTarget("/data.json")
 
 # method 2: use child(), when the file does not exist yet, you must
 # pass the target type (f or d)
@@ -218,7 +218,7 @@ Let's get fancy. Now, we want to load a numpy array from one file in the *defaul
 # load the numpy contribs which contains the numpy target formatter
 law.contrib.load("numpy")
 
-pred_file = law.DropboxFileTarget("/prediction.npy", fs="dropbox_results")
+pred_file = law.dropbox.DropboxFileTarget("/prediction.npy", fs="dropbox_results")
 pred_file.dump(array_file.load()["prediction"])
 ```
 
@@ -235,8 +235,8 @@ import numpy as np
 # load the numpy contribs which contains the numpy target formatter
 law.contrib.load("numpy")
 
-inputs = [law.DropboxFileTarget("/my_array_%d.npy" % i) for i in range(10)]
-output = law.DropboxFileTarget("/my_big_array.npy")
+inputs = [law.dropbox.DropboxFileTarget("/my_array_%d.npy" % i) for i in range(10)]
+output = law.dropbox.DropboxFileTarget("/my_big_array.npy")
 
 output.dump(np.concatenate([inp.load(cache=False) for inp in inputs]))
 ```
