@@ -5,6 +5,9 @@ NumPy target formatters.
 """
 
 
+__all__ = ["NumpyFormatter"]
+
+
 import logging
 
 from law.target.formatter import Formatter

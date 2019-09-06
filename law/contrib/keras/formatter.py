@@ -4,6 +4,10 @@
 Keras target formatters.
 """
 
+
+__all__ = ["KerasModelFormatter", "TFKerasModelFormatter"]
+
+
 from law.target.formatter import Formatter
 from law.target.file import get_path
 

@@ -5,6 +5,9 @@ Telegram-related parameters.
 """
 
 
+__all__ = ["NotifyTelegramParameter"]
+
+
 import collections
 
 from law.parameter import NotifyParameter

@@ -5,6 +5,9 @@ TensorFlow target formatters.
 """
 
 
+__all__ = ["TFConstantGraphFormatter"]
+
+
 import os
 
 from law.target.formatter import Formatter
