@@ -21,7 +21,7 @@ import luigi
 import luigi.util
 import six
 
-from law.parameter import NO_STR, TaskInstanceParameter, CSVParameter
+from law.parameter import NO_STR, CSVParameter
 from law.parser import global_cmdline_values
 from law.target.file import FileSystemTarget, localize_file_targets
 from law.target.collection import TargetCollection
@@ -403,13 +403,6 @@ class ExternalTask(Task):
 
     def _repr_flags(self):
         return super(ExternalTask, self)._repr_flags() + ["external"]
-
-
-class ProxyTask(BaseTask):
-
-    task = TaskInstanceParameter()
-
-    exclude_params_req = {"task"}
 
 
 class TaskMessageStream(BaseStream):

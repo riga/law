@@ -48,13 +48,6 @@ Class ``ExternalTask``
    :members:
 
 
-Class ``ProxyTask``
--------------------
-
-.. autoclass:: ProxyTask
-   :members:
-
-
 Functions
 ---------
 

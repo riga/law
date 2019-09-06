@@ -18,17 +18,14 @@ import luigi
 import six
 
 from law.config import Config
-from law.task.base import Task, ProxyTask, Register
+from law.task.base import Task, Register
+from law.task.proxy import ProxyTask, get_proxy_attribute
 from law.target.collection import TargetCollection
 from law.parameter import NO_STR, NO_INT, CSVParameter
 from law.util import no_value
 
 
 logger = logging.getLogger(__name__)
-
-
-_forward_attributes = ("requires", "output", "run", "complete")
-
 
 sibling_warning_logged = False
 
@@ -373,8 +370,10 @@ class BaseWorkflow(Task):
 
     exclude_index = True
 
-    exclude_params_branch = {"workflow", "acceptance", "tolerance", "pilot", "start_branch",
-        "end_branch", "branches", "branch"}
+    exclude_params_branch = {
+        "workflow", "acceptance", "tolerance", "pilot", "start_branch", "end_branch", "branches",
+        "branch",
+    }
     exclude_params_workflow = {"branch"}
 
     def __init__(self, *args, **kwargs):
@@ -406,15 +405,8 @@ class BaseWorkflow(Task):
             # cached attributes for branches
             self._workflow_task = None
 
-    def _forward_attribute(self, attr):
-        return attr in _forward_attributes and self.is_workflow()
-
-    def __getattribute__(self, attr, proxy=True, force=False):
-        if proxy and attr != "__class__":
-            if force or (attr != "_forward_attribute" and self._forward_attribute(attr)):
-                return getattr(self.workflow_proxy, attr)
-
-        return super(BaseWorkflow, self).__getattribute__(attr)
+    def __getattribute__(self, attr, proxy=True):
+        return get_proxy_attribute(self, attr, proxy=proxy, super_cls=Task)
 
     def cli_args(self, exclude=None, replace=None):
         if exclude is None:

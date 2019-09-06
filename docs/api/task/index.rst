@@ -7,3 +7,4 @@ law.task
    :maxdepth: 2
 
    base
+   proxy

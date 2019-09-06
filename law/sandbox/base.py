@@ -19,18 +19,16 @@ from collections import OrderedDict
 import luigi
 import six
 
-from law.task.base import Task, ProxyTask
-from law.workflow.base import BaseWorkflow
+from law.task.base import Task
+from law.task.proxy import ProxyTask, get_proxy_attribute
 from law.target.local import LocalDirectoryTarget
 from law.target.collection import TargetCollection
-from law.parameter import CSVParameter
 from law.config import Config
 from law.parser import global_cmdline_args
 from law.util import colored, multi_match, mask_struct, map_struct, interruptable_popen
 
 
 logger = logging.getLogger(__name__)
-
 
 _current_sandbox = os.getenv("LAW_SANDBOX", "").split(",")
 
@@ -412,22 +410,7 @@ class SandboxTask(Task):
         return []
 
     def __getattribute__(self, attr, proxy=True):
-        if proxy and attr not in ["__class__", "workflow_proxy", "sandbox"]:
-            # be aware of workflows independent of the MRO as sandboxing should be the last
-            # modification of a task, i.e., this enforces granular sandbox diping instead of nesting
-            if hasattr(self, "workflow_proxy"):
-                if BaseWorkflow._forward_attribute(self, attr):
-                    return BaseWorkflow.__getattribute__(self, attr, force=True)
-
-            if self.sandbox != "NO_SANDBOX":
-                if attr == "run" and not self.is_sandboxed():
-                    return self.sandbox_proxy.run
-                elif attr == "input" and _sandbox_stagein_dir and self.is_sandboxed():
-                    return self._staged_input
-                elif attr == "output" and _sandbox_stageout_dir and self.is_sandboxed():
-                    return self._staged_output
-
-        return Task.__getattribute__(self, attr)
+        return get_proxy_attribute(self, attr, proxy=proxy, super_cls=Task)
 
     def _staged_input(self):
         inputs = self.__getattribute__("input", proxy=False)()
