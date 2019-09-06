@@ -406,7 +406,7 @@ class SandboxTask(Task):
 
     @property
     def sandbox_setup_cmds(self):
-        # return list of commands to setup environment inside sandbox
+        # return list of commands to set up environment inside sandbox
         return []
 
     def __getattribute__(self, attr, proxy=True):

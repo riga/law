@@ -42,8 +42,11 @@ class SingularitySandbox(Sandbox):
                 tmp_path = os.path.realpath(tmp[1])
                 env_path = os.path.join("/tmp", str(hash(tmp_path))[-8:])
 
-                cmd = " env -i singularity exec -B {1}:{2} {0} python -c \"" \
-                    "import os,pickle;pickle.dump(dict(os.environ),open('{2}','wb'))\""
+                cmd = "singularity exec -e -B {1}:{2} {0} bash -l -c \""
+                cmd += "; ".join(self.task.sandbox_setup_cmds) + "; " \
+                    if self.task.sandbox_setup_cmds else ""
+                cmd += "python -c \\\"import os,pickle;" \
+                    "pickle.dump(dict(os.environ),open('{2}','wb'))\\\"\""
                 cmd = cmd.format(self.image, tmp_path, env_path)
 
                 returncode, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
@@ -149,11 +152,12 @@ class SingularitySandbox(Sandbox):
         if self.force_local_scheduler() and ls_flag not in proxy_cmd:
             proxy_cmd.append(ls_flag)
 
-        # build commands to add env variables
+        # build commands to set up environment
         pre_cmds = self.pre_cmds(env)
+        pre_cmds.extend(self.task.sandbox_setup_cmds)
 
         # build the final command
-        cmd = "singularity exec {args} {image} bash -l -c '{pre_cmd}; {proxy_cmd}'".format(
+        cmd = "singularity exec -e {args} {image} bash -l -c '{pre_cmd}; {proxy_cmd}'".format(
             args=" ".join(args), image=self.image, pre_cmd="; ".join(pre_cmds),
             proxy_cmd=" ".join(proxy_cmd))
 
