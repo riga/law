@@ -66,6 +66,7 @@ class Config(ConfigParser):
         "logging": {
             "law": os.getenv("LAW_LOG_LEVEL", "WARNING"),
         },
+        "modules": {},
         "target": {
             "default_local_fs": "local_fs",
             "tmp_dir": os.getenv("LAW_TARGET_TMP_DIR", tempfile.gettempdir()),
@@ -87,30 +88,29 @@ class Config(ConfigParser):
             # the three options above can be also be set per workflow type (currently htcondor,
             # lsf, glite, arc) by prefixing the option, e.g. "htcondor_job_file_dir"
         },
-        "modules": {},
-        "sandbox_bash": {
+        "bash_sandbox": {
             "stagein_dir": "stagein",
             "stageout_dir": "stageout",
         },
-        "sandbox_env_bash": {},
-        "sandbox_docker": {
+        "bash_sandbox_env": {},
+        "docker_sandbox": {
             "forward_dir": "/law_forward",
             "python_dir": "py",
             "bin_dir": "bin",
             "stagein_dir": "stagein",
             "stageout_dir": "stageout",
         },
-        "sandbox_env_docker": {},
-        "sandbox_volumes_docker": {},
-        "sandbox_singularity": {
+        "docker_sandbox_env": {},
+        "docker_sandbox_volumes": {},
+        "singularity_sandbox": {
             "forward_dir": "/law_forward",
             "python_dir": "py",
             "bin_dir": "bin",
             "stagein_dir": "stagein",
             "stageout_dir": "stageout",
         },
-        "sandbox_env_singularity": {},
-        "sandbox_volumes_singularity": {},
+        "singularity_sandbox_env": {},
+        "singularity_sandbox_volumes": {},
         "notifications": {
             "mail_recipient": "",
             "mail_sender": "",

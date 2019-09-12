@@ -12,7 +12,6 @@ import os
 import sys
 import uuid
 import socket
-import subprocess
 
 import luigi
 import six
@@ -41,13 +40,15 @@ class DockerSandbox(Sandbox):
         return None if ":" not in self.image else self.image.split(":", 1)[1]
 
     def common_args(self):
-        # get docker args needed for both the env loading and job execution
+        # arguments that are used to setup the env and actual run commands
         args = []
+
         sandbox_user = self.task.sandbox_user()
         if sandbox_user:
             if not isinstance(sandbox_user, (tuple, list)) or len(sandbox_user) != 2:
                 raise Exception("sandbox_user() must return 2-tuple")
             args.append("-u={}:{}".format(*sandbox_user))
+
         return args
 
     @property
@@ -59,20 +60,25 @@ class DockerSandbox(Sandbox):
                 tmp_path = os.path.realpath(tmp[1])
                 env_path = os.path.join("/tmp", str(hash(tmp_path))[-8:])
 
-                extra_args = self.common_args()
+                # build commands to setup the environment
+                setup_cmds = "; ".join(self._build_setup_cmds(self._get_env()))
 
-                cmd = "docker run --rm -v {1}:{2} {3} {0} bash -l -c \""
-                cmd += "; ".join(self.task.sandbox_setup_cmds) + "; " \
-                    if self.task.sandbox_setup_cmds else ""
-                cmd += "python -c \\\"import os,pickle;" \
-                    "pickle.dump(dict(os.environ),open('{2}','wb'))\\\"\""
-                cmd = cmd.format(self.image, tmp_path, env_path, " ".join(extra_args))
+                # arguments to configure the environment
+                args = " ".join(self.common_args())
 
-                returncode, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                # build the command
+                cmd = "docker run --rm -v {tmp}:{env} {args} {image} bash -l -c \"" \
+                    "{setup_cmds}; python -c \\\"import os,pickle;" \
+                    "pickle.dump(dict(os.environ),open('{env}','wb'),protocol=2)\\\"\""
+                cmd = cmd.format(image=self.image, tmp=tmp_path, env=env_path, args=args,
+                    setup_cmds=setup_cmds)
+
+                # run it
+                returncode = interruptable_popen(cmd, shell=True, executable="/bin/bash")[0]
                 if returncode != 0:
-                    raise Exception("docker sandbox env loading failed: " + str(out))
+                    raise Exception("docker sandbox env loading failed")
 
+                # load the environment from the tmp file
                 with open(tmp_path, "rb") as f:
                     env = six.moves.cPickle.load(f)
 
@@ -100,11 +106,13 @@ class DockerSandbox(Sandbox):
         bin_dir = cfg.get(section, "bin_dir")
         stagein_dir = cfg.get(section, "stagein_dir")
         stageout_dir = cfg.get(section, "stageout_dir")
+
         def dst(*args):
             return os.path.join(forward_dir, *(str(arg) for arg in args))
 
         # helper for mounting a volume
         volume_srcs = []
+
         def mount(*vol):
             src = vol[0]
 
@@ -174,8 +182,12 @@ class DockerSandbox(Sandbox):
                 cdir = cdir.replace("${PY}", dst(python_dir)).replace("${BIN}", dst(bin_dir))
                 mount(hdir, cdir)
 
-        # docker arguments needed for both env loading and executing the job
+        # extend by arguments needed for both env loading and executing the job
         args.extend(self.common_args())
+        args = " ".join(args)
+
+        # build commands to setup the environment
+        setup_cmds = "; ".join(self._build_setup_cmds(env))
 
         # handle scheduling within the container
         ls_flag = "--local-scheduler"
@@ -187,15 +199,11 @@ class DockerSandbox(Sandbox):
             if self.scheduler_on_host():
                 args.extend(["--network", "host"])
                 proxy_cmd.extend(["--scheduler-host", "\"{}\"".format(self.get_host_ip())])
-
-        # build commands to set up environment
-        pre_cmds = self.pre_cmds(env)
-        pre_cmds.extend(self.task.sandbox_setup_cmds)
+        proxy_cmd = " ".join(proxy_cmd)
 
         # build the final command
-        cmd = "docker run {args} {image} bash -l -c '{pre_cmd}; {proxy_cmd}'".format(
-            args=" ".join(args), image=self.image, pre_cmd="; ".join(pre_cmds),
-            proxy_cmd=" ".join(proxy_cmd))
+        cmd = "docker run {args} {image} bash -l -c '{setup_cmds}; {proxy_cmd}'".format(
+            args=args, image=self.image, setup_cmds=setup_cmds, proxy_cmd=proxy_cmd)
 
         return cmd
 

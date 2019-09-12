@@ -130,12 +130,6 @@ class Sandbox(object):
     def env(self):
         return
 
-    def pre_cmds(self, env):
-        pre_cmds = []
-        for tpl in env.items():
-            pre_cmds.append("export {}=\"{}\"".format(*tpl))
-        return pre_cmds
-
     @abstractmethod
     def cmd(self, proxy_cmd):
         return
@@ -152,10 +146,9 @@ class Sandbox(object):
     def get_config_section(self, postfix=None):
         cfg = Config.instance()
 
-        section = "sandbox_"
+        section = self.sandbox_type + "_sandbox"
         if postfix:
-            section += postfix + "_"
-        section += self.sandbox_type
+            section += "_" + postfix
 
         image_section = section + "_" + self.name
 
@@ -173,7 +166,7 @@ class Sandbox(object):
         if getattr(self.task, "_worker_task", None):
             env["LAW_SANDBOX_WORKER_TASK"] = self.task.live_task_id
 
-        # variables from the config file
+        # extend by variables from the config file
         cfg = Config.instance()
         section = self.get_config_section(postfix="env")
         for name, value in cfg.items(section):
@@ -184,28 +177,39 @@ class Sandbox(object):
             for name in names:
                 env[name] = value if value is not None else os.getenv(name, "")
 
-        # from the task config
-        getter = getattr(self.task, "get_{}_env".format(self.sandbox_type), None)
-        if callable(getter):
-            env.update(getter())
+        # extend by variables defined on task level
+        task_env = self.task.sandbox_env(env)
+        if task_env:
+            env.update(task_env)
 
         return env
 
     def _get_volumes(self):
         volumes = OrderedDict()
 
-        # volumes from the config file
+        # extend by volumes from the config file
         cfg = Config.instance()
         section = self.get_config_section(postfix="volumes")
         for hdir, cdir in cfg.items(section):
             volumes[os.path.expandvars(os.path.expanduser(hdir))] = cdir
 
-        # from the task config
-        getter = getattr(self.task, "get_{}_volumes".format(self.sandbox_type), None)
-        if callable(getter):
-            volumes.update(getter())
+        # extend by volumes defined on task level
+        task_volumes = self.task.sandbox_volumes(volumes)
+        if task_volumes:
+            volumes.update(task_volumes)
 
         return volumes
+
+    def _build_setup_cmds(self, env):
+        # commands that are used to setup the env and actual run commands
+        setup_cmds = []
+
+        for tpl in six.iteritems(env):
+            setup_cmds.append("export {}=\"{}\"".format(*tpl))
+
+        setup_cmds.extend(self.task.sandbox_setup_cmds())
+
+        return setup_cmds
 
 
 class SandboxProxy(ProxyTask):
@@ -413,11 +417,6 @@ class SandboxTask(Task):
         else:
             return self.effective_sandbox in _current_sandbox and self.task_id == _sandbox_task_id
 
-    @property
-    def sandbox_setup_cmds(self):
-        # return list of commands to set up environment inside sandbox
-        return []
-
     def __getattribute__(self, attr, proxy=True):
         return get_proxy_attribute(self, attr, proxy=proxy, super_cls=Task)
 
@@ -441,7 +440,7 @@ class SandboxTask(Task):
 
     @property
     def env(self):
-        return os.environ if self.sandbox_inst is None else self.sandbox_inst.env
+        return os.environ if self.is_sandboxed() else self.sandbox_inst.env
 
     def fallback_sandbox(self, sandbox):
         return None
@@ -457,10 +456,24 @@ class SandboxTask(Task):
         # disable stage-out by default
         return False
 
+    def sandbox_env(self, env):
+        # additional environment variables
+        return {}
+
+    def sandbox_volumes(self, volumes):
+        # additional volumes to mount
+        return {}
+
+    def sandbox_setup_cmds(self):
+        # list of commands to set up the environment inside a sandbox
+        return []
+
     def sandbox_before_run(self):
+        # method that is invoked before the run method of the sandbox proxy is called
         return
 
     def sandbox_after_run(self):
+        # method that is invoked after the run method of the sandbox proxy is called
         return
 
 

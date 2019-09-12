@@ -9,7 +9,6 @@ __all__ = ["SingularitySandbox"]
 
 
 import os
-import subprocess
 
 import luigi
 import six
@@ -33,6 +32,10 @@ class SingularitySandbox(Sandbox):
     def image(self):
         return self.name
 
+    def common_args(self):
+        # arguments that are used to setup the env and actual run commands
+        return []
+
     @property
     def env(self):
         # strategy: create a tempfile, forward it to a container, let python dump its full env,
@@ -42,18 +45,25 @@ class SingularitySandbox(Sandbox):
                 tmp_path = os.path.realpath(tmp[1])
                 env_path = os.path.join("/tmp", str(hash(tmp_path))[-8:])
 
-                cmd = "singularity exec -e -B {1}:{2} {0} bash -l -c \""
-                cmd += "; ".join(self.task.sandbox_setup_cmds) + "; " \
-                    if self.task.sandbox_setup_cmds else ""
-                cmd += "python -c \\\"import os,pickle;" \
-                    "pickle.dump(dict(os.environ),open('{2}','wb'))\\\"\""
-                cmd = cmd.format(self.image, tmp_path, env_path)
+                # build commands to setup the environment
+                setup_cmds = "; ".join(self._build_setup_cmds(self._get_env()))
 
-                returncode, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                # arguments to configure the environment
+                args = " ".join(self.common_args())
+
+                # build the command
+                cmd = "singularity exec -e -B {tmp}:{env} {args} {image} bash -l -c \"" \
+                    "{setup_cmds}; python -c \\\"import os,pickle;" \
+                    "pickle.dump(dict(os.environ),open('{env}','wb'),protocol=2)\\\"\""
+                cmd = cmd.format(image=self.image, tmp=tmp_path, env=env_path, args=args,
+                    setup_cmds=setup_cmds)
+
+                # run it
+                returncode = interruptable_popen(cmd, shell=True, executable="/bin/bash")[0]
                 if returncode != 0:
-                    raise Exception("singularity sandbox env loading failed: " + str(out))
+                    raise Exception("singularity sandbox env loading failed")
 
+                # load the environment from the tmp file
                 with open(tmp_path, "rb") as f:
                     env = six.moves.cPickle.load(f)
 
@@ -76,11 +86,13 @@ class SingularitySandbox(Sandbox):
         bin_dir = cfg.get(section, "bin_dir")
         stagein_dir = cfg.get(section, "stagein_dir")
         stageout_dir = cfg.get(section, "stageout_dir")
+
         def dst(*args):
             return os.path.join(forward_dir, *(str(arg) for arg in args))
 
         # helper for mounting a volume
         volume_srcs = []
+
         def mount(*vol):
             src = vol[0]
 
@@ -106,6 +118,9 @@ class SingularitySandbox(Sandbox):
         if self.stageout_info:
             env["LAW_SANDBOX_STAGEOUT_DIR"] = dst(stageout_dir)
             mount(self.stageout_info.stage_dir.path, dst(stageout_dir))
+
+        # prevent python from writing byte code files
+        env["PYTHONDONTWRITEBYTECODE"] = "1"
 
         # adjust path variables
         env["PATH"] = os.pathsep.join(["$PATH", dst("bin")])
