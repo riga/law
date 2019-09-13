@@ -372,7 +372,6 @@ class BaseWorkflow(Task):
 
     exclude_params_branch = {
         "workflow", "acceptance", "tolerance", "pilot", "start_branch", "end_branch", "branches",
-        "branch",
     }
     exclude_params_workflow = {"branch"}
 
