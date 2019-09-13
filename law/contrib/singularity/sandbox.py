@@ -52,9 +52,9 @@ class SingularitySandbox(Sandbox):
                 args = " ".join(self.common_args())
 
                 # build the command
-                cmd = "singularity exec -e -B {tmp}:{env} {args} {image} bash -l -c \"" \
-                    "{setup_cmds}; python -c \\\"import os,pickle;" \
-                    "pickle.dump(dict(os.environ),open('{env}','wb'),protocol=2)\\\"\""
+                cmd = "singularity exec -e -B {tmp}:{env} {args} {image} bash -l -c '" \
+                    "{setup_cmds}; python -c \"import os,pickle;" \
+                    "pickle.dump(dict(os.environ),open(\\\"{env}\\\",\\\"wb\\\"),protocol=2)\"'"
                 cmd = cmd.format(image=self.image, tmp=tmp_path, env=env_path, args=args,
                     setup_cmds=setup_cmds)
 
