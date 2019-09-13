@@ -366,40 +366,34 @@ class SandboxTask(Task):
         "otherwise no default")
 
     allow_empty_sandbox = False
-    force_sandbox = False
-    valid_sandboxes = []
+    valid_sandboxes = ["*"]
 
     exclude_params_sandbox = {"sandbox"}
 
     def __init__(self, *args, **kwargs):
         super(SandboxTask, self).__init__(*args, **kwargs)
 
-        # check if the sandbox parameter is set
-        if self.sandbox == NO_STR:
+        # when we are already in a sandbox, this task is placed inside it, i.e., there is no nesting
+        if _sandbox_switched:
+            self.effective_sandbox = _current_sandbox[0]
+
+        # when the sandbox is set via a parameter and not hard-coded,
+        # check if the value is among the valid sandboxes, otherwise determine the fallback
+        elif isinstance(self.__class__.sandbox, luigi.Parameter):
+            if multi_match(self.sandbox, self.valid_sandboxes, mode=any):
+                self.effective_sandbox = self.sandbox
+            else:
+                self.effective_sandbox = self.fallback_sandbox(self.sandbox)
+
+        # just set the effective sandbox
+        else:
+            self.effective_sandbox = self.sandbox
+
+        # at this point, the sandbox must be set unless it is explicitely allowed to be empty
+        if self.effective_sandbox in (None, NO_STR):
             if not self.allow_empty_sandbox:
                 raise Exception("task {!r} requires the sandbox parameter to be set".format(self))
             self.effective_sandbox = NO_STR
-
-        # check if the task execution must be sandboxed
-        elif _sandbox_switched:
-            self.effective_sandbox = _current_sandbox[0]
-
-        # is the switch forced?
-        elif self.force_sandbox:
-            self.effective_sandbox = self.sandbox
-
-        # can we run in the requested sandbox?
-        elif multi_match(self.sandbox, self.valid_sandboxes, mode=any):
-            self.effective_sandbox = self.sandbox
-
-        # we have to determine a fallback
-        else:
-            self.effective_sandbox = self.fallback_sandbox(self.sandbox)
-
-        # at this point the effective sandbox must be set
-        if self.effective_sandbox is None:
-            raise Exception("cannot determine fallback for sandbox {} in task {!r}".format(
-                self.sandbox, self))
 
         # create the sandbox proxy when required
         if not self.is_sandboxed():
