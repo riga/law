@@ -440,7 +440,18 @@ class SandboxTask(Task):
         return None
 
     def sandbox_user(self):
-        return (os.getuid(), os.getgid())
+        uid, gid = os.getuid(), os.getgid()
+
+        # check if there is a config section that defines the user and group ids
+        if self.sandbox_inst:
+            cfg = Config.instance()
+            section = self.sandbox_inst.get_config_section()
+            if not cfg.is_missing_or_none(section, "uid"):
+                uid = cfg.get_expanded(section, "uid", type=int)
+            if not cfg.is_missing_or_none(section, "gid"):
+                gid = cfg.get_expanded(section, "gid", type=int)
+
+        return uid, gid
 
     def sandbox_stagein_mask(self):
         # disable stage-in by default
