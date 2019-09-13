@@ -6,8 +6,9 @@ law config parser implementation.
 
 
 __all__ = [
-    "Config", "get", "getint", "getfloat", "getboolean", "get_default", "get_expanded", "keys",
-    "items", "set", "has_section", "has_option", "remove_option",
+    "Config", "get", "getint", "getfloat", "getboolean", "get_default", "get_expanded",
+    "is_missing_or_none", "update", "include", "keys", "items", "set", "has_section", "has_option",
+    "remove_option",
 ]
 
 
