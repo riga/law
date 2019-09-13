@@ -164,19 +164,18 @@ class SingularitySandbox(Sandbox):
 
         # extend by arguments needed for both env loading and executing the job
         args.extend(self.common_args())
-        args = " ".join(args)
 
         # build commands to set up environment
-        setup_cmds = "; ".join(self._build_setup_cmds(env))
+        setup_cmds = self._build_setup_cmds(env)
 
         # handle scheduling within the container
         ls_flag = "--local-scheduler"
         if self.force_local_scheduler() and ls_flag not in proxy_cmd:
             proxy_cmd.append(ls_flag)
-        proxy_cmd = " ".join(proxy_cmd)
 
         # build the final command
         cmd = "singularity exec -e {args} {image} bash -l -c '{setup_cmds}; {proxy_cmd}'".format(
-            args=args, image=self.image, setup_cmds=setup_cmds, proxy_cmd=proxy_cmd)
+            args=" ".join(args), image=self.image, setup_cmds="; ".join(setup_cmds),
+            proxy_cmd=" ".join(proxy_cmd))
 
         return cmd

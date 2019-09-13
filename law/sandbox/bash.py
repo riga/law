@@ -71,16 +71,15 @@ class BashSandbox(Sandbox):
             env["LAW_SANDBOX_STAGEOUT_DIR"] = self.stageout_info.stage_dir.path
 
         # build commands to setup the environment
-        setup_cmds = "; ".join(self._build_setup_cmds(env))
+        setup_cmds = self._build_setup_cmds(env)
 
         # handle scheduling within the container
         ls_flag = "--local-scheduler"
         if self.force_local_scheduler() and ls_flag not in proxy_cmd:
             proxy_cmd.append(ls_flag)
-        proxy_cmd = " ".join(proxy_cmd)
 
         # build the final command
         cmd = "bash -l -c 'source \"{script}\"; {setup_cmds}; {proxy_cmd}'".format(
-            proxy_cmd=proxy_cmd, setup_cmds=setup_cmds, script=self.script)
+            proxy_cmd=" ".join(proxy_cmd), setup_cmds="; ".join(setup_cmds), script=self.script)
 
         return cmd
