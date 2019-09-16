@@ -19,17 +19,19 @@ from collections import OrderedDict
 import luigi
 import six
 
-from law.task.base import Task, ProxyTask
-from law.workflow.base import BaseWorkflow
+from law.task.base import Task
+from law.task.proxy import ProxyTask, get_proxy_attribute
 from law.target.local import LocalDirectoryTarget
 from law.target.collection import TargetCollection
+from law.parameter import NO_STR
 from law.config import Config
 from law.parser import global_cmdline_args
-from law.util import colored, multi_match, mask_struct, map_struct, interruptable_popen
+from law.util import (
+    colored, multi_match, mask_struct, map_struct, interruptable_popen, patch_object, flatten,
+)
 
 
 logger = logging.getLogger(__name__)
-
 
 _current_sandbox = os.getenv("LAW_SANDBOX", "").split(",")
 
@@ -62,6 +64,17 @@ class Sandbox(object):
     delimiter = "::"
 
     @staticmethod
+    def check_key(key, silent=False):
+        valid = True
+        if "," in key:
+            valid = False
+
+        if not valid and not silent:
+            raise ValueError("invalid sandbox key format '{}'".format(key))
+        else:
+            return valid
+
+    @staticmethod
     def split_key(key):
         parts = str(key).split(Sandbox.delimiter, 1)
         if len(parts) != 2 or any(not p.strip() for p in parts):
@@ -77,9 +90,13 @@ class Sandbox(object):
 
     @classmethod
     def new(cls, key, *args, **kwargs):
+        # check for key format
+        cls.check_key(key, silent=False)
+
+        # split the key into the sandbox type and name
         _type, name = cls.split_key(key)
 
-        # loop recursively through subclasses and find class with matching sandbox_type
+        # loop recursively through subclasses and find class that matches the sandbox_type
         classes = list(cls.__subclasses__())
         while classes:
             _cls = classes.pop(0)
@@ -88,7 +105,7 @@ class Sandbox(object):
             else:
                 classes.extend(_cls.__subclasses__())
 
-        raise Exception("no Sandbox with type '{}' found".format(_type))
+        raise Exception("no sandbox with type '{}' found".format(_type))
 
     def __init__(self, name, task):
         super(Sandbox, self).__init__()
@@ -131,10 +148,9 @@ class Sandbox(object):
     def get_config_section(self, postfix=None):
         cfg = Config.instance()
 
-        section = "sandbox_"
+        section = self.sandbox_type + "_sandbox"
         if postfix:
-            section += postfix + "_"
-        section += self.sandbox_type
+            section += "_" + postfix
 
         image_section = section + "_" + self.name
 
@@ -152,7 +168,7 @@ class Sandbox(object):
         if getattr(self.task, "_worker_task", None):
             env["LAW_SANDBOX_WORKER_TASK"] = self.task.live_task_id
 
-        # variables from the config file
+        # extend by variables from the config file
         cfg = Config.instance()
         section = self.get_config_section(postfix="env")
         for name, value in cfg.items(section):
@@ -163,28 +179,39 @@ class Sandbox(object):
             for name in names:
                 env[name] = value if value is not None else os.getenv(name, "")
 
-        # from the task config
-        getter = getattr(self.task, "get_{}_env".format(self.sandbox_type), None)
-        if callable(getter):
-            env.update(getter())
+        # extend by variables defined on task level
+        task_env = self.task.sandbox_env(env)
+        if task_env:
+            env.update(task_env)
 
         return env
 
     def _get_volumes(self):
         volumes = OrderedDict()
 
-        # volumes from the config file
+        # extend by volumes from the config file
         cfg = Config.instance()
         section = self.get_config_section(postfix="volumes")
         for hdir, cdir in cfg.items(section):
             volumes[os.path.expandvars(os.path.expanduser(hdir))] = cdir
 
-        # from the task config
-        getter = getattr(self.task, "get_{}_volumes".format(self.sandbox_type), None)
-        if callable(getter):
-            volumes.update(getter())
+        # extend by volumes defined on task level
+        task_volumes = self.task.sandbox_volumes(volumes)
+        if task_volumes:
+            volumes.update(task_volumes)
 
         return volumes
+
+    def _build_setup_cmds(self, env):
+        # commands that are used to setup the env and actual run commands
+        setup_cmds = []
+
+        for tpl in six.iteritems(env):
+            setup_cmds.append("export {}=\"{}\"".format(*tpl))
+
+        setup_cmds.extend(self.task.sandbox_setup_cmds())
+
+        return setup_cmds
 
 
 class SandboxProxy(ProxyTask):
@@ -222,14 +249,14 @@ class SandboxProxy(ProxyTask):
         if stagein_info:
             # tell the sandbox
             self.sandbox_inst.stagein_info = stagein_info
-            logger.debug("configured sandbox data stage-in")
+            logger.debug("configured sandbox stage-in data")
 
         # prepare stage-out
         stageout_info = self.prepare_stageout(tmp_dir)
         if stageout_info:
             # tell the sandbox
             self.sandbox_inst.stageout_info = stageout_info
-            logger.debug("configured sandbox data stage-out")
+            logger.debug("configured sandbox stage-out data")
 
         # create the actual command to run
         cmd = self.sandbox_inst.cmd(self.proxy_cmd())
@@ -250,25 +277,42 @@ class SandboxProxy(ProxyTask):
             self.task.sandbox_after_run()
 
     def stagein(self, tmp_dir):
-        inputs = mask_struct(self.task.sandbox_stagein_mask(), self.task.input())
+        # get the sandbox stage-in mask
+        stagein_mask = self.task.sandbox_stagein()
+        if not stagein_mask:
+            return None
+
+        # determine inputs as seen from outside and within the sandbox
+        inputs = self.task.input()
+        with patch_object(os, "environ", self.task.env, lock=True):
+            sandbox_inputs = self.task.input()
+
+        # apply the mask to both structs
+        inputs = mask_struct(stagein_mask, inputs)
+        sandbox_inputs = mask_struct(stagein_mask, sandbox_inputs)
         if not inputs:
             return None
+
+        # create a lookup for input -> sandbox input
+        sandbox_targets = dict(zip(flatten(inputs), flatten(sandbox_inputs)))
 
         # define the stage-in directory
         cfg = Config.instance()
         section = self.sandbox_inst.get_config_section()
         stagein_dir = tmp_dir.child(cfg.get(section, "stagein_dir"), type="d")
+        stagein_dir.touch()
 
+        # create the structure of staged inputs
         def stagein_target(target):
-            staged_target = make_staged_target(stagein_dir, target)
-            logger.debug("stage-in {} to {}".format(target, staged_target.path))
+            sandbox_target = sandbox_targets[target]
+            staged_target = make_staged_target(stagein_dir, sandbox_target)
+            logger.debug("stage-in {} to {}".format(target.path, staged_target.path))
             target.copy_to_local(staged_target)
             return staged_target
 
         def map_collection(func, collection, **kwargs):
             map_struct(func, collection.targets, **kwargs)
 
-        # create the structure of staged inputs
         staged_inputs = map_struct(stagein_target, inputs,
             custom_mappings={TargetCollection: map_collection})
 
@@ -277,7 +321,19 @@ class SandboxProxy(ProxyTask):
         return StageInfo(inputs, stagein_dir, staged_inputs)
 
     def prepare_stageout(self, tmp_dir):
-        outputs = mask_struct(self.task.sandbox_stageout_mask(), self.task.output())
+        # get the sandbox stage-out mask
+        stageout_mask = self.task.sandbox_stageout()
+        if not stageout_mask:
+            return None
+
+        # determine outputs as seen from outside and within the sandbox
+        outputs = self.task.output()
+        with patch_object(os, "environ", self.task.env, lock=True):
+            sandbox_outputs = self.task.output()
+
+        # apply the mask to both structs
+        outputs = mask_struct(stageout_mask, outputs)
+        sandbox_outputs = mask_struct(stageout_mask, sandbox_outputs)
         if not outputs:
             return None
 
@@ -285,22 +341,25 @@ class SandboxProxy(ProxyTask):
         cfg = Config.instance()
         section = self.sandbox_inst.get_config_section()
         stageout_dir = tmp_dir.child(cfg.get(section, "stageout_dir"), type="d")
+        stageout_dir.touch()
 
-        # create the structure of staged outputs
-        staged_outputs = make_staged_target_struct(stageout_dir, outputs)
+        # create a lookup for input -> sandbox input
+        sandbox_targets = dict(zip(flatten(outputs), flatten(sandbox_outputs)))
 
-        return StageInfo(outputs, stageout_dir, staged_outputs)
+        return StageInfo(outputs, stageout_dir, sandbox_targets)
 
     def stageout(self, stageout_info):
         # traverse actual outputs, try to identify them in tmp_dir
         # and move them to their proper location
         def stageout_target(target):
-            tmp_target = make_staged_target(stageout_info.stage_dir, target)
-            logger.debug("stage-out {} to {}".format(tmp_target.path, target))
-            if tmp_target.exists():
-                target.copy_from_local(tmp_target)
+            sandbox_target = stageout_info.stage_targets[target]
+            staged_target = make_staged_target(stageout_info.stage_dir, sandbox_target)
+            logger.debug("stage-out {} to {}".format(staged_target.path, target))
+            if staged_target.exists():
+                target.copy_from_local(staged_target)
             else:
-                logger.warning("could not find staged output target {}".format(target))
+                logger.warning("could not find output target at {} for stage-out".format(
+                    staged_target.path))
 
         def map_collection(func, collection, **kwargs):
             map_struct(func, collection.targets, **kwargs)
@@ -336,12 +395,11 @@ class SandboxProxy(ProxyTask):
 
 class SandboxTask(Task):
 
-    sandbox = luigi.Parameter(default=_current_sandbox[0] or luigi.parameter._no_value,
+    sandbox = luigi.Parameter(default=_current_sandbox[0] or NO_STR,
         description="name of the sandbox to run the task in, default: $LAW_SANDBOX when set, "
         "otherwise no default")
 
-    force_sandbox = False
-
+    allow_empty_sandbox = False
     valid_sandboxes = ["*"]
 
     exclude_params_sandbox = {"sandbox"}
@@ -349,25 +407,29 @@ class SandboxTask(Task):
     def __init__(self, *args, **kwargs):
         super(SandboxTask, self).__init__(*args, **kwargs)
 
-        # check if the task execution must be sandboxed
+        # when we are already in a sandbox, this task is placed inside it, i.e., there is no nesting
         if _sandbox_switched:
             self.effective_sandbox = _current_sandbox[0]
-        else:
-            # is the switch forced?
-            if self.force_sandbox:
-                self.effective_sandbox = self.sandbox
 
-            # can we run in the requested sandbox?
-            elif multi_match(self.sandbox, self.valid_sandboxes, mode=any):
+        # when the sandbox is set via a parameter and not hard-coded,
+        # check if the value is among the valid sandboxes, otherwise determine the fallback
+        elif isinstance(self.__class__.sandbox, luigi.Parameter):
+            if multi_match(self.sandbox, self.valid_sandboxes, mode=any):
                 self.effective_sandbox = self.sandbox
-
-            # we have to fallback
             else:
                 self.effective_sandbox = self.fallback_sandbox(self.sandbox)
-                if self.effective_sandbox is None:
-                    raise Exception("cannot determine fallback sandbox for {} in task {}".format(
-                        self.sandbox, self))
 
+        # just set the effective sandbox
+        else:
+            self.effective_sandbox = self.sandbox
+
+        # at this point, the sandbox must be set unless it is explicitely allowed to be empty
+        if self.effective_sandbox in (None, NO_STR):
+            if not self.allow_empty_sandbox:
+                raise Exception("task {!r} requires the sandbox parameter to be set".format(self))
+            self.effective_sandbox = NO_STR
+
+        # create the sandbox proxy when required
         if not self.is_sandboxed():
             self.sandbox_inst = Sandbox.new(self.effective_sandbox, self)
             self.sandbox_proxy = SandboxProxy(task=self)
@@ -378,46 +440,33 @@ class SandboxTask(Task):
             self.sandbox_proxy = None
 
     def is_sandboxed(self):
-        return self.effective_sandbox in _current_sandbox and self.task_id == _sandbox_task_id
-
-    @property
-    def sandbox_user(self):
-        return (os.getuid(), os.getgid())
+        if self.effective_sandbox == NO_STR:
+            return True
+        else:
+            return self.effective_sandbox in _current_sandbox and self.task_id == _sandbox_task_id
 
     def __getattribute__(self, attr, proxy=True):
-        if proxy and attr != "__class__":
-            # be aware of workflows independent of the MRO as sandboxing should be the last
-            # modification of a task, i.e., this enforces granular sandbox diping instead of nesting
-            if hasattr(self, "workflow_proxy"):
-                if BaseWorkflow._forward_attribute(self, attr):
-                    return BaseWorkflow.__getattribute__(self, attr, force=True)
-
-            if attr == "run" and not self.is_sandboxed():
-                return self.sandbox_proxy.run
-            elif attr == "input" and _sandbox_stagein_dir and self.is_sandboxed():
-                return self._staged_input
-            elif attr == "output" and _sandbox_stageout_dir and self.is_sandboxed():
-                return self._staged_output
-
-        return Task.__getattribute__(self, attr)
+        return get_proxy_attribute(self, attr, proxy=proxy, super_cls=Task)
 
     def _staged_input(self):
+        # get the original inputs
         inputs = self.__getattribute__("input", proxy=False)()
 
         # create the struct of staged inputs
         staged_inputs = make_staged_target_struct(_sandbox_stagein_dir, inputs)
 
         # apply the stage-in mask
-        return mask_struct(self.sandbox_stagein_mask(), staged_inputs, inputs)
+        return mask_struct(self.sandbox_stagein(), staged_inputs, inputs)
 
     def _staged_output(self):
+        # get the original outputs
         outputs = self.__getattribute__("output", proxy=False)()
 
         # create the struct of staged outputs
         staged_outputs = make_staged_target_struct(_sandbox_stageout_dir, outputs)
 
         # apply the stage-out mask
-        return mask_struct(self.sandbox_stageout_mask(), staged_outputs, outputs)
+        return mask_struct(self.sandbox_stageout(), staged_outputs, outputs)
 
     @property
     def env(self):
@@ -426,18 +475,46 @@ class SandboxTask(Task):
     def fallback_sandbox(self, sandbox):
         return None
 
-    def sandbox_stagein_mask(self):
+    def sandbox_user(self):
+        uid, gid = os.getuid(), os.getgid()
+
+        # check if there is a config section that defines the user and group ids
+        if self.sandbox_inst:
+            cfg = Config.instance()
+            section = self.sandbox_inst.get_config_section()
+            if not cfg.is_missing_or_none(section, "uid"):
+                uid = cfg.get_expanded(section, "uid", type=int)
+            if not cfg.is_missing_or_none(section, "gid"):
+                gid = cfg.get_expanded(section, "gid", type=int)
+
+        return uid, gid
+
+    def sandbox_stagein(self):
         # disable stage-in by default
         return False
 
-    def sandbox_stageout_mask(self):
+    def sandbox_stageout(self):
         # disable stage-out by default
         return False
 
+    def sandbox_env(self, env):
+        # additional environment variables
+        return {}
+
+    def sandbox_volumes(self, volumes):
+        # additional volumes to mount
+        return {}
+
+    def sandbox_setup_cmds(self):
+        # list of commands to set up the environment inside a sandbox
+        return []
+
     def sandbox_before_run(self):
+        # method that is invoked before the run method of the sandbox proxy is called
         return
 
     def sandbox_after_run(self):
+        # method that is invoked after the run method of the sandbox proxy is called
         return
 
 

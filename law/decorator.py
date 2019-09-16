@@ -36,7 +36,7 @@ import logging
 
 import luigi
 
-from law.task.base import ProxyTask
+from law.task.proxy import ProxyTask
 from law.sandbox.base import SandboxTask
 from law.parameter import get_param, NotifyParameter
 from law.target.file import localize_file_targets

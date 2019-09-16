@@ -9,7 +9,7 @@ __all__ = ["BashSandbox"]
 
 
 import os
-import subprocess
+import collections
 
 import six
 
@@ -30,27 +30,32 @@ class BashSandbox(Sandbox):
 
     @property
     def env(self):
-        # strategy: create a tempfile, let python dump its full env in a subprocess. and load the
+        # strategy: create a tempfile, let python dump its full env in a subprocess and load the
         # env file again afterwards
         script = self.script
         if script not in self._envs:
             with tmp_file() as tmp:
                 tmp_path = os.path.realpath(tmp[1])
 
-                cmd = "bash -l -c 'source \"{0}\"; python -c \"" \
+                # build commands to setup the environment
+                setup_cmds = "; ".join(self._build_setup_cmds(self._get_env()))
+
+                # build the command
+                cmd = "bash -l -c 'source \"{script}\"; {setup_cmds}; python -c \"" \
                     "import os,pickle;pickle.dump(" \
-                    "dict(os.environ),open(\\\"{1}\\\",\\\"wb\\\"),protocol=2)\"'"
-                cmd = cmd.format(script, tmp_path)
+                    "dict(os.environ),open(\\\"{tmp}\\\",\\\"wb\\\"),protocol=2)\"'"
+                cmd = cmd.format(script=script, setup_cmds=setup_cmds, tmp=tmp_path)
 
-                returncode, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                # run it
+                returncode = interruptable_popen(cmd, shell=True, executable="/bin/bash")[0]
                 if returncode != 0:
-                    raise Exception("bash sandbox env loading failed: " + str(out))
+                    raise Exception("bash sandbox env loading failed")
 
+                # load the environment from the tmp file
                 with open(tmp_path, "rb") as f:
-                    env = six.moves.cPickle.load(f)
+                    env = collections.OrderedDict(six.moves.cPickle.load(f))
 
-            # cache
+            # cache it
             self._envs[script] = env
 
         return self._envs[script]
@@ -65,18 +70,16 @@ class BashSandbox(Sandbox):
         if self.stageout_info:
             env["LAW_SANDBOX_STAGEOUT_DIR"] = self.stageout_info.stage_dir.path
 
+        # build commands to setup the environment
+        setup_cmds = self._build_setup_cmds(env)
+
         # handle scheduling within the container
         ls_flag = "--local-scheduler"
         if self.force_local_scheduler() and ls_flag not in proxy_cmd:
             proxy_cmd.append(ls_flag)
 
-        # build commands to add env variables
-        pre_cmds = []
-        for tpl in env.items():
-            pre_cmds.append("export {}=\"{}\"".format(*tpl))
-
         # build the final command
-        cmd = "bash -l -c 'source \"{script}\"; {pre_cmd}; {proxy_cmd}'".format(
-            proxy_cmd=" ".join(proxy_cmd), pre_cmd="; ".join(pre_cmds), script=self.script)
+        cmd = "bash -l -c 'source \"{script}\"; {setup_cmds}; {proxy_cmd}'".format(
+            proxy_cmd=" ".join(proxy_cmd), setup_cmds="; ".join(setup_cmds), script=self.script)
 
         return cmd
