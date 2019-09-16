@@ -6,13 +6,13 @@ Helpful utility functions.
 
 
 __all__ = [
-    "no_value", "rel_path", "law_src_path", "law_home_path", "print_err", "abort", "colored",
-    "uncolored", "query_choice", "multi_match", "is_lazy_iterable", "make_list", "make_tuple",
-    "flatten", "merge_dicts", "which", "map_verbose", "map_struct", "mask_struct", "tmp_file",
-    "interruptable_popen", "readable_popen", "create_hash", "copy_no_perm", "makedirs_perm",
-    "user_owns_file", "iter_chunks", "human_bytes", "human_time_diff", "is_file_exists_error",
-    "check_bool_flag", "send_mail", "ShorthandDict", "open_compat", "patch_object", "BaseStream",
-    "TeeStream", "FilteredStream",
+    "default_lock", "io_lock", "no_value", "rel_path", "law_src_path", "law_home_path", "print_err",
+    "abort", "colored", "uncolored", "query_choice", "multi_match", "is_lazy_iterable", "make_list",
+    "make_tuple", "flatten", "merge_dicts", "which", "map_verbose", "map_struct", "mask_struct",
+    "tmp_file", "interruptable_popen", "readable_popen", "create_hash", "copy_no_perm",
+    "makedirs_perm", "user_owns_file", "iter_chunks", "human_bytes", "human_time_diff",
+    "is_file_exists_error", "check_bool_flag", "send_mail", "ShorthandDict", "open_compat",
+    "patch_object", "BaseStream", "TeeStream", "FilteredStream",
 ]
 
 
@@ -33,9 +33,15 @@ import contextlib
 import smtplib
 import logging
 import datetime
+import threading
 import io
 
 import six
+
+
+# some globally usable thread locks
+default_lock = threading.Lock()
+io_lock = threading.Lock()
 
 
 class NoValue(object):
@@ -412,6 +418,7 @@ def map_struct(func, struct, map_dict=True, map_list=True, map_tuple=False, map_
     if is_lazy_iterable(struct):
         struct = list(struct)
 
+    # determine valid types for struct traversal
     valid_types = tuple()
     if map_dict:
         valid_types += (dict,)
@@ -540,9 +547,10 @@ def mask_struct(mask, struct, replace=no_value):
 @contextlib.contextmanager
 def tmp_file(*args, **kwargs):
     """
-    Context manager that generates a temporary file, yields the file descriptor number and temporary
-    path, and eventually removes the files. All *args* and *kwargs* are passed to
-    :py:meth:`tempfile.mkstemp`.
+    Context manager that creates an empty, temporary file, yields the file descriptor number and
+    temporary path, and eventually removes it. All *args* and *kwargs* are passed to
+    :py:meth:`tempfile.mkstemp`. The behavior of this function is similar to
+    ``tempfile.NamedTemporaryFile`` which, however, yields an already opened file object.
     """
     fileno, path = tempfile.mkstemp(*args, **kwargs)
 
@@ -871,18 +879,28 @@ def open_compat(*args, **kwargs):
 
 
 @contextlib.contextmanager
-def patch_object(obj, attr, value):
+def patch_object(obj, attr, value, lock=False):
     """
     Context manager that temporarily patches an object *obj* by replacing its attribute *attr* with
-    *value*. The original value is set again when the context is closed.
+    *value*. The original value is set again when the context is closed. When *lock* is *True*, the
+    py:attr:`default_lock` object is used to ensure the patch is thread-safe. When *lock* is a lock
+    instance, this object is used instead.
     """
     orig = getattr(obj, attr, no_value)
+
+    if lock:
+        if isinstance(lock, bool):
+            lock = default_lock
+        lock.acquire()
 
     try:
         setattr(obj, attr, value)
 
         yield obj
     finally:
+        if lock and lock.locked():
+            lock.release()
+
         try:
             if orig is no_value:
                 delattr(obj, attr)

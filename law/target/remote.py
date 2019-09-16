@@ -19,7 +19,6 @@ import functools
 import atexit
 import gc
 import random
-import threading
 import logging
 from contextlib import contextmanager
 
@@ -32,7 +31,7 @@ from law.target.file import (
 )
 from law.target.local import LocalFileSystem, LocalFileTarget
 from law.target.formatter import find_formatter
-from law.util import make_list, makedirs_perm, human_bytes, create_hash, user_owns_file
+from law.util import make_list, makedirs_perm, human_bytes, create_hash, user_owns_file, io_lock
 
 
 logger = logging.getLogger(__name__)
@@ -442,7 +441,7 @@ class RemoteCache(object):
         self._await_global(**kwargs)
 
         try:
-            with threading.Lock():
+            with io_lock:
                 with open(self._global_lock_path, "w") as f:
                     f.write("")
                 os.utime(self._global_lock_path, None)
@@ -458,7 +457,7 @@ class RemoteCache(object):
         self._await(cpath, **kwargs)
 
         try:
-            with threading.Lock():
+            with io_lock:
                 with open(lock_path, "w") as f:
                     f.write("")
                 self._locked_cpaths.add(cpath)
