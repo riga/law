@@ -26,7 +26,9 @@ from law.target.collection import TargetCollection
 from law.parameter import NO_STR
 from law.config import Config
 from law.parser import global_cmdline_args
-from law.util import colored, multi_match, mask_struct, map_struct, interruptable_popen
+from law.util import (
+    colored, multi_match, mask_struct, map_struct, interruptable_popen, patch_object, flatten,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -247,14 +249,14 @@ class SandboxProxy(ProxyTask):
         if stagein_info:
             # tell the sandbox
             self.sandbox_inst.stagein_info = stagein_info
-            logger.debug("configured sandbox data stage-in")
+            logger.debug("configured sandbox stage-in data")
 
         # prepare stage-out
         stageout_info = self.prepare_stageout(tmp_dir)
         if stageout_info:
             # tell the sandbox
             self.sandbox_inst.stageout_info = stageout_info
-            logger.debug("configured sandbox data stage-out")
+            logger.debug("configured sandbox stage-out data")
 
         # create the actual command to run
         cmd = self.sandbox_inst.cmd(self.proxy_cmd())
@@ -275,25 +277,42 @@ class SandboxProxy(ProxyTask):
             self.task.sandbox_after_run()
 
     def stagein(self, tmp_dir):
-        inputs = mask_struct(self.task.sandbox_stagein_mask(), self.task.input())
+        # get the sandbox stage-in mask
+        stagein_mask = self.task.sandbox_stagein()
+        if not stagein_mask:
+            return None
+
+        # determine inputs as seen from outside and within the sandbox
+        inputs = self.task.input()
+        with patch_object(os, "environ", self.task.env, lock=True):
+            sandbox_inputs = self.task.input()
+
+        # apply the mask to both structs
+        inputs = mask_struct(stagein_mask, inputs)
+        sandbox_inputs = mask_struct(stagein_mask, sandbox_inputs)
         if not inputs:
             return None
+
+        # create a lookup for input -> sandbox input
+        sandbox_targets = dict(zip(flatten(inputs), flatten(sandbox_inputs)))
 
         # define the stage-in directory
         cfg = Config.instance()
         section = self.sandbox_inst.get_config_section()
         stagein_dir = tmp_dir.child(cfg.get(section, "stagein_dir"), type="d")
+        stagein_dir.touch()
 
+        # create the structure of staged inputs
         def stagein_target(target):
-            staged_target = make_staged_target(stagein_dir, target)
-            logger.debug("stage-in {} to {}".format(target, staged_target.path))
+            sandbox_target = sandbox_targets[target]
+            staged_target = make_staged_target(stagein_dir, sandbox_target)
+            logger.debug("stage-in {} to {}".format(target.path, staged_target.path))
             target.copy_to_local(staged_target)
             return staged_target
 
         def map_collection(func, collection, **kwargs):
             map_struct(func, collection.targets, **kwargs)
 
-        # create the structure of staged inputs
         staged_inputs = map_struct(stagein_target, inputs,
             custom_mappings={TargetCollection: map_collection})
 
@@ -302,7 +321,19 @@ class SandboxProxy(ProxyTask):
         return StageInfo(inputs, stagein_dir, staged_inputs)
 
     def prepare_stageout(self, tmp_dir):
-        outputs = mask_struct(self.task.sandbox_stageout_mask(), self.task.output())
+        # get the sandbox stage-out mask
+        stageout_mask = self.task.sandbox_stageout()
+        if not stageout_mask:
+            return None
+
+        # determine outputs as seen from outside and within the sandbox
+        outputs = self.task.output()
+        with patch_object(os, "environ", self.task.env, lock=True):
+            sandbox_outputs = self.task.output()
+
+        # apply the mask to both structs
+        outputs = mask_struct(stageout_mask, outputs)
+        sandbox_outputs = mask_struct(stageout_mask, sandbox_outputs)
         if not outputs:
             return None
 
@@ -310,22 +341,25 @@ class SandboxProxy(ProxyTask):
         cfg = Config.instance()
         section = self.sandbox_inst.get_config_section()
         stageout_dir = tmp_dir.child(cfg.get(section, "stageout_dir"), type="d")
+        stageout_dir.touch()
 
-        # create the structure of staged outputs
-        staged_outputs = make_staged_target_struct(stageout_dir, outputs)
+        # create a lookup for input -> sandbox input
+        sandbox_targets = dict(zip(flatten(outputs), flatten(sandbox_outputs)))
 
-        return StageInfo(outputs, stageout_dir, staged_outputs)
+        return StageInfo(outputs, stageout_dir, sandbox_targets)
 
     def stageout(self, stageout_info):
         # traverse actual outputs, try to identify them in tmp_dir
         # and move them to their proper location
         def stageout_target(target):
-            tmp_target = make_staged_target(stageout_info.stage_dir, target)
-            logger.debug("stage-out {} to {}".format(tmp_target.path, target))
-            if tmp_target.exists():
-                target.copy_from_local(tmp_target)
+            sandbox_target = stageout_info.stage_targets[target]
+            staged_target = make_staged_target(stageout_info.stage_dir, sandbox_target)
+            logger.debug("stage-out {} to {}".format(staged_target.path, target))
+            if staged_target.exists():
+                target.copy_from_local(staged_target)
             else:
-                logger.warning("could not find staged output target {}".format(target))
+                logger.warning("could not find output target at {} for stage-out".format(
+                    staged_target.path))
 
         def map_collection(func, collection, **kwargs):
             map_struct(func, collection.targets, **kwargs)
@@ -415,22 +449,24 @@ class SandboxTask(Task):
         return get_proxy_attribute(self, attr, proxy=proxy, super_cls=Task)
 
     def _staged_input(self):
+        # get the original inputs
         inputs = self.__getattribute__("input", proxy=False)()
 
         # create the struct of staged inputs
         staged_inputs = make_staged_target_struct(_sandbox_stagein_dir, inputs)
 
         # apply the stage-in mask
-        return mask_struct(self.sandbox_stagein_mask(), staged_inputs, inputs)
+        return mask_struct(self.sandbox_stagein(), staged_inputs, inputs)
 
     def _staged_output(self):
+        # get the original outputs
         outputs = self.__getattribute__("output", proxy=False)()
 
         # create the struct of staged outputs
         staged_outputs = make_staged_target_struct(_sandbox_stageout_dir, outputs)
 
         # apply the stage-out mask
-        return mask_struct(self.sandbox_stageout_mask(), staged_outputs, outputs)
+        return mask_struct(self.sandbox_stageout(), staged_outputs, outputs)
 
     @property
     def env(self):
@@ -453,11 +489,11 @@ class SandboxTask(Task):
 
         return uid, gid
 
-    def sandbox_stagein_mask(self):
+    def sandbox_stagein(self):
         # disable stage-in by default
         return False
 
-    def sandbox_stageout_mask(self):
+    def sandbox_stageout(self):
         # disable stage-out by default
         return False
 

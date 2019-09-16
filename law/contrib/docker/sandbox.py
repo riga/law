@@ -26,7 +26,7 @@ class DockerSandbox(Sandbox):
 
     sandbox_type = "docker"
 
-    default_docker_args = ["--rm"]
+    default_docker_args = ["--rm", "-t", "-i"]
 
     # env cache per image
     _envs = {}
@@ -47,7 +47,7 @@ class DockerSandbox(Sandbox):
         if sandbox_user:
             if not isinstance(sandbox_user, (tuple, list)) or len(sandbox_user) != 2:
                 raise Exception("sandbox_user() must return 2-tuple")
-            args.append("-u={}:{}".format(*sandbox_user))
+            args.extend(["-u", "{}:{}".format(*sandbox_user)])
 
         return args
 
@@ -67,7 +67,7 @@ class DockerSandbox(Sandbox):
                 args = " ".join(self.common_args())
 
                 # build the command
-                cmd = "docker run --rm -v {tmp}:{env} {args} {image} bash -l -c '" \
+                cmd = "docker run -v {tmp}:{env} {args} {image} bash -l -c '" \
                     "{setup_cmds}; python -c \"import os,pickle;" \
                     "pickle.dump(dict(os.environ),open(\\\"{env}\\\",\\\"wb\\\"),protocol=2)\"'"
                 cmd = cmd.format(image=self.image, tmp=tmp_path, env=env_path, args=args,
@@ -97,7 +97,7 @@ class DockerSandbox(Sandbox):
         args.extend(["--name", "'{}_{}'".format(self.task.task_id, str(uuid.uuid4())[:8])])
 
         # container hostname
-        args.extend(["--hostname", "'{}'".format(socket.gethostname())])
+        args.extend(["-h", "'{}'".format(socket.gethostname())])
 
         # helper to build forwarded paths
         section = self.get_config_section()
