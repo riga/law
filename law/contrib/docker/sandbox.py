@@ -26,7 +26,7 @@ class DockerSandbox(Sandbox):
 
     sandbox_type = "docker"
 
-    default_docker_args = ["--rm", "-t", "-i"]
+    default_docker_args = ["--rm"]
 
     # env cache per image
     _envs = {}
