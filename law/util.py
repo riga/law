@@ -12,7 +12,7 @@ __all__ = [
     "tmp_file", "interruptable_popen", "readable_popen", "create_hash", "copy_no_perm",
     "makedirs_perm", "user_owns_file", "iter_chunks", "human_bytes", "human_time_diff",
     "is_file_exists_error", "check_bool_flag", "send_mail", "ShorthandDict", "open_compat",
-    "patch_object", "BaseStream", "TeeStream", "FilteredStream",
+    "patch_object", "join_generators", "BaseStream", "TeeStream", "FilteredStream",
 ]
 
 
@@ -908,6 +908,32 @@ def patch_object(obj, attr, value, lock=False):
                 setattr(obj, attr, orig)
         except:
             pass
+
+
+def join_generators(*generators, **kwargs):
+    """ join_generators(*generators, on_error=None)
+    Joins multiple *generators* and returns a single generator for simplified iteration. Yielded
+    objects are transparently sent back to ``yield`` assignments of the same generator. When
+    *on_error* is callable, it is invoked in case an exception is raised while iterating. If its
+    return value evaluates to *True*, the state is reset and iterations continue. Otherwise, the
+    exception is raised.
+    """
+    on_error = kwargs.get("on_error")
+    for gen in generators:
+        last_result = no_value
+        while True:
+            try:
+                if last_result == no_value:
+                    last_result = yield six.next(gen)
+                else:
+                    last_result = yield gen.send(last_result)
+            except StopIteration:
+                break
+            except Exception as error:
+                if callable(on_error) and on_error(error):
+                    last_result = no_value
+                else:
+                    raise
 
 
 class BaseStream(object):

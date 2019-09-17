@@ -22,7 +22,6 @@ import six
 from law.workflow.base import BaseWorkflow, BaseWorkflowProxy
 from law.job.dashboard import NoJobDashboard
 from law.parameter import NO_FLOAT, NO_INT
-from law.decorator import log
 from law.util import iter_chunks, ShorthandDict
 
 
@@ -335,7 +334,6 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         # write the submission data to the output file
         self._outputs["submission"].dump(self.submission_data, formatter="json", indent=4)
 
-    @log
     def run(self):
         """
         Actual run method that starts the processing of jobs and initiates the status polling, or
