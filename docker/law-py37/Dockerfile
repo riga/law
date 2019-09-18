@@ -28,33 +28,33 @@ RUN yum -y install libffi-devel openssl-devel bzip2-devel json-c-devel curl-deve
     wget nano screen git cmake cmake3; yum clean all
 
 # python software
-RUN wget -nv https://www.python.org/ftp/python/3.7.1/Python-3.7.1.tgz && \
-    tar -xzf Python-3.7.1.tgz && \
-    cd Python-3.7.1 && \
+RUN wget -nv https://www.python.org/ftp/python/3.7.4/Python-3.7.4.tgz && \
+    tar -xzf Python-3.7.4.tgz && \
+    cd Python-3.7.4 && \
     ./configure --enable-optimizations --enable-shared && \
     make altinstall && \
     cd .. && \
-    rm -rf Python-3.7.1 && \
-    rm Python-3.7.1.tgz && \
+    rm -rf Python-3.7.4 && \
+    rm Python-3.7.4.tgz && \
     python3.7 --version
 
 # boost for system python 2.7
 RUN yum -y install boost-devel boost-python; yum clean all
 
 # boost for custom python 3.7
-RUN wget -nv https://dl.bintray.com/boostorg/release/1.68.0/source/boost_1_68_0.tar.gz && \
-    tar -xzf boost_1_68_0.tar.gz && \
-    cd boost_1_68_0 && \
+RUN wget -nv https://dl.bintray.com/boostorg/release/1.71.0/source/boost_1_71_0.tar.gz && \
+    tar -xzf boost_1_71_0.tar.gz && \
+    cd boost_1_71_0 && \
     ./bootstrap.sh --with-libraries=system,thread,python --with-python="$( which python3.7 )" && \
     perl -pi -e 's!(\Qincludes ?= $(prefix)/include/python$(version)\E)!\1m!' tools/build/src/tools/python.jam && \
     ./b2 install --prefix=/usr && \
     ldconfig && \
     cd .. && \
-    rm -rf boost_1_68_0 && \
-    rm boost_1_68_0.tar.gz
+    rm -rf boost_1_71_0 && \
+    rm boost_1_71_0.tar.gz
 
 # WLCG software
-RUN rpm -Uvh https://repo.opensciencegrid.org/osg/3.4/osg-3.4-el7-release-latest.rpm
+RUN rpm -Uvh https://repo.opensciencegrid.org/osg/3.5/osg-3.5-el7-release-latest.rpm
 RUN yum-config-manager --add-repo http://linuxsoft.cern.ch/cern/centos/7/cern/x86_64
 RUN yum -y update; yum clean all
 RUN yum -y install CERN-CA-certs osg-ca-certs osg-voms voms-clients; yum clean all
