@@ -36,6 +36,16 @@ action() {
 
 
     #
+    # save variables that might be changed downstream
+    #
+
+    export LAW_JOB_ORIGINAL_HOME="$HOME"
+    export LAW_JOB_ORIGINAL_TMP="$TMP"
+    export LAW_JOB_ORIGINAL_TEMP="$TEMP"
+    export LAW_JOB_ORIGINAL_TMPDIR="$TMPDIR"
+
+
+    #
     # create a job home directory and tmp dirs, change into the job home dir, copy all input files
     #
 
