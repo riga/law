@@ -73,6 +73,7 @@ def load(*packages):
                     """
                     Dummy class throwing an *AttributeError* when instantiated.
                     """
+                    exclude_index = True
                     name = str(uuid.uuid4())
                     def __new__(cls, *args, **kwargs):
                         _raise()
