@@ -402,7 +402,7 @@ class SandboxTask(Task):
     allow_empty_sandbox = False
     valid_sandboxes = ["*"]
 
-    exclude_params_sandbox = {"sandbox"}
+    exclude_params_sandbox = {"sandbox", "log_file", "workers"}
 
     def __init__(self, *args, **kwargs):
         super(SandboxTask, self).__init__(*args, **kwargs)
