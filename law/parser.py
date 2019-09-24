@@ -18,10 +18,30 @@ logger = logging.getLogger(__name__)
 
 
 # cached objects
+_root_task = None
 _full_parser = None
 _root_task_parser = None
 _global_cmdline_args = None
 _global_cmdline_values = None
+
+
+def root_task():
+    """
+    Returns the instance of the task that was triggered on the command line. The returned instance
+    is cached.
+    """
+    global _root_task
+
+    if not _root_task:
+        luigi_parser = luigi.cmdline_parser.CmdlineParser.get_instance()
+        if not luigi_parser:
+            return None
+
+        _root_task = luigi_parser.get_task_obj()
+
+        logger.debug("built root task instance using luigi argument parser")
+
+    return _root_task
 
 
 def full_parser():

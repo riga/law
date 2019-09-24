@@ -37,6 +37,8 @@ _current_sandbox = os.getenv("LAW_SANDBOX", "").split(",")
 
 _sandbox_switched = os.getenv("LAW_SANDBOX_SWITCHED", "") == "1"
 
+_sandbox_is_root_task = os.getenv("LAW_SANDBOX_IS_ROOT_TASK", "")
+
 _sandbox_stagein_dir = os.getenv("LAW_SANDBOX_STAGEIN_DIR", "")
 
 _sandbox_stageout_dir = os.getenv("LAW_SANDBOX_STAGEOUT_DIR", "")
@@ -45,7 +47,7 @@ _sandbox_task_id = os.getenv("LAW_SANDBOX_WORKER_TASK", "")
 
 # the task id must be set when in a sandbox
 if not _sandbox_task_id and _sandbox_switched:
-    raise Exception("LAW_SANDBOX_WORKER_TASK must be set in a sandbox")
+    raise Exception("LAW_SANDBOX_WORKER_TASK must not be empty in a sandbox")
 
 
 class StageInfo(object):
@@ -163,6 +165,7 @@ class Sandbox(object):
         # default sandboxing variables
         env["LAW_SANDBOX"] = self.key.replace("$", r"\$")
         env["LAW_SANDBOX_SWITCHED"] = "1"
+        env["LAW_SANDBOX_IS_ROOT_TASK"] = "1" if self.task.is_root_task() else ""
         if getattr(self.task, "_worker_id", None):
             env["LAW_SANDBOX_WORKER_ID"] = self.task._worker_id
         if getattr(self.task, "_worker_task", None):
@@ -447,6 +450,12 @@ class SandboxTask(Task):
 
     def __getattribute__(self, attr, proxy=True):
         return get_proxy_attribute(self, attr, proxy=proxy, super_cls=Task)
+
+    def is_root_task(self):
+        if self.effective_sandbox != NO_STR and self.is_sandboxed():
+            return _sandbox_is_root_task == "1"
+        else:
+            return super(SandboxTask, self).is_root_task()
 
     def _staged_input(self):
         # get the original inputs

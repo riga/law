@@ -25,6 +25,7 @@ from law.parameter import NO_STR, CSVParameter
 from law.parser import global_cmdline_values
 from law.target.file import FileSystemTarget, localize_file_targets
 from law.target.collection import TargetCollection
+from law.parser import root_task
 from law.util import (
     abort, colored, uncolored, make_list, query_choice, multi_match, flatten, check_bool_flag,
     BaseStream, human_time_diff,
@@ -268,6 +269,9 @@ class Task(BaseTask):
     @property
     def default_log_file(self):
         return "-"
+
+    def is_root_task(self):
+        return root_task() == self
 
     def publish_message(self, *args):
         msg = " ".join(str(arg) for arg in args)
