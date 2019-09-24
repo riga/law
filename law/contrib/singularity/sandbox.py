@@ -75,9 +75,9 @@ class SingularitySandbox(Sandbox):
     def cmd(self, proxy_cmd):
         cfg = Config.instance()
 
-        # get args for the singularity command as configured in the task
-        args = make_list(getattr(self.task, "singularity_args",
-            self.default_singularity_args))
+        # get args for the singularity command as configured on the task
+        args_getter = getattr(self.task, "singularity_args", None)
+        args = make_list(args_getter() if callable(args_getter) else self.default_singularity_args)
 
         # helper to build forwarded paths
         section = self.get_config_section()

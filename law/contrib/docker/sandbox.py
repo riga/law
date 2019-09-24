@@ -90,8 +90,9 @@ class DockerSandbox(Sandbox):
     def cmd(self, proxy_cmd):
         cfg = Config.instance()
 
-        # get args for the docker command as configured in the task
-        args = make_list(getattr(self.task, "docker_args", self.default_docker_args))
+        # get args for the docker command as configured on the task
+        args_getter = getattr(self.task, "docker_args", None)
+        args = make_list(args_getter() if callable(args_getter) else self.default_docker_args)
 
         # container name
         args.extend(["--name", "'{}_{}'".format(self.task.task_id, str(uuid.uuid4())[:8])])
