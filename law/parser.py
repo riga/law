@@ -31,51 +31,47 @@ def full_parser():
     """
     global _full_parser
 
-    if _full_parser:
-        return _full_parser
+    if not _full_parser:
+        luigi_parser = luigi.cmdline_parser.CmdlineParser.get_instance()
+        if not luigi_parser:
+            return None
 
-    luigi_parser = luigi.cmdline_parser.CmdlineParser.get_instance()
-    if not luigi_parser:
-        return None
+        # build the full argument parser with luigi helpers
+        root_task = luigi_parser.known_args.root_task
+        _full_parser = luigi_parser._build_parser(root_task)
 
-    # build the full argument parser with luigi helpers
-    root_task = luigi_parser.known_args.root_task
-    _full_parser = luigi_parser._build_parser(root_task)
-
-    logger.debug("build full luigi argument parser")
+        logger.debug("built full luigi argument parser")
 
     return _full_parser
 
 
 def root_task_parser():
     """
-    Returns a new *ArgumentParser* instance that only contains paremeter actions of the root task.
+    Returns a new *ArgumentParser* instance that only contains parameter actions of the root task.
     The returned instance is cached.
     """
     global _root_task_parser
 
-    if _root_task_parser:
-        return _root_task_parser
+    if not _root_task_parser:
+        luigi_parser = luigi.cmdline_parser.CmdlineParser.get_instance()
+        if not luigi_parser:
+            return None
 
-    luigi_parser = luigi.cmdline_parser.CmdlineParser.get_instance()
-    if not luigi_parser:
-        return None
+        root_task = luigi_parser.known_args.root_task
 
-    root_task = luigi_parser.known_args.root_task
+        # get all root task parameter destinations
+        root_dests = []
+        for task_name, _, param_name, _ in luigi.task_register.Register.get_all_params():
+            if task_name == root_task:
+                root_dests.append(param_name)
 
-    # get all root task parameter destinations
-    root_dests = []
-    for task_name, _, param_name, _ in luigi.task_register.Register.get_all_params():
-        if task_name == root_task:
-            root_dests.append(param_name)
+        # create a new parser and add all root actions
+        _root_task_parser = ArgumentParser(add_help=False)
+        for action in list(full_parser()._actions):
+            if not action.option_strings or action.dest in root_dests:
+                _root_task_parser._add_action(action)
 
-    # create a new parser and add all root actions
-    _root_task_parser = ArgumentParser(add_help=False)
-    for action in list(full_parser()._actions):
-        if not action.option_strings or action.dest in root_dests:
-            _root_task_parser._add_action(action)
-
-    logger.debug("build luigi argument parser for root task {}".format(root_task))
+        logger.debug("built luigi argument parser for root task {}".format(root_task))
 
     return _root_task_parser
 
@@ -92,14 +88,12 @@ def global_cmdline_args():
     """
     global _global_cmdline_args
 
-    if _global_cmdline_args:
-        return _global_cmdline_args
+    if not _global_cmdline_args:
+        luigi_parser = luigi.cmdline_parser.CmdlineParser.get_instance()
+        if not luigi_parser:
+            return None
 
-    luigi_parser = luigi.cmdline_parser.CmdlineParser.get_instance()
-    if not luigi_parser:
-        return None
-
-    _global_cmdline_args = root_task_parser().parse_known_args(luigi_parser.cmdline_args)[1]
+        _global_cmdline_args = root_task_parser().parse_known_args(luigi_parser.cmdline_args)[1]
 
     return _global_cmdline_args
 
@@ -117,21 +111,19 @@ def global_cmdline_values():
     """
     global _global_cmdline_values
 
-    if _global_cmdline_values:
-        return _global_cmdline_values
+    if not _global_cmdline_values:
+        luigi_parser = luigi.cmdline_parser.CmdlineParser.get_instance()
+        if not luigi_parser:
+            return None
 
-    luigi_parser = luigi.cmdline_parser.CmdlineParser.get_instance()
-    if not luigi_parser:
-        return None
-
-    # go through all actions of the full luigi parser and compare option strings
-    # with the global cmdline args
-    parser = full_parser()
-    global_args = global_cmdline_args()
-    _global_cmdline_values = {}
-    for action in parser._actions:
-        if any(arg in action.option_strings for arg in global_args):
-            _global_cmdline_values[action.dest] = getattr(luigi_parser.known_args, action.dest)
+        # go through all actions of the full luigi parser and compare option strings
+        # with the global cmdline args
+        parser = full_parser()
+        global_args = global_cmdline_args()
+        _global_cmdline_values = {}
+        for action in parser._actions:
+            if any(arg in action.option_strings for arg in global_args):
+                _global_cmdline_values[action.dest] = getattr(luigi_parser.known_args, action.dest)
 
     return _global_cmdline_values
 
