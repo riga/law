@@ -218,13 +218,17 @@ class Register(BaseRegister):
         for param in inst.interactive_params:
             value = getattr(inst, param)
             if value:
+                skip_abort = False
                 try:
                     logger.debug("evaluating interactive parameter '{}' with value '{}'".format(
                         param, value))
-                    getattr(inst, "_" + param)(value)
+                    skip_abort = getattr(inst, "_" + param)(value)
                 except KeyboardInterrupt:
                     print("\naborted")
-                abort(exitcode=0)
+
+                # abort the process if not explicitly skipped
+                if not skip_abort:
+                    abort(exitcode=0)
 
         return inst
 
