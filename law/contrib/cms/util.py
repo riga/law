@@ -29,11 +29,10 @@ class Site(object):
         print(site.country)     # "US"
         print(site.redirector)  # "cmsxrootd.fnal.gov"
 
-    .. py:attribute:: redirectors
+    .. py:classattribute:: redirectors
        type: dict
-       classmember
 
-       A mapping of country codes to redirectors. Also contains ``EU`` and ``global``.
+       A mapping of country codes to redirectors.
 
     .. py:attribute:: name
        type: string
@@ -44,8 +43,8 @@ class Site(object):
 
     redirectors = {
         "global": "cms-xrd-global.cern.ch",
-        "EU": "xrootd-cms.infn.it",
-        "US": "cmsxrootd.fnal.gov",
+        "eu": "xrootd-cms.infn.it",
+        "us": "cmsxrootd.fnal.gov",
     }
 
     def __init__(self, name=None):
@@ -100,7 +99,7 @@ class Site(object):
         The XRD redirector that should be used on this site. For more information on XRD, see
         `this link <https://twiki.cern.ch/twiki/bin/view/CMSPublic/WorkBookXrootdService>`_.
         """
-        return self.redirectors.get(self.country, self.redirectors["EU"])
+        return self.redirectors.get(self.country.lower(), self.redirectors["global"])
 
 
 def lfn_to_pfn(lfn, redirector="global"):
