@@ -112,6 +112,10 @@ class Sandbox(object):
     def __init__(self, name, task):
         super(Sandbox, self).__init__()
 
+        # when a task is set, it must be a SandboxTask instance
+        if task and not isinstance(task, SandboxTask):
+            raise TypeError("sandbox task must be a SandboxTask instance, got {}".format(task))
+
         self.name = name
         self.task = task
 
@@ -165,11 +169,12 @@ class Sandbox(object):
         # default sandboxing variables
         env["LAW_SANDBOX"] = self.key.replace("$", r"\$")
         env["LAW_SANDBOX_SWITCHED"] = "1"
-        env["LAW_SANDBOX_IS_ROOT_TASK"] = "1" if self.task.is_root_task() else ""
-        if getattr(self.task, "_worker_id", None):
-            env["LAW_SANDBOX_WORKER_ID"] = self.task._worker_id
-        if getattr(self.task, "_worker_task", None):
-            env["LAW_SANDBOX_WORKER_TASK"] = self.task.live_task_id
+        if self.task:
+            env["LAW_SANDBOX_IS_ROOT_TASK"] = "1" if self.task.is_root_task() else ""
+            if getattr(self.task, "_worker_id", None):
+                env["LAW_SANDBOX_WORKER_ID"] = self.task._worker_id
+            if getattr(self.task, "_worker_task", None):
+                env["LAW_SANDBOX_WORKER_TASK"] = self.task.live_task_id
 
         # extend by variables from the config file
         cfg = Config.instance()
@@ -183,9 +188,10 @@ class Sandbox(object):
                 env[name] = value if value is not None else os.getenv(name, "")
 
         # extend by variables defined on task level
-        task_env = self.task.sandbox_env(env)
-        if task_env:
-            env.update(task_env)
+        if self.task:
+            task_env = self.task.sandbox_env(env)
+            if task_env:
+                env.update(task_env)
 
         return env
 
@@ -199,9 +205,10 @@ class Sandbox(object):
             volumes[os.path.expandvars(os.path.expanduser(hdir))] = cdir
 
         # extend by volumes defined on task level
-        task_volumes = self.task.sandbox_volumes(volumes)
-        if task_volumes:
-            volumes.update(task_volumes)
+        if self.task:
+            task_volumes = self.task.sandbox_volumes(volumes)
+            if task_volumes:
+                volumes.update(task_volumes)
 
         return volumes
 
@@ -212,7 +219,8 @@ class Sandbox(object):
         for tpl in six.iteritems(env):
             setup_cmds.append("export {}=\"{}\"".format(*tpl))
 
-        setup_cmds.extend(self.task.sandbox_setup_cmds())
+        if self.task:
+            setup_cmds.extend(self.task.sandbox_setup_cmds())
 
         return setup_cmds
 
