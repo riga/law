@@ -28,14 +28,14 @@ RUN yum -y install libffi-devel openssl-devel bzip2-devel json-c-devel curl-deve
     wget nano screen git cmake cmake3; yum clean all
 
 # python software
-RUN wget -nv https://www.python.org/ftp/python/3.7.4/Python-3.7.4.tgz && \
-    tar -xzf Python-3.7.4.tgz && \
-    cd Python-3.7.4 && \
+RUN wget -nv https://www.python.org/ftp/python/3.7.5/Python-3.7.5.tgz && \
+    tar -xzf Python-3.7.5.tgz && \
+    cd Python-3.7.5 && \
     ./configure --enable-optimizations --enable-shared && \
     make altinstall && \
     cd .. && \
-    rm -rf Python-3.7.4 && \
-    rm Python-3.7.4.tgz && \
+    rm -rf Python-3.7.5 && \
+    rm Python-3.7.5.tgz && \
     python3.7 --version
 
 # boost for system python 2.7
