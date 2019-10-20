@@ -70,12 +70,14 @@ print task status with max_depth -1 and target_depth 0
 
 
 ```shell
-law run CreateAlphabet --version v1 --CreateChars-transfer-logs --CreateChars-poll-interval 0.5 --local-scheduler
+law run CreateAlphabet --version v1 --CreateChars-transfer-logs --CreateChars-poll-interval 0.5
 ```
 
 The ``CreateChars`` task is a ``HTCondorWorkflow`` by default, but it is also able to run tasks locally. To do so, just add ``--CreateChars-workflow local`` to the command above.
 
 This should take only a few minutes to process, depending on the job queue.
+
+By default, this example uses a local scheduler, which - by definition - offers no visualization tools in the browser. If you want to see how the task tree is built and subsequently run, run ``luigid`` in a second terminal. This will start a central scheduler at *localhost:8082* (the default address). To inform tasks (or rather *workers*) about the scheduler, either add ``--local-scheduler False`` to the ``law run`` command, or set the ``local-scheduler`` value in the ``[luigi_core]`` config section in the ``law.cfg`` file to ``False``.
 
 
 #### 5. Check the status again
