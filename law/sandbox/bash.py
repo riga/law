@@ -14,7 +14,7 @@ import collections
 import six
 
 from law.sandbox.base import Sandbox
-from law.util import tmp_file, interruptable_popen
+from law.util import tmp_file, interruptable_popen, quote_cmd, flatten
 
 
 class BashSandbox(Sandbox):
@@ -38,13 +38,15 @@ class BashSandbox(Sandbox):
                 tmp_path = os.path.realpath(tmp[1])
 
                 # build commands to setup the environment
-                setup_cmds = "; ".join(self._build_setup_cmds(self._get_env()))
+                setup_cmds = self._build_setup_cmds(self._get_env())
 
                 # build the command
-                cmd = "bash -l -c 'source \"{script}\"; {setup_cmds}; python -c \"" \
-                    "import os,pickle;pickle.dump(" \
-                    "dict(os.environ),open(\\\"{tmp}\\\",\\\"wb\\\"),protocol=2)\"'"
-                cmd = cmd.format(script=script, setup_cmds=setup_cmds, tmp=tmp_path)
+                py_cmd = "import os,pickle;" \
+                    + "pickle.dump(dict(os.environ),open('{}','wb'),protocol=2)".format(tmp_path)
+                cmd = quote_cmd(["bash", "-l", "-c", "; ".join(
+                    flatten("source \"{}\"".format(self.script), setup_cmds,
+                        quote_cmd(["python", "-c", py_cmd])))
+                ])
 
                 # run it
                 returncode = interruptable_popen(cmd, shell=True, executable="/bin/bash")[0]
@@ -79,7 +81,8 @@ class BashSandbox(Sandbox):
             proxy_cmd.append(ls_flag)
 
         # build the final command
-        cmd = "bash -l -c 'source \"{script}\"; {setup_cmds}; {proxy_cmd}'".format(
-            proxy_cmd=" ".join(proxy_cmd), setup_cmds="; ".join(setup_cmds), script=self.script)
+        cmd = quote_cmd(["bash", "-l", "-c", "; ".join(
+            flatten("source \"{}\"".format(self.script), setup_cmds, " ".join(proxy_cmd)))
+        ])
 
         return cmd

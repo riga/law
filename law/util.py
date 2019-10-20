@@ -12,7 +12,7 @@ __all__ = [
     "tmp_file", "interruptable_popen", "readable_popen", "create_hash", "copy_no_perm",
     "makedirs_perm", "user_owns_file", "iter_chunks", "human_bytes", "human_time_diff",
     "is_file_exists_error", "check_bool_flag", "send_mail", "ShorthandDict", "open_compat",
-    "patch_object", "join_generators", "BaseStream", "TeeStream", "FilteredStream",
+    "patch_object", "join_generators", "quote_cmd", "BaseStream", "TeeStream", "FilteredStream",
 ]
 
 
@@ -934,6 +934,30 @@ def join_generators(*generators, **kwargs):
                     last_result = no_value
                 else:
                     raise
+
+
+def quote_cmd(cmd):
+    """
+    Takes a shell command *cmd* given as a list and returns a single string representation of that
+    command with proper quoting. To denote nested commands (such as shown below), *cmd* can also
+    contain nested lists. Example:
+
+    .. code-block:: python
+
+        print(quote_cmd(["bash", "-c", "echo", "foobar"]))
+        # -> "bash -c echo foobar"
+
+        print(quote_cmd(["bash", "-c", ["echo", "foobar"]]))
+        # -> "bash -c 'echo foobar'"
+    """
+    # expand lists recursively
+    cmd = [
+        (quote_cmd(part) if isinstance(part, (list, tuple)) else str(part))
+        for part in cmd
+    ]
+
+    # quote all parts and join
+    return " ".join(six.moves.shlex_quote(part) for part in cmd)
 
 
 class BaseStream(object):

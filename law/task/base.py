@@ -28,7 +28,7 @@ from law.target.collection import TargetCollection
 from law.parser import root_task
 from law.util import (
     abort, colored, uncolored, make_list, query_choice, multi_match, flatten, check_bool_flag,
-    BaseStream, human_time_diff,
+    BaseStream, human_time_diff, quote_cmd,
 )
 
 
@@ -196,12 +196,7 @@ class BaseTask(luigi.Task):
             raw = replace.get(name, getattr(self, name))
             val = param.serialize(raw)
             arg = "--{}".format(name.replace("_", "-"))
-            if isinstance(param, (luigi.IntParameter, luigi.FloatParameter)):
-                args.extend([arg, str(val)])
-            elif isinstance(param, luigi.BoolParameter):
-                args.extend([arg, "{}".format(val)])
-            else:
-                args.extend([arg, "\"{}\"".format(val)])
+            args.extend([arg, quote_cmd([val])])
 
         return args
 

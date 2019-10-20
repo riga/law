@@ -19,7 +19,7 @@ import six
 from law.sandbox.base import Sandbox
 from law.config import Config
 from law.cli.software import deps as law_deps
-from law.util import make_list, tmp_file, interruptable_popen
+from law.util import make_list, tmp_file, interruptable_popen, quote_cmd, flatten
 
 
 class DockerSandbox(Sandbox):
@@ -61,17 +61,17 @@ class DockerSandbox(Sandbox):
                 env_path = os.path.join("/tmp", str(hash(tmp_path))[-8:])
 
                 # build commands to setup the environment
-                setup_cmds = "; ".join(self._build_setup_cmds(self._get_env()))
+                setup_cmds = self._build_setup_cmds(self._get_env())
 
                 # arguments to configure the environment
-                args = " ".join(self.common_args())
+                args = ["-v", "{}:{}".format(tmp_path, env_path)] + self.common_args()
 
                 # build the command
-                cmd = "docker run -v {tmp}:{env} {args} {image} bash -l -c '" \
-                    "{setup_cmds}; python -c \"import os,pickle;" \
-                    "pickle.dump(dict(os.environ),open(\\\"{env}\\\",\\\"wb\\\"),protocol=2)\"'"
-                cmd = cmd.format(image=self.image, tmp=tmp_path, env=env_path, args=args,
-                    setup_cmds=setup_cmds)
+                py_cmd = "import os,pickle;" \
+                    + "pickle.dump(dict(os.environ),open('{}','wb'),protocol=2)".format(env_path)
+                cmd = quote_cmd(["docker", "run"] + args + [self.image, "bash", "-l", "-c",
+                    "; ".join(flatten(setup_cmds, quote_cmd(["python", "-c", py_cmd]))),
+                ])
 
                 # run it
                 returncode = interruptable_popen(cmd, shell=True, executable="/bin/bash")[0]
@@ -90,15 +90,18 @@ class DockerSandbox(Sandbox):
     def cmd(self, proxy_cmd):
         cfg = Config.instance()
 
-        # get args for the docker command as configured on the task
+        # docker run command arguments
+        args = []
+
+        # add args configured on the task
         args_getter = getattr(self.task, "docker_args", None)
-        args = make_list(args_getter() if callable(args_getter) else self.default_docker_args)
+        args += make_list(args_getter() if callable(args_getter) else self.default_docker_args)
 
         # container name
-        args.extend(["--name", "'{}_{}'".format(self.task.task_id, str(uuid.uuid4())[:8])])
+        args.extend(["--name", "{}_{}".format(self.task.task_id, str(uuid.uuid4())[:8])])
 
         # container hostname
-        args.extend(["-h", "'{}'".format(socket.gethostname())])
+        args.extend(["-h", "{}".format(socket.gethostname())])
 
         # helper to build forwarded paths
         section = self.get_config_section()
@@ -198,12 +201,12 @@ class DockerSandbox(Sandbox):
             # host system and set the correct luigi scheduler host as seen by the container
             if self.scheduler_on_host():
                 args.extend(["--network", "host"])
-                proxy_cmd.extend(["--scheduler-host", "\"{}\"".format(self.get_host_ip())])
+                proxy_cmd.extend(["--scheduler-host", "{}".format(self.get_host_ip())])
 
         # build the final command
-        cmd = "docker run {args} {image} bash -l -c '{setup_cmds}; {proxy_cmd}'".format(
-            args=" ".join(args), image=self.image, setup_cmds="; ".join(setup_cmds),
-            proxy_cmd=" ".join(proxy_cmd))
+        cmd = quote_cmd(["docker", "run"] + args + [self.image, "bash", "-l", "-c",
+            "; ".join(flatten(setup_cmds, " ".join(proxy_cmd)))
+        ])
 
         return cmd
 

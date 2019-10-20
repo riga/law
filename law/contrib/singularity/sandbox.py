@@ -16,7 +16,7 @@ import six
 from law.sandbox.base import Sandbox
 from law.config import Config
 from law.cli.software import deps as law_deps
-from law.util import make_list, tmp_file, interruptable_popen
+from law.util import make_list, tmp_file, interruptable_popen, quote_cmd, flatten
 
 
 class SingularitySandbox(Sandbox):
@@ -46,17 +46,17 @@ class SingularitySandbox(Sandbox):
                 env_path = os.path.join("/tmp", str(hash(tmp_path))[-8:])
 
                 # build commands to setup the environment
-                setup_cmds = "; ".join(self._build_setup_cmds(self._get_env()))
+                setup_cmds = self._build_setup_cmds(self._get_env())
 
                 # arguments to configure the environment
-                args = " ".join(self.common_args())
+                args = ["-e", "-B", "{}:{}".format(tmp_path, env_path)] + self.common_args()
 
                 # build the command
-                cmd = "singularity exec -e -B {tmp}:{env} {args} {image} bash -l -c '" \
-                    "{setup_cmds}; python -c \"import os,pickle;" \
-                    "pickle.dump(dict(os.environ),open(\\\"{env}\\\",\\\"wb\\\"),protocol=2)\"'"
-                cmd = cmd.format(image=self.image, tmp=tmp_path, env=env_path, args=args,
-                    setup_cmds=setup_cmds)
+                py_cmd = "import os,pickle;" \
+                    + "pickle.dump(dict(os.environ),open('{}','wb'),protocol=2)".format(env_path)
+                cmd = quote_cmd(["singularity", "exec"] + args + [self.image, "bash", "-l", "-c",
+                    "; ".join(flatten(setup_cmds, quote_cmd(["python", "-c", py_cmd]))),
+                ])
 
                 # run it
                 returncode = interruptable_popen(cmd, shell=True, executable="/bin/bash")[0]
@@ -75,9 +75,12 @@ class SingularitySandbox(Sandbox):
     def cmd(self, proxy_cmd):
         cfg = Config.instance()
 
-        # get args for the singularity command as configured on the task
+        # singularity exec command arguments
+        args = ["-e"]
+
+        # add args configured on the task
         args_getter = getattr(self.task, "singularity_args", None)
-        args = make_list(args_getter() if callable(args_getter) else self.default_singularity_args)
+        args += make_list(args_getter() if callable(args_getter) else self.default_singularity_args)
 
         # helper to build forwarded paths
         section = self.get_config_section()
@@ -174,8 +177,8 @@ class SingularitySandbox(Sandbox):
             proxy_cmd.append(ls_flag)
 
         # build the final command
-        cmd = "singularity exec -e {args} {image} bash -l -c '{setup_cmds}; {proxy_cmd}'".format(
-            args=" ".join(args), image=self.image, setup_cmds="; ".join(setup_cmds),
-            proxy_cmd=" ".join(proxy_cmd))
+        cmd = quote_cmd(["singularity", "exec"] + args + [self.image, "bash", "-l", "-c",
+            "; ".join(flatten(setup_cmds, " ".join(proxy_cmd)))
+        ])
 
         return cmd
