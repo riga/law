@@ -116,7 +116,7 @@ class CascadeMerge(LocalWorkflow):
 
     exclude_index = True
 
-    exclude_params_req_pass = {"start_branch", "end_branch", "branches"}
+    exclude_params_req_set = {"start_branch", "end_branch", "branches"}
     exclude_params_index = {"n_cascade_leaves"}
 
     def __init__(self, *args, **kwargs):
