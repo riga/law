@@ -19,6 +19,12 @@ from law.notification import notify_mail
 # make luigi's BoolParameter parsing explicit globally, https://github.com/spotify/luigi/pull/2427
 luigi.BoolParameter.parsing = getattr(luigi.BoolParameter, "EXPLICIT_PARSING", "explicit")
 
+# also update existing BoolParameter instances in luigi's config classes to have explicit parsing
+for cls in luigi.task.Config.__subclasses__():
+    for attr in dir(cls):
+        member = getattr(cls, attr)
+        if isinstance(member, luigi.BoolParameter):
+            member.parsing = luigi.BoolParameter.parsing
 
 #: String value denoting an empty parameter.
 NO_STR = "NO_STR"
