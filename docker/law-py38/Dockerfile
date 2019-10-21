@@ -15,7 +15,7 @@ ENV WORKDIR /root
 ENV CPATH /usr/local/include/python3.8:$CPATH
 ENV LD_LIBRARY_PATH /usr/local/lib:$LD_LIBRARY_PATH
 ENV GFAL_PLUGIN_DIR /usr/lib64/gfal2-plugins
-ENV LAW_SANDBOX docker::riga/law:py37,docker::riga/law:latest,docker::riga/law
+ENV LAW_SANDBOX docker::riga/law:py38,docker::riga/law:latest,docker::riga/law
 
 # prepare yum
 RUN yum -y update; yum clean all
