@@ -720,7 +720,7 @@ class JobArguments(object):
 
     def join(self):
         """
-        Returns the list of job arguments from :py:meth:`pack`, joined to a string using a single
-        space character.
+        Returns the list of job arguments from :py:meth:`get_args`, joined into a single string
+        using a single space character.
         """
         return " ".join(str(item) for item in self.get_args())
