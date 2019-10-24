@@ -95,4 +95,5 @@ class CreateAlphabet(Task):
         # some status message
         # publish_message not only prints the message to stdout, but sends it to the scheduler
         # where it will become visible in the browser visualization
-        self.publish_message("built alphabet: {}".format(alphabet))
+        alphabet = "".join(law.util.colored(c, color="random") for c in alphabet)
+        self.publish_message("\nbuilt alphabet: {}\n".format(alphabet))
