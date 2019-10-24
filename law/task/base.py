@@ -171,7 +171,7 @@ class BaseTask(luigi.Task):
             task, depth = tasks.pop(0)
             if max_depth >= 0 and depth > max_depth:
                 continue
-            deps = luigi.task.flatten(task.requires())
+            deps = flatten(task.requires())
 
             yield (task, deps, depth)
 
@@ -473,7 +473,7 @@ def print_task_status(task, max_depth=0, target_depth=0, flags=None):
 
         done.append(dep)
 
-        for outp in luigi.task.flatten(dep.output()):
+        for outp in flatten(dep.output()):
             print("{}- check {}".format(offset, outp.repr(color=True)))
 
             status_text = outp.status_text(max_depth=target_depth, flags=flags, color=True)
@@ -499,7 +499,7 @@ def print_task_output(task, max_depth=0):
     for dep, _, depth in task.walk_deps(max_depth=max_depth, order="pre"):
         done.append(dep)
 
-        for outp in luigi.task.flatten(dep.output()):
+        for outp in flatten(dep.output()):
             if isinstance(outp, TargetCollection):
                 for t in outp._flat_target_list:
                     print_target(t)
@@ -553,14 +553,16 @@ def remove_task_output(task, max_depth=0, mode=None, include_external=False):
 
         done.append(dep)
 
-        for outp in luigi.task.flatten(dep.output()):
-            print("{}- remove {}".format(offset, outp.repr(color=True)))
+        for outp in flatten(dep.output()):
+            print("{}- {}".format(offset, outp.repr(color=True)))
 
             if mode == "d":
+                print(offset + "  " + colored("dry removed", "yellow"))
                 continue
+
             elif mode == "i":
                 if query_choice(offset + "  remove?", ("y", "n"), default="n") == "n":
-                    print(offset + colored("  skipped", "yellow"))
+                    print(offset + "  " + colored("skipped", "yellow"))
                     continue
 
             outp.remove()
