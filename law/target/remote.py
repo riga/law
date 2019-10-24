@@ -66,17 +66,27 @@ except ImportError:
 
 _local_fs = LocalFileSystem.default_instance
 
+global_retries = None
+
+global_retry_delay = None
+
 
 def retry(func):
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
-        retries = kwargs.pop("retries", None)
-        if retries is None:
-            retries = self.retries
+        if global_retries is not None:
+            retries = global_retries
+        else:
+            retries = kwargs.pop("retries", None)
+            if retries is None:
+                retries = self.retries
 
-        delay = kwargs.pop("retry_delay", None)
-        if delay is None:
-            delay = self.retry_delay
+        if global_retry_delay is not None:
+            delay = global_retry_delay
+        else:
+            delay = kwargs.pop("retry_delay", None)
+            if delay is None:
+                delay = self.retry_delay
 
         attempt = 0
         try:
