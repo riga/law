@@ -920,6 +920,7 @@ class BaseRemoteWorkflow(BaseWorkflow):
         "walltime", "poll_interval", "poll_fails", "shuffle_jobs", "cancel_jobs", "cleanup_jobs",
         "ignore_submission", "transfer_logs",
     }
+    exclude_params_repr = {"cancel_jobs", "cleanup_jobs"}
 
     exclude_index = True
 
