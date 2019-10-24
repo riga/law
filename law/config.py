@@ -6,8 +6,9 @@ law config parser implementation.
 
 
 __all__ = [
-    "Config", "get", "getint", "getfloat", "getboolean", "get_default", "get_expanded",
-    "is_missing_or_none", "update", "include", "keys", "items", "set", "has_section", "has_option",
+    "Config", "sections", "get", "getint", "getfloat", "getboolean", "get_default", "get_expanded",
+    "get_expanded_int", "get_expanded_float", "get_expanded_boolean", "is_missing_or_none",
+    "update", "include", "keys", "items", "items_expanded", "set", "has_section", "has_option",
     "remove_option",
 ]
 
@@ -199,13 +200,13 @@ class Config(ConfigParser):
             return self._boolean_states[value.lower()]
 
     def _get_type_converter(self, type):
-        if type in (str, "str"):
+        if type in (str, "str", "s"):
             return str
-        if type in (int, "int"):
+        if type in (int, "int", "i"):
             return int
-        elif type in (float, "float"):
+        elif type in (float, "float", "f"):
             return float
-        elif type in (bool, "bool", "boolean"):
+        elif type in (bool, "bool", "boolean", "b"):
             return self._convert_to_boolean
         else:
             raise ValueError("unknown 'type' argument ({}), must be 'str', 'int', 'float', or "
@@ -243,6 +244,27 @@ class Config(ConfigParser):
         kwargs.setdefault("expandvars", True)
         kwargs.setdefault("expanduser", True)
         return self.get_default(*args, **kwargs)
+
+    def get_expanded_int(self, *args, **kwargs):
+        """
+        Same as :py:meth:`get_expanded` with *type* set to ``int``.
+        """
+        kwargs["type"] = int
+        return self.get_expanded(*args, **kwargs)
+
+    def get_expanded_float(self, *args, **kwargs):
+        """
+        Same as :py:meth:`get_expanded` with *type* set to ``float``.
+        """
+        kwargs["type"] = float
+        return self.get_expanded(*args, **kwargs)
+
+    def get_expanded_boolean(self, *args, **kwargs):
+        """
+        Same as :py:meth:`get_expanded` with *type* set to ``bool``.
+        """
+        kwargs["type"] = bool
+        return self.get_expanded(*args, **kwargs)
 
     def is_missing_or_none(self, section, option):
         """
@@ -288,6 +310,20 @@ class Config(ConfigParser):
         """
         return [key for key, _ in self.items(section) if (not prefix or key.startswith(prefix))]
 
+    def items_expanded(self, *args, **kwargs):
+        """ items_expanded(section, *args, **kwargs)
+        Returns a dictionary of key-value pairs for the given *section* with all user and
+        environment variables expanded in string values. Internally, :py:meth:`items` is used to
+        build the dictionary and perform type interpolation.
+        """
+        def expand(value):
+            if isinstance(value, six.string_types):
+                value = os.path.expandvars(os.path.expanduser(value))
+            return value
+
+        items = self.items(*args, **kwargs)
+        return items.__class__((key, expand(value)) for key, value in items)
+
     def sync_luigi_config(self, push=True, pull=True, expand=True):
         """
         Synchronizes sections starting with ``"luigi_"`` with the luigi configuration parser. First,
@@ -330,7 +366,7 @@ class Config(ConfigParser):
 
 
 # register convenience functions on module-level
-for name in __all__[__all__.index("get"):]:
+for name in __all__[__all__.index("sections"):]:
     def closure(name):
         def func(*args, **kwargs):
             config = Config.instance()
