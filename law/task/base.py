@@ -251,6 +251,7 @@ class Task(BaseTask):
 
     exclude_index = True
     exclude_params_req = set(interactive_params)
+    exclude_params_repr = set()
 
     def __init__(self, *args, **kwargs):
         super(Task, self).__init__(*args, **kwargs)
@@ -325,15 +326,20 @@ class Task(BaseTask):
         else:
             return make_callback(n_total, *reach)
 
-    def colored_repr(self, color=True):
+    def colored_repr(self, all_params=False, color=True):
         family = self._repr_family(self.task_family, color=color)
 
-        parts = [self._repr_param(*pair, color=color) for pair in self._repr_params()]
-        parts += [self._repr_flag(flag, color=color) for flag in self._repr_flags()]
+        parts = [
+            self._repr_param(*pair, color=color)
+            for pair in self._repr_params(all_params=all_params)
+        ] + [
+            self._repr_flag(flag, color=color)
+            for flag in self._repr_flags()
+        ]
 
         return "{}({})".format(family, ", ".join(parts))
 
-    def _repr_params(self):
+    def _repr_params(self, all_params=False):
         # build key value pairs of all significant parameters
         params = self.get_params()
         param_values = self.get_param_values(params, [], self.param_kwargs)
@@ -341,7 +347,8 @@ class Task(BaseTask):
 
         pairs = []
         for param_name, param_value in param_values:
-            if param_objs[param_name].significant:
+            if param_objs[param_name].significant and \
+                    (all_params or not multi_match(param_name, self.exclude_params_repr)):
                 pairs.append((param_name, param_objs[param_name].serialize(param_value)))
 
         return pairs
