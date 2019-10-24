@@ -33,6 +33,7 @@ import contextlib
 import smtplib
 import logging
 import datetime
+import random
 import threading
 import io
 
@@ -166,8 +167,9 @@ uncolor_cre = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
 def colored(msg, color=None, background=None, style=None, force=False):
     """
     Return the colored version of a string *msg*. For *color*, *background* and *style* options, see
-    https://misc.flogisoft.com/bash/tip_colors_and_formatting. Unless *force* is *True*, the *msg*
-    string is returned unchanged in case the output is not a tty.
+    https://misc.flogisoft.com/bash/tip_colors_and_formatting. They can also explicitely set to
+    ``"random"`` to get a random value. Unless *force* is *True*, the *msg* string is returned
+    unchanged in case the output is not a tty.
     """
     try:
         if not force and not os.isatty(sys.stdout.fileno()):
@@ -175,12 +177,23 @@ def colored(msg, color=None, background=None, style=None, force=False):
     except:
         return msg
 
-    color = colors.get(color, colors["default"])
-    background = backgrounds.get(background, backgrounds["default"])
+    if color == "random":
+        color = random.choice(list(colors.values()))
+    else:
+        color = colors.get(color, colors["default"])
+
+    if background == "random":
+        background = random.choice(list(backgrounds.values()))
+    else:
+        background = backgrounds.get(background, backgrounds["default"])
 
     if not isinstance(style, (tuple, list, set)):
         style = (style,)
-    style = ";".join(str(styles.get(s, styles["default"])) for s in style)
+    style_values = list(styles.values())
+    style = ";".join(
+        str(random.choice(style_values) if s == "random" else styles.get(s, styles["default"]))
+        for s in style
+    )
 
     return "\033[{};{};{}m{}\033[0m".format(style, background, color, msg)
 
