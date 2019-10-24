@@ -15,9 +15,11 @@ import time
 import random
 from collections import defaultdict
 
+from six.moves import urllib
 import luigi
 import law
-from six.moves import urllib
+
+law.contrib.load("tasks")  # to have the RunOnceTask
 
 
 URL = "http://www.loremipsum.de/downloads/version{}.txt"
@@ -147,7 +149,7 @@ class MergeCounts(LoremIpsumBase):
         self.output().dump(merged_counts, indent=4)
 
 
-class ShowFrequencies(LoremIpsumBase):
+class ShowFrequencies(LoremIpsumBase, law.tasks.RunOnceTask):
     """
     This task grabs the merged character counts from MergeCounts and prints the results. There is no
     output. Therefore, the complete() method is overwritten, which decides if a task is - well -
@@ -156,13 +158,6 @@ class ShowFrequencies(LoremIpsumBase):
 
     # again, this task has no file_index
     file_index = None
-
-    # flag that denotes that this task has not run yet
-    # we can use a class member, as the run() methods sets it to True on instance level
-    has_run = False
-
-    def complete(self):
-        return self.has_run
 
     def requires(self):
         return MergeCounts.req(self)
@@ -177,7 +172,28 @@ class ShowFrequencies(LoremIpsumBase):
         counts = sorted(counts.items(), key=lambda tpl: -tpl[1])
 
         # prepare the output text
-        text = "\n".join("{}: {} {}%".format(c, "xx" * count, count) for c, count in counts)
+        text = "\n".join(
+            "{}: {} {}%".format(c, self.x(count), count)
+            for c, count in counts
+        )
 
         # prints the frequences but also sends them as a message to the scheduler (if any)
         self.publish_message(text)
+
+        # mark this task as complete, so luigi would consider it done without checking for output
+        # (this is a feature of the RunOnceTask)
+        self.mark_complete()
+
+    @staticmethod
+    def x(count):
+        text = "-" if not count else "xx" * count
+
+        color = None
+        if count >= 7:
+            color = "green"
+        elif count >= 4:
+            color = "yellow"
+        elif count >= 1:
+            color = "red"
+
+        return law.util.colored(text, color)

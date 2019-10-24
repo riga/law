@@ -2,28 +2,24 @@
 
 action() {
     # determine the directory of this file
-    if [ ! -z "$ZSH_VERSION" ]; then
-        local this_file="${(%):-%x}"
-    else
-        local this_file="${BASH_SOURCE[0]}"
-    fi
-    local base="$( cd "$( dirname "$this_file" )" && pwd )"
-    local law_base="$( dirname "$( dirname "$base" )" )"
+    local this_file="$( [ ! -z "$ZSH_VERSION" ] && echo "${(%):-%x}" || echo "${BASH_SOURCE[0]}" )"
+    local this_dir="$( cd "$( dirname "$this_file" )" && pwd )"
 
     # setup external software once
-    local sw_dir="$base/tmp"
+    local sw_dir="$this_dir/tmp"
     if [ ! -d "$sw_dir" ]; then
         mkdir -p "$sw_dir"
         git clone https://github.com/spotify/luigi.git "$sw_dir/luigi"
         git clone https://github.com/benjaminp/six.git "$sw_dir/six"
     fi
 
+    local law_base="$( dirname "$( dirname "$this_dir" )" )"
     export PATH="$law_base/bin:$sw_dir/luigi/bin:$PATH"
-    export PYTHONPATH="$base:$law_base:$sw_dir/luigi:$sw_dir/six:$PYTHONPATH"
+    export PYTHONPATH="$this_dir:$law_base:$sw_dir/luigi:$sw_dir/six:$PYTHONPATH"
 
-    export LAW_HOME="$base/.law"
-    export LAW_CONFIG_FILE="$base/law.cfg"
+    export LAW_HOME="$this_dir/.law"
+    export LAW_CONFIG_FILE="$this_dir/law.cfg"
 
-    source "$( law completion )"
+    source "$( law completion )" ""
 }
 action

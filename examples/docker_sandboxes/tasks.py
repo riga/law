@@ -11,7 +11,6 @@ import os
 from random import random
 
 import luigi
-
 import law
 
 law.contrib.load("docker")

@@ -9,14 +9,12 @@
 # 1. the path to the repository
 
 action() {
+    # determine the directory of this file
+    local this_file="$( [ ! -z "$ZSH_VERSION" ] && echo "${(%):-%x}" || echo "${BASH_SOURCE[0]}" )"
+    local this_dir="$( cd "$( dirname "$this_file" )" && pwd )"
+
     # load polyfills
-    if [ ! -z "$ZSH_VERSION" ]; then
-        local this_file="${(%):-%x}"
-    else
-        local this_file="${BASH_SOURCE[0]}"
-    fi
-    local base="$( cd "$( dirname "$this_file" )" && pwd )"
-    source "$base/../../../polyfills.sh" ""
+    source "$this_dir/../../../polyfills.sh" ""
 
     # handle arguments
     local repo_path="$1"
