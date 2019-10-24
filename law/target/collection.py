@@ -61,7 +61,7 @@ class TargetCollection(Target):
         kwargs["threshold"] = self.threshold
         return kwargs
 
-    def _repr_pairs(self, color=True):
+    def _repr_pairs(self, color=False):
         return Target._repr_pairs(self) + [("len", len(self)), ("threshold", self.threshold)]
 
     def _iter_flat(self, keys=False):
@@ -167,7 +167,7 @@ class TargetCollection(Target):
         else:  # dict
             return random.choice(list(self.targets.values()))
 
-    def status_text(self, max_depth=0, flags=None, color=True, exists=None):
+    def status_text(self, max_depth=0, flags=None, color=False, exists=None):
         count, existing_keys = self.count(keys=True)
         exists = count >= self._abs_threshold()
 
@@ -199,7 +199,7 @@ class TargetCollection(Target):
                     text += "\n  ".join(t.split("\n"))
                 elif isinstance(item, Target):
                     t = item.status_text(color=color, exists=key in existing_keys)
-                    text += "{} ({})".format(t, item.colored_repr(color=color))
+                    text += "{} ({})".format(t, item.repr(color=color))
                 else:
                     t = self.__class__(item).status_text(max_depth=max_depth - 1, color=color)
                     text += "\n   ".join(t.split("\n"))
@@ -262,7 +262,7 @@ class SiblingFileCollection(FileCollection):
             raise Exception("{} requires at least one file target".format(self.__class__.__name__))
         self.dir = self.first_target.parent
 
-    def _repr_pairs(self, color=True):
+    def _repr_pairs(self, color=False):
         return TargetCollection._repr_pairs(self) + [("dir", self.dir.path)]
 
     def exists(self, count=None, basenames=None):

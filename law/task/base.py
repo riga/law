@@ -26,6 +26,7 @@ from law.parser import global_cmdline_values
 from law.target.file import FileSystemTarget, localize_file_targets
 from law.target.collection import TargetCollection
 from law.parser import root_task
+from law.config import Config
 from law.util import (
     abort, colored, uncolored, make_list, query_choice, multi_match, flatten, check_bool_flag,
     BaseStream, human_time_diff, quote_cmd,
@@ -326,7 +327,10 @@ class Task(BaseTask):
         else:
             return make_callback(n_total, *reach)
 
-    def colored_repr(self, all_params=False, color=True):
+    def repr(self, all_params=False, color=None):
+        if color is None:
+            color = Config.instance().get("task", "colored_repr")
+
         family = self._repr_family(self.task_family, color=color)
 
         parts = [
@@ -338,6 +342,13 @@ class Task(BaseTask):
         ]
 
         return "{}({})".format(family, ", ".join(parts))
+
+    def colored_repr(self, all_params=False):
+        # deprecation warning until v0.1
+        logger.warning("the use of {0}.colored_repr() is deprecated, please use "
+            "{0}.repr(color=True) instead".format(self.__class__.__name__))
+
+        return self.repr(all_params=all_params, color=True)
 
     def _repr_params(self, all_params=False):
         # build key value pairs of all significant parameters
@@ -357,15 +368,15 @@ class Task(BaseTask):
         return []
 
     @classmethod
-    def _repr_family(cls, family, color=True):
+    def _repr_family(cls, family, color=False):
         return colored(family, "green") if color else family
 
     @classmethod
-    def _repr_param(cls, name, value, color=True):
+    def _repr_param(cls, name, value, color=False):
         return "{}={}".format(colored(name, color="blue", style="bright") if color else name, value)
 
     @classmethod
-    def _repr_flag(cls, name, color=True):
+    def _repr_flag(cls, name, color=False):
         return colored(name, color="magenta") if color else name
 
     def _print_deps(self, args):
@@ -436,7 +447,7 @@ def print_task_deps(task, max_depth=1):
 
     ind = "|   "
     for dep, _, depth in task.walk_deps(max_depth=max_depth, order="pre"):
-        print(depth * ind + "> " + dep.colored_repr())
+        print(depth * ind + "> " + dep.repr(color=True))
 
 
 def print_task_status(task, max_depth=0, target_depth=0, flags=None):
@@ -453,7 +464,7 @@ def print_task_status(task, max_depth=0, target_depth=0, flags=None):
     for dep, _, depth in task.walk_deps(max_depth=max_depth, order="pre"):
         offset = depth * ind
         print(offset)
-        print("{}> check status of {}".format(offset, dep.colored_repr()))
+        print("{}> check status of {}".format(offset, dep.repr(color=True)))
         offset += ind
 
         if dep in done:
@@ -463,9 +474,10 @@ def print_task_status(task, max_depth=0, target_depth=0, flags=None):
         done.append(dep)
 
         for outp in luigi.task.flatten(dep.output()):
-            print("{}- check {}".format(offset, outp.colored_repr()))
+            print("{}- check {}".format(offset, outp.repr(color=True)))
 
-            status_lines = outp.status_text(max_depth=target_depth, flags=flags).split("\n")
+            status_text = outp.status_text(max_depth=target_depth, flags=flags, color=True)
+            status_lines = status_text.split("\n")
             status_text = status_lines[0]
             for line in status_lines[1:]:
                 status_text += "\n" + offset + "     " + line
@@ -523,7 +535,7 @@ def remove_task_output(task, max_depth=0, mode=None, include_external=False):
     for dep, _, depth in task.walk_deps(max_depth=max_depth, order="pre"):
         offset = depth * ind
         print(offset)
-        print("{}> remove output of {}".format(offset, dep.colored_repr()))
+        print("{}> remove output of {}".format(offset, dep.repr(color=True)))
         offset += ind
 
         if not include_external and isinstance(dep, ExternalTask):
@@ -542,7 +554,7 @@ def remove_task_output(task, max_depth=0, mode=None, include_external=False):
         done.append(dep)
 
         for outp in luigi.task.flatten(dep.output()):
-            print("{}- remove {}".format(offset, outp.colored_repr()))
+            print("{}- remove {}".format(offset, outp.repr(color=True)))
 
             if mode == "d":
                 continue

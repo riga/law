@@ -27,8 +27,6 @@ from law.util import no_value
 
 logger = logging.getLogger(__name__)
 
-sibling_warning_logged = False
-
 
 class BaseWorkflowProxy(ProxyTask):
     """
@@ -107,12 +105,10 @@ class BaseWorkflowProxy(ProxyTask):
         Returns the default workflow outputs in an ordered dictionary. At the moment this is just
         the collection of outputs of the branch tasks, stored with the key ``"collection"``.
         """
-        # warn once about the deprecation of the legacy "outputs_siblings" and
+        # warn about the deprecation of the legacy "outputs_siblings" and
         # "target_collection_cls" flag (until v0.1)
-        global sibling_warning_logged
         attrs = ("outputs_siblings", "target_collection_cls")
-        if not sibling_warning_logged and any(getattr(self.task, attr, None) for attr in attrs):
-            sibling_warning_logged = True
+        if any(getattr(self.task, attr, None) for attr in attrs):
             attrs = ", ".join(attrs[:-1]) + " and " + attrs[-1]
             logger.warning("the attributes {} to define the class of the workflow output target "
                 "collection are deprecated, please use output_collection_cls instead".format(attrs))

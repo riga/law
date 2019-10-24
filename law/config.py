@@ -68,7 +68,11 @@ class Config(ConfigParser):
             "law": os.getenv("LAW_LOG_LEVEL", "WARNING"),
         },
         "modules": {},
+        "task": {
+            "colored_repr": True,
+        },
         "target": {
+            "colored_repr": True,
             "default_local_fs": "local_fs",
             "tmp_dir": os.getenv("LAW_TARGET_TMP_DIR", tempfile.gettempdir()),
             "tmp_dir_permission": 0o0770,
