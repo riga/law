@@ -820,19 +820,19 @@ class RemoteFileSystem(FileSystem):
         src = self.abspath(src)
         dst = self.abspath(dst)
 
+        # actual copy
         self.gfal.filecopy(src, dst, **kwargs)
 
         # copy validation
+        dst_fs = self.local_fs if self.is_local(dst) else self
         if validate:
-            fs = self if not self.is_local(dst) else self.local_fs
-            if not fs.exists(dst):
+            if not dst_fs.exists(dst):
                 raise Exception("validation failed after copying {} to {}".format(src, dst))
 
         # handle permissions
-        dst_fs = self if not self.is_local(dst) else self.local_fs
-        if perm is None:
-            perm = dst_fs.default_file_perm
-        dst_fs.chmod(dst, perm)
+        dst_fs.chmod(dst, perm if perm is not None else dst_fs.default_file_perm)
+
+        return dst
 
     def _use_cache(self, cache):
         if self.cache is None:
@@ -865,6 +865,12 @@ class RemoteFileSystem(FileSystem):
         if dst is None and not cache:
             raise Exception("copy destination must not be empty when caching is disabled")
 
+        # append the basename of src when dst is a directory
+        if dst:
+            dst_fs = self.local_fs if self.is_local(dst) else self
+            if dst_fs.isdir(dst):
+                dst = os.path.join(dst, os.path.basename(src))
+
         # create paths including scheme and base, i.e., uri's
         src_uri = src if has_scheme(src) else self.gfal.uri(src, cmd="filecopy")
         dst_uri = None
@@ -896,7 +902,7 @@ class RemoteFileSystem(FileSystem):
                     self._atomic_copy(src, cdst_uri, validate=False)
                     self.cache.touch(dst, (int(time.time()), rstat.st_mtime))
 
-                return dst
+                return dst_uri
 
             else:  # rl, rc
                 # strategy: copy to cache when not up to date, sync stats, opt. copy to local
@@ -922,14 +928,13 @@ class RemoteFileSystem(FileSystem):
                 if mode == "rl":
                     # simply use the local_fs for copying
                     self.local_fs.copy(csrc_uri, dst_uri, perm=perm)
-                    return dst
+                    return dst_uri
                 else:  # rc
                     return csrc_uri
 
         else:
             # simply copy and return the dst path
-            self._atomic_copy(src_uri, dst_uri, perm=perm, validate=validate, **kwargs)
-            return dst_uri if dst_local else dst
+            return self._atomic_copy(src_uri, dst_uri, perm=perm, validate=validate, **kwargs)
 
     def _prepare_dst_dir(self, src, dst, perm=None, **kwargs):
         rstat = self.exists(dst, stat=True)
@@ -1072,7 +1077,8 @@ class RemoteFileTarget(RemoteTarget, FileSystemFileTarget):
     def copy_to_local(self, dst=None, perm=None, dir_perm=None, **kwargs):
         if dst:
             dst = add_scheme(self.fs.local_fs.abspath(get_path(dst)), "file")
-        return FileSystemFileTarget.copy_to(self, dst, perm=perm, dir_perm=dir_perm, **kwargs)
+        dst = FileSystemFileTarget.copy_to(self, dst, perm=perm, dir_perm=dir_perm, **kwargs)
+        return remove_scheme(dst)
 
     def copy_from_local(self, src=None, perm=None, dir_perm=None, **kwargs):
         src = add_scheme(self.fs.local_fs.abspath(get_path(src)), "file")
@@ -1081,7 +1087,8 @@ class RemoteFileTarget(RemoteTarget, FileSystemFileTarget):
     def move_to_local(self, dst=None, perm=None, dir_perm=None, **kwargs):
         if dst:
             dst = add_scheme(self.fs.local_fs.abspath(get_path(dst)), "file")
-        return FileSystemFileTarget.move_to(self, dst, perm=perm, dir_perm=dir_perm, **kwargs)
+        dst = FileSystemFileTarget.move_to(self, dst, perm=perm, dir_perm=dir_perm, **kwargs)
+        return remove_scheme(dst)
 
     def move_from_local(self, src=None, perm=None, dir_perm=None, **kwargs):
         src = add_scheme(self.fs.local_fs.abspath(get_path(src)), "file")

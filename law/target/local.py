@@ -301,16 +301,16 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
 class LocalFileTarget(LocalTarget, FileSystemFileTarget):
 
     def copy_to_local(self, *args, **kwargs):
-        return self.copy_to(*args, **kwargs)
+        return remove_scheme(self.copy_to(*args, **kwargs))
 
     def copy_from_local(self, *args, **kwargs):
-        return self.copy_from(*args, **kwargs)
+        return remove_scheme(self.copy_from(*args, **kwargs))
 
     def move_to_local(self, *args, **kwargs):
-        return self.move_to(*args, **kwargs)
+        return remove_scheme(self.move_to(*args, **kwargs))
 
     def move_from_local(self, *args, **kwargs):
-        return self.move_from(*args, **kwargs)
+        return remove_scheme(self.move_from(*args, **kwargs))
 
     @contextmanager
     def localize(self, mode="r", perm=None, dir_perm=None, tmp_dir=None, **kwargs):
