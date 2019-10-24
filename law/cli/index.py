@@ -14,8 +14,8 @@ from collections import OrderedDict
 import luigi
 import six
 
-from law.task.base import Task, ExternalTask
 from law.config import Config
+from law.task.base import Task, ExternalTask
 from law.util import multi_match, colored
 
 
@@ -25,7 +25,7 @@ def setup_parser(sub_parsers):
     """
     parser = sub_parsers.add_parser("index", prog="law index", description="Create or update the"
         " (human-readable) law task index file ({}). This is only required for the shell"
-        " auto-completion.".format(Config.instance().get("core", "index_file")))
+        " auto-completion.".format(Config.instance().get_expanded("core", "index_file")))
 
     parser.add_argument("--modules", "-m", nargs="+", help="additional modules to traverse")
     parser.add_argument("--no-externals", "-e", action="store_true", help="skip external tasks")
@@ -40,7 +40,8 @@ def execute(args):
     """
     Executes the *index* subprogram with parsed commandline *args*.
     """
-    index_file = Config.instance().get_expanded("core", "index_file")
+    cfg = Config.instance()
+    index_file = cfg.get_expanded("core", "index_file")
 
     # just print the file location?
     if args.location:
@@ -55,7 +56,7 @@ def execute(args):
         return
 
     # get modules to lookup
-    lookup = [m.strip() for m in Config.instance().keys("modules")]
+    lookup = [m.strip() for m in cfg.keys("modules")]
     if args.modules:
         lookup += args.modules
 

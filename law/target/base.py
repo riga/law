@@ -32,7 +32,7 @@ class Target(luigi.target.Target):
 
     def repr(self, color=None):
         if color is None:
-            color = Config.instance().get("target", "colored_repr")
+            color = Config.instance().get_expanded_boolean("target", "colored_repr")
 
         class_name = self._repr_class_name(self.__class__.__name__, color=color)
 

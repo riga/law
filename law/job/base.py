@@ -20,8 +20,8 @@ from abc import ABCMeta, abstractmethod
 
 import six
 
-from law.util import colored, make_list, iter_chunks
 from law.config import Config
+from law.util import colored, make_list, iter_chunks
 
 
 @six.add_metaclass(ABCMeta)
@@ -430,11 +430,13 @@ class BaseJobFileFactory(object):
     def __init__(self, dir=None, mkdtemp=None, cleanup=None):
         super(BaseJobFileFactory, self).__init__()
 
+        cfg = Config.instance()
+
         # get default values from config if None
         if mkdtemp is None:
-            mkdtemp = Config.instance().get_expanded("job", "job_file_dir_mkdtemp", type=bool)
+            mkdtemp = cfg.get_expanded_boolean("job", "job_file_dir_mkdtemp")
         if cleanup is None:
-            cleanup = Config.instance().get_expanded("job", "job_file_dir_cleanup", type=bool)
+            cleanup = cfg.get_expanded_boolean("job", "job_file_dir_cleanup")
 
         # store the cleanup flag
         self.cleanup = cleanup
@@ -444,7 +446,7 @@ class BaseJobFileFactory(object):
             mkdtemp = True
 
         # store the directory, default to the job.job_file_dir config
-        self.dir = dir or Config.instance().get_expanded("job", "job_file_dir")
+        self.dir = dir or cfg.get_expanded("job", "job_file_dir")
 
         # create the directory
         if not os.path.exists(self.dir):

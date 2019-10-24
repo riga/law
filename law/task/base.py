@@ -21,12 +21,12 @@ import luigi
 import luigi.util
 import six
 
+from law.config import Config
 from law.parameter import NO_STR, CSVParameter
 from law.parser import global_cmdline_values
 from law.target.file import FileSystemTarget, localize_file_targets
 from law.target.collection import TargetCollection
 from law.parser import root_task
-from law.config import Config
 from law.util import (
     abort, colored, uncolored, make_list, query_choice, multi_match, flatten, check_bool_flag,
     BaseStream, human_time_diff, quote_cmd,
@@ -329,7 +329,7 @@ class Task(BaseTask):
 
     def repr(self, all_params=False, color=None):
         if color is None:
-            color = Config.instance().get("task", "colored_repr")
+            color = Config.instance().get_expanded_boolean("task", "colored_repr")
 
         family = self._repr_family(self.task_family, color=color)
 

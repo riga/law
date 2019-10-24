@@ -39,7 +39,7 @@ class DropboxFileSystem(RemoteFileSystem):
         # resolution order: config, key+secret+token, default dropbox fs section
         cfg = Config.instance()
         if not config:
-            config = cfg.get("target", "default_dropbox_fs")
+            config = cfg.get_expanded("target", "default_dropbox_fs")
 
         # config might be a section in the law config
         if cfg.has_section(config):
@@ -53,11 +53,11 @@ class DropboxFileSystem(RemoteFileSystem):
 
             # set dropbox options explicitely
             if not app_key:
-                app_key = cfg.get_default(config, "app_key")
+                app_key = cfg.get_expanded(config, "app_key")
             if not app_secret:
-                app_secret = cfg.get_default(config, "app_secret")
+                app_secret = cfg.get_expanded(config, "app_secret")
             if not access_token:
-                access_token = cfg.get_default(config, "access_token")
+                access_token = cfg.get_expanded(config, "access_token")
 
         # base is required
         if base is None:

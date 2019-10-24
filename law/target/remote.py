@@ -48,7 +48,7 @@ try:
         gfal2._law_configured_logging = True
         gfal2_logger = logging.getLogger("gfal2")
         gfal2_logger.addHandler(logging.StreamHandler())
-        level = Config.instance().get("target", "gfal2_log_level")
+        level = Config.instance().get_expanded("target", "gfal2_log_level")
         if isinstance(level, six.string_types):
             level = getattr(logging, level, logging.WARNING)
         gfal2_logger.setLevel(level)
@@ -324,13 +324,13 @@ class RemoteCache(object):
                 config[key] = func(section, cache_key)
 
         add("root", cfg.get_expanded)
-        add("auto_flush", cfg.getboolean)
-        add("max_size", cfg.getint)
-        add("dir_perm", cfg.getint)
-        add("file_perm", cfg.getint)
-        add("wait_delay", cfg.getfloat)
-        add("max_waits", cfg.getint)
-        add("global_lock", cfg.getboolean)
+        add("auto_flush", cfg.get_expanded_boolean)
+        add("max_size", cfg.get_expanded_int)
+        add("dir_perm", cfg.get_expanded_int)
+        add("file_perm", cfg.get_expanded_int)
+        add("wait_delay", cfg.get_expanded_float)
+        add("max_waits", cfg.get_expanded_int)
+        add("global_lock", cfg.get_expanded_boolean)
 
         return config
 
@@ -571,7 +571,7 @@ class RemoteFileSystem(FileSystem):
         if config is None:
             config = {}
 
-        # helper to expand config a string and split by commas
+        # helper to expand a config string and split by commas
         def expand_split(key):
             return [s.strip() for s in cfg.get_expanded(section, key).strip().split(",")]
 
@@ -589,27 +589,27 @@ class RemoteFileSystem(FileSystem):
             config["bases"] = {key[5:]: expand_split(key) for key in keys}
 
         # atomic contexts
-        add("atomic_contexts", cfg.getboolean)
+        add("atomic_contexts", cfg.get_expanded_boolean)
 
         # number of retries
-        add("retries", cfg.getint)
+        add("retries", cfg.get_expanded_int)
 
         # delay between retries
-        add("retry_delay", cfg.getfloat)
+        add("retry_delay", cfg.get_expanded_float)
 
         # permissions
-        add("permissions", cfg.getboolean)
+        add("permissions", cfg.get_expanded_boolean)
 
         # validation after copy
-        add("validate", cfg.getboolean)
+        add("validate", cfg.get_expanded_boolean)
 
         # cache options
         if cfg.keys(section, prefix="cache_"):
             RemoteCache.parse_config(section, config.setdefault("cache_config", {}))
 
         # permissions
-        add("default_file_perm", cfg.getint)
-        add("default_directory_perm", cfg.getint)
+        add("default_file_perm", cfg.get_expanded_int)
+        add("default_directory_perm", cfg.get_expanded_int)
 
         return config
 

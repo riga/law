@@ -11,8 +11,8 @@ import logging
 
 from luigi.cmdline import luigi_run
 
-from law.task.base import Task
 from law.config import Config
+from law.task.base import Task
 from law.util import abort
 
 

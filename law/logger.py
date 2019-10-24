@@ -10,8 +10,8 @@ __all__ = ["console_handler", "setup_logging", "LogFormatter"]
 
 import logging
 
-from law.util import colored
 from law.config import Config
+from law.util import colored
 
 
 #: Instance of a ``logging.StreamHandler`` that is used by logs in law. Its formatting is done by
@@ -37,7 +37,7 @@ def setup_logging():
     logging.getLogger("law").addHandler(console_handler)
 
     # set levels for all loggers
-    for name, level in Config.instance().items("logging"):
+    for name, level in Config.instance().items_expanded("logging"):
         level = level.upper()
         if hasattr(logging, level):
             logger = logging.getLogger(name)

@@ -84,11 +84,11 @@ class SingularitySandbox(Sandbox):
 
         # helper to build forwarded paths
         section = self.get_config_section()
-        forward_dir = cfg.get(section, "forward_dir")
-        python_dir = cfg.get(section, "python_dir")
-        bin_dir = cfg.get(section, "bin_dir")
-        stagein_dir = cfg.get(section, "stagein_dir")
-        stageout_dir = cfg.get(section, "stageout_dir")
+        forward_dir = cfg.get_expanded(section, "forward_dir")
+        python_dir = cfg.get_expanded(section, "python_dir")
+        bin_dir = cfg.get_expanded(section, "bin_dir")
+        stagein_dir = cfg.get_expanded(section, "stagein_dir")
+        stageout_dir = cfg.get_expanded(section, "stageout_dir")
 
         def dst(*args):
             return os.path.join(forward_dir, *(str(arg) for arg in args))

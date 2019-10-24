@@ -19,12 +19,12 @@ from collections import OrderedDict
 import luigi
 import six
 
+from law.config import Config
 from law.task.base import Task
 from law.task.proxy import ProxyTask, get_proxy_attribute
 from law.target.local import LocalDirectoryTarget
 from law.target.collection import TargetCollection
 from law.parameter import NO_STR
-from law.config import Config
 from law.parser import global_cmdline_args
 from law.util import (
     colored, multi_match, mask_struct, map_struct, interruptable_popen, patch_object, flatten,
@@ -152,14 +152,13 @@ class Sandbox(object):
             stderr=stderr, env=self.env)
 
     def get_config_section(self, postfix=None):
-        cfg = Config.instance()
-
         section = self.sandbox_type + "_sandbox"
         if postfix:
             section += "_" + postfix
 
         image_section = section + "_" + self.name
 
+        cfg = Config.instance()
         return image_section if cfg.has_section(image_section) else section
 
     def _get_env(self):
@@ -179,7 +178,7 @@ class Sandbox(object):
         # extend by variables from the config file
         cfg = Config.instance()
         section = self.get_config_section(postfix="env")
-        for name, value in cfg.items(section):
+        for name, value in cfg.items_expanded(section):
             if "*" in name or "?" in name:
                 names = [key for key in os.environ.keys() if fnmatch(key, name)]
             else:
@@ -201,7 +200,7 @@ class Sandbox(object):
         # extend by volumes from the config file
         cfg = Config.instance()
         section = self.get_config_section(postfix="volumes")
-        for hdir, cdir in cfg.items(section):
+        for hdir, cdir in cfg.items_expanded(section):
             volumes[os.path.expandvars(os.path.expanduser(hdir))] = cdir
 
         # extend by volumes defined on task level
@@ -310,7 +309,7 @@ class SandboxProxy(ProxyTask):
         # define the stage-in directory
         cfg = Config.instance()
         section = self.sandbox_inst.get_config_section()
-        stagein_dir = tmp_dir.child(cfg.get(section, "stagein_dir"), type="d")
+        stagein_dir = tmp_dir.child(cfg.get_expanded(section, "stagein_dir"), type="d")
         stagein_dir.touch()
 
         # create the structure of staged inputs
@@ -351,7 +350,7 @@ class SandboxProxy(ProxyTask):
         # define the stage-out directory
         cfg = Config.instance()
         section = self.sandbox_inst.get_config_section()
-        stageout_dir = tmp_dir.child(cfg.get(section, "stageout_dir"), type="d")
+        stageout_dir = tmp_dir.child(cfg.get_expanded(section, "stageout_dir"), type="d")
         stageout_dir.touch()
 
         # create a lookup for input -> sandbox input
@@ -500,9 +499,9 @@ class SandboxTask(Task):
             cfg = Config.instance()
             section = self.sandbox_inst.get_config_section()
             if not cfg.is_missing_or_none(section, "uid"):
-                uid = cfg.get_expanded(section, "uid", type=int)
+                uid = cfg.get_expanded_int(section, "uid")
             if not cfg.is_missing_or_none(section, "gid"):
-                gid = cfg.get_expanded(section, "gid", type=int)
+                gid = cfg.get_expanded_int(section, "gid")
 
         return uid, gid
 

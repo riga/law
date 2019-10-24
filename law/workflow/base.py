@@ -136,12 +136,14 @@ class BaseWorkflowProxy(ProxyTask):
 
     def get_prefixed_config(self, section, option, **kwargs):
         """
-        TODO.
+        Returns the config value defined by *section* and *option*, which is prefixed by the
+        :py:attr:`workflow_type`. When the prefixed option is not found, the plain *option* is used
+        instead. All *kwargs* are forwarded to :py:meth:`Config.get_expanded`.
         """
         cfg = Config.instance()
+        prefixed_option = "{}_{}".format(self.workflow_type, option)
         default = cfg.get_expanded(section, option, **kwargs)
-        return cfg.get_expanded(section, "{}_{}".format(self.workflow_type, option),
-            default=default, **kwargs)
+        return cfg.get_expanded(section, prefixed_option, default=default, **kwargs)
 
 
 def workflow_property(func):

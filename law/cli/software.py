@@ -126,11 +126,11 @@ def use_software_cache(sw_dir=None, reload_deps=False):
 
 def get_sw_dir(sw_dir=None):
     """
-    Returns the software directory defined in the ``config.software_dir`` config. When *sw_dir* is
-    not *None*, it is expanded and returned instead.
+    Returns the software directory defined in the ``core.software_dir`` config. When *sw_dir* is not
+    *None*, it is expanded and returned instead.
     """
     if sw_dir is None:
-        sw_dir = Config.instance().get("core", "software_dir")
+        sw_dir = Config.instance().get_expanded("core", "software_dir")
 
     sw_dir = os.path.expandvars(os.path.expanduser(sw_dir))
 

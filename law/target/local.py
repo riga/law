@@ -19,12 +19,12 @@ from contextlib import contextmanager
 import luigi
 import six
 
+from law.config import Config
 from law.target.file import (
     FileSystem, FileSystemTarget, FileSystemFileTarget, FileSystemDirectoryTarget, get_path,
     get_scheme, add_scheme, remove_scheme, split_transfer_kwargs,
 )
 from law.target.formatter import find_formatter
-from law.config import Config
 from law.util import is_file_exists_error
 
 
@@ -49,15 +49,15 @@ class LocalFileSystem(FileSystem):
                 config[key] = func(section, key)
 
         # permissions
-        add("default_file_perm", cfg.getint)
-        add("default_directory_perm", cfg.getint)
+        add("default_file_perm", cfg.get_expanded_int)
+        add("default_directory_perm", cfg.get_expanded_int)
 
         return config
 
     def __init__(self, config=None, **kwargs):
         cfg = Config.instance()
         if not config:
-            config = cfg.get("target", "default_local_fs")
+            config = cfg.get_expanded("target", "default_local_fs")
 
         # config might be a section in the law config
         if isinstance(config, six.string_types) and cfg.has_section(config):
@@ -259,13 +259,14 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
                 raise Exception("either path or is_tmp must be set")
 
             # if not set, get the tmp dir from the config and ensure that it exists
+            cfg = Config.instance()
             if tmp_dir:
                 tmp_dir = get_path(tmp_dir)
             else:
-                tmp_dir = os.path.realpath(Config.instance().get_expanded("target", "tmp_dir"))
+                tmp_dir = os.path.realpath(cfg.get_expanded("target", "tmp_dir"))
             if not fs.exists(tmp_dir):
-                perm = Config.instance().get("target", "tmp_dir_permission")
-                fs.mkdir(tmp_dir, perm=perm and int(perm))
+                perm = cfg.get_expanded_int("target", "tmp_dir_permission")
+                fs.mkdir(tmp_dir, perm=perm)
 
             # create a random path
             while True:

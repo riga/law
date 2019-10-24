@@ -40,7 +40,7 @@ class WLCGFileSystem(RemoteFileSystem):
         if not base:
             cfg = Config.instance()
             if not config:
-                config = cfg.get("target", "default_wlcg_fs")
+                config = cfg.get_expanded("target", "default_wlcg_fs")
 
             # config might be a section in the law config
             if isinstance(config, six.string_types) and cfg.has_section(config):
