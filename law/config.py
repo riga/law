@@ -15,6 +15,7 @@ __all__ = [
 
 import os
 import tempfile
+import functools
 import logging
 
 import luigi
@@ -368,11 +369,13 @@ class Config(ConfigParser):
 # register convenience functions on module-level
 for name in __all__[__all__.index("sections"):]:
     def closure(name):
-        def func(*args, **kwargs):
-            config = Config.instance()
-            return getattr(config, name)(*args, **kwargs)
+        config = Config.instance()
+        func = getattr(config, name)
 
-        func.__name__ = name
-        return func
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            return func(*args, **kwargs)
+
+        return wrapper
 
     locals()[name] = closure(name)

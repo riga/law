@@ -474,7 +474,7 @@ def print_task_status(task, max_depth=0, target_depth=0, flags=None):
         done.append(dep)
 
         for outp in flatten(dep.output()):
-            print("{}- check {}".format(offset, outp.repr(color=True)))
+            print("{}- {}".format(offset, outp.repr(color=True)))
 
             status_text = outp.status_text(max_depth=target_depth, flags=flags, color=True)
             status_lines = status_text.split("\n")
