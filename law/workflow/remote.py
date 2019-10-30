@@ -285,7 +285,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             return self.skip_jobs[job_num]
 
     def complete(self):
-        if self.is_controlling_remote_jobs():
+        if self.task.is_controlling_remote_jobs():
             return self._controlled_jobs
         else:
             return super(BaseRemoteWorkflowProxy, self).complete()
