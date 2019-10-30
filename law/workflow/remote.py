@@ -202,6 +202,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         # initially existing keys of the "collection" output (= complete branch tasks), set in run()
         self._initially_existing_branches = []
 
+        # flag denoting if jobs were cancelled or cleaned up (i.e. controlled)
+        self._controlled_jobs = False
+
     @property
     def submission_data_cls(self):
         return SubmissionData
@@ -281,6 +284,12 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                     branches=branches)
             return self.skip_jobs[job_num]
 
+    def complete(self):
+        if self.is_controlling_remote_jobs():
+            return self._controlled_jobs
+        else:
+            return super(BaseRemoteWorkflowProxy, self).complete()
+
     def requires(self):
         reqs = OrderedDict()
 
@@ -309,14 +318,12 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
         # a file containing the submission data, i.e. job ids etc
         submission_file = "{}_submission{}.json".format(self.workflow_type, postfix)
-        outputs["submission"] = out_dir.child(submission_file, type="f")
-        outputs["submission"].optional = True
+        outputs["submission"] = out_dir.child(submission_file, type="f", optional=True)
 
         # a file containing status data when the jobs are done
         if not task.no_poll:
             status_file = "{}_status{}.json".format(self.workflow_type, postfix)
-            outputs["status"] = out_dir.child(status_file, type="f")
-            outputs["status"].optional = True
+            outputs["status"] = out_dir.child(status_file, type="f", optional=True)
 
         # update with upstream output when not just controlling running jobs
         if not task.is_controlling_remote_jobs():
@@ -362,11 +369,13 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         if self._cancel_jobs:
             if submitted:
                 self.cancel()
+            self._controlled_jobs = True
 
         # cleanup jobs?
         elif self._cleanup_jobs:
             if submitted:
                 self.cleanup()
+            self._controlled_jobs = True
 
         # submit and/or wait while polling
         else:
