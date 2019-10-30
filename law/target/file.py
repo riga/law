@@ -347,7 +347,7 @@ def has_scheme(uri):
 
 def add_scheme(path, scheme):
     # adds a scheme to a path, if it does not already contain one
-    return "{}://{}".format(scheme, path) if not has_scheme(path) else path
+    return "{}://{}".format(scheme.rstrip(":/"), path) if not has_scheme(path) else path
 
 
 def remove_scheme(uri):
