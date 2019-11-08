@@ -516,17 +516,13 @@ def remove_task_output(task, max_depth=0, mode=None, include_external=False):
     if include_external:
         print("include external tasks")
 
-    # determine the mode, i.e., all, dry, interactive
-    modes = ["i", "a", "d"]
-    mode_names = ["interactive", "all", "dry"]
-    if mode is None:
-        mode = query_choice("removal mode?", modes, default="i", descriptions=mode_names)
-    elif isinstance(mode, int):
-        mode = modes[mode]
-    else:
-        mode = mode[0].lower()
-    if mode not in modes:
+    # determine the mode, i.e., interactive, dry, all
+    modes = ["i", "d", "a"]
+    mode_names = ["interactive", "dry", "all"]
+    if mode and mode not in modes:
         raise Exception("unknown removal mode '{}'".format(mode))
+    if not mode:
+        mode = query_choice("removal mode?", modes, default="i", descriptions=mode_names)
     mode_name = mode_names[modes.index(mode)]
     print("selected " + colored(mode_name + " mode", "blue", style="bright"))
 
@@ -547,7 +543,8 @@ def remove_task_output(task, max_depth=0, mode=None, include_external=False):
             continue
 
         if mode == "i":
-            task_mode = query_choice(offset + "  walk through outputs?", ("y", "n"), default="y")
+            task_mode = query_choice(offset + "  remove outputs?", ["y", "n", "a"], default="y",
+                descriptions=["yes", "no", "all"])
             if task_mode == "n":
                 continue
 
@@ -560,7 +557,7 @@ def remove_task_output(task, max_depth=0, mode=None, include_external=False):
                 print(offset + "  " + colored("dry removed", "yellow"))
                 continue
 
-            elif mode == "i":
+            elif mode == "i" and task_mode != "a":
                 if query_choice(offset + "  remove?", ("y", "n"), default="n") == "n":
                     print(offset + "  " + colored("skipped", "yellow"))
                     continue
