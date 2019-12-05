@@ -184,6 +184,8 @@ class Sandbox(object):
             else:
                 names = [name]
             for name in names:
+                # when there is only a key present, i.e., no value is set,
+                # get it from the current environment
                 env[name] = value if value is not None else os.getenv(name, "")
 
         # extend by variables defined on task level

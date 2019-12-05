@@ -287,12 +287,6 @@ class CascadeMerge(LocalWorkflow):
     def merge(self, inputs, output):
         return
 
-    def complete(self):
-        if self.is_forest():
-            return all(task.complete() for task in flatten(self.requires()))
-        else:
-            return super(CascadeMerge, self).complete()
-
     def workflow_requires(self):
         self._build_cascade_forest()
 
