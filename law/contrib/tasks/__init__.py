@@ -17,7 +17,7 @@ import six
 
 from law import Task, LocalWorkflow, FileSystemTarget, LocalFileTarget, TargetCollection, \
     SiblingFileCollection, cached_workflow_property, NO_INT, NO_STR
-from law.util import flatten, iter_chunks
+from law.util import iter_chunks
 
 
 class RunOnceTask(Task):
