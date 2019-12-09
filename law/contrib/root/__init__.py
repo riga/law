@@ -6,7 +6,7 @@ ROOT contrib functionality.
 """
 
 
-__all__ = ["ROOTFormatter", "ROOTNumpyFormatter", "UprootFormatter"]
+__all__ = ["ROOTFormatter", "ROOTNumpyFormatter", "UprootFormatter", "GuardedTFile"]
 
 
 # provisioning imports
