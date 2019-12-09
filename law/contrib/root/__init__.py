@@ -10,4 +10,6 @@ __all__ = ["ROOTFormatter", "ROOTNumpyFormatter", "UprootFormatter", "GuardedTFi
 
 
 # provisioning imports
-from law.contrib.root.formatter import ROOTFormatter, ROOTNumpyFormatter, UprootFormatter
+from law.contrib.root.formatter import (
+    ROOTFormatter, ROOTNumpyFormatter, UprootFormatter, GuardedTFile,
+)
