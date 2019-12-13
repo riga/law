@@ -64,7 +64,7 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
         task_params = task.as_branch(branches[0]).cli_args(exclude={"branch"})
         task_params += global_cmdline_args()
         # add and remove some arguments
-        task_params = remove_cmdline_arg(task_params, "--workers", 2)
+        task_params = remove_cmdline_arg(task_params, "--workers", 1)
         if task.glite_use_local_scheduler():
             task_params = add_cmdline_arg(task_params, "--local-scheduler")
         for arg in task.glite_cmdline_args() or []:

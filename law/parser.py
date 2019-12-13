@@ -170,11 +170,11 @@ def add_cmdline_arg(args, arg, *values):
     return args
 
 
-def remove_cmdline_arg(args, arg, n=1):
+def remove_cmdline_arg(args, arg, n=0):
     """
     Removes the command line argument *args* from a list of arguments *args*, e.g. as returned from
-    :py:func:`global_cmdline_args`. When *n* is 1 or less, only the argument is removed. Otherwise,
-    the following *n-1* values are removed. Example:
+    :py:func:`global_cmdline_args`. When *n* is 0 (the default), only the argument is removed.
+    Otherwise, the following *n* values are removed. Example:
 
     .. code-block:: python
 
@@ -184,11 +184,11 @@ def remove_cmdline_arg(args, arg, n=1):
         remove_cmdline_arg(args, "--local-scheduler")
         # -> ["--workers", "4"]
 
-        remove_cmdline_arg(args, "--workers", 2)
+        remove_cmdline_arg(args, "--workers", 1)
         # -> ["--local-scheduler"]
     """
     if arg in args:
         idx = args.index(arg)
         args = list(args)
-        del args[idx:idx + max(n, 1)]
+        del args[idx:idx + max(n + 1, 1)]
     return args
