@@ -29,7 +29,7 @@ from law.target.collection import TargetCollection
 from law.parser import root_task
 from law.util import (
     abort, colored, uncolored, make_list, query_choice, multi_match, flatten, check_bool_flag,
-    BaseStream, human_time_diff, quote_cmd,
+    BaseStream, human_time_diff, quote_cmd, patch_object,
 )
 
 
@@ -124,15 +124,6 @@ class BaseTask(luigi.Task):
 
         return params
 
-    def __init__(self, *args, **kwargs):
-        self.param_kwargs = {}
-        super(BaseTask, self).__init__(*args, **kwargs)
-
-    def __setattr__(self, attr, value):
-        if isinstance(getattr(self.__class__, attr, None), luigi.Parameter):
-            self.param_kwargs[attr] = value
-        super(BaseTask, self).__setattr__(attr, value)
-
     def complete(self):
         outputs = [t for t in flatten(self.output()) if not t.optional]
 
@@ -150,11 +141,15 @@ class BaseTask(luigi.Task):
         constructor. As the latter may change, this property returns to the id with the current set
         of parameters.
         """
-        # create string params (only_public was introduced in 2.8.0, so check if that arg exists)
+        # create a temporary dictionary of param_kwargs that is patched for the duration of the
+        # call to create the string representation of the parameters
+        param_kwargs = {attr: getattr(self, attr) for attr in self.param_kwargs}
+        # only_public was introduced in 2.8.0, so check if that arg exists
         str_params_kwargs = {"only_significant": True}
         if "only_public" in getargspec(self.to_str_params).args:
             str_params_kwargs["only_public"] = True
-        str_params = self.to_str_params(**str_params_kwargs)
+        with patch_object(self, "param_kwargs", param_kwargs):
+            str_params = self.to_str_params(**str_params_kwargs)
 
         # create the task id
         task_id = luigi.task.task_id_str(self.get_task_family(), str_params)
