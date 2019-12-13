@@ -27,7 +27,8 @@ from law.target.collection import TargetCollection
 from law.parameter import NO_STR
 from law.parser import global_cmdline_args
 from law.util import (
-    colored, multi_match, mask_struct, map_struct, interruptable_popen, patch_object, flatten,
+    colored, is_pattern, multi_match, mask_struct, map_struct, interruptable_popen, patch_object,
+    flatten,
 )
 
 
@@ -179,7 +180,7 @@ class Sandbox(object):
         cfg = Config.instance()
         section = self.get_config_section(postfix="env")
         for name, value in cfg.items_expanded(section):
-            if "*" in name or "?" in name:
+            if is_pattern(name):
                 names = [key for key in os.environ.keys() if fnmatch(key, name)]
             else:
                 names = [name]

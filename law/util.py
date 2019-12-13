@@ -7,12 +7,13 @@ Helpful utility functions.
 
 __all__ = [
     "default_lock", "io_lock", "no_value", "rel_path", "law_src_path", "law_home_path", "print_err",
-    "abort", "colored", "uncolored", "query_choice", "multi_match", "is_lazy_iterable", "make_list",
-    "make_tuple", "flatten", "merge_dicts", "which", "map_verbose", "map_struct", "mask_struct",
-    "tmp_file", "interruptable_popen", "readable_popen", "create_hash", "copy_no_perm",
-    "makedirs_perm", "user_owns_file", "iter_chunks", "human_bytes", "human_time_diff",
-    "is_file_exists_error", "check_bool_flag", "send_mail", "ShorthandDict", "open_compat",
-    "patch_object", "join_generators", "quote_cmd", "BaseStream", "TeeStream", "FilteredStream",
+    "abort", "colored", "uncolored", "query_choice", "is_pattern", "multi_match",
+    "is_lazy_iterable", "make_list", "make_tuple", "flatten", "merge_dicts", "which", "map_verbose",
+    "map_struct", "mask_struct", "tmp_file", "interruptable_popen", "readable_popen", "create_hash",
+    "copy_no_perm", "makedirs_perm", "user_owns_file", "iter_chunks", "human_bytes",
+    "human_time_diff", "is_file_exists_error", "check_bool_flag", "send_mail", "ShorthandDict",
+    "open_compat", "patch_object", "join_generators", "quote_cmd", "BaseStream", "TeeStream",
+    "FilteredStream",
 ]
 
 
@@ -238,6 +239,14 @@ def query_choice(msg, choices, default=None, descriptions=None, lower=True):
             choice = choice.lower()
 
     return choice
+
+
+def is_pattern(s):
+    """
+    Returns *True* if the string *s* represents a pattern, i.e., if it contains characters such as
+    ``"*"`` or ``"?"``.
+    """
+    return "*" in s or "?" in s
 
 
 def multi_match(name, patterns, mode=any, regex=False):
