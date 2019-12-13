@@ -25,7 +25,7 @@ from law.task.proxy import ProxyTask, get_proxy_attribute
 from law.target.local import LocalDirectoryTarget
 from law.target.collection import TargetCollection
 from law.parameter import NO_STR
-from law.parser import global_cmdline_args
+from law.parser import global_cmdline_args, root_task
 from law.util import (
     colored, is_pattern, multi_match, mask_struct, map_struct, interruptable_popen, patch_object,
     flatten,
@@ -45,6 +45,8 @@ _sandbox_stagein_dir = os.getenv("LAW_SANDBOX_STAGEIN_DIR", "")
 _sandbox_stageout_dir = os.getenv("LAW_SANDBOX_STAGEOUT_DIR", "")
 
 _sandbox_task_id = os.getenv("LAW_SANDBOX_WORKER_TASK", "")
+
+_sandbox_root_task_id = os.getenv("LAW_SANDBOX_WORKER_ROOT_TASK", "")
 
 # the task id must be set when in a sandbox
 if not _sandbox_task_id and _sandbox_switched:
@@ -170,11 +172,12 @@ class Sandbox(object):
         env["LAW_SANDBOX"] = self.key.replace("$", r"\$")
         env["LAW_SANDBOX_SWITCHED"] = "1"
         if self.task:
-            env["LAW_SANDBOX_IS_ROOT_TASK"] = "1" if self.task.is_root_task() else ""
             if getattr(self.task, "_worker_id", None):
                 env["LAW_SANDBOX_WORKER_ID"] = self.task._worker_id
             if getattr(self.task, "_worker_task", None):
                 env["LAW_SANDBOX_WORKER_TASK"] = self.task.live_task_id
+            env["LAW_SANDBOX_WORKER_ROOT_TASK"] = root_task().task_id
+            env["LAW_SANDBOX_IS_ROOT_TASK"] = str(int(self.task.is_root_task()))
 
         # extend by variables from the config file
         cfg = Config.instance()

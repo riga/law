@@ -20,6 +20,8 @@ logger = logging.getLogger(__name__)
 
 _patched = False
 
+_sandbox_switched = os.getenv("LAW_SANDBOX_SWITCHED", "") == "1"
+
 
 def patch_all():
     """
@@ -35,11 +37,12 @@ def patch_all():
     patch_worker_add_task()
     patch_worker_add()
     patch_worker_run_task()
+    patch_worker_get_work()
     patch_worker_factory()
     patch_keepalive_run()
     patch_cmdline_parser()
 
-    logger.debug("applied law-specific luigi patches")
+    logger.debug("applied all law-specific luigi patches")
 
 
 def patch_default_retcodes():
@@ -64,6 +67,8 @@ def patch_default_retcodes():
     retcode.scheduling_error._default = 50
     retcode.unhandled_exception._default = 60
 
+    logger.debug("patched luigis default return codes")
+
 
 def patch_worker_add_task():
     """
@@ -73,11 +78,13 @@ def patch_worker_add_task():
     _add_task = luigi.worker.Worker._add_task
 
     def add_task(self, *args, **kwargs):
-        if os.getenv("LAW_SANDBOX_SWITCHED") == "1" and "deps" in kwargs:
+        if _sandbox_switched and "deps" in kwargs:
             kwargs["deps"] = None
         return _add_task(self, *args, **kwargs)
 
     luigi.worker.Worker._add_task = add_task
+
+    logger.debug("patched luigi.worker.Worker._add_task")
 
 
 def patch_worker_add():
@@ -90,7 +97,7 @@ def patch_worker_add():
     def add(self, *args, **kwargs):
         # _add returns a generator, which we simply drain here
         # when we are in a sandbox
-        if os.getenv("LAW_SANDBOX_SWITCHED") == "1":
+        if _sandbox_switched:
             for _ in _add(self, *args, **kwargs):
                 pass
             return []
@@ -98,6 +105,8 @@ def patch_worker_add():
             return _add(self, *args, **kwargs)
 
     luigi.worker.Worker._add = add
+
+    logger.debug("patched luigi.worker.Worker._add")
 
 
 def patch_worker_run_task():
@@ -120,10 +129,42 @@ def patch_worker_run_task():
             task._worker_task = None
 
         # make worker disposable when sandboxed
-        if os.getenv("LAW_SANDBOX_SWITCHED") == "1":
+        if _sandbox_switched:
             self._start_phasing_out()
 
     luigi.worker.Worker._run_task = run_task
+
+    logger.debug("patched luigi.worker.Worker._run_task")
+
+
+def patch_worker_get_work():
+    """
+    Patches the ``luigi.worker.Worker._get_work`` method to only return information of the sandboxed
+    task when running in a sandbox. This way, actual (outer) task and the sandboxed (outer) task
+    appear to a central as the same task and communication for exchanging (e.g.) messages becomes
+    transparent.
+    """
+    _get_work = luigi.worker.Worker._get_work
+
+    def get_work(self):
+        if _sandbox_switched:
+            # when the worker is configured to stop requesting work, as triggered by the patched
+            # _run_task method (see above), the worker response should contain an empty task_id
+            task_id = None if self._stop_requesting_work else os.environ["LAW_SANDBOX_WORKER_TASK"]
+            return luigi.worker.GetWorkResponse(
+                task_id=task_id,
+                running_tasks=[],
+                n_pending_tasks=0,
+                n_unique_pending=0,
+                n_pending_last_scheduled=0,
+                worker_state=luigi.worker.WORKER_STATE_ACTIVE,
+            )
+        else:
+            return _get_work(self)
+
+    luigi.worker.Worker._get_work = get_work
+
+    logger.debug("patched luigi.worker.Worker._get_work")
 
 
 def patch_worker_factory():
@@ -134,10 +175,12 @@ def patch_worker_factory():
     def create_worker(self, scheduler, worker_processes, assistant=False):
         worker = luigi.worker.Worker(scheduler=scheduler, worker_processes=worker_processes,
             assistant=assistant, worker_id=os.getenv("LAW_SANDBOX_WORKER_ID"))
-        worker._first_task = os.getenv("LAW_SANDBOX_WORKER_TASK")
+        worker._first_task = os.getenv("LAW_SANDBOX_WORKER_ROOT_TASK")
         return worker
 
     luigi.interface._WorkerSchedulerFactory.create_worker = create_worker
+
+    logger.debug("patched luigi.interface._WorkerSchedulerFactory.create_worker")
 
 
 def patch_keepalive_run():
@@ -149,12 +192,14 @@ def patch_keepalive_run():
 
     def run(self):
         # do not run the keep-alive loop when sandboxed
-        if os.getenv("LAW_SANDBOX_SWITCHED") == "1":
+        if _sandbox_switched:
             self.stop()
         else:
             _run(self)
 
     luigi.worker.KeepAliveThread.run = run
+
+    logger.debug("patched luigi.worker.KeepAliveThread.run")
 
 
 def patch_cmdline_parser():
@@ -171,3 +216,5 @@ def patch_cmdline_parser():
         self.cmdline_args = cmdline_args
 
     luigi.cmdline_parser.CmdlineParser.__init__ = __init__
+
+    logger.debug("patched luigi.cmdline_parser.CmdlineParser.__init__")
