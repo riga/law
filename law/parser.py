@@ -98,11 +98,12 @@ def root_task_parser():
 
 def global_cmdline_args(exclude=None):
     """
-    Returns the list of command line arguments that do not belong to the root task. The returned
-    list is cached. *exclude* can be a list of arguments (including ``"--"`` prefix) that should
-    be removed from the returned list. As :py:func:`remove_cmdline_arg` is used internally, an
-    argument can be specified either by a name or a tuple of argument name and expected number of
-    values on the command line. Example:
+    Returns the list of command line arguments that do not belong to the root task. For bool
+    parameters, such as ``--local-scheduler``, ``"True"`` is inserted if they are used as flags,
+    i.e., without a parameter value. The returned list is cached. *exclude* can be a list of
+    arguments (including ``"--"`` prefix) that should be removed from the returned list. As
+    :py:func:`remove_cmdline_arg` is used internally, an argument can be specified either by a name
+    or a tuple of argument name and expected number of values on the command line. Example:
 
     .. code-block:: python
 
@@ -122,7 +123,17 @@ def global_cmdline_args(exclude=None):
         if not luigi_parser:
             return None
 
-        _global_cmdline_args = root_task_parser().parse_known_args(luigi_parser.cmdline_args)[1]
+        _global_cmdline_args = []
+
+        args = root_task_parser().parse_known_args(luigi_parser.cmdline_args)[1]
+
+        # expand bool flags
+        for i, arg in enumerate(args):
+            _global_cmdline_args.append(arg)
+            if arg.startswith("--"):
+                is_flag = i == (len(args) - 1) or args[i + 1].startswith("--")
+                if is_flag:
+                    _global_cmdline_args.append("True")
 
     if not exclude:
         return _global_cmdline_args
