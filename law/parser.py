@@ -96,14 +96,23 @@ def root_task_parser():
     return _root_task_parser
 
 
-def global_cmdline_args():
+def global_cmdline_args(exclude=None):
     """
     Returns the list of command line arguments that do not belong to the root task. The returned
-    list is cached. Example:
+    list is cached. *exclude* can be a list of arguments (including ``"--"`` prefix) that should
+    be removed from the returned list. As :py:func:`remove_cmdline_arg` is used internally, an
+    argument can be specified either by a name or a tuple of argument name and expected number of
+    values on the command line. Example:
 
     .. code-block:: python
 
         global_cmdline_args()
+        # -> ["--local-scheduler", "--workers", "4"]
+
+        global_cmdline_args(exclude=["--local-scheduler"])
+        # -> ["--workers", "4"]
+
+        global_cmdline_args(exclude=["--workers", 1])
         # -> ["--local-scheduler"]
     """
     global _global_cmdline_args
@@ -115,7 +124,16 @@ def global_cmdline_args():
 
         _global_cmdline_args = root_task_parser().parse_known_args(luigi_parser.cmdline_args)[1]
 
-    return _global_cmdline_args
+    if not exclude:
+        return _global_cmdline_args
+
+    else:
+        args = list(_global_cmdline_args)
+        for value in exclude:
+            if not isinstance(value, tuple):
+                value = (value,)
+            args = remove_cmdline_arg(args, *value)
+        return args
 
 
 def global_cmdline_values():

@@ -243,8 +243,8 @@ class SandboxProxy(ProxyTask):
         # add cli args, exclude some parameters
         cmd.extend(self.task.cli_args(exclude=self.task.exclude_params_sandbox))
 
-        # add global args
-        cmd.extend(global_cmdline_args())
+        # add global args, explicitely remove the --workers argument
+        cmd.extend(global_cmdline_args(exclude=[("--workers", 1)]))
 
         return cmd
 
@@ -415,7 +415,7 @@ class SandboxTask(Task):
     allow_empty_sandbox = False
     valid_sandboxes = ["*"]
 
-    exclude_params_sandbox = {"sandbox", "log_file", "workers"}
+    exclude_params_sandbox = {"sandbox", "log_file"}
 
     def __init__(self, *args, **kwargs):
         super(SandboxTask, self).__init__(*args, **kwargs)
