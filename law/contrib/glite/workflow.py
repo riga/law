@@ -61,6 +61,7 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
         config.executable = os.path.basename(wrapper_file)
 
         # collect task parameters
+        from IPython import embed; embed()
         task_params = task.as_branch(branches[0]).cli_args(exclude={"branch"})
         task_params += global_cmdline_args()
         # add and remove some arguments
