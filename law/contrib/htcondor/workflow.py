@@ -20,7 +20,7 @@ from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments
 from law.contrib.htcondor.job import HTCondorJobManager, HTCondorJobFileFactory
 from law.target.file import get_path
-from law.parser import global_cmdline_args, add_cmdline_arg, remove_cmdline_arg
+from law.parser import global_cmdline_args, add_cmdline_arg
 from law.util import law_src_path, merge_dicts
 
 
