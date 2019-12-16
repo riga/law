@@ -29,7 +29,7 @@ def notify_slack(title, content, attachment_color="#4bb543", short_threshold=40,
     formatting.
     """
     # test import
-    import slackclient  # noqa: F401
+    import_slack()
 
     cfg = Config.instance()
 
@@ -95,7 +95,7 @@ def _notify_slack(token, request):
     import json
     import traceback
 
-    import slackclient
+    slack, vslack = import_slack()
 
     try:
         # token might be a file
@@ -107,11 +107,31 @@ def _notify_slack(token, request):
         if "attachments" in request and not isinstance(request["attachments"], six.string_types):
             request["attachments"] = json.dumps([request["attachments"]])
 
-        sc = slackclient.SlackClient(token)
-        res = sc.api_call("chat.postMessage", **request)
+        if vslack == 1:
+            sc = slack.SlackClient(token)
+            res = sc.api_call("chat.postMessage", **request)
+        else:  # 2
+            wc = slack.WebClient(token)
+            res = wc.chat_postMessage(**request)
 
         if not res["ok"]:
             logger.warning("unsuccessful Slack API call: {}".format(res))
     except Exception as e:
         t = traceback.format_exc()
         logger.warning("could not send Slack notification: {}\n{}".format(e, t))
+
+
+def import_slack():
+    try:
+        # slackclient 1.x
+        import slackclient  # noqa: F401
+        return slackclient, 1
+    except ImportError:
+        try:
+            # slackclient 2.x
+            import slack  # noqa: F401
+            return slack, 2
+        except ImportError as e:
+            e.msg = "neither module 'slackclient' nor 'slack' found, " \
+                "run 'pip install slackclient' to install them"
+            raise
