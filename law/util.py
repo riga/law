@@ -739,6 +739,10 @@ def human_bytes(n, unit=None):
         human_bytes(3407872, "kB")
         # -> (3328.0, "kB")
     """
+    # check if the unit exists
+    if unit and unit not in byte_units:
+        raise ValueError("unknown unit '{}', valid values are {}".format(unit, byte_units))
+
     if n == 0:
         idx = 0
     elif unit:
@@ -747,6 +751,61 @@ def human_bytes(n, unit=None):
         idx = int(math.floor(math.log(abs(n), 1024)))
         idx = min(idx, len(byte_units))
     return n / 1024. ** idx, byte_units[idx]
+
+
+def parse_bytes(s, input_unit="bytes", unit="bytes"):
+    """
+    Takes a string *s*, interprets it as a size with an optional unit, and returns a float that
+    represents that size in a given *unit*. When no unit is found in *s*, *input_unit* is used as a
+    default. *None* is returned, when *s* cannot be successfully converted. Example:
+
+    .. code-block:: python
+
+        parse_bytes("100")
+        # -> 100.
+
+        parse_bytes("2048", unit="kB")
+        # -> 2.
+
+        parse_bytes("2048 kB", unit="kB")
+        # -> 2048.
+
+        parse_bytes("2048 kB", unit="MB")
+        # -> 2.
+
+        parse_bytes("2048", "kB", unit="MB")
+        # -> 2.
+
+        parse_bytes(2048, "kB", unit="MB")  # note the float type of the first argument
+        # -> 2.
+    """
+    # check if the units exists
+    if unit not in byte_units:
+        raise ValueError("unknown unit '{}', valid values are {}".format(unit, byte_units))
+    if input_unit not in byte_units:
+        raise ValueError("unknown input unit '{}', valid values are {}".format(
+            input_unit, byte_units))
+
+    # when s is a number, interpret it as bytes right away
+    # otherwise parse it
+    if isinstance(s, (float, six.integer_types)):
+        input_value = float(s)
+    else:
+        m = re.match(r"^\s*(\d+\.?\d*)\s*(|{})\s*$".format("|".join(byte_units)), s)
+        if not m:
+            return None
+
+        input_value, _input_unit = m.groups()
+        input_value = float(input_value)
+        if _input_unit:
+            input_unit = _input_unit
+
+    # convert the input value to bytes
+    idx = byte_units.index(input_unit)
+    size_bytes = input_value * 1024. ** idx
+
+    # use human_bytes to convert the size
+    return human_bytes(size_bytes, unit)[0]
 
 
 time_units = [("day", 86400), ("hour", 3600), ("minute", 60), ("second", 1)]
