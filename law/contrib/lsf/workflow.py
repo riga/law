@@ -49,11 +49,9 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
 
         # collect task parameters
         task_params = task.as_branch(branches[0]).cli_args(exclude={"branch"})
-        task_params += global_cmdline_args()
-        # add and remove some arguments
-        task_params = remove_cmdline_arg(task_params, "--workers", 1)
+        task_params += global_cmdline_args(exclude=[("--workers", 1), ("--local-scheduler", 1)])
         if task.lsf_use_local_scheduler():
-            task_params = add_cmdline_arg(task_params, "--local-scheduler")
+            task_params = add_cmdline_arg(task_params, "--local-scheduler", "True")
         for arg in task.lsf_cmdline_args() or []:
             if isinstance(arg, tuple):
                 task_params = add_cmdline_arg(task_params, *arg)

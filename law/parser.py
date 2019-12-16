@@ -110,10 +110,7 @@ def global_cmdline_args(exclude=None):
         global_cmdline_args()
         # -> ["--local-scheduler", "--workers", "4"]
 
-        global_cmdline_args(exclude=["--local-scheduler"])
-        # -> ["--workers", "4"]
-
-        global_cmdline_args(exclude=["--workers", 1])
+        global_cmdline_args(exclude=[("--workers", 1)])
         # -> ["--local-scheduler"]
     """
     global _global_cmdline_args
