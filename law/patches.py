@@ -22,6 +22,8 @@ _patched = False
 
 _sandbox_switched = os.getenv("LAW_SANDBOX_SWITCHED", "") == "1"
 
+_sandbox_task_id = os.getenv("LAW_SANDBOX_WORKER_TASK", "")
+
 
 def patch_all():
     """
@@ -90,19 +92,21 @@ def patch_worker_add_task():
 def patch_worker_add():
     """
     Patches the ``luigi.worker.Worker._add`` method to make sure that no dependencies are yielded
-    when the triggered task is added to the worker when running in a sandbox.
+    when the triggered task is added to the worker when running in a sandbox and that the task is
+    added to the scheduler with the id of the outer task.
     """
     _add = luigi.worker.Worker._add
 
-    def add(self, *args, **kwargs):
+    def add(self, task, *args, **kwargs):
         # _add returns a generator, which we simply drain here
         # when we are in a sandbox
         if _sandbox_switched:
-            for _ in _add(self, *args, **kwargs):
+            task.task_id = _sandbox_task_id
+            for _ in _add(self, task, *args, **kwargs):
                 pass
             return []
         else:
-            return _add(self, *args, **kwargs)
+            return _add(self, task, *args, **kwargs)
 
     luigi.worker.Worker._add = add
 
@@ -140,7 +144,7 @@ def patch_worker_run_task():
 def patch_worker_get_work():
     """
     Patches the ``luigi.worker.Worker._get_work`` method to only return information of the sandboxed
-    task when running in a sandbox. This way, actual (outer) task and the sandboxed (outer) task
+    task when running in a sandbox. This way, actual (outer) task and the sandboxed (inner) task
     appear to a central as the same task and communication for exchanging (e.g.) messages becomes
     transparent.
     """

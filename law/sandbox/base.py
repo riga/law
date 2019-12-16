@@ -38,7 +38,7 @@ _current_sandbox = os.getenv("LAW_SANDBOX", "").split(",")
 
 _sandbox_switched = os.getenv("LAW_SANDBOX_SWITCHED", "") == "1"
 
-_sandbox_is_root_task = os.getenv("LAW_SANDBOX_IS_ROOT_TASK", "")
+_sandbox_is_root_task = os.getenv("LAW_SANDBOX_IS_ROOT_TASK", "") == "1"
 
 _sandbox_stagein_dir = os.getenv("LAW_SANDBOX_STAGEIN_DIR", "")
 
@@ -455,20 +455,18 @@ class SandboxTask(Task):
             self.sandbox_inst = None
             self.sandbox_proxy = None
 
-    def is_sandboxed(self):
-        if self.effective_sandbox == NO_STR:
-            return True
-        else:
-            return self.effective_sandbox in _current_sandbox and self.task_id == _sandbox_task_id
-
     def __getattribute__(self, attr, proxy=True):
         return get_proxy_attribute(self, attr, proxy=proxy, super_cls=Task)
 
+    def is_sandboxed(self):
+        return self.effective_sandbox == NO_STR or self.effective_sandbox in _current_sandbox
+
     def is_root_task(self):
-        if self.effective_sandbox != NO_STR and self.is_sandboxed():
-            return _sandbox_is_root_task == "1"
+        is_root = super(SandboxTask, self).is_root_task()
+        if _sandbox_switched:
+            return is_root and _sandbox_is_root_task
         else:
-            return super(SandboxTask, self).is_root_task()
+            return is_root
 
     def _staged_input(self):
         # get the original inputs
