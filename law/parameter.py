@@ -7,12 +7,14 @@ Custom luigi parameters.
 
 __all__ = [
     "NO_STR", "NO_INT", "NO_FLOAT", "is_no_param", "get_param", "TaskInstanceParameter",
-    "CSVParameter", "NotifyParameter", "NotifyMultiParameter", "NotifyMailParameter",
+    "DurationParameter", "CSVParameter", "NotifyParameter", "NotifyMultiParameter",
+    "NotifyMailParameter",
 ]
 
 
 import luigi
 
+from law.util import human_duration, parse_duration, time_units, time_unit_aliases
 from law.notification import notify_mail
 
 
@@ -63,10 +65,76 @@ class TaskInstanceParameter(luigi.Parameter):
         return str(x)
 
 
+class DurationParameter(luigi.Parameter):
+    """
+    Parameter that interprets a string (or float) value as a duration, represented by a float
+    number with a configurable unit. *unit* is forwarded as both the *unit* and *input_unit*
+    argument to :py:func:`law.util.parse_duration` which is used for the conversion. For best
+    precision, value serialization uses :py:func:`law.util.human_duration` with *colon_format*.
+    Example:
+
+    .. code-block:: python
+
+        p = DurationParameter(unit="s")
+        p.parse("5")                      # -> 5. (using the unit implicitely)
+        p.parse("5s")                     # -> 5.
+        p.parse("5m")                     # -> 300.
+        p.parse("05:10")                  # -> 310.
+        p.parse("5 minutes, 15 seconds")  # -> 310.
+        p.serialize(310)                  # -> 05:15
+
+        p = DurationParameter(unit="m")
+        p.parse("5")                      # -> 5. (using the unit implicitely)
+        p.parse("5s")                     # -> 0.083
+        p.parse("5m")                     # -> 5.
+        p.parse("05:10")                  # -> 5.167
+        p.parse("5 minutes, 15 seconds")  # -> 5.25
+        p.serialize(310)                  # -> 05:15
+
+    For more info, see :py:func:`law.util.parse_duration` and :py:func:`law.util.human_duration`.
+    """
+
+    def __init__(self, *args, **kwargs):
+        """ __init__(unit="s", *args, **kwargs) """
+        # validate and set the unit
+        self._unit = None
+        self.unit = kwargs.pop("unit", "s")
+
+        super(DurationParameter, self).__init__(*args, **kwargs)
+
+    @property
+    def unit(self):
+        return self._unit
+
+    @unit.setter
+    def unit(self, unit):
+        unit = time_unit_aliases.get(unit, unit)
+        if unit not in time_units:
+            raise ValueError("unknown unit '{}', valid values are {}".format(
+                unit, time_units.keys()))
+
+        self._unit = unit
+
+    def parse(self, inp):
+        """"""
+        if not inp:
+            return 0.
+        else:
+            return parse_duration(inp, input_unit=self.unit, unit=self.unit)
+
+    def serialize(self, value):
+        """"""
+        if not value:
+            return "0"
+        else:
+            value_seconds = parse_duration(value, input_unit=self.unit, unit="s")
+            return human_duration(seconds=value_seconds, colon_format=True)
+
+
 class CSVParameter(luigi.Parameter):
     """
-    Parameter that can be parsed from a comma-separated value (CSV). *cls* can refer to an other
-    luigi parameter class that will be used to parse and serialize the particular items. Example:
+    Parameter that parses a comma-separated value (CSV). *cls* can refer to an other luigi parameter
+    class that will be used to parse and serialize the particular items. Example:
 
     .. code-block:: python
 

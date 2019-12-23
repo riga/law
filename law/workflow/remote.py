@@ -21,7 +21,7 @@ import six
 
 from law.workflow.base import BaseWorkflow, BaseWorkflowProxy
 from law.job.dashboard import NoJobDashboard
-from law.parameter import NO_FLOAT, NO_INT
+from law.parameter import NO_FLOAT, NO_INT, DurationParameter
 from law.util import iter_chunks, ShorthandDict
 
 
@@ -854,15 +854,16 @@ class BaseRemoteWorkflow(BaseWorkflow):
        Number of threads to use for both job submission and job status polling. Defaults to *4*.
 
     .. py:classattribute:: walltime
-       type: luigi.FloatParameter
+       type: law.DurationParameter
 
-       Maximum job walltime in hours after which a job will be considered failed. Empty default
-       value.
+       Maximum job walltime after which a job will be considered failed. Empty default value. The
+       default unit is hours when a plain number is passed.
 
     .. py:classattribute:: poll_interval
-       type: luigi.FloatParameter
+       type: law.DurationParameter
 
-       Interval in minutes between two job status polls. Defaults to *1*.
+       Interva between two job status polls. Defaults to 1 minute. The default unit is minutes when
+       a plain number is passed.
 
     .. py:classattribute:: poll_fails
        type: luigi.IntParameter
@@ -907,10 +908,10 @@ class BaseRemoteWorkflow(BaseWorkflow):
         "status polling after submission")
     threads = luigi.IntParameter(default=4, significant=False, description="number of threads to "
         "use for (re)submission and status queries, default: 4")
-    walltime = luigi.FloatParameter(default=NO_FLOAT, significant=False, description="maximum wall "
-        "time in hours, default: not set")
-    poll_interval = luigi.FloatParameter(default=1, significant=False, description="time between "
-        "status polls in minutes, default: 1")
+    walltime = DurationParameter(default=NO_FLOAT, unit="h", significant=False,
+        description="maximum wall time, default unit is hours, default: not set")
+    poll_interval = DurationParameter(default=1, unit="m", significant=False, description="time "
+        "between status polls, default unit is minutes, default: 1")
     poll_fails = luigi.IntParameter(default=5, significant=False, description="maximum number of "
         "consecutive errors during polling, default: 5")
     shuffle_jobs = luigi.BoolParameter(description="shuffled job submission")
