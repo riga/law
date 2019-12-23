@@ -29,7 +29,7 @@ from law.target.collection import TargetCollection
 from law.parser import root_task
 from law.util import (
     abort, colored, uncolored, make_list, query_choice, multi_match, flatten, check_bool_flag,
-    BaseStream, human_time_diff, quote_cmd, patch_object,
+    BaseStream, human_duration, quote_cmd, patch_object,
 )
 
 
@@ -300,7 +300,7 @@ class Task(BaseTask):
             msg = success_message if success else fail_message
             if runtime:
                 diff = time.time() - t0
-                msg = "{} (took {})".format(msg, human_time_diff(seconds=diff))
+                msg = "{} (took {})".format(msg, human_duration(seconds=diff))
             self.publish_message(msg)
 
     def publish_progress(self, percentage, precision=0):

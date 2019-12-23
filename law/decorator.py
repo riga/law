@@ -44,7 +44,7 @@ from law.parameter import get_param, NotifyParameter
 from law.target.file import localize_file_targets
 from law.target.local import LocalFileTarget
 from law.util import (
-    no_value, make_list, multi_match, human_time_diff, open_compat, join_generators, TeeStream,
+    no_value, make_list, multi_match, human_duration, open_compat, join_generators, TeeStream,
 )
 
 
@@ -392,7 +392,7 @@ def notify(fn, opts, task, *args, **kwargs):
             return
 
         # prepare message content
-        duration = human_time_diff(seconds=round(time.time() - t0, 1))
+        duration = human_duration(seconds=round(time.time() - t0, 1))
         status_string = "succeeded" if success else "failed"
         title = "Task {} {}!".format(_task.get_task_family(), status_string)
         parts = collections.OrderedDict([
@@ -439,7 +439,7 @@ def timeit(fn, opts, task, *args, **kwargs):
         return fn(task, *args, **kwargs)
 
     def log_duration(t0):
-        duration = human_time_diff(seconds=round(time.time() - t0, 1))
+        duration = human_duration(seconds=round(time.time() - t0, 1))
 
         # log
         timeit_logger = logger.getChild("timeit")

@@ -7,13 +7,13 @@ Helpful utility functions.
 
 __all__ = [
     "default_lock", "io_lock", "no_value", "rel_path", "law_src_path", "law_home_path", "print_err",
-    "abort", "colored", "uncolored", "query_choice", "is_pattern", "multi_match",
+    "abort", "try_int", "colored", "uncolored", "query_choice", "is_pattern", "multi_match",
     "is_lazy_iterable", "make_list", "make_tuple", "flatten", "merge_dicts", "which", "map_verbose",
     "map_struct", "mask_struct", "tmp_file", "interruptable_popen", "readable_popen", "create_hash",
-    "copy_no_perm", "makedirs_perm", "user_owns_file", "iter_chunks", "human_bytes",
-    "human_time_diff", "is_file_exists_error", "check_bool_flag", "send_mail", "ShorthandDict",
-    "open_compat", "patch_object", "join_generators", "quote_cmd", "BaseStream", "TeeStream",
-    "FilteredStream",
+    "copy_no_perm", "makedirs_perm", "user_owns_file", "iter_chunks", "human_bytes", "parse_bytes",
+    "human_duration", "human_time_diff", "parse_duration", "is_file_exists_error",
+    "check_bool_flag", "send_mail", "ShorthandDict", "open_compat", "patch_object",
+    "join_generators", "quote_cmd", "BaseStream", "TeeStream", "FilteredStream",
 ]
 
 
@@ -37,6 +37,7 @@ import datetime
 import random
 import threading
 import io
+import warnings
 
 import six
 
@@ -110,6 +111,15 @@ def abort(msg=None, exitcode=1, color=True):
                 msg = colored(msg, color="red")
             print_err(msg)
     sys.exit(exitcode)
+
+
+def try_int(n):
+    """
+    Takes a number *n* and tries to convert it to an integer. When *n* has no decimals, an integer
+    is returned with the same value as *n*. Otherwise, a float is returned.
+    """
+    n_int = int(n)
+    return n_int if n == n_int else n
 
 
 colors = {
@@ -757,7 +767,7 @@ def parse_bytes(s, input_unit="bytes", unit="bytes"):
     """
     Takes a string *s*, interprets it as a size with an optional unit, and returns a float that
     represents that size in a given *unit*. When no unit is found in *s*, *input_unit* is used as a
-    default. *None* is returned, when *s* cannot be successfully converted. Example:
+    default. A *ValueError* is raised, when *s* cannot be successfully converted. Example:
 
     .. code-block:: python
 
@@ -780,11 +790,12 @@ def parse_bytes(s, input_unit="bytes", unit="bytes"):
         # -> 2.
     """
     # check if the units exists
-    if unit not in byte_units:
-        raise ValueError("unknown unit '{}', valid values are {}".format(unit, byte_units))
     if input_unit not in byte_units:
-        raise ValueError("unknown input unit '{}', valid values are {}".format(
+        raise ValueError("unknown input_unit '{}', valid values are {}".format(
             input_unit, byte_units))
+    if unit not in byte_units:
+        raise ValueError("unknown unit '{}', valid values are {}".format(
+            unit, byte_units))
 
     # when s is a number, interpret it as bytes right away
     # otherwise parse it
@@ -793,7 +804,7 @@ def parse_bytes(s, input_unit="bytes", unit="bytes"):
     else:
         m = re.match(r"^\s*(\d+\.?\d*)\s*(|{})\s*$".format("|".join(byte_units)), s)
         if not m:
-            return None
+            raise ValueError("cannot parse bytes from string '{}'".format(s))
 
         input_value, _input_unit = m.groups()
         input_value = float(input_value)
@@ -808,33 +819,218 @@ def parse_bytes(s, input_unit="bytes", unit="bytes"):
     return human_bytes(size_bytes, unit)[0]
 
 
-time_units = [("day", 86400), ("hour", 3600), ("minute", 60), ("second", 1)]
+time_units = collections.OrderedDict([
+    ("day", 86400),
+    ("hour", 3600),
+    ("minute", 60),
+    ("second", 1),
+])
+
+time_unit_aliases = {
+    "d": "day",
+    "days": "day",
+    "h": "hour",
+    "hours": "hour",
+    "m": "minute",
+    "min": "minute",
+    "mins": "minute",
+    "minutes": "minute",
+    "s": "second",
+    "sec": "second",
+    "secs": "second",
+    "seconds": "second",
+}
+
+
+def human_duration(colon_format=False, plural=True, **kwargs):
+    """ human_duration
+    Returns a human readable duration. The largest unit is days. When *colon_format* is *True*, the
+    return value has the format ``[d:][h:][m:]s``. Unless *plural* is *False*, units corresponding
+    to values other than **exactly** one are plural e.g. ``"1 second"`` but ``"1.5 seconds"``. All
+    other *kwargs* are passed to ``datetime.timedelta`` to get the total duration in seconds.
+    Example:
+
+    .. code-block:: python
+
+    human_duration(seconds=1233)
+    # -> "20 minutes, 33 seconds"
+
+    human_duration(seconds=90001)
+    # -> "1 day, 1 hour, 1 second"
+
+    human_duration(seconds=1233, colon_format=True)
+    # -> "20:33"
+
+    human_duration(seconds=90001, colon_format=True)
+    # -> "1:01:00:1"
+
+    human_duration(minutes=15, colon_format=True)
+    # -> "15:00"
+
+    human_duration(minutes=15)
+    # -> "15 minutes"
+
+    human_duration(minutes=15, plural=False)
+    # -> "15 minute"
+    """
+    seconds = float(datetime.timedelta(**kwargs).total_seconds())
+
+    parts = []
+    for unit, mul in six.iteritems(time_units):
+        n = int(math.floor(seconds / mul))
+
+        # skip leading zeros for colon_format, otherwise always
+        if n == 0 and (not colon_format or not parts):
+            continue
+
+        if unit != "second":
+            seconds -= n * mul
+        else:
+            n = seconds
+            if isinstance(n, float):
+                n = round(n, 2)
+            n = try_int(n)
+
+        if colon_format:
+            if unit == "second" and n < 10:
+                fmt = "0{}"
+            elif unit in ["hour", "minute"]:
+                fmt = "{:02d}"
+            else:
+                fmt = "{}"
+            parts.append(fmt.format(n))
+        else:
+            plural_postfix = "" if (not plural or n == 1) else "s"
+            parts.append("{} {}{}".format(n, unit, plural_postfix))
+
+    return (":" if colon_format else ", ").join(parts)
 
 
 def human_time_diff(*args, **kwargs):
     """
-    Returns a human readable time difference. The largest unit is days. All *args* and *kwargs* are
-    passed to ``datetime.timedelta``. Example:
+    Deprecated. Use :py:func:`human_duration` instead.
+    """
+    warnings.warn("law.util.human_time_diff is deprecated, use law.util.human_duration instead",
+        DeprecationWarning)
+    return human_duration(*args, **kwargs)
+
+
+def parse_duration(s, input_unit="s", unit="s"):
+    """
+    Takes a string *s*, interprets it as a duration with an optional unit, and returns a float that
+    represents that size in a given *unit*. When no unit is found in *s*, *input_unit* is used as a
+    default. A *ValueError* is raised, when *s* cannot be successfully converted. Multiple input
+    formats are parsed: Example:
 
     .. code-block:: python
 
-        human_time_diff(seconds=1233)
-        # -> "20 minutes, 33 seconds"
+        # plain number
+        parse_duration(100)
+        # -> 100.
 
-        human_time_diff(seconds=90001)
-        # -> "1 day, 1 hour, 1 second"
+        parse_duration(100, unit="min")
+        # -> 1.667
+
+        parse_duration(100, input_unit="min")
+        # -> 6000.
+
+        # string separated with ":", interpreted from the back as seconds, minutes, etc.
+        # input_unit is disregarded, unit works as above
+        parse_duration("2:1")
+        # -> 121.
+
+        parse_duration("04:02:01.1")
+        # -> 14521.1
+
+        parse_duration("04:02:01.1", unit="min")
+        # -> 242.0183
+
+        # human-readable string, optionally multiple of them
+        # missing units are interpreted as input_unit, unit works as above
+        parse_duration("10 mins")
+        # -> 600.0
+
+        parse_duration("10 mins", unit="min")
+        # -> 10.0
+
+        parse_duration("10", unit="min")
+        # -> 0.167
+
+        parse_duration("10", input_unit="min", unit="min")
+        # -> 10.0
+
+        parse_duration("10 mins, 15 secs")
+        # -> 615.0
+
+        parse_duration("10 mins and 15 secs")
+        # -> 615.0
     """
-    secs = float(datetime.timedelta(*args, **kwargs).total_seconds())
-    parts = []
-    for unit, mul in time_units:
-        if secs / mul >= 1 or mul == 1:
-            if mul > 1:
-                n = int(math.floor(secs / mul))
-                secs -= n * mul
-            else:
-                n = round(secs, 1)
-            parts.append("{} {}{}".format(n, unit, "" if n == 1 else "s"))
-    return ", ".join(parts)
+    # consider unit aliases
+    input_unit = time_unit_aliases.get(input_unit, input_unit)
+    unit = time_unit_aliases.get(unit, unit)
+
+    # check units
+    if input_unit not in time_units:
+        raise ValueError("unknown input_unit '{}', valid values are {}".format(
+            input_unit, time_units.keys()))
+    if unit not in time_units:
+        raise ValueError("unknown unit '{}', valid values are {}".format(
+            unit, time_units.keys()))
+
+    duration_seconds = 0.
+
+    # number of string?
+    if isinstance(s, six.integer_types + (float,)):
+        duration_seconds += s * time_units[input_unit]
+    else:
+        s = s.replace(" and ", ",").strip()
+
+        # check the format
+        if "," not in s and ":" in s:
+            # colon format, "[d:][h:][m:]s"
+            unit_order = ["second", "minute", "hour", "day"]
+
+            parts = s.split(":")
+            if len(parts) > len(unit_order):
+                raise ValueError("cannot parse duration string '{}', too many ':'".format(s))
+
+            # convert each part, starting from the back to match unit_order
+            for i, part in enumerate(parts[::-1]):
+                u = unit_order[i]
+                try:
+                    d = float(part.strip())
+                except ValueError as e:
+                    raise ValueError("cannot parse duration string '{}', {}".format(s, e))
+                duration_seconds += d * time_units[u]
+        else:
+            # human readable format
+            parts = s.split(",")
+
+            units = list(time_units.keys()) + list(time_unit_aliases.keys())
+            cre = re.compile(r"^\s*(\d+|\d+\.|\.\d+|\d+\.\d+)\s*(|{})\s*$".format("|".join(units)))
+
+            # convert each part
+            for part in parts:
+                part = part.strip()
+                if not part:
+                    continue
+
+                m = cre.match(part)
+                if not m:
+                    raise ValueError("cannot parse duration string '{}'".format(s))
+
+                d, u = m.groups()
+                d = float(d)
+                if not u:
+                    u = input_unit
+                u = time_unit_aliases.get(u, u)
+
+                duration_seconds += d * time_units[u]
+
+    # convert to output unit
+    duration = duration_seconds / time_units[unit]
+
+    return duration
 
 
 def is_file_exists_error(e):
