@@ -178,9 +178,10 @@ class SingularitySandbox(Sandbox):
                         env["LUIGI_CONFIG_PATH"] = p
                     break
 
-        if (self.stagein_info or self.stageout_info) and not self.allow_binds:
-            raise Exception("Cannot use stage-in or -out if binds are not allowed.")
         # add staging directories
+        if (self.stagein_info or self.stageout_info) and not allow_binds:
+            raise Exception("cannot use stage-in or -out if binds are not allowed")
+
         if self.stagein_info:
             env["LAW_SANDBOX_STAGEIN_DIR"] = dst(stagein_dir)
             mount(self.stagein_info.stage_dir.path, dst(stagein_dir))
@@ -190,8 +191,8 @@ class SingularitySandbox(Sandbox):
 
         # forward volumes defined in the config and by the task
         vols = self._get_volumes()
-        if vols and not self.allow_binds:
-            raise Exception("Cannot forward volumes to Sandbox if binds are not allowed.")
+        if vols and not allow_binds:
+            raise Exception("cannot forward volumes to sandbox if binds are not allowed")
 
         for hdir, cdir in six.iteritems(vols):
             if not cdir:
