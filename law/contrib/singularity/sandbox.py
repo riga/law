@@ -28,10 +28,11 @@ class SingularitySandbox(Sandbox):
     # env cache per image
     _envs = {}
 
-    # use law environment from host system to provide basic environment
-    forward_env = True
-    # allow forwarding of volumes
-    allow_binds = True
+    def __init__(self, *args, **kwargs):
+        super(SingularitySandbox, self).__init__(*args, **kwargs)
+
+        self.cfg = Config.instance()
+        self.cfg_section = self.get_config_section()
 
     @property
     def image(self):
@@ -55,7 +56,8 @@ class SingularitySandbox(Sandbox):
 
                 # arguments to configure the environment
                 args = ["-e"]
-                if self.allow_binds:
+                if getattr(self.task, "singularity_allow_binds", self.cfg.get_expanded(
+                        self.cfg_section, "allow_binds")):
                     args.extend(["-B", "{}:{}".format(tmp_path, env_path)])
                 else:
                     env_path = tmp_path
@@ -83,8 +85,6 @@ class SingularitySandbox(Sandbox):
         return self._envs[self.image]
 
     def cmd(self, proxy_cmd):
-        cfg = Config.instance()
-
         # singularity exec command arguments
         args = ["-e"]
 
@@ -99,12 +99,11 @@ class SingularitySandbox(Sandbox):
         env["PYTHONDONTWRITEBYTECODE"] = "1"
 
         # helper to build forwarded paths
-        section = self.get_config_section()
-        forward_dir = cfg.get_expanded(section, "forward_dir")
-        python_dir = cfg.get_expanded(section, "python_dir")
-        bin_dir = cfg.get_expanded(section, "bin_dir")
-        stagein_dir = cfg.get_expanded(section, "stagein_dir")
-        stageout_dir = cfg.get_expanded(section, "stageout_dir")
+        forward_dir = self.cfg.get_expanded(self.cfg_section, "forward_dir")
+        python_dir = self.cfg.get_expanded(self.cfg_section, "python_dir")
+        bin_dir = self.cfg.get_expanded(self.cfg_section, "bin_dir")
+        stagein_dir = self.cfg.get_expanded(self.cfg_section, "stagein_dir")
+        stageout_dir = self.cfg.get_expanded(self.cfg_section, "stageout_dir")
 
         def dst(*args):
             return os.path.join(forward_dir, *(str(arg) for arg in args))
@@ -127,9 +126,15 @@ class SingularitySandbox(Sandbox):
             # store the mount point
             args.extend(["-B", ":".join(vol)])
 
-        if self.forward_env:
+        # determine whether volume forwarding is allowed
+        allow_binds = getattr(self.task, "singularity_allow_binds", self.cfg.get_expanded(
+            self.cfg_section, "allow_binds")
+        )
+
+        if getattr(self.task, "singularity_forward_env", self.cfg.get_expanded(
+                self.cfg_section, "forward_env")):
             # adjust path variables
-            if self.allow_binds:
+            if allow_binds:
                 env["PATH"] = os.pathsep.join(["$PATH", dst("bin")])
                 env["PYTHONPATH"] = os.pathsep.join(["$PYTHONPATH", dst(python_dir)])
             else:
@@ -146,7 +151,7 @@ class SingularitySandbox(Sandbox):
                 else:
                     vsrc = os.path.join(path, name + ".py")
                     vdst = dst(python_dir, name + ".py")
-                if self.allow_binds:
+                if allow_binds:
                     mount(vsrc, vdst)
                 else:
                     dep_path = os.path.dirname(vsrc)
@@ -154,24 +159,24 @@ class SingularitySandbox(Sandbox):
                         env["PYTHONPATH"] = os.pathsep.join([env["PYTHONPATH"], dep_path])
 
             # forward the law cli dir to bin as it contains a law executable
-            if self.allow_binds:
+            if allow_binds:
                 env["PATH"] = os.pathsep.join([env["PATH"], dst(python_dir, "law", "cli")])
             else:
                 cli_dir = os.path.join(law_src_path(), "cli")
                 env["PATH"] = os.pathsep.join([env["PATH"], cli_dir])
 
             # forward the law config file
-            if cfg.config_file:
-                if self.allow_binds:
-                    mount(cfg.config_file, dst("law.cfg"))
+            if self.cfg.config_file:
+                if allow_binds:
+                    mount(self.cfg.config_file, dst("law.cfg"))
                     env["LAW_CONFIG_FILE"] = dst("law.cfg")
                 else:
-                    env["LAW_CONFIG_FILE"] = cfg.config_file
+                    env["LAW_CONFIG_FILE"] = self.cfg.config_file
 
             # forward the luigi config file
             for p in luigi.configuration.LuigiConfigParser._config_paths[::-1]:
                 if os.path.exists(p):
-                    if self.allow_binds:
+                    if allow_binds:
                         mount(p, dst("luigi.cfg"))
                         env["LUIGI_CONFIG_PATH"] = dst("luigi.cfg")
                     else:
