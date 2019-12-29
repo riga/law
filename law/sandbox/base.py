@@ -112,7 +112,7 @@ class Sandbox(object):
 
         raise Exception("no sandbox with type '{}' found".format(_type))
 
-    def __init__(self, name, task):
+    def __init__(self, name, task=None):
         super(Sandbox, self).__init__()
 
         # when a task is set, it must be a SandboxTask instance
