@@ -232,7 +232,7 @@ class SingularitySandbox(Sandbox):
         # handle scheduling within the container
         ls_flag = "--local-scheduler"
         if self.force_local_scheduler() and ls_flag not in proxy_cmd:
-            proxy_cmd.append(ls_flag)
+            proxy_cmd.extend([ls_flag, "True"])
 
         # build the final command
         cmd = quote_cmd(["singularity", "exec"] + args + [self.image, "bash", "-l", "-c",
