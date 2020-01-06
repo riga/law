@@ -62,17 +62,17 @@ class DockerSandbox(Sandbox):
             tmp = LocalFileTarget(is_tmp=".env")
             tmp.touch()
 
-            env_path = os.path.join("/tmp", tmp.unique_basename)
+            env_file = os.path.join("/tmp", tmp.unique_basename)
 
             # build commands to setup the environment
             setup_cmds = self._build_setup_cmds(self._get_env())
 
             # arguments to configure the environment
-            args = ["-v", "{}:{}".format(tmp.path, env_path)] + self.common_args()
+            args = ["-v", "{}:{}".format(tmp.path, env_file)] + self.common_args()
 
             # build the command
             py_cmd = "import os,pickle;" \
-                + "pickle.dump(dict(os.environ),open('{}','wb'),protocol=2)".format(env_path)
+                + "pickle.dump(dict(os.environ),open('{}','wb'),protocol=2)".format(env_file)
             cmd = quote_cmd(["docker", "run"] + args + [self.image, "bash", "-l", "-c",
                 "; ".join(flatten(setup_cmds, quote_cmd(["python", "-c", py_cmd]))),
             ])
@@ -92,8 +92,6 @@ class DockerSandbox(Sandbox):
         return self._envs[self.image]
 
     def cmd(self, proxy_cmd):
-        cfg = Config.instance()
-
         # docker run command arguments
         args = []
 
@@ -108,12 +106,13 @@ class DockerSandbox(Sandbox):
         args.extend(["-h", "{}".format(socket.gethostname())])
 
         # helper to build forwarded paths
-        section = self.get_config_section()
-        forward_dir = cfg.get_expanded(section, "forward_dir")
-        python_dir = cfg.get_expanded(section, "python_dir")
-        bin_dir = cfg.get_expanded(section, "bin_dir")
-        stagein_dir = cfg.get_expanded(section, "stagein_dir")
-        stageout_dir = cfg.get_expanded(section, "stageout_dir")
+        cfg = Config.instance()
+        cfg_section = self.get_config_section()
+        forward_dir = cfg.get_expanded(cfg_section, "forward_dir")
+        python_dir = cfg.get_expanded(cfg_section, "python_dir")
+        bin_dir = cfg.get_expanded(cfg_section, "bin_dir")
+        stagein_dir = cfg.get_expanded(cfg_section, "stagein_dir")
+        stageout_dir = cfg.get_expanded(cfg_section, "stageout_dir")
 
         def dst(*args):
             return os.path.join(forward_dir, *(str(arg) for arg in args))
@@ -151,8 +150,8 @@ class DockerSandbox(Sandbox):
         env["PYTHONDONTWRITEBYTECODE"] = "1"
 
         # adjust path variables
-        env["PATH"] = os.pathsep.join(["$PATH", dst("bin")])
-        env["PYTHONPATH"] = os.pathsep.join(["$PYTHONPATH", dst(python_dir)])
+        env["PATH"] = os.pathsep.join([dst("bin"), "$PATH"])
+        env["PYTHONPATH"] = os.pathsep.join([dst(python_dir), "$PYTHONPATH"])
 
         # forward python directories of law and dependencies
         for mod in law_deps:
@@ -167,7 +166,7 @@ class DockerSandbox(Sandbox):
             mount(vsrc, vdst)
 
         # forward the law cli dir to bin as it contains a law executable
-        env["PATH"] = os.pathsep.join([env["PATH"], dst(python_dir, "law", "cli")])
+        env["PATH"] = os.pathsep.join([dst(python_dir, "law", "cli"), env["PATH"]])
 
         # forward the law config file
         if cfg.config_file:
@@ -198,14 +197,15 @@ class DockerSandbox(Sandbox):
 
         # handle scheduling within the container
         ls_flag = "--local-scheduler"
-        if self.force_local_scheduler() and ls_flag not in proxy_cmd:
-            proxy_cmd.append(ls_flag)
         if ls_flag not in proxy_cmd:
-            # when the scheduler runs on the host system, we need to set the network interace to the
-            # host system and set the correct luigi scheduler host as seen by the container
-            if self.scheduler_on_host():
-                args.extend(["--network", "host"])
-                proxy_cmd.extend(["--scheduler-host", "{}".format(self.get_host_ip())])
+            if self.force_local_scheduler():
+                proxy_cmd.extend([ls_flag, "True"])
+            else:
+                # when the scheduler runs on the host system, we need to set the network interace to
+                # the host system and set the correct host address as seen by the container
+                if self.scheduler_on_host():
+                    args.extend(["--network", "host"])
+                    proxy_cmd.extend(["--scheduler-host", self.get_host_ip()])
 
         # build the final command
         cmd = quote_cmd(["docker", "run"] + args + [self.image, "bash", "-l", "-c",
