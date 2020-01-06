@@ -140,12 +140,12 @@ class SingularitySandbox(Sandbox):
         else:
             allow_binds = self.cfg.get_expanded(self.cfg_section, "allow_binds")
 
-        # determine whether environment forwarding is allowed
-        forward_env_cb = getattr(self.task, "singularity_forward_env", None)
-        if callable(forward_env_cb):
-            forward_env = forward_env_cb()
+        # determine whether law software forwarding is allowed
+        forward_law_cb = getattr(self.task, "singularity_forward_law", None)
+        if callable(forward_law_cb):
+            forward_law = forward_law_cb()
         else:
-            forward_env = self.cfg.get_expanded(self.cfg_section, "forward_env")
+            forward_law = self.cfg.get_expanded(self.cfg_section, "forward_law")
 
         # environment variables to set
         env = self._get_env()
@@ -153,7 +153,7 @@ class SingularitySandbox(Sandbox):
         # prevent python from writing byte code files
         env["PYTHONDONTWRITEBYTECODE"] = "1"
 
-        if forward_env:
+        if forward_law:
             # adjust path variables
             if allow_binds:
                 env["PATH"] = os.pathsep.join(["$PATH", dst("bin")])

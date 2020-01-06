@@ -122,7 +122,7 @@ class Config(ConfigParser):
             "stagein_dir": "stagein",
             "stageout_dir": "stageout",
             "allow_binds": True,
-            "forward_env": True,
+            "forward_law": True,
         },
         "singularity_sandbox_env": {},
         "singularity_sandbox_volumes": {},
