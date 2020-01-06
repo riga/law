@@ -11,6 +11,7 @@ __all__ = ["Task", "WrapperTask", "ExternalTask"]
 import sys
 import socket
 import time
+import math
 import logging
 from collections import OrderedDict
 from contextlib import contextmanager
@@ -303,8 +304,8 @@ class Task(BaseTask):
                 msg = "{} (took {})".format(msg, human_duration(seconds=diff))
             self.publish_message(msg)
 
-    def publish_progress(self, percentage, precision=0):
-        percentage = round(percentage, precision)
+    def publish_progress(self, percentage):
+        percentage = int(math.floor(percentage))
         if percentage != self._last_progress_percentage:
             self._last_progress_percentage = percentage
             self.set_progress_percentage(percentage)
