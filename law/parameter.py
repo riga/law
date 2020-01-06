@@ -76,7 +76,7 @@ class DurationParameter(luigi.Parameter):
     .. code-block:: python
 
         p = DurationParameter(unit="s")
-        p.parse("5")                      # -> 5. (using the unit implicitely)
+        p.parse("5")                      # -> 5. (using the unit implicitly)
         p.parse("5s")                     # -> 5.
         p.parse("5m")                     # -> 300.
         p.parse("05:10")                  # -> 310.
@@ -84,7 +84,7 @@ class DurationParameter(luigi.Parameter):
         p.serialize(310)                  # -> 05:15
 
         p = DurationParameter(unit="m")
-        p.parse("5")                      # -> 5. (using the unit implicitely)
+        p.parse("5")                      # -> 5. (using the unit implicitly)
         p.parse("5s")                     # -> 0.083
         p.parse("5m")                     # -> 5.
         p.parse("05:10")                  # -> 5.167
