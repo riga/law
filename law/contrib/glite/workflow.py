@@ -20,7 +20,7 @@ from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments
 from law.contrib.glite.job import GLiteJobManager, GLiteJobFileFactory
 from law.target.file import get_path
-from law.parser import global_cmdline_args, add_cmdline_arg, remove_cmdline_arg
+from law.parser import global_cmdline_args, add_cmdline_arg
 from law.util import law_src_path, merge_dicts
 from law.contrib.wlcg import delegate_voms_proxy_glite, get_ce_endpoint
 
@@ -62,11 +62,9 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
 
         # collect task parameters
         task_params = task.as_branch(branches[0]).cli_args(exclude={"branch"})
-        task_params += global_cmdline_args()
-        # add and remove some arguments
-        task_params = remove_cmdline_arg(task_params, "--workers", 2)
+        task_params += global_cmdline_args(exclude=[("--workers", 1), ("--local-scheduler", 1)])
         if task.glite_use_local_scheduler():
-            task_params = add_cmdline_arg(task_params, "--local-scheduler")
+            task_params = add_cmdline_arg(task_params, "--local-scheduler", "True")
         for arg in task.glite_cmdline_args() or []:
             if isinstance(arg, tuple):
                 task_params = add_cmdline_arg(task_params, *arg)

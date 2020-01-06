@@ -25,9 +25,10 @@ from law.task.proxy import ProxyTask, get_proxy_attribute
 from law.target.local import LocalDirectoryTarget
 from law.target.collection import TargetCollection
 from law.parameter import NO_STR
-from law.parser import global_cmdline_args
+from law.parser import global_cmdline_args, root_task
 from law.util import (
-    colored, multi_match, mask_struct, map_struct, interruptable_popen, patch_object, flatten,
+    colored, is_pattern, multi_match, mask_struct, map_struct, interruptable_popen, patch_object,
+    flatten,
 )
 
 
@@ -37,13 +38,15 @@ _current_sandbox = os.getenv("LAW_SANDBOX", "").split(",")
 
 _sandbox_switched = os.getenv("LAW_SANDBOX_SWITCHED", "") == "1"
 
-_sandbox_is_root_task = os.getenv("LAW_SANDBOX_IS_ROOT_TASK", "")
+_sandbox_is_root_task = os.getenv("LAW_SANDBOX_IS_ROOT_TASK", "") == "1"
 
 _sandbox_stagein_dir = os.getenv("LAW_SANDBOX_STAGEIN_DIR", "")
 
 _sandbox_stageout_dir = os.getenv("LAW_SANDBOX_STAGEOUT_DIR", "")
 
 _sandbox_task_id = os.getenv("LAW_SANDBOX_WORKER_TASK", "")
+
+_sandbox_root_task_id = os.getenv("LAW_SANDBOX_WORKER_ROOT_TASK", "")
 
 # the task id must be set when in a sandbox
 if not _sandbox_task_id and _sandbox_switched:
@@ -109,7 +112,7 @@ class Sandbox(object):
 
         raise Exception("no sandbox with type '{}' found".format(_type))
 
-    def __init__(self, name, task):
+    def __init__(self, name, task=None):
         super(Sandbox, self).__init__()
 
         # when a task is set, it must be a SandboxTask instance
@@ -169,17 +172,18 @@ class Sandbox(object):
         env["LAW_SANDBOX"] = self.key.replace("$", r"\$")
         env["LAW_SANDBOX_SWITCHED"] = "1"
         if self.task:
-            env["LAW_SANDBOX_IS_ROOT_TASK"] = "1" if self.task.is_root_task() else ""
             if getattr(self.task, "_worker_id", None):
                 env["LAW_SANDBOX_WORKER_ID"] = self.task._worker_id
             if getattr(self.task, "_worker_task", None):
                 env["LAW_SANDBOX_WORKER_TASK"] = self.task.live_task_id
+            env["LAW_SANDBOX_WORKER_ROOT_TASK"] = root_task().task_id
+            env["LAW_SANDBOX_IS_ROOT_TASK"] = str(int(self.task.is_root_task()))
 
         # extend by variables from the config file
         cfg = Config.instance()
         section = self.get_config_section(postfix="env")
         for name, value in cfg.items_expanded(section):
-            if "*" in name or "?" in name:
+            if is_pattern(name):
                 names = [key for key in os.environ.keys() if fnmatch(key, name)]
             else:
                 names = [name]
@@ -242,8 +246,8 @@ class SandboxProxy(ProxyTask):
         # add cli args, exclude some parameters
         cmd.extend(self.task.cli_args(exclude=self.task.exclude_params_sandbox))
 
-        # add global args
-        cmd.extend(global_cmdline_args())
+        # add global args, explicitely remove the --workers argument
+        cmd.extend(global_cmdline_args(exclude=[("--workers", 1)]))
 
         return cmd
 
@@ -414,7 +418,7 @@ class SandboxTask(Task):
     allow_empty_sandbox = False
     valid_sandboxes = ["*"]
 
-    exclude_params_sandbox = {"sandbox", "log_file", "workers"}
+    exclude_params_sandbox = {"sandbox", "log_file"}
 
     def __init__(self, *args, **kwargs):
         super(SandboxTask, self).__init__(*args, **kwargs)
@@ -451,20 +455,18 @@ class SandboxTask(Task):
             self.sandbox_inst = None
             self.sandbox_proxy = None
 
-    def is_sandboxed(self):
-        if self.effective_sandbox == NO_STR:
-            return True
-        else:
-            return self.effective_sandbox in _current_sandbox and self.task_id == _sandbox_task_id
-
     def __getattribute__(self, attr, proxy=True):
         return get_proxy_attribute(self, attr, proxy=proxy, super_cls=Task)
 
+    def is_sandboxed(self):
+        return self.effective_sandbox == NO_STR or self.effective_sandbox in _current_sandbox
+
     def is_root_task(self):
-        if self.effective_sandbox != NO_STR and self.is_sandboxed():
-            return _sandbox_is_root_task == "1"
+        is_root = super(SandboxTask, self).is_root_task()
+        if _sandbox_switched:
+            return is_root and _sandbox_is_root_task
         else:
-            return super(SandboxTask, self).is_root_task()
+            return is_root
 
     def _staged_input(self):
         # get the original inputs

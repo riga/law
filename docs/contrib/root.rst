@@ -25,3 +25,16 @@ Class ``UprootFormatter``
 
 .. autoclass:: UprootFormatter
    :members:
+
+
+Class ``GuardedTFile``
+----------------------
+
+.. autoclass:: GuardedTFile
+   :members:
+
+
+Functions
+---------
+
+.. autofunction:: import_ROOT

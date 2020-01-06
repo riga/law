@@ -12,14 +12,16 @@ import os
 import sys
 import uuid
 import socket
+import subprocess
 
 import luigi
 import six
 
 from law.config import Config
 from law.sandbox.base import Sandbox
+from law.target.local import LocalFileTarget
 from law.cli.software import deps as law_deps
-from law.util import make_list, tmp_file, interruptable_popen, quote_cmd, flatten
+from law.util import make_list, interruptable_popen, quote_cmd, flatten
 
 
 class DockerSandbox(Sandbox):
@@ -43,11 +45,12 @@ class DockerSandbox(Sandbox):
         # arguments that are used to setup the env and actual run commands
         args = []
 
-        sandbox_user = self.task.sandbox_user()
-        if sandbox_user:
-            if not isinstance(sandbox_user, (tuple, list)) or len(sandbox_user) != 2:
-                raise Exception("sandbox_user() must return 2-tuple")
-            args.extend(["-u", "{}:{}".format(*sandbox_user)])
+        if self.task:
+            sandbox_user = self.task.sandbox_user()
+            if sandbox_user:
+                if not isinstance(sandbox_user, (tuple, list)) or len(sandbox_user) != 2:
+                    raise Exception("sandbox_user() must return 2-tuple")
+                args.extend(["-u", "{}:{}".format(*sandbox_user)])
 
         return args
 
@@ -56,31 +59,32 @@ class DockerSandbox(Sandbox):
         # strategy: create a tempfile, forward it to a container, let python dump its full env,
         # close the container and load the env file
         if self.image not in self._envs:
-            with tmp_file() as tmp:
-                tmp_path = os.path.realpath(tmp[1])
-                env_path = os.path.join("/tmp", str(hash(tmp_path))[-8:])
+            tmp = LocalFileTarget(is_tmp=".env")
+            tmp.touch()
 
-                # build commands to setup the environment
-                setup_cmds = self._build_setup_cmds(self._get_env())
+            env_path = os.path.join("/tmp", tmp.unique_basename)
 
-                # arguments to configure the environment
-                args = ["-v", "{}:{}".format(tmp_path, env_path)] + self.common_args()
+            # build commands to setup the environment
+            setup_cmds = self._build_setup_cmds(self._get_env())
 
-                # build the command
-                py_cmd = "import os,pickle;" \
-                    + "pickle.dump(dict(os.environ),open('{}','wb'),protocol=2)".format(env_path)
-                cmd = quote_cmd(["docker", "run"] + args + [self.image, "bash", "-l", "-c",
-                    "; ".join(flatten(setup_cmds, quote_cmd(["python", "-c", py_cmd]))),
-                ])
+            # arguments to configure the environment
+            args = ["-v", "{}:{}".format(tmp.path, env_path)] + self.common_args()
 
-                # run it
-                returncode = interruptable_popen(cmd, shell=True, executable="/bin/bash")[0]
-                if returncode != 0:
-                    raise Exception("docker sandbox env loading failed")
+            # build the command
+            py_cmd = "import os,pickle;" \
+                + "pickle.dump(dict(os.environ),open('{}','wb'),protocol=2)".format(env_path)
+            cmd = quote_cmd(["docker", "run"] + args + [self.image, "bash", "-l", "-c",
+                "; ".join(flatten(setup_cmds, quote_cmd(["python", "-c", py_cmd]))),
+            ])
 
-                # load the environment from the tmp file
-                with open(tmp_path, "rb") as f:
-                    env = six.moves.cPickle.load(f)
+            # run it
+            code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            if code != 0:
+                raise Exception("docker sandbox env loading failed:\n{}".format(out))
+
+            # load the environment from the tmp file
+            env = tmp.load(formatter="pickle")
 
             # cache
             self._envs[self.image] = env

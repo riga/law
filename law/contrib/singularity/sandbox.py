@@ -9,14 +9,16 @@ __all__ = ["SingularitySandbox"]
 
 
 import os
+import subprocess
 
 import luigi
 import six
 
-from law.sandbox.base import Sandbox
 from law.config import Config
+from law.sandbox.base import Sandbox
+from law.target.local import LocalDirectoryTarget
 from law.cli.software import deps as law_deps
-from law.util import make_list, tmp_file, interruptable_popen, quote_cmd, flatten, law_src_path
+from law.util import make_list, interruptable_popen, quote_cmd, flatten, law_src_path
 
 
 class SingularitySandbox(Sandbox):
@@ -44,40 +46,50 @@ class SingularitySandbox(Sandbox):
 
     @property
     def env(self):
-        # strategy: create a tempfile, forward it to a container, let python dump its full env,
-        # close the container and load the env file
+        # strategy: unlike docker, singularity might not allow binding of paths that do not exist
+        # in the container, so create a tmp directory on the host system and bind it as /tmp, let
+        # python dump its full env into a file, and read the file again on the host system
         if self.image not in self._envs:
-            with tmp_file() as tmp:
-                tmp_path = os.path.realpath(tmp[1])
-                env_path = os.path.join("/singularity_tmp", str(hash(tmp_path))[-8:])
+            tmp_dir = LocalDirectoryTarget(is_tmp=True)
+            tmp_dir.touch()
 
-                # build commands to setup the environment
-                setup_cmds = self._build_setup_cmds(self._get_env())
+            tmp = tmp_dir.child("env", type="f")
+            tmp.touch()
 
-                # arguments to configure the environment
-                args = ["-e"]
-                if getattr(self.task, "singularity_allow_binds", self.cfg.get_expanded(
-                        self.cfg_section, "allow_binds")):
-                    args.extend(["-B", "{}:{}".format(tmp_path, env_path)])
-                else:
-                    env_path = tmp_path
-                args += self.common_args()
+            # build commands to setup the environment
+            setup_cmds = self._build_setup_cmds(self._get_env())
 
-                # build the command
-                py_cmd = "import os,pickle;" \
-                    + "pickle.dump(dict(os.environ),open('{}','wb'),protocol=2)".format(env_path)
-                cmd = quote_cmd(["singularity", "exec"] + args + [self.image, "bash", "-l", "-c",
-                    "; ".join(flatten(setup_cmds, quote_cmd(["python", "-c", py_cmd]))),
-                ])
+            # determine whether volume binding is allowed
+            allow_binds_cb = getattr(self.task, "singularity_allow_binds", None)
+            if callable(allow_binds_cb):
+                allow_binds = allow_binds_cb()
+            else:
+                allow_binds = self.cfg.get_expanded(self.cfg_section, "allow_binds")
 
-                # run it
-                returncode = interruptable_popen(cmd, shell=True, executable="/bin/bash")[0]
-                if returncode != 0:
-                    raise Exception("singularity sandbox env loading failed")
+            # arguments to configure the environment
+            args = ["-e"]
+            if allow_binds:
+                args.extend(["-B", "{}:/tmp".format(tmp_dir.path)])
+                env_file = "/tmp/{}".format(tmp.basename)
+            else:
+                env_file = tmp.path
+            args += self.common_args()
 
-                # load the environment from the tmp file
-                with open(tmp_path, "rb") as f:
-                    env = six.moves.cPickle.load(f)
+            # build the command
+            py_cmd = "import os,pickle;" \
+                + "pickle.dump(dict(os.environ),open('{}','wb'),protocol=2)".format(env_file)
+            cmd = quote_cmd(["singularity", "exec"] + args + [self.image, "bash", "-l", "-c",
+                "; ".join(flatten(setup_cmds, quote_cmd(["python", "-c", py_cmd]))),
+            ])
+
+            # run it
+            code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            if code != 0:
+                raise Exception("singularity sandbox env loading failed:\n{}".format(out))
+
+            # load the environment from the tmp file
+            env = tmp.load(formatter="pickle")
 
             # cache
             self._envs[self.image] = env
@@ -86,17 +98,12 @@ class SingularitySandbox(Sandbox):
 
     def cmd(self, proxy_cmd):
         # singularity exec command arguments
+        # -e clears the environment
         args = ["-e"]
 
         # add args configured on the task
         args_getter = getattr(self.task, "singularity_args", None)
         args += make_list(args_getter() if callable(args_getter) else self.default_singularity_args)
-
-        # environment variables to set
-        env = self._get_env()
-
-        # prevent python from writing byte code files
-        env["PYTHONDONTWRITEBYTECODE"] = "1"
 
         # helper to build forwarded paths
         forward_dir = self.cfg.get_expanded(self.cfg_section, "forward_dir")
@@ -126,13 +133,27 @@ class SingularitySandbox(Sandbox):
             # store the mount point
             args.extend(["-B", ":".join(vol)])
 
-        # determine whether volume forwarding is allowed
-        allow_binds = getattr(self.task, "singularity_allow_binds", self.cfg.get_expanded(
-            self.cfg_section, "allow_binds")
-        )
+        # determine whether volume binding is allowed
+        allow_binds_cb = getattr(self.task, "singularity_allow_binds", None)
+        if callable(allow_binds_cb):
+            allow_binds = allow_binds_cb()
+        else:
+            allow_binds = self.cfg.get_expanded(self.cfg_section, "allow_binds")
 
-        if getattr(self.task, "singularity_forward_env", self.cfg.get_expanded(
-                self.cfg_section, "forward_env")):
+        # determine whether environment forwarding is allowed
+        forward_env_cb = getattr(self.task, "singularity_forward_env", None)
+        if callable(forward_env_cb):
+            forward_env = forward_env_cb()
+        else:
+            forward_env = self.cfg.get_expanded(self.cfg_section, "forward_env")
+
+        # environment variables to set
+        env = self._get_env()
+
+        # prevent python from writing byte code files
+        env["PYTHONDONTWRITEBYTECODE"] = "1"
+
+        if forward_env:
             # adjust path variables
             if allow_binds:
                 env["PATH"] = os.pathsep.join(["$PATH", dst("bin")])

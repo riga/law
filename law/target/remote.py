@@ -31,7 +31,9 @@ from law.target.file import (
 )
 from law.target.local import LocalFileSystem, LocalFileTarget
 from law.target.formatter import find_formatter
-from law.util import make_list, makedirs_perm, human_bytes, create_hash, user_owns_file, io_lock
+from law.util import (
+    make_list, makedirs_perm, human_bytes, parse_bytes, create_hash, user_owns_file, io_lock,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -333,9 +335,13 @@ class RemoteCache(object):
             if key not in config and not cfg.is_missing_or_none(section, cache_key):
                 config[key] = func(section, cache_key)
 
+        def parse_size(section, cache_key):
+            value = cfg.get_expanded(section, cache_key)
+            return parse_bytes(value, input_unit="MB", unit="MB")
+
         add("root", cfg.get_expanded)
         add("auto_flush", cfg.get_expanded_boolean)
-        add("max_size", cfg.get_expanded_int)
+        add("max_size", parse_size)
         add("dir_perm", cfg.get_expanded_int)
         add("file_perm", cfg.get_expanded_int)
         add("wait_delay", cfg.get_expanded_float)
