@@ -30,12 +30,6 @@ class SingularitySandbox(Sandbox):
     # env cache per image
     _envs = {}
 
-    def __init__(self, *args, **kwargs):
-        super(SingularitySandbox, self).__init__(*args, **kwargs)
-
-        self.cfg = Config.instance()
-        self.cfg_section = self.get_config_section()
-
     @property
     def image(self):
         return self.name
