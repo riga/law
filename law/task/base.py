@@ -48,7 +48,8 @@ class BaseRegister(luigi.task_register.Register):
             for attr, base_params in vars(base).items():
                 if isinstance(base_params, set) and attr.startswith("exclude_params_"):
                     params = classdict.setdefault(attr, set())
-                    params |= base_params
+                    if isinstance(params, set):
+                        params.update(base_params)
 
         return super(BaseRegister, metacls).__new__(metacls, classname, bases, classdict)
 
@@ -323,6 +324,9 @@ class Task(BaseTask):
         else:
             return make_callback(n_total, *reach)
 
+    def __repr__(self):
+        return self.repr(color=False)
+
     def repr(self, all_params=False, color=None):
         if color is None:
             color = Config.instance().get_expanded_boolean("task", "colored_repr")
@@ -352,16 +356,23 @@ class Task(BaseTask):
         param_values = self.get_param_values(params, [], self.param_kwargs)
         param_objs = dict(params)
 
+        if all_params:
+            exclude = set()
+        else:
+            exclude = self.exclude_params_repr | self.inst_exclude_params_repr()
+
         pairs = []
         for param_name, param_value in param_values:
-            if param_objs[param_name].significant and \
-                    (all_params or not multi_match(param_name, self.exclude_params_repr)):
+            if param_objs[param_name].significant and not multi_match(param_name, exclude):
                 pairs.append((param_name, param_objs[param_name].serialize(param_value)))
 
         return pairs
 
     def _repr_flags(self):
         return []
+
+    def inst_exclude_params_repr(self):
+        return set()
 
     @classmethod
     def _repr_family(cls, family, color=False):

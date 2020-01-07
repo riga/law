@@ -450,6 +450,12 @@ class BaseWorkflow(Task):
                     _exclude=self.exclude_params_workflow)
             return self._workflow_task
 
+    def inst_exclude_params_repr(self):
+        params = super(BaseWorkflow, self).inst_exclude_params_repr()
+        if self.is_branch:
+            params.update(self.exclude_params_branch)
+        return params
+
     @abstractmethod
     def create_branch_map(self):
         """
