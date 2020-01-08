@@ -18,7 +18,7 @@ import weakref
 import functools
 import atexit
 import gc
-import random
+import random as _random
 import logging
 from contextlib import contextmanager
 
@@ -32,7 +32,8 @@ from law.target.file import (
 from law.target.local import LocalFileSystem, LocalFileTarget
 from law.target.formatter import find_formatter
 from law.util import (
-    make_list, makedirs_perm, human_bytes, parse_bytes, create_hash, user_owns_file, io_lock,
+    make_list, brace_expand, makedirs_perm, human_bytes, parse_bytes, create_hash, user_owns_file,
+    io_lock,
 )
 
 
@@ -73,55 +74,74 @@ global_retries = None
 global_retry_delay = None
 
 
-def retry(func):
-    @functools.wraps(func)
-    def wrapper(self, *args, **kwargs):
-        if global_retries is not None:
-            retries = global_retries
-        else:
-            retries = kwargs.pop("retries", None)
-            if retries is None:
-                retries = self.retries
+def retry(func=None, uri_cmd=None):
+    def wrapper(func):
+        @functools.wraps(func)
+        def wrapper(self, *args, **kwargs):
+            if global_retries is not None:
+                retries = global_retries
+            else:
+                retries = kwargs.pop("retries", None)
+                if retries is None:
+                    retries = self.retries
 
-        if global_retry_delay is not None:
-            delay = global_retry_delay
-        else:
-            delay = kwargs.pop("retry_delay", None)
-            if delay is None:
-                delay = self.retry_delay
+            if global_retry_delay is not None:
+                delay = global_retry_delay
+            else:
+                delay = kwargs.pop("retry_delay", None)
+                if delay is None:
+                    delay = self.retry_delay
 
-        attempt = 0
-        try:
-            while True:
-                try:
-                    return func(self, *args, **kwargs)
-                except gfal2.GError as e:
-                    attempt += 1
-                    if attempt > retries:
-                        raise e
-                    else:
-                        logger.debug("gfal2.{}(args: {}, kwargs: {}) failed, retry".format(
-                            func.__name__, args, kwargs))
-                        time.sleep(delay)
-        except Exception as e:
-            e.message += "\nfunction: {}\nattempt : {}\nargs    : {}\nkwargs  : {}".format(
-                func.__name__, attempt, args, kwargs)
-            raise e
+            random_base = kwargs.pop("random_base", None)
+            if random_base is None:
+                random_base = self.random_base
 
-    return wrapper
+            attempt = 0
+            try:
+                base = None
+                base_set = bool(kwargs.get("base"))
+                skip_indices = []
+                while True:
+                    # when no base was set initially and an uri cmd is given, get a random
+                    # uri base under consideration of bases (or their indices) to skip
+                    if not base_set and uri_cmd:
+                        base, idx = self.get_base(cmd=uri_cmd, random=random_base,
+                            skip_indices=skip_indices, return_index=True)
+                        kwargs["base"] = base
+                        skip_indices.append(idx)
+
+                    try:
+                        return func(self, *args, **kwargs)
+                    except gfal2.GError as e:
+                        attempt += 1
+                        if attempt > retries:
+                            raise e
+                        else:
+                            logger.debug("gfal2.{}(args: {}, kwargs: {}) failed, retry".format(
+                                func.__name__, args, kwargs))
+                            time.sleep(delay)
+
+            except Exception as e:
+                e.message += "\nfunction: {}\nattempt : {}\nargs    : {}\nkwargs  : {}".format(
+                    func.__name__, attempt, args, kwargs)
+                raise e
+
+        return wrapper
+
+    return wrapper(func) if func else wrapper
 
 
 class GFALInterface(object):
 
     def __init__(self, base, bases=None, gfal_options=None, transfer_config=None,
-            atomic_contexts=False, retries=0, retry_delay=0):
+            atomic_contexts=False, retries=0, retry_delay=0, random_base=True):
         object.__init__(self)
 
         # cache for gfal context objects and transfer parameters per pid for thread safety
         self._contexts = {}
         self._transfer_parameters = {}
 
-        # convert base(s) to list for round-robin
+        # convert base(s) to list for random selection
         self.base = make_list(base)
         self.bases = {k: make_list(b) for k, b in six.iteritems(bases)} if bases else {}
 
@@ -142,6 +162,7 @@ class GFALInterface(object):
         self.atomic_contexts = atomic_contexts
         self.retries = retries
         self.retry_delay = retry_delay
+        self.random_base = random_base
 
     @classmethod
     def gfal_str(cls, s):
@@ -191,72 +212,116 @@ class GFALInterface(object):
             if self.atomic_contexts and pid in self._transfer_parameters:
                 del self._transfer_parameters[pid]
 
-    def uri(self, path, cmd=None, rnd=True):
+    def uri(self, path, *args, **kwargs):
+        """ uri(path, base=None, *args, **kwargs)
+        """
+        # get the base
+        base = kwargs.pop("base", None)
+        if not base:
+            kwargs["return_index"] = False
+            base = self.get_base(*args, **kwargs)
+
+        return os.path.join(base, self.gfal_str(path).lstrip("/")).rstrip("/")
+
+    def get_base(self, cmd=None, random=None, skip_indices=None, return_index=False):
+        if random is None:
+            random = self.random_base
+
         # get potential bases for the given cmd
-        bases = self.base
+        bases = make_list(self.base)
         if cmd:
             for cmd in make_list(cmd):
                 if cmd in self.bases:
                     bases = self.bases[cmd]
                     break
 
-        # select one when there are multple
-        if not rnd or len(bases) == 1:
+        if not bases:
+            raise Exception("no bases available for command '{}'".format(cmd))
+
+        all_bases = bases
+        if len(bases) == 1:
+            # select the first base when there is only one
             base = bases[0]
         else:
-            base = random.choice(bases)
+            # are there indices to skip?
+            if skip_indices:
+                _bases = [b for i, b in enumerate(bases) if i not in skip_indices]
+                if _bases:
+                    bases = _bases
 
-        return os.path.join(base, self.gfal_str(path).strip("/"))
+            # select a base
+            base = _random.choice(bases) if random else bases[0]
 
-    def exists(self, path, stat=False):
-        cmd = "stat" if stat else ("exists", "stat")
+        return base if not return_index else (base, all_bases.index(base))
+
+    def exists(self, path, stat=False, base=None):
+        uri = self.uri(path, cmd="stat" if stat else ("exists", "stat"), base=base)
         with self.context() as ctx:
             try:
-                rstat = ctx.stat(self.uri(path, cmd=cmd))
+                rstat = ctx.stat(uri)
                 return rstat if stat else True
             except gfal2.GError:
                 return None if stat else False
 
-    @retry
-    def stat(self, path):
+    @retry(uri_cmd="stat")
+    def stat(self, path, base=None):
+        uri = self.uri(path, cmd="stat", base=base)
         with self.context() as ctx:
-            return ctx.stat(self.uri(path, "stat"))
+            return ctx.stat(uri)
 
-    @retry
-    def chmod(self, path, perm):
+    @retry(uri_cmd="chmod")
+    def chmod(self, path, perm, base=None):
         if perm:
+            uri = self.uri(path, cmd="chmod", base=base)
             with self.context() as ctx:
-                return ctx.chmod(self.uri(path, "chmod"), perm)
+                return ctx.chmod(uri, perm)
 
-    @retry
-    def unlink(self, path):
+    @retry(uri_cmd="unlink")
+    def unlink(self, path, base=None):
+        uri = self.uri(path, cmd="unlink", base=base)
         with self.context() as ctx:
-            return ctx.unlink(self.uri(path, "unlink"))
+            return ctx.unlink(uri)
 
-    @retry
-    def rmdir(self, path):
+    @retry(uri_cmd="rmdir")
+    def rmdir(self, path, base=None):
+        uri = self.uri(path, cmd="rmdir", base=base)
         with self.context() as ctx:
-            return ctx.rmdir(self.uri(path, "rmdir"))
+            return ctx.rmdir(uri)
 
-    @retry
-    def mkdir(self, path, perm):
+    @retry(uri_cmd="mkdir")
+    def mkdir(self, path, perm, base=None):
+        uri = self.uri(path, cmd="mkdir", base=base)
         with self.context() as ctx:
-            return ctx.mkdir(self.uri(path, "mkdir"), perm or 0o0770)
+            return ctx.mkdir(uri, perm or 0o0770)
 
-    @retry
-    def mkdir_rec(self, path, perm):
+    @retry(uri_cmd=["mkdir_rec", "mkdir"])
+    def mkdir_rec(self, path, perm, base=None):
+        uri = self.uri(path, cmd=["mkdir_rec", "mkdir"], base=base)
         with self.context() as ctx:
-            return ctx.mkdir_rec(self.uri(path, ("mkdir_rec", "mkdir")), perm or 0o0770)
+            return ctx.mkdir_rec(uri, perm or 0o0770)
 
-    @retry
-    def listdir(self, path):
+    @retry(uri_cmd="listdir")
+    def listdir(self, path, base=None):
+        uri = self.uri(path, cmd="listdir", base=base)
         with self.context() as ctx:
-            return ctx.listdir(self.uri(path, "listdir"))
+            return ctx.listdir(uri)
 
-    @retry
-    def filecopy(self, src, dst):
+    @retry(uri_cmd="filecopy")
+    def filecopy(self, src, dst, base=None):
+        if has_scheme(src):
+            src = self.gfal_str(src)
+        else:
+            src = self.uri(src, cmd="filecopy", base=base)
+
+        if has_scheme(dst):
+            dst = self.gfal_str(dst)
+        else:
+            dst = self.uri(dst, cmd="filecopy", base=base)
+
         with self.context() as ctx, self.transfer_parameters(ctx) as params:
-            return ctx.filecopy(params, self.gfal_str(src), self.gfal_str(dst))
+            ctx.filecopy(params, src, dst)
+
+        return src, dst
 
 
 class RemoteCache(object):
@@ -519,11 +584,11 @@ class RemoteCache(object):
         # determine the size of files that need to be deleted
         delete_size = current_size + size - max_size
         if delete_size <= 0:
-            logger.debug("cache space sufficient, {0[0]:.2f} {0[1]} bytes remaining".format(
+            logger.debug("cache space sufficient, {0[0]:.2f} {0[1]} remaining".format(
                 human_bytes(-delete_size)))
             return True
 
-        logger.info("need to delete {0[0]:.2f} {0[1]} bytes from cache".format(
+        logger.info("need to delete {0[0]:.2f} {0[1]} from cache".format(
             human_bytes(delete_size)))
 
         # delete files, ordered by their access time, skip locked ones
@@ -589,7 +654,9 @@ class RemoteFileSystem(FileSystem):
 
         # helper to expand a config string and split by commas
         def expand_split(key):
-            return [s.strip() for s in cfg.get_expanded(section, key).strip().split(",")]
+            # get config value, run brace expansion taking into account csv splitting
+            value = cfg.get_expanded(section, key).strip()
+            return [v.strip() for v in brace_expand(value, split_csv=True)]
 
         # helper to add a config value if it exists, extracted with a config parser method
         def add(key, func):
@@ -613,6 +680,9 @@ class RemoteFileSystem(FileSystem):
         # delay between retries
         add("retry_delay", cfg.get_expanded_float)
 
+        # random base selection
+        add("random_base", cfg.get_expanded_boolean)
+
         # permissions
         add("permissions", cfg.get_expanded_boolean)
 
@@ -630,14 +700,14 @@ class RemoteFileSystem(FileSystem):
         return config
 
     def __init__(self, base, bases=None, gfal_options=None, transfer_config=None,
-            atomic_contexts=False, retries=0, retry_delay=0, permissions=True, validate_copy=False,
-            cache_config=None, local_fs=None, **kwargs):
+            atomic_contexts=False, retries=0, retry_delay=0, random_base=True, permissions=True,
+            validate_copy=False, cache_config=None, local_fs=None, **kwargs):
         FileSystem.__init__(self, **kwargs)
 
         # configure the gfal interface
         self.gfal = GFALInterface(base, bases, gfal_options=gfal_options,
             transfer_config=transfer_config, atomic_contexts=atomic_contexts, retries=retries,
-            retry_delay=retry_delay)
+            retry_delay=retry_delay, random_base=random_base)
 
         # store other configs
         self.permissions = permissions
@@ -827,7 +897,7 @@ class RemoteFileSystem(FileSystem):
         dst = self.abspath(dst)
 
         # actual copy
-        self.gfal.filecopy(src, dst, **kwargs)
+        src, dst = self.gfal.filecopy(src, dst, **kwargs)
 
         # copy validation
         dst_fs = self.local_fs if self.is_local(dst) else self
@@ -848,14 +918,14 @@ class RemoteFileSystem(FileSystem):
         else:
             return bool(cache)
 
-    # generic copy with caching ability (local paths must have "file" scheme)
+    # generic copy with caching ability (local paths must have a "file://" scheme)
     def _cached_copy(self, src, dst, perm=None, cache=None, prefer_cache=False, validate=None,
             **kwargs):
         cache = self._use_cache(cache)
 
         # ensure absolute paths
         src = self.abspath(src)
-        dst = dst and self.abspath(dst)
+        dst = dst and self.abspath(dst) or None
 
         # determine the copy mode for code readability
         # (remote-remote: "rr", remote-local: "rl", remote-cache: "rc", ...)
@@ -877,12 +947,6 @@ class RemoteFileSystem(FileSystem):
             if dst_fs.isdir(dst):
                 dst = os.path.join(dst, os.path.basename(src))
 
-        # create paths including scheme and base, i.e., uri's
-        src_uri = src if has_scheme(src) else self.gfal.uri(src, cmd="filecopy")
-        dst_uri = None
-        if dst:
-            dst_uri = dst if has_scheme(dst) else self.gfal.uri(dst, cmd="filecopy")
-
         if cache:
             kwargs_no_retries = kwargs.copy()
             kwargs_no_retries["retries"] = 0
@@ -893,7 +957,7 @@ class RemoteFileSystem(FileSystem):
                 # strategy: copy to remote, copy to cache, sync stats
 
                 # copy to remote, no need to validate as we compute the stat anyway
-                self._atomic_copy(src, dst_uri, perm=perm, validate=False, **kwargs)
+                dst_uri = self._atomic_copy(src, dst, perm=perm, validate=False, **kwargs)
                 rstat = self.stat(dst, **kwargs_no_retries)
 
                 # remove the cache entry
@@ -928,19 +992,19 @@ class RemoteFileSystem(FileSystem):
                         # in cache at all?
                         if src not in self.cache:
                             self.cache.allocate(rstat.st_size)
-                            self._atomic_copy(src_uri, csrc_uri, validate=validate, **kwargs)
+                            self._atomic_copy(src, csrc_uri, validate=validate, **kwargs)
                             self.cache.touch(src, (int(time.time()), rstat.st_mtime))
 
                 if mode == "rl":
                     # simply use the local_fs for copying
-                    self.local_fs.copy(csrc_uri, dst_uri, perm=perm)
-                    return dst_uri
+                    self.local_fs.copy(csrc_uri, dst, perm=perm)
+                    return dst
                 else:  # rc
                     return csrc_uri
 
         else:
             # simply copy and return the dst path
-            return self._atomic_copy(src_uri, dst_uri, perm=perm, validate=validate, **kwargs)
+            return self._atomic_copy(src, dst, perm=perm, validate=validate, **kwargs)
 
     def _prepare_dst_dir(self, src, dst, perm=None, **kwargs):
         rstat = self.exists(dst, stat=True)
