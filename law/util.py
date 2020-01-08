@@ -7,11 +7,11 @@ Helpful utility functions.
 
 __all__ = [
     "default_lock", "io_lock", "no_value", "rel_path", "law_src_path", "law_home_path", "print_err",
-    "abort", "try_int", "colored", "uncolored", "query_choice", "is_pattern", "multi_match",
-    "is_lazy_iterable", "make_list", "make_tuple", "flatten", "merge_dicts", "which", "map_verbose",
-    "map_struct", "mask_struct", "tmp_file", "interruptable_popen", "readable_popen", "create_hash",
-    "copy_no_perm", "makedirs_perm", "user_owns_file", "iter_chunks", "human_bytes", "parse_bytes",
-    "human_duration", "human_time_diff", "parse_duration", "is_file_exists_error",
+    "abort", "try_int", "colored", "uncolored", "query_choice", "is_pattern", "brace_expand",
+    "multi_match", "is_lazy_iterable", "make_list", "make_tuple", "flatten", "merge_dicts", "which",
+    "map_verbose", "map_struct", "mask_struct", "tmp_file", "interruptable_popen", "readable_popen",
+    "create_hash", "copy_no_perm", "makedirs_perm", "user_owns_file", "iter_chunks", "human_bytes",
+    "parse_bytes", "human_duration", "human_time_diff", "parse_duration", "is_file_exists_error",
     "check_bool_flag", "send_mail", "ShorthandDict", "open_compat", "patch_object",
     "join_generators", "quote_cmd", "BaseStream", "TeeStream", "FilteredStream",
 ]
@@ -23,6 +23,7 @@ import types
 import re
 import math
 import fnmatch
+import itertools
 import tempfile
 import subprocess
 import signal
@@ -257,6 +258,78 @@ def is_pattern(s):
     ``"*"`` or ``"?"``.
     """
     return "*" in s or "?" in s
+
+
+def brace_expand(s, split_csv=False):
+    """
+    Expands brace statements in a string *s* and returns a list containing all possible string
+    combinations. When *split_csv* is *True*, the input string is split by all ``","`` characters
+    located outside braces and the expansion is performed sequentially on all elements. Example:
+
+    .. code-block:: python
+
+        brace_expand("A{1,2}B")
+        # -> ["A1B", "A2B"]
+
+        brace_expand("A{1,2}B{3,4}C")
+        # -> ["A1B3C", "A1B4C", "A2B3C", "A2B4C"]
+
+        brace_expand("A{1,2}B,C{3,4}D")
+        # note the full 2x2 expansion
+        # -> ["A1B,C3D", "A1B,C4D", "A2B,C3D", "A2B,C4D"]
+
+        brace_expand("A{1,2}B,C{3,4}D", split_csv=True)
+        # note the 2+2 sequential expansion
+        # -> ["A1B", "A2B", "C3D", "C4D"]
+
+        brace_expand("A{1,2}B,C{3}D", split_csv=True)
+        # note the 2+1 sequential expansion
+        # -> ["A1B", "A2B", "C3D"]
+    """
+    # first, replace escaped braces
+    br_open = "__LAW_BRACE_OPEN__"
+    br_close = "__LAW_BRACE_CLOSE__"
+    s = s.replace(r"\{", br_open).replace(r"\}", br_close)
+
+    # compile the expression that finds brace statements
+    cre = re.compile(r"\{[^\{]*\}")
+
+    # take into account csv splitting
+    if split_csv:
+        # replace commas in brace statements to avoid splitting
+        br_comma = "__LAW_BRACE_COMMA__"
+        _s = cre.sub(lambda m: m.group(0).replace(",", br_comma), s)
+        # split by real csv commas and start recursion when a comma was found, otherwise continue
+        parts = _s.split(",")
+        if len(parts) > 1:
+            # replace commas in braces again and recurse
+            parts = [part.replace(br_comma, ",") for part in parts]
+            return sum((brace_expand(part, split_csv=False) for part in parts), [])
+
+    # split the string into n sequences with values to expand and n+1 fixed entities
+    sequences = cre.findall(s)
+    entities = cre.split(s)
+    if len(sequences) + 1 != len(entities):
+        raise ValueError("the number of sequences ({}) and the number of fixed entities ({}) are "
+            "not compatible".format(",".join(sequences), ",".join(entities)))
+
+    # split each sequence by comma
+    sequences = [seq[1:-1].split(",") for seq in sequences]
+
+    # create a template using the fixed entities used for formatting
+    tmpl = "{}".join(entities)
+
+    # build all combinations
+    res = []
+    for values in itertools.product(*sequences):
+        _s = tmpl.format(*values)
+
+        # insert escaped braces again
+        _s = _s.replace(br_open, r"\{").replace(br_close, r"\}")
+
+        res.append(_s)
+
+    return res
 
 
 def multi_match(name, patterns, mode=any, regex=False):
