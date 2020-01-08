@@ -44,6 +44,16 @@ action() {
     local tmp_dir="$( mktemp -d )"
     local tmp_list="$( mktemp -u "$tmp_dir/tmp.XXXXXXXXXX" ).txt"
 
+    # build rsync args containing --exclude statements built from files to ignore
+    local rsync_args="-a"
+    if [ ! -z "$ignore_files" ]; then
+        local files
+        IFS=" " read -ra files <<< "$ignore_files"
+        for f in "${files[@]}"; do
+            rsync_args="$rsync_args --exclude \"$f\""
+        done
+    fi
+
     # on nfs systems the .git/index.lock might be re-appear due to sync issues
     sgit() {
         rm -f .git/index.lock
@@ -54,7 +64,7 @@ action() {
     # strategy: add and commit everything recursively to take into account rules defined in
     # .gitignore files, then create a list of files currently under source control and run tar -c
     ( \
-        cp -R "$repo_path" "$tmp_dir/" && \
+        eval rsync $rsync_args "$repo_path" "$tmp_dir/" && \
         cd "$tmp_dir/$repo_name" && \
         rm -rf $ignore_files && \
         sgit add -A . &> /dev/null && \

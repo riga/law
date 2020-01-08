@@ -41,8 +41,18 @@ action() {
 
     local tmp_dir="$( mktemp -d )"
 
+    # build rsync args containing --exclude statements built from files to ignore
+    local rsync_args="-a"
+    if [ ! -z "$ignore_files" ]; then
+        local files
+        IFS=" " read -ra files <<< "$ignore_files"
+        for f in "${files[@]}"; do
+            rsync_args="$rsync_args --exclude \"$f\""
+        done
+    fi
+
     ( \
-        cp -R "$repo_path" "$tmp_dir/" && \
+        eval rsync $rsync_args "$repo_path" "$tmp_dir/" && \
         cd "$tmp_dir/$( basename "$repo_path" )" && \
         rm -rf $ignore_files && \
         hg add &> /dev/null && \
