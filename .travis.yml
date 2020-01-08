@@ -16,5 +16,5 @@ before_install:
   - pip install flake8
 
 script:
-  - flake8 law || exit $?
+  - flake8 law setup.py || exit $?
   - python -m unittest tests
