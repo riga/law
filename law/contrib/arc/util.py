@@ -14,13 +14,9 @@ __all__ = [
 import os
 import re
 import subprocess
-import uuid
-import json
 import logging
 
-import six
-
-from law.util import interruptable_popen, tmp_file, create_hash, parse_duration
+from law.util import interruptable_popen, tmp_file, parse_duration
 
 
 logger = logging.getLogger(__name__)
