@@ -93,6 +93,11 @@ action() {
         fi
     }
 
+    subsection() {
+        local title="$@"
+        echo "-- $title"
+    }
+
     call_func() {
         local name="$1"
         local args="${@:2}"
@@ -157,15 +162,13 @@ action() {
 
         cd "$LAW_JOB_INIT_DIR"
 
-        echo "pre cleanup"
-        echo "ls -la $LAW_JOB_HOME:"
+        subsection "files before cleanup ($LAW_JOB_HOME)"
         ls -la "$LAW_JOB_HOME"
+
         rm -rf "$LAW_JOB_HOME"
 
         echo
-
-        echo "post cleanup"
-        echo "ls -la $LAW_JOB_INIT_DIR:"
+        subsection "files after cleanup ($LAW_JOB_INIT_DIR)"
         ls -la "$LAW_JOB_INIT_DIR"
     }
 
@@ -176,6 +179,7 @@ action() {
 
     section "environment"
 
+    subsection "job infos"
     echo "shell   : $SHELL"
     echo "hostname: $( hostname )"
     echo "python  : $( 2>&1 python --version ), $( which python )"
@@ -185,15 +189,24 @@ action() {
     echo "pwd     : $( pwd )"
     echo "script  : $0"
     echo "args    : $@"
+
     echo
+    subsection "task infos"
     echo "task module   : $task_module"
     echo "task family   : $task_class"
     echo "task params   : $task_params"
     echo "branches      : $branches"
     echo "auto retry    : $auto_retry"
     echo "dashboard data: $dashboard_data"
+
+    if type hostnamectl &> /dev/null; then
+        echo
+        subsection "host infos:"
+        hostnamectl status
+    fi
+
     echo
-    echo "ls -la:"
+    subsection "file infos:"
     ls -la
 
 

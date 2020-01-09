@@ -95,22 +95,22 @@ def renew_arc_proxy(password="", lifetime="8 days"):
     To ensure that the *password* it is not visible in any process listing, it is written to a
     temporary file first and piped into the ``arcproxy`` command using the ``expect`` executable
     which must be installed on the system. This is required as ``arcproxy`` does not read input
-    from stdin but rather from raw input.
+    from stdin but rather expects interactive input.
     """
     # convert the lifetime to seconds
-    lifetime_seconds = int(max(parse_duration(lifetime, input_unit="h", unit="s"), 60))
+    lifetime_seconds = int(parse_duration(lifetime, input_unit="h", unit="s"))
 
     with tmp_file() as (_, tmp):
         with open(tmp, "w") as f:
             f.write(password)
 
         cmd = r"""expect -c '
-            set timeout -1; \
-            spawn arcproxy --constraint=validityPeriod={}; \
-            expect "Enter pass phrase for private key:"; \
-            send [exec cat {}]\r; \
-            lassign [wait] pid spawnid flag code; \
-            expect eof; \
+            set timeout -1;
+            spawn arcproxy --constraint=validityPeriod={};
+            expect "Enter pass phrase for private key:";
+            send [exec cat {}]\r;
+            lassign [wait] pid spawnid flag code;
+            expect eof;
             exit $code'""".format(lifetime_seconds, tmp)
         code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT)

@@ -225,7 +225,7 @@ class ARCJobManager(BaseJobManager):
     @classmethod
     def map_status(cls, status):
         # see http://www.nordugrid.org/documents/arc-ui.pdf
-        if status in ("Queuing", "Accepted", "Preparing"):
+        if status in ("Queuing", "Accepted", "Preparing", "Submitting"):
             return cls.PENDING
         elif status in ("Running", "Finishing"):
             return cls.RUNNING
