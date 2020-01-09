@@ -20,18 +20,12 @@ import logging
 
 import six
 
-from law.util import interruptable_popen, tmp_file, create_hash, human_duration, parse_duration
+from law.util import (
+    interruptable_popen, tmp_file, create_hash, human_duration, parse_duration, quote_cmd,
+)
 
 
 logger = logging.getLogger(__name__)
-
-
-def _voms_proxy_info(args=None, silent=False):
-    cmd = ["voms-proxy-info"] + (args or [])
-    code, out, err = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if not silent and code != 0:
-        raise Exception("voms-proxy-info failed: {}".format(err))
-    return code, out, err
 
 
 def get_voms_proxy_file():
@@ -44,53 +38,91 @@ def get_voms_proxy_file():
         return "/tmp/x509up_u{}".format(os.getuid())
 
 
-def get_voms_proxy_user():
+def _voms_proxy_info(args=None, proxy_file=None, silent=False):
+    cmd = ["voms-proxy-info"] + (args or [])
+
+    # when proxy_file is None, get the default
+    # when empty string, don't add a --file argument
+    if proxy_file is None:
+        proxy_file = get_voms_proxy_file()
+    if proxy_file:
+        proxy_file = os.path.expandvars(os.path.expanduser(proxy_file))
+        cmd.extend(["--file", proxy_file])
+
+    code, out, err = interruptable_popen(quote_cmd(cmd), shell=True, executable="/bin/bash",
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    if not silent and code != 0:
+        raise Exception("voms-proxy-info failed: {}".format(err))
+
+    return code, out, err
+
+
+def get_voms_proxy_user(proxy_file=None):
     """
-    Returns the owner of the voms proxy.
+    Returns the owner of the voms proxy. When *proxy_file* is *None*, it defaults to the result of
+    :py:func:`get_voms_proxy_file`. Otherwise, when it evaluates to *False*, ``voms-proxy-info`` is
+    queried without a custom proxy file.
     """
-    out = _voms_proxy_info(["--identity"])[1].strip()
+    out = _voms_proxy_info(args=["--identity"], proxy_file=proxy_file)[1].strip()
     try:
         return re.match(r".*\/CN\=([^\/]+).*", out.strip()).group(1)
     except:
         raise Exception("no valid identity found in voms proxy: {}".format(out))
 
 
-def get_voms_proxy_lifetime():
+def get_voms_proxy_lifetime(proxy_file=None):
     """
-    Returns the remaining lifetime of the voms proxy in seconds.
+    Returns the remaining lifetime of the voms proxy in seconds. When *proxy_file* is *None*, it
+    defaults to the result of :py:func:`get_voms_proxy_file`. Otherwise, when it evaluates to
+    *False*, ``voms-proxy-info`` is queried without a custom proxy file.
     """
-    out = _voms_proxy_info(["--timeleft"])[1].strip()
+    out = _voms_proxy_info(args=["--timeleft"], proxy_file=proxy_file)[1].strip()
     try:
         return int(out)
     except:
         raise Exception("no valid lifetime found in voms proxy: {}".format(out))
 
 
-def get_voms_proxy_vo():
+def get_voms_proxy_vo(proxy_file=None):
     """
-    Returns the virtual organization name of the voms proxy.
+    Returns the virtual organization name of the voms proxy. When *proxy_file* is *None*, it
+    defaults to the result of :py:func:`get_voms_proxy_file`. Otherwise, when it evaluates to
+    *False*, ``voms-proxy-info`` is queried without a custom proxy file.
     """
-    return _voms_proxy_info(["--vo"])[1].strip()
+    return _voms_proxy_info(args=["--vo"], proxy_file=proxy_file)[1].strip()
 
 
-def check_voms_proxy_validity(log=False):
+def check_voms_proxy_validity(log=False, proxy_file=None):
     """
     Returns *True* when a valid voms proxy exists, *False* otherwise. When *log* is *True*, a
-    warning will be logged.
+    warning will be logged. When *proxy_file* is *None*, it defaults to the result of
+    :py:func:`get_voms_proxy_file`. Otherwise, when it evaluates to *False*, ``voms-proxy-info`` is
+    queried without a custom proxy file.
     """
-    valid = _voms_proxy_info(["--exists"], silent=True)[0] == 0
+    code, out, err = _voms_proxy_info(args=["--exists"], proxy_file=proxy_file, silent=True)
+
+    if code == 0:
+        valid = get_voms_proxy_lifetime(proxy_file=proxy_file) > 0
+    elif err.strip().lower().startswith("proxy not found"):
+        valid = False
+    else:
+        raise Exception("voms-proxy-info failed: {}".format(err))
+
     if log and not valid:
         logger.warning("no valid voms proxy found")
+
     return valid
 
 
-def renew_voms_proxy(password="", vo=None, lifetime="8 days"):
+def renew_voms_proxy(password="", vo=None, lifetime="8 days", proxy_file=None):
     """
     Renews the voms proxy using a password *password*, an optional virtual organization name *vo*,
     and a default *lifetime* of 8 days, which is internally parsed by
     :py:func:`law.util.parse_duration` where the default input unit is hours. To ensure that the
     *password* is not visible in any process listing, it is written to a temporary file first and
-    piped into the ``voms-proxy-init`` command.
+    piped into the ``voms-proxy-init`` command. When *proxy_file* is *None*, it defaults to the
+    result of :py:func:`get_voms_proxy_file`.
     """
     # parse and format the lifetime
     lifetime_seconds = max(parse_duration(lifetime, input_unit="h", unit="s"), 60.)
@@ -99,6 +131,11 @@ def renew_voms_proxy(password="", vo=None, lifetime="8 days"):
     normalized = ":".join((2 - lifetime.count(":")) * ["00"] + [""]) + lifetime
     lifetime = ":".join(normalized.rsplit(":", 3)[-3:-1])
 
+    # when proxy_file is None, get the default
+    # when empty string, don't add a --out argument
+    if proxy_file is None:
+        proxy_file = get_voms_proxy_file()
+
     with tmp_file() as (_, tmp):
         with open(tmp, "w") as f:
             f.write(password)
@@ -106,23 +143,31 @@ def renew_voms_proxy(password="", vo=None, lifetime="8 days"):
         cmd = "cat '{}' | voms-proxy-init --valid '{}'".format(tmp, lifetime)
         if vo:
             cmd += " -voms '{}'".format(vo)
+        if proxy_file:
+            proxy_file = os.path.expandvars(os.path.expanduser(proxy_file))
+            cmd += " --out '{}'".format(proxy_file)
+
         code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
         if code != 0:
             raise Exception("voms-proxy-init failed: {}".format(out))
 
 
-def delegate_voms_proxy_glite(endpoint, stdout=None, stderr=None, cache=True):
+def delegate_voms_proxy_glite(endpoint, proxy_file=None, stdout=None, stderr=None, cache=True):
     """
     Delegates the voms proxy via gLite to an *endpoint*, e.g.
-    ``grid-ce.physik.rwth-aachen.de:8443``. *stdout* and *stderr* are passed to the *Popen*
-    constructor for executing the ``glite-ce-delegate-proxy`` command. When *cache* is *True*, a
-    json file is created alongside the proxy file, which stores the delegation ids per endpoint. The
-    next time the exact same proxy should be delegated to the same endpoint, the cached delegation
-    id is returned.
+    ``grid-ce.physik.rwth-aachen.de:8443``. When *proxy_file* is *None*, it defaults to the result
+    of :py:func:`get_voms_proxy_file`. *stdout* and *stderr* are passed to the *Popen* constructor
+    for executing the ``glite-ce-delegate-proxy`` command. When *cache* is *True*, a json file is
+    created alongside the proxy file, which stores the delegation ids per endpoint. The next time
+    the exact same proxy should be delegated to the same endpoint, the cached delegation id is
+    returned.
     """
     # get the proxy file
-    proxy_file = get_voms_proxy_file()
+    if not proxy_file:
+        proxy_file = get_voms_proxy_file()
+    proxy_file = os.path.expandvars(os.path.expanduser(proxy_file))
     if not os.path.exists(proxy_file):
         raise Exception("proxy file '{}' does not exist".format(proxy_file))
 
