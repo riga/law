@@ -20,7 +20,7 @@ import logging
 
 import six
 
-from law.util import interruptable_popen, tmp_file, create_hash
+from law.util import interruptable_popen, tmp_file, create_hash, human_duration, parse_duration
 
 
 logger = logging.getLogger(__name__)
@@ -38,7 +38,10 @@ def get_voms_proxy_file():
     """
     Returns the path to the voms proxy file.
     """
-    return os.getenv("X509_USER_PROXY", "/tmp/x509up_u{}".format(os.getuid()))
+    if "X509_USER_PROXY" in os.environ:
+        return os.environ["X509_USER_PROXY"]
+    else:
+        return "/tmp/x509up_u{}".format(os.getuid())
 
 
 def get_voms_proxy_user():
@@ -81,15 +84,24 @@ def check_voms_proxy_validity(log=False):
     return valid
 
 
-def renew_voms_proxy(passwd="", vo=None, lifetime="196:00"):
+def renew_voms_proxy(password="", vo=None, lifetime="8 days"):
     """
-    Renews the voms proxy using a password *passwd*, an optional virtual organization name *vo*, and
-    a default *lifetime* of 8 days. The password is written to a temporary file first and piped into
-    the renewal commad to ensure it is not visible in the process list.
+    Renews the voms proxy using a password *password*, an optional virtual organization name *vo*,
+    and a default *lifetime* of 8 days, which is internally parsed by
+    :py:func:`law.util.parse_duration` where the default input unit is hours. To ensure that the
+    *password* is not visible in any process listing, it is written to a temporary file first and
+    piped into the ``voms-proxy-init`` command.
     """
+    # parse and format the lifetime
+    lifetime_seconds = max(parse_duration(lifetime, input_unit="h", unit="s"), 60.)
+    lifetime = human_duration(seconds=lifetime_seconds, colon_format="h")
+    # cut the seconds part
+    normalized = ":".join((2 - lifetime.count(":")) * ["00"] + [""]) + lifetime
+    lifetime = ":".join(normalized.rsplit(":", 3)[-3:-1])
+
     with tmp_file() as (_, tmp):
         with open(tmp, "w") as f:
-            f.write(passwd)
+            f.write(password)
 
         cmd = "cat '{}' | voms-proxy-init --valid '{}'".format(tmp, lifetime)
         if vo:
@@ -97,7 +109,7 @@ def renew_voms_proxy(passwd="", vo=None, lifetime="196:00"):
         code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         if code != 0:
-            raise Exception("proxy renewal failed: {}".format(out))
+            raise Exception("voms-proxy-init failed: {}".format(out))
 
 
 def delegate_voms_proxy_glite(endpoint, stdout=None, stderr=None, cache=True):

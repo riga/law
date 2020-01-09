@@ -918,10 +918,12 @@ time_unit_aliases = {
 def human_duration(colon_format=False, plural=True, **kwargs):
     """ human_duration
     Returns a human readable duration. The largest unit is days. When *colon_format* is *True*, the
-    return value has the format ``[d:][h:][m:]s``. Unless *plural* is *False*, units corresponding
-    to values other than **exactly** one are plural e.g. ``"1 second"`` but ``"1.5 seconds"``. All
-    other *kwargs* are passed to ``datetime.timedelta`` to get the total duration in seconds.
-    Example:
+    return value has the format ``"[d:][h:][m:]s"``. *colon_format* can also be a string value
+    referring to a limiting  unit. In that case, the returned time string has no field above that
+    unit, e.g. passing ``"h"`` results in a string ``"[h:][m:]s"`` where the hour field is
+    potentially larger than 23. Unless *plural* is *False*, units corresponding to values other than
+    **exactly** one are used in plural e.g. ``"1 second"`` but ``"1.5 seconds"``. All other *kwargs*
+    are passed to ``datetime.timedelta`` to get the total duration in seconds. Example:
 
     .. code-block:: python
 
@@ -937,6 +939,9 @@ def human_duration(colon_format=False, plural=True, **kwargs):
     human_duration(seconds=90001, colon_format=True)
     # -> "1:01:00:1"
 
+    human_duration(seconds=90001, colon_format="h")
+    # -> "25:00:1"
+
     human_duration(minutes=15, colon_format=True)
     # -> "15:00"
 
@@ -948,8 +953,21 @@ def human_duration(colon_format=False, plural=True, **kwargs):
     """
     seconds = float(datetime.timedelta(**kwargs).total_seconds())
 
+    # when using colon_format, check if a limiting unit is set
+    colon_unit_limit = None
+    if isinstance(colon_format, six.string_types):
+        colon_unit_limit = time_unit_aliases.get(colon_format, colon_format)
+        if colon_unit_limit not in time_units:
+            raise ValueError("unknown colon_format unit '{}', valid values are {}".format(
+                colon_unit_limit, ",".join(time_units)))
+        colon_unit_index = list(time_units.keys()).index(colon_unit_limit)
+
     parts = []
-    for unit, mul in six.iteritems(time_units):
+    for i, (unit, mul) in enumerate(six.iteritems(time_units)):
+        # skip this iteration when a colon unit limit is set
+        if colon_unit_limit and i < colon_unit_index:
+            continue
+
         n = int(math.floor(seconds / mul))
 
         # skip leading zeros for colon_format, otherwise always
@@ -1045,10 +1063,10 @@ def parse_duration(s, input_unit="s", unit="s"):
     # check units
     if input_unit not in time_units:
         raise ValueError("unknown input_unit '{}', valid values are {}".format(
-            input_unit, time_units.keys()))
+            input_unit, ",".join(time_units)))
     if unit not in time_units:
         raise ValueError("unknown unit '{}', valid values are {}".format(
-            unit, time_units.keys()))
+            unit, ",".join(time_units)))
 
     duration_seconds = 0.
 

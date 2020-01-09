@@ -20,7 +20,7 @@ def ensure_voms_proxy(fn, opts, task, *args, **kwargs):
     voms proxies to be present. Accepts generator functions.
     """
     def before_call():
-        # check the voms-proxy validity
+        # check the proxy validity
         if not check_voms_proxy_validity():
             raise Exception("voms proxy not valid")
 
