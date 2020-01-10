@@ -17,7 +17,6 @@ from abc import abstractmethod
 import luigi
 import six
 
-from law.config import Config
 from law.task.base import Task, Register
 from law.task.proxy import ProxyTask, get_proxy_attribute
 from law.target.collection import TargetCollection
@@ -133,17 +132,6 @@ class BaseWorkflowProxy(ProxyTask):
 
         acceptance = self.task.acceptance
         return (acceptance * n) if acceptance <= 1 else acceptance
-
-    def get_prefixed_config(self, section, option, **kwargs):
-        """
-        Returns the config value defined by *section* and *option*, which is prefixed by the
-        :py:attr:`workflow_type`. When the prefixed option is not found, the plain *option* is used
-        instead. All *kwargs* are forwarded to :py:meth:`Config.get_expanded`.
-        """
-        cfg = Config.instance()
-        prefixed_option = "{}_{}".format(self.workflow_type, option)
-        default = cfg.get_expanded(section, option, **kwargs)
-        return cfg.get_expanded(section, prefixed_option, default=default, **kwargs)
 
 
 def workflow_property(func):

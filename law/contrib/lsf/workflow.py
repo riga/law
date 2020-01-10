@@ -16,6 +16,7 @@ from collections import OrderedDict
 import luigi
 
 from law import LocalDirectoryTarget, NO_STR, get_param
+from law.config import Config
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments
 from law.contrib.lsf.job import LSFJobManager, LSFJobFileFactory
@@ -195,12 +196,18 @@ class LSFWorkflow(BaseRemoteWorkflow):
 
     def lsf_create_job_file_factory(self, **kwargs):
         # job file fectory config priority: config file < class defaults < kwargs
-        get_prefixed_config = self.workflow_proxy.get_prefixed_config
+        cfg = Config.instance()
+        def opt(func_name, section, option):
+            option = cfg.find_option("job", "lsf_job_file_dir", "job_file_dir")
+            fn = getattr(cfg, func_name)
+            return fn(section, option)
+
         cfg = {
-            "dir": get_prefixed_config("job", "job_file_dir"),
-            "mkdtemp": get_prefixed_config("job", "job_file_dir_mkdtemp", type=bool),
-            "cleanup": get_prefixed_config("job", "job_file_dir_cleanup", type=bool),
+            "dir": opt("get_expanded", "job", "job_file_dir"),
+            "mkdtemp": opt("get_expanded_boolean", "job", "job_file_dir_mkdtemp"),
+            "cleanup": opt("get_expanded_boolean", "job", "job_file_dir_cleanup"),
         }
+
         kwargs = merge_dicts(cfg, self.lsf_job_file_factory_defaults, kwargs)
         return LSFJobFileFactory(**kwargs)
 
