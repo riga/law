@@ -15,8 +15,13 @@ from abc import abstractmethod
 import luigi
 import six
 
-from law import Task, LocalWorkflow, FileSystemTarget, LocalFileTarget, TargetCollection, \
-    SiblingFileCollection, cached_workflow_property, NO_INT, NO_STR
+from law.task.base import Task
+from law.workflow.base import cached_workflow_property
+from law.workflow.local import LocalWorkflow
+from law.target.file import FileSystemTarget
+from law.target.local import LocalFileTarget
+from law.target.collection import TargetCollection, SiblingFileCollection
+from law.parameter import NO_INT, NO_STR
 from law.util import iter_chunks
 
 

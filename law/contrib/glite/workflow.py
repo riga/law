@@ -15,12 +15,12 @@ import logging
 from abc import abstractmethod
 from collections import OrderedDict
 
-from law import CSVParameter
 from law.config import Config
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments
 from law.contrib.glite.job import GLiteJobManager, GLiteJobFileFactory
 from law.target.file import get_path
+from law.parameter import CSVParameter
 from law.parser import global_cmdline_args, add_cmdline_arg
 from law.util import law_src_path, merge_dicts
 from law.contrib.wlcg import delegate_voms_proxy_glite, get_ce_endpoint

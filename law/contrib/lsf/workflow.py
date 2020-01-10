@@ -15,12 +15,13 @@ from collections import OrderedDict
 
 import luigi
 
-from law import LocalDirectoryTarget, NO_STR, get_param
 from law.config import Config
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments
 from law.contrib.lsf.job import LSFJobManager, LSFJobFileFactory
 from law.target.file import get_path
+from law.target.local import LocalDirectoryTarget
+from law.parameter import NO_STR, get_param
 from law.parser import global_cmdline_args, add_cmdline_arg
 from law.util import law_src_path, merge_dicts
 
