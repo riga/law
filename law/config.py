@@ -8,8 +8,8 @@ law config parser implementation.
 __all__ = [
     "Config", "sections", "get", "getint", "getfloat", "getboolean", "get_default", "get_expanded",
     "get_expanded_int", "get_expanded_float", "get_expanded_boolean", "is_missing_or_none",
-    "update", "include", "keys", "items", "items_expanded", "set", "has_section", "has_option",
-    "remove_option",
+    "find_option", "update", "include", "keys", "items", "items_expanded", "set", "has_section",
+    "has_option", "remove_option",
 ]
 
 
@@ -274,7 +274,18 @@ class Config(ConfigParser):
         Returns *True* if the value defined by *section* and *option* is missing or ``"None"``, and
         *False* otherwise.
         """
-        return self.get_default(section, option) in ("None", None)
+        return self.get_expanded(section, option) in ("None", None)
+
+    def find_option(self, section, *options):
+        """
+        Returns the name of the first existing *option* for a given *section*.
+        :py:meth:`is_missing_or_none` is used to check the existence. When none of the selected
+        *options* exists, *None* is returned.
+        """
+        for option in options:
+            if not self.is_missing_or_none(section, option):
+                return option
+        return None
 
     def update(self, data, overwrite=None, overwrite_sections=True, overwrite_options=True):
         """
