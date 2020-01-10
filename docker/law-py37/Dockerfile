@@ -28,30 +28,33 @@ RUN yum -y install libffi-devel openssl-devel bzip2-devel json-c-devel curl-deve
     wget nano screen git cmake cmake3; yum clean all
 
 # python software
-RUN wget -nv https://www.python.org/ftp/python/3.7.5/Python-3.7.5.tgz && \
-    tar -xzf Python-3.7.5.tgz && \
-    cd Python-3.7.5 && \
+RUN wget -nv https://www.python.org/ftp/python/3.7.6/Python-3.7.6.tgz && \
+    tar -xzf Python-3.7.6.tgz && \
+    cd Python-3.7.6 && \
     ./configure --enable-optimizations --enable-shared && \
     make altinstall && \
     cd .. && \
-    rm -rf Python-3.7.5 && \
-    rm Python-3.7.5.tgz && \
-    python3.7 --version
+    rm -rf Python-3.7.6 && \
+    rm Python-3.7.6.tgz && \
+    ln -s -f "$( which python3.7 )" "$( dirname "$( which python3.7 )" )/python3" && \
+    python3 --version && \
+    ln -s -f "$( which pip3.7 )" "$( dirname "$( which pip3.7 )" )/pip3" && \
+    pip3 --version
 
 # boost for system python 2.7
 RUN yum -y install boost-devel boost-python; yum clean all
 
 # boost for custom python 3.7
-RUN wget -nv https://dl.bintray.com/boostorg/release/1.71.0/source/boost_1_71_0.tar.gz && \
-    tar -xzf boost_1_71_0.tar.gz && \
-    cd boost_1_71_0 && \
+RUN wget -nv https://dl.bintray.com/boostorg/release/1.72.0/source/boost_1_72_0.tar.gz && \
+    tar -xzf boost_1_72_0.tar.gz && \
+    cd boost_1_72_0 && \
     ./bootstrap.sh --with-libraries=system,thread,python --with-python="$( which python3.7 )" && \
     perl -pi -e 's!(\Qincludes ?= $(prefix)/include/python$(version)\E)!\1m!' tools/build/src/tools/python.jam && \
     ./b2 install --prefix=/usr && \
     ldconfig && \
     cd .. && \
-    rm -rf boost_1_71_0 && \
-    rm boost_1_71_0.tar.gz
+    rm -rf boost_1_72_0 && \
+    rm boost_1_72_0.tar.gz
 
 # WLCG software
 RUN rpm -Uvh https://repo.opensciencegrid.org/osg/3.5/osg-3.5-el7-release-latest.rpm
@@ -61,8 +64,9 @@ RUN yum -y install CERN-CA-certs osg-ca-certs osg-voms voms-clients; yum clean a
 
 # gfal2
 RUN yum -y install gfal2-all gfal2-devel gfal2-util; yum clean all
-RUN git clone https://gitlab.cern.ch/dmc/gfal2-bindings.git && \
+RUN git clone https://gitlab.cern.ch/mrieger/gfal2-bindings.git && \
     cd gfal2-bindings && \
+    git checkout 00fbad0f && \
     python3.7 setup.py install && \
     cd .. && \
     rm -rf gfal2-bindings
@@ -80,12 +84,12 @@ RUN git clone https://github.com/cern-it-sdc-id/gfal2-dropbox.git && \
 RUN cd /usr/bin; curl https://getmic.ro | bash
 
 # python packages
-RUN pip3.7 install luigi six
+RUN pip3 install luigi six
 
 # install law master
 RUN git clone https://github.com/riga/law && \
     cd law && \
-    python3.7 setup.py install && \
+    python3 setup.py install && \
     cd .. && \
     rm -rf law
 
