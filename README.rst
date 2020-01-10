@@ -67,8 +67,8 @@ To run and test law, there are three docker images available on the `DockerHub <
 
 Tags:
 
-- ``latest``, ``py3``, ``py38``: Python 3.8.0
-- ``py37``: Python 3.7.5
+- ``latest``, ``py3``, ``py38``: Python 3.8.1
+- ``py37``: Python 3.7.6
 - ``py2``, ``py27``: Python 2.7.5
 
 
