@@ -26,7 +26,7 @@ class BundleCMSSW(Task):
     task_namespace = "law.cms"
 
     exclude = luigi.Parameter(default=NO_STR, description="regular expression for excluding files "
-        "or directories, relative to the CMSSW checkout path")
+        "or directories, relative to CMSSW_BASE, default: empty")
 
     @abstractmethod
     def get_cmssw_path(self):

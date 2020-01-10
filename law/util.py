@@ -971,7 +971,7 @@ def human_duration(colon_format=False, plural=True, **kwargs):
         n = int(math.floor(seconds / mul))
 
         # skip leading zeros for colon_format, otherwise always
-        if n == 0 and (not colon_format or not parts):
+        if n == 0 and unit != "second" and (not colon_format or not parts):
             continue
 
         if unit != "second":

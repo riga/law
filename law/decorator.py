@@ -232,7 +232,7 @@ def factory(**default_opts):
                             return result
 
                     else:
-                        # when the wrapped function is a plain callable, so just call it
+                        # the wrapped function is a plain callable, so just call it
                         return decorator(fn, _opts, *args, **kwargs)
 
                 # store the originally wrapped function as an attribute of the wrapper
