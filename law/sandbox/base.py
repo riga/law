@@ -38,19 +38,29 @@ _current_sandbox = os.getenv("LAW_SANDBOX", "").split(",")
 
 _sandbox_switched = os.getenv("LAW_SANDBOX_SWITCHED", "") == "1"
 
+_sandbox_task_id = os.getenv("LAW_SANDBOX_TASK_ID", "")
+
+_sandbox_worker_id = os.getenv("LAW_SANDBOX_WORKER_ID", "")
+
+_sandbox_worker_first_task_id = os.getenv("LAW_SANDBOX_WORKER_FIRST_TASK_ID", "")
+
 _sandbox_is_root_task = os.getenv("LAW_SANDBOX_IS_ROOT_TASK", "") == "1"
 
 _sandbox_stagein_dir = os.getenv("LAW_SANDBOX_STAGEIN_DIR", "")
 
 _sandbox_stageout_dir = os.getenv("LAW_SANDBOX_STAGEOUT_DIR", "")
 
-_sandbox_task_id = os.getenv("LAW_SANDBOX_WORKER_TASK", "")
 
-_sandbox_root_task_id = os.getenv("LAW_SANDBOX_WORKER_ROOT_TASK", "")
-
-# the task id must be set when in a sandbox
-if not _sandbox_task_id and _sandbox_switched:
-    raise Exception("LAW_SANDBOX_WORKER_TASK must not be empty in a sandbox")
+# certain values must be present in a sandbox
+if _sandbox_switched:
+    if not _current_sandbox or not _current_sandbox[0]:
+        raise Exception("LAW_SANDBOX must not be empty in a sandbox")
+    if not _sandbox_task_id:
+        raise Exception("LAW_SANDBOX_TASK_ID must not be empty in a sandbox")
+    elif not _sandbox_worker_id:
+        raise Exception("LAW_SANDBOX_WORKER_ID must not be empty in a sandbox")
+    elif not _sandbox_worker_first_task_id:
+        raise Exception("LAW_SANDBOX_WORKER_FIRST_TASK_ID must not be empty in a sandbox")
 
 
 class StageInfo(object):
@@ -172,12 +182,13 @@ class Sandbox(object):
         env["LAW_SANDBOX"] = self.key.replace("$", r"\$")
         env["LAW_SANDBOX_SWITCHED"] = "1"
         if self.task:
+            env["LAW_SANDBOX_TASK_ID"] = self.task.live_task_id
+            env["LAW_SANDBOX_ROOT_TASK_ID"] = root_task().task_id
+            env["LAW_SANDBOX_IS_ROOT_TASK"] = str(int(self.task.is_root_task()))
             if getattr(self.task, "_worker_id", None):
                 env["LAW_SANDBOX_WORKER_ID"] = self.task._worker_id
-            if getattr(self.task, "_worker_task", None):
-                env["LAW_SANDBOX_WORKER_TASK"] = self.task.live_task_id
-            env["LAW_SANDBOX_WORKER_ROOT_TASK"] = root_task().task_id
-            env["LAW_SANDBOX_IS_ROOT_TASK"] = str(int(self.task.is_root_task()))
+            if getattr(self.task, "_worker_first_task_id", None):
+                env["LAW_SANDBOX_WORKER_FIRST_TASK_ID"] = self.task._worker_first_task_id
 
         # extend by variables from the config file
         cfg = Config.instance()
@@ -469,6 +480,10 @@ class SandboxTask(Task):
             return is_root
 
     def _staged_input(self):
+        if not _sandbox_stagein_dir:
+            raise Exception("LAW_SANDBOX_STAGEIN_DIR must not be empty in a sandbox when target "
+                "stage-in is required")
+
         # get the original inputs
         inputs = self.__getattribute__("input", proxy=False)()
 
@@ -479,6 +494,10 @@ class SandboxTask(Task):
         return mask_struct(self.sandbox_stagein(), staged_inputs, inputs)
 
     def _staged_output(self):
+        if not _sandbox_stagein_dir:
+            raise Exception("LAW_SANDBOX_STAGEOUT_DIR must not be empty in a sandbox when target "
+                "stage-out is required")
+
         # get the original outputs
         outputs = self.__getattribute__("output", proxy=False)()
 

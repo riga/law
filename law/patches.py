@@ -13,16 +13,13 @@ import os
 import logging
 
 import luigi
+import law
 
 
 logger = logging.getLogger(__name__)
 
 
 _patched = False
-
-_sandbox_switched = os.getenv("LAW_SANDBOX_SWITCHED", "") == "1"
-
-_sandbox_task_id = os.getenv("LAW_SANDBOX_WORKER_TASK", "")
 
 
 def patch_all():
@@ -80,7 +77,7 @@ def patch_worker_add_task():
     _add_task = luigi.worker.Worker._add_task
 
     def add_task(self, *args, **kwargs):
-        if _sandbox_switched and "deps" in kwargs:
+        if law.sandbox.base._sandbox_switched and "deps" in kwargs:
             kwargs["deps"] = None
         return _add_task(self, *args, **kwargs)
 
@@ -100,8 +97,8 @@ def patch_worker_add():
     def add(self, task, *args, **kwargs):
         # _add returns a generator, which we simply drain here
         # when we are in a sandbox
-        if _sandbox_switched:
-            task.task_id = _sandbox_task_id
+        if law.sandbox.base._sandbox_switched:
+            task.task_id = law.sandbox.base._sandbox_task_id
             for _ in _add(self, task, *args, **kwargs):
                 pass
             return []
@@ -124,16 +121,16 @@ def patch_worker_run_task():
         task = self._scheduled_tasks[task_id]
 
         task._worker_id = self._id
-        task._worker_task = self._first_task
+        task._worker_first_task_id = self._first_task
 
         try:
             _run_task(self, task_id)
         finally:
             task._worker_id = None
-            task._worker_task = None
+            task._worker_first_task_id = None
 
         # make worker disposable when sandboxed
-        if _sandbox_switched:
+        if law.sandbox.base._sandbox_switched:
             self._start_phasing_out()
 
     luigi.worker.Worker._run_task = run_task
@@ -151,10 +148,10 @@ def patch_worker_get_work():
     _get_work = luigi.worker.Worker._get_work
 
     def get_work(self):
-        if _sandbox_switched:
+        if law.sandbox.base._sandbox_switched:
             # when the worker is configured to stop requesting work, as triggered by the patched
             # _run_task method (see above), the worker response should contain an empty task_id
-            task_id = None if self._stop_requesting_work else os.environ["LAW_SANDBOX_WORKER_TASK"]
+            task_id = None if self._stop_requesting_work else law.sandbox.base._sandbox_task_id
             return luigi.worker.GetWorkResponse(
                 task_id=task_id,
                 running_tasks=[],
@@ -178,8 +175,8 @@ def patch_worker_factory():
     """
     def create_worker(self, scheduler, worker_processes, assistant=False):
         worker = luigi.worker.Worker(scheduler=scheduler, worker_processes=worker_processes,
-            assistant=assistant, worker_id=os.getenv("LAW_SANDBOX_WORKER_ID"))
-        worker._first_task = os.getenv("LAW_SANDBOX_WORKER_ROOT_TASK")
+            assistant=assistant, worker_id=law.sandbox.base._sandbox_worker_id or None)
+        worker._first_task = law.sandbox.base._sandbox_worker_first_task_id or None
         return worker
 
     luigi.interface._WorkerSchedulerFactory.create_worker = create_worker
@@ -196,7 +193,7 @@ def patch_keepalive_run():
 
     def run(self):
         # do not run the keep-alive loop when sandboxed
-        if _sandbox_switched:
+        if law.sandbox.base._sandbox_switched:
             self.stop()
         else:
             _run(self)
