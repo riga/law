@@ -222,9 +222,16 @@ class LSFJobFileFactory(BaseJobFileFactory):
         elif not c.shell:
             raise ValueError("shell must not be empty")
 
+        # default render variables
+        if not render_variables:
+            render_variables = {}
+
+        # add postfix to render variables
+        if postfix and "file_postfix" not in render_variables:
+            render_variables["file_postfix"] = postfix
+
         # linearize render_variables
-        if render_variables:
-            render_variables = self.linearize_render_variables(render_variables)
+        render_variables = self.linearize_render_variables(render_variables)
 
         # prepare paths
         job_file = self.postfix_file(os.path.join(c.dir, c.file_name), postfix)

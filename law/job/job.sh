@@ -50,14 +50,16 @@ action() {
     #
 
     export LAW_JOB_INIT_DIR="$( /bin/pwd )"
-    export LAW_JOB_HOME="$( mktemp -d "$LAW_JOB_INIT_DIR/job_XXXXXXXXXXXX" )"
-    export TMP="$LAW_JOB_HOME/tmp"
-    export TEMP="$TMP"
-    export TMPDIR="$TMP"
-    export LAW_TARGET_TMP_DIR="$TMP"
+    [ -z "$LAW_JOB_HOME" ] && export LAW_JOB_HOME="$( mktemp -d "$LAW_JOB_INIT_DIR/job_XXXXXXXXXXXX" )"
+    [ -z "$LAW_JOB_TMP" ] && export LAW_JOB_TMP="$LAW_JOB_HOME/tmp"
+    export LAW_JOB_FILE_POSTFIX="{{file_postfix}}"
+    export TMP="$LAW_JOB_TMP"
+    export TEMP="$LAW_JOB_TMP"
+    export TMPDIR="$LAW_JOB_TMP"
+    export LAW_TARGET_TMP_DIR="$LAW_JOB_TMP"
 
     mkdir -p "$LAW_JOB_HOME"
-    mkdir -p "$TMP"
+    mkdir -p "$LAW_JOB_TMP"
 
     cd "$LAW_JOB_HOME"
 
@@ -165,13 +167,15 @@ action() {
 
         cd "$LAW_JOB_INIT_DIR"
 
-        subsection "files before cleanup ($LAW_JOB_HOME)"
+        subsection "files before cleanup"
+        echo "directory: $LAW_JOB_HOME"
         ls -la "$LAW_JOB_HOME"
 
         rm -rf "$LAW_JOB_HOME"
 
         echo
-        subsection "files after cleanup ($LAW_JOB_INIT_DIR)"
+        subsection "files after cleanup"
+        echo "directory: $LAW_JOB_INIT_DIR"
         ls -la "$LAW_JOB_INIT_DIR"
     }
 
@@ -183,15 +187,16 @@ action() {
     section "environment"
 
     subsection "job infos"
-    echo "shell   : $SHELL"
-    echo "hostname: $( hostname )"
-    echo "python  : $( 2>&1 python --version ), $( which python )"
-    echo "init dir: $LAW_JOB_INIT_DIR"
-    echo "job home: $LAW_JOB_HOME"
-    echo "tmp dir : $( python -c "from tempfile import gettempdir; print(gettempdir())" )"
-    echo "pwd     : $( pwd )"
-    echo "script  : $0"
-    echo "args    : $@"
+    echo "shell    : $SHELL"
+    echo "hostname : $( hostname )"
+    echo "python   : $( 2>&1 python --version ), $( which python )"
+    echo "init dir : $LAW_JOB_INIT_DIR"
+    echo "job home : $LAW_JOB_HOME"
+    echo "tmp dir  : $( python -c "from tempfile import gettempdir; print(gettempdir())" )"
+    echo "user home: $HOME"
+    echo "pwd      : $( pwd )"
+    echo "script   : $0"
+    echo "args     : $@"
 
     echo
     subsection "task infos"

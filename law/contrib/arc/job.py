@@ -280,7 +280,11 @@ class ARCJobFileFactory(BaseJobFileFactory):
         if not render_variables:
             render_variables = {}
 
-        # always add output_uri to render variables
+        # add postfix to render variables
+        if postfix and "file_postfix" not in render_variables:
+            render_variables["file_postfix"] = postfix
+
+        # add output_uri to render variables
         if c.output_uri and "output_uri" not in render_variables:
             render_variables["output_uri"] = c.output_uri
 
