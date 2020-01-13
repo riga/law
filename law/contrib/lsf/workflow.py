@@ -199,7 +199,7 @@ class LSFWorkflow(BaseRemoteWorkflow):
         # job file fectory config priority: config file < class defaults < kwargs
         cfg = Config.instance()
         def opt(func_name, section, option):
-            option = cfg.find_option("job", "lsf_job_file_dir", "job_file_dir")
+            option = cfg.find_option("job", "lsf_" + option, option)
             fn = getattr(cfg, func_name)
             return fn(section, option)
 
