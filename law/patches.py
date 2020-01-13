@@ -9,7 +9,6 @@ law, rather than changing default luigi behavior.
 __all__ = ["patch_all"]
 
 
-import os
 import logging
 
 import luigi
