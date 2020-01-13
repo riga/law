@@ -59,11 +59,14 @@ action() {
     mkdir -p "$LAW_JOB_HOME"
     mkdir -p "$TMP"
 
-    if [ ! -z "{{input_files}}" ]; then
-        cp {{input_files}} "$LAW_JOB_HOME/"
-    fi
-
     cd "$LAW_JOB_HOME"
+
+    local input_files="{{input_files}}"
+    if [ ! -z "$input_files" ]; then
+        for input_file in $input_files; do
+            ln -s "$LAW_JOB_INIT_DIR/$input_file" .
+        done
+    fi
 
 
     #
