@@ -918,12 +918,14 @@ time_unit_aliases = {
 def human_duration(colon_format=False, plural=True, **kwargs):
     """ human_duration
     Returns a human readable duration. The largest unit is days. When *colon_format* is *True*, the
-    return value has the format ``"[d:][h:][m:]s"``. *colon_format* can also be a string value
+    return value has the format ``"[d:][hh:]mm:ss[.ms]"``. *colon_format* can also be a string value
     referring to a limiting  unit. In that case, the returned time string has no field above that
-    unit, e.g. passing ``"h"`` results in a string ``"[h:][m:]s"`` where the hour field is
-    potentially larger than 23. Unless *plural* is *False*, units corresponding to values other than
-    **exactly** one are used in plural e.g. ``"1 second"`` but ``"1.5 seconds"``. All other *kwargs*
-    are passed to ``datetime.timedelta`` to get the total duration in seconds. Example:
+    unit, e.g. passing ``"m"`` results in a string ``"mm:ss[.ms]"`` where the minute field is
+    potentially larger than 60. Passing ``"s"`` is a special case. Since the colon format always has
+    a minute field (to mark it as colon format in the first place), the returned string will have
+    the format ``"00:ss[.ms]"``. Unless *plural* is *False*, units corresponding to values other
+    than **exactly** one are used in plural e.g. ``"1 second"`` but ``"1.5 seconds"``. All other
+    *kwargs* are passed to ``datetime.timedelta`` to get the total duration in seconds. Example:
 
     .. code-block:: python
 
@@ -937,10 +939,13 @@ def human_duration(colon_format=False, plural=True, **kwargs):
     # -> "20:33"
 
     human_duration(seconds=90001, colon_format=True)
-    # -> "1:01:00:1"
+    # -> "1:01:00:01"
 
     human_duration(seconds=90001, colon_format="h")
-    # -> "25:00:1"
+    # -> "25:00:01"
+
+    human_duration(seconds=65, colon_format="s")
+    # -> "00:65"
 
     human_duration(minutes=15, colon_format=True)
     # -> "15:00"
@@ -984,6 +989,7 @@ def human_duration(colon_format=False, plural=True, **kwargs):
 
         if colon_format:
             if unit == "second" and n < 10:
+                # special case for seconds to format floating points properly
                 fmt = "0{}"
             elif unit in ["hour", "minute"]:
                 fmt = "{:02d}"
@@ -993,6 +999,10 @@ def human_duration(colon_format=False, plural=True, **kwargs):
         else:
             plural_postfix = "" if (not plural or n == 1) else "s"
             parts.append("{} {}{}".format(n, unit, plural_postfix))
+
+    # special case: the minute field is mandatory for colon_format in any case
+    if colon_format and len(parts) == 1:
+        parts.insert(0, "00")
 
     return (":" if colon_format else ", ").join(parts)
 
