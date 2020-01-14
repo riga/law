@@ -33,7 +33,7 @@ from law.target.local import LocalFileSystem, LocalFileTarget
 from law.target.formatter import find_formatter
 from law.util import (
     make_list, brace_expand, makedirs_perm, human_bytes, parse_bytes, create_hash, user_owns_file,
-    io_lock,
+    io_lock, is_lazy_iterable,
 )
 
 
@@ -221,9 +221,16 @@ class GFALInterface(object):
             kwargs["return_index"] = False
             base = self.get_base(*args, **kwargs)
 
-        return os.path.join(base, self.gfal_str(path).lstrip("/")).rstrip("/")
+        # helper to join the path to a base b
+        uri = lambda b: os.path.join(b, self.gfal_str(path).lstrip("/")).rstrip("/")
 
-    def get_base(self, cmd=None, random=None, skip_indices=None, return_index=False):
+        if isinstance(base, (list, tuple, set)) or is_lazy_iterable(base):
+            return [uri(b) for b in make_list(base)]
+        else:
+            return uri(base)
+
+    def get_base(self, cmd=None, random=None, skip_indices=None, return_index=False,
+            return_all=False):
         if random is None:
             random = self.random_base
 
@@ -238,19 +245,24 @@ class GFALInterface(object):
         if not bases:
             raise Exception("no bases available for command '{}'".format(cmd))
 
+        # are there indices to skip?
         all_bases = bases
-        if len(bases) == 1:
-            # select the first base when there is only one
+        if skip_indices:
+            _bases = [b for i, b in enumerate(bases) if i not in skip_indices]
+            if _bases:
+                bases = _bases
+
+        # return all?
+        if return_all:
+            return bases
+
+        # select one
+        if len(bases) == 1 or not random:
+            # select the first base
             base = bases[0]
         else:
-            # are there indices to skip?
-            if skip_indices:
-                _bases = [b for i, b in enumerate(bases) if i not in skip_indices]
-                if _bases:
-                    bases = _bases
-
-            # select a base
-            base = _random.choice(bases) if random else bases[0]
+            # select a random base
+            base = _random.choice(bases)
 
         return base if not return_index else (base, all_bases.index(base))
 
