@@ -76,8 +76,8 @@ action() {
     #
 
     line() {
-        local n="${1-80}"
-        local c="${2--}"
+        local n="${1:-80}"
+        local c="${2:--}"
         local l=""
         for (( i=0; i<$n; i++ )); do
             l="$l$c"
@@ -179,6 +179,16 @@ action() {
         ls -la "$LAW_JOB_INIT_DIR"
     }
 
+    finalize() {
+        local exit_code="${1:-0}"
+
+        stageout
+        cleanup
+
+        echo
+        echo "exit code: $exit_code"
+    }
+
 
     #
     # some logs
@@ -263,8 +273,7 @@ action() {
 
     if [ "$bootstrap_ret" != "0" ]; then
         2>&1 echo "bootstrap file failed with code $bootstrap_ret, abort"
-        stageout
-        cleanup
+        finalize "$bootstrap_ret"
         return "$bootstrap_ret"
     fi
 
@@ -283,8 +292,7 @@ action() {
 
     if [ "$bootstrap_ret" != "0" ]; then
         2>&1 echo "bootstrap command failed with code $bootstrap_ret, abort"
-        stageout
-        cleanup
+        finalize "$bootstrap_ret"
         return "$bootstrap_ret"
     fi
 
@@ -299,8 +307,7 @@ action() {
 
     if [ -z "$LAW_SRC_PATH" ]; then
         2>&1 echo "law not found (should be loaded in bootstrap file), abort"
-        stageout
-        cleanup
+        finalize "1"
         return "1"
     fi
 
@@ -328,8 +335,7 @@ action() {
         if [ "$?" != "0" ]; then
             2>&1 echo "dependency tree for branch $branch failed with code $exec_ret, abort"
             call_hook law_hook_job_failed "$exec_ret"
-            stageout
-            cleanup
+            finalize "$exec_ret"
             return "$exec_ret"
         fi
 
@@ -352,8 +358,7 @@ action() {
         if [ "$exec_ret" != "0" ]; then
             2>&1 echo "branch $branch failed with code $exec_ret, abort"
             call_hook law_hook_job_failed "$exec_ret"
-            stageout
-            cleanup
+            finalize "$exec_ret"
             return "$exec_ret"
         fi
     done
@@ -364,10 +369,7 @@ action() {
     #
 
     call_hook law_hook_job_finished
-
-    stageout
-    cleanup
-
+    finalize "0"
     return "0"
 }
 

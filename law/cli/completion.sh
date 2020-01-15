@@ -15,12 +15,10 @@ _law_complete() {
     source "$this_dir/../polyfills.sh" ""
 
     # determine LAW_HOME
-    local law_home="$LAW_HOME"
-    [ -z "$law_home" ] && law_home="$HOME/.law"
+    local law_home="${LAW_HOME:-$HOME/.law}"
 
     # determine the LAW_INDEX_FILE
-    local index_file="$LAW_INDEX_FILE"
-    [ -z "$index_file" ] && index_file="$law_home/index"
+    local index_file="${LAW_INDEX_FILE:-$law_home/index}"
 
     # common task run parameters
     local common_run_params="workers local-scheduler log-level help"

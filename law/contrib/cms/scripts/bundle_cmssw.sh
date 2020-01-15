@@ -26,12 +26,9 @@ action() {
         return "3"
     fi
 
-    local exclude="$3"
-    if [ -z "$exclude" ]; then
-        # to make the bundling call below not too complex, set a value here that really
-        # should not match any path in src
-        exclude="???"
-    fi
+    # to make the bundling call below not too complex, choose a default value here that really
+    # should not match any path in src
+    local exclude="${3:-???}"
 
     ( \
         cd "$cmssw_path" && \

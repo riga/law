@@ -32,13 +32,13 @@ law_wlcg_download_file() {
     # >
     # > # download a file, try multiple bases
     # > base2="gsiftp://dcache-door-cms06.desy.de:2811/pnfs/..."
-    # > law_wlcg_download_file "$base,$my_base2" "file.txt" "/my/local/file.txt" "2"
+    # > law_wlcg_download_file "$base,$base2" "file.txt" "/my/local/file.txt" "2"
 
     # get arguments
     local remote_base="$1"
     local file_name="$2"
     local dst_path="$3"
-    local attempts="$( [ ! -z "$4" ] && echo "$4" || echo "1" )"
+    local attempts="${4:-1}"
 
     if [ "$attempts" -lt "1" ]; then
         >&2 echo "number of attempts is $attempts, but should be 1 or larger, so setting to 1"
@@ -51,8 +51,8 @@ law_wlcg_download_file() {
         local remote_bases=""
         local random_base=""
         local ret="0"
-        IFS="," read -r -a remote_bases <<< "$remote_base"
 
+        IFS="," read -r -a remote_bases <<< "$remote_base"
         for i in $( shuf -i "1-${#remote_bases[@]}" -n "$((attempts))" ); do
             random_base="${remote_bases[$((i-1))]}"
             law_wlcg_download_file "$random_base" "$file_name" "$dst_path" "1"
@@ -105,8 +105,8 @@ law_wlcg_upload_file() {
     # 1. remote_base: The remote directory to which the file should be uploaded. It should start
     #    with the protocol to use, e.g. "gsiftp://dcache-door-cms04.desy.de:2811/pnfs". When the
     #    value contains a comma, it is split and interpreted as a list of possible choices from
-    #    which one is randomly drawn. Note that intermediate directories are not created when not
-    #    existing.
+    #    which one is randomly drawn. Note that intermediate remote directories are not created when
+    #    not existing.
     # 2. file_name: The name the uploaded file should have.
     # 3. src_path: The source path of the file to upload.
     # 4. attempts: Number of attempts to make to upload the file. Optional. Defaults to 1.
@@ -121,13 +121,13 @@ law_wlcg_upload_file() {
     # >
     # > # upload a file, try multiple bases
     # > base2="gsiftp://dcache-door-cms06.desy.de:2811/pnfs/..."
-    # > law_wlcg_upload_file "$base,$my_base2" "file.txt" "/my/local/file.txt" "2"
+    # > law_wlcg_upload_file "$base,$base2" "file.txt" "/my/local/file.txt" "2"
 
     # get arguments
     local remote_base="$1"
     local file_name="$2"
     local src_path="$3"
-    local attempts="$( [ ! -z "$4" ] && echo "$4" || echo "1" )"
+    local attempts="${4:-1}"
 
     if [ "$attempts" -lt "1" ]; then
         >&2 echo "number of attempts is $attempts, but should be 1 or larger, so setting to 1"
@@ -146,8 +146,8 @@ law_wlcg_upload_file() {
         local remote_bases=""
         local random_base=""
         local ret="0"
-        IFS="," read -r -a remote_bases <<< "$remote_base"
 
+        IFS="," read -r -a remote_bases <<< "$remote_base"
         for i in $( shuf -i "1-${#remote_bases[@]}" -n "$((attempts))" ); do
             random_base="${remote_bases[$((i-1))]}"
             law_wlcg_upload_file "$random_base" "$file_name" "$src_path" "1"
