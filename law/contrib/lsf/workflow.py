@@ -14,7 +14,6 @@ from abc import abstractmethod
 from collections import OrderedDict
 
 import luigi
-import six
 
 from law.config import Config
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
