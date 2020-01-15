@@ -136,7 +136,8 @@ class DurationParameter(luigi.Parameter):
 class CSVParameter(luigi.Parameter):
     """
     Parameter that parses a comma-separated value (CSV) and produces a tuple. *cls* can refer to an
-    other luigi parameter class that will be used to parse and serialize the particular items. Example:
+    other luigi parameter class that will be used to parse and serialize the particular items.
+    Example:
 
     .. code-block:: python
 

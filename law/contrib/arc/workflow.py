@@ -9,7 +9,6 @@ __all__ = ["ARCWorkflow"]
 
 
 import os
-import threading
 import logging
 from abc import abstractmethod
 from collections import OrderedDict
@@ -143,7 +142,6 @@ class ARCWorkflowProxy(BaseRemoteWorkflowProxy):
         task = self.task
 
         # prepare objects for dumping intermediate submission data
-        dump_lock = threading.Lock()
         dump_freq = task.arc_dump_intermediate_submission_data()
         if isinstance(dump_freq, bool) or not isinstance(dump_freq, six.integer_types + (float,)):
             dump_freq = 50
@@ -161,8 +159,7 @@ class ARCWorkflowProxy(BaseRemoteWorkflowProxy):
 
             # dump intermediate submission data with a certain frequency
             if dump_freq and job_num % dump_freq == 0:
-                with dump_lock:
-                    self.dump_submission_data()
+                self.dump_submission_data()
 
         return self.job_manager.submit_batch(job_files, ce=task.arc_ce, retries=3,
             threads=task.threads, callback=progress_callback)

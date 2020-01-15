@@ -12,6 +12,7 @@ import sys
 import time
 import math
 import random
+import threading
 import logging
 from collections import OrderedDict, defaultdict
 from abc import abstractmethod
@@ -205,6 +206,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         # flag denoting if jobs were cancelled or cleaned up (i.e. controlled)
         self._controlled_jobs = False
 
+        # lock to protect the dumping of submission data
+        self._dump_lock = threading.Lock()
+
     @property
     def submission_data_cls(self):
         return SubmissionData
@@ -339,7 +343,8 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         self.submission_data["dashboard_config"] = self.dashboard.get_persistent_config()
 
         # write the submission data to the output file
-        self._outputs["submission"].dump(self.submission_data, formatter="json", indent=4)
+        with self._dump_lock:
+            self._outputs["submission"].dump(self.submission_data, formatter="json", indent=4)
 
         logger.debug("submission data dumped")
 

@@ -11,7 +11,6 @@ __all__ = ["GLiteWorkflow"]
 
 import os
 import sys
-import threading
 import logging
 from abc import abstractmethod
 from collections import OrderedDict
@@ -153,7 +152,6 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
                 self.delegation_ids.append(task.glite_delegate_proxy(endpoint))
 
         # prepare objects for dumping intermediate submission data
-        dump_lock = threading.Lock()
         dump_freq = task.glite_dump_intermediate_submission_data()
         if isinstance(dump_freq, bool) or not isinstance(dump_freq, six.integer_types + (float,)):
             dump_freq = 50
@@ -171,8 +169,7 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
 
             # dump intermediate submission data with a certain frequency
             if dump_freq and job_num % dump_freq == 0:
-                with dump_lock:
-                    self.dump_submission_data()
+                self.dump_submission_data()
 
         return self.job_manager.submit_batch(job_files, ce=task.glite_ce,
             delegation_id=self.delegation_ids, retries=3, threads=task.threads,

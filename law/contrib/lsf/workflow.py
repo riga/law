@@ -9,7 +9,6 @@ __all__ = ["LSFWorkflow"]
 
 
 import os
-import threading
 import logging
 from abc import abstractmethod
 from collections import OrderedDict
@@ -147,7 +146,6 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
         queue = get_param(task.lsf_queue)
 
         # prepare objects for dumping intermediate submission data
-        dump_lock = threading.Lock()
         dump_freq = task.lsf_dump_intermediate_submission_data()
         if isinstance(dump_freq, bool) or not isinstance(dump_freq, six.integer_types + (float,)):
             dump_freq = 50
@@ -165,8 +163,7 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
 
             # dump intermediate submission data with a certain frequency
             if dump_freq and job_num % dump_freq == 0:
-                with dump_lock:
-                    self.dump_submission_data()
+                self.dump_submission_data()
 
         return self.job_manager.submit_batch(job_files, queue=queue, emails=False, retries=3,
             threads=task.threads, callback=progress_callback)
