@@ -353,8 +353,6 @@ class Task(BaseTask):
     def _repr_params(self, all_params=False):
         # build key value pairs of all significant parameters
         params = self.get_params()
-        param_values = self.get_param_values(params, [], self.param_kwargs)
-        param_objs = dict(params)
 
         if all_params:
             exclude = set()
@@ -362,9 +360,10 @@ class Task(BaseTask):
             exclude = self.exclude_params_repr | self.inst_exclude_params_repr()
 
         pairs = []
-        for param_name, param_value in param_values:
-            if param_objs[param_name].significant and not multi_match(param_name, exclude):
-                pairs.append((param_name, param_objs[param_name].serialize(param_value)))
+        for name, param in params:
+            if param.significant and not multi_match(name, exclude):
+                value = getattr(self, name)
+                pairs.append((name, param.serialize(value)))
 
         return pairs
 
