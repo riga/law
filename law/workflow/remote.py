@@ -341,6 +341,8 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         # write the submission data to the output file
         self._outputs["submission"].dump(self.submission_data, formatter="json", indent=4)
 
+        logger.debug("submission data dumped")
+
     def run(self):
         """
         Actual run method that starts the processing of jobs and initiates the status polling, or
@@ -552,6 +554,11 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 self.dump_submission_data()
             return new_submission_data
 
+        # add empty job entries to submission data
+        for job_num, branches in six.iteritems(submit_jobs):
+            job_data = self.submission_data_cls.job_data(branches=branches)
+            self.submission_data.jobs[job_num] = job_data
+
         # create job submission files
         job_files = [self.create_job_file(*tpl) for tpl in six.iteritems(submit_jobs)]
 
@@ -572,10 +579,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 errors.append((job_num, job_id))
                 job_id = self.submission_data_cls.dummy_job_id
 
-            # build the job data
-            branches = submit_jobs[job_num]
-            job_data = self.submission_data_cls.job_data(job_id=job_id, branches=branches)
-            self.submission_data.jobs[job_num] = job_data
+            # set the job id in the job data
+            job_data = self.submission_data.jobs[job_num]
+            job_data["job_id"] = job_id
             new_submission_data[job_num] = job_data
 
             # set the attempt number in the submission data

@@ -9,9 +9,12 @@ __all__ = ["ARCWorkflow"]
 
 
 import os
+import threading
 import logging
 from abc import abstractmethod
 from collections import OrderedDict
+
+import six
 
 from law.config import Config
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
@@ -139,11 +142,27 @@ class ARCWorkflowProxy(BaseRemoteWorkflowProxy):
     def submit_jobs(self, job_files):
         task = self.task
 
+        # prepare objects for dumping intermediate submission data
+        dump_lock = threading.Lock()
+        dump_freq = task.arc_dump_intermediate_submission_data()
+        if isinstance(dump_freq, bool) or not isinstance(dump_freq, six.integer_types + (float,)):
+            dump_freq = 50
+
         # progress callback to inform the scheduler
-        def progress_callback(i, result):
-            i += 1
-            if i in (1, len(job_files)) or i % 25 == 0:
-                task.publish_message("submitted {}/{} job(s)".format(i, len(job_files)))
+        def progress_callback(i, job_id):
+            job_num = i + 1
+
+            # set the job id early
+            self.submission_data.jobs[job_num]["job_id"] = job_id
+
+            # log a message every 25 jobs
+            if job_num in (1, len(job_files)) or job_num % 25 == 0:
+                task.publish_message("submitted {}/{} job(s)".format(job_num, len(job_files)))
+
+            # dump intermediate submission data with a certain frequency
+            if dump_freq and job_num % dump_freq == 0:
+                with dump_lock:
+                    self.dump_submission_data()
 
         return self.job_manager.submit_batch(job_files, ce=task.arc_ce, retries=3,
             threads=task.threads, callback=progress_callback)
@@ -214,6 +233,9 @@ class ARCWorkflow(BaseRemoteWorkflow):
 
     def arc_job_config(self, config, job_num, branches):
         return config
+
+    def arc_dump_intermediate_submission_data(self):
+        return True
 
     def arc_post_submit_delay(self):
         return self.poll_interval * 60
