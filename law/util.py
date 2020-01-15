@@ -7,13 +7,14 @@ Helpful utility functions.
 
 __all__ = [
     "default_lock", "io_lock", "no_value", "rel_path", "law_src_path", "law_home_path", "print_err",
-    "abort", "try_int", "colored", "uncolored", "query_choice", "is_pattern", "brace_expand",
-    "multi_match", "is_lazy_iterable", "make_list", "make_tuple", "flatten", "merge_dicts", "which",
-    "map_verbose", "map_struct", "mask_struct", "tmp_file", "interruptable_popen", "readable_popen",
-    "create_hash", "copy_no_perm", "makedirs_perm", "user_owns_file", "iter_chunks", "human_bytes",
-    "parse_bytes", "human_duration", "human_time_diff", "parse_duration", "is_file_exists_error",
-    "check_bool_flag", "send_mail", "ShorthandDict", "open_compat", "patch_object",
-    "join_generators", "quote_cmd", "BaseStream", "TeeStream", "FilteredStream",
+    "abort", "is_number", "try_int", "colored", "uncolored", "query_choice", "is_pattern",
+    "brace_expand", "multi_match", "is_lazy_iterable", "make_list", "make_tuple", "flatten",
+    "merge_dicts", "which", "map_verbose", "map_struct", "mask_struct", "tmp_file",
+    "interruptable_popen", "readable_popen", "create_hash", "copy_no_perm", "makedirs_perm",
+    "user_owns_file", "iter_chunks", "human_bytes", "parse_bytes", "human_duration",
+    "human_time_diff", "parse_duration", "is_file_exists_error", "check_bool_flag", "send_mail",
+    "ShorthandDict", "open_compat", "patch_object", "join_generators", "quote_cmd", "BaseStream",
+    "TeeStream", "FilteredStream",
 ]
 
 
@@ -112,6 +113,13 @@ def abort(msg=None, exitcode=1, color=True):
                 msg = colored(msg, color="red")
             print_err(msg)
     sys.exit(exitcode)
+
+
+def is_number(n):
+    """
+    Returns *True* if *n* is a number, i.e., integer or float, and in particular no boolean.
+    """
+    return isinstance(n, six.integer_types + (float,)) and not isinstance(n, bool)
 
 
 def try_int(n):
@@ -527,19 +535,19 @@ def map_struct(func, struct, map_dict=True, map_list=True, map_tuple=False, map_
     valid_types = tuple()
     if map_dict:
         valid_types += (dict,)
-        if isinstance(map_dict, int) and not isinstance(map_dict, bool):
+        if is_number(map_dict):
             map_dict -= 1
     if map_list:
         valid_types += (list,)
-        if isinstance(map_list, int) and not isinstance(map_list, bool):
+        if is_number(map_list):
             map_list -= 1
     if map_tuple:
         valid_types += (tuple,)
-        if isinstance(map_tuple, int) and not isinstance(map_tuple, bool):
+        if is_number(map_tuple):
             map_tuple -= 1
     if map_set:
         valid_types += (set,)
-        if isinstance(map_set, int) and not isinstance(map_set, bool):
+        if is_number(map_set):
             map_set -= 1
 
     # is an explicit cls set?

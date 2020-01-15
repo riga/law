@@ -22,7 +22,7 @@ from law.contrib.arc.job import ARCJobManager, ARCJobFileFactory
 from law.target.file import get_path
 from law.parameter import CSVParameter
 from law.parser import global_cmdline_args, add_cmdline_arg
-from law.util import law_src_path, merge_dicts
+from law.util import law_src_path, merge_dicts, is_number
 
 
 logger = logging.getLogger(__name__)
@@ -143,7 +143,7 @@ class ARCWorkflowProxy(BaseRemoteWorkflowProxy):
 
         # prepare objects for dumping intermediate submission data
         dump_freq = task.arc_dump_intermediate_submission_data()
-        if isinstance(dump_freq, bool) or not isinstance(dump_freq, six.integer_types + (float,)):
+        if dump_freq and not is_number(dump_freq):
             dump_freq = 50
 
         # progress callback to inform the scheduler
