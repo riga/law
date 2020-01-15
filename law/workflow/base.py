@@ -440,7 +440,7 @@ class BaseWorkflow(Task):
 
     def inst_exclude_params_repr(self):
         params = super(BaseWorkflow, self).inst_exclude_params_repr()
-        if self.is_branch:
+        if self.is_branch():
             params.update(self.exclude_params_branch)
         return params
 

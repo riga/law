@@ -60,9 +60,6 @@ class _CompleteTask(luigi.Task):
         return None
 
 
-complete_task = _CompleteTask()
-
-
 def factory(**default_opts):
     """
     Factory function to create decorators for tasks' run methods. Default options for the decorator
@@ -192,12 +189,12 @@ def factory(**default_opts):
                         if is_gen:
                             # wrap after_call() as it is required to be a generator
                             def after_call_gen(state):
-                                yield complete_task if decorate_run else None
+                                yield _CompleteTask() if decorate_run else None
                                 after_call(state)
 
                             # reset function
                             def reset():
-                                yield complete_task if decorate_run else None
+                                yield _CompleteTask() if decorate_run else None
                                 setattr(fn, state_attr, no_value)
 
                             # call before_call once

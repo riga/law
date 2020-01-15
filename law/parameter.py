@@ -14,8 +14,10 @@ __all__ = [
 
 import luigi
 
-from law.util import human_duration, parse_duration, time_units, time_unit_aliases
 from law.notification import notify_mail
+from law.util import (
+    human_duration, parse_duration, time_units, time_unit_aliases, is_lazy_iterable,
+)
 
 
 # make luigi's BoolParameter parsing explicit globally, https://github.com/spotify/luigi/pull/2427
@@ -133,15 +135,15 @@ class DurationParameter(luigi.Parameter):
 
 class CSVParameter(luigi.Parameter):
     """
-    Parameter that parses a comma-separated value (CSV). *cls* can refer to an other luigi parameter
-    class that will be used to parse and serialize the particular items. Example:
+    Parameter that parses a comma-separated value (CSV) and produces a tuple. *cls* can refer to an
+    other luigi parameter class that will be used to parse and serialize the particular items. Example:
 
     .. code-block:: python
 
         p = CSVParameter(cls=luigi.IntParameter, default=[1, 2, 3])
 
         p.parse("4,5,6")
-        # => [4, 5, 6]
+        # => (4, 5, 6)
 
         p.serialize([7, 8, 9])
         # => "7,8,9"
@@ -164,9 +166,11 @@ class CSVParameter(luigi.Parameter):
     def parse(self, inp):
         """"""
         if not inp:
-            return []
+            return tuple()
+        elif isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
+            return tuple(inp)
         else:
-            return [self._inst.parse(elem) for elem in inp.split(",")]
+            return tuple(self._inst.parse(elem) for elem in inp.split(","))
 
     def serialize(self, value):
         """"""
