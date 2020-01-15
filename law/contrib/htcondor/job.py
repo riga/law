@@ -171,6 +171,7 @@ class HTCondorJobManager(BaseJobManager):
             if scheduler:
                 cmd += ["-name", scheduler]
             cmd += ["-long"]
+            cmd += ["-limit", str(len(missing_ids))]
             # since v8.5.6, one can define the attributes to fetch
             if self.htcondor_version and self.htcondor_version >= (8, 5, 6):
                 cmd += ["-attributes", ads]
