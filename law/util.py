@@ -381,7 +381,7 @@ def make_tuple(obj, cast=True):
     converted if *cast* is *True*. Otherwise, and for all other types, *obj* is put in a new tuple.
     """
     if isinstance(obj, tuple):
-        return tuple(obj)
+        return obj
     elif is_lazy_iterable(obj):
         return tuple(obj)
     elif isinstance(obj, (list, set)) and cast:

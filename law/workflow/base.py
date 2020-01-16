@@ -325,7 +325,7 @@ class BaseWorkflow(Task):
     """
 
     workflow = luigi.Parameter(default=NO_STR, significant=False, description="the type of the "
-        "workflow to use")
+        "workflow to use, default: NO_STR")
     acceptance = luigi.FloatParameter(default=1.0, significant=False, description="number of "
         "finished tasks to consider the task successful, relative fraction (<= 1) or absolute "
         "value (> 1), default: 1.0")
@@ -340,7 +340,8 @@ class BaseWorkflow(Task):
         "default: 0")
     end_branch = luigi.IntParameter(default=NO_INT, description="the branch to end at, NO_INT "
         "means end, default: NO_INT")
-    branches = CSVParameter(default=[], significant=False, description="branches to use")
+    branches = CSVParameter(default=(), significant=False, description="list of branches to "
+        "select, default: ()")
 
     workflow_proxy_cls = BaseWorkflowProxy
 

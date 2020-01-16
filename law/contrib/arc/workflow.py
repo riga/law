@@ -171,8 +171,8 @@ class ARCWorkflow(BaseRemoteWorkflow):
     arc_job_manager_defaults = None
     arc_job_file_factory_defaults = None
 
-    arc_ce = CSVParameter(default=[], significant=False, description="target arc computing "
-        "element(s)")
+    arc_ce = CSVParameter(default=(), significant=False, description="target arc computing "
+        "element(s), default: ()")
 
     exclude_params_branch = {"arc_ce"}
 

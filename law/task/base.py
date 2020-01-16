@@ -232,16 +232,18 @@ class Task(BaseTask):
 
     log_file = luigi.Parameter(default=NO_STR, significant=False, description="a custom log file, "
         "default: <task.default_log_file>")
-    print_deps = CSVParameter(default=[], significant=False, description="print task dependencies, "
-        "do not run any task, the passed numbers set the recursion depth (0 means non-recursive)")
-    print_status = CSVParameter(default=[], significant=False, description="print the task status, "
+    print_deps = CSVParameter(default=(), significant=False, description="print task dependencies, "
+        "do not run any task, the passed numbers set the recursion depth (0 means non-recursive), "
+        "default: ()")
+    print_status = CSVParameter(default=(), significant=False, description="print the task status, "
         "do not run any task, the passed numbers set the recursion depth (0 means non-recursive) "
-        "and optionally the collection depth")
-    print_output = CSVParameter(default=[], significant=False, description="print a flat list of "
+        "and optionally the collection depth, default: ()")
+    print_output = CSVParameter(default=(), significant=False, description="print a flat list of "
         "output targets, do not run any task, the passed number sets the recursion depth (0 means "
-        "non-recursive")
-    remove_output = CSVParameter(default=[], significant=False, description="remove all outputs, "
-        "do not run any task, the passed number sets the recursion depth (0 means non-recursive)")
+        "non-recursive, default: ()")
+    remove_output = CSVParameter(default=(), significant=False, description="remove all outputs, "
+        "do not run any task, the passed number sets the recursion depth (0 means non-recursive), "
+        "default: ()")
 
     interactive_params = ["print_deps", "print_status", "print_output", "remove_output"]
 

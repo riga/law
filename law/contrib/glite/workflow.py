@@ -182,8 +182,8 @@ class GLiteWorkflow(BaseRemoteWorkflow):
     glite_job_manager_defaults = None
     glite_job_file_factory_defaults = None
 
-    glite_ce = CSVParameter(default=[], significant=False, description="target glite computing "
-        "element(s)")
+    glite_ce = CSVParameter(default=(), significant=False, description="target glite computing "
+        "element(s), default: ()")
 
     exclude_params_branch = {"glite_ce"}
 

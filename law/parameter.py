@@ -16,7 +16,7 @@ import luigi
 
 from law.notification import notify_mail
 from law.util import (
-    human_duration, parse_duration, time_units, time_unit_aliases, is_lazy_iterable,
+    human_duration, parse_duration, time_units, time_unit_aliases, is_lazy_iterable, make_tuple,
 )
 
 
@@ -141,13 +141,21 @@ class CSVParameter(luigi.Parameter):
 
     .. code-block:: python
 
-        p = CSVParameter(cls=luigi.IntParameter, default=[1, 2, 3])
+        p = CSVParameter(cls=luigi.IntParameter, default=(1, 2, 3)]
 
         p.parse("4,5,6")
         # => (4, 5, 6)
 
-        p.serialize([7, 8, 9])
+        p.serialize((7, 8, 9))
         # => "7,8,9"
+
+    .. note::
+
+        Due to the way `instance caching
+        <https://luigi.readthedocs.io/en/stable/parameters.html#parameter-instance-caching>`__
+        is implemented in luigi, parameters should always have hashable values. Therefore, this
+        parameter produces a tuple and, in particular, not a list. To avoid undesired side effects,
+        the *default* value given to the constructor is also converted to a tuple.
 
     .. py:attribute:: _inst
        type: cls
@@ -157,8 +165,12 @@ class CSVParameter(luigi.Parameter):
     """
 
     def __init__(self, *args, **kwargs):
-        """ __init__(cls=luigi.Parameter, *args, **kwargs) """
+        """ __init__(*args, cls=luigi.Parameter, **kwargs) """
         cls = kwargs.pop("cls", luigi.Parameter)
+
+        # ensure that the default value is a tuple
+        if "default" in kwargs:
+            kwargs["default"] = make_tuple(kwargs["default"])
 
         super(CSVParameter, self).__init__(*args, **kwargs)
 
@@ -167,9 +179,9 @@ class CSVParameter(luigi.Parameter):
     def parse(self, inp):
         """"""
         if not inp:
-            return tuple()
+            return ()
         elif isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
-            return tuple(inp)
+            return make_tuple(inp)
         else:
             return tuple(self._inst.parse(elem) for elem in inp.split(","))
 
