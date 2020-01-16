@@ -144,6 +144,10 @@ class HTCondorJobManager(BaseJobManager):
         if scheduler:
             cmd += ["-name", scheduler]
         cmd += ["-long"]
+        # since v8.3.3 one can limit the number of jobs to query
+        if self.htcondor_v833:
+            cmd += ["-limit", str(len(job_ids))]
+
         # since v8.5.6 one can define the attributes to fetch
         if self.htcondor_v856:
             cmd += ["-attributes", ads]
