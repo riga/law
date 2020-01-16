@@ -70,7 +70,7 @@ print task status with max_depth -1 and target_depth 0
 
 
 ```shell
-law run CreateAlphabet --version v1 --CreateChars-transfer-logs --CreateChars-poll-interval 0.5
+law run CreateAlphabet --version v1 --CreateChars-transfer-logs --CreateChars-poll-interval 30sec
 ```
 
 The ``CreateChars`` task is a ``HTCondorWorkflow`` by default, but it is also able to run tasks locally. To do so, just add ``--CreateChars-workflow local`` to the command above.
