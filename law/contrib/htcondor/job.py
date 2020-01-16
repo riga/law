@@ -16,7 +16,7 @@ import subprocess
 import logging
 
 from law.job.base import BaseJobManager, BaseJobFileFactory
-from law.util import interruptable_popen, make_list
+from law.util import interruptable_popen, make_list, quote_cmd
 
 
 logger = logging.getLogger(__name__)
@@ -42,8 +42,8 @@ class HTCondorJobManager(BaseJobManager):
 
     @classmethod
     def get_htcondor_version(cls):
-        cmd = ["condor_version"]
-        code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE)
+        code, out, _ = interruptable_popen("condor_version", shell=True, executable="/bin/bash",
+            stdout=subprocess.PIPE)
         if code == 0:
             m = re.match(r"^\$CondorVersion: (\d+)\.(\d+)\.(\d+) .+$", out.split("\n")[0].strip())
             if m:
@@ -71,13 +71,14 @@ class HTCondorJobManager(BaseJobManager):
         if scheduler:
             cmd += ["-name", scheduler]
         cmd += [job_file_name]
+        cmd = quote_cmd(cmd)
 
         # define the actual submission in a loop to simplify retries
         while True:
             # run the command
             logger.debug("submit htcondor job with command '{}'".format(cmd))
-            code, out, err = interruptable_popen(cmd, stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE, cwd=job_file_dir)
+            code, out, err = interruptable_popen(cmd, shell=True, executable="/bin/bash",
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=job_file_dir)
 
             # get the job id(s)
             if code == 0:
@@ -116,10 +117,12 @@ class HTCondorJobManager(BaseJobManager):
         if scheduler:
             cmd += ["-name", scheduler]
         cmd += make_list(job_id)
+        cmd = quote_cmd(cmd)
 
         # run it
         logger.debug("cancel htcondor job(s) with command '{}'".format(cmd))
-        code, out, err = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        code, out, err = interruptable_popen(cmd, shell=True, executable="/bin/bash",
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         # check success
         if code != 0 and not silent:
@@ -146,9 +149,11 @@ class HTCondorJobManager(BaseJobManager):
         # since v8.5.6, one can define the attributes to fetch
         if self.htcondor_version and self.htcondor_version >= (8, 5, 6):
             cmd += ["-attributes", ads]
+        cmd = quote_cmd(cmd)
 
         logger.debug("query htcondor job(s) with command '{}'".format(cmd))
-        code, out, err = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        code, out, err = interruptable_popen(cmd, shell=True, executable="/bin/bash",
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         # handle errors
         if code != 0:
@@ -174,10 +179,11 @@ class HTCondorJobManager(BaseJobManager):
             # since v8.5.6, one can define the attributes to fetch
             if self.htcondor_version and self.htcondor_version >= (8, 5, 6):
                 cmd += ["-attributes", ads]
+            cmd = quote_cmd(cmd)
 
             logger.debug("query htcondor job history with command '{}'".format(cmd))
-            code, out, err = interruptable_popen(cmd, stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE)
+            code, out, err = interruptable_popen(cmd, shell=True, executable="/bin/bash",
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
             # handle errors
             if code != 0:

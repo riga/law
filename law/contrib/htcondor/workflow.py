@@ -153,8 +153,9 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
             dump_freq = 50
 
         # progress callback to inform the scheduler
-        def progress_callback(i, job_id):
+        def progress_callback(i, job_ids):
             job_num = i + 1
+            job_id = job_ids[0]
 
             # set the job id early
             self.submission_data.jobs[job_num]["job_id"] = job_id

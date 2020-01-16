@@ -21,7 +21,7 @@ import six
 
 from law.job.base import BaseJobManager, BaseJobFileFactory
 from law.target.file import get_scheme
-from law.util import interruptable_popen, make_list
+from law.util import interruptable_popen, make_list, quote_cmd
 
 
 logger = logging.getLogger(__name__)
@@ -62,11 +62,12 @@ class ARCJobManager(BaseJobManager):
             if job_list:
                 cmd += ["-j", job_list]
             cmd += [job_file_name]
+            cmd = quote_cmd(cmd)
 
             # run the command
             logger.debug("submit arc job with command '{}'".format(cmd))
-            code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=sys.stderr,
-                cwd=job_file_dir)
+            code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
+                stdout=subprocess.PIPE, stderr=sys.stderr, cwd=job_file_dir)
 
             # in some cases, the return code is 0 but the ce did not respond with a valid id
             if code == 0:
@@ -95,13 +96,17 @@ class ARCJobManager(BaseJobManager):
         # default arguments
         job_list = job_list or self.job_list
 
-        # build the command and run it
+        # build the command
         cmd = ["arckill"]
         if job_list:
             cmd += ["-j", job_list]
         cmd += make_list(job_id)
+        cmd = quote_cmd(cmd)
+
+        # run it
         logger.debug("cancel arc job(s) with command '{}'".format(cmd))
-        code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=sys.stderr)
+        code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
+            stdout=subprocess.PIPE, stderr=sys.stderr)
 
         # check success
         if code != 0 and not silent:
@@ -112,13 +117,17 @@ class ARCJobManager(BaseJobManager):
         # default arguments
         job_list = job_list or self.job_list
 
-        # build the command and run it
+        # build the command
         cmd = ["arcclean"]
         if job_list:
             cmd += ["-j", job_list]
         cmd += make_list(job_id)
+        cmd = quote_cmd(cmd)
+
+        # run it
         logger.debug("cleanup arc job(s) with command '{}'".format(cmd))
-        code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=sys.stderr)
+        code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
+            stdout=subprocess.PIPE, stderr=sys.stderr)
 
         # check success
         if code != 0 and not silent:
@@ -132,13 +141,17 @@ class ARCJobManager(BaseJobManager):
         multi = isinstance(job_id, (list, tuple))
         job_ids = make_list(job_id)
 
-        # build the command and run it
+        # build the command
         cmd = ["arcstat"]
         if job_list:
             cmd += ["-j", job_list]
         cmd += job_ids
+        cmd = quote_cmd(cmd)
+
+        # run it
         logger.debug("query arc job(s) with command '{}'".format(cmd))
-        code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
         # handle errors
         if code != 0:

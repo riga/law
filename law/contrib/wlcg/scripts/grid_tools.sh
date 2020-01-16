@@ -32,6 +32,8 @@ law_wlcg_check_executable() {
         return "0"
     fi
 }
+[ ! -z "$BASH_VERSION" ] && export -f law_wlcg_check_executable
+
 
 law_wlcg_download_file() {
     # Downloads a file from a storage element to a specified location. It supports automatic

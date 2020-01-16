@@ -18,7 +18,7 @@ import logging
 
 from law.job.base import BaseJobManager, BaseJobFileFactory
 from law.target.file import add_scheme
-from law.util import interruptable_popen, make_list
+from law.util import interruptable_popen, make_list, quote_cmd
 
 
 logger = logging.getLogger(__name__)
@@ -64,12 +64,13 @@ class GLiteJobManager(BaseJobManager):
             if delegation_id:
                 cmd += ["-D", delegation_id[i]]
             cmd += [job_file_name]
+            cmd = quote_cmd(cmd)
 
             # run the command
             # glite prints everything to stdout
             logger.debug("submit glite job with command '{}'".format(cmd))
-            code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=sys.stderr,
-                cwd=job_file_dir)
+            code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
+                stdout=subprocess.PIPE, stderr=sys.stderr, cwd=job_file_dir)
 
             # in some cases, the return code is 0 but the ce did not respond with a valid id
             if code == 0:
@@ -94,10 +95,14 @@ class GLiteJobManager(BaseJobManager):
                         job_file, out))
 
     def cancel(self, job_id, silent=False):
-        # build the command and run it
+        # build the command
         cmd = ["glite-ce-job-cancel", "-N"] + make_list(job_id)
+        cmd = quote_cmd(cmd)
+
+        # run it
         logger.debug("cancel glite job(s) with command '{}'".format(cmd))
-        code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=sys.stderr)
+        code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
+            stdout=subprocess.PIPE, stderr=sys.stderr)
 
         # check success
         if code != 0 and not silent:
@@ -105,10 +110,14 @@ class GLiteJobManager(BaseJobManager):
             raise Exception("cancellation of glite job(s) '{}' failed:\n{}".format(job_id, out))
 
     def cleanup(self, job_id, silent=False):
-        # build the command and run it
+        # build the command
         cmd = ["glite-ce-job-purge", "-N"] + make_list(job_id)
+        cmd = quote_cmd(cmd)
+
+        # run it
         logger.debug("cleanup glite job(s) with command '{}'".format(cmd))
-        code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=sys.stderr)
+        code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
+            stdout=subprocess.PIPE, stderr=sys.stderr)
 
         # check success
         if code != 0 and not silent:
@@ -119,10 +128,14 @@ class GLiteJobManager(BaseJobManager):
         multi = isinstance(job_id, (list, tuple))
         job_ids = make_list(job_id)
 
-        # build the command and run it
+        # build the command
         cmd = ["glite-ce-job-status", "-n", "-L", "0"] + job_ids
+        cmd = quote_cmd(cmd)
+
+        # run it
         logger.debug("query glite job(s) with command '{}'".format(cmd))
-        code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=sys.stderr)
+        code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
+            stdout=subprocess.PIPE, stderr=sys.stderr)
 
         # handle errors
         if code != 0:

@@ -17,7 +17,7 @@ import logging
 import six
 
 from law.job.base import BaseJobManager, BaseJobFileFactory
-from law.util import interruptable_popen, make_list
+from law.util import interruptable_popen, make_list, quote_cmd
 
 
 logger = logging.getLogger(__name__)
@@ -56,8 +56,8 @@ class LSFJobManager(BaseJobManager):
         while True:
             # run the command
             logger.debug("submit lsf job with command '{}'".format(cmd))
-            code, out, err = interruptable_popen(cmd, shell=True, stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE, cwd=job_file_dir)
+            code, out, err = interruptable_popen(cmd, shell=True, executable="/bin/bash",
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=job_file_dir)
 
             # get the job id
             if code == 0:
@@ -91,10 +91,12 @@ class LSFJobManager(BaseJobManager):
         if queue:
             cmd += ["-q", queue]
         cmd += make_list(job_id)
+        cmd = quote_cmd(cmd)
 
         # run it
         logger.debug("cancel lsf job(s) with command '{}'".format(cmd))
-        code, out, err = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        code, out, err = interruptable_popen(cmd, shell=True, executable="/bin/bash",
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         # check success
         if code != 0 and not silent:
@@ -107,13 +109,17 @@ class LSFJobManager(BaseJobManager):
         multi = isinstance(job_id, (list, tuple))
         job_ids = make_list(job_id)
 
-        # query the condor queue
+        # build the command
         cmd = ["bjobs", "-noheader"]
         if queue:
             cmd += ["-q", queue]
         cmd += job_ids
+        cmd = quote_cmd(cmd)
+
+        # run it
         logger.debug("query lsf job(s) with command '{}'".format(cmd))
-        code, out, err = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        code, out, err = interruptable_popen(cmd, shell=True, executable="/bin/bash",
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         # handle errors
         if code != 0:
