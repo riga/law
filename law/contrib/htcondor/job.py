@@ -38,6 +38,7 @@ class HTCondorJobManager(BaseJobManager):
         self.htcondor_version = self.get_htcondor_version()
 
         # flags for versions with some important changes
+        self.htcondor_v833 = self.htcondor_version and self.htcondor_version >= (8, 3, 3)
         self.htcondor_v856 = self.htcondor_version and self.htcondor_version >= (8, 5, 6)
 
     @classmethod
@@ -143,8 +144,12 @@ class HTCondorJobManager(BaseJobManager):
         if scheduler:
             cmd += ["-name", scheduler]
         cmd += ["-long"]
-        # since v8.5.6, one can define the attributes to fetch
-        if self.htcondor_version and self.htcondor_version >= (8, 5, 6):
+        # since v8.3.3 one can limit the number of jobs to query
+        if self.htcondor_v833:
+            cmd += ["-limit", str(len(job_ids))]
+
+        # since v8.5.6 one can define the attributes to fetch
+        if self.htcondor_v856:
             cmd += ["-attributes", ads]
 
         logger.debug("query htcondor job(s) with command '{}'".format(cmd))
@@ -171,8 +176,11 @@ class HTCondorJobManager(BaseJobManager):
             if scheduler:
                 cmd += ["-name", scheduler]
             cmd += ["-long"]
-            # since v8.5.6, one can define the attributes to fetch
-            if self.htcondor_version and self.htcondor_version >= (8, 5, 6):
+            # since v8.3.3 one can limit the number of jobs to query
+            if self.htcondor_v833:
+                cmd += ["-limit", str(len(missing_ids))]
+            # since v8.5.6 one can define the attributes to fetch
+            if self.htcondor_v856:
                 cmd += ["-attributes", ads]
 
             logger.debug("query htcondor job history with command '{}'".format(cmd))
