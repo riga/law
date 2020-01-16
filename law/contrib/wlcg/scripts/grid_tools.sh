@@ -2,6 +2,37 @@
 
 # Helpful tools for working with jobs on the WLCG.
 
+law_wlcg_check_executable() {
+    # Checks whether a certain executable is installed and prints an error message if not.
+    #
+    # Arguments:
+    # 1. name: The name of the executable to check.
+    #
+    # Examples:
+    # > law_wlcg_check_executable python; echo $?
+    # > "0"
+    # >
+    # > law_wlcg_check_executable foo; echo $?
+    # > "executable 'foo' not found"
+    # > "1"
+
+    # get arguments
+    local name="$1"
+    if [ -z "$name" ]; then
+        2>&1 echo "no executable given to check"
+        return "2"
+    fi
+
+    # do the check
+    eval "type $name" &> /dev/null
+    if [ "$?" != "0" ]; then
+        2>&1 echo "executable '$name' not found"
+        return "1"
+    else
+        return "0"
+    fi
+}
+
 law_wlcg_download_file() {
     # Downloads a file from a storage element to a specified location. It supports automatic
     # retries, round-robin over multiple storage element doors, and automatic replica selection.
@@ -33,6 +64,11 @@ law_wlcg_download_file() {
     # > # download a file, try multiple bases
     # > base2="gsiftp://dcache-door-cms06.desy.de:2811/pnfs/..."
     # > law_wlcg_download_file "$base,$base2" "file.txt" "/my/local/file.txt" "2"
+
+    # check required executables
+    law_wlcg_check_executable "gfal-ls" || return "3"
+    law_wlcg_check_executable "gfal-copy" || return "3"
+    law_wlcg_check_executable "shuf" || return "3"
 
     # get arguments
     local remote_base="$1"
@@ -98,8 +134,8 @@ law_wlcg_download_file() {
 
 law_wlcg_upload_file() {
     # Uploads a file to a storage element from a specified location. It supports automatic
-    # retries and round-robin over multiple storage element doors. gfal-fs is the only required
-    # executable.
+    # retries and round-robin over multiple storage element doors. Required executables are
+    # gfal-copy and shuf.
     #
     # Arguments:
     # 1. remote_base: The remote directory to which the file should be uploaded. It should start
@@ -122,6 +158,10 @@ law_wlcg_upload_file() {
     # > # upload a file, try multiple bases
     # > base2="gsiftp://dcache-door-cms06.desy.de:2811/pnfs/..."
     # > law_wlcg_upload_file "$base,$base2" "file.txt" "/my/local/file.txt" "2"
+
+    # check required executables
+    law_wlcg_check_executable "gfal-copy" || return "3"
+    law_wlcg_check_executable "shuf" || return "3"
 
     # get arguments
     local remote_base="$1"
