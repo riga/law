@@ -210,20 +210,8 @@ class LSFWorkflow(BaseRemoteWorkflow):
         return LSFJobManager(**kwargs)
 
     def lsf_create_job_file_factory(self, **kwargs):
-        # job file fectory config priority: config file < class defaults < kwargs
-        cfg = Config.instance()
-        def opt(func_name, section, option):
-            option = cfg.find_option("job", "lsf_" + option, option)
-            fn = getattr(cfg, func_name)
-            return fn(section, option)
-
-        cfg = {
-            "dir": opt("get_expanded", "job", "job_file_dir"),
-            "mkdtemp": opt("get_expanded_boolean", "job", "job_file_dir_mkdtemp"),
-            "cleanup": opt("get_expanded_boolean", "job", "job_file_dir_cleanup"),
-        }
-
-        kwargs = merge_dicts(cfg, self.lsf_job_file_factory_defaults, kwargs)
+        # job file fectory config priority: kwargs > class defaults
+        kwargs = merge_dicts({}, self.lsf_job_file_factory_defaults, kwargs)
         return LSFJobFileFactory(**kwargs)
 
     def lsf_job_config(self, config, job_num, branches):

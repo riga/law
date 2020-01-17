@@ -225,20 +225,8 @@ class GLiteWorkflow(BaseRemoteWorkflow):
         return GLiteJobManager(**kwargs)
 
     def glite_create_job_file_factory(self, **kwargs):
-        # job file fectory config priority: config file < class defaults < kwargs
-        cfg = Config.instance()
-        def opt(func_name, section, option):
-            option = cfg.find_option("job", "glite_" + option, option)
-            fn = getattr(cfg, func_name)
-            return fn(section, option)
-
-        cfg = {
-            "dir": opt("get_expanded", "job", "job_file_dir"),
-            "mkdtemp": opt("get_expanded_boolean", "job", "job_file_dir_mkdtemp"),
-            "cleanup": opt("get_expanded_boolean", "job", "job_file_dir_cleanup"),
-        }
-
-        kwargs = merge_dicts(cfg, self.glite_job_file_factory_defaults, kwargs)
+        # job file fectory config priority: kwargs > class defaults
+        kwargs = merge_dicts({}, self.glite_job_file_factory_defaults, kwargs)
         return GLiteJobFileFactory(**kwargs)
 
     def glite_job_config(self, config, job_num, branches):

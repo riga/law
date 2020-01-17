@@ -16,6 +16,7 @@ import logging
 
 import six
 
+from law.config import Config
 from law.job.base import BaseJobManager, BaseJobFileFactory
 from law.util import interruptable_popen, make_list, quote_cmd
 
@@ -203,6 +204,18 @@ class LSFJobFileFactory(BaseJobFileFactory):
             output_files=None, postfix_output_files=True, manual_stagein=False,
             manual_stageout=False, job_name=None, stdout="stdout.txt", stderr="stderr.txt",
             shell="bash", emails=False, custom_content=None, absolute_paths=False, **kwargs):
+        # get some default kwargs from the config
+        cfg = Config.instance()
+        if kwargs.get("dir") is None:
+            kwargs["dir"] = cfg.get_expanded("job", cfg.find_option("job",
+                "lsf_job_file_dir", "job_file_dir"))
+        if kwargs.get("mkdtemp") is None:
+            kwargs["mkdtemp"] = cfg.get_expanded_boolean("job", cfg.find_option("job",
+                "lsf_job_file_dir_mkdtemp", "job_file_dir_mkdtemp"))
+        if kwargs.get("cleanup") is None:
+            kwargs["cleanup"] = cfg.get_expanded_boolean("job", cfg.find_option("job",
+                "lsf_job_file_dir_cleanup", "job_file_dir_cleanup"))
+
         super(LSFJobFileFactory, self).__init__(**kwargs)
 
         self.file_name = file_name
