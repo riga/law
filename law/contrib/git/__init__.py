@@ -19,7 +19,7 @@ from law.target.file import get_path
 from law.target.local import LocalFileTarget
 from law.parameter import NO_STR, CSVParameter
 from law.decorator import log
-from law.util import rel_path, interruptable_popen
+from law.util import rel_path, interruptable_popen, quote_cmd
 
 
 class BundleGitRepository(Task):
@@ -48,10 +48,11 @@ class BundleGitRepository(Task):
             return self.custom_checksum
 
         if self._checksum is None:
-            checksum_script = rel_path(__file__, "scripts", "repository_checksum.sh")
-            cmd = [checksum_script, self.get_repo_path()]
+            cmd = [rel_path(__file__, "scripts", "repository_checksum.sh"), self.get_repo_path()]
+            cmd = quote_cmd(cmd)
 
-            code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE)
+            code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
+                stdout=subprocess.PIPE)
             if code != 0:
                 raise Exception("repository checksum calculation failed")
 
@@ -61,7 +62,7 @@ class BundleGitRepository(Task):
 
     def output(self):
         repo_base = os.path.basename(self.get_repo_path())
-        return LocalFileTarget("{}_{}.tgz".format(repo_base, self.checksum))
+        return LocalFileTarget("{}.{}.tgz".format(repo_base, self.checksum))
 
     @log
     def run(self):
@@ -69,13 +70,14 @@ class BundleGitRepository(Task):
             self.bundle(tmp.path)
 
     def bundle(self, dst_path):
-        cmd = "{} \"{}\" \"{}\" \"{}\" \"{}\"".format(
+        cmd = [
             rel_path(__file__, "scripts", "bundle_repository.sh"),
             self.get_repo_path(),
             get_path(dst_path),
             " ".join(self.exclude_files),
             " ".join(self.include_files),
-        )
+        ]
+        cmd = quote_cmd(cmd)
 
         code = interruptable_popen(cmd, shell=True, executable="/bin/bash")[0]
         if code != 0:
