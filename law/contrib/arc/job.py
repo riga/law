@@ -65,7 +65,7 @@ class ARCJobManager(BaseJobManager):
         chunking = isinstance(job_file, (list, tuple))
         job_files = make_list(job_file)
         job_file_dir = os.path.dirname(os.path.abspath(job_files[0]))
-        job_file_names = [os.path.basename(job_file) for job_file in job_files]
+        job_file_names = [os.path.basename(jf) for jf in job_files]
 
         # define the actual submission in a loop to simplify retries
         while True:
