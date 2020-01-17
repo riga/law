@@ -121,6 +121,12 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
     """
     Workflow proxy class for the remove workflows.
 
+    .. py:classattribute:: job_error_messages
+       type: dict
+
+       A dictionary containing short error messages mapped to job exit codes as defined in the
+       remote job execution script.
+
     .. py:attribute:: job_manager
        type: law.job.base.BaseJobManager
 
@@ -159,6 +165,18 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
        Class for instantiating status data (used internally).
     """
+
+    # job error messages for errors defined in the remote job script
+    job_error_messages = {
+        10: "dashboard file failed",
+        20: "bootstrap file failed",
+        30: "bootstrap command failed",
+        40: "law detection failed",
+        50: "task dependency check failed",
+        60: "task execution failed",
+        70: "stageout file failed",
+        80: "stageout command failed",
+    }
 
     def __init__(self, *args, **kwargs):
         super(BaseRemoteWorkflowProxy, self).__init__(*args, **kwargs)
@@ -666,7 +684,8 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
             # query job states
             job_ids = [data["job_id"] for data in six.itervalues(active_jobs)]  # noqa: F812
-            _states, errors = self.job_manager.query_batch(job_ids)
+            _states = self.job_manager.query_batch(job_ids)
+            errors = [err for err in six.itervalues(_states) if isinstance(err, Exception)]
             if errors:
                 print("{} error(s) occured during job status query of task {}:".format(
                     len(errors), task.task_id))
@@ -690,7 +709,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             # states stores job_id's as keys, so replace them by using job_num's
             states = OrderedDict()
             for job_num, data in six.iteritems(active_jobs):
-                states[job_num] = self.status_data_cls.job_data(**_states[data["job_id"]])
+                state = _states[data["job_id"]]
+                if not isinstance(state, Exception):
+                    states[job_num] = self.status_data_cls.job_data(**state)
 
             # consider jobs with unknown ids as retry jobs
             for job_num, data in six.iteritems(unknown_jobs):
@@ -758,10 +779,14 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             if newly_failed_jobs:
                 print("{} failed job(s) in task {}:".format(len(newly_failed_jobs), task.task_id))
                 tmpl = "    job: {}, branch(es): {}, id: {job_id}, status: {status}, " \
-                    "code: {code}, error: {error}"
+                    "code: {code}, error: {error}{}"
                 for i, (job_num, data) in enumerate(six.iteritems(newly_failed_jobs)):
                     branches = self.submission_data.jobs[job_num]["branches"]
-                    print(tmpl.format(job_num, ",".join(str(b) for b in branches), **data))
+                    law_err = ""
+                    if data["code"] in self.job_error_messages:
+                        law_err = self.job_error_messages[data["code"]]
+                        law_err = ", job script error: {}".format(law_err)
+                    print(tmpl.format(job_num, ",".join(str(b) for b in branches), law_err, **data))
                     if i + 1 >= self.show_errors:
                         remaining = len(newly_failed_jobs) - self.show_errors
                         if remaining > 0:
