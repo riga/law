@@ -29,6 +29,12 @@ logger = logging.getLogger(__name__)
 
 class ARCJobManager(BaseJobManager):
 
+    # allow chunking for all methods
+    chunk_size_submit = 10
+    chunk_size_cancel = 20
+    chunk_size_cleanup = 20
+    chunk_size_query = 20
+
     submission_job_id_cre = re.compile("^Job submitted with jobid: (.+)$")
     status_block_cre = re.compile(r"\s*([^:]+): (.*)\n")
     status_invalid_job_cre = re.compile("^.+: Job not found in job list: (.+)$")
@@ -52,8 +58,14 @@ class ARCJobManager(BaseJobManager):
             raise ValueError("ce must not be empty")
         ce = make_list(ce)
 
-        # get the job file location as the submission command is run it the same directory
-        job_file_dir, job_file_name = os.path.split(os.path.abspath(job_file))
+        # arc supports multiple jobs to be submitted with a single arcsub call,
+        # so job_file can be a sequence of files
+        # when this is the case, we have to make the assumption that their input files are all
+        # absolute, or they are relative but all in the same directory
+        chunking = isinstance(job_file, (list, tuple))
+        job_files = make_list(job_file)
+        job_file_dir = os.path.dirname(os.path.abspath(job_files[0]))
+        job_file_names = [os.path.basename(job_file) for job_file in job_files]
 
         # define the actual submission in a loop to simplify retries
         while True:
@@ -61,28 +73,36 @@ class ARCJobManager(BaseJobManager):
             cmd = ["arcsub", "-c", random.choice(ce)]
             if job_list:
                 cmd += ["-j", job_list]
-            cmd += [job_file_name]
+            cmd += job_file_names
             cmd = quote_cmd(cmd)
 
             # run the command
-            logger.debug("submit arc job with command '{}'".format(cmd))
+            logger.debug("submit arc job(s) with command '{}'".format(cmd))
             code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
                 stdout=subprocess.PIPE, stderr=sys.stderr, cwd=job_file_dir)
 
-            # in some cases, the return code is 0 but the ce did not respond with a valid id
+            # in some cases, the return code is 0 but the ce did not respond valid job ids
+            job_ids = []
             if code == 0:
-                m = self.submission_job_id_cre.match(out.strip())
-                if m:
-                    job_id = m.group(1)
-                else:
+                for line in out.strip().split("\n"):
+                    m = self.submission_job_id_cre.match(line.strip())
+                    if m:
+                        job_id = m.group(1)
+                        job_ids.append(job_id)
+
+                if not job_ids:
                     code = 1
-                    out = "cannot find job id output:\n{}".format(out)
+                    out = "cannot find job id(s) in output:\n{}".format(out)
+                elif len(job_ids) != len(job_files):
+                    raise Exception("number of job ids in output ({}) does not match number of "
+                        "jobs to submit ({}) in output:\n{}".format(len(job_ids), len(job_files),
+                        out))
 
             # retry or done?
             if code == 0:
-                return job_id
+                return job_ids if chunking else job_ids[0]
             else:
-                logger.debug("submission of arc job '{}' failed:\n{}".format(job_file, out))
+                logger.debug("submission of arc job(s) '{}' failed:\n{}".format(job_files, out))
                 if retries > 0:
                     retries -= 1
                     time.sleep(retry_delay)
@@ -90,7 +110,8 @@ class ARCJobManager(BaseJobManager):
                 elif silent:
                     return None
                 else:
-                    raise Exception("submission of arc job '{}' failed:\n{}".format(job_file, out))
+                    raise Exception("submission of arc job(s) '{}' failed:\n{}".format(job_files,
+                        out))
 
     def cancel(self, job_id, job_list=None, silent=False):
         # default arguments
@@ -138,7 +159,7 @@ class ARCJobManager(BaseJobManager):
         # default arguments
         job_list = job_list or self.job_list
 
-        multi = isinstance(job_id, (list, tuple))
+        chunking = isinstance(job_id, (list, tuple))
         job_ids = make_list(job_id)
 
         # build the command
@@ -167,7 +188,7 @@ class ARCJobManager(BaseJobManager):
         # compare to the requested job ids and perform some checks
         for _job_id in job_ids:
             if _job_id not in query_data:
-                if not multi:
+                if not chunking:
                     if silent:
                         return None
                     else:
@@ -177,7 +198,7 @@ class ARCJobManager(BaseJobManager):
                     query_data[_job_id] = self.job_status_dict(job_id=_job_id, status=self.FAILED,
                         error="job not found in query response")
 
-        return query_data if multi else query_data[job_id]
+        return query_data if chunking else query_data[job_id]
 
     @classmethod
     def parse_query_output(cls, out):
@@ -261,7 +282,7 @@ class ARCJobFileFactory(BaseJobFileFactory):
     def __init__(self, file_name="job.xrsl", executable=None, arguments=None, input_files=None,
             output_files=None, postfix_output_files=True, output_uri=None,
             overwrite_output_files=True, job_name=None, log="log.txt", stdout="stdout.txt",
-            stderr="stderr.txt", custom_content=None, absolute_paths=False, **kwargs):
+            stderr="stderr.txt", custom_content=None, absolute_paths=True, **kwargs):
         super(ARCJobFileFactory, self).__init__(**kwargs)
 
         self.file_name = file_name

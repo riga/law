@@ -26,6 +26,12 @@ logger = logging.getLogger(__name__)
 
 class GLiteJobManager(BaseJobManager):
 
+    # no chunking for submission, but for all other methods
+    chunk_size_submit = 0
+    chunk_size_cancel = 20
+    chunk_size_cleanup = 20
+    chunk_size_query = 20
+
     submission_job_id_cre = re.compile(r"^https?\:\/\/.+\:\d+\/.+")
     status_block_cre = re.compile(r"(\w+)\s*\=\s*\[([^\]]*)\]")
 
@@ -125,7 +131,7 @@ class GLiteJobManager(BaseJobManager):
             raise Exception("cleanup of glite job(s) '{}' failed:\n{}".format(job_id, out))
 
     def query(self, job_id, silent=False):
-        multi = isinstance(job_id, (list, tuple))
+        chunking = isinstance(job_id, (list, tuple))
         job_ids = make_list(job_id)
 
         # build the command
@@ -151,7 +157,7 @@ class GLiteJobManager(BaseJobManager):
         # compare to the requested job ids and perform some checks
         for _job_id in job_ids:
             if _job_id not in query_data:
-                if not multi:
+                if not chunking:
                     if silent:
                         return None
                     else:
@@ -161,7 +167,7 @@ class GLiteJobManager(BaseJobManager):
                     query_data[_job_id] = self.job_status_dict(job_id=_job_id, status=self.FAILED,
                         error="job not found in query response")
 
-        return query_data if multi else query_data[job_id]
+        return query_data if chunking else query_data[job_id]
 
     @classmethod
     def parse_query_output(cls, out):
