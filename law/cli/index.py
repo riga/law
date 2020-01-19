@@ -56,7 +56,7 @@ def execute(args):
         return
 
     # get modules to lookup
-    lookup = [m.strip() for m in cfg.keys("modules")]
+    lookup = [m.strip() for m in cfg.options("modules")]
     if args.modules:
         lookup += args.modules
 

@@ -6,14 +6,15 @@ law config parser implementation.
 
 
 __all__ = [
-    "Config", "sections", "get", "getint", "getfloat", "getboolean", "get_default", "get_expanded",
-    "get_expanded_int", "get_expanded_float", "get_expanded_boolean", "is_missing_or_none",
-    "find_option", "update", "include", "keys", "items", "items_expanded", "set", "has_section",
-    "has_option", "remove_option",
+    "Config", "sections", "options", "items", "update", "include", "get", "getint", "getfloat",
+    "getboolean", "get_default", "get_expanded", "get_expanded_int", "get_expanded_float",
+    "get_expanded_boolean", "is_missing_or_none", "find_option", "set", "has_section", "has_option",
+    "remove_option",
 ]
 
 
 import os
+import re
 import tempfile
 import functools
 import logging
@@ -143,6 +144,8 @@ class Config(ConfigParser):
 
     _config_files = ["$LAW_CONFIG_FILE", "law.cfg", law_home_path("config"), "etc/law/config"]
 
+    _option_ref_regex = re.compile(r"^\&(::(?P<section>[^\:]+))?::(?P<option>.+)$")
+
     @classmethod
     def instance(cls, *args, **kwargs):
         """
@@ -153,6 +156,14 @@ class Config(ConfigParser):
         if cls._instance is None:
             cls._instance = cls(*args, **kwargs)
         return cls._instance
+
+    @classmethod
+    def _parse_option_ref(cls, value, default_section=None):
+        m = cls._option_ref_regex.match(value)
+        if m:
+            return (m.group("section") or default_section, m.group("option"))
+        else:
+            return None
 
     def __init__(self, config_file="", skip_defaults=False, skip_fallbacks=False):
         ConfigParser.__init__(self, allow_no_value=True)
@@ -180,7 +191,7 @@ class Config(ConfigParser):
 
         # inherit from and/or extend by other configs
         for option, overwrite_options in [("include_configs", False), ("extend_configs", True)]:
-            for filename in self.get_default("core", option, "").split(","):
+            for filename in self.get_expanded("core", option, "").split(","):
                 filename = filename.strip()
                 if filename:
                     # resolve filename relative to the main config file
@@ -190,7 +201,7 @@ class Config(ConfigParser):
                     self.include(filename, overwrite_options=overwrite_options)
 
         # sync with luigi configuration
-        if self.getboolean("core", "sync_luigi_config"):
+        if self.get_expanded_boolean("core", "sync_luigi_config"):
             self.sync_luigi_config()
 
     def _convert_to_boolean(self, value):
@@ -219,22 +230,119 @@ class Config(ConfigParser):
         """"""
         return option
 
-    def get_default(self, section, option, default=None, type=None, expandvars=False,
-            expanduser=False):
+    def options(self, section, prefix=None, expand_vars=True, expand_user=True):
         """
+        Returns all options of a *section* in a list. When *prefix* is set, only options starting
+        with that prefix are considered. Environment variable expansion is performed on every
+        returned option name, depending on whether *expand_vars* and *expand_user* are *True*.
+        """
+        options = []
+        for option, _ in ConfigParser.options(self, section):
+            if prefix and not option.startswith(prefix):
+                continue
+            if expand_vars:
+                option = os.path.expandvars(option)
+            if expand_user:
+                option = os.path.expanduser(option)
+            options.append(option)
+        return options
+
+    def items(self, section, prefix=None, expand_vars=True, expand_user=True, **kwargs):
+        """
+        Returns a dictionary of key-value pairs for the given *section*. When *prefix* is set, only
+        options starting with that prefix are considered. Environment variable expansion is
+        performed on every returned option name and corresponding value, depending on whether
+        *expand_vars* and *expand_user* are *True*. Internally, py:meth:`get_expanded` is used
+        to perform value expansion and type interpolation, and is passed all *kwargs*.
+        """
+        options = self.options(section, prefix=prefix, expand_vars=expand_vars,
+            expand_user=expand_user)
+        return [
+            (opt, self.get_expanded(section, opt, expand_vars=expand_vars,
+                expand_user=expand_user, **kwargs))
+            for opt in options
+        ]
+
+    def update(self, data, overwrite=True, overwrite_sections=None, overwrite_options=None):
+        """
+        Updates the currently stored configuration with new *data*, given as a dictionary. When
+        *overwrite_sections* is *False*, sections in *data* that are already present in the current
+        config are skipped. When *overwrite_options* is *False*, existing options are not
+        overwritten.  When *None*, *overwrite_sections* and *overwrite_options* default to
+        *overwrite*.
+        """
+        if overwrite_sections is None:
+            overwrite_sections = overwrite
+        if overwrite_options is None:
+            overwrite_options = overwrite
+
+        for section, _data in six.iteritems(data):
+            if not self.has_section(section):
+                self.add_section(section)
+            elif not overwrite_sections:
+                continue
+
+            for option, value in six.iteritems(_data):
+                if overwrite_options or not self.has_option(section, option):
+                    self.set(section, option, str(value))
+
+    def include(self, filename, *args, **kwargs):
+        """
+        Updates the current config by that found in *filename*. All *args* and *kwargs* are
+        forwarded to :py:meth:`update`.
+        """
+        p = self.__class__(filename, skip_defaults=True, skip_fallbacks=True)
+        self.update(p._sections, *args, **kwargs)
+
+    def get_default(self, section, option, default=None, type=None, expand_vars=False,
+            expand_user=False, dereference=True, _skip_refs=None):
+        """ get_default(section, option, default=None, type=None, expand_vars=False, expand_user=False, dereference=True)
         Returns the config value defined by *section* and *option*. When either the section or the
         option does not exist, the *default* value is returned instead. When *type* is set, it must
-        be either `"str"`, `"int"`, `"float"`, or `"boolean"`. When *expandvars* is *True*,
-        environment variables are expanded. When *expanduser* is *True*, user variables are
+        be either `"str"`, `"int"`, `"float"`, or `"boolean"`. When *expand_vars* is *True*,
+        environment variables are expanded. When *expand_user* is *True*, user variables are
         expanded as well.
-        """
+
+        Also, options retrieved by this method are allowed to refer to values of other options
+        within the config, even to those in other sections. The syntax for config references is
+        ``&[::section]::option``. When no section is given, the value refers to an option in the
+        same section. Example:
+
+        .. code-block:: ini
+
+            [foo_section]
+            x: 123
+            y: &::x               # 123, refers to x in the same section
+
+            [bar_section]
+            z: &::foo_section::x  # 123, refers to x in the foo_section
+
+        This behavior is the default and, if desired, can be disabled by setting *dereference* to
+        *False*. When the reference is not resolvable, the value is taken as is.
+        """  # noqa
         if self.has_section(section) and self.has_option(section, option):
             value = self.get(section, option)
             if isinstance(value, six.string_types):
-                if expandvars:
+                # expand
+                if expand_vars:
                     value = os.path.expandvars(value)
-                if expanduser:
+                if expand_user:
                     value = os.path.expanduser(value)
+
+                # follow references
+                if dereference:
+                    ref = self._parse_option_ref(value, default_section=section)
+                    if ref:
+                        if _skip_refs is None:
+                            _skip_refs = []
+                        elif ref in _skip_refs:
+                            return default
+                        _skip_refs.append(ref)
+                        value = self.get_default(*ref, default=value, type=type,
+                            expand_vars=expand_vars, expand_user=expand_user, dereference=True,
+                            _skip_refs=_skip_refs)
+
+            # return the type-converted value
             return value if not type else self._get_type_converter(type)(value)
         else:
             return default
@@ -244,8 +352,8 @@ class Config(ConfigParser):
         Same as :py:meth:`get_default`, but *expandvars* and *expanduser* arguments are set to
         *True* by default.
         """
-        kwargs.setdefault("expandvars", True)
-        kwargs.setdefault("expanduser", True)
+        kwargs.setdefault("expand_vars", True)
+        kwargs.setdefault("expand_user", True)
         return self.get_default(*args, **kwargs)
 
     def get_expanded_int(self, *args, **kwargs):
@@ -286,57 +394,6 @@ class Config(ConfigParser):
             if not self.is_missing_or_none(section, option):
                 return option
         return None
-
-    def update(self, data, overwrite=None, overwrite_sections=True, overwrite_options=True):
-        """
-        Updates the currently stored configuration with new *data*, given as a dictionary. When
-        *overwrite_sections* is *False*, sections in *data* that are already present in the current
-        config are skipped. When *overwrite_options* is *False*, existing options are not
-        overwritten. When *overwrite* is not *None*, both *overwrite_sections* and
-        *overwrite_options* are set to its value.
-        """
-        if overwrite is not None:
-            overwrite_sections = overwrite
-            overwrite_options = overwrite
-
-        for section, _data in six.iteritems(data):
-            if not self.has_section(section):
-                self.add_section(section)
-            elif not overwrite_sections:
-                continue
-
-            for option, value in six.iteritems(_data):
-                if overwrite_options or not self.has_option(section, option):
-                    self.set(section, option, str(value))
-
-    def include(self, filename, *args, **kwargs):
-        """
-        Updates the current configc with the config found in *filename*. All *args* and *kwargs* are
-        forwarded to :py:meth:`update`.
-        """
-        p = self.__class__(filename, skip_defaults=True, skip_fallbacks=True)
-        self.update(p._sections, *args, **kwargs)
-
-    def keys(self, section, prefix=None):
-        """
-        Returns all keys of a *section* in a list. When *prefix* is set, only keys starting with
-        that prefix are returned
-        """
-        return [key for key, _ in self.items(section) if (not prefix or key.startswith(prefix))]
-
-    def items_expanded(self, *args, **kwargs):
-        """ items_expanded(section, *args, **kwargs)
-        Returns a dictionary of key-value pairs for the given *section* with all user and
-        environment variables expanded in string values. Internally, :py:meth:`items` is used to
-        build the dictionary and perform type interpolation.
-        """
-        def expand(value):
-            if isinstance(value, six.string_types):
-                value = os.path.expandvars(os.path.expanduser(value))
-            return value
-
-        items = self.items(*args, **kwargs)
-        return items.__class__((key, expand(value)) for key, value in items)
 
     def sync_luigi_config(self, push=True, pull=True, expand=True):
         """

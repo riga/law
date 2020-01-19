@@ -44,9 +44,9 @@ class LocalFileSystem(FileSystem):
             config = {}
 
         # helper to add a config value if it exists, extracted with a config parser method
-        def add(key, func):
-            if key not in config and not cfg.is_missing_or_none(section, key):
-                config[key] = func(section, key)
+        def add(option, func):
+            if option not in config and not cfg.is_missing_or_none(section, option):
+                config[option] = func(section, option)
 
         # permissions
         add("default_file_perm", cfg.get_expanded_int)

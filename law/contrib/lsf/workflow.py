@@ -15,7 +15,6 @@ from collections import OrderedDict
 
 import luigi
 
-from law.config import Config
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments
 from law.contrib.lsf.job import LSFJobManager, LSFJobFileFactory

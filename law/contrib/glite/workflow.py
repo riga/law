@@ -15,7 +15,6 @@ import logging
 from abc import abstractmethod
 from collections import OrderedDict
 
-from law.config import Config
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments
 from law.contrib.glite.job import GLiteJobManager, GLiteJobFileFactory

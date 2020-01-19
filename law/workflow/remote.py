@@ -607,9 +607,6 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             job_data["job_id"] = job_id
             new_submission_data[job_num] = job_data
 
-            # set the attempt number in the submission data
-            self.submission_data.attempts.setdefault(job_num, 0)
-
             # inform the dashboard
             task.forward_dashboard_event(self.dashboard, job_data, "action.submit", job_num)
 
@@ -684,8 +681,18 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
             # query job states
             job_ids = [data["job_id"] for data in six.itervalues(active_jobs)]  # noqa: F812
-            _states = self.job_manager.query_batch(job_ids)
-            errors = [err for err in six.itervalues(_states) if isinstance(err, Exception)]
+            query_data = self.job_manager.query_batch(job_ids)
+
+            # separate into actual states and errors that might have occured during the status query
+            states_by_id = {}
+            errors = []
+            for job_id, state_or_error in six.iteritems(query_data):
+                if isinstance(state_or_error, Exception):
+                    errors.append(state_or_error)
+                else:
+                    states_by_id[job_id] = state_or_error
+
+            # print the first show_errors errors
             if errors:
                 print("{} error(s) occured during job status query of task {}:".format(
                     len(errors), task.task_id))
@@ -707,23 +714,23 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 n_poll_fails = 0
 
             # states stores job_id's as keys, so replace them by using job_num's
-            states = OrderedDict()
+            # from active_jobs (which was used for the list of jobs to query in the first place)
+            states_by_num = OrderedDict()
             for job_num, data in six.iteritems(active_jobs):
-                state = _states[data["job_id"]]
-                if not isinstance(state, Exception):
-                    states[job_num] = self.status_data_cls.job_data(**state)
+                job_id = data["job_id"]
+                states_by_num[job_num] = self.status_data_cls.job_data(**states_by_id[job_id])
 
             # consider jobs with unknown ids as retry jobs
             for job_num, data in six.iteritems(unknown_jobs):
-                states[job_num] = self.status_data_cls.job_data(status=self.job_manager.RETRY,
-                    error="unknown job id")
+                states_by_num[job_num] = self.status_data_cls.job_data(
+                    status=self.job_manager.RETRY, error="unknown job id")
 
             # store jobs per status and take further actions depending on the status
             pending_jobs = OrderedDict()
             running_jobs = OrderedDict()
             newly_failed_jobs = OrderedDict()
             retry_jobs = OrderedDict()
-            for job_num, data in six.iteritems(states):
+            for job_num, data in six.iteritems(states_by_num):
                 if data["status"] == self.job_manager.PENDING:
                     pending_jobs[job_num] = data
                     task.forward_dashboard_event(self.dashboard, data, "status.pending", job_num)
@@ -744,6 +751,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                     # retry or ultimately failed?
                     if self.job_retries[job_num] < task.retries:
                         self.job_retries[job_num] += 1
+                        self.submission_data.attempts.setdefault(job_num, 0)
                         self.submission_data.attempts[job_num] += 1
                         data["status"] = self.job_manager.RETRY
                         retry_jobs[job_num] = self.submission_data.jobs[job_num]["branches"]
@@ -803,7 +811,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 if "status" in self._outputs:
                     status_data = self.status_data_cls()
                     status_data.jobs.update(finished_jobs)
-                    status_data.jobs.update(states)
+                    status_data.jobs.update(states_by_num)
                     self._outputs["status"].dump(status_data, formatter="json", indent=4)
                 break
             elif failed:

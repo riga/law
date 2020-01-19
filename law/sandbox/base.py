@@ -193,7 +193,7 @@ class Sandbox(object):
         # extend by variables from the config file
         cfg = Config.instance()
         section = self.get_config_section(postfix="env")
-        for name, value in cfg.items_expanded(section):
+        for name, value in cfg.items(section):
             if is_pattern(name):
                 names = [key for key in os.environ.keys() if fnmatch(key, name)]
             else:
@@ -217,7 +217,7 @@ class Sandbox(object):
         # extend by volumes from the config file
         cfg = Config.instance()
         section = self.get_config_section(postfix="volumes")
-        for hdir, cdir in cfg.items_expanded(section):
+        for hdir, cdir in cfg.items(section):
             volumes[os.path.expandvars(os.path.expanduser(hdir))] = cdir
 
         # extend by volumes defined on task level

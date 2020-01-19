@@ -665,23 +665,23 @@ class RemoteFileSystem(FileSystem):
             config = {}
 
         # helper to expand a config string and split by commas
-        def expand_split(key):
+        def expand_split(option):
             # get config value, run brace expansion taking into account csv splitting
-            value = cfg.get_expanded(section, key).strip()
+            value = cfg.get_expanded(section, option).strip()
             return [v.strip() for v in brace_expand(value, split_csv=True)]
 
         # helper to add a config value if it exists, extracted with a config parser method
-        def add(key, func):
-            if key not in config and not cfg.is_missing_or_none(section, key):
-                config[key] = func(section, key)
+        def add(option, func):
+            if option not in config and not cfg.is_missing_or_none(section, option):
+                config[option] = func(section, option)
 
         # base path(s)
         config["base"] = expand_split("base")
 
         # base path(s) per operation
-        keys = cfg.keys(section, prefix="base_")
-        if keys:
-            config["bases"] = {key[5:]: expand_split(key) for key in keys}
+        options = cfg.options(section, prefix="base_")
+        if options:
+            config["bases"] = {option[5:]: expand_split(option) for option in options}
 
         # atomic contexts
         add("atomic_contexts", cfg.get_expanded_boolean)
@@ -702,7 +702,7 @@ class RemoteFileSystem(FileSystem):
         add("validate", cfg.get_expanded_boolean)
 
         # cache options
-        if cfg.keys(section, prefix="cache_"):
+        if cfg.options(section, prefix="cache_"):
             RemoteCache.parse_config(section, config.setdefault("cache_config", {}))
 
         # permissions

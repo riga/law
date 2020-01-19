@@ -52,7 +52,7 @@ def execute(args):
     print(get_config(args.name, expand=args.expand))
 
 
-def get_config(name, expand=True):
+def get_config(name, expand=True, dereference=True):
     """
     Returns the config value that corresponds to *name*, which must have the format
     ``<section>[.<option>]``. When an option is given and *expand* is *True*, variables are expanded
@@ -63,8 +63,9 @@ def get_config(name, expand=True):
 
     # when only the section is given, print all keys
     if only_section:
-        return "\n".join(cfg.keys(name))
+        return "\n".join(cfg.options(name))
 
     else:
         section, option = name.split(".", 1)
-        return cfg.get_default(section, option, expandvars=expand, expanduser=expand)
+        return cfg.get_default(section, option, expand_vars=expand, expand_user=expand,
+            dereference=dereference)
