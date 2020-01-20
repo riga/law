@@ -6,10 +6,10 @@ law config parser implementation.
 
 
 __all__ = [
-    "Config", "sections", "options", "items", "update", "include", "get", "getint", "getfloat",
-    "getboolean", "get_default", "get_expanded", "get_expanded_int", "get_expanded_float",
-    "get_expanded_boolean", "is_missing_or_none", "find_option", "set", "has_section", "has_option",
-    "remove_option",
+    "Config", "sections", "options", "keys", "items", "update", "include", "get", "getint",
+    "getfloat", "getboolean", "get_default", "get_expanded", "get_expanded_int",
+    "get_expanded_float", "get_expanded_boolean", "is_missing_or_none", "find_option", "set",
+    "has_section", "has_option", "remove_option",
 ]
 
 
@@ -261,6 +261,13 @@ class Config(ConfigParser):
                 option = os.path.expanduser(option)
             options.append(option)
         return options
+
+    def keys(self, *args, **kwargs):
+        # deprecation warning until v0.1 (also remove the entry in __all__ above)
+        logger.warning("the use of {0}.keys() is deprecated, please use {0}.options() "
+            "instead".format(self.__class__.__name__))
+
+        return self.options(*args, **kwargs)
 
     def items(self, section, prefix=None, expand_vars=True, expand_user=True, **kwargs):
         """
