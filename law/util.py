@@ -946,6 +946,9 @@ def human_duration(colon_format=False, plural=True, **kwargs):
     human_duration(seconds=1233, colon_format=True)
     # -> "20:33"
 
+    human_duration(seconds=-1233, colon_format=True)
+    # -> "-20:33"
+
     human_duration(seconds=90001, colon_format=True)
     # -> "1:01:00:01"
 
@@ -963,8 +966,13 @@ def human_duration(colon_format=False, plural=True, **kwargs):
 
     human_duration(minutes=15, plural=False)
     # -> "15 minute"
+
+    human_duration(minutes=-15)
+    # -> "minus 15 minutes"
     """
     seconds = float(datetime.timedelta(**kwargs).total_seconds())
+    sign = 1 if seconds >= 0 else -1
+    seconds = abs(seconds)
 
     # when using colon_format, check if a limiting unit is set
     colon_unit_limit = None
@@ -981,38 +989,48 @@ def human_duration(colon_format=False, plural=True, **kwargs):
         if colon_unit_limit and i < colon_unit_index:
             continue
 
-        n = int(math.floor(seconds / mul))
-
-        # skip leading zeros for colon_format, otherwise always
-        if n == 0 and unit != "second" and (not colon_format or not parts):
-            continue
-
-        if unit != "second":
-            seconds -= n * mul
+        # build the value for this unit
+        if unit == "second":
+            # try to round to 2 digits or convert to int
+            value = try_int(round(seconds, 2))
         else:
-            n = seconds
-            if isinstance(n, float):
-                n = round(n, 2)
-            n = try_int(n)
+            # get the integer divider and adjust the remaining number of seconds
+            value = int(seconds // mul)
+            seconds -= value * mul
 
+        # skip zeros for colon format when leading and not referring to minutes or seconds,
+        # and always for non-colon format
+        if not value:
+            if colon_format:
+                if not parts and unit not in ("minute", "second"):
+                    continue
+            else:
+                continue
+
+        # build the human readable representation
         if colon_format:
-            if unit == "second" and n < 10:
+            if unit == "second" and value < 10:
                 # special case for seconds to format floating points properly
                 fmt = "0{}"
             elif unit in ["hour", "minute"]:
                 fmt = "{:02d}"
             else:
                 fmt = "{}"
-            parts.append(fmt.format(n))
+            parts.append(fmt.format(value))
         else:
-            plural_postfix = "" if (not plural or n == 1) else "s"
-            parts.append("{} {}{}".format(n, unit, plural_postfix))
+            plural_postfix = "" if (not plural or value == 1) else "s"
+            parts.append("{} {}{}".format(value, unit, plural_postfix))
 
     # special case: the minute field is mandatory for colon_format in any case
     if colon_format and len(parts) == 1:
         parts.insert(0, "00")
 
-    return (":" if colon_format else ", ").join(parts)
+    # denote negative values
+    sign_prefix = ""
+    if sign == -1:
+        sign_prefix = "-" if colon_format else "minus "
+
+    return sign_prefix + (":" if colon_format else ", ").join(parts)
 
 
 def human_time_diff(*args, **kwargs):
@@ -1042,6 +1060,9 @@ def parse_duration(s, input_unit="s", unit="s"):
 
         parse_duration(100, input_unit="min")
         # -> 6000.
+
+        parse_duration(-100, input_unit="min")
+        # -> -6000.
 
         # string separated with ":", interpreted from the back as seconds, minutes, etc.
         # input_unit is disregarded, unit works as above
@@ -1073,6 +1094,9 @@ def parse_duration(s, input_unit="s", unit="s"):
 
         parse_duration("10 mins and 15 secs")
         # -> 615.0
+
+        parse_duration("minus 10 mins and 15 secs")
+        # -> -615.0
     """
     # consider unit aliases
     input_unit = time_unit_aliases.get(input_unit, input_unit)
@@ -1086,19 +1110,26 @@ def parse_duration(s, input_unit="s", unit="s"):
         raise ValueError("unknown unit '{}', valid values are {}".format(
             unit, ",".join(time_units)))
 
+    sign = 1
     duration_seconds = 0.
 
-    # number of string?
+    # number or string?
     if isinstance(s, six.integer_types + (float,)):
         duration_seconds += s * time_units[input_unit]
     else:
-        s = s.replace(" and ", ",").strip()
+        s = s.strip()
 
         # check the format
         if "," not in s and ":" in s:
             # colon format, "[d:][h:][m:]s"
             unit_order = ["second", "minute", "hour", "day"]
 
+            # interpret leading "-" or "+" as the sign of the duration
+            if s[0] in "+-":
+                sign = 1 if s[0] == "+" else -1
+                s = s[1:]
+
+            # split and check the number of parts
             parts = s.split(":")
             if len(parts) > len(unit_order):
                 raise ValueError("cannot parse duration string '{}', too many ':'".format(s))
@@ -1110,9 +1141,19 @@ def parse_duration(s, input_unit="s", unit="s"):
                     d = float(part.strip())
                 except ValueError as e:
                     raise ValueError("cannot parse duration string '{}', {}".format(s, e))
+
                 duration_seconds += d * time_units[u]
+
         else:
             # human readable format
+            # interpret leading "+", "-", "plus" and "minus" as the sign of the duration
+            m = re.match(r"^(\+|\-|plus\s|minus\s)\s*(.*)$", s)
+            if m:
+                sign = 1 if m.group(1) in ("plus ", "+") else -1
+                s = m.group(2)
+
+            # replace "and" with comma, replace multiple commas with one, then split
+            s = re.sub(r"\,+", ",", s.replace("and", ","))
             parts = s.split(",")
 
             units = list(time_units.keys()) + list(time_unit_aliases.keys())
@@ -1137,7 +1178,7 @@ def parse_duration(s, input_unit="s", unit="s"):
                 duration_seconds += d * time_units[u]
 
     # convert to output unit
-    duration = duration_seconds / time_units[unit]
+    duration = sign * duration_seconds / time_units[unit]
 
     return duration
 

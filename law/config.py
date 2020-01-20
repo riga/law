@@ -436,15 +436,14 @@ class Config(ConfigParser):
                 return option
         return None
 
-    def sync_luigi_config(self, push=True, pull=True, expand=True):
+    def sync_luigi_config(self, push=True, pull=True):
         """
         Synchronizes sections starting with ``"luigi_"`` with the luigi configuration parser. First,
-        when *push* is *True*, options that exist in law but **not** in luigi are stored as defaults
-        in the luigi config. Then, when *pull* is *True*, all luigi-related options in the law
-        config are overwritten with those from luigi. This way, options set via luigi defaults
-        (environment variables, global configuration files, `LUIGI_CONFIG_PATH`) always have
-        precendence. When *expand* is *True*, environment variables are expanded before pushing them
-        to the luigi config.
+        when *push* is *True*, (variable-expanded and dereferenced) options that exist in law but
+        **not** in luigi are stored as defaults in the luigi config. Then, when *pull* is *True*,
+        all luigi-related options in the law config are overwritten with those from luigi. This way,
+        options set via luigi defaults (environment variables, global configuration files,
+        `LUIGI_CONFIG_PATH`) always have precendence.
         """
         prefix = "luigi_"
         lparser = luigi.configuration.LuigiConfigParser.instance()
@@ -460,10 +459,7 @@ class Config(ConfigParser):
 
                 for option in self.options(section):
                     if not lparser.has_option(lsection, option):
-                        if expand:
-                            value = self.get_expanded(section, option)
-                        else:
-                            value = self.get(section, option)
+                        value = self.get_expanded(section, option)
                         lparser.set(lsection, option, value)
 
         if pull:
