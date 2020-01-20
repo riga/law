@@ -237,7 +237,7 @@ class Config(ConfigParser):
         returned option name, depending on whether *expand_vars* and *expand_user* are *True*.
         """
         options = []
-        for option, _ in ConfigParser.options(self, section):
+        for option in ConfigParser.options(self, section):
             if prefix and not option.startswith(prefix):
                 continue
             if expand_vars:
