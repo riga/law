@@ -9,13 +9,16 @@ from law.config import Config
 from law.util import abort
 
 
+_cfg = Config.instance()
+
+
 def setup_parser(sub_parsers):
     """
     Sets up the command line parser for the *config* subprogram and adds it to *sub_parsers*.
     """
     parser = sub_parsers.add_parser("config", prog="law config", description="Configuration helper"
         " to get, set or remove a value from the law configuration file ({}).".format(
-            Config.instance().config_file))
+            _cfg.config_file))
 
     parser.add_argument("name", nargs="?", help="the name of the config in the format"
         " <section>[.<option>]")

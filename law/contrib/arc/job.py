@@ -27,14 +27,16 @@ from law.util import interruptable_popen, make_list, quote_cmd
 
 logger = logging.getLogger(__name__)
 
+_cfg = Config.instance()
+
 
 class ARCJobManager(BaseJobManager):
 
-    # allow chunking for all methods
-    chunk_size_submit = 10
-    chunk_size_cancel = 20
-    chunk_size_cleanup = 20
-    chunk_size_query = 20
+    # chunking settings
+    chunk_size_submit = _cfg.get_expanded_int("job", "arc_chunk_size_submit")
+    chunk_size_cancel = _cfg.get_expanded_int("job", "arc_chunk_size_cancel")
+    chunk_size_cleanup = _cfg.get_expanded_int("job", "arc_chunk_size_cleanup")
+    chunk_size_query = _cfg.get_expanded_int("job", "arc_chunk_size_query")
 
     submission_job_id_cre = re.compile("^Job submitted with jobid: (.+)$")
     status_block_cre = re.compile(r"\s*([^:]+): (.*)\n")

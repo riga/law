@@ -95,6 +95,19 @@ class Config(ConfigParser):
             # contrib
             # the three options above can be also be set per workflow type (currently htcondor,
             # lsf, glite, arc) by prefixing the option, e.g. "htcondor_job_file_dir"
+            "arc_chunk_size_submit": 10,
+            "arc_chunk_size_cancel": 20,
+            "arc_chunk_size_cleanup": 20,
+            "arc_chunk_size_query": 20,
+            "glite_chunk_size_cancel": 20,
+            "glite_chunk_size_cleanup": 20,
+            "glite_chunk_size_query": 20,
+            "htcondor_chunk_size_cancel": 20,
+            "htcondor_chunk_size_cleanup": 20,
+            "htcondor_chunk_size_query": 20,
+            "lsf_chunk_size_cancel": 20,
+            "lsf_chunk_size_cleanup": 20,
+            "lsf_chunk_size_query": 20,
         },
         "bash_sandbox": {
             "uid": None,

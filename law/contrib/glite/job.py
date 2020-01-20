@@ -24,14 +24,16 @@ from law.util import interruptable_popen, make_list, quote_cmd
 
 logger = logging.getLogger(__name__)
 
+_cfg = Config.instance()
+
 
 class GLiteJobManager(BaseJobManager):
 
-    # no chunking for submission, but for all other methods
+    # chunking settings, no chunking for submission
     chunk_size_submit = 0
-    chunk_size_cancel = 20
-    chunk_size_cleanup = 20
-    chunk_size_query = 20
+    chunk_size_cancel = _cfg.get_expanded_int("job", "glite_chunk_size_cancel")
+    chunk_size_cleanup = _cfg.get_expanded_int("job", "glite_chunk_size_cleanup")
+    chunk_size_query = _cfg.get_expanded_int("job", "glite_chunk_size_query")
 
     submission_job_id_cre = re.compile(r"^https?\:\/\/.+\:\d+\/.+")
     status_block_cre = re.compile(r"(\w+)\s*\=\s*\[([^\]]*)\]")
