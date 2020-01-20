@@ -23,7 +23,7 @@ import luigi
 import six
 from six.moves.configparser import ConfigParser
 
-from law.util import law_home_path, check_bool_flag
+from law.util import no_value, law_home_path, check_bool_flag
 
 
 logger = logging.getLogger(__name__)
@@ -175,7 +175,9 @@ class Config(ConfigParser):
             self.update(self._default_config)
 
         # read from files
-        files = [config_file]
+        files = []
+        if config_file:
+            files.append(config_file)
         if not skip_fallbacks:
             files += self._config_files
         for f in files:
@@ -194,7 +196,7 @@ class Config(ConfigParser):
             for filename in self.get_expanded("core", option, "").split(","):
                 filename = filename.strip()
                 if filename:
-                    # resolve filename relative to the main config file
+                    # try to resolve filename relative to the main config file
                     if self.config_file:
                         basedir = os.path.dirname(self.config_file)
                         filename = os.path.normpath(os.path.join(basedir, filename))
@@ -310,15 +312,15 @@ class Config(ConfigParser):
 
         .. code-block:: ini
 
-            [foo_section]
-            x: 123
-            y: &::x               # 123, refers to x in the same section
+            [my_section]
+            a: 123
+            b: &::a              # 123, refers to "a" in the same section
 
             [bar_section]
-            z: &::foo_section::x  # 123, refers to x in the foo_section
+            a: &::my_section::a  # 123, refers to "a" in "my_section"
 
         This behavior is the default and, if desired, can be disabled by setting *dereference* to
-        *False*. When the reference is not resolvable, the value is taken as is.
+        *False*. When the reference is not resolvable, the default value is returned.
         """  # noqa
         if self.has_section(section) and self.has_option(section, option):
             value = self.get(section, option)
@@ -338,7 +340,7 @@ class Config(ConfigParser):
                         elif ref in _skip_refs:
                             return default
                         _skip_refs.append(ref)
-                        value = self.get_default(*ref, default=value, type=type,
+                        value = self.get_default(*ref, default=default, type=type,
                             expand_vars=expand_vars, expand_user=expand_user, dereference=True,
                             _skip_refs=_skip_refs)
 
@@ -380,9 +382,28 @@ class Config(ConfigParser):
     def is_missing_or_none(self, section, option):
         """
         Returns *True* if the value defined by *section* and *option* is missing or ``"None"``, and
-        *False* otherwise.
+        *False* otherwise. Options without values are not considered as missing, while those
+        pointing to unresolvable references are. Example:
+
+        .. code-block:: ini
+
+            [my_section]
+            a: 123
+            b: &::a
+            c: &::not_there
+            d: None
+            e
+
+        .. code-block:: python
+
+            is_missing_or_none("my_section", "a")  # False
+            is_missing_or_none("my_section", "b")  # False
+            is_missing_or_none("my_section", "c")  # True
+            is_missing_or_none("my_section", "d")  # True
+            is_missing_or_none("my_section", "e")  # False
+            is_missing_or_none("my_section", "f")  # True
         """
-        return self.get_expanded(section, option) in ("None", None)
+        return self.get_expanded(section, option, default=no_value) in ("None", no_value)
 
     def find_option(self, section, *options):
         """

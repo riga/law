@@ -331,7 +331,8 @@ class Task(BaseTask):
 
     def repr(self, all_params=False, color=None):
         if color is None:
-            color = Config.instance().get_expanded_boolean("task", "colored_repr")
+            cfg = Config.instance()
+            color = cfg.get_expanded_boolean("task", "colored_repr")
 
         family = self._repr_family(self.task_family, color=color)
 

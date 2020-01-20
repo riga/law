@@ -130,7 +130,8 @@ def get_sw_dir(sw_dir=None):
     *None*, it is expanded and returned instead.
     """
     if sw_dir is None:
-        sw_dir = Config.instance().get_expanded("core", "software_dir")
+        cfg = Config.instance()
+        sw_dir = cfg.get_expanded("core", "software_dir")
 
     sw_dir = os.path.expandvars(os.path.expanduser(sw_dir))
 

@@ -33,7 +33,8 @@ def execute(args):
     """
     # just print the file location?
     if args.location:
-        print(Config.instance().config_file)
+        cfg = Config.instance()
+        print(cfg.config_file)
         return
 
     # every option below requires the name to be set
@@ -64,7 +65,6 @@ def get_config(name, expand=True, dereference=True):
     # when only the section is given, print all keys
     if only_section:
         return "\n".join(cfg.options(name))
-
     else:
         section, option = name.split(".", 1)
         return cfg.get_default(section, option, expand_vars=expand, expand_user=expand,

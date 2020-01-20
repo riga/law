@@ -51,7 +51,8 @@ try:
         gfal2._law_configured_logging = True
         gfal2_logger = logging.getLogger("gfal2")
         gfal2_logger.addHandler(logging.StreamHandler())
-        level = Config.instance().get_expanded("target", "gfal2_log_level")
+        cfg = Config.instance()
+        level = cfg.get_expanded("target", "gfal2_log_level")
         if isinstance(level, six.string_types):
             level = getattr(logging, level, logging.WARNING)
         gfal2_logger.setLevel(level)
@@ -370,7 +371,8 @@ class RemoteCache(object):
         # create the root dir, handle tmp
         root = os.path.expandvars(os.path.expanduser(root)) or self.TMP
         if not os.path.exists(root) and root == self.TMP:
-            tmp_dir = Config.instance().get_expanded("target", "tmp_dir")
+            cfg = Config.instance()
+            tmp_dir = cfg.get_expanded("target", "tmp_dir")
             base = tempfile.mkdtemp(dir=tmp_dir)
             auto_flush = True
         else:
@@ -407,13 +409,13 @@ class RemoteCache(object):
             config = {}
 
         # helper to add a config value if it exists, extracted with a config parser method
-        def add(key, func):
-            cache_key = "cache_" + key
-            if key not in config and not cfg.is_missing_or_none(section, cache_key):
-                config[key] = func(section, cache_key)
+        def add(option, func):
+            cache_option = "cache_" + option
+            if option not in config and not cfg.is_missing_or_none(section, cache_option):
+                config[option] = func(section, cache_option)
 
-        def parse_size(section, cache_key):
-            value = cfg.get_expanded(section, cache_key)
+        def parse_size(section, cache_option):
+            value = cfg.get_expanded(section, cache_option)
             return parse_bytes(value, input_unit="MB", unit="MB")
 
         add("root", cfg.get_expanded)
@@ -667,8 +669,8 @@ class RemoteFileSystem(FileSystem):
         # helper to expand a config string and split by commas
         def expand_split(option):
             # get config value, run brace expansion taking into account csv splitting
-            value = cfg.get_expanded(section, option).strip()
-            return [v.strip() for v in brace_expand(value, split_csv=True)]
+            value = cfg.get_expanded(section, option)
+            return value and [v.strip() for v in brace_expand(value.strip(), split_csv=True)]
 
         # helper to add a config value if it exists, extracted with a config parser method
         def add(option, func):
@@ -680,8 +682,10 @@ class RemoteFileSystem(FileSystem):
 
         # base path(s) per operation
         options = cfg.options(section, prefix="base_")
-        if options:
-            config["bases"] = {option[5:]: expand_split(option) for option in options}
+        config["bases"] = {
+            option[5:]: expand_split(option) for option in options
+            if not cfg.is_missing_or_none(section, option)
+        }
 
         # atomic contexts
         add("atomic_contexts", cfg.get_expanded_boolean)

@@ -521,10 +521,8 @@ class SandboxTask(Task):
         if self.sandbox_inst:
             cfg = Config.instance()
             section = self.sandbox_inst.get_config_section()
-            if not cfg.is_missing_or_none(section, "uid"):
-                uid = cfg.get_expanded_int(section, "uid")
-            if not cfg.is_missing_or_none(section, "gid"):
-                gid = cfg.get_expanded_int(section, "gid")
+            uid = cfg.get_expanded_int(section, "uid", default=uid)
+            gid = cfg.get_expanded_int(section, "gid", default=gid)
 
         return uid, gid
 

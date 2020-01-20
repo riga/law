@@ -39,7 +39,8 @@ def setup_logging():
     logging.getLogger("law").addHandler(console_handler)
 
     # set levels for all loggers and add the console handler for all non-law loggers
-    for name, level in Config.instance().items("logging"):
+    cfg = Config.instance()
+    for name, level in cfg.items("logging"):
         level = level.upper()
         if hasattr(logging, level):
             # create / get the logger and set the level

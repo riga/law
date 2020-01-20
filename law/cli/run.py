@@ -56,7 +56,8 @@ def execute(args):
 
     # read task info from the index file and import it
     if task_family is None:
-        index_file = Config.instance().get_expanded("core", "index_file")
+        cfg = Config.instance()
+        index_file = cfg.get_expanded("core", "index_file")
         if os.path.exists(index_file):
             info = read_task_from_index(args.task_family, index_file)
             if not info:
@@ -83,7 +84,8 @@ def read_task_from_index(task_family, index_file=None):
     """
     # read task information from the index file given a task family
     if index_file is None:
-        index_file = Config.instance().get_expanded("core", "index_file")
+        cfg = Config.instance()
+        index_file = cfg.get_expanded("core", "index_file")
 
     # open and go through lines
     with open(index_file, "r") as f:
