@@ -1024,14 +1024,21 @@ class RemoteFileSystem(FileSystem):
 
     def _prepare_dst_dir(self, src, dst, perm=None, **kwargs):
         rstat = self.exists(dst, stat=True)
-        if rstat and stat.S_ISDIR(rstat.st_mode):
-            # add src basename to dst
-            dst = os.path.join(dst, os.path.basename(src))
+        src_base = os.path.basename(src)
+
+        if rstat:
+            if self._s_isdir(rstat.st_mode):
+                full_dst = os.path.join(dst, src_base)
+            else:  # file
+                full_dst = os.path.join(os.path.dirname(dst), src_base)
         else:
-            # create missing dirs
+            # not existing, treat dst as a file name and create missing dirs
             dst_dir = self.dirname(dst)
-            if dst_dir and (not rstat or not self.exists(dst_dir)):
+            if dst_dir and not self.exists(dst_dir):
                 self.mkdir(dst_dir, perm=perm, recursive=True, **kwargs)
+            full_dst = os.path.join(dst_dir, src_base)
+
+        return full_dst
 
     def copy(self, src, dst, perm=None, dir_perm=None, cache=None, validate=None, **kwargs):
         # dst might be an existing directory

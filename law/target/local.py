@@ -186,18 +186,20 @@ class LocalFileSystem(FileSystem):
 
     def _prepare_dst_dir(self, src, dst, perm=None):
         dst = self._unscheme(dst)
+        src_base = os.path.basename(src)
 
-        # dst might be an existing directory
         if self.isdir(dst):
-            # add src basename to dst
-            dst = os.path.join(dst, os.path.basename(src))
+            full_dst = os.path.join(dst, src_base)
+        elif self.isfile(dst):
+            full_dst = os.path.join(os.path.dirname(dst), src_base)
         else:
-            # create missing dirs
+            # not existing, treat dst as a file name and create missing dirs
             dst_dir = self.dirname(dst)
             if dst_dir and not self.exists(dst_dir):
                 self.mkdir(dst_dir, perm=perm, recursive=True)
+            full_dst = os.path.join(dst_dir, src_base)
 
-        return dst
+        return full_dst
 
     def copy(self, src, dst, perm=None, dir_perm=None, **kwargs):
         src = self._unscheme(src)
