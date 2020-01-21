@@ -776,7 +776,8 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             if task.parallel_jobs > 0:
                 counts = (n_unsubmitted,) + counts
             status_line = self.job_manager.status_line(counts, last_counts=True, sum_counts=n_jobs,
-                color=True, align=task.align_status_line)
+                color=True, align=task.align_polling_status_line)
+            status_line = task.modify_polling_status_line(status_line)
             task.publish_message(status_line)
             self.last_status_counts = counts
 
@@ -859,7 +860,7 @@ class BaseRemoteWorkflow(BaseWorkflow):
        defined by :py:attr:`acceptance` becomes unreachable. Otherwise, keep polling until all jobs
        are either finished or failed. Defaults to *False*.
 
-    .. py:classattribute:: align_status_line
+    .. py:classattribute:: align_polling_status_line
        type: int, bool
 
        Alignment value that is passed to :py:meth:`law.job.base.BaseJobManager.status_line` to print
@@ -966,7 +967,7 @@ class BaseRemoteWorkflow(BaseWorkflow):
     transfer_logs = luigi.BoolParameter(significant=False, description="transfer job logs to the "
         "output directory")
 
-    align_status_line = False
+    align_polling_status_line = False
     check_unreachable_acceptance = False
 
     exclude_params_branch = {
@@ -1020,3 +1021,9 @@ class BaseRemoteWorkflow(BaseWorkflow):
         #   - status.failed
         # forward to dashboard in any event by default
         return dashboard.publish(job_data, event, job_num)
+
+    def modify_polling_status_line(self, status_line):
+        """
+        Hook to modify the status line that is printed during polling.
+        """
+        return status_line
