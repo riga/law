@@ -21,7 +21,7 @@ from abc import ABCMeta, abstractmethod
 import six
 
 from law.config import Config
-from law.util import colored, make_list, iter_chunks, flatten
+from law.util import colored, make_list, iter_chunks, flatten, quote_cmd
 
 
 def get_async_result_silent(result, timeout=None):
@@ -835,18 +835,27 @@ class JobArguments(object):
         self.dashboard_data = dashboard_data or []
 
     @classmethod
-    def encode_bool(cls, value):
+    def encode_bool(cls, b):
         """
-        Encodes a boolean *value* into a string (``"yes"`` or ``"no"``).
+        Encodes a boolean *b* into a string (``"yes"`` or ``"no"``).
         """
-        return "yes" if value else "no"
+        return "yes" if b else "no"
 
     @classmethod
-    def encode_list(cls, value):
+    def encode_list(cls, l):
         """
-        Encodes a list *value* into a string via base64 encoding.
+        Encodes a list *l* into a string via base64 encoding.
         """
-        encoded = base64.b64encode(six.b(" ".join(str(v) for v in value) or "-"))
+        encoded = base64.b64encode(six.b(" ".join(str(v) for v in l) or "-"))
+        return encoded.decode("utf-8") if six.PY3 else encoded
+
+    @classmethod
+    def encode_params(cls, params):
+        """
+        Encodes a list of command line parameters *params* into a string via
+        :py:func:`law.util.quote_cmd` followed by base64 encoding.
+        """
+        encoded = base64.b64encode(six.b(quote_cmd(params) or "-"))
         return encoded.decode("utf-8") if six.PY3 else encoded
 
     def get_args(self):
@@ -857,7 +866,7 @@ class JobArguments(object):
         return [
             self.task_cls.__module__,
             self.task_cls.__name__,
-            self.encode_list(self.task_params),
+            self.encode_params(self.task_params),
             self.encode_list(self.branches),
             self.encode_bool(self.auto_retry),
             self.encode_list(self.dashboard_data),
