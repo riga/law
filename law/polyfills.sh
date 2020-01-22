@@ -9,11 +9,11 @@ action() {
 
 
     # flag that is "1" when on a Mac, empty otherwise
-    export _law_is_mac="$( [ "$( uname -s )" = "Darwin" ] && echo "1" )"
+    export _law_on_mac="$( [ "$( uname -s )" = "Darwin" ] && echo "1" || echo "0" )"
 
 
     # cross-OS grep
-    if [ "${_law_is_mac}" = "1" ]; then
+    if [ "${_law_on_mac}" = "1" ]; then
         _law_grep_path="$( which grep 2> /dev/null )"
     else
         _law_grep_path="$( which --skip-alias --skip-functions grep 2> /dev/null )"
@@ -29,7 +29,7 @@ action() {
 
 
     # cross-OS grep -Po
-    if [ "${_law_is_mac}" = "1" ]; then
+    if [ "${_law_on_mac}" = "1" ]; then
         _law_grep_Po() {
             perl -nle "print $& if m{$1}" "${@:2}"
         }

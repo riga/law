@@ -40,85 +40,95 @@ _law_complete() {
 
     # complete the "run" subcommand
     if [ "$sub_cmd" = "run" ]; then
+        # no completion when no index file is found
         if [ ! -f "$index_file" ]; then
             COMPREPLY=()
             return
         fi
 
-        # task family
+        # complete the task family
         if [ "$COMP_CWORD" = "2" ]; then
             COMPREPLY=( $( compgen -W "$( _law_grep_Po "[^\:]+\:\K(.+)(?=\:.+)" "$index_file" )" -- "$cur" ) )
             return
         fi
         local task_family="${COMP_WORDS[2]}"
 
-        # parameters of the root task
+        # complete parameters of the root task
+        # and if parameters were found, stop
         local inp="${cur##-}"
         inp="${inp##-}"
         COMPREPLY=( $( compgen -W "$( _law_grep_Po "[^\:]+\:$task_family\:\K.+" "$index_file" ) $common_run_params" -P "--" -- "$inp" ) )
+        if [ "${#COMPREPLY[@]}" != "0" ]; then
+            return
+        fi
 
-        if [ "${#COMPREPLY[@]}" = "0" ] && [ "${cur:0:2}" = "--" ]; then
-            local tasks=( $( _law_grep_Po "[^\:]+\:\K$inp[^\:]*(?=\:.+)" "$index_file" ) )
+        # when no root task parameters were found, try to complete task-level parameters,
+        # but only when the current input starts with two "-"
+        if [ "${cur:0:2}" = "--" ]; then
+            local namespace="$( echo "$inp" | _law_grep_Po "^.*\.(?=[^\.]*$)" )"
+            local class_and_param="$( echo "$inp" | _law_grep_Po "\.?\K[^\.]*$" )"
+            local class="$( echo "$class_and_param" | _law_grep_Po "^[^-]+" )"
+            local param="$( echo "$class_and_param" | _law_grep_Po "^[^-]+-\K.*" )"
+            local family="$namespace$class"
 
-            if [[ "$( echo $inp | _law_grep_Po "\K[^\.]+$" )" != *"-"* ]] && [ "${#tasks[@]}" -gt "1" ]; then
-                # other task families
-                COMPREPLY=( $( compgen -W "$( echo ${tasks[@]} )" -P "--" -S "-" -- "$inp" ) )
-            else
-                # parameters of other tasks
-                local task="$( echo $inp | _law_grep_Po "^[^-]*" )"
-                local curparam="$( echo $inp | _law_grep_Po "^[^-]*-\K.*" )"
+            # find tasks that match the family
+            local tasks=( $( _law_grep_Po "[^\:]+\:\K$family[^\:]*(?=\:.+)" "$index_file" ) )
+            if [ "${#tasks[@]}" != "0" ]; then
+                # complete the task family when there is more than one match and
+                # when there is not yet a "-" after the task class name
+                if [ "${#tasks[@]}" -gt "1" ] && [[ "$class_and_param" != *"-"* ]]; then
+                    # complete the task family
+                    COMPREPLY=( $( compgen -W "$( echo ${tasks[@]} )" -P "--" -S "-" -- "$inp" ) )
+                else
+                    # complete parameters, including the matching task family
+                    # when there is only one matching task, overwrite the family
+                    [ "${#tasks[@]}" = "1" ] && family="${tasks[0]}"
 
-                [[ "$( echo $inp | _law_grep_Po "\K[^\.]+$" )" != *"-"* ]] && task="${tasks[0]}"
-                [ "$( echo ${task:${#task}-1} )" == "-" ] && task="${task:0:${#task}-1}"
+                    # get all parameters and do a simple comparison
+                    local all_params=( $( _law_grep_Po "[^\:]\:$family\:\K.*" "$index_file" ) )
+                    local words=()
+                    for p in "${all_params[@]}"; do
+                        if [ -z "$param" ] || [ ! -z "$( echo "$p" | _law_grep_Po "^$param" )" ]; then
+                            words+=("$family-$p")
+                        fi
+                    done
+                    unset param
 
-                local params=( $( _law_grep_Po "[^\:]\:$task\:\K.*" "$index_file" ) )
-                local words=()
-                for param in "${params[@]}"; do
-                    if [ -z "$curparam" ] || [ ! -z "$( echo "$param" | _law_grep_Po "^$curparam" )" ]; then
-                        words+=("$task-$param")
-                    fi
-                done
-                unset param
-
-                COMPREPLY=( $( compgen -W "$( echo ${words[@]} )" -P "--" -- "$inp" ) )
+                    COMPREPLY=( $( compgen -W "$( echo ${words[@]} )" -P "--" -- "$inp" ) )
+                fi
             fi
         fi
-    fi
 
     # complete the "index" subcommand
-    if [ "$sub_cmd" = "index" ]; then
+    elif [ "$sub_cmd" = "index" ]; then
         local words="modules no-externals remove location verbose help"
         local inp="${cur##-}"
         inp="${inp##-}"
         COMPREPLY=( $( compgen -W "$( echo $words )" -P "--" -- "$inp" ) )
-    fi
 
     # complete the "software" subcommand
-    if [ "$sub_cmd" = "software" ]; then
+    elif [ "$sub_cmd" = "software" ]; then
         local words="location remove help"
         local inp="${cur##-}"
         inp="${inp##-}"
         COMPREPLY=( $( compgen -W "$( echo $words )" -P "--" -- "$inp" ) )
-    fi
 
     # complete the "config" subcommand
-    if [ "$sub_cmd" = "config" ]; then
+    elif [ "$sub_cmd" = "config" ]; then
         local words="remove expand location help"
         local inp="${cur##-}"
         inp="${inp##-}"
         COMPREPLY=( $( compgen -W "$( echo $words )" -P "--" -- "$inp" ) )
-    fi
 
     # complete the "completion" subcommand
-    if [ "$sub_cmd" = "completion" ]; then
+    elif [ "$sub_cmd" = "completion" ]; then
         local words="help"
         local inp="${cur##-}"
         inp="${inp##-}"
         COMPREPLY=( $( compgen -W "$( echo $words )" -P "--" -- "$inp" ) )
-    fi
 
     # complete the "location" subcommand
-    if [ "$sub_cmd" = "location" ]; then
+    elif [ "$sub_cmd" = "location" ]; then
         local words="help"
         local inp="${cur##-}"
         inp="${inp##-}"

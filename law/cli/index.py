@@ -8,6 +8,7 @@
 import os
 import sys
 import traceback
+import logging
 from importlib import import_module
 from collections import OrderedDict
 
@@ -18,6 +19,8 @@ from law.config import Config
 from law.task.base import Task, ExternalTask
 from law.util import multi_match, colored
 
+
+logger = logging.getLogger(__name__)
 
 _cfg = Config.instance()
 
@@ -95,9 +98,10 @@ def execute(args):
         lookup.extend(cls.__subclasses__())
 
         # skip already seen task families
-        if cls.task_family in seen_families:
+        task_family = cls.get_task_family()
+        if task_family in seen_families:
             continue
-        seen_families.append(cls.task_family)
+        seen_families.append(task_family)
 
         # skip when explicitly excluded
         if cls.exclude_index:
@@ -114,6 +118,25 @@ def execute(args):
         if not is_external_task and (not run_is_callable or run_is_abstract):
             continue
 
+        # show an error when there is a "-" in the task family as the luigi command line parser will
+        # automatically map it to "_", i.e., it will fail to lookup the actual task class
+        # skip the task
+        if "-" in task_family:
+            logger.critical("skipping task '{}' as the its family '{}' contains a '-' which cannot "
+                "be interpreted by luigi's command line parser, please use '_' or alike".format(
+                    cls, task_family))
+            continue
+
+        # show an error when there is a "_" after a "." in the task family, i.e., when there is a
+        # "_" in the class name (which is bad python practice anyway), as the shell autocompletion
+        # is not able to decide whether it should complete the task family or a task-level parameter
+        # skip the task
+        if "_" in task_family.rsplit(".", 1)[-1]:
+            logger.error("skipping task '{}' as the its family '{}' contains a '_' after the "
+                "namespace definition which would lead to ambiguities between task families and "
+                "task-level parameters in the law shell autocompletion".format(cls, task_family))
+            continue
+
         task_classes.append(cls)
 
     def get_task_params(cls):
@@ -128,7 +151,9 @@ def execute(args):
 
     def index_line(cls, params):
         # format: "module_id:task_family:param param ..."
-        return "{}:{}:{}".format(cls.__module__, cls.task_family, " ".join(params))
+        # replace "_" with "-" to be in line with luigi's argument parsing
+        task_family = cls.get_task_family().replace("_", "-")
+        return "{}:{}:{}".format(cls.__module__, task_family, " ".join(params))
 
     stats = OrderedDict()
 
