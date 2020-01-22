@@ -49,7 +49,7 @@ def execute(args):
                 task_cls = getattr(mod, cls_name)
                 if not issubclass(task_cls, Task):
                     abort("object '{}' is not a Task".format(args.task_family))
-                task_family = task_cls.task_family
+                task_family = task_cls.get_task_family()
         except ImportError as e:
             # keep the error in case the task family cannot be inferred from the index file
             error = e

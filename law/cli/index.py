@@ -169,7 +169,7 @@ def execute(args):
             # fill stats
             if cls.__module__ not in stats:
                 stats[cls.__module__] = []
-            stats[cls.__module__].append((cls.task_family, params))
+            stats[cls.__module__].append((cls.get_task_family(), params))
 
             f.write(index_line(cls, params) + "\n")
 
