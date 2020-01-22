@@ -82,7 +82,7 @@ class BashSandbox(Sandbox):
 
         # build the final command
         cmd = quote_cmd(["bash", "-l", "-c", "; ".join(
-            flatten("source \"{}\"".format(self.script), setup_cmds, " ".join(proxy_cmd)))
+            flatten("source \"{}\"".format(self.script), setup_cmds, quote_cmd(proxy_cmd)))
         ])
 
         return cmd

@@ -415,7 +415,6 @@ action() {
 
         local cmd="law run $LAW_JOB_TASK_MODULE.$LAW_JOB_TASK_CLASS --branch $branch $LAW_JOB_TASK_PARAMS"
         echo "cmd: $cmd"
-
         echo
 
         _law_job_subsection "dependecy tree"
