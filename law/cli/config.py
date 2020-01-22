@@ -16,18 +16,18 @@ def setup_parser(sub_parsers):
     """
     Sets up the command line parser for the *config* subprogram and adds it to *sub_parsers*.
     """
-    parser = sub_parsers.add_parser("config", prog="law config", description="Configuration helper"
-        " to get, set or remove a value from the law configuration file ({}).".format(
+    parser = sub_parsers.add_parser("config", prog="law config", description="Configuration helper "
+        "to get, set or remove a value from the law configuration file ({}).".format(
             _cfg.config_file))
 
-    parser.add_argument("name", nargs="?", help="the name of the config in the format"
-        " <section>[.<option>]")
+    parser.add_argument("name", nargs="?", help="the name of the config in the format "
+        "<section>[.<option>]")
     parser.add_argument("value", nargs="?", help="the value to set")
     parser.add_argument("--remove", "-r", action="store_true", help="remove the config")
-    parser.add_argument("--expand", "-e", action="store_true", help="expand variables when getting"
-        " a value")
-    parser.add_argument("--location", "-l", action="store_true", help="print the location of the"
-        " configuration file and exit")
+    parser.add_argument("--expand", "-e", action="store_true", help="expand variables when getting "
+        "a value")
+    parser.add_argument("--location", "-l", action="store_true", help="print the location of the "
+        "configuration file and exit")
 
 
 def execute(args):

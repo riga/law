@@ -23,12 +23,12 @@ def setup_parser(sub_parsers):
     """
     Sets up the command line parser for the *run* subprogram and adds it to *sub_parsers*.
     """
-    parser = sub_parsers.add_parser("run", prog="law run", description="Run a task with"
-        " configurable parameters. See http://luigi.rtfd.io/en/stable/running_luigi.html for more"
-        " info.")
+    parser = sub_parsers.add_parser("run", prog="law run", description="Run a task with "
+        "configurable parameters. See http://luigi.rtfd.io/en/stable/running_luigi.html for more "
+        "info.")
 
-    parser.add_argument("task_family", help="a task family registered in the task database file or"
-        " a module and task class in the format <module>.<class>")
+    parser.add_argument("task_family", help="a task family registered in the task database file or "
+        "a module and task class in the format <module>.<class>")
     parser.add_argument("parameter", nargs="*", help="task parameters")
 
 

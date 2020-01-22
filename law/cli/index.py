@@ -26,16 +26,16 @@ def setup_parser(sub_parsers):
     """
     Sets up the command line parser for the *index* subprogram and adds it to *sub_parsers*.
     """
-    parser = sub_parsers.add_parser("index", prog="law index", description="Create or update the"
-        " (human-readable) law task index file ({}). This is only required for the shell"
-        " auto-completion.".format(_cfg.get_expanded("core", "index_file")))
+    parser = sub_parsers.add_parser("index", prog="law index", description="Create or update the "
+        "(human-readable) law task index file ({}). This is only required for the shell "
+        "auto-completion.".format(_cfg.get_expanded("core", "index_file")))
 
     parser.add_argument("--modules", "-m", nargs="+", help="additional modules to traverse")
     parser.add_argument("--no-externals", "-e", action="store_true", help="skip external tasks")
-    parser.add_argument("--remove", "-r", action="store_true", help="remove the index file and"
-        " exit")
-    parser.add_argument("--location", "-l", action="store_true", help="print the location of the"
-        " index file and exit")
+    parser.add_argument("--remove", "-r", action="store_true", help="remove the index file and "
+        "exit")
+    parser.add_argument("--location", "-l", action="store_true", help="print the location of the "
+        "index file and exit")
     parser.add_argument("--verbose", "-v", action="store_true", help="verbose output")
 
 
