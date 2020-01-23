@@ -122,8 +122,8 @@ def execute(args):
         # automatically map it to "_", i.e., it will fail to lookup the actual task class
         # skip the task
         if "-" in task_family:
-            logger.critical("skipping task '{}' as the its family '{}' contains a '-' which cannot "
-                "be interpreted by luigi's command line parser, please use '_' or alike".format(
+            logger.critical("skipping task '{}' as its family '{}' contains a '-' which cannot be "
+                "interpreted by luigi's command line parser, please use '_' or alike".format(
                     cls, task_family))
             continue
 
@@ -132,9 +132,9 @@ def execute(args):
         # is not able to decide whether it should complete the task family or a task-level parameter
         # skip the task
         if "_" in task_family.rsplit(".", 1)[-1]:
-            logger.error("skipping task '{}' as the its family '{}' contains a '_' after the "
-                "namespace definition which would lead to ambiguities between task families and "
-                "task-level parameters in the law shell autocompletion".format(cls, task_family))
+            logger.error("skipping task '{}' as its family '{}' contains a '_' after the namespace "
+                "definition which would lead to ambiguities between task families and task-level "
+                "parameters in the law shell autocompletion".format(cls, task_family))
             continue
 
         task_classes.append(cls)
@@ -151,9 +151,7 @@ def execute(args):
 
     def index_line(cls, params):
         # format: "module_id:task_family:param param ..."
-        # replace "_" with "-" to be in line with luigi's argument parsing
-        task_family = cls.get_task_family().replace("_", "-")
-        return "{}:{}:{}".format(cls.__module__, task_family, " ".join(params))
+        return "{}:{}:{}".format(cls.__module__, cls.get_task_family(), " ".join(params))
 
     stats = OrderedDict()
 
