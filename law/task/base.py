@@ -115,7 +115,7 @@ class BaseTask(luigi.Task):
         # remove params that are preferably set via cli class arguments
         if _prefer_cli:
             cls_args = []
-            prefix = cls.task_family + "_"
+            prefix = cls.get_task_family() + "_"
             if luigi.cmdline_parser.CmdlineParser.get_instance():
                 for key in global_cmdline_values().keys():
                     if key.startswith(prefix):
@@ -334,7 +334,7 @@ class Task(BaseTask):
             cfg = Config.instance()
             color = cfg.get_expanded_boolean("task", "colored_repr")
 
-        family = self._repr_family(self.task_family, color=color)
+        family = self._repr_family(self.get_task_family(), color=color)
 
         parts = [
             self._repr_param(*pair, color=color)
