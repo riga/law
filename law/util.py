@@ -354,10 +354,12 @@ def multi_match(name, patterns, mode=any, regex=False):
 
 def is_lazy_iterable(obj):
     """
-    Returns whether *obj* is iterable lazily, such as generators, range objects, etc.
+    Returns whether *obj* is iterable lazily, such as generators, range objects, maps, etc.
     """
-    return isinstance(obj,
-        (types.GeneratorType, collections.MappingView, six.moves.range, enumerate))
+    iter_types = (
+        types.GeneratorType, collections.MappingView, six.moves.range, six.moves.map, enumerate,
+    )
+    return isinstance(obj, iter_types)
 
 
 def make_list(obj, cast=True):

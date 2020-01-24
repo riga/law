@@ -147,8 +147,8 @@ class GFALInterface(object):
         self.bases = {k: make_list(b) for k, b in six.iteritems(bases)} if bases else {}
 
         # expand variables in base and bases
-        self.base = map(os.path.expandvars, self.base)
-        self.bases = {k: map(os.path.expandvars, b) for k, b in six.iteritems(self.bases)}
+        self.base = list(map(os.path.expandvars, self.base))
+        self.bases = {k: list(map(os.path.expandvars, b)) for k, b in six.iteritems(self.bases)}
 
         # prepare gfal options
         self.gfal_options = gfal_options or {}
@@ -225,8 +225,8 @@ class GFALInterface(object):
         # helper to join the path to a base b
         uri = lambda b: os.path.join(b, self.gfal_str(path).lstrip("/")).rstrip("/")
 
-        if isinstance(base, (list, tuple, set)) or is_lazy_iterable(base):
-            return [uri(b) for b in make_list(base)]
+        if isinstance(base, (list, tuple)) or is_lazy_iterable(base):
+            return [uri(b) for b in base]
         else:
             return uri(base)
 
