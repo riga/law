@@ -19,33 +19,56 @@ class install(_install):
         # get the path of the executable
         law_exec = os.path.join(self.install_scripts, "law")
 
-        def write(content):
+        # helper to read the lines of the law executable
+        def read_lines(path=law_exec):
+            try:
+                with open(path, "r") as f:
+                    return [line.strip() for line in f.readlines()]
+            except Exception as e:
+                print("could not read the law executable: {}".format(e))
+                return None
+
+        # helper to write the content of the law executable
+        def write_lines(lines):
             try:
                 with open(law_exec, "w") as f:
-                    f.write(content)
+                    for line in lines:
+                        f.write(line + "\n")
                 return True
             except Exception as e:
                 print("could not update the law executable: {}".format(e))
                 return False
 
-        # when LAW_INSTALL_CUSTOM_SCRIPT is "1", replace the executable with law/cli/law
-        if os.getenv("LAW_INSTALL_CUSTOM_SCRIPT", "0") == "1":
-            with open(os.path.join(this_dir, "law", "cli", "law"), "r") as f:
-                content = f.read()
-            if not write(content):
+        # replace the executable with law/cli/law when LAW_INSTALL_CUSTOM_SCRIPT is true
+        if os.getenv("LAW_INSTALL_CUSTOM_SCRIPT", "").lower() in ("1", "true", "yes"):
+            custom_exec = os.path.join(this_dir, "law", "cli", "law")
+            lines = read_lines(path=custom_exec)
+            if not lines or not write_lines(lines):
                 return
 
         # when LAW_INSTALL_CUSTOM_SHEBANG is set, replace the shebang in the executable
         shebang = os.getenv("LAW_INSTALL_CUSTOM_SHEBANG")
         if shebang:
-            with open(law_exec, "r") as f:
-                lines = f.readlines()
-            if lines[0].startswith("#!"):
-                lines.pop(0)
+            # ensure that the shebang starts with #!
             if not shebang.startswith("#!"):
                 shebang = "#!" + shebang
-            content = "".join([shebang + "\n"] + lines)
-            if not write(content):
+
+            # read current content
+            lines = read_lines()
+            if not lines:
+                return
+
+            # replace the shebang
+            for i, line in enumerate(list(lines)):
+                if line.startswith("#!"):
+                    lines[i] = shebang
+                    break
+            else:
+                print("could not find shebang in law executable to replace")
+                return
+
+            # write new content
+            if not write_lines(lines):
                 return
 
 
