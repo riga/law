@@ -2,74 +2,11 @@
 
 
 import os
+import re
 from setuptools import setup, find_packages
-from setuptools.command.install import install as _install
 
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
-
-
-# workaround to change the installed law executable
-class install(_install):
-
-    def run(self):
-        # run the install command
-        _install.run(self)
-
-        # get the path of the executable
-        law_exec = os.path.join(self.install_scripts, "law")
-
-        # helper to read the lines of the law executable
-        def read_lines(path=law_exec):
-            try:
-                with open(path, "r") as f:
-                    return [line.strip() for line in f.readlines()]
-            except Exception as e:
-                print("could not read the law executable: {}".format(e))
-                return None
-
-        # helper to write the content of the law executable
-        def write_lines(lines):
-            try:
-                with open(law_exec, "w") as f:
-                    for line in lines:
-                        f.write(line + "\n")
-                return True
-            except Exception as e:
-                print("could not update the law executable: {}".format(e))
-                return False
-
-        # replace the executable with law/cli/law when LAW_INSTALL_CUSTOM_SCRIPT is true
-        if os.getenv("LAW_INSTALL_CUSTOM_SCRIPT", "").lower() in ("1", "true", "yes"):
-            custom_exec = os.path.join(this_dir, "law", "cli", "law")
-            lines = read_lines(path=custom_exec)
-            if not lines or not write_lines(lines):
-                return
-
-        # when LAW_INSTALL_CUSTOM_SHEBANG is set, replace the shebang in the executable
-        shebang = os.getenv("LAW_INSTALL_CUSTOM_SHEBANG")
-        if shebang:
-            # ensure that the shebang starts with #!
-            if not shebang.startswith("#!"):
-                shebang = "#!" + shebang
-
-            # read current content
-            lines = read_lines()
-            if not lines:
-                return
-
-            # replace the shebang
-            for i, line in enumerate(list(lines)):
-                if line.startswith("#!"):
-                    lines[i] = shebang
-                    break
-            else:
-                print("could not find shebang in law executable to replace")
-                return
-
-            # write new content
-            if not write_lines(lines):
-                return
 
 
 # package keyworkds
@@ -110,6 +47,21 @@ with open(os.path.join(this_dir, "law", "__version__.py"), "r") as f:
     exec(f.read(), pkg)
 
 
+# install options
+options = {}
+
+# check for a custom executable for entry points
+# note: when installing with pip, changing the executable in the shebang is only effective when
+# running "pip install" with (e.g.) "--no-binary law" or "--no-binary :all:"
+executable = os.getenv("LAW_INSTALL_EXECUTABLE", "")
+if executable == "env":
+    executable = "/usr/bin/env python"
+elif re.match(r"^python(|\d|\d\.\d|\d\.\d\.\d)$", executable):
+    executable = "/usr/bin/env " + executable
+if executable:
+    options["build_scripts"] = {"executable": executable}
+
+
 setup(
     name="law",
     version=pkg["__version__"],
@@ -126,6 +78,6 @@ setup(
     zip_safe=False,
     packages=find_packages(exclude=["tests"]),
     include_package_data=True,
-    cmdclass={"install": install},
-    entry_points={"console_scripts": ["law = law.cli:run"]},
+    scripts=["bin/law"],
+    options=options,
 )
