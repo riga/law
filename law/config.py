@@ -261,18 +261,18 @@ class Config(ConfigParser):
             self.update(self._default_config)
 
         # read from files
-        files = []
+        config_files = []
         if config_file:
-            files.append(config_file)
+            config_files.append(config_file)
         if not skip_fallbacks:
-            files += self._config_files
-        for f in files:
-            f = os.path.expandvars(os.path.expanduser(f))
-            f = os.path.normpath(os.path.abspath(f))
-            if os.path.isfile(f):
-                self.read(f)
-                self.config_file = f
-                logger.debug("config instance created from '{}'".format(f))
+            config_files += self._config_files
+        for cf in config_files:
+            cf = os.path.expandvars(os.path.expanduser(cf))
+            cf = os.path.normpath(os.path.abspath(cf))
+            if os.path.isfile(cf):
+                self.read(cf)
+                self.config_file = cf
+                logger.debug("config instance created from '{}'".format(cf))
                 break
         else:
             logger.debug("config instance created without a file")
