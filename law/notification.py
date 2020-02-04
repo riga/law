@@ -39,4 +39,10 @@ def notify_mail(title, message, recipient=None, sender=None, smtp_host=None, smt
             recipient, sender))
         return False
 
-    return send_mail(recipient, sender, title, message, smtp_host=smtp_host, smtp_port=smtp_port)
+    mail_kwargs = {}
+    if smtp_host:
+        mail_kwargs["smtp_host"] = smtp_host
+    if smtp_port:
+        mail_kwargs["smtp_port"] = smtp_port
+
+    return send_mail(recipient, sender, title, message, **mail_kwargs)

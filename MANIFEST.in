@@ -1,4 +1,4 @@
 graft law
 graft bin
-include setup.py requirements.txt README.rst LICENSE
+include setup.py requirements.txt README.rst LICENSE law.cfg.example
 global-exclude *.py[cod] __pycache__

@@ -111,8 +111,8 @@ class DockerSandbox(Sandbox):
         forward_dir = cfg.get_expanded(cfg_section, "forward_dir")
         python_dir = cfg.get_expanded(cfg_section, "python_dir")
         bin_dir = cfg.get_expanded(cfg_section, "bin_dir")
-        stagein_dir = cfg.get_expanded(cfg_section, "stagein_dir")
-        stageout_dir = cfg.get_expanded(cfg_section, "stageout_dir")
+        stagein_dir_name = cfg.get_expanded(cfg_section, "stagein_dir_name")
+        stageout_dir_name = cfg.get_expanded(cfg_section, "stageout_dir_name")
 
         def dst(*args):
             return os.path.join(forward_dir, *(str(arg) for arg in args))
@@ -140,11 +140,11 @@ class DockerSandbox(Sandbox):
 
         # add staging directories
         if self.stagein_info:
-            env["LAW_SANDBOX_STAGEIN_DIR"] = dst(stagein_dir)
-            mount(self.stagein_info.stage_dir.path, dst(stagein_dir))
+            env["LAW_SANDBOX_STAGEIN_DIR"] = dst(stagein_dir_name)
+            mount(self.stagein_info.stage_dir.path, dst(stagein_dir_name))
         if self.stageout_info:
-            env["LAW_SANDBOX_STAGEOUT_DIR"] = dst(stageout_dir)
-            mount(self.stageout_info.stage_dir.path, dst(stageout_dir))
+            env["LAW_SANDBOX_STAGEOUT_DIR"] = dst(stageout_dir_name)
+            mount(self.stageout_info.stage_dir.path, dst(stageout_dir_name))
 
         # prevent python from writing byte code files
         env["PYTHONDONTWRITEBYTECODE"] = "1"

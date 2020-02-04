@@ -21,23 +21,39 @@ import six
 import luigi
 import luigi.task
 
+from law.config import Config
 from law.target.base import Target
 from law.util import create_hash, make_list, map_struct
 
 
 class FileSystem(luigi.target.FileSystem):
 
-    default_file_perm = None
-    default_directory_perm = None
+    @classmethod
+    def parse_config(cls, section, config=None):
+        # reads a law config section and returns parsed file system configs
+        cfg = Config.instance()
 
-    def __init__(self, default_file_perm=None, default_directory_perm=None):
+        if config is None:
+            config = {}
+
+        # helper to add a config value if it exists, extracted with a config parser method
+        def add(option, func):
+            if option not in config:
+                config[option] = func(section, option)
+
+        # permissions
+        add("has_perms", cfg.get_expanded_boolean)
+        add("default_file_perm", cfg.get_expanded_int)
+        add("default_dir_perm", cfg.get_expanded_int)
+
+        return config
+
+    def __init__(self, has_perms=True, default_file_perm=None, default_dir_perm=None, **kwargs):
         luigi.target.FileSystem.__init__(self)
 
-        if default_file_perm is not None:
-            self.default_file_perm = default_file_perm
-
-        if default_directory_perm is not None:
-            self.default_directory_perm = default_directory_perm
+        self.has_perms = has_perms
+        self.default_file_perm = default_file_perm
+        self.default_dir_perm = default_dir_perm
 
     def __repr__(self):
         return "{}({})".format(self.__class__.__name__, hex(id(self)))

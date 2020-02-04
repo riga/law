@@ -35,34 +35,17 @@ class LocalFileSystem(FileSystem):
 
     default_instance = None
 
-    @classmethod
-    def parse_config(cls, section, config=None):
-        # reads a law config section and returns parsed file system configs
+    def __init__(self, section=None, **kwargs):
+        # if present, read options from the section in the law config
         cfg = Config.instance()
-
-        if config is None:
-            config = {}
-
-        # helper to add a config value if it exists, extracted with a config parser method
-        def add(option, func):
-            if option not in config and not cfg.is_missing_or_none(section, option):
-                config[option] = func(section, option)
-
-        # permissions
-        add("default_file_perm", cfg.get_expanded_int)
-        add("default_directory_perm", cfg.get_expanded_int)
-
-        return config
-
-    def __init__(self, config=None, **kwargs):
-        cfg = Config.instance()
-        if not config:
-            config = cfg.get_expanded("target", "default_local_fs")
-
-        # config might be a section in the law config
-        if isinstance(config, six.string_types) and cfg.has_section(config):
-            # parse it
-            kwargs = self.parse_config(config, kwargs)
+        if not section:
+            section = cfg.get_expanded("target", "default_local_fs")
+        if isinstance(section, six.string_types):
+            if cfg.has_section(section):
+                kwargs = self.parse_config(section, kwargs)
+            else:
+                raise Exception("law config has no section '{}' to read {} options".format(
+                    section, self.__class__.__name__))
 
         FileSystem.__init__(self, **kwargs)
 
@@ -88,7 +71,7 @@ class LocalFileSystem(FileSystem):
         return os.path.isfile(self._unscheme(path))
 
     def chmod(self, path, perm, silent=True, **kwargs):
-        if perm is not None and (not silent or self.exists(path)):
+        if self.has_perms and perm is not None and (not silent or self.exists(path)):
             os.chmod(self._unscheme(path), perm)
 
     def remove(self, path, recursive=True, silent=True, **kwargs):
@@ -107,7 +90,7 @@ class LocalFileSystem(FileSystem):
             return
 
         if perm is None:
-            perm = self.default_directory_perm
+            perm = self.default_dir_perm
 
         # the mode passed to os.mkdir or os.makedirs is ignored on some systems, so the strategy
         # here is to disable the process' current umask, create the directories and use chmod again
@@ -267,7 +250,7 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
             else:
                 tmp_dir = os.path.realpath(cfg.get_expanded("target", "tmp_dir"))
             if not fs.exists(tmp_dir):
-                perm = cfg.get_expanded_int("target", "tmp_dir_permission")
+                perm = cfg.get_expanded_int("target", "tmp_dir_perm")
                 fs.mkdir(tmp_dir, perm=perm)
 
             # create a random path

@@ -82,12 +82,10 @@ def law_src_path(*paths):
 
 def law_home_path(*paths):
     """
-    Returns the law home directory (``$LAW_HOME``) that defaults to ``"$HOME/.law"``, optionally
-    joined with *paths*.
+    Returns the law home directory, optionally joined with *paths*.
     """
-    home = os.getenv("LAW_HOME", "$HOME/.law")
-    home = os.path.expandvars(os.path.expanduser(home))
-    return os.path.normpath(os.path.join(home, *paths))
+    from law.config import law_home_path
+    return law_home_path(*paths)
 
 
 def print_err(*args, **kwargs):

@@ -27,10 +27,8 @@ _cfg = Config.instance()
 
 class HTCondorJobManager(BaseJobManager):
 
-    # chunking settings, no chunking for submission
-    chunk_size_submit = 0
+    # chunking settings
     chunk_size_cancel = _cfg.get_expanded_int("job", "htcondor_chunk_size_cancel")
-    chunk_size_cleanup = _cfg.get_expanded_int("job", "htcondor_chunk_size_cleanup")
     chunk_size_query = _cfg.get_expanded_int("job", "htcondor_chunk_size_query")
 
     submission_job_id_cre = re.compile(r"^(\d+) job\(s\) submitted to cluster (\d+)\.$")
