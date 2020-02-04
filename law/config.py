@@ -23,7 +23,7 @@ import luigi
 import six
 from six.moves.configparser import ConfigParser
 
-from law.util import no_value, check_bool_flag, brace_expand
+from law.util import no_value, check_bool_flag, brace_expand, str_to_int
 
 
 logger = logging.getLogger(__name__)
@@ -307,7 +307,7 @@ class Config(ConfigParser):
         if type in (str, "str", "s"):
             return str
         if type in (int, "int", "i"):
-            return int
+            return str_to_int
         elif type in (float, "float", "f"):
             return float
         elif type in (bool, "bool", "boolean", "b"):
