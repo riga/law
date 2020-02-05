@@ -885,7 +885,7 @@ def parse_bytes(s, input_unit="bytes", unit="bytes"):
     if isinstance(s, (float, six.integer_types)):
         input_value = float(s)
     else:
-        m = re.match(r"^\s*(\d+\.?\d*)\s*(|{})\s*$".format("|".join(byte_units)), s)
+        m = re.match(r"^\s*(-?\d+\.?\d*)\s*(|{})\s*$".format("|".join(byte_units)), s)
         if not m:
             raise ValueError("cannot parse bytes from string '{}'".format(s))
 
