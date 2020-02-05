@@ -659,7 +659,7 @@ class RemoteFileSystem(FileSystem):
 
     @classmethod
     def parse_config(cls, section, config=None):
-        config = FileSystem.parse_config(cls, section, config=config)
+        config = super(RemoteFileSystem, cls).parse_config(section, config=config)
 
         cfg = Config.instance()
 

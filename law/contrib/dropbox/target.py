@@ -27,7 +27,7 @@ class DropboxFileSystem(RemoteFileSystem):
 
     @classmethod
     def parse_config(cls, section, config=None):
-        config = RemoteFileSystem.parse_config(cls, section, config=config)
+        config = super(DropboxFileSystem, cls).parse_config(section, config=config)
 
         cfg = Config.instance()
 
@@ -58,6 +58,10 @@ class DropboxFileSystem(RemoteFileSystem):
             section = cfg.get_expanded("target", "default_dropbox_fs")
         if isinstance(section, six.string_types):
             if cfg.has_section(section):
+                # extend with the real defaults before parsing
+                if section != "dropbox_fs":
+                    data = dict(cfg.items("dropbox_fs", expand_vars=False, expand_user=False))
+                    cfg.update({section: data}, overwrite_sections=True, overwrite_options=False)
                 kwargs = self.parse_config(section, kwargs)
             else:
                 raise Exception("law config has no section '{}' to read {} options".format(

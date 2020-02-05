@@ -42,6 +42,10 @@ class LocalFileSystem(FileSystem):
             section = cfg.get_expanded("target", "default_local_fs")
         if isinstance(section, six.string_types):
             if cfg.has_section(section):
+                # extend with the real defaults before parsing
+                if section != "local_fs":
+                    data = dict(cfg.items("local_fs", expand_vars=False, expand_user=False))
+                    cfg.update({section: data}, overwrite_sections=True, overwrite_options=False)
                 kwargs = self.parse_config(section, kwargs)
             else:
                 raise Exception("law config has no section '{}' to read {} options".format(
