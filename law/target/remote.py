@@ -1036,7 +1036,7 @@ class RemoteFileSystem(FileSystem):
             dst_dir = self.dirname(dst)
             if dst_dir and not self.exists(dst_dir):
                 self.mkdir(dst_dir, perm=perm, recursive=True, **kwargs)
-            full_dst = os.path.join(dst_dir, src_base)
+            full_dst = dst
 
         return full_dst
 
