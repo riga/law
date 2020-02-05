@@ -363,10 +363,12 @@ def multi_match(name, patterns, mode=any, regex=False):
 
 def is_lazy_iterable(obj):
     """
-    Returns whether *obj* is iterable lazily, such as generators, range objects, etc.
+    Returns whether *obj* is iterable lazily, such as generators, range objects, maps, etc.
     """
-    return isinstance(obj,
-        (types.GeneratorType, collections.MappingView, six.moves.range, enumerate))
+    iter_types = (
+        types.GeneratorType, collections.MappingView, six.moves.range, six.moves.map, enumerate,
+    )
+    return isinstance(obj, iter_types)
 
 
 def make_list(obj, cast=True):
@@ -892,7 +894,7 @@ def parse_bytes(s, input_unit="bytes", unit="bytes"):
     if isinstance(s, (float, six.integer_types)):
         input_value = float(s)
     else:
-        m = re.match(r"^\s*(\d+\.?\d*)\s*(|{})\s*$".format("|".join(byte_units)), s)
+        m = re.match(r"^\s*(-?\d+\.?\d*)\s*(|{})\s*$".format("|".join(byte_units)), s)
         if not m:
             raise ValueError("cannot parse bytes from string '{}'".format(s))
 
