@@ -30,7 +30,7 @@ from law.target.collection import TargetCollection
 from law.parser import root_task
 from law.util import (
     abort, colored, uncolored, make_list, query_choice, multi_match, flatten, check_bool_flag,
-    BaseStream, human_duration, quote_cmd, patch_object,
+    BaseStream, human_duration, patch_object,
 )
 
 
