@@ -32,8 +32,8 @@ from law.target.file import (
 from law.target.local import LocalFileSystem, LocalFileTarget
 from law.target.formatter import find_formatter
 from law.util import (
-    make_list, brace_expand, makedirs_perm, human_bytes, parse_bytes, create_hash, user_owns_file,
-    io_lock, is_lazy_iterable,
+    make_list, brace_expand, makedirs_perm, human_bytes, parse_bytes, parse_duration, create_hash,
+    user_owns_file, io_lock, is_lazy_iterable,
 )
 
 
@@ -51,11 +51,6 @@ try:
         gfal2._law_configured_logging = True
         gfal2_logger = logging.getLogger("gfal2")
         gfal2_logger.addHandler(logging.StreamHandler())
-        cfg = Config.instance()
-        level = cfg.get_expanded("target", "gfal2_log_level")
-        if isinstance(level, six.string_types):
-            level = getattr(logging, level, logging.WARNING)
-        gfal2_logger.setLevel(level)
 
 except ImportError:
     HAS_GFAL2 = False
@@ -356,49 +351,9 @@ class RemoteCache(object):
     def cleanup_all(cls):
         for inst in cls._instances:
             try:
-                inst.cleanup()
+                inst._cleanup()
             except:
                 pass
-
-    def __init__(self, fs, root=TMP, auto_flush=False, max_size=-1, dir_perm=0o0770,
-            file_perm=0o0660, wait_delay=5, max_waits=120, global_lock=False):
-        object.__init__(self)
-        # max_size is in MB, wait_delay is in seconds
-
-        # create a unique name based on fs attributes
-        name = "{}_{}".format(fs.__class__.__name__, create_hash(fs.gfal.base[0]))
-
-        # create the root dir, handle tmp
-        root = os.path.expandvars(os.path.expanduser(root)) or self.TMP
-        if not os.path.exists(root) and root == self.TMP:
-            cfg = Config.instance()
-            tmp_dir = cfg.get_expanded("target", "tmp_dir")
-            base = tempfile.mkdtemp(dir=tmp_dir)
-            auto_flush = True
-        else:
-            base = os.path.join(root, name)
-            makedirs_perm(base, dir_perm)
-
-        # save attributes and configs
-        self.root = root
-        self.fs_ref = weakref.ref(fs)
-        self.base = base
-        self.name = name
-        self.auto_flush = auto_flush
-        self.max_size = max_size
-        self.dir_perm = dir_perm
-        self.file_perm = file_perm
-        self.wait_delay = wait_delay
-        self.max_waits = max_waits
-        self.global_lock = global_lock
-
-        # path to the global lock file which should guard global actions such as allocations
-        self._global_lock_path = self._lock_path(os.path.join(base, "global"))
-
-        # currently locked cache paths, only used to clean up broken files during cleanup
-        self._locked_cpaths = set()
-
-        logger.debug("created RemoteCache at '{}'".format(self.base))
 
     @classmethod
     def parse_config(cls, section, config=None):
@@ -414,23 +369,67 @@ class RemoteCache(object):
             if option not in config and not cfg.is_missing_or_none(section, cache_option):
                 config[option] = func(section, cache_option)
 
-        def parse_size(section, cache_option):
+        def get_size(section, cache_option):
             value = cfg.get_expanded(section, cache_option)
             return parse_bytes(value, input_unit="MB", unit="MB")
 
+        def get_time(section, cache_option):
+            value = cfg.get_expanded(section, cache_option)
+            return parse_duration(value, input_unit="s", unit="s")
+
         add("root", cfg.get_expanded)
-        add("auto_flush", cfg.get_expanded_boolean)
-        add("max_size", parse_size)
-        add("dir_perm", cfg.get_expanded_int)
+        add("cleaup", cfg.get_expanded_boolean)
+        add("max_size", get_size)
         add("file_perm", cfg.get_expanded_int)
-        add("wait_delay", cfg.get_expanded_float)
+        add("dir_perm", cfg.get_expanded_int)
+        add("wait_delay", get_time)
         add("max_waits", cfg.get_expanded_int)
         add("global_lock", cfg.get_expanded_boolean)
 
         return config
 
+    def __init__(self, fs, root=TMP, cleanup=False, max_size=-1, file_perm=0o0660, dir_perm=0o0770,
+            wait_delay=5., max_waits=120, global_lock=False):
+        object.__init__(self)
+        # max_size is in MB, wait_delay is in seconds
+
+        # create a unique name based on fs attributes
+        name = "{}_{}".format(fs.__class__.__name__, create_hash(fs.gfal.base[0]))
+
+        # create the root dir, handle tmp
+        root = os.path.expandvars(os.path.expanduser(root)) or self.TMP
+        if not os.path.exists(root) and root == self.TMP:
+            cfg = Config.instance()
+            tmp_dir = cfg.get_expanded("target", "tmp_dir")
+            base = tempfile.mkdtemp(dir=tmp_dir)
+            cleanup = True
+        else:
+            base = os.path.join(root, name)
+            makedirs_perm(base, dir_perm)
+
+        # save attributes and configs
+        self.root = root
+        self.fs_ref = weakref.ref(fs)
+        self.base = base
+        self.name = name
+        self.cleanup = cleanup
+        self.max_size = max_size
+        self.dir_perm = dir_perm
+        self.file_perm = file_perm
+        self.wait_delay = wait_delay
+        self.max_waits = max_waits
+        self.global_lock = global_lock
+
+        # path to the global lock file which should guard global actions such as allocations
+        self._global_lock_path = self._lock_path(os.path.join(base, "global"))
+
+        # currently locked cache paths, only used to clean up broken files during cleanup
+        self._locked_cpaths = set()
+
+        logger.debug("created RemoteCache at '{}'".format(self.base))
+
     def __del__(self):
-        self.cleanup()
+        self._cleanup()
 
     def __repr__(self):
         return "<{} '{}' at {}>".format(self.__class__.__name__, self.base, hex(id(self)))
@@ -442,9 +441,9 @@ class RemoteCache(object):
     def fs(self):
         return self.fs_ref()
 
-    def cleanup(self):
-        # full flush or remove open locks
-        if getattr(self, "auto_flush", False):
+    def _cleanup(self):
+        # full cleanup or remove open locks
+        if getattr(self, "cleanup", False):
             if os.path.exists(self.base):
                 shutil.rmtree(self.base)
         else:
@@ -660,32 +659,34 @@ class RemoteFileSystem(FileSystem):
 
     @classmethod
     def parse_config(cls, section, config=None):
-        # reads a law config section and returns parsed file system configs
+        config = super(RemoteFileSystem, cls).parse_config(section, config=config)
+
         cfg = Config.instance()
 
-        if config is None:
-            config = {}
+        # helper to add a config value if it exists, extracted with a config parser method
+        def add(option, func):
+            if option not in config:
+                config[option] = func(section, option)
 
-        # helper to expand a config string and split by commas
-        def expand_split(option):
+        def get_expanded_list(section, option):
             # get config value, run brace expansion taking into account csv splitting
             value = cfg.get_expanded(section, option)
             return value and [v.strip() for v in brace_expand(value.strip(), split_csv=True)]
 
-        # helper to add a config value if it exists, extracted with a config parser method
-        def add(option, func):
-            if option not in config and not cfg.is_missing_or_none(section, option):
-                config[option] = func(section, option)
+        def get_time(section, option):
+            value = cfg.get_expanded(section, option)
+            return parse_duration(value, input_unit="s", unit="s")
 
         # base path(s)
-        config["base"] = expand_split("base")
+        add("base", get_expanded_list)
 
         # base path(s) per operation
         options = cfg.options(section, prefix="base_")
-        config["bases"] = {
-            option[5:]: expand_split(option) for option in options
+        add("bases", lambda *_: {
+            option[5:]: get_expanded_list(section, option)
+            for option in options
             if not cfg.is_missing_or_none(section, option)
-        }
+        })
 
         # atomic contexts
         add("atomic_contexts", cfg.get_expanded_boolean)
@@ -694,30 +695,23 @@ class RemoteFileSystem(FileSystem):
         add("retries", cfg.get_expanded_int)
 
         # delay between retries
-        add("retry_delay", cfg.get_expanded_float)
+        add("retry_delay", get_time)
 
         # random base selection
         add("random_base", cfg.get_expanded_boolean)
 
-        # permissions
-        add("permissions", cfg.get_expanded_boolean)
-
         # validation after copy
-        add("validate", cfg.get_expanded_boolean)
+        add("validate_copy", cfg.get_expanded_boolean)
 
         # cache options
         if cfg.options(section, prefix="cache_"):
             RemoteCache.parse_config(section, config.setdefault("cache_config", {}))
 
-        # permissions
-        add("default_file_perm", cfg.get_expanded_int)
-        add("default_directory_perm", cfg.get_expanded_int)
-
         return config
 
     def __init__(self, base, bases=None, gfal_options=None, transfer_config=None,
-            atomic_contexts=False, retries=0, retry_delay=0, random_base=True, permissions=True,
-            validate_copy=False, cache_config=None, local_fs=None, **kwargs):
+            atomic_contexts=False, retries=0, retry_delay=0, random_base=True, validate_copy=False,
+            cache_config=None, local_fs=None, **kwargs):
         FileSystem.__init__(self, **kwargs)
 
         # configure the gfal interface
@@ -726,7 +720,6 @@ class RemoteFileSystem(FileSystem):
             retry_delay=retry_delay, random_base=random_base)
 
         # store other configs
-        self.permissions = permissions
         self.validate_copy = validate_copy
 
         # set the cache when a cache root is set
@@ -741,7 +734,7 @@ class RemoteFileSystem(FileSystem):
     def __del__(self):
         # cleanup the cache
         if getattr(self, "cache", None):
-            self.cache.cleanup()
+            self.cache._cleanup()
 
     def __repr__(self):
         return "{}(base={}, {})".format(self.__class__.__name__, self.gfal.base[0], hex(id(self)))
@@ -786,7 +779,7 @@ class RemoteFileSystem(FileSystem):
         return not self._s_isdir(rstat.st_mode) if rstat else False
 
     def chmod(self, path, perm, silent=True, **kwargs):
-        if self.permissions and perm is not None:
+        if self.has_perms and perm is not None:
             try:
                 self.gfal.chmod(self.abspath(path), perm, **kwargs)
             except gfal2.GError:
@@ -816,7 +809,7 @@ class RemoteFileSystem(FileSystem):
         func = self.gfal.mkdir_rec if recursive else self.gfal.mkdir
 
         if perm is None:
-            perm = self.default_directory_perm
+            perm = self.default_dir_perm
 
         try:
             func(self.abspath(path), perm, **kwargs)

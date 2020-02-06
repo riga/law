@@ -23,17 +23,23 @@ import luigi
 import six
 from six.moves.configparser import ConfigParser
 
-from law.util import no_value, law_home_path, check_bool_flag
+from law.util import no_value, check_bool_flag, brace_expand, str_to_int
 
 
 logger = logging.getLogger(__name__)
+
+
+def law_home_path(*paths):
+    home = os.getenv("LAW_HOME") or os.path.expandvars(os.path.expanduser("$HOME/.law"))
+    return os.path.normpath(os.path.join(home, *(str(path) for path in paths)))
 
 
 class Config(ConfigParser):
     """
     Custom law configuration parser with a few additions on top of the standard python
     ``ConfigParser``. Most notably, this class adds config *inheritance* via :py:meth:`update` and
-    :py:meth:`include`, as well as a mechanism to synchronize with the luigi configuration parser.
+    :py:meth:`include`, a mechanism to synchronize with the luigi configuration parser, option
+    referencing, and environment variable expansion.
 
     When *config_file* is set, it is loaded during setup. When empty, and *skip_fallbacks* is
     *False*, the default config file locations defined in :py:attr:`_config_files` are checked. By
@@ -61,14 +67,16 @@ class Config(ConfigParser):
 
     _default_config = {
         "core": {
-            "index_file": os.getenv("LAW_INDEX_FILE", law_home_path("index")),
-            "software_dir": law_home_path("software"),
-            "inherit_configs": "",
-            "extend_configs": "",
-            "sync_luigi_config": check_bool_flag(os.getenv("LAW_SYNC_LUIGI_CONFIG", "yes")),
+            "law_home": law_home_path(),
+            "index_file": os.getenv("LAW_INDEX_FILE") or law_home_path("index"),
+            "software_dir": os.getenv("LAW_SOFTWARE_DIR") or law_home_path("software"),
+            "inherit_configs": None,
+            "extend_configs": None,
+            "sync_luigi_config": check_bool_flag(os.getenv("LAW_SYNC_LUIGI_CONFIG", "True")),
         },
         "logging": {
-            "law": os.getenv("LAW_LOG_LEVEL", "WARNING"),
+            "law": os.getenv("LAW_LOG_LEVEL") or "WARNING",
+            "gfal2": "WARNING",
         },
         "modules": {},
         "task": {
@@ -77,82 +85,147 @@ class Config(ConfigParser):
         "target": {
             "colored_repr": True,
             "default_local_fs": "local_fs",
-            "tmp_dir": os.getenv("LAW_TARGET_TMP_DIR", tempfile.gettempdir()),
-            "tmp_dir_permission": 0o0770,
-            "gfal2_log_level": "WARNING",
+            "tmp_dir": os.getenv("LAW_TARGET_TMP_DIR") or tempfile.gettempdir(),
+            "tmp_dir_perm": 0o0770,
             # contrib
-            "default_dropbox_fs": "dropbox_fs",
             "default_wlcg_fs": "wlcg_fs",
+            "default_dropbox_fs": "dropbox_fs",
         },
         "local_fs": {
+            "has_perms": True,
             "default_file_perm": None,
-            "default_directory_perm": None,
+            "default_dir_perm": None,
+        },
+        "wlcg_fs": {
+            "has_perms": False,
+            "default_file_perm": None,
+            "default_dir_perm": None,
+            "base": None,
+            "base_stat": None,
+            "base_exists": None,
+            "base_chmod": None,
+            "base_unlink": None,
+            "base_rmdir": None,
+            "base_mkdir": None,
+            "base_mkdir_rec": None,
+            "base_listdir": None,
+            "base_filecopy": None,
+            "atomic_contexts": True,
+            "retries": 1,
+            "retry_delay": "5s",
+            "random_base": True,
+            "validate_copy": False,
+            "cache_root": None,
+            "cache_cleanup": None,
+            "cache_max_size": -1,
+            "cache_file_perm": 0o0660,
+            "cache_dir_perm": 0o0770,
+            "cache_wait_delay": "5s",
+            "cache_max_waits": 120,
+            "cache_global_lock": False,
+        },
+        "dropbox_fs": {
+            "app_key": None,
+            "app_secret": None,
+            "access_token": None,
+            "has_perms": False,
+            "default_file_perm": None,
+            "default_dir_perm": None,
+            "base": None,
+            "base_stat": None,
+            "base_exists": None,
+            "base_chmod": None,
+            "base_unlink": None,
+            "base_rmdir": None,
+            "base_mkdir": None,
+            "base_mkdir_rec": None,
+            "base_listdir": None,
+            "base_filecopy": None,
+            "atomic_contexts": False,
+            "retries": 1,
+            "retry_delay": "5s",
+            "random_base": True,
+            "validate_copy": False,
+            "cache_root": None,
+            "cache_cleanup": None,
+            "cache_max_size": -1,
+            "cache_file_perm": 0o0660,
+            "cache_dir_perm": 0o0770,
+            "cache_wait_delay": "5s",
+            "cache_max_waits": 120,
+            "cache_global_lock": False,
         },
         "job": {
-            "job_file_dir": os.getenv("LAW_JOB_FILE_DIR", tempfile.gettempdir()),
+            "job_file_dir": os.getenv("LAW_JOB_FILE_DIR") or tempfile.gettempdir(),
             "job_file_dir_mkdtemp": True,
             "job_file_dir_cleanup": True,
             # contrib
-            # the three options above can be also be set per workflow type (currently htcondor,
-            # lsf, glite, arc) by prefixing the option, e.g. "htcondor_job_file_dir"
+            "arc_job_file_dir": None,
+            "arc_job_file_dir_mkdtemp": None,
+            "arc_job_file_dir_cleanup": None,
             "arc_chunk_size_submit": 10,
             "arc_chunk_size_cancel": 20,
             "arc_chunk_size_cleanup": 20,
             "arc_chunk_size_query": 20,
+            "glite_job_file_dir": None,
+            "glite_job_file_dir_mkdtemp": None,
+            "glite_job_file_dir_cleanup": None,
             "glite_chunk_size_cancel": 20,
             "glite_chunk_size_cleanup": 20,
             "glite_chunk_size_query": 20,
+            "htcondor_job_file_dir": None,
+            "htcondor_job_file_dir_mkdtemp": None,
+            "htcondor_job_file_dir_cleanup": None,
             "htcondor_chunk_size_cancel": 20,
-            "htcondor_chunk_size_cleanup": 20,
             "htcondor_chunk_size_query": 20,
+            "lsf_job_file_dir": None,
+            "lsf_job_file_dir_mkdtemp": None,
+            "lsf_job_file_dir_cleanup": None,
             "lsf_chunk_size_cancel": 20,
-            "lsf_chunk_size_cleanup": 20,
             "lsf_chunk_size_query": 20,
         },
+        "notifications": {
+            "mail_recipient": None,
+            "mail_sender": None,
+            "mail_smtp_host": "127.0.0.1",
+            "mail_smtp_port": 25,
+            # contrib
+            "slack_token": None,
+            "slack_channel": None,
+            "slack_mention_user": None,
+            "telegram_token": None,
+            "telegram_chat": None,
+            "telegram_mention_user": None,
+        },
         "bash_sandbox": {
-            "uid": None,
-            "gid": None,
-            "stagein_dir": "stagein",
-            "stageout_dir": "stageout",
+            "stagein_dir_name": "stagein",
+            "stageout_dir_name": "stageout",
         },
         "bash_sandbox_env": {},
         "docker_sandbox": {
+            "stagein_dir_name": "stagein",
+            "stageout_dir_name": "stageout",
             "uid": None,
             "gid": None,
             "forward_dir": "/law_forward",
             "python_dir": "py",
             "bin_dir": "bin",
-            "stagein_dir": "stagein",
-            "stageout_dir": "stageout",
         },
         "docker_sandbox_env": {},
         "docker_sandbox_volumes": {},
         "singularity_sandbox": {
+            "stagein_dir_name": "stagein",
+            "stageout_dir_name": "stageout",
             "uid": None,
             "gid": None,
             "forward_dir": "/law_forward",
             "python_dir": "py",
             "bin_dir": "bin",
-            "stagein_dir": "stagein",
-            "stageout_dir": "stageout",
             "allow_binds": True,
             "forward_law": True,
         },
         "singularity_sandbox_env": {},
         "singularity_sandbox_volumes": {},
-        "notifications": {
-            "mail_recipient": "",
-            "mail_sender": "",
-            "mail_smtp_host": "127.0.0.1",
-            "mail_smtp_port": 25,
-            # contrib
-            "slack_token": "",
-            "slack_channel": "",
-            "slack_mention_user": "",
-            "telegram_token": "",
-            "telegram_chat": "",
-            "telegram_mention_user": "",
-        },
     }
 
     _config_files = ["$LAW_CONFIG_FILE", "law.cfg", law_home_path("config"), "etc/law/config"]
@@ -188,32 +261,34 @@ class Config(ConfigParser):
             self.update(self._default_config)
 
         # read from files
-        files = []
+        config_files = []
         if config_file:
-            files.append(config_file)
+            config_files.append(config_file)
         if not skip_fallbacks:
-            files += self._config_files
-        for f in files:
-            f = os.path.expandvars(os.path.expanduser(f))
-            f = os.path.normpath(os.path.abspath(f))
-            if os.path.isfile(f):
-                self.read(f)
-                self.config_file = f
-                logger.debug("config instance created from '{}'".format(f))
+            config_files += self._config_files
+        for cf in config_files:
+            cf = os.path.expandvars(os.path.expanduser(cf))
+            cf = os.path.normpath(os.path.abspath(cf))
+            if os.path.isfile(cf):
+                self.read(cf)
+                self.config_file = cf
+                logger.debug("config instance created from '{}'".format(cf))
                 break
         else:
             logger.debug("config instance created without a file")
 
         # inherit from and/or extend by other configs
-        for option, overwrite_options in [("include_configs", False), ("extend_configs", True)]:
-            for filename in self.get_expanded("core", option, "").split(","):
-                filename = filename.strip()
-                if filename:
-                    # try to resolve filename relative to the main config file
-                    if self.config_file:
-                        basedir = os.path.dirname(self.config_file)
-                        filename = os.path.normpath(os.path.join(basedir, filename))
-                    self.include(filename, overwrite_options=overwrite_options)
+        for option, overwrite_options in [("inherit_configs", False), ("extend_configs", True)]:
+            filenames = self.get_expanded("core", option)
+            if not filenames:
+                continue
+            filenames = [f.strip() for f in brace_expand(filenames.strip(), split_csv=True)]
+            for filename in filenames:
+                # try to resolve filename relative to the main config file
+                if self.config_file:
+                    basedir = os.path.dirname(self.config_file)
+                    filename = os.path.normpath(os.path.join(basedir, filename))
+                self.include(filename, overwrite_options=overwrite_options)
 
         # sync with luigi configuration
         if self.get_expanded_boolean("core", "sync_luigi_config"):
@@ -232,7 +307,7 @@ class Config(ConfigParser):
         if type in (str, "str", "s"):
             return str
         if type in (int, "int", "i"):
-            return int
+            return str_to_int
         elif type in (float, "float", "f"):
             return float
         elif type in (bool, "bool", "boolean", "b"):
@@ -317,8 +392,8 @@ class Config(ConfigParser):
         self.update(p._sections, *args, **kwargs)
 
     def get_default(self, section, option, default=None, type=None, expand_vars=False,
-            expand_user=False, dereference=True, _skip_refs=None):
-        """ get_default(section, option, default=None, type=None, expand_vars=False, expand_user=False, dereference=True)
+            expand_user=False, dereference=True, default_when_none=True, _skip_refs=None):
+        """ get_default(section, option, default=None, type=None, expand_vars=False, expand_user=False, dereference=True, default_when_none=True)
         Returns the config value defined by *section* and *option*. When either the section or the
         option does not exist, the *default* value is returned instead. When *type* is set, it must
         be either `"str"`, `"int"`, `"float"`, or `"boolean"`. When *expand_vars* is *True*,
@@ -341,6 +416,9 @@ class Config(ConfigParser):
 
         This behavior is the default and, if desired, can be disabled by setting *dereference* to
         *False*. When the reference is not resolvable, the default value is returned.
+
+        When *default_when_none* is *True* and the option was found but its value is ``"None"``
+        (case-insensitive), the *default* is returned.
         """  # noqa
         if self.has_section(section) and self.has_option(section, option):
             value = self.get(section, option)
@@ -363,6 +441,10 @@ class Config(ConfigParser):
                         value = self.get_default(*ref, default=default, type=type,
                             expand_vars=expand_vars, expand_user=expand_user, dereference=True,
                             _skip_refs=_skip_refs)
+
+                # interpret None as missing?
+                if default_when_none and value.lower() == "none":
+                    return default
 
             # return the type-converted value
             return value if not type else self._get_type_converter(type)(value)

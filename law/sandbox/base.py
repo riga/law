@@ -304,6 +304,13 @@ class SandboxProxy(ProxyTask):
             self.task.sandbox_after_run()
 
     def stagein(self, tmp_dir):
+        # check if the stage-in dir is set
+        cfg = Config.instance()
+        section = self.sandbox_inst.get_config_section()
+        stagein_dir_name = cfg.get_expanded(section, "stagein_dir_name")
+        if not stagein_dir_name:
+            return None
+
         # get the sandbox stage-in mask
         stagein_mask = self.task.sandbox_stagein()
         if not stagein_mask:
@@ -323,10 +330,8 @@ class SandboxProxy(ProxyTask):
         # create a lookup for input -> sandbox input
         sandbox_targets = dict(zip(flatten(inputs), flatten(sandbox_inputs)))
 
-        # define the stage-in directory
-        cfg = Config.instance()
-        section = self.sandbox_inst.get_config_section()
-        stagein_dir = tmp_dir.child(cfg.get_expanded(section, "stagein_dir"), type="d")
+        # create the stage-in directory
+        stagein_dir = tmp_dir.child(stagein_dir_name, type="d")
         stagein_dir.touch()
 
         # create the structure of staged inputs
@@ -348,6 +353,13 @@ class SandboxProxy(ProxyTask):
         return StageInfo(inputs, stagein_dir, staged_inputs)
 
     def prepare_stageout(self, tmp_dir):
+        # check if the stage-out dir is set
+        cfg = Config.instance()
+        section = self.sandbox_inst.get_config_section()
+        stageout_dir_name = cfg.get_expanded(section, "stageout_dir_name")
+        if not stageout_dir_name:
+            return None
+
         # get the sandbox stage-out mask
         stageout_mask = self.task.sandbox_stageout()
         if not stageout_mask:
@@ -364,10 +376,8 @@ class SandboxProxy(ProxyTask):
         if not outputs:
             return None
 
-        # define the stage-out directory
-        cfg = Config.instance()
-        section = self.sandbox_inst.get_config_section()
-        stageout_dir = tmp_dir.child(cfg.get_expanded(section, "stageout_dir"), type="d")
+        # create the stage-out directory
+        stageout_dir = tmp_dir.child(stageout_dir_name, type="d")
         stageout_dir.touch()
 
         # create a lookup for input -> sandbox input

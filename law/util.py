@@ -7,9 +7,9 @@ Helpful utility functions.
 
 __all__ = [
     "default_lock", "io_lock", "no_value", "rel_path", "law_src_path", "law_home_path", "print_err",
-    "abort", "is_number", "try_int", "colored", "uncolored", "query_choice", "is_pattern",
-    "brace_expand", "multi_match", "is_lazy_iterable", "make_list", "make_tuple", "flatten",
-    "merge_dicts", "which", "map_verbose", "map_struct", "mask_struct", "tmp_file",
+    "abort", "is_number", "try_int", "str_to_int", "colored", "uncolored", "query_choice",
+    "is_pattern", "brace_expand", "multi_match", "is_lazy_iterable", "make_list", "make_tuple",
+    "flatten", "merge_dicts", "which", "map_verbose", "map_struct", "mask_struct", "tmp_file",
     "interruptable_popen", "readable_popen", "create_hash", "copy_no_perm", "makedirs_perm",
     "user_owns_file", "iter_chunks", "human_bytes", "parse_bytes", "human_duration",
     "human_time_diff", "parse_duration", "is_file_exists_error", "check_bool_flag", "send_mail",
@@ -82,12 +82,10 @@ def law_src_path(*paths):
 
 def law_home_path(*paths):
     """
-    Returns the law home directory (``$LAW_HOME``) that defaults to ``"$HOME/.law"``, optionally
-    joined with *paths*.
+    Returns the law home directory, optionally joined with *paths*.
     """
-    home = os.getenv("LAW_HOME", "$HOME/.law")
-    home = os.path.expandvars(os.path.expanduser(home))
-    return os.path.normpath(os.path.join(home, *paths))
+    from law.config import law_home_path
+    return law_home_path(*paths)
 
 
 def print_err(*args, **kwargs):
@@ -129,6 +127,17 @@ def try_int(n):
     """
     n_int = int(n)
     return n_int if n == n_int else n
+
+
+def str_to_int(s):
+    """
+    Converts a string *s* into an integer under consideration of binary, octal, decimal and
+    hexadecimal representations, such as``"0o0660"``.
+    """
+    s = str(s).lower()
+    m = re.match(r"^0(b|o|d|x)\d+$", s)
+    base = {"b": 2, "o": 8, "d": 10, "x": 16}[m.group(1)] if m else 10
+    return int(s, base=base)
 
 
 colors = {

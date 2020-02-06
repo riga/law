@@ -50,6 +50,6 @@ def run():
     # the parser determines the prog, so overwrite it
     prog = args.command
     if prog:
-        mods[args.command].execute(args)
+        mods[prog].execute(args)
     else:
         parser.print_help()
