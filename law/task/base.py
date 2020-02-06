@@ -96,9 +96,6 @@ class BaseTask(luigi.Task):
         # determine parameters to exclude
         _exclude = set() if _exclude is None else set(make_list(_exclude))
 
-        # always exclude interactive parameters
-        _exclude |= set(inst.interactive_params)
-
         # also use this class' req and req_get sets
         # and the req and req_set sets of the instance's class
         _exclude.update(cls.exclude_params_req, cls.exclude_params_req_get)
@@ -179,13 +176,9 @@ class BaseTask(luigi.Task):
                 tasks[:0] = deps
 
     def cli_args(self, exclude=None, replace=None):
-        if exclude is None:
-            exclude = set()
+        exclude = set() if exclude is None else set(make_list(exclude))
         if replace is None:
             replace = {}
-
-        # always exclude interactive parameters
-        exclude |= set(self.interactive_params)
 
         args = []
         for name, param in self.get_params():
@@ -251,8 +244,18 @@ class Task(BaseTask):
     message_cache_size = 10
 
     exclude_index = True
-    exclude_params_req = set(interactive_params)
+    exclude_params_req = set()
     exclude_params_repr = set()
+
+    @classmethod
+    def req_params(cls, inst, _exclude=None, _prefer_cli=None, **kwargs):
+        _exclude = set() if _exclude is None else set(make_list(_exclude))
+
+        # always exclude interactive parameters
+        _exclude |= set(inst.interactive_params)
+
+        return super(Task, cls).req_params(inst, _exclude=_exclude, _prefer_cli=_prefer_cli,
+            **kwargs)
 
     def __init__(self, *args, **kwargs):
         super(Task, self).__init__(*args, **kwargs)
@@ -327,6 +330,14 @@ class Task(BaseTask):
         else:
             return make_callback(n_total, *reach)
 
+    def cli_args(self, exclude=None, replace=None):
+        exclude = set() if exclude is None else set(make_list(exclude))
+
+        # always exclude interactive parameters
+        exclude |= set(self.interactive_params)
+
+        return super(Task, self).cli_args(exclude=exclude, replace=replace)
+
     def __repr__(self):
         return self.repr(color=False)
 
@@ -358,10 +369,11 @@ class Task(BaseTask):
         # build key value pairs of all significant parameters
         params = self.get_params()
 
-        if all_params:
-            exclude = set()
-        else:
-            exclude = self.exclude_params_repr | self.inst_exclude_params_repr()
+        exclude = set()
+        if not all_params:
+            exclude |= self.exclude_params_repr
+            exclude |= self.inst_exclude_params_repr()
+            exclude |= set(self.interactive_params)
 
         pairs = []
         for name, param in params:

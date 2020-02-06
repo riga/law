@@ -21,7 +21,7 @@ from law.task.base import Task, Register
 from law.task.proxy import ProxyTask, get_proxy_attribute
 from law.target.collection import TargetCollection
 from law.parameter import NO_STR, NO_INT, CSVParameter
-from law.util import no_value
+from law.util import no_value, make_list
 
 
 logger = logging.getLogger(__name__)
@@ -394,8 +394,7 @@ class BaseWorkflow(Task):
         return get_proxy_attribute(self, attr, proxy=proxy, super_cls=Task)
 
     def cli_args(self, exclude=None, replace=None):
-        if exclude is None:
-            exclude = set()
+        exclude = set() if exclude is None else set(make_list(exclude))
 
         if self.is_branch():
             exclude |= self.exclude_params_branch
