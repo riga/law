@@ -194,7 +194,8 @@ class BaseTask(luigi.Task):
             raw = replace.get(name, getattr(self, name))
             val = param.serialize(raw)
             arg = "--{}".format(name.replace("_", "-"))
-            args.extend([arg, quote_cmd([val])])
+            # TODO: why does quote_cmd([val]) fail while str(val) doesn't
+            args.extend([arg, str(val)])
 
         return args
 
