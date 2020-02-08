@@ -327,10 +327,10 @@
 ; cache_max_size
 ; Description: The maximum size of the cache directory. When a file should be cached, but the
 ; maximum size is reached, files are deleted from the cache in order of their smallest modification
-; time until enough disk space is freed. The default unit is MB. When negative, the maximum cache
-; size is equal to 90% of the available disk space.
+; time until enough disk space is freed. The default unit is MB. When zero or negative, the maximum
+; cache size is equal to 90% of the available disk space.
 ; Type: integer, string
-; Default: -1
+; Default: "0MB"
 
 ; cache_file_perm
 ; Description: The permission of files in the cache. When "None" or empty, the current umask is
@@ -486,10 +486,10 @@
 ; cache_max_size
 ; Description: The maximum size of the cache directory. When a file should be cached, but the
 ; maximum size is reached, files are deleted from the cache in order of their smallest modification
-; time until enough disk space is freed. The default unit is MB. When negative, the maximum cache
-; size is equal to 90% of the available disk space.
+; time until enough disk space is freed. The default unit is MB. When zero or negative, the maximum
+; cache size is equal to 90% of the available disk space.
 ; Type: integer, string
-; Default: -1
+; Default: "0MB"
 
 ; cache_file_perm
 ; Description: The permission of files in the cache. When "None" or empty, the current umask is
