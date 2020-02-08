@@ -2,7 +2,7 @@ FROM centos:7
 
 # labels
 LABEL name="law-py38"
-LABEL version="0.0.35"
+LABEL version="0.0.36"
 
 # workdir
 WORKDIR /root
