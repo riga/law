@@ -32,7 +32,7 @@ class BashSandbox(Sandbox):
         cfg = Config.instance()
         cfg_section = self.get_config_section()
         if cfg.get_expanded_boolean(cfg_section, "login"):
-            cmd.append("-l")
+            cmd.extend(["-l"])
 
         return cmd
 

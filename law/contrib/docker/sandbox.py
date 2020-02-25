@@ -28,8 +28,6 @@ class DockerSandbox(Sandbox):
 
     sandbox_type = "docker"
 
-    default_docker_args = ["--rm"]
-
     # env cache per image
     _envs = {}
 
@@ -45,15 +43,21 @@ class DockerSandbox(Sandbox):
         cmd = ["docker", "run"]
 
         # rm flag
-        cmd.append("--rm")
+        cmd.extend(["--rm"])
 
-        # user flags
+        # task-specific arguments
         if self.task:
+            # user flag
             sandbox_user = self.task.sandbox_user()
             if sandbox_user:
                 if not isinstance(sandbox_user, (tuple, list)) or len(sandbox_user) != 2:
                     raise Exception("sandbox_user() must return 2-tuple")
-                cmd += ["-u", "{}:{}".format(*sandbox_user)]
+                cmd.extend(["-u", "{}:{}".format(*sandbox_user)])
+
+            # add args configured on the task
+            args_getter = getattr(self.task, "docker_args", None)
+            if callable(args_getter):
+                cmd.extend(make_list(args_getter()))
 
         return cmd
 
@@ -71,7 +75,7 @@ class DockerSandbox(Sandbox):
             docker_run_cmd = self._docker_run_cmd()
 
             # mount the env file
-            docker_run_cmd += ["-v", "{}:{}".format(tmp.path, env_file)]
+            docker_run_cmd.extend(["-v", "{}:{}".format(tmp.path, env_file)])
 
             # build commands to setup the environment
             setup_cmds = self._build_setup_cmds(self._get_env())
@@ -102,10 +106,6 @@ class DockerSandbox(Sandbox):
     def cmd(self, proxy_cmd):
         # docker run command arguments
         args = []
-
-        # add args configured on the task
-        args_getter = getattr(self.task, "docker_args", None)
-        args += make_list(args_getter() if callable(args_getter) else self.default_docker_args)
 
         # container name
         args.extend(["--name", "{}_{}".format(self.task.task_id, str(uuid.uuid4())[:8])])
@@ -194,7 +194,7 @@ class DockerSandbox(Sandbox):
             if not cdir:
                 mount(hdir)
             else:
-                cdir = cdir.replace("${PY}", dst(python_dir)).replace("${BIN}", dst(bin_dir))
+                cdir = self._expand_volume(cdir, bin_dir=dst(bin_dir), python_dir=dst(python_dir))
                 mount(hdir, cdir)
 
         # handle scheduling within the container

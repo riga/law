@@ -217,7 +217,7 @@ class Sandbox(object):
         # extend by volumes from the config file
         cfg = Config.instance()
         section = self.get_config_section(postfix="volumes")
-        for hdir, cdir in cfg.items(section):
+        for hdir, cdir in cfg.items(section, expand_vars=False, expand_user=False):
             volumes[os.path.expandvars(os.path.expanduser(hdir))] = cdir
 
         # extend by volumes defined on task level
@@ -227,6 +227,26 @@ class Sandbox(object):
                 volumes.update(task_volumes)
 
         return volumes
+
+    def _expand_volume(self, vol, bin_dir=None, python_dir=None):
+        def replace(vol, name, repl):
+            # warn about the deprecation of the legacy format "${name}" (until v0.1)
+            var = "{" + name + "}"
+            old_var = "${" + name + "}"
+            if old_var in vol:
+                logger.warning("the volume definition '{}' contains a deprecated variable '{}' "
+                    "which will be removed in the future, please use '{}' instead".format(
+                        vol, old_var, var))
+                vol = vol.replace(old_var, repl)
+            vol = vol.replace(var, repl)
+            return vol
+
+        if bin_dir:
+            vol = replace(vol, "BIN", bin_dir)
+        if python_dir:
+            vol = replace(vol, "PY", python_dir)
+
+        return vol
 
     def _build_setup_cmds(self, env):
         # commands that are used to setup the env and actual run commands

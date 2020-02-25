@@ -25,8 +25,6 @@ class SingularitySandbox(Sandbox):
 
     sandbox_type = "singularity"
 
-    default_singularity_args = []
-
     # env cache per image
     _envs = {}
 
@@ -35,7 +33,16 @@ class SingularitySandbox(Sandbox):
         return self.name
 
     def _singularity_exec_cmd(self):
-        return ["singularity", "exec"]
+        cmd = ["singularity", "exec"]
+
+        # task-specific argiments
+        if self.task:
+            # add args configured on the task
+            args_getter = getattr(self.task, "singularity_args", None)
+            if callable(args_getter):
+                cmd.extend(make_list(args_getter()))
+
+        return cmd
 
     @property
     def env(self):
@@ -98,10 +105,6 @@ class SingularitySandbox(Sandbox):
         # singularity exec command arguments
         # -e clears the environment
         args = ["-e"]
-
-        # add args configured on the task
-        args_getter = getattr(self.task, "singularity_args", None)
-        args += make_list(args_getter() if callable(args_getter) else self.default_singularity_args)
 
         # helper to build forwarded paths
         cfg = Config.instance()
@@ -223,7 +226,7 @@ class SingularitySandbox(Sandbox):
             if not cdir:
                 mount(hdir)
             else:
-                cdir = cdir.replace("${PY}", dst(python_dir)).replace("${BIN}", dst(bin_dir))
+                cdir = self._expand_volume(cdir, bin_dir=dst(bin_dir), python_dir=dst(python_dir))
                 mount(hdir, cdir)
 
         # handle scheduling within the container
