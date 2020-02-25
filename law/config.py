@@ -200,6 +200,7 @@ class Config(ConfigParser):
         "bash_sandbox": {
             "stagein_dir_name": "stagein",
             "stageout_dir_name": "stageout",
+            "login": False,
         },
         "bash_sandbox_env": {},
         "docker_sandbox": {

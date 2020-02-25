@@ -13,6 +13,7 @@ import collections
 
 import six
 
+from law.config import Config
 from law.sandbox.base import Sandbox
 from law.util import tmp_file, interruptable_popen, quote_cmd, flatten
 
@@ -23,6 +24,17 @@ class BashSandbox(Sandbox):
 
     # env cache per init script
     _envs = {}
+
+    def _bash_cmd(self):
+        cmd = ["bash"]
+
+        # login flag
+        cfg = Config.instance()
+        cfg_section = self.get_config_section()
+        if cfg.get_expanded_boolean(cfg_section, "login"):
+            cmd.append("-l")
+
+        return cmd
 
     @property
     def script(self):
@@ -37,13 +49,18 @@ class BashSandbox(Sandbox):
             with tmp_file() as tmp:
                 tmp_path = os.path.realpath(tmp[1])
 
+                # get the bash command
+                bash_cmd = self._bash_cmd()
+
                 # build commands to setup the environment
                 setup_cmds = self._build_setup_cmds(self._get_env())
 
-                # build the command
+                # build the python command that dumps the environment
                 py_cmd = "import os,pickle;" \
                     + "pickle.dump(dict(os.environ),open('{}','wb'),protocol=2)".format(tmp_path)
-                cmd = quote_cmd(["bash", "-l", "-c", "; ".join(
+
+                # build the full command
+                cmd = quote_cmd(bash_cmd + ["-c", "; ".join(
                     flatten("source \"{}\"".format(self.script), setup_cmds,
                         quote_cmd(["python", "-c", py_cmd])))
                 ])
@@ -72,6 +89,9 @@ class BashSandbox(Sandbox):
         if self.stageout_info:
             env["LAW_SANDBOX_STAGEOUT_DIR"] = self.stageout_info.stage_dir.path
 
+        # get the bash command
+        bash_cmd = self._bash_cmd()
+
         # build commands to setup the environment
         setup_cmds = self._build_setup_cmds(env)
 
@@ -81,7 +101,7 @@ class BashSandbox(Sandbox):
             proxy_cmd.append(ls_flag)
 
         # build the final command
-        cmd = quote_cmd(["bash", "-l", "-c", "; ".join(
+        cmd = quote_cmd(bash_cmd + ["-c", "; ".join(
             flatten("source \"{}\"".format(self.script), setup_cmds, quote_cmd(proxy_cmd)))
         ])
 

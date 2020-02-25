@@ -728,6 +728,12 @@
 ; Type: string
 ; Default: "stageout"
 
+; login
+; Description: A boolean flag that decides whether the bash sandbox should be invoked as a login
+; shell.
+; Type: boolean
+; Default: False
+
 
 ; --- bash_sandbox_env section ---------------------------------------------------------------------
 [bash_sandbox_env]
