@@ -26,6 +26,9 @@ _law_complete() {
     # the current word
     local cur="${COMP_WORDS[COMP_CWORD]}"
 
+    # reset the completion reply
+    COMPREPLY=()
+
     # trivial case
     if [ "$COMP_CWORD" = "0" ]; then
         return
@@ -42,7 +45,6 @@ _law_complete() {
     if [ "$sub_cmd" = "run" ]; then
         # no completion when no index file is found
         if [ ! -f "$index_file" ]; then
-            COMPREPLY=()
             return
         fi
 
@@ -73,8 +75,8 @@ _law_complete() {
 
             # get the task namespace
             local namespace_raw="$( echo "$inp" | _law_grep_Po "^.*\.(?=[^\.]*$)" )"
-            local namespace="$( echo "$namespace_raw" | sed -r "s/-/_/g" )"
-            local namespace_repl="$( echo "$namespace_raw" | sed -r "s/_/-/g" )"
+            local namespace="$( echo "$namespace_raw" | sed "s/-/_/g" )"
+            local namespace_repl="$( echo "$namespace_raw" | sed "s/_/-/g" )"
 
             # get the class and parameter parts
             local class_and_param_raw="$( echo "$inp" | _law_grep_Po "\.?\K[^\.]*$" )"
@@ -92,38 +94,43 @@ _law_complete() {
             for (( i=0; i<${#matches[@]}; i++ )); do
                 if [ ! -z "${matches[$i]}" ]; then
                     tasks+=( "${matches[$i]}" )
-                    tasks_repl+=( "$( echo "${matches[$i]}" | sed -r "s/_/-/g" )" )
+                    tasks_repl+=( "$( echo "${matches[$i]}" | sed "s/_/-/g" )" )
                 fi
             done
             unset i
             local n_tasks="${#tasks[@]}"
 
-            if [ "$n_tasks" != "0" ]; then
-                # complete the task family when there is more than one match and
-                # when there is not yet a "-" after the task class name
-                if [ "$n_tasks" -gt "1" ] && [[ "$class_and_param_raw" != *"-"* ]]; then
-                    # complete the task family
-                    COMPREPLY=( $( compgen -W "$( echo ${tasks_repl[@]} )" -P "--" -S "-" -- "$inp" ) )
-                else
-                    # complete parameters, including the matching task family
-                    # when there is only one matching task, overwrite the family
-                    if [ "$n_tasks" = "1" ]; then
-                        family="${tasks[0]}"
-                        family_repl="${tasks_repl[0]}"
-                    fi
+            # stop here when there is no match
+            if [ "$n_tasks" = "0" ]; then
+                return
+            fi
 
-                    # get all parameters and do a simple comparison
-                    local all_params=( $( _law_grep_Po "[^\:]\:$family\:\K.*" "$index_file" ) )
-                    local words=()
-                    for p in "${all_params[@]}"; do
-                        if [ -z "$param" ] || [ ! -z "$( echo "$p" | _law_grep_Po "^$param" )" ]; then
-                            words+=("$family_repl-$p")
-                        fi
-                    done
-                    unset p
-
-                    COMPREPLY=( $( compgen -W "$( echo ${words[@]} )" -P "--" -- "$inp" ) )
+            # complete the task family when there is more than one match and
+            # when there is not yet a "-" after the task class name
+            if [ "$n_tasks" -gt "1" ] && [[ "$class_and_param_raw" != *"-"* ]]; then
+                # complete the task family
+                COMPREPLY=( $( compgen -W "$( echo ${tasks_repl[@]} )" -P "--" -S "-" -- "$inp" ) )
+                return
+            else
+                # complete parameters, including the matching task family
+                # when there is only one matching task, overwrite the family
+                if [ "$n_tasks" = "1" ]; then
+                    family="${tasks[0]}"
+                    family_repl="${tasks_repl[0]}"
                 fi
+
+                # get all parameters and do a simple comparison
+                local all_params=( $( _law_grep_Po "[^\:]\:$family\:\K.*" "$index_file" ) )
+                local words=()
+                for p in "${all_params[@]}"; do
+                    if [ -z "$param" ] || [ ! -z "$( echo "$p" | _law_grep_Po "^$param" )" ]; then
+                        words+=("$family_repl-$p")
+                    fi
+                done
+                unset p
+
+                COMPREPLY=( $( compgen -W "$( echo ${words[@]} )" -P "--" -- "$inp" ) )
+                return
             fi
         fi
 
