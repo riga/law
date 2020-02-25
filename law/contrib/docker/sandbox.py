@@ -41,18 +41,21 @@ class DockerSandbox(Sandbox):
     def tag(self):
         return None if ":" not in self.image else self.image.split(":", 1)[1]
 
-    def common_args(self):
-        # arguments that are used to setup the env and actual run commands
-        args = []
+    def _docker_run_cmd(self):
+        cmd = ["docker", "run"]
 
+        # rm flag
+        cmd.append("--rm")
+
+        # user flags
         if self.task:
             sandbox_user = self.task.sandbox_user()
             if sandbox_user:
                 if not isinstance(sandbox_user, (tuple, list)) or len(sandbox_user) != 2:
                     raise Exception("sandbox_user() must return 2-tuple")
-                args.extend(["-u", "{}:{}".format(*sandbox_user)])
+                cmd += ["-u", "{}:{}".format(*sandbox_user)]
 
-        return args
+        return cmd
 
     @property
     def env(self):
@@ -64,16 +67,21 @@ class DockerSandbox(Sandbox):
 
             env_file = os.path.join("/tmp", tmp.unique_basename)
 
+            # get the docker run command
+            docker_run_cmd = self._docker_run_cmd()
+
+            # mount the env file
+            docker_run_cmd += ["-v", "{}:{}".format(tmp.path, env_file)]
+
             # build commands to setup the environment
             setup_cmds = self._build_setup_cmds(self._get_env())
 
-            # arguments to configure the environment
-            args = ["-v", "{}:{}".format(tmp.path, env_file)] + self.common_args()
-
-            # build the command
+            # build the python command that dumps the environment
             py_cmd = "import os,pickle;" \
                 + "pickle.dump(dict(os.environ),open('{}','wb'),protocol=2)".format(env_file)
-            cmd = quote_cmd(["docker", "run"] + args + [self.image, "bash", "-l", "-c",
+
+            # build the full command
+            cmd = quote_cmd(docker_run_cmd + [self.image, "bash", "-l", "-c",
                 "; ".join(flatten(setup_cmds, quote_cmd(["python", "-c", py_cmd]))),
             ])
 
@@ -189,12 +197,6 @@ class DockerSandbox(Sandbox):
                 cdir = cdir.replace("${PY}", dst(python_dir)).replace("${BIN}", dst(bin_dir))
                 mount(hdir, cdir)
 
-        # extend by arguments needed for both env loading and executing the job
-        args.extend(self.common_args())
-
-        # build commands to setup the environment
-        setup_cmds = self._build_setup_cmds(env)
-
         # handle scheduling within the container
         ls_flag = "--local-scheduler"
         if ls_flag not in proxy_cmd:
@@ -207,8 +209,14 @@ class DockerSandbox(Sandbox):
                     args.extend(["--network", "host"])
                     proxy_cmd.extend(["--scheduler-host", self.get_host_ip()])
 
+        # get the docker run command, add arguments from above
+        docker_run_cmd = self._docker_run_cmd() + args
+
+        # build commands to setup the environment
+        setup_cmds = self._build_setup_cmds(env)
+
         # build the final command
-        cmd = quote_cmd(["docker", "run"] + args + [self.image, "bash", "-l", "-c",
+        cmd = quote_cmd(docker_run_cmd + [self.image, "bash", "-l", "-c",
             "; ".join(flatten(setup_cmds, quote_cmd(proxy_cmd)))
         ])
 

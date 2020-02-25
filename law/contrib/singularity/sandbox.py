@@ -34,9 +34,8 @@ class SingularitySandbox(Sandbox):
     def image(self):
         return self.name
 
-    def common_args(self):
-        # arguments that are used to setup the env and actual run commands
-        return []
+    def _singularity_exec_cmd(self):
+        return ["singularity", "exec"]
 
     @property
     def env(self):
@@ -49,9 +48,6 @@ class SingularitySandbox(Sandbox):
 
             tmp = tmp_dir.child("env", type="f")
             tmp.touch()
-
-            # build commands to setup the environment
-            setup_cmds = self._build_setup_cmds(self._get_env())
 
             # determine whether volume binding is allowed
             allow_binds_cb = getattr(self.task, "singularity_allow_binds", None)
@@ -68,12 +64,19 @@ class SingularitySandbox(Sandbox):
                 env_file = "/tmp/{}".format(tmp.basename)
             else:
                 env_file = tmp.path
-            args += self.common_args()
 
-            # build the command
+            # get the singularity exec command
+            singularity_exec_cmd = self._singularity_exec_cmd() + args
+
+            # build commands to setup the environment
+            setup_cmds = self._build_setup_cmds(self._get_env())
+
+            # build the python command that dumps the environment
             py_cmd = "import os,pickle;" \
                 + "pickle.dump(dict(os.environ),open('{}','wb'),protocol=2)".format(env_file)
-            cmd = quote_cmd(["singularity", "exec"] + args + [self.image, "bash", "-l", "-c",
+
+            # build the full command
+            cmd = quote_cmd(singularity_exec_cmd + [self.image, "bash", "-l", "-c",
                 "; ".join(flatten(setup_cmds, quote_cmd(["python", "-c", py_cmd]))),
             ])
 
@@ -223,19 +226,19 @@ class SingularitySandbox(Sandbox):
                 cdir = cdir.replace("${PY}", dst(python_dir)).replace("${BIN}", dst(bin_dir))
                 mount(hdir, cdir)
 
-        # extend by arguments needed for both env loading and executing the job
-        args.extend(self.common_args())
-
-        # build commands to set up environment
-        setup_cmds = self._build_setup_cmds(env)
-
         # handle scheduling within the container
         ls_flag = "--local-scheduler"
         if self.force_local_scheduler() and ls_flag not in proxy_cmd:
             proxy_cmd.extend([ls_flag, "True"])
 
+        # get the singularity exec command, add arguments from above
+        singularity_exec_cmd = self._singularity_exec_cmd() + args
+
+        # build commands to set up environment
+        setup_cmds = self._build_setup_cmds(env)
+
         # build the final command
-        cmd = quote_cmd(["singularity", "exec"] + args + [self.image, "bash", "-l", "-c",
+        cmd = quote_cmd(singularity_exec_cmd + [self.image, "bash", "-l", "-c",
             "; ".join(flatten(setup_cmds, quote_cmd(proxy_cmd)))
         ])
 
