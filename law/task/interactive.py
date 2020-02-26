@@ -30,7 +30,7 @@ def print_task_deps(task, max_depth=1):
 
     ind = "|   "
     for dep, _, depth in task.walk_deps(max_depth=max_depth, order="pre"):
-        print(depth * ind + "> " + dep.repr(color=True))
+        print("{}> {}".format(depth * ind, dep.repr(color=True)))
 
 
 def print_task_status(task, max_depth=0, target_depth=0, flags=None):
@@ -48,6 +48,7 @@ def print_task_status(task, max_depth=0, target_depth=0, flags=None):
         offset = depth * ind
         print(offset)
         print("{}> check status of {}".format(offset, dep.repr(color=True)))
+        print _
         offset += ind
 
         if dep in done:
@@ -63,8 +64,8 @@ def print_task_status(task, max_depth=0, target_depth=0, flags=None):
             status_lines = status_text.split("\n")
             status_text = status_lines[0]
             for line in status_lines[1:]:
-                status_text += "\n" + offset + "     " + line
-            print("{}  -> {}".format(offset, status_text))
+                status_text += "\n{}  {}".format(offset, line)
+            print("{}  {}".format(offset, status_text))
 
 
 def print_task_output(task, max_depth=0):
@@ -154,7 +155,7 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
     print("fetch task output with max_depth {}".format(max_depth))
 
     target_dir = os.path.normpath(os.path.abspath(target_dir))
-    print("target dir is {}".format(target_dir))
+    print("target directory is {}".format(target_dir))
     if not os.path.exists(target_dir):
         os.makedirs(target_dir)
 
@@ -205,16 +206,15 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
             for outp in flatten(dep.output())
         )
         for outp in outputs:
-            stat = None
             try:
                 stat = outp.stat
             except:
-                pass
+                stat = None
 
-            task_str = "{}- {}".format(offset, outp.repr(color=True))
+            target_line = "{}- {}".format(offset, outp.repr(color=True))
             if stat:
-                task_str += " ({:.2f} {})".format(*human_bytes(stat.st_size))
-            print(task_str)
+                target_line += " ({:.2f} {})".format(*human_bytes(stat.st_size))
+            print(target_line)
 
             def print_skip(reason):
                 text = reason + ", skip"
@@ -229,7 +229,7 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
                 continue
 
             if mode == "d":
-                print(offset + "  " + colored("dry fetched", "yellow"))
+                print("{}  {}".format(offset, colored("dry fetched", "yellow")))
                 continue
 
             elif mode == "i":
@@ -241,4 +241,5 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
             basename = "{}__{}".format(dep.live_task_id, outp.basename)
             outp.copy_to_local(os.path.join(target_dir, basename))
 
-            print(offset + "  " + colored("fetched", "green", style="bright"))
+            print("{}  {} ({})".format(offset, colored("fetched", "green", style="bright"),
+                basename))
