@@ -38,3 +38,5 @@ Functions
 ---------
 
 .. autofunction:: import_ROOT
+
+.. autofunction:: hadd_task
