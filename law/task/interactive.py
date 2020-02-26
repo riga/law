@@ -48,7 +48,6 @@ def print_task_status(task, max_depth=0, target_depth=0, flags=None):
         offset = depth * ind
         print(offset)
         print("{}> check status of {}".format(offset, dep.repr(color=True)))
-        print _
         offset += ind
 
         if dep in done:
