@@ -959,7 +959,7 @@ class BaseRemoteWorkflow(BaseWorkflow):
         "between status polls, default unit is minutes, default: 1")
     poll_fails = luigi.IntParameter(default=5, significant=False, description="maximum number of "
         "consecutive errors during polling, default: 5")
-    shuffle_jobs = luigi.BoolParameter(description="shuffled job submission")
+    shuffle_jobs = luigi.BoolParameter(description="shuffled job submission", significant=False)
     cancel_jobs = luigi.BoolParameter(description="cancel all submitted jobs, no new submission")
     cleanup_jobs = luigi.BoolParameter(description="cleanup all submitted jobs, no new submission")
     ignore_submission = luigi.BoolParameter(significant=False, description="ignore any existing "
