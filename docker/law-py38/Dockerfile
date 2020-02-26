@@ -28,14 +28,14 @@ RUN yum -y install libffi-devel openssl-devel bzip2-devel json-c-devel curl-deve
     wget nano screen git cmake cmake3; yum clean all
 
 # python software
-RUN wget -nv https://www.python.org/ftp/python/3.8.1/Python-3.8.1.tgz && \
-    tar -xzf Python-3.8.1.tgz && \
-    cd Python-3.8.1 && \
+RUN wget -nv https://www.python.org/ftp/python/3.8.2/Python-3.8.2.tgz && \
+    tar -xzf Python-3.8.2.tgz && \
+    cd Python-3.8.2 && \
     ./configure --enable-optimizations --enable-shared && \
     make altinstall && \
     cd .. && \
-    rm -rf Python-3.8.1 && \
-    rm Python-3.8.1.tgz && \
+    rm -rf Python-3.8.2 && \
+    rm Python-3.8.2.tgz && \
     ln -s -f "$( which python3.8 )" "$( dirname "$( which python3.8 )" )/python3" && \
     python3 --version && \
     ln -s -f "$( which pip3.8 )" "$( dirname "$( which pip3.8 )" )/pip3" && \
