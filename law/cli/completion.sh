@@ -31,13 +31,13 @@ _law_complete() {
 
     # trivial case
     if [ "$COMP_CWORD" = "0" ]; then
-        return
+        return "0"
     fi
 
     # complete the subcommand
     if [ "$COMP_CWORD" = "1" ]; then
         COMPREPLY=( $( compgen -W "run index config software completion location --help --version" -- "$cur" ) )
-        return
+        return "0"
     fi
     local sub_cmd="${COMP_WORDS[1]}"
 
@@ -45,13 +45,13 @@ _law_complete() {
     if [ "$sub_cmd" = "run" ]; then
         # no completion when no index file is found
         if [ ! -f "$index_file" ]; then
-            return
+            return "1"
         fi
 
         # complete the task family
         if [ "$COMP_CWORD" = "2" ]; then
             COMPREPLY=( $( compgen -W "$( _law_grep_Po "[^\:]+\:\K(.+)(?=\:.+)" "$index_file" )" -- "$cur" ) )
-            return
+            return "0"
         fi
         local task_family="${COMP_WORDS[2]}"
 
@@ -61,7 +61,7 @@ _law_complete() {
         inp="${inp##-}"
         COMPREPLY=( $( compgen -W "$( _law_grep_Po "[^\:]+\:$task_family\:\K.+" "$index_file" ) $common_run_params" -P "--" -- "$inp" ) )
         if [ "${#COMPREPLY[@]}" != "0" ]; then
-            return
+            return "0"
         fi
 
         # when no root task parameters were found, try to complete task-level parameters,
@@ -102,7 +102,7 @@ _law_complete() {
 
             # stop here when there is no match
             if [ "$n_tasks" = "0" ]; then
-                return
+                return "0"
             fi
 
             # complete the task family when there is more than one match and
@@ -110,7 +110,7 @@ _law_complete() {
             if [ "$n_tasks" -gt "1" ] && [[ "$class_and_param_raw" != *"-"* ]]; then
                 # complete the task family
                 COMPREPLY=( $( compgen -W "$( echo ${tasks_repl[@]} )" -P "--" -S "-" -- "$inp" ) )
-                return
+                return "0"
             else
                 # complete parameters, including the matching task family
                 # when there is only one matching task, overwrite the family
@@ -130,7 +130,7 @@ _law_complete() {
                 unset p
 
                 COMPREPLY=( $( compgen -W "$( echo ${words[@]} )" -P "--" -- "$inp" ) )
-                return
+                return "0"
             fi
         fi
 
@@ -140,6 +140,7 @@ _law_complete() {
         local inp="${cur##-}"
         inp="${inp##-}"
         COMPREPLY=( $( compgen -W "$( echo $words )" -P "--" -- "$inp" ) )
+        return "0"
 
     # complete the "software" subcommand
     elif [ "$sub_cmd" = "software" ]; then
@@ -147,6 +148,7 @@ _law_complete() {
         local inp="${cur##-}"
         inp="${inp##-}"
         COMPREPLY=( $( compgen -W "$( echo $words )" -P "--" -- "$inp" ) )
+        return "0"
 
     # complete the "config" subcommand
     elif [ "$sub_cmd" = "config" ]; then
@@ -154,6 +156,7 @@ _law_complete() {
         local inp="${cur##-}"
         inp="${inp##-}"
         COMPREPLY=( $( compgen -W "$( echo $words )" -P "--" -- "$inp" ) )
+        return "0"
 
     # complete the "completion" subcommand
     elif [ "$sub_cmd" = "completion" ]; then
@@ -161,6 +164,7 @@ _law_complete() {
         local inp="${cur##-}"
         inp="${inp##-}"
         COMPREPLY=( $( compgen -W "$( echo $words )" -P "--" -- "$inp" ) )
+        return "0"
 
     # complete the "location" subcommand
     elif [ "$sub_cmd" = "location" ]; then
@@ -168,6 +172,7 @@ _law_complete() {
         local inp="${cur##-}"
         inp="${inp##-}"
         COMPREPLY=( $( compgen -W "$( echo $words )" -P "--" -- "$inp" ) )
+        return "0"
     fi
 }
 
