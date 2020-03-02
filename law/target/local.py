@@ -178,7 +178,7 @@ class LocalFileSystem(FileSystem):
         if self.isdir(dst):
             full_dst = os.path.join(dst, src_base)
         elif self.isfile(dst):
-            full_dst = os.path.join(os.path.dirname(dst), src_base)
+            full_dst = dst
         else:
             # not existing, treat dst as a file name and create missing dirs
             dst_dir = self.dirname(dst)
