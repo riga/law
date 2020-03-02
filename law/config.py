@@ -439,7 +439,7 @@ class Config(ConfigParser):
                         elif ref in _skip_refs:
                             return default
                         _skip_refs.append(ref)
-                        value = self.get_default(*ref, default=default, type=type,
+                        value = self.get_default(*ref, default=value, type=type,
                             expand_vars=expand_vars, expand_user=expand_user, dereference=True,
                             _skip_refs=_skip_refs)
 
