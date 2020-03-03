@@ -247,10 +247,9 @@ class Config(ConfigParser):
     @classmethod
     def _parse_option_ref(cls, value, default_section=None):
         m = cls._option_ref_regex.match(value)
-        if m:
-            return (m.group("section") or default_section, m.group("option"))
-        else:
+        if not m:
             return None
+        return (m.group("section") or default_section, m.group("option"))
 
     def __init__(self, config_file="", skip_defaults=False, skip_fallbacks=False):
         ConfigParser.__init__(self, allow_no_value=True)
@@ -418,39 +417,50 @@ class Config(ConfigParser):
         This behavior is the default and, if desired, can be disabled by setting *dereference* to
         *False*. When the reference is not resolvable, the default value is returned.
 
-        When *default_when_none* is *True* and the option was found but its value is ``"None"``
-        (case-insensitive), the *default* is returned.
+        When *default_when_none* is *True* and the option was found but its value is *None* or
+        ``"None"`` (case-insensitive), the *default* is returned.
         """  # noqa
-        if self.has_section(section) and self.has_option(section, option):
-            value = self.get(section, option)
-            if isinstance(value, six.string_types):
-                # expand
-                if expand_vars:
-                    value = os.path.expandvars(value)
-                if expand_user:
-                    value = os.path.expanduser(value)
-
-                # follow references
-                if dereference:
-                    ref = self._parse_option_ref(value, default_section=section)
-                    if ref:
-                        if _skip_refs is None:
-                            _skip_refs = []
-                        elif ref in _skip_refs:
-                            return default
-                        _skip_refs.append(ref)
-                        value = self.get_default(*ref, default=value, type=type,
-                            expand_vars=expand_vars, expand_user=expand_user, dereference=True,
-                            _skip_refs=_skip_refs)
-
-                # interpret None as missing?
-                if default_when_none and value.lower() == "none":
-                    return default
-
-            # return the type-converted value
-            return value if not type else self._get_type_converter(type)(value)
-        else:
+        # return the default when either the section or the option does not exist
+        if not self.has_section(section) or not self.has_option(section, option):
             return default
+
+        # get the value
+        value = self.get(section, option)
+
+        # handle variable expansion and dereferencing when value is a string
+        # (which should always be the case, but subclasses might overwrite get())
+        if isinstance(value, six.string_types):
+            # expand
+            if expand_vars:
+                value = os.path.expandvars(value)
+            if expand_user:
+                value = os.path.expanduser(value)
+
+            # resolve references
+            if dereference:
+                ref = self._parse_option_ref(value, default_section=section)
+                if ref:
+                    # to avoid circular references, keep track of already resolved ones
+                    if _skip_refs is None:
+                        _skip_refs = []
+                    elif ref in _skip_refs:
+                        return default
+                    _skip_refs.append(ref)
+
+                    # return the referenced value
+                    return self.get_default(*ref, default=default, type=type,
+                        expand_vars=expand_vars, expand_user=expand_user, dereference=dereference,
+                        default_when_none=default_when_none, _skip_refs=_skip_refs)
+
+        # interpret None and "None" as missing?
+        if default_when_none:
+            if value is None:
+                return default
+            elif isinstance(value, six.string_types) and value.lower() == "none":
+                return default
+
+        # return the type-converted value
+        return value if not type else self._get_type_converter(type)(value)
 
     def get_expanded(self, *args, **kwargs):
         """
@@ -484,9 +494,9 @@ class Config(ConfigParser):
 
     def is_missing_or_none(self, section, option):
         """
-        Returns *True* if the value defined by *section* and *option* is missing or ``"None"``, and
-        *False* otherwise. Options without values are not considered as missing, while those
-        pointing to unresolvable references are. Example:
+        Returns *True* if the value defined by *section* and *option* is missing or ``"None"``
+        (case-insensitive), and *False* otherwise. Options without values and those pointing to
+        unresolvable references are considered missing. Example:
 
         .. code-block:: ini
 
@@ -503,10 +513,13 @@ class Config(ConfigParser):
             is_missing_or_none("my_section", "b")  # False
             is_missing_or_none("my_section", "c")  # True
             is_missing_or_none("my_section", "d")  # True
-            is_missing_or_none("my_section", "e")  # False
+            is_missing_or_none("my_section", "e")  # True
             is_missing_or_none("my_section", "f")  # True
         """
-        return self.get_expanded(section, option, default=no_value) in ("None", no_value)
+        value = self.get_expanded(section, option, default=no_value)
+        if isinstance(value, six.string_types):
+            value = value.lower()
+        return value in ("none", no_value)
 
     def find_option(self, section, *options):
         """
