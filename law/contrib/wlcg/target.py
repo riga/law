@@ -68,7 +68,7 @@ try:
     logger.debug("created default WLCGFileSystem instance '{}'".format(
         WLCGFileSystem.default_instance))
 except Exception as e:
-    logger.info("could not create default WLCGFileSystem instance: {}".format(e))
+    logger.warning("could not create default WLCGFileSystem instance: {}".format(e))
 
 
 class WLCGTarget(RemoteTarget):

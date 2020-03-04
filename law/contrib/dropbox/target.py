@@ -94,7 +94,7 @@ try:
     logger.debug("created default DropboxFileSystem instance '{}'".format(
         DropboxFileSystem.default_instance))
 except Exception as e:
-    logger.info("could not create default DropboxFileSystem instance: {}".format(e))
+    logger.warning("could not create default DropboxFileSystem instance: {}".format(e))
 
 
 class DropboxTarget(RemoteTarget):
