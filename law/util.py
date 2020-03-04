@@ -132,7 +132,7 @@ def try_int(n):
 def str_to_int(s):
     """
     Converts a string *s* into an integer under consideration of binary, octal, decimal and
-    hexadecimal representations, such as``"0o0660"``.
+    hexadecimal representations, such as ``"0o0660"``.
     """
     s = str(s).lower()
     m = re.match(r"^0(b|o|d|x)\d+$", s)

@@ -401,6 +401,8 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
             for _arguments in make_list(c.arguments):
                 content.append(("arguments", _arguments))
                 content.append("queue")
+        else:
+            content.append("queue")
 
         # write the job file
         with open(job_file, "w") as f:
