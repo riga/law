@@ -207,7 +207,7 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
     def htcondor_output_postfix(self):
         self.get_branch_map()
         if self.branches:
-            return "_" + "_".join(self.branches)
+            return "_" + "_".join(str(b) for b in sorted(self.branches))
         else:
             return "_{}To{}".format(self.start_branch, self.end_branch)
 
