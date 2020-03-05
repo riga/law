@@ -24,13 +24,13 @@ You should see:
 
 ```shell
 loading tasks from 1 module(s)
-loading module 'tasks'
+loading module 'tasks', done
 
 module 'tasks', 4 task(s):
-    FetchLoremIpsum
-    CountChars
-    MergeCounts
-    ShowFrequencies
+    - ShowFrequencies
+    - FetchLoremIpsum
+    - CountChars
+    - MergeCounts
 
 written 4 task(s) to index file '/examplepath/.law/index'
 ```
@@ -50,16 +50,16 @@ print task status with max_depth -1 and target_depth 0
 > check status of ShowFrequencies(slow=False)
 |
 |   > check status of MergeCounts(slow=False)
-|   |   - check LocalFileTarget(path=/examplepath/data/chars_merged.json)
-|   |     -> absent
+|   |   - LocalFileTarget(path=/examplepath/data/chars_merged.json)
+|   |     absent
 |   |
 |   |   > check status of CountChars(file_index=1, slow=False)
-|   |   |   - check LocalFileTarget(path=/examplepath/data/chars_1.json)
-|   |   |     -> absent
+|   |   |   - LocalFileTarget(path=/examplepath/data/chars_1.json)
+|   |   |     absent
 |   |   |
 |   |   |   > check status of FetchLoremIpsum(file_index=1, slow=False)
-|   |   |   |   - check LocalFileTarget(path=/examplepath/data/loremipsum_1.txt)
-|   |   |   |     -> absent
+|   |   |   |   - LocalFileTarget(path=/examplepath/data/loremipsum_1.txt)
+|   |   |   |     absent
 ...
 ```
 
@@ -77,7 +77,7 @@ This should take only a few seconds to process.
 
 By default, this example uses a local scheduler, which - by definition - offers no visualization tools in the browser. If you want to see how the task tree is built and subsequently run, run ``luigid`` in a second terminal. This will start a central scheduler at *localhost:8082* (the default address). To inform tasks (or rather *workers*) about the scheduler, either add ``--local-scheduler False`` to the ``law run`` command, or set the ``local-scheduler`` value in the ``[luigi_core]`` config section in the ``law.cfg`` file to ``False``.
 
-Also, you might want to add the ``--slow`` parameter to make the tasks somewhat slower in order to see the actual progress in the scheduler (this is of course not a feature of law, but only implemented by the tasks in this example ;) ).
+Also, you might want to add the ``--slow`` parameter to make the tasks somewhat slower in order to see the actual progress in the scheduler (this is of course not a feature of law, but only implemented by the tasks in this example 😉).
 
 
 #### 5. Check the status again
@@ -94,16 +94,16 @@ print task status with max_depth -1 and target_depth 0
 > check status of ShowFrequencies(slow=False)
 |
 |   > check status of MergeCounts(slow=False)
-|   |   - check LocalFileTarget(path=/examplepath/data/chars_merged.json)
-|   |     -> existent
+|   |   - LocalFileTarget(path=/examplepath/data/chars_merged.json)
+|   |     existent
 |   |
 |   |   > check status of CountChars(file_index=1, slow=False)
-|   |   |   - check LocalFileTarget(path=/examplepath/data/chars_1.json)
-|   |   |     -> existent
+|   |   |   - LocalFileTarget(path=/examplepath/data/chars_1.json)
+|   |   |     existent
 |   |   |
 |   |   |   > check status of FetchLoremIpsum(file_index=1, slow=False)
-|   |   |   |   - check LocalFileTarget(path=/examplepath/data/loremipsum_1.txt)
-|   |   |   |     -> existent
+|   |   |   |   - LocalFileTarget(path=/examplepath/data/loremipsum_1.txt)
+|   |   |   |     existent
 ...
 ```
 
