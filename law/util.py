@@ -934,7 +934,7 @@ time_unit_aliases = {
 }
 
 
-def human_duration(colon_format=False, plural=True, **kwargs):
+def human_duration(colon_format=False, plural=True, day_separator=':', **kwargs):
     """ human_duration
     Returns a human readable duration. The largest unit is days. When *colon_format* is *True*, the
     return value has the format ``"[d:][hh:]mm:ss[.ms]"``. *colon_format* can also be a string value
@@ -1041,7 +1041,10 @@ def human_duration(colon_format=False, plural=True, **kwargs):
     if sign == -1:
         sign_prefix = "-" if colon_format else "minus "
 
-    return sign_prefix + (":" if colon_format else ", ").join(parts)
+    if len(parts) == 4 and colon_format == True: #the date format includes days
+        return sign_prefix + parts[0] + day_separator + (":" if colon_format else ", ").join(parts[1:])
+    else:
+        return sign_prefix + (":" if colon_format else ", ").join(parts)
 
 
 def human_time_diff(*args, **kwargs):
