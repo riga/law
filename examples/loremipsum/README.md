@@ -1,5 +1,7 @@
 # Example: Character frequencies in the Loremipsum
 
+This example has a notebook. Browse the static output [here][example.ipynb] or launch an interactive notebook via [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/riga/law/master?filepath=examples%2Floremipsum%2Fexample.ipynb)
+
 This example demonstrates how to create and run a simple law task tree.
 
 The actual payload of the tasks is rather trivial. Six different versions of the [lorem ipsum](https://www.lipsum.com) dummy text are fetched from a website. Per version, the character frequencies are measured, and merged and visualized in the end.
