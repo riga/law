@@ -34,7 +34,7 @@ class SlurmJobManager(BaseJobManager):
     chunk_size_query = _cfg.get_expanded_int("job", "slurm_chunk_size_query")
 
     # TODO: adjust regexps as needed
-    submission_job_id_cre = re.compile("^Job submitted with jobid: (.+)$")
+    submission_job_id_cre = re.compile("^Submitted batch job (.+)$")
     status_block_cre = re.compile(r"\s*([^:]+): (.*)\n")
     status_invalid_job_cre = re.compile("^.+: Job not found in job list: (.+)$")
     status_missing_job_cre = re.compile(
@@ -53,7 +53,6 @@ class SlurmJobManager(BaseJobManager):
         job_file_dir, job_file_name = os.path.split(os.path.abspath(job_file))
 
         # build the command
-        # TODO: add arguments as needed
         cmd = ["sbatch"]
         if exclusive:
             cmd += ["--exclusive"]
@@ -63,23 +62,26 @@ class SlurmJobManager(BaseJobManager):
         # define the actual submission in a loop to simplify retries
         while True:
             # run the command
-            # TODO: does slurm print errors on stderr?
+            # sbatch will return 0 on success or error code on failure
             logger.debug("submit slurm job with command '{}'".format(cmd))
             code, out, err = interruptable_popen(cmd, shell=True, executable="/bin/bash",
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=job_file_dir)
 
             # get the job id(s)
             if code == 0:
-                # TODO: parse "out" to set "job_ids", "code" and optionally "err"
-                job_ids = [0]
-                code = 0
-                err = ""
+                first_line = out.strip().split("\n")[0].strip()
+                m = self.submission_job_id_cre.match(first_line)
+                if m:
+                    job_ids = ["{}".format(m.group(1))] #it fails for more than one job
+                else:
+                    code = 1
+                    err = "cannot parse slurm job id(s) from output:\n{}".format(out)
 
             # retry or done?
             if code == 0:
                 return job_ids
             else:
-                logger.debug("submission of slurm job '{}' failed:\n{}".format(job_file, err))
+                logger.debug("submission of slurm job '{}' failed:\n{}\nwith code:\n{}".format(job_file, err, code))
                 if retries > 0:
                     retries -= 1
                     time.sleep(retry_delay)
@@ -113,12 +115,7 @@ class SlurmJobManager(BaseJobManager):
         if code != 0 and not silent:
             raise Exception("cancellation of slurm job(s) '{}' failed:\n{}".format(job_id, err))
 
-    # TODO: add more arguments for common attributes
-    def query(self, job_id, x=None, silent=False):
-        # see https://slurm.schedmd.com/squeue.html
-
-        # default arguments
-        x = x or self.x
+    def query(self, job_id, user=None, partition=None, state=None, custom=None, silent=False):
 
         chunking = isinstance(job_id, (list, tuple))
         job_ids = make_list(job_id)
@@ -126,15 +123,28 @@ class SlurmJobManager(BaseJobManager):
         # build the command
         cmd = ["squeue"]
         # TODO: add arguments as needed
-        cmd += job_ids
+        cmd += ["-j", job_ids]
+        if user:
+            cmd += ["--user", user]
+        if partition:
+            cmd += ["--partition", partition]
+        if state:
+            cmd += ["--state", state]
+        if custom:
+            dashes_cre = re.compile('--').match(custom)
+            if not dashes_cre:
+                raise ValueError('Please specify custom option with the standard format: --var value')
+            cmd += [custom]
         cmd = quote_cmd(cmd)
 
         # run it
-        # TODO: does slurm print errors on stderr?
         logger.debug("query slurm job(s) with command '{}'".format(cmd))
         code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
             stdout=subprocess.PIPE, stderr=sys.stderr)
 
+        print(out)
+        print(code)
+        quit()
         # handle errors
         if code != 0:
             if silent:
@@ -289,16 +299,19 @@ class SlurmJobFileFactory(BaseJobFileFactory):
 
         # add custom content [check whether there is duplicate information?]
         if c.custom_content:
-            content += c.custom_content
+            content.append((c.custom_content))
 
         # add the executable
         content.append(c.executable)
 
         # write the job file
         with open(job_file, "w") as f:
+            print('init')
             for obj in content:
+                print(obj)
                 line = self.create_line(*make_list(obj))
                 f.write(line + "\n")
+            print('end')
 
         logger.debug("created slurm job file at '{}'".format(job_file))
 
