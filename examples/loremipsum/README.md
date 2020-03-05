@@ -10,6 +10,8 @@ Resources: [luigi](http://luigi.readthedocs.io/en/stable), [law](http://law.read
 #### 1. Source the setup script (just sets up software and some variables)
 
 ```shell
+git clone https://github.com/riga/law.git
+cd law/examples/loremipsum
 source setup.sh
 ```
 
