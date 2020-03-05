@@ -693,7 +693,7 @@ def tmp_file(*args, **kwargs):
 def interruptable_popen(*args, **kwargs):
     """
     Shorthand to :py:class:`Popen` followed by :py:meth:`Popen.communicate`. All *args* and *kwargs*
-    are forwatded to the :py:class:`Popen` constructor. The return code, standard output and
+    are forwarded to the :py:class:`Popen` constructor. The return code, standard output and
     standard error are returned in a tuple. The call :py:meth:`Popen.communicate` is interruptable
     by the user.
     """
