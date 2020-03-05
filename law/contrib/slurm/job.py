@@ -48,18 +48,15 @@ class SlurmJobManager(BaseJobManager):
         self.threads = threads
 
     # TODO: add more arguments for common attributes
-    def submit(self, job_file, x=None, retries=0, retry_delay=3, silent=False):
-        # see https://slurm.schedmd.com/sbatch.html
-
-        # default arguments
-        x = x or self.x
-
+    def submit(self, job_file, retries=0, retry_delay=3, exclusive=False, silent=False):       
         # get the job file location as the submission command is run it the same directory
         job_file_dir, job_file_name = os.path.split(os.path.abspath(job_file))
 
         # build the command
         # TODO: add arguments as needed
         cmd = ["sbatch"]
+        if exclusive:
+            cmd += ["--exclusive"]
         cmd += [job_file_name]
         cmd = quote_cmd(cmd)
 
@@ -186,15 +183,17 @@ class SlurmJobManager(BaseJobManager):
 
 class SlurmJobFileFactory(BaseJobFileFactory):
 
+    #this should instead be filled automatically inside __init__()
     config_attrs = BaseJobFileFactory.config_attrs + [
         "file_name", "executable", "input_files", "output_files", "postfix_output_files", "stdout",
-        "stderr", "custom_content", "absolute_paths",
+        "stderr", "custom_content", "absolute_paths", "ntasks", "cpus_per_task", "mem_per_cpu",
+        "max_time",
     ]
 
     def __init__(self, file_name="job.sh", executable=None, input_files=None, output_files=None,
                  postfix_output_files=True, stdout="stdout.txt", stderr="stderr.txt",
                  custom_content=None, absolute_paths=False,
-                 ntasks=1, ncpus_per_task=1, mem_per_cpu=100,
+                 ntasks=1, cpus_per_task=1, mem_per_cpu=100,
                  max_time=human_duration(days=0,hours=0,minutes=10,seconds=0,colon_format=True,day_separator='-'), **kwargs):
         # get some default kwargs from the config
         cfg = Config.instance()
@@ -220,7 +219,7 @@ class SlurmJobFileFactory(BaseJobFileFactory):
         self.custom_content = custom_content
         self.absolute_paths = absolute_paths
         self.ntasks = ntasks
-        self.ncpus_per_task = ncpus_per_task
+        self.cpus_per_task = cpus_per_task
         self.mem_per_cpu = mem_per_cpu
         self.max_time = max_time
         
@@ -234,8 +233,8 @@ class SlurmJobFileFactory(BaseJobFileFactory):
         elif not c.executable:
             raise ValueError("executable must not be empty")
 
-        if c.file_name[-1:-4] != '.sh':
-            raise ValueError("file_name must refer to a shell script")
+        #if c.file_name[-1:-4] != '.sh':
+        #    raise ValueError("file_name must refer to a shell script")
         
         # default render variables
         if not render_variables:
@@ -281,12 +280,12 @@ class SlurmJobFileFactory(BaseJobFileFactory):
             pass  # TODO
         if c.ntasks:
             content.append(("ntasks", c.ntasks))
-        if c.ncpus_per_task:
-            content.append(("ncpus-per-task", c.ncpus_per_task))
+        if c.cpus_per_task:
+            content.append(("cpus-per-task", c.cpus_per_task))
         if c.mem_per_cpu:
             content.append(("mem-per-cpu", c.mem_per_cpu))
-        if c.time:
-            content.append(("time", c.time))
+        if c.max_time:
+            content.append(("time", c.max_time))
 
         # add custom content [check whether there is duplicate information?]
         if c.custom_content:
