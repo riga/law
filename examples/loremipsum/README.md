@@ -6,6 +6,8 @@ This example demonstrates how to create and run a simple law task tree.
 
 The actual payload of the tasks is rather trivial. Six different versions of the [lorem ipsum](https://www.lipsum.com) dummy text are fetched from a website. Per version, the character frequencies are measured, and merged and visualized in the end.
 
+**You might want to checkout the implemention of the tasks below in ([tasks.py](https://github.com/riga/law/blob/master/examples/loremipsum/tasks.py)) while executing the notebook.**
+
 Resources: [luigi](http://luigi.readthedocs.io/en/stable), [law](http://law.readthedocs.io/en/latest)
 
 
