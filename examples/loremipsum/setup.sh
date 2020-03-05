@@ -24,5 +24,3 @@ action() {
     source "$( law completion )" ""
 }
 action
-
-[ ! -z "$BINDER_REPO_URL" ] && exec "$@"

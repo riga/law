@@ -1,1 +1,5 @@
-setup.sh
+#!/bin/bash
+
+source setup.sh
+
+exec "$@"
