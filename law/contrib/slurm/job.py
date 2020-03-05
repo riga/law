@@ -12,13 +12,14 @@ __all__ = ["SlurmJobManager", "SlurmJobFileFactory"]
 import os
 import sys
 import time
+import datetime
 import re
 import subprocess
 import logging
 
 from law.config import Config
 from law.job.base import BaseJobManager, BaseJobFileFactory
-from law.util import interruptable_popen, make_list, quote_cmd
+from law.util import interruptable_popen, make_list, quote_cmd, human_duration
 
 
 logger = logging.getLogger(__name__)
@@ -191,8 +192,10 @@ class SlurmJobFileFactory(BaseJobFileFactory):
     ]
 
     def __init__(self, file_name="job.sh", executable=None, input_files=None, output_files=None,
-            postfix_output_files=True, stdout="stdout.txt", stderr="stderr.txt",
-            custom_content=None, absolute_paths=False, **kwargs):
+                 postfix_output_files=True, stdout="stdout.txt", stderr="stderr.txt",
+                 custom_content=None, absolute_paths=False,
+                 ntasks=1, ncpus_per_task=1, mem_per_cpu=100,
+                 max_time=human_duration(days=0,hours=0,minutes=10,seconds=0,colon_format=True,day_separator='-'), **kwargs):
         # get some default kwargs from the config
         cfg = Config.instance()
         if kwargs.get("dir") is None:
@@ -216,7 +219,11 @@ class SlurmJobFileFactory(BaseJobFileFactory):
         self.stderr = stderr
         self.custom_content = custom_content
         self.absolute_paths = absolute_paths
-
+        self.ntasks = ntasks
+        self.ncpus_per_task = ncpus_per_task
+        self.mem_per_cpu = mem_per_cpu
+        self.max_time = max_time
+        
     def create(self, postfix=None, render_variables=None, **kwargs):
         # merge kwargs and instance attributes
         c = self.get_config(kwargs)
@@ -227,6 +234,9 @@ class SlurmJobFileFactory(BaseJobFileFactory):
         elif not c.executable:
             raise ValueError("executable must not be empty")
 
+        if c.file_name[-1:-4] != '.sh':
+            raise ValueError("file_name must refer to a shell script")
+        
         # default render variables
         if not render_variables:
             render_variables = {}
@@ -264,13 +274,21 @@ class SlurmJobFileFactory(BaseJobFileFactory):
         if c.stdout:
             content.append(("output", c.stdout))
         if c.stderr:
-            content.append(("error", c.stderr))
+            content.append(("error", c.stderr)) 
         if c.input_files:
             pass  # TODO
         if c.output_files:
             pass  # TODO
+        if c.ntasks:
+            content.append(("ntasks", c.ntasks))
+        if c.ncpus_per_task:
+            content.append(("ncpus-per-task", c.ncpus_per_task))
+        if c.mem_per_cpu:
+            content.append(("mem-per-cpu", c.mem_per_cpu))
+        if c.time:
+            content.append(("time", c.time))
 
-        # add custom content
+        # add custom content [check whether there is duplicate information?]
         if c.custom_content:
             content += c.custom_content
 
