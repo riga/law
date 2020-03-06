@@ -74,16 +74,11 @@ class FetchLoremIpsum(LoremIpsumBase):
         output = self.output()
         output.parent.touch()
 
-        # download the file to the output location
-        urllib.request.urlretrieve(URL.format(self.file_index), output.path)
-
-        # the verbose approach above obviously works only for local targets, but
-        # there is even a shorter way that works also for remote targets (DCache, Dropbox, etc):
-        #
-        #    with self.output().localize("w") as tmp:
-        #        urllib.request.urlretrieve(URL.format(self.file_index), tmp.path)
-        #
-        # note: localize("r") yields a local, temporary target for reading, also for remote targets
+        # download the file, ensure the correct encoding and write it to the output location
+        url = URL.format(self.file_index)
+        with open(urllib.request.urlretrieve(url)[0], "rb") as f:
+            content = f.read().decode("utf-8", "ignore")
+            output.dump(content, formatter="text")
 
 
 class CountChars(LoremIpsumBase):
