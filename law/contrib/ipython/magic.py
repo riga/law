@@ -20,11 +20,17 @@ logger = logging.getLogger(__name__)
 
 
 def create_magics(init_cmd=None, line_cmd=None, log_level=None):
-    # prepare cmds
-    if init_cmd and isinstance(init_cmd, (list, tuple)):
-        init_cmd = quote_cmd(init_cmd)
-    if line_cmd and isinstance(line_cmd, (list, tuple)):
-        line_cmd = quote_cmd(line_cmd)
+    def make_bash_cmd(cmd):
+        if not cmd:
+            return None
+        if not isinstance(cmd, six.string_types):
+            cmd = quote_cmd(cmd)
+        cmd = quote_cmd(["bash", "-c", cmd])
+        return cmd
+
+    # prepare cmds to use bash
+    init_cmd = make_bash_cmd(init_cmd)
+    line_cmd = make_bash_cmd(line_cmd)
 
     # set the log level
     if isinstance(log_level, six.string_types):
