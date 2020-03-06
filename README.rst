@@ -83,7 +83,7 @@ Tags:
 Examples
 ========
 
-- `loremipsum <https://github.com/riga/law/tree/master/examples/loremipsum/example.ipynb>`__: The *hello world* of law.
+- `loremipsum <https://github.com/riga/law/tree/master/examples/loremipsum/index.ipynb>`__: The *hello world* example of law.
 - `workflows <https://github.com/riga/law/tree/master/examples/workflows>`__: Law workflows.
 - `dropbox_targets <https://github.com/riga/law/tree/master/examples/dropbox_targets>`__: Working with targets that are stored on Dropbox.
 - `wlcg_targets <https://github.com/riga/law/tree/master/examples/wlcg_targets>`__: Working with targets that are stored on WLCG storage elements (dCache, EOS, ...). TODO.
