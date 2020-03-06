@@ -319,7 +319,7 @@ class FileSystemDirectoryTarget(FileSystemTarget):
         elif type == "d":
             cls = self.__class__
         elif not self.fs.exists(path):
-            raise Exception("cannot guess type of non-existing '{}'".format(path))
+            raise Exception("cannot guess type of non-existing path '{}'".format(path))
         elif self.fs.isdir(path):
             cls = self.__class__
         else:
