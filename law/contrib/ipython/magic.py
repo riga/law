@@ -20,17 +20,9 @@ logger = logging.getLogger(__name__)
 
 
 def create_magics(init_cmd=None, line_cmd=None, log_level=None):
-    def make_bash_cmd(cmd):
-        if not cmd:
-            return None
-        if not isinstance(cmd, six.string_types):
-            cmd = quote_cmd(cmd)
-        cmd = quote_cmd(["bash", "-c", cmd])
-        return cmd
-
-    # prepare cmds to use bash
-    init_cmd = make_bash_cmd(init_cmd)
-    line_cmd = make_bash_cmd(line_cmd)
+    # prepare commands
+    init_cmd = quote_cmd(init_cmd) if isinstance(init_cmd, list) else init_cmd
+    line_cmd = quote_cmd(line_cmd) if isinstance(line_cmd, list) else line_cmd
 
     # set the log level
     if isinstance(log_level, six.string_types):
@@ -48,7 +40,7 @@ def create_magics(init_cmd=None, line_cmd=None, log_level=None):
             # run the initial command when set
             if init_cmd:
                 logger.info("running initial command '{}'".format(init_cmd))
-                self.shell.system_piped(init_cmd)
+                self._run_bash(init_cmd)
 
         @ipc.magic.line_magic
         def law(self, line):
@@ -57,6 +49,15 @@ def create_magics(init_cmd=None, line_cmd=None, log_level=None):
             if line_cmd:
                 cmd = "{} && {}".format(line_cmd, cmd)
             logger.debug("running law command '{}'".format(cmd))
+
+            # run it
+            self._run_bash(cmd)
+
+        def _run_bash(self, cmd):
+            # build the command
+            if not isinstance(cmd, six.string_types):
+                cmd = quote_cmd(cmd)
+            cmd = quote_cmd(["bash", "-c", cmd])
 
             # run it
             self.shell.system_piped(cmd)
