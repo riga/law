@@ -1009,14 +1009,17 @@ def human_duration(colon_format=False, plural=True, **kwargs):
             value = int(seconds // mul)
             seconds -= value * mul
 
-        # skip zeros for colon format when leading and not referring to minutes or seconds,
-        # and always for non-colon format
+        # skip zeros under certain conditions
         if not value:
+            leading = not parts
             if colon_format:
-                if not parts and unit not in ("minute", "second"):
+                # skip zeros when leading but not referring to minutes or seconds
+                if leading and unit not in ("minute", "second"):
                     continue
             else:
-                continue
+                # skip zeros always, except when leading and the unit is seconds
+                if not leading or unit != "second":
+                    continue
 
         # build the human readable representation
         if colon_format:
