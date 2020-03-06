@@ -26,6 +26,7 @@ To use on of the following packages in your code, you must import them explicitl
    glite
    hdf5
    htcondor
+   ipython
    keras
    lsf
    matplotlib
