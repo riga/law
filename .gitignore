@@ -13,5 +13,6 @@ docs/_build
 data
 local_tests
 .law
+.ipynb_checkpoints
 MANIFEST.in
 law_test.cfg
