@@ -15,11 +15,12 @@ from collections import OrderedDict
 
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments
-from law.contrib.arc.job import ARCJobManager, ARCJobFileFactory
 from law.target.file import get_path
 from law.parameter import CSVParameter
 from law.parser import global_cmdline_args, add_cmdline_arg
 from law.util import law_src_path, merge_dicts, is_number
+
+from law.contrib.arc.job import ARCJobManager, ARCJobFileFactory
 
 
 logger = logging.getLogger(__name__)

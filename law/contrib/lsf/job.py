@@ -34,10 +34,11 @@ class LSFJobManager(BaseJobManager):
 
     submission_job_id_cre = re.compile(r"^Job <(\d+)> is submitted.+$")
 
-    def __init__(self, queue=None, threads=1):
+    def __init__(self, queue=None, emails=False, threads=1):
         super(LSFJobManager, self).__init__()
 
         self.queue = queue
+        self.emails = emails
         self.threads = threads
 
     def cleanup(self, *args, **kwargs):
@@ -46,9 +47,12 @@ class LSFJobManager(BaseJobManager):
     def cleanup_batch(self, *args, **kwargs):
         raise NotImplementedError("LSFJobManager.cleanup_batch is not implemented")
 
-    def submit(self, job_file, queue=None, emails=False, retries=0, retry_delay=3, silent=False):
+    def submit(self, job_file, queue=None, emails=None, retries=0, retry_delay=3, silent=False):
         # default arguments
-        queue = queue or self.queue
+        if queue is None:
+            queue = self.queue
+        if emails is None:
+            emails = self.emails
 
         # get the job file location as the submission command is run it the same directory
         job_file_dir, job_file_name = os.path.split(os.path.abspath(job_file))
@@ -79,7 +83,8 @@ class LSFJobManager(BaseJobManager):
             if code == 0:
                 return job_id
             else:
-                logger.debug("submission of lsf job '{}' failed:\n{}".format(job_file, err))
+                logger.debug("submission of lsf job '{}' failed with code {}:\n{}".format(
+                    code, job_file, err))
                 if retries > 0:
                     retries -= 1
                     time.sleep(retry_delay)
@@ -91,7 +96,8 @@ class LSFJobManager(BaseJobManager):
 
     def cancel(self, job_id, queue=None, silent=False):
         # default arguments
-        queue = queue or self.queue
+        if queue is None:
+            queue = self.queue
 
         # build the command
         cmd = ["bkill"]
@@ -107,11 +113,13 @@ class LSFJobManager(BaseJobManager):
 
         # check success
         if code != 0 and not silent:
-            raise Exception("cancellation of lsf job(s) '{}' failed:\n{}".format(job_id, err))
+            raise Exception("cancellation of lsf job(s) '{}' failed with code {}:\n{}".format(
+                code, job_id, err))
 
     def query(self, job_id, queue=None, silent=False):
         # default arguments
-        queue = queue or self.queue
+        if queue is None:
+            queue = self.queue
 
         chunking = isinstance(job_id, (list, tuple))
         job_ids = make_list(job_id)
@@ -133,7 +141,8 @@ class LSFJobManager(BaseJobManager):
             if silent:
                 return None
             else:
-                raise Exception("status query of lsf job(s) '{}' failed:\n{}".format(job_id, err))
+                raise Exception("status query of lsf job(s) '{}' failed with code {}:\n{}".format(
+                    code, job_id, err))
 
         # parse the output and extract the status per job
         query_data = self.parse_query_output(out)

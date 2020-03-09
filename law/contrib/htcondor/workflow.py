@@ -17,12 +17,13 @@ import luigi
 
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments
-from law.contrib.htcondor.job import HTCondorJobManager, HTCondorJobFileFactory
 from law.target.file import get_path
 from law.target.local import LocalDirectoryTarget
-from law.parameter import NO_STR, get_param
+from law.parameter import NO_STR
 from law.parser import global_cmdline_args, add_cmdline_arg
 from law.util import law_src_path, merge_dicts, is_number
+
+from law.contrib.htcondor.job import HTCondorJobManager, HTCondorJobFileFactory
 
 
 logger = logging.getLogger(__name__)
@@ -143,8 +144,8 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
 
     def submit_jobs(self, job_files):
         task = self.task
-        pool = get_param(task.htcondor_pool)
-        scheduler = get_param(task.htcondor_scheduler)
+        pool = task.htcondor_pool
+        scheduler = task.htcondor_scheduler
 
         # prepare objects for dumping intermediate submission data
         dump_freq = task.htcondor_dump_intermediate_submission_data()

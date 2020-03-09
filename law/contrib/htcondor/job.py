@@ -34,11 +34,12 @@ class HTCondorJobManager(BaseJobManager):
     submission_job_id_cre = re.compile(r"^(\d+) job\(s\) submitted to cluster (\d+)\.$")
     long_block_cre = re.compile(r"(\w+) \= \"?(.*)\"?\n")
 
-    def __init__(self, pool=None, scheduler=None, threads=1):
+    def __init__(self, pool=None, scheduler=None, user=None, threads=1):
         super(HTCondorJobManager, self).__init__()
 
         self.pool = pool
         self.scheduler = scheduler
+        self.user = user
         self.threads = threads
 
         # determine the htcondor version once
@@ -66,8 +67,10 @@ class HTCondorJobManager(BaseJobManager):
 
     def submit(self, job_file, pool=None, scheduler=None, retries=0, retry_delay=3, silent=False):
         # default arguments
-        pool = pool or self.pool
-        scheduler = scheduler or self.scheduler
+        if pool is None:
+            pool = self.pool
+        if scheduler is None:
+            scheduler = self.scheduler
 
         # get the job file location as the submission command is run it the same directory
         job_file_dir, job_file_name = os.path.split(os.path.abspath(job_file))
@@ -102,7 +105,8 @@ class HTCondorJobManager(BaseJobManager):
             if code == 0:
                 return job_ids
             else:
-                logger.debug("submission of htcondor job '{}' failed:\n{}".format(job_file, err))
+                logger.debug("submission of htcondor job '{}' failed with code {}:\n{}".format(
+                    code, job_file, err))
                 if retries > 0:
                     retries -= 1
                     time.sleep(retry_delay)
@@ -115,8 +119,10 @@ class HTCondorJobManager(BaseJobManager):
 
     def cancel(self, job_id, pool=None, scheduler=None, silent=False):
         # default arguments
-        pool = pool or self.pool
-        scheduler = scheduler or self.scheduler
+        if pool is None:
+            pool = self.pool
+        if scheduler is None:
+            scheduler = self.scheduler
 
         # build the command
         cmd = ["condor_rm"]
@@ -134,12 +140,17 @@ class HTCondorJobManager(BaseJobManager):
 
         # check success
         if code != 0 and not silent:
-            raise Exception("cancellation of htcondor job(s) '{}' failed:\n{}".format(job_id, err))
+            raise Exception("cancellation of htcondor job(s) '{}' failed with code {}:\n{}".format(
+                code, job_id, err))
 
     def query(self, job_id, pool=None, scheduler=None, user=None, silent=False):
         # default arguments
-        pool = pool or self.pool
-        scheduler = scheduler or self.scheduler
+        if pool is None:
+            pool = self.pool
+        if scheduler is None:
+            scheduler = self.scheduler
+        if user is None:
+            user = self.user
 
         chunking = isinstance(job_id, (list, tuple))
         job_ids = make_list(job_id)
@@ -171,8 +182,8 @@ class HTCondorJobManager(BaseJobManager):
             if silent:
                 return None
             else:
-                raise Exception("queue query of htcondor job(s) '{}' failed:\n{}".format(
-                    job_id, err))
+                raise Exception("queue query of htcondor job(s) '{}' failed with code {}:"
+                    "\n{}".format(code, job_id, err))
 
         # parse the output and extract the status per job
         query_data = self.parse_long_output(out)
@@ -204,8 +215,8 @@ class HTCondorJobManager(BaseJobManager):
                 if silent:
                     return None
                 else:
-                    raise Exception("history query of htcondor job(s) '{}' failed:\n{}".format(
-                        job_id, err))
+                    raise Exception("history query of htcondor job(s) '{}' failed with code {}:"
+                        "\n{}".format(code, job_id, err))
 
             # parse the output and update query data
             query_data.update(self.parse_long_output(out, job_ids=missing_ids))
