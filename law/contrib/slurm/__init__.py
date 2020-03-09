@@ -7,10 +7,10 @@ Slurm contrib functionality.
 
 
 __all__ = [
-    "SlurmJobManager", "SlurmJobFileFactory",  # "SlurmWorkflow",
+    "SlurmJobManager", "SlurmJobFileFactory", "SlurmWorkflow",
 ]
 
 
 # provisioning imports
 from law.contrib.slurm.job import SlurmJobManager, SlurmJobFileFactory
-# from law.contrib.slurm.workflow import SlurmWorkflow
+from law.contrib.slurm.workflow import SlurmWorkflow
