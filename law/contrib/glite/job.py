@@ -46,8 +46,10 @@ class GLiteJobManager(BaseJobManager):
 
     def submit(self, job_file, ce=None, delegation_id=None, retries=0, retry_delay=3, silent=False):
         # default arguments
-        ce = ce or self.ce
-        delegation_id = delegation_id or self.delegation_id
+        if ce is None:
+            ce = self.ce
+        if delegation_id is None:
+            delegation_id = self.delegation_id
 
         # check arguments
         if not ce:
@@ -91,7 +93,8 @@ class GLiteJobManager(BaseJobManager):
             if code == 0:
                 return job_id
             else:
-                logger.debug("submission of glite job '{}' failed:\n{}".format(job_file, out))
+                logger.debug("submission of glite job '{}' failed with code {}:\n{}".format(
+                    code, job_file, out))
                 if retries > 0:
                     retries -= 1
                     time.sleep(retry_delay)
@@ -115,7 +118,8 @@ class GLiteJobManager(BaseJobManager):
         # check success
         if code != 0 and not silent:
             # glite prints everything to stdout
-            raise Exception("cancellation of glite job(s) '{}' failed:\n{}".format(job_id, out))
+            raise Exception("cancellation of glite job(s) '{}' failed with code {}:\n{}".format(
+                code, job_id, out))
 
     def cleanup(self, job_id, silent=False):
         # build the command
@@ -130,7 +134,8 @@ class GLiteJobManager(BaseJobManager):
         # check success
         if code != 0 and not silent:
             # glite prints everything to stdout
-            raise Exception("cleanup of glite job(s) '{}' failed:\n{}".format(job_id, out))
+            raise Exception("cleanup of glite job(s) '{}' failed with code {}:\n{}".format(
+                code, job_id, out))
 
     def query(self, job_id, silent=False):
         chunking = isinstance(job_id, (list, tuple))
@@ -151,7 +156,8 @@ class GLiteJobManager(BaseJobManager):
                 return None
             else:
                 # glite prints everything to stdout
-                raise Exception("status query of glite job(s) '{}' failed:\n{}".format(job_id, out))
+                raise Exception("status query of glite job(s) '{}' failed with code {}:\n{}".format(
+                    code, job_id, out))
 
         # parse the output and extract the status per job
         query_data = self.parse_query_output(out)
