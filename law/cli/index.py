@@ -77,7 +77,7 @@ def execute(args):
     if args.modules:
         lookup += args.modules
 
-    print("loading tasks from {} module(s)".format(len(lookup)))
+    print("indexing tasks in {} module(s)".format(len(lookup)))
 
     # loop through modules, import everything to load tasks
     for modid in lookup:
