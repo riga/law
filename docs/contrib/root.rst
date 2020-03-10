@@ -20,6 +20,13 @@ Class ``ROOTNumpyFormatter``
    :members:
 
 
+Class ``ROOTPandasFormatter``
+-----------------------------
+
+.. autoclass:: ROOTPandasFormatter
+   :members:
+
+
 Class ``UprootFormatter``
 -------------------------
 

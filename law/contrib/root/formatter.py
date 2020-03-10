@@ -5,7 +5,9 @@ ROOT target formatters.
 """
 
 
-__all__ = ["GuardedTFile", "ROOTFormatter", "ROOTNumpyFormatter", "UprootFormatter"]
+__all__ = [
+    "GuardedTFile", "ROOTFormatter", "ROOTNumpyFormatter", "ROOTPandasFormatter", "UprootFormatter",
+]
 
 
 from law.target.formatter import Formatter
@@ -91,6 +93,30 @@ class ROOTNumpyFormatter(Formatter):
         import root_numpy
 
         return root_numpy.array2root(arr, get_path(path), *args, **kwargs)
+
+
+class ROOTPandasFormatter(Formatter):
+
+    name = "root_pandas"
+
+    @classmethod
+    def accepts(cls, path):
+        return get_path(path).endswith(".root")
+
+    @classmethod
+    def load(cls, path, *args, **kwargs):
+        ROOT = import_ROOT()  # noqa: F841
+        import root_pandas
+
+        return root_pandas.read_root(get_path(path), *args, **kwargs)
+
+    @classmethod
+    def dump(cls, path, df, *args, **kwargs):
+        ROOT = import_ROOT()  # noqa: F841
+        # importing root_pandas adds the to_root() method to data frames
+        import root_pandas  # noqa: F401
+
+        return df.to_root(get_path(path), *args, **kwargs)
 
 
 class UprootFormatter(Formatter):
