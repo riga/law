@@ -17,9 +17,8 @@ class H5pyFormatter(Formatter):
     name = "h5py"
 
     @classmethod
-    def accepts(cls, path):
-        path = get_path(path)
-        return path.endswith(".hdf5") or path.endswith(".h5")
+    def accepts(cls, path, mode):
+        return get_path(path).endswith((".hdf5", ".h5"))
 
     @classmethod
     def load(cls, path, *args, **kwargs):

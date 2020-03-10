@@ -222,12 +222,12 @@ class LocalFileSystem(FileSystem):
     def load(self, path, formatter, *args, **kwargs):
         _, kwargs = split_transfer_kwargs(kwargs)
         path = self._unscheme(path)
-        return find_formatter(formatter, path).load(path, *args, **kwargs)
+        return find_formatter(path, "load", formatter).load(path, *args, **kwargs)
 
     def dump(self, path, formatter, *args, **kwargs):
         _, kwargs = split_transfer_kwargs(kwargs)
         path = self._unscheme(path)
-        return find_formatter(formatter, path).dump(path, *args, **kwargs)
+        return find_formatter(path, "dump", formatter).dump(path, *args, **kwargs)
 
 
 LocalFileSystem.default_instance = LocalFileSystem()

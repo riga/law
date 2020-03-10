@@ -15,8 +15,8 @@ from law.target.file import get_path
 class ModelFormatter(Formatter):
 
     @classmethod
-    def accepts(cls, path):
-        return get_path(path).endswith(".h5")
+    def accepts(cls, path, mode):
+        return get_path(path).endswith((".hdf5", ".h5"))
 
     @classmethod
     def dump(cls, path, model, *args, **kwargs):

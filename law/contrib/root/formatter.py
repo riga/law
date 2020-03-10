@@ -60,7 +60,7 @@ class ROOTFormatter(Formatter):
     name = "root"
 
     @classmethod
-    def accepts(cls, path):
+    def accepts(cls, path, mode):
         return get_path(path).endswith(".root")
 
     @classmethod
@@ -77,7 +77,7 @@ class ROOTNumpyFormatter(Formatter):
     name = "root_numpy"
 
     @classmethod
-    def accepts(cls, path):
+    def accepts(cls, path, mode):
         return get_path(path).endswith(".root")
 
     @classmethod
@@ -100,7 +100,7 @@ class ROOTPandasFormatter(Formatter):
     name = "root_pandas"
 
     @classmethod
-    def accepts(cls, path):
+    def accepts(cls, path, mode):
         return get_path(path).endswith(".root")
 
     @classmethod
@@ -124,7 +124,7 @@ class UprootFormatter(Formatter):
     name = "uproot"
 
     @classmethod
-    def accepts(cls, path):
+    def accepts(cls, path, mode):
         return get_path(path).endswith(".root")
 
     @classmethod

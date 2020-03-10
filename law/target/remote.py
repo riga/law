@@ -1106,13 +1106,13 @@ class RemoteFileSystem(FileSystem):
             raise Exception("unknown mode {}, use r or w".format(mode))
 
     def load(self, path, formatter, *args, **kwargs):
-        fmt = find_formatter(formatter, path)
+        fmt = find_formatter(path, "load", formatter)
         transfer_kwargs, kwargs = split_transfer_kwargs(kwargs)
         with self.open(path, "r", _yield_path=True, **transfer_kwargs) as lpath:
             return fmt.load(lpath, *args, **kwargs)
 
     def dump(self, path, formatter, *args, **kwargs):
-        fmt = find_formatter(formatter, path)
+        fmt = find_formatter(path, "dump", formatter)
         transfer_kwargs, kwargs = split_transfer_kwargs(kwargs)
         with self.open(path, "w", _yield_path=True, **transfer_kwargs) as lpath:
             return fmt.dump(lpath, *args, **kwargs)

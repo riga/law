@@ -22,9 +22,8 @@ class CoffeaFormatter(Formatter):
     name = "coffea"
 
     @classmethod
-    def accepts(cls, path):
-        path = get_path(path)
-        return path.endswith(".coffea")
+    def accepts(cls, path, mode):
+        return get_path(path).endswith(".coffea")
 
     @classmethod
     def load(cls, path, *args, **kwargs):

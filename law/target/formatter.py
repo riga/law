@@ -57,27 +57,28 @@ def get_formatter(name, silent=False):
         raise Exception("cannot find formatter '{}'".format(name))
 
 
-def find_formatters(path, silent=True):
+def find_formatters(path, mode, silent=True):
     """
-    Returns a list of formatter classes which would accept the file given by *path*. When no classes
-    could be found and *silent* is *True*, an empty list is returned. Otherwise, an exception is
-    raised.
+    Returns a list of formatter classes which would accept the file given by *path* and *mode*,
+    which should either be ``"load"`` or ``"dump"``. When no classes could be found and *silent* is
+    *True*, an empty list is returned. Otherwise, an exception is raised.
     """
-    formatters = [f for f in six.itervalues(FormatterRegister.formatters) if f.accepts(path)]
+    path = get_path(path)
+    formatters = [f for f in six.itervalues(FormatterRegister.formatters) if f.accepts(path, mode)]
     if formatters or silent:
         return formatters
     else:
-        raise Exception("cannot find formatter for path '{}'".format(path))
+        raise Exception("cannot find any '{}' formatter for {}".format(mode, path))
 
 
-def find_formatter(name, path):
+def find_formatter(path, mode, name=AUTO_FORMATTER):
     """
     Returns the formatter class whose name attribute is *name* when *name* is not *AUTO_FORMATTER*.
     Otherwise, the first formatter that accepts *path* is returned. Internally, this method simply
     uses :py:func:`get_formatter` or :py:func:`find_formatters` depending on the value of *name*.
     """
     if name == AUTO_FORMATTER:
-        return find_formatters(path, silent=False)[0]
+        return find_formatters(path, mode, silent=False)[0]
     else:
         return get_formatter(name, silent=False)
 
@@ -87,8 +88,12 @@ class Formatter(object):
 
     name = "_base"
 
+    # modes
+    LOAD = "load"
+    DUMP = "dump"
+
     @classmethod
-    def accepts(cls, path):
+    def accepts(cls, path, mode):
         raise NotImplementedError
 
     @classmethod
@@ -105,7 +110,7 @@ class TextFormatter(Formatter):
     name = "text"
 
     @classmethod
-    def accepts(cls, path):
+    def accepts(cls, path, mode):
         return get_path(path).endswith(".txt")
 
     @classmethod
@@ -124,7 +129,7 @@ class JSONFormatter(Formatter):
     name = "json"
 
     @classmethod
-    def accepts(cls, path):
+    def accepts(cls, path, mode):
         return get_path(path).endswith(".json")
 
     @classmethod
@@ -145,7 +150,7 @@ class PickleFormatter(Formatter):
     name = "pickle"
 
     @classmethod
-    def accepts(cls, path):
+    def accepts(cls, path, mode):
         path = get_path(path)
         return path.endswith(".pkl") or path.endswith(".pickle") or path.endswith(".p")
 
@@ -165,7 +170,7 @@ class YAMLFormatter(Formatter):
     name = "yaml"
 
     @classmethod
-    def accepts(cls, path):
+    def accepts(cls, path, mode):
         path = get_path(path)
         return path.endswith(".yaml") or path.endswith(".yml")
 
@@ -189,7 +194,7 @@ class ZipFormatter(Formatter):
     name = "zip"
 
     @classmethod
-    def accepts(cls, path):
+    def accepts(cls, path, mode):
         return get_path(path).endswith(".zip")
 
     @classmethod
@@ -241,7 +246,7 @@ class TarFormatter(Formatter):
             return None
 
     @classmethod
-    def accepts(cls, path):
+    def accepts(cls, path, mode):
         return cls.infer_compression(path) is not None
 
     @classmethod
