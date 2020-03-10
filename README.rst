@@ -19,6 +19,10 @@
    :target: https://github.com/riga/law/blob/master/LICENSE
    :alt: License
 
+.. image:: https://zenodo.org/badge/75482295.svg
+   :target: https://zenodo.org/badge/latestdoi/75482295
+   :alt: DOI
+
 
 **Note**: This project is currently under development. Version 0.1.0 will be the first, fully documented beta release, targetted for early 2020.
 
