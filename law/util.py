@@ -6,15 +6,15 @@ Helpful utility functions.
 
 
 __all__ = [
-    "default_lock", "io_lock", "no_value", "rel_path", "law_src_path", "law_home_path", "print_err",
-    "abort", "is_number", "try_int", "str_to_int", "colored", "uncolored", "query_choice",
-    "is_pattern", "brace_expand", "multi_match", "is_lazy_iterable", "make_list", "make_tuple",
-    "flatten", "merge_dicts", "which", "map_verbose", "map_struct", "mask_struct", "tmp_file",
-    "interruptable_popen", "readable_popen", "create_hash", "copy_no_perm", "makedirs_perm",
-    "user_owns_file", "iter_chunks", "human_bytes", "parse_bytes", "human_duration",
-    "human_time_diff", "parse_duration", "is_file_exists_error", "check_bool_flag", "send_mail",
-    "ShorthandDict", "open_compat", "patch_object", "join_generators", "quote_cmd", "BaseStream",
-    "TeeStream", "FilteredStream",
+    "default_lock", "io_lock", "no_value", "rel_path", "law_src_path", "law_home_path", "law_run",
+    "print_err", "abort", "is_number", "try_int", "str_to_int", "colored", "uncolored",
+    "query_choice", "is_pattern", "brace_expand", "multi_match", "is_lazy_iterable", "make_list",
+    "make_tuple", "flatten", "merge_dicts", "which", "map_verbose", "map_struct", "mask_struct",
+    "tmp_file", "interruptable_popen", "readable_popen", "create_hash", "copy_no_perm",
+    "makedirs_perm", "user_owns_file", "iter_chunks", "human_bytes", "parse_bytes",
+    "human_duration", "human_time_diff", "parse_duration", "is_file_exists_error",
+    "check_bool_flag", "send_mail", "ShorthandDict", "open_compat", "patch_object",
+    "join_generators", "quote_cmd", "BaseStream", "TeeStream", "FilteredStream",
 ]
 
 
@@ -39,6 +39,7 @@ import datetime
 import random
 import threading
 import io
+import shlex
 import warnings
 
 import six
@@ -86,6 +87,31 @@ def law_home_path(*paths):
     """
     from law.config import law_home_path
     return law_home_path(*paths)
+
+
+def law_run(argv):
+    """
+    Runs a task with certain parameters as defined in *argv*, which can be a string or a list of
+    strings. It must start with the family of the task to run, followed by the desired parameters.
+    Example:
+
+    .. code-block:: python
+
+        law_run(["MyTask", "--param", "value"])
+        law_run("MyTask --param value")
+    """
+    from luigi.interface import run as luigi_run
+
+    # ensure that argv is a list of strings
+    if isinstance(argv, six.string_types):
+        argv = shlex.split(argv)
+    else:
+        argv = [str(arg) for arg in argv]
+
+    # luigis pid locking must be disabled
+    argv.append("--no-lock")
+
+    return luigi_run(argv)
 
 
 def print_err(*args, **kwargs):

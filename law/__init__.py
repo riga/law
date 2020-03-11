@@ -14,6 +14,7 @@ __all__ = [
     "DurationParameter", "CSVParameter", "NotifyParameter", "NotifyMultiParameter",
     "NotifyMailParameter",
     "Config",
+    "run",
     "notify_mail",
 ]
 
@@ -42,6 +43,7 @@ law.logger.setup_logging()
 
 # provisioning imports
 import law.util
+from law.util import law_run as run
 from law.config import Config
 from law.notification import notify_mail
 from law.parameter import (
