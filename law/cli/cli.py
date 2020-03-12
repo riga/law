@@ -40,17 +40,25 @@ def run(argv=None):
     if not argv:
         argv = sys.argv[1:]
 
+    # argv that is passed to the prog execution when set
+    prog_argv = None
+
     # parse args and dispatch execution, with "run" being a special case
     prog = argv[0] if argv else None
     if prog == "run":
-        sys.argv = ["law run"] + argv
+        # only pass the prog and the task family to the parser
+        # and let luigi's parsing handle the rest downstream in execute
         args = parser.parse_args(argv[:2])
+        prog_argv = ["law run"] + argv
     else:
         args = parser.parse_args(argv)
 
     # the parser determines the prog, so overwrite it
     prog = args.command
     if prog:
-        mods[prog].execute(args)
+        exec_args = (args,)
+        if prog_argv is not None:
+            exec_args += (prog_argv,)
+        mods[prog].execute(*exec_args)
     else:
         parser.print_help()

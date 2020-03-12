@@ -32,7 +32,7 @@ def setup_parser(sub_parsers):
     parser.add_argument("parameter", nargs="*", help="task parameters")
 
 
-def execute(args):
+def execute(args, argv):
     """
     Executes the *run* subprogram with parsed commandline *args*.
     """
@@ -72,8 +72,9 @@ def execute(args):
         else:
             abort("task '{}' not found".format(args.task_family))
 
-    # import the module and run luigi
-    luigi_run([task_family] + sys.argv[3:])
+    # run luigi
+    sys.argv[0] += " run"
+    luigi_run([task_family] + argv[3:])
 
 
 def read_task_from_index(task_family, index_file=None):
