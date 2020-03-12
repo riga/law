@@ -27,7 +27,7 @@ def setup_parser(sub_parsers):
         "configurable parameters. See http://luigi.rtfd.io/en/stable/running_luigi.html for more "
         "info.")
 
-    parser.add_argument("task_family", help="a task family registered in the task database file or "
+    parser.add_argument("task_family", help="a task family registered in the task index file or "
         "a module and task class in the format <module>.<class>")
     parser.add_argument("parameter", nargs="*", help="task parameters")
 
