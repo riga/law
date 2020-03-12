@@ -340,8 +340,7 @@ class BaseWorkflow(Task):
         "default: 0")
     end_branch = luigi.IntParameter(default=NO_INT, description="the branch to end at, NO_INT "
         "means end, default: NO_INT")
-    branches = CSVParameter(default=(), significant=False, description="list of branches to "
-        "select, default: ()")
+    branches = CSVParameter(default=(), description="list of branches to select, default: ()")
 
     workflow_proxy_cls = BaseWorkflowProxy
 
