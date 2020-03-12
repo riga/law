@@ -44,6 +44,11 @@ import warnings
 
 import six
 
+try:
+    import ipykernel
+except ImportError:
+    ipykernel = None
+
 
 # some globally usable thread locks
 default_lock = threading.Lock()
@@ -224,13 +229,22 @@ def colored(msg, color=None, background=None, style=None, force=False):
     Return the colored version of a string *msg*. For *color*, *background* and *style* options, see
     https://misc.flogisoft.com/bash/tip_colors_and_formatting. They can also explicitely set to
     ``"random"`` to get a random value. Unless *force* is *True*, the *msg* string is returned
-    unchanged in case the output is not a tty.
+    unchanged in case the output is both not a tty and not an IPython output stream.
     """
-    try:
-        if not force and not os.isatty(sys.stdout.fileno()):
+    if not force:
+        tty = False
+        ipy = False
+
+        try:
+            tty = os.isatty(sys.stdout.fileno())
+        except:
+            pass
+
+        if not tty and getattr(ipykernel, "iostream", None):
+            ipy = isinstance(sys.stdout, ipykernel.iostream.OutStream)
+
+        if not tty and not ipy:
             return msg
-    except:
-        return msg
 
     if color == "random":
         color = random.choice(list(colors.values()))
