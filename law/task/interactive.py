@@ -14,7 +14,6 @@ __all__ = [
 import os
 import logging
 
-from law.task.base import ExternalTask
 from law.target.file import FileSystemTarget
 from law.target.collection import TargetCollection
 from law.util import colored, flatten, check_bool_flag, query_choice, human_bytes
@@ -34,6 +33,8 @@ def print_task_deps(task, max_depth=1):
 
 
 def print_task_status(task, max_depth=0, target_depth=0, flags=None):
+    from law.workflow.base import BaseWorkflow
+
     max_depth = int(max_depth)
     target_depth = int(target_depth)
     if flags:
@@ -47,6 +48,11 @@ def print_task_status(task, max_depth=0, target_depth=0, flags=None):
     for dep, _, depth in task.walk_deps(max_depth=max_depth, order="pre"):
         offset = depth * ind
         print(offset)
+
+        # when the dep is a workflow, preload its branch map which updates branch parameters
+        if isinstance(dep, BaseWorkflow):
+            dep.get_branch_map()
+
         print("{}> check status of {}".format(offset, dep.repr(color=True)))
         offset += ind
 
@@ -91,6 +97,9 @@ def print_task_output(task, max_depth=0):
 
 
 def remove_task_output(task, max_depth=0, mode=None, include_external=False):
+    from law.task.base import ExternalTask
+    from law.workflow.base import BaseWorkflow
+
     max_depth = int(max_depth)
 
     print("remove task output with max_depth {}".format(max_depth))
@@ -114,6 +123,11 @@ def remove_task_output(task, max_depth=0, mode=None, include_external=False):
     for dep, _, depth in task.walk_deps(max_depth=max_depth, order="pre"):
         offset = depth * ind
         print(offset)
+
+        # when the dep is a workflow, preload its branch map which updates branch parameters
+        if isinstance(dep, BaseWorkflow):
+            dep.get_branch_map()
+
         print("{}> remove output of {}".format(offset, dep.repr(color=True)))
         offset += ind
 
@@ -150,6 +164,9 @@ def remove_task_output(task, max_depth=0, mode=None, include_external=False):
 
 
 def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_external=False):
+    from law.task.base import ExternalTask
+    from law.workflow.base import BaseWorkflow
+
     max_depth = int(max_depth)
     print("fetch task output with max_depth {}".format(max_depth))
 
@@ -181,6 +198,11 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
     for dep, _, depth in task.walk_deps(max_depth=max_depth, order="pre"):
         offset = depth * ind
         print(offset)
+
+        # when the dep is a workflow, preload its branch map which updates branch parameters
+        if isinstance(dep, BaseWorkflow):
+            dep.get_branch_map()
+
         print("{}> fetch output of {}".format(offset, dep.repr(color=True)))
         offset += ind
 

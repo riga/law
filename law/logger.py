@@ -85,5 +85,5 @@ class LogFormatter(logging.Formatter):
         return self.tmpl.format(
             level=colored(record.levelname, **self.level_styles.get(record.levelname, {})),
             name=record.name,
-            msg=record.msg,
+            msg=record.getMessage(),
         )
