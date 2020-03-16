@@ -55,7 +55,7 @@ class LocalWorkflowProxy(BaseWorkflowProxy):
         When *local_workflow_require_branches* of the task was set to *False*, starts all branch
         tasks via dynamic dependencies by yielding them in a list, or simply does nothing otherwise.
         """
-        if not self._has_yielded and not self.task.local_workflow_require_branches:
+        if not self.task.local_workflow_require_branches and not self._has_yielded:
             self._has_yielded = True
 
             yield list(self.task.get_branch_tasks().values())

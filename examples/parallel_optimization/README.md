@@ -8,6 +8,11 @@ For more information about the optimization strategy used in this example take a
 
 Resources: [luigi](http://luigi.readthedocs.io/en/stable), [law](http://law.readthedocs.io/en/latest), [scikit optimize](https://scikit-optimize.github.io/), [matplotlib](https://matplotlib.org/)
 
+There are multiple ways to setup and run this example:
+
+1. Docker: `docker run -ti riga/law:example loremipsum`
+2. Local: `source setup.sh`
+
 
 #### 1. Install dependencies for this example
 

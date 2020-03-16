@@ -4,10 +4,17 @@ This examples demonstrates how to configure and use law task notifications for S
 
 Resources: [luigi](http://luigi.readthedocs.io/en/stable), [law](http://law.readthedocs.io/en/latest), [python slackclient](https://github.com/slackapi/python-slackclient), [python telegram bot](https://github.com/python-telegram-bot/python-telegram-bot)
 
+There are multiple ways to setup and run this example:
+
+1. Docker: `docker run -ti riga/law:example loremipsum`
+2. Local: `source setup.sh`
+
 
 ## Prerequisites
 
-### Python clients
+### Install Python clients
+
+This step is not needed when running the example in docker.
 
 ```
 pip install slackclient

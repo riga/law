@@ -87,7 +87,13 @@ Tags:
 Examples
 ========
 
-- `loremipsum <https://github.com/riga/law/tree/master/examples/loremipsum/index.ipynb>`__: The *hello world* example of law.
+All examples can be run either in a Jupyter notebook or a dedicated docker container. For the latter, do
+
+```shell
+docker run -ti riga/law:example <example_name>
+```
+
+- `loremipsum <https://github.com/riga/law/tree/master/examples/loremipsum/README.md>`__: The *hello world* example of law.
 - `workflows <https://github.com/riga/law/tree/master/examples/workflows>`__: Law workflows.
 - `dropbox_targets <https://github.com/riga/law/tree/master/examples/dropbox_targets>`__: Working with targets that are stored on Dropbox.
 - `wlcg_targets <https://github.com/riga/law/tree/master/examples/wlcg_targets>`__: Working with targets that are stored on WLCG storage elements (dCache, EOS, ...). TODO.
