@@ -164,8 +164,8 @@ class ShowFrequencies(LoremIpsumBase, law.tasks.RunOnceTask):
 
         # normalize, convert to frequency in %, and sort descending by count
         count_sum = sum(counts.values())
-        counts = {c: int(100. * count / count_sum) for c, count in counts.items()}
-        counts = sorted(counts.items(), key=lambda tpl: -tpl[1])
+        counts = {c: int(round(100. * count / count_sum)) for c, count in counts.items()}
+        counts = sorted(list(counts.items()), key=lambda tpl: -tpl[1])
 
         # prepare the output text
         text = "\n".join(
