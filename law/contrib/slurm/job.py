@@ -134,8 +134,8 @@ class SlurmJobManager(BaseJobManager):
             cmd += ["--me"]
         if user:
             cmd += ["--user", user]
-        if state:
-            cmd += ["--state", state]
+        if states:
+            cmd += ["--states", ','.join(states) if isinstance(states, (tuple,list)) else states]
         if custom_args:
             cmd += make_list(custom_args)
         cmd += ["-O", "jobid:.18,arrayjobid:.18,name:.18,username:.18,state:.18,exit_code:.18,reason:.18"]
@@ -183,11 +183,9 @@ class SlurmJobManager(BaseJobManager):
         query_data = {}
         query_data_raw = out.strip().split("\n")
         header = [x for x in query_data_raw[0].split(' ') if x]
-        print('HEADER ', header)
 
         for block in query_data_raw[1:]:
             block = [x for x in block.split(' ') if x]
-            print('BLOCK ', block)
             assert(len(block) == len(header))
             hblock = dict(zip(header,block))
 
