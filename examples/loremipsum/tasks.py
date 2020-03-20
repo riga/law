@@ -162,15 +162,15 @@ class ShowFrequencies(LoremIpsumBase, law.tasks.RunOnceTask):
     def run(self):
         counts = self.input().load()
 
-        # normalize, convert to frequency in %, and sort descending by count
+        # normalize, convert to frequency in %, and sort descending
         count_sum = sum(counts.values())
-        counts = {c: int(round(100. * count / count_sum)) for c, count in counts.items()}
-        counts = sorted(list(counts.items()), key=lambda tpl: -tpl[1])
+        freqs = {c: 100. * count / count_sum for c, count in counts.items()}
+        freqs = sorted(list(freqs.items()), key=lambda tpl: -tpl[1])
 
         # prepare the output text
         text = "\n".join(
-            "{}: {} {}%".format(c, self.x(count), count)
-            for c, count in counts
+            "{}: {} {:.1f} %".format(c, self.x(freq), freq)
+            for c, freq in freqs
         )
 
         # prints the frequences but also sends them as a message to the scheduler (if any)
@@ -181,15 +181,15 @@ class ShowFrequencies(LoremIpsumBase, law.tasks.RunOnceTask):
         self.mark_complete()
 
     @staticmethod
-    def x(count):
-        text = "-" if not count else "xx" * count
+    def x(freq):
+        text = "-" if not freq else "x" * max(int(round(freq * 3)), 1)
 
         color = None
-        if count >= 7:
+        if freq >= 7:
             color = "green"
-        elif count >= 4:
+        elif freq >= 4:
             color = "yellow"
-        elif count >= 1:
+        elif freq > 0:
             color = "red"
 
         return law.util.colored(text, color)
