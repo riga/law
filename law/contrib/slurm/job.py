@@ -12,14 +12,13 @@ __all__ = ["SlurmJobManager", "SlurmJobFileFactory"]
 import os
 import sys
 import time
-import datetime
 import re
 import subprocess
 import logging
 
 from law.config import Config
 from law.job.base import BaseJobManager, BaseJobFileFactory
-from law.util import interruptable_popen, make_list, quote_cmd, human_duration
+from law.util import interruptable_popen, make_list, quote_cmd
 
 
 logger = logging.getLogger(__name__)
@@ -40,15 +39,19 @@ class SlurmJobManager(BaseJobManager):
     status_missing_job_cre = re.compile(
         "^.+: Job information not found in the information system: (.+)$")
 
-    # TODO: add more generic members (x is just use as a placeholder here)
-    def __init__(self, x=None, threads=1):
+    def __init__(self, exclusive=False, me=False, user=None, threads=1):
         super(SlurmJobManager, self).__init__()
 
-        self.x = x
+        self.exclusive = exclusive
+        self.me = me
+        self.user = user
         self.threads = threads
 
-    # TODO: add more arguments for common attributes
-    def submit(self, job_file, retries=0, retry_delay=3, exclusive=False, silent=False):       
+    def submit(self, job_file, exclusive=None, retries=0, retry_delay=3, silent=False):
+        # default arguments
+        if exclusive is None:
+            exclusive = self.exclusive
+
         # get the job file location as the submission command is run it the same directory
         job_file_dir, job_file_name = os.path.split(os.path.abspath(job_file))
 
@@ -68,11 +71,12 @@ class SlurmJobManager(BaseJobManager):
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=job_file_dir)
 
             # get the job id(s)
+            # TODO
             if code == 0:
                 first_line = out.strip().split("\n")[0].strip()
                 m = self.submission_job_id_cre.match(first_line)
                 if m:
-                    job_ids = ["{}".format(m.group(1))] #it fails for more than one job
+                    job_ids = ["{}".format(m.group(1))]  # it fails for more than one job
                 else:
                     code = 1
                     err = "cannot parse slurm job id(s) from output:\n{}".format(out)
@@ -81,7 +85,8 @@ class SlurmJobManager(BaseJobManager):
             if code == 0:
                 return job_ids
             else:
-                logger.debug("submission of slurm job '{}' failed:\n{}\nwith code:\n{}".format(job_file, err, code))
+                logger.debug("submission of slurm job '{}' failed with code {}:\n{}".format(
+                    code, job_file, err))
                 if retries > 0:
                     retries -= 1
                     time.sleep(retry_delay)
@@ -93,14 +98,10 @@ class SlurmJobManager(BaseJobManager):
                         job_file, err))
 
     # TODO: add more arguments for common attributes
-    def cancel(self, job_id, x=None, silent=False):
+    def cancel(self, job_id, silent=False):
         # see https://slurm.schedmd.com/scancel.html
 
-        # default arguments
-        x = x or self.x
-
         # build the command
-        # TODO: add arguments as needed
         cmd = ["scancel"]
         cmd += make_list(job_id)
         cmd = quote_cmd(cmd)
@@ -112,9 +113,16 @@ class SlurmJobManager(BaseJobManager):
 
         # check success
         if code != 0 and not silent:
-            raise Exception("cancellation of slurm job(s) '{}' failed:\n{}".format(job_id, err))
+            raise Exception("cancellation of slurm job(s) '{}' failed with code {}:\n{}".format(
+                code, job_id, err))
 
-    def query(self, job_id, user=None, state=None, custom=None, silent=False):
+    def query(self, job_id, me=None, user=None, partition=None, states=None, custom_args=None,
+            silent=False):
+        # default arguments
+        if me is None:
+            me = self.me
+        if user is None:
+            user = self.user
 
         chunking = isinstance(job_id, (list, tuple))
         job_ids = make_list(job_id)
@@ -122,15 +130,14 @@ class SlurmJobManager(BaseJobManager):
         # build the command
         cmd = ["squeue"]
         cmd += ["-j", ','.join(job_ids)]
+        if me:
+            cmd += ["--me"]
         if user:
             cmd += ["--user", user]
         if state:
             cmd += ["--state", state]
-        if custom:
-            dashes_cre = re.compile('--').match(custom)
-            if not dashes_cre:
-                raise ValueError('Please specify custom option with the standard format: --var value')
-            cmd += [custom]
+        if custom_args:
+            cmd += make_list(custom_args)
         cmd += ["-O", "jobid:.18,arrayjobid:.18,name:.18,username:.18,state:.18,exit_code:.18,reason:.18"]
         cmd = quote_cmd(cmd)
 
@@ -144,7 +151,8 @@ class SlurmJobManager(BaseJobManager):
             if silent:
                 return None
             else:
-                raise Exception("status query of slurm job(s) '{}' failed:\n{}".format(job_id, out))
+                raise Exception("status query of slurm job(s) '{}' failed with code {}:\n{}".format(
+                    code, job_id, out))
 
         # parse the output and extract the status per job
         query_data = self.parse_query_output(out)
@@ -233,18 +241,16 @@ class SlurmJobManager(BaseJobManager):
 
 class SlurmJobFileFactory(BaseJobFileFactory):
 
-    #this should instead be filled automatically inside __init__()
     config_attrs = BaseJobFileFactory.config_attrs + [
-        "file_name", "executable", "input_files", "output_files", "postfix_output_files", "stdout",
-        "stderr", "custom_content", "absolute_paths", "ntasks", "cpus_per_task", "mem_per_cpu",
-        "max_time",
+        "file_name", "executable", "input_files", "output_files", "postfix_output_files",
+        "cpus_per_task", "mem_per_cpu", "max_time", "stdout", "stderr", "custom_content",
+        "absolute_paths",
     ]
 
     def __init__(self, file_name="job.sh", executable=None, input_files=None, output_files=None,
-                 postfix_output_files=True, stdout="stdout.txt", stderr="stderr.txt",
-                 custom_content=None, absolute_paths=False,
-                 ntasks=1, cpus_per_task=1, mem_per_cpu=100,
-                 max_time=human_duration(days=0,hours=0,minutes=10,seconds=0,colon_format=True,day_separator='-'), **kwargs):
+            postfix_output_files=True, cpus_per_task=1, mem_per_cpu=100, max_time="0-00:10:00",
+            stdout="stdout.txt", stderr="stderr.txt", custom_content=None, absolute_paths=False,
+            **kwargs):
         # get some default kwargs from the config
         cfg = Config.instance()
         if kwargs.get("dir") is None:
@@ -264,15 +270,14 @@ class SlurmJobFileFactory(BaseJobFileFactory):
         self.input_files = input_files or []
         self.output_files = output_files or []
         self.postfix_output_files = postfix_output_files
+        self.cpus_per_task = cpus_per_task
+        self.mem_per_cpu = mem_per_cpu
+        self.max_time = max_time
         self.stdout = stdout
         self.stderr = stderr
         self.custom_content = custom_content
         self.absolute_paths = absolute_paths
-        self.ntasks = ntasks
-        self.cpus_per_task = cpus_per_task
-        self.mem_per_cpu = mem_per_cpu
-        self.max_time = max_time
-        
+
     def create(self, postfix=None, render_variables=None, **kwargs):
         # merge kwargs and instance attributes
         c = self.get_config(kwargs)
@@ -283,9 +288,6 @@ class SlurmJobFileFactory(BaseJobFileFactory):
         elif not c.executable:
             raise ValueError("executable must not be empty")
 
-        #if c.file_name[-1:-4] != '.sh':
-        #    raise ValueError("file_name must refer to a shell script")
-        
         # default render variables
         if not render_variables:
             render_variables = {}
@@ -323,13 +325,13 @@ class SlurmJobFileFactory(BaseJobFileFactory):
         if c.stdout:
             content.append(("output", c.stdout))
         if c.stderr:
-            content.append(("error", c.stderr)) 
+            content.append(("error", c.stderr))
         if c.input_files:
-            pass  # TODO
+            # TODO: how to add input files
+            pass
         if c.output_files:
-            pass  # TODO
-        if c.ntasks:
-            content.append(("ntasks", c.ntasks))
+            # TODO: how to add output files
+            pass
         if c.cpus_per_task:
             content.append(("cpus-per-task", c.cpus_per_task))
         if c.mem_per_cpu:
@@ -337,7 +339,7 @@ class SlurmJobFileFactory(BaseJobFileFactory):
         if c.max_time:
             content.append(("time", c.max_time))
 
-        # add custom content [check whether there is duplicate information?]
+        # add custom content
         if c.custom_content:
             content.append((c.custom_content))
 

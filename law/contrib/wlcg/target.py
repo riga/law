@@ -68,7 +68,7 @@ try:
     logger.debug("created default WLCGFileSystem instance '{}'".format(
         WLCGFileSystem.default_instance))
 except Exception as e:
-    logger.info("could not create default WLCGFileSystem instance: {}".format(e))
+    logger.warning("could not create default WLCGFileSystem instance: {}".format(e))
 
 
 class WLCGTarget(RemoteTarget):
@@ -76,7 +76,9 @@ class WLCGTarget(RemoteTarget):
     def __init__(self, path, fs=WLCGFileSystem.default_instance, **kwargs):
         """ __init__(path, fs=WLCGFileSystem.default_instance, **kwargs)
         """
-        if isinstance(fs, six.string_types):
+        if fs is None:
+            fs = WLCGFileSystem.default_instance
+        elif isinstance(fs, six.string_types):
             fs = WLCGFileSystem(fs)
         RemoteTarget.__init__(self, path, fs, **kwargs)
 

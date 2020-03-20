@@ -17,7 +17,7 @@ import six
 
 from law.config import Config
 from law.task.base import Task, ExternalTask
-from law.util import multi_match, colored
+from law.util import multi_match, colored, abort
 
 
 logger = logging.getLogger(__name__)
@@ -37,6 +37,8 @@ def setup_parser(sub_parsers):
     parser.add_argument("--no-externals", "-e", action="store_true", help="skip external tasks")
     parser.add_argument("--remove", "-r", action="store_true", help="remove the index file and "
         "exit")
+    parser.add_argument("--show", "-s", action="store_true", help="print the content of the index "
+        "file and exit")
     parser.add_argument("--location", "-l", action="store_true", help="print the location of the "
         "index file and exit")
     parser.add_argument("--verbose", "-v", action="store_true", help="verbose output")
@@ -54,6 +56,15 @@ def execute(args):
         print(index_file)
         return
 
+    # just show the file content?
+    if args.show:
+        if os.path.exists(index_file):
+            with open(index_file, "r") as f:
+                print(f.read())
+            return
+        else:
+            abort("index file {} does not exist".format(index_file))
+
     # just remove the index file?
     if args.remove:
         if os.path.exists(index_file):
@@ -66,7 +77,7 @@ def execute(args):
     if args.modules:
         lookup += args.modules
 
-    print("loading tasks from {} module(s)".format(len(lookup)))
+    print("indexing tasks in {} module(s)".format(len(lookup)))
 
     # loop through modules, import everything to load tasks
     for modid in lookup:
@@ -80,9 +91,9 @@ def execute(args):
             import_module(modid)
         except Exception as e:
             if not args.verbose:
-                print("Error in module '{}': {}".format(colored(modid, "red"), str(e)))
+                print("error in module '{}': {}".format(colored(modid, "red"), str(e)))
             else:
-                print("\n\nError in module '{}':".format(colored(modid, "red")))
+                print("\n\nerror in module '{}':".format(colored(modid, "red")))
                 traceback.print_exc()
             continue
 

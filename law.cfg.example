@@ -653,14 +653,13 @@
 
 ; slurm_chunk_size_cancel
 ; Description: Number of jobs that can be cancelled in parallel inside a single call to
-; "law.slurm.SlurmJobManager.cancel()", i.e., in a single "condor_rm" command.
+; "law.slurm.SlurmJobManager.cancel()", i.e., in a single "scancel" command.
 ; Type: integer
 ; Default: 20
 
 ; slurm_chunk_size_query
 ; Description: Number of jobs whose status can be queried in parallel inside a single call to
-; "law.slurm.SlurmJobManager.query()", i.e., in a single "condor_q" or "condor_history"
-; command.
+; "law.slurm.SlurmJobManager.query()", i.e., in a single "sqeue" command.
 ; Type: integer
 ; Default: 20
 

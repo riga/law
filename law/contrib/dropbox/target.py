@@ -94,7 +94,7 @@ try:
     logger.debug("created default DropboxFileSystem instance '{}'".format(
         DropboxFileSystem.default_instance))
 except Exception as e:
-    logger.info("could not create default DropboxFileSystem instance: {}".format(e))
+    logger.warning("could not create default DropboxFileSystem instance: {}".format(e))
 
 
 class DropboxTarget(RemoteTarget):
@@ -102,7 +102,9 @@ class DropboxTarget(RemoteTarget):
     def __init__(self, path, fs=DropboxFileSystem.default_instance, **kwargs):
         """ __init__(path, fs=DropboxFileSystem.default_instance, **kwargs)
         """
-        if isinstance(fs, six.string_types):
+        if fs is None:
+            fs = DropboxFileSystem.default_instance
+        elif isinstance(fs, six.string_types):
             fs = DropboxFileSystem(fs)
         RemoteTarget.__init__(self, path, fs, **kwargs)
 

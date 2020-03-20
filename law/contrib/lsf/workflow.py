@@ -17,12 +17,13 @@ import luigi
 
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments
-from law.contrib.lsf.job import LSFJobManager, LSFJobFileFactory
 from law.target.file import get_path
 from law.target.local import LocalDirectoryTarget
-from law.parameter import NO_STR, get_param
+from law.parameter import NO_STR
 from law.parser import global_cmdline_args, add_cmdline_arg
 from law.util import law_src_path, merge_dicts, is_number
+
+from law.contrib.lsf.job import LSFJobManager, LSFJobFileFactory
 
 
 logger = logging.getLogger(__name__)
@@ -141,7 +142,7 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
 
     def submit_jobs(self, job_files):
         task = self.task
-        queue = get_param(task.lsf_queue)
+        queue = task.lsf_queue
 
         # prepare objects for dumping intermediate submission data
         dump_freq = task.lsf_dump_intermediate_submission_data()
@@ -200,7 +201,7 @@ class LSFWorkflow(BaseRemoteWorkflow):
     def lsf_output_postfix(self):
         self.get_branch_map()
         if self.branches:
-            return "_" + "_".join(self.branches)
+            return "_" + "_".join(str(b) for b in sorted(self.branches))
         else:
             return "_{}To{}".format(self.start_branch, self.end_branch)
 

@@ -44,17 +44,19 @@ class ARCJobManager(BaseJobManager):
     status_missing_job_cre = re.compile(
         "^.+: Job information not found in the information system: (.+)$")
 
-    def __init__(self, ce=None, job_list=None, threads=1):
+    def __init__(self, job_list=None, ce=None, threads=1):
         super(ARCJobManager, self).__init__()
 
-        self.ce = ce
         self.job_list = job_list
+        self.ce = ce
         self.threads = threads
 
-    def submit(self, job_file, ce=None, job_list=None, retries=0, retry_delay=3, silent=False):
+    def submit(self, job_file, job_list=None, ce=None, retries=0, retry_delay=3, silent=False):
         # default arguments
-        ce = ce or self.ce
-        job_list = job_list or self.job_list
+        if job_list is None:
+            job_list = self.job_list
+        if ce is None:
+            ce = self.ce
 
         # check arguments
         if not ce:
@@ -105,7 +107,8 @@ class ARCJobManager(BaseJobManager):
             if code == 0:
                 return job_ids if chunking else job_ids[0]
             else:
-                logger.debug("submission of arc job(s) '{}' failed:\n{}".format(job_files, out))
+                logger.debug("submission of arc job(s) '{}' failed with code {}:\n{}".format(
+                    code, job_files, out))
                 if retries > 0:
                     retries -= 1
                     time.sleep(retry_delay)
@@ -118,7 +121,8 @@ class ARCJobManager(BaseJobManager):
 
     def cancel(self, job_id, job_list=None, silent=False):
         # default arguments
-        job_list = job_list or self.job_list
+        if job_list is None:
+            job_list = self.job_list
 
         # build the command
         cmd = ["arckill"]
@@ -135,11 +139,13 @@ class ARCJobManager(BaseJobManager):
         # check success
         if code != 0 and not silent:
             # glite prints everything to stdout
-            raise Exception("cancellation of arc job(s) '{}' failed:\n{}".format(job_id, out))
+            raise Exception("cancellation of arc job(s) '{}' failed with code {}:\n{}".format(
+                code, job_id, out))
 
     def cleanup(self, job_id, job_list=None, silent=False):
         # default arguments
-        job_list = job_list or self.job_list
+        if job_list is None:
+            job_list = self.job_list
 
         # build the command
         cmd = ["arcclean"]
@@ -156,11 +162,13 @@ class ARCJobManager(BaseJobManager):
         # check success
         if code != 0 and not silent:
             # glite prints everything to stdout
-            raise Exception("cleanup of arc job(s) '{}' failed:\n{}".format(job_id, out))
+            raise Exception("cleanup of arc job(s) '{}' failed with code {}:\n{}".format(
+                code, job_id, out))
 
     def query(self, job_id, job_list=None, silent=False):
         # default arguments
-        job_list = job_list or self.job_list
+        if job_list is None:
+            job_list = self.job_list
 
         chunking = isinstance(job_id, (list, tuple))
         job_ids = make_list(job_id)
@@ -183,7 +191,8 @@ class ARCJobManager(BaseJobManager):
                 return None
             else:
                 # glite prints everything to stdout
-                raise Exception("status query of arc job(s) '{}' failed:\n{}".format(job_id, out))
+                raise Exception("status query of arc job(s) '{}' failed with code {}:\n{}".format(
+                    code, job_id, out))
 
         # parse the output and extract the status per job
         query_data = self.parse_query_output(out)
