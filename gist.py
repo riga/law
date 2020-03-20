@@ -82,6 +82,8 @@ def test_slurm():
             print("stop querying")
             break
 
+        manager.cancel(all=True, user='balves')
+
 if __name__ == "__main__":
     #test_htcondor()
     test_slurm()

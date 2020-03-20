@@ -97,13 +97,24 @@ class SlurmJobManager(BaseJobManager):
                     raise Exception("submission of slurm job '{}' failed:\n{}".format(
                         job_file, err))
 
-    # TODO: add more arguments for common attributes
-    def cancel(self, job_id, silent=False):
-        # see https://slurm.schedmd.com/scancel.html
-
+    def cancel(self, job_ids=None, job_names=None, user=None, all=None, custom_args=None, silent=False):
         # build the command
         cmd = ["scancel"]
-        cmd += make_list(job_id)
+        if all:
+            if user is None:
+                cmd += ["-u", self.user]
+            else:
+                cmd += ["-u", user]
+        else:
+            if job_ids is None:
+                raise ValueError("'job_ids' must be specified whenever 'all' flag is set to False.")
+            cmd += make_list(job_ids)
+            if job_names:
+                cmd += ["-n", ','.join(job_names) if isinstance(job_names, (tuple,list)) else job_names]
+            if user:
+                cmd += ["-u", user]
+            if custom_args:
+                cmd += make_list(custom_args)
         cmd = quote_cmd(cmd)
 
         # run it
@@ -114,7 +125,7 @@ class SlurmJobManager(BaseJobManager):
         # check success
         if code != 0 and not silent:
             raise Exception("cancellation of slurm job(s) '{}' failed with code {}:\n{}".format(
-                code, job_id, err))
+                code, job_ids, err))
 
     def query(self, job_id, me=None, user=None, partition=None, states=None, custom_args=None,
             silent=False):
