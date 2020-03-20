@@ -15,7 +15,7 @@ from contextlib import contextmanager
 import six
 
 from law.target.base import Target
-from law.target.file import FileSystemTarget, localize_file_targets
+from law.target.file import FileSystemTarget, FileSystemDirectoryTarget, localize_file_targets
 from law.target.local import LocalDirectoryTarget
 from law.util import colored, flatten, create_hash
 
@@ -253,6 +253,27 @@ class SiblingFileCollection(FileCollection):
     especially beneficial for large collections of remote files. It is the user's responsibility to
     ensure that all targets are really located in the same directory.
     """
+
+    @classmethod
+    def from_directory(cls, directory, **kwargs):
+        # dir should be a FileSystemDirectoryTarget or a string, in which case it is interpreted as
+        # a local path
+        if isinstance(directory, six.string_types):
+            d = LocalDirectoryTarget(directory)
+        elif isinstance(d, FileSystemDirectoryTarget):
+            d = directory
+        else:
+            raise TypeError("directory must either be a string or a FileSystemDirectoryTarget "
+                "object, got {}".format(directory))
+
+        # find all files, pass kwargs which may filter the result further
+        kwargs["type"] = "f"
+        basenames = d.listdir(**kwargs)
+
+        # convert to file targets
+        targets = [d.child(basename, type="f") for basename in basenames]
+
+        return cls(targets)
 
     def __init__(self, *args, **kwargs):
         FileCollection.__init__(self, *args, **kwargs)
