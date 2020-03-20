@@ -218,7 +218,7 @@ def factory(**default_opts):
 
                             try:
                                 result = call(state)
-                            except Exception as error:
+                            except (Exception, KeyboardInterrupt) as error:
                                 if on_error(error, state):
                                     result = None
                                 else:

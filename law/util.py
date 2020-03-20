@@ -1405,9 +1405,9 @@ def join_generators(*generators, **kwargs):
     """ join_generators(*generators, on_error=None)
     Joins multiple *generators* and returns a single generator for simplified iteration. Yielded
     objects are transparently sent back to ``yield`` assignments of the same generator. When
-    *on_error* is callable, it is invoked in case an exception is raised while iterating. If its
-    return value evaluates to *True*, the state is reset and iterations continue. Otherwise, the
-    exception is raised.
+    *on_error* is callable, it is invoked in case an exception is raised while iterating, including
+    *KeyboardInterrupt*'s. If its return value evaluates to *True*, the state is reset and
+    iterations continue. Otherwise, the exception is raised.
     """
     on_error = kwargs.get("on_error")
     for gen in generators:
@@ -1420,7 +1420,7 @@ def join_generators(*generators, **kwargs):
                     last_result = yield gen.send(last_result)
             except StopIteration:
                 break
-            except Exception as error:
+            except (Exception, KeyboardInterrupt) as error:
                 if callable(on_error) and on_error(error):
                     last_result = no_value
                 else:
