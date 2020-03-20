@@ -106,7 +106,6 @@ class SlurmJobManager(BaseJobManager):
         cmd = quote_cmd(cmd)
 
         # run it
-        # TODO: does slurm print errors on stderr?
         logger.debug("cancel slurm job(s) with command '{}'".format(cmd))
         code, out, err = interruptable_popen(cmd, shell=True, executable="/bin/bash",
             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -115,19 +114,16 @@ class SlurmJobManager(BaseJobManager):
         if code != 0 and not silent:
             raise Exception("cancellation of slurm job(s) '{}' failed:\n{}".format(job_id, err))
 
-    def query(self, job_id, user=None, partition=None, state=None, custom=None, silent=False):
+    def query(self, job_id, user=None, state=None, custom=None, silent=False):
 
         chunking = isinstance(job_id, (list, tuple))
         job_ids = make_list(job_id)
 
         # build the command
         cmd = ["squeue"]
-        # TODO: add arguments as needed
-        cmd += ["-j", job_ids]
+        cmd += ["-j", ','.join(job_ids)]
         if user:
             cmd += ["--user", user]
-        if partition:
-            cmd += ["--partition", partition]
         if state:
             cmd += ["--state", state]
         if custom:
@@ -135,6 +131,7 @@ class SlurmJobManager(BaseJobManager):
             if not dashes_cre:
                 raise ValueError('Please specify custom option with the standard format: --var value')
             cmd += [custom]
+        cmd += ["-O", "jobid:.18,arrayjobid:.18,name:.18,username:.18,state:.18,exit_code:.18,reason:.18"]
         cmd = quote_cmd(cmd)
 
         # run it
@@ -142,9 +139,6 @@ class SlurmJobManager(BaseJobManager):
         code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
             stdout=subprocess.PIPE, stderr=sys.stderr)
 
-        print(out)
-        print(code)
-        quit()
         # handle errors
         if code != 0:
             if silent:
@@ -154,7 +148,7 @@ class SlurmJobManager(BaseJobManager):
 
         # parse the output and extract the status per job
         query_data = self.parse_query_output(out)
-
+        
         # compare to the requested job ids and perform some checks
         for _job_id in job_ids:
             if _job_id not in query_data:
@@ -179,16 +173,62 @@ class SlurmJobManager(BaseJobManager):
     @classmethod
     def parse_query_output(cls, out):
         query_data = {}
+        query_data_raw = out.strip().split("\n")
+        header = [x for x in query_data_raw[0].split(' ') if x]
+        print('HEADER ', header)
 
-        # TODO: parse out and fill the query_data dict with
-        # job_id -> cls.job_status_dict(job_id, status, code, reason)
+        for block in query_data_raw[1:]:
+            block = [x for x in block.split(' ') if x]
+            print('BLOCK ', block)
+            assert(len(block) == len(header))
+            hblock = dict(zip(header,block))
+
+            # build the job id
+            if 'JOBID' not in hblock:
+                raise IndexError('JobId missing.')
+            job_id = hblock['JOBID']
+
+            # get the job status code
+            status = cls.map_status( hblock['STATE'] )
+
+            # get the exit code
+            code = int( hblock['EXIT_CODE'] or '0')
+
+            # get the error message (if any)
+            error = hblock['REASON']
+
+            # handle inconsistencies between status, code and the presence of an error message
+            if code != 0:
+                if status != cls.FAILED:
+                    status = cls.FAILED
+                    if not error:
+                        error = "job status set to '{}' due to non-zero exit code {}".format(
+                            cls.FAILED, code)
+
+            # store it
+            query_data[job_id] = cls.job_status_dict(job_id=job_id, status=status, code=code,
+                error=error)
 
         return query_data
 
     @classmethod
     def map_status(cls, status_flag):
-        # TODO: map status_flag to one of PENDING, RUNNING, FINISHED, FAILED
-        pass
+        if status_flag in ('PD', 'PENDING', 'CF', 'CONFIGURING', 'RF', 'REQUEUE_FED',
+                           'RH', 'REQUEUE_HOLD', 'RQ', 'REQUEUED', 'SE', 'SPECIAL_EXIT',
+                           'RS', 'RESIZING'):
+            return cls.PENDING
+        elif status_flag in ('R', 'RUNNING', 'CG', 'COMPLETING'):
+            return cls.RUNNING
+        elif status_flag in ('CD', 'COMPLETED', 'DL', 'DEADLINE'):
+            return cls.FINISHED
+        elif status_flag in ('F', 'FAILED', 'BF', 'BOOT_FAIL', 'CA', 'CANCELLED',
+                             'NF', 'NODE_FAIL', 'OO', 'OUT_OF_MEMORY', 'PR', 'PREEMPTED',
+                             'RD', 'RESV_DEL_HOLD', 'ST', 'STOPPED', 'S', 'SUSPENDED', 
+                             'TO', 'TIMEOUT', ):
+            return cls.FAILED
+        else:
+            return cls.FAILED
+
 
 
 class SlurmJobFileFactory(BaseJobFileFactory):
@@ -306,12 +346,9 @@ class SlurmJobFileFactory(BaseJobFileFactory):
 
         # write the job file
         with open(job_file, "w") as f:
-            print('init')
             for obj in content:
-                print(obj)
                 line = self.create_line(*make_list(obj))
                 f.write(line + "\n")
-            print('end')
 
         logger.debug("created slurm job file at '{}'".format(job_file))
 
