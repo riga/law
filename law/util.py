@@ -441,26 +441,36 @@ def make_tuple(obj, cast=True):
         return (obj,)
 
 
-def flatten(*structs):
-    """
+def flatten(*structs, **kwargs):
+    """ flatten(*structs, flatten_dict=True, flatten_list=True, flatten_tuple=True, flatten_set=True)
     Takes one or multiple complex structured objects *structs*, flattens them, and returns a single
-    list.
+    list. *flatten_dict*, *flatten_list*, *flatten_tuple* and *flatten_set* configure if objects of
+    the respective types are flattened (the default). If not, they are returned unchanged.
     """
     if len(structs) == 0:
         return []
     elif len(structs) > 1:
-        return flatten(structs)
+        return flatten(structs, **kwargs)
     else:
         struct = structs[0]
+
+        flatten_seq = lambda seq: sum((flatten(obj, **kwargs) for obj in seq), [])
         if isinstance(struct, dict):
-            return flatten(struct.values())
-        elif isinstance(struct, (list, tuple, set)) or is_lazy_iterable(struct):
-            objs = []
-            for obj in struct:
-                objs.extend(flatten(obj))
-            return objs
-        else:
-            return [struct]
+            if kwargs.get("flatten_dict", True):
+                return flatten_seq(struct.values())
+        elif isinstance(struct, list):
+            if kwargs.get("flatten_list", True):
+                return flatten_seq(struct)
+        elif isinstance(struct, tuple):
+            if kwargs.get("flatten_tuple", True):
+                return flatten_seq(struct)
+        elif isinstance(struct, set):
+            if kwargs.get("flatten_set", True):
+                return flatten_seq(struct)
+        elif is_lazy_iterable(struct):
+            return flatten_seq(struct)
+
+        return [struct]
 
 
 def merge_dicts(*dicts, **kwargs):
