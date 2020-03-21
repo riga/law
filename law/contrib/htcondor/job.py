@@ -28,6 +28,7 @@ _cfg = Config.instance()
 class HTCondorJobManager(BaseJobManager):
 
     # chunking settings
+    chunk_size_submit = 0
     chunk_size_cancel = _cfg.get_expanded_int("job", "htcondor_chunk_size_cancel")
     chunk_size_query = _cfg.get_expanded_int("job", "htcondor_chunk_size_query")
 

@@ -65,20 +65,20 @@ class BaseWorkflowProxy(ProxyTask):
 
     def _get_task_attribute(self, name, fallback=False):
         """
-        Return an attribute of the actual task named ``<workflow_type>_<name>``.
-        When the attribute does not exist and *fallback* is *True*, try to return the task attribute
-        simply named *name*. In any case, if a requested task attribute is eventually not found, an
+        Return an attribute of the actual task named ``<workflow_type>_<name>``. When the attribute
+        does not exist and *fallback* is *True*, try to return the task attribute simply named
+        *name*. In any case, if a requested task attribute is eventually not found, an
         AttributeError is raised.
         """
         attr = "{}_{}".format(self.workflow_type, name)
-        if not fallback:
-            return getattr(self.task, attr)
-        else:
+        if fallback:
             value = getattr(self.task, attr, no_value)
             if value != no_value:
                 return value
             else:
                 return getattr(self.task, name)
+        else:
+            return getattr(self.task, attr)
 
     def complete(self):
         """

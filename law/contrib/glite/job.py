@@ -30,6 +30,7 @@ _cfg = Config.instance()
 class GLiteJobManager(BaseJobManager):
 
     # chunking settings
+    chunk_size_submit = 0
     chunk_size_cancel = _cfg.get_expanded_int("job", "glite_chunk_size_cancel")
     chunk_size_cleanup = _cfg.get_expanded_int("job", "glite_chunk_size_cleanup")
     chunk_size_query = _cfg.get_expanded_int("job", "glite_chunk_size_query")

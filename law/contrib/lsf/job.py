@@ -29,6 +29,7 @@ _cfg = Config.instance()
 class LSFJobManager(BaseJobManager):
 
     # chunking settings
+    chunk_size_submit = 0
     chunk_size_cancel = _cfg.get_expanded_int("job", "lsf_chunk_size_cancel")
     chunk_size_query = _cfg.get_expanded_int("job", "lsf_chunk_size_query")
 

@@ -22,8 +22,8 @@ import six
 
 from law.workflow.base import BaseWorkflow, BaseWorkflowProxy
 from law.job.dashboard import NoJobDashboard
-from law.parameter import NO_FLOAT, NO_INT, DurationParameter
-from law.util import iter_chunks, ShorthandDict
+from law.parameter import NO_FLOAT, NO_INT, get_param, DurationParameter
+from law.util import is_number, iter_chunks, merge_dicts, ShorthandDict
 
 
 logger = logging.getLogger(__name__)
@@ -263,14 +263,6 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         """
         return
 
-    @abstractmethod
-    def submit_jobs(self, job_files):
-        """
-        Submits all jobs given by a list of *job_files*. This method must be implemented by
-        inheriting classes.
-        """
-        return
-
     def destination_info(self):
         """
         Hook that should return a string containing information on the run location that jobs are
@@ -305,6 +297,26 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 self.submission_data.jobs[job_num] = self.submission_data_cls.job_data(
                     branches=branches)
             return self.skip_jobs[job_num]
+
+    def _get_job_kwargs(self, name):
+        attr = "{}_job_kwargs_{}".format(self.workflow_type, name)
+        kwargs = getattr(self.task, attr, None)
+        if kwargs is None:
+            attr = "{}_job_kwargs".format(self.workflow_type)
+            kwargs = getattr(self.task, attr)
+
+        # when kwargs is not a dict, it is assumed to be a list whose
+        # elements represent task attributes that are stored without the workflow type prefix
+        if not isinstance(kwargs, dict):
+            _kwargs = {}
+            for param_name in kwargs:
+                kwarg_name = param_name
+                if param_name.startswith(self.workflow_type + "_"):
+                    kwarg_name = param_name[len(self.workflow_type) + 1:]
+                _kwargs[kwarg_name] = get_param(getattr(self.task, param_name))
+            kwargs = _kwargs
+
+        return kwargs
 
     def complete(self):
         if self.task.is_controlling_remote_jobs():
@@ -463,9 +475,12 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         if not job_ids:
             return
 
+        # get job kwargs for cancelling
+        cancel_kwargs = self._get_job_kwargs("cancel")
+
         # cancel jobs
         task.publish_message("going to cancel {} jobs".format(len(job_ids)))
-        errors = self.job_manager.cancel_batch(job_ids)
+        errors = self.job_manager.cancel_batch(job_ids, **cancel_kwargs)
 
         # print errors
         if errors:
@@ -499,9 +514,12 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         if not job_ids:
             return
 
+        # get job kwargs for cleanup
+        cleanup_kwargs = self._get_job_kwargs("cleanup")
+
         # cleanup jobs
         task.publish_message("going to cleanup {} jobs".format(len(job_ids)))
-        errors = self.job_manager.cleanup_batch(job_ids)
+        errors = self.job_manager.cleanup_batch(job_ids, **cleanup_kwargs)
 
         # print errors
         if errors:
@@ -630,6 +648,41 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
         return new_submission_data
 
+    def submit_jobs(self, job_files, **kwargs):
+        task = self.task
+
+        # prepare objects for dumping intermediate submission data
+        dump_freq = self._get_task_attribute("dump_intermediate_submission_data")()
+        if dump_freq and not is_number(dump_freq):
+            dump_freq = 50
+
+        # progress callback to inform the scheduler
+        def progress_callback(i, job_id):
+            job_num = i + 1
+
+            # some job managers respond with a list of job ids per submission (e.g. htcondor, slurm)
+            # batched submission is not yet supported, so get the first id
+            if isinstance(job_id, list):
+                job_id = job_id[0]
+
+            # set the job id early
+            self.submission_data.jobs[job_num]["job_id"] = job_id
+
+            # log a message every 25 jobs
+            if job_num in (1, len(job_files)) or job_num % 25 == 0:
+                task.publish_message("submitted {}/{} job(s)".format(job_num, len(job_files)))
+
+            # dump intermediate submission data with a certain frequency
+            if dump_freq and job_num % dump_freq == 0:
+                self.dump_submission_data()
+
+        # get job kwargs for submission and merge with passed kwargs
+        submit_kwargs = self._get_job_kwargs("submit")
+        submit_kwargs = merge_dicts(submit_kwargs, kwargs)
+
+        return self.job_manager.submit_batch(job_files, retries=3, threads=task.threads,
+            callback=progress_callback, **submit_kwargs)
+
     def poll(self):
         """
         Initiates the job status polling loop.
@@ -638,6 +691,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
         # total job count
         n_jobs = len(self.submission_data)
+
+        # get job kwargs for status querying
+        query_kwargs = self._get_job_kwargs("query")
 
         # store the number of consecutive polling failures and get the maximum number of polls
         n_poll_fails = 0
@@ -681,7 +737,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
             # query job states
             job_ids = [data["job_id"] for data in six.itervalues(active_jobs)]  # noqa: F812
-            query_data = self.job_manager.query_batch(job_ids)
+            query_data = self.job_manager.query_batch(job_ids, **query_kwargs)
 
             # separate into actual states and errors that might have occured during the status query
             states_by_id = {}

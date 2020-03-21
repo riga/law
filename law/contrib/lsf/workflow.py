@@ -21,7 +21,7 @@ from law.target.file import get_path
 from law.target.local import LocalDirectoryTarget
 from law.parameter import NO_STR
 from law.parser import global_cmdline_args, add_cmdline_arg
-from law.util import law_src_path, merge_dicts, is_number
+from law.util import law_src_path, merge_dicts
 
 from law.contrib.lsf.job import LSFJobManager, LSFJobFileFactory
 
@@ -140,33 +140,6 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
     def destination_info(self):
         return "queue: {}".format(self.task.lsf_queue) if self.task.lsf_queue != NO_STR else ""
 
-    def submit_jobs(self, job_files):
-        task = self.task
-        queue = task.lsf_queue
-
-        # prepare objects for dumping intermediate submission data
-        dump_freq = task.lsf_dump_intermediate_submission_data()
-        if dump_freq and not is_number(dump_freq):
-            dump_freq = 50
-
-        # progress callback to inform the scheduler
-        def progress_callback(i, job_id):
-            job_num = i + 1
-
-            # set the job id early
-            self.submission_data.jobs[job_num]["job_id"] = job_id
-
-            # log a message every 25 jobs
-            if job_num in (1, len(job_files)) or job_num % 25 == 0:
-                task.publish_message("submitted {}/{} job(s)".format(job_num, len(job_files)))
-
-            # dump intermediate submission data with a certain frequency
-            if dump_freq and job_num % dump_freq == 0:
-                self.dump_submission_data()
-
-        return self.job_manager.submit_batch(job_files, queue=queue, emails=False, retries=3,
-            threads=task.threads, callback=progress_callback)
-
 
 class LSFWorkflow(BaseRemoteWorkflow):
 
@@ -177,6 +150,11 @@ class LSFWorkflow(BaseRemoteWorkflow):
     lsf_job_file_factory_defaults = None
 
     lsf_queue = luigi.Parameter(default=NO_STR, significant=False, description="target lsf queue")
+
+    lsf_job_kwargs = ["lsf_queue"]
+    lsf_job_kwargs_submit = None
+    lsf_job_kwargs_cancel = None
+    lsf_job_kwargs_query = None
 
     exclude_params_branch = {"lsf_queue"}
 
