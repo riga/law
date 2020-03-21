@@ -21,7 +21,7 @@ from law.target.file import get_path
 from law.target.local import LocalDirectoryTarget
 from law.parameter import NO_STR
 from law.parser import global_cmdline_args, add_cmdline_arg
-from law.util import law_src_path, merge_dicts, is_number
+from law.util import law_src_path, merge_dicts
 
 from law.contrib.htcondor.job import HTCondorJobManager, HTCondorJobFileFactory
 
@@ -142,35 +142,6 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
             info.append(", scheduler: {}".format(self.task.htcondor_scheduler))
         return ", ".join(info)
 
-    def submit_jobs(self, job_files):
-        task = self.task
-        pool = task.htcondor_pool
-        scheduler = task.htcondor_scheduler
-
-        # prepare objects for dumping intermediate submission data
-        dump_freq = task.htcondor_dump_intermediate_submission_data()
-        if dump_freq and not is_number(dump_freq):
-            dump_freq = 50
-
-        # progress callback to inform the scheduler
-        def progress_callback(i, job_ids):
-            job_num = i + 1
-            job_id = job_ids[0]
-
-            # set the job id early
-            self.submission_data.jobs[job_num]["job_id"] = job_id
-
-            # log a message every 25 jobs
-            if job_num in (1, len(job_files)) or job_num % 25 == 0:
-                task.publish_message("submitted {}/{} job(s)".format(job_num, len(job_files)))
-
-            # dump intermediate submission data with a certain frequency
-            if dump_freq and job_num % dump_freq == 0:
-                self.dump_submission_data()
-
-        return self.job_manager.submit_batch(job_files, pool=pool, scheduler=scheduler, retries=3,
-            threads=task.threads, callback=progress_callback)
-
 
 class HTCondorWorkflow(BaseRemoteWorkflow):
 
@@ -184,6 +155,11 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
         "htcondor pool")
     htcondor_scheduler = luigi.Parameter(default=NO_STR, significant=False, description="target "
         "htcondor scheduler")
+
+    htcondor_job_kwargs = ["htcondor_pool", "htcondor_scheduler"]
+    htcondor_job_kwargs_submit = None
+    htcondor_job_kwargs_cancel = None
+    htcondor_job_kwargs_query = None
 
     exclude_params_branch = {"htcondor_pool", "htcondor_scheduler"}
 

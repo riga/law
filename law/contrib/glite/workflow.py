@@ -20,7 +20,7 @@ from law.job.base import JobArguments
 from law.target.file import get_path
 from law.parameter import CSVParameter
 from law.parser import global_cmdline_args, add_cmdline_arg
-from law.util import law_src_path, merge_dicts, is_number
+from law.util import law_src_path, merge_dicts
 from law.contrib.wlcg import delegate_voms_proxy_glite, get_ce_endpoint
 
 from law.contrib.glite.job import GLiteJobManager, GLiteJobFileFactory
@@ -139,7 +139,7 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
     def destination_info(self):
         return "ce: {}".format(",".join(self.task.glite_ce))
 
-    def submit_jobs(self, job_files):
+    def submit_jobs(self, job_files, **kwargs):
         task = self.task
 
         # delegate the voms proxy to all endpoints
@@ -148,30 +148,9 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
             for ce in task.glite_ce:
                 endpoint = get_ce_endpoint(ce)
                 self.delegation_ids.append(task.glite_delegate_proxy(endpoint))
+        kwargs["delegation_id"] = self.delegation_ids
 
-        # prepare objects for dumping intermediate submission data
-        dump_freq = task.glite_dump_intermediate_submission_data()
-        if dump_freq and not is_number(dump_freq):
-            dump_freq = 50
-
-        # progress callback to inform the scheduler
-        def progress_callback(i, job_id):
-            job_num = i + 1
-
-            # set the job id early
-            self.submission_data.jobs[job_num]["job_id"] = job_id
-
-            # log a message every 25 jobs
-            if job_num in (1, len(job_files)) or job_num % 25 == 0:
-                task.publish_message("submitted {}/{} job(s)".format(job_num, len(job_files)))
-
-            # dump intermediate submission data with a certain frequency
-            if dump_freq and job_num % dump_freq == 0:
-                self.dump_submission_data()
-
-        return self.job_manager.submit_batch(job_files, ce=task.glite_ce,
-            delegation_id=self.delegation_ids, retries=3, threads=task.threads,
-            callback=progress_callback)
+        return super(GLiteWorkflowProxy, self).submit_jobs(job_files, **kwargs)
 
 
 class GLiteWorkflow(BaseRemoteWorkflow):
@@ -184,6 +163,12 @@ class GLiteWorkflow(BaseRemoteWorkflow):
 
     glite_ce = CSVParameter(default=(), significant=False, description="target glite computing "
         "element(s), default: ()")
+
+    glite_job_kwargs = []
+    glite_job_kwargs_submit = ["glite_ce"]
+    glite_job_kwargs_cancel = None
+    glite_job_kwargs_cleanup = None
+    glite_job_kwargs_query = None
 
     exclude_params_branch = {"glite_ce"}
 

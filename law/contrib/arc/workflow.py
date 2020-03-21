@@ -174,6 +174,12 @@ class ARCWorkflow(BaseRemoteWorkflow):
     arc_ce = CSVParameter(default=(), significant=False, description="target arc computing "
         "element(s), default: ()")
 
+    arc_job_kwargs = []
+    arc_job_kwargs_submit = ["arc_ce"]
+    arc_job_kwargs_cancel = None
+    arc_job_kwargs_cleanup = None
+    arc_job_kwargs_query = None
+
     exclude_params_branch = {"arc_ce"}
 
     exclude_index = True
