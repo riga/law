@@ -22,10 +22,25 @@ from law.target.file import FileSystemTarget
 from law.target.local import LocalFileTarget
 from law.target.collection import TargetCollection, SiblingFileCollection
 from law.parameter import NO_INT, NO_STR
+from law.decorator import factory
 from law.util import iter_chunks
 
 
 class RunOnceTask(Task):
+
+    @staticmethod
+    @factory(accept_generator=True)
+    def complete_on_success(fn, opts, task, *args, **kwargs):
+        def before_call():
+            return None
+
+        def call(state):
+            return fn(task, *args, **kwargs)
+
+        def after_call(state):
+            task.mark_complete()
+
+        return before_call, call, after_call
 
     def __init__(self, *args, **kwargs):
         super(RunOnceTask, self).__init__(*args, **kwargs)
