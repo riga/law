@@ -301,7 +301,10 @@ class Task(BaseTask):
             del self._message_cache[:end]
 
         # set status message using the current message cache
-        self.set_status_message("\n".join(self._message_cache))
+        if callable(getattr(self, "set_status_message", None)):
+            self.set_status_message("\n".join(self._message_cache))
+        else:
+            logger.warning("set_status_message not set, cannot send task message to scheduler")
 
     def create_message_stream(self, *args, **kwargs):
         return TaskMessageStream(self, *args, **kwargs)
@@ -325,7 +328,12 @@ class Task(BaseTask):
         percentage = int(math.floor(percentage))
         if percentage != self._last_progress_percentage:
             self._last_progress_percentage = percentage
-            self.set_progress_percentage(percentage)
+
+            if callable(getattr(self, "set_progress_percentage", None)):
+                self.set_progress_percentage(percentage)
+            else:
+                logger.warning("set_progress_percentage not set, cannot send task progress to "
+                    "scheduler")
 
     def create_progress_callback(self, n_total, reach=(0, 100)):
         def make_callback(n, start, end):
