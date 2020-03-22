@@ -367,8 +367,8 @@ class Task(BaseTask):
         family = self._repr_family(self.get_task_family(), color=color)
 
         parts = [
-            self._repr_param(*pair, color=color)
-            for pair in self._repr_params(all_params=all_params)
+            self._repr_param(name, value, color=color)
+            for name, value in six.iteritems(self._repr_params(all_params=all_params))
         ] + [
             self._repr_flag(flag, color=color)
             for flag in self._repr_flags()
@@ -393,13 +393,13 @@ class Task(BaseTask):
             exclude |= self.inst_exclude_params_repr()
             exclude |= set(self.interactive_params)
 
-        pairs = []
+        values = OrderedDict()
         for name, param in params:
             if param.significant and not multi_match(name, exclude):
                 value = getattr(self, name)
-                pairs.append((name, param.serialize(value)))
+                values[name] = param.serialize(value)
 
-        return pairs
+        return values
 
     def _repr_flags(self):
         return []

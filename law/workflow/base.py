@@ -402,6 +402,15 @@ class BaseWorkflow(Task):
 
         return super(BaseWorkflow, self).cli_args(exclude=exclude, replace=replace)
 
+    def _repr_params(self, *args, **kwargs):
+        values = super(BaseWorkflow, self)._repr_params(*args, **kwargs)
+
+        # when this is a workflow, add the workflow type
+        if self.is_workflow() and "workflow" not in values:
+            values["workflow"] = self.workflow
+
+        return values
+
     def is_branch(self):
         """
         Returns whether or not this task refers to a *branch*.
