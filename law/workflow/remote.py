@@ -11,6 +11,7 @@ __all__ = ["SubmissionData", "StatusData", "BaseRemoteWorkflowProxy", "BaseRemot
 import sys
 import time
 import math
+import re
 import random
 import threading
 import logging
@@ -178,16 +179,12 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         80: "stageout command failed",
     }
 
+    n_parallel_max = sys.maxsize
+
     def __init__(self, *args, **kwargs):
         super(BaseRemoteWorkflowProxy, self).__init__(*args, **kwargs)
 
         task = self.task
-
-        # setup the job mananger
-        self.job_manager = self.create_job_manager(threads=task.threads)
-        if task.parallel_jobs > 0:
-            self.job_manager.status_names.insert(0, "unsubmitted")
-            self.job_manager.status_diff_styles["unsubmitted"] = ({"color": "green"}, {}, {})
 
         # the job submission file factory
         self.job_file_factory = None
@@ -195,16 +192,20 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         # the job dashboard
         self.dashboard = None
 
-        # submission data
-        self.submission_data = self.submission_data_cls(tasks_per_job=task.tasks_per_job)
-
         # variable data that changes during / configures the job polling
         self.poll_data = PollData(
-            n_parallel=task.parallel_jobs if task.parallel_jobs > 0 else sys.maxsize,
+            n_parallel=None,
             n_finished_min=-1,
             n_failed_max=-1,
             n_active=0,
         )
+
+        # submission data
+        self.submission_data = self.submission_data_cls(tasks_per_job=task.tasks_per_job)
+
+        # setup the job mananger
+        self.job_manager = self.create_job_manager(threads=task.threads)
+        self.job_manager.status_diff_styles["unsubmitted"] = ({"color": "green"}, {}, {})
 
         # boolean per job num denoting if a job should be / was skipped
         self.skip_jobs = {}
@@ -226,6 +227,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
         # lock to protect the dumping of submission data
         self._dump_lock = threading.Lock()
+
+        # intially, set the number of parallel jobs which might change at some piont
+        self._set_parallel_jobs(task.parallel_jobs)
 
     @property
     def submission_data_cls(self):
@@ -317,6 +321,32 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             kwargs = _kwargs
 
         return kwargs
+
+    def _set_parallel_jobs(self, n_parallel):
+        is_inf = n_parallel <= 0 or n_parallel == self.n_parallel_max
+        if is_inf:
+            n_parallel = self.n_parallel_max
+
+        # do nothing when the value does not differ from the current one
+        if n_parallel == self.poll_data.n_parallel:
+            return
+
+        # add or remove the "unsubmitted" status from the job manager and adjust the last counts
+        man = self.job_manager
+        has_unsubmitted = man.status_names[0] == "unsubmitted"
+        if is_inf:
+            if has_unsubmitted:
+                man.status_names.pop(0)
+                man.last_counts.pop(0)
+        else:
+            if not has_unsubmitted:
+                man.status_names.insert(0, "unsubmitted")
+                man.last_counts.insert(0, 0)
+
+        # set the value in poll_data
+        self.poll_data.n_parallel = n_parallel
+
+        return n_parallel
 
     def complete(self):
         if self.task.is_controlling_remote_jobs():
@@ -716,6 +746,12 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             if i > 0:
                 time.sleep(task.poll_interval * 60)
 
+            # handle scheduler messages first
+            if task.scheduler_messages:
+                while not task.scheduler_messages.empty():
+                    msg = task.scheduler_messages.get()
+                    task.handle_scheduler_message(msg)
+
             # determine the currently active jobs, i.e., the jobs whose states should be checked,
             # and also store jobs whose ids are unknown
             active_jobs = OrderedDict()
@@ -829,7 +865,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
             # log the status line
             counts = (n_pending, n_running, n_finished, n_retry, n_failed)
-            if task.parallel_jobs > 0:
+            if self.poll_data.n_parallel != self.n_parallel_max:
                 counts = (n_unsubmitted,) + counts
             status_line = self.job_manager.status_line(counts, last_counts=True, sum_counts=n_jobs,
                 color=True, align=task.align_polling_status_line)
@@ -1035,6 +1071,8 @@ class BaseRemoteWorkflow(BaseWorkflow):
 
     exclude_index = True
 
+    accepts_messages = True
+
     def inst_exclude_params_repr(self):
         params = super(BaseRemoteWorkflow, self).inst_exclude_params_repr()
         params.update({"cancel_jobs", "cleanup_jobs"})
@@ -1083,3 +1121,18 @@ class BaseRemoteWorkflow(BaseWorkflow):
         Hook to modify the status line that is printed during polling.
         """
         return status_line
+
+    def handle_scheduler_message(self, msg):
+        """
+        Hook that is called when a scheduler message *msg* is received during polling. By default,
+        this method checks for messages with the format ``"parallel_jobs:<int>"`` to dynamically set
+        the number of parallely running jobs.
+        """
+        if getattr(self, "workflow_proxy", None):
+            m = re.match(r"^\s*(parallel\_jobs)\s*(\=|\:)\s*((|\+|\-)\d+)\s*$", str(msg))
+            if m:
+                n = int(m.group(3))
+                n = self.workflow_proxy._set_parallel_jobs(n)
+                n_str = str(n) if n != self.workflow_proxy.n_parallel_max else "unlimited"
+                msg.respond("number of parallel jobs set to {}".format(n_str))
+                logger.info("number of parallel jobs of task {} set to {}".format(self, n_str))

@@ -158,7 +158,7 @@ class BaseJobManager(object):
         self.status_diff_styles = status_diff_styles or self.default_status_diff_styles.copy()
         self.threads = threads
 
-        self.last_counts = None
+        self.last_counts = [0] * len(self.status_names)
 
     @abstractmethod
     def submit(self):
@@ -462,9 +462,6 @@ class BaseJobManager(object):
             raise Exception("{} status counts expected, got {}".format(len(self.status_names),
                 len(counts)))
 
-        # store current counts for next call
-        self.last_counts = counts
-
         # calculate differences
         if last_counts:
             diffs = tuple(n - m for n, m in zip(counts, last_counts))
@@ -489,13 +486,16 @@ class BaseJobManager(object):
                 count = colored(count, style="bright")
             line += ", {}: {}".format(status, count)
 
-            if last_counts:
+            if diffs:
                 diff = diff_fmt % diffs[i]
                 if color:
                     # 0 if negative, 1 if zero, 2 if positive
                     style_idx = (diffs[i] > 0) + (diffs[i] >= 0)
                     diff = colored(diff, **self.status_diff_styles[status][style_idx])
                 line += " ({})".format(diff)
+
+        # store current counts for next call
+        self.last_counts = list(counts)
 
         return line
 
