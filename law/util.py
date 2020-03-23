@@ -34,13 +34,12 @@ import copy
 import collections
 import contextlib
 import smtplib
-import logging
 import datetime
 import random
 import threading
 import io
 import shlex
-import warnings
+import logging
 
 import six
 
@@ -49,6 +48,8 @@ try:
 except ImportError:
     ipykernel = None
 
+
+logger = logging.getLogger(__name__)
 
 # some globally usable thread locks
 default_lock = threading.Lock()
@@ -1101,8 +1102,9 @@ def human_time_diff(*args, **kwargs):
     """
     Deprecated. Use :py:func:`human_duration` instead.
     """
-    warnings.warn("law.util.human_time_diff is deprecated, use law.util.human_duration instead",
-        DeprecationWarning)
+    # deprecation warning until v0.1
+    logger.warning("law.util.human_time_diff is deprecated, use law.util.human_duration instead")
+
     return human_duration(*args, **kwargs)
 
 
@@ -1275,7 +1277,6 @@ def send_mail(recipient, sender, subject="", content="", smtp_host="127.0.0.1", 
     try:
         server = smtplib.SMTP(smtp_host, smtp_port)
     except Exception as e:
-        logger = logging.getLogger(__name__)
         logger.warning("cannot create SMTP server: {}".format(e))
         return False
 
