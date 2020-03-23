@@ -1071,8 +1071,6 @@ class BaseRemoteWorkflow(BaseWorkflow):
 
     exclude_index = True
 
-    accepts_messages = True
-
     def inst_exclude_params_repr(self):
         params = super(BaseRemoteWorkflow, self).inst_exclude_params_repr()
         params.update({"cancel_jobs", "cleanup_jobs"})
@@ -1122,17 +1120,26 @@ class BaseRemoteWorkflow(BaseWorkflow):
         """
         return status_line
 
+    @property
+    def accepts_messages(self):
+        if not getattr(self, "workflow_proxy", None):
+            return super(BaseRemoteWorkflow, self).accepts_messages
+
+        return isinstance(self.workflow_proxy, BaseRemoteWorkflowProxy)
+
     def handle_scheduler_message(self, msg):
         """
         Hook that is called when a scheduler message *msg* is received during polling. By default,
         this method checks for messages with the format ``"parallel_jobs:<int>"`` to dynamically set
         the number of parallely running jobs.
         """
-        if getattr(self, "workflow_proxy", None):
-            m = re.match(r"^\s*(parallel\_jobs)\s*(\=|\:)\s*((|\+|\-)\d+)\s*$", str(msg))
-            if m:
-                n = int(m.group(3))
-                n = self.workflow_proxy._set_parallel_jobs(n)
-                n_str = str(n) if n != self.workflow_proxy.n_parallel_max else "unlimited"
-                msg.respond("number of parallel jobs set to {}".format(n_str))
-                logger.info("number of parallel jobs of task {} set to {}".format(self, n_str))
+        if not getattr(self, "workflow_proxy", None):
+            return
+
+        m = re.match(r"^\s*(parallel\_jobs)\s*(\=|\:)\s*((|\+|\-)\d+)\s*$", str(msg))
+        if m:
+            n = int(m.group(3))
+            n = self.workflow_proxy._set_parallel_jobs(n)
+            n_str = str(n) if n != self.workflow_proxy.n_parallel_max else "unlimited"
+            msg.respond("number of parallel jobs set to {}".format(n_str))
+            logger.info("number of parallel jobs of task {} set to {}".format(self, n_str))
