@@ -107,7 +107,7 @@ class HTCondorJobManager(BaseJobManager):
                 return job_ids
             else:
                 logger.debug("submission of htcondor job '{}' failed with code {}:\n{}".format(
-                    code, job_file, err))
+                    job_file, code, err))
                 if retries > 0:
                     retries -= 1
                     time.sleep(retry_delay)
@@ -142,7 +142,7 @@ class HTCondorJobManager(BaseJobManager):
         # check success
         if code != 0 and not silent:
             raise Exception("cancellation of htcondor job(s) '{}' failed with code {}:\n{}".format(
-                code, job_id, err))
+                job_id, code, err))
 
     def query(self, job_id, pool=None, scheduler=None, user=None, silent=False):
         # default arguments
@@ -184,7 +184,7 @@ class HTCondorJobManager(BaseJobManager):
                 return None
             else:
                 raise Exception("queue query of htcondor job(s) '{}' failed with code {}:"
-                    "\n{}".format(code, job_id, err))
+                    "\n{}".format(job_id, code, err))
 
         # parse the output and extract the status per job
         query_data = self.parse_long_output(out)
@@ -217,7 +217,7 @@ class HTCondorJobManager(BaseJobManager):
                     return None
                 else:
                     raise Exception("history query of htcondor job(s) '{}' failed with code {}:"
-                        "\n{}".format(code, job_id, err))
+                        "\n{}".format(job_id, code, err))
 
             # parse the output and update query data
             query_data.update(self.parse_long_output(out, job_ids=missing_ids))

@@ -228,9 +228,9 @@ uncolor_cre = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
 def colored(msg, color=None, background=None, style=None, force=False):
     """
     Return the colored version of a string *msg*. For *color*, *background* and *style* options, see
-    https://misc.flogisoft.com/bash/tip_colors_and_formatting. They can also explicitely set to
+    https://misc.flogisoft.com/bash/tip_colors_and_formatting. They can also be explicitely set to
     ``"random"`` to get a random value. Unless *force* is *True*, the *msg* string is returned
-    unchanged in case the output is both not a tty and not an IPython output stream.
+    unchanged in case the output is neither a tty nor an IPython output stream.
     """
     if not force:
         tty = False

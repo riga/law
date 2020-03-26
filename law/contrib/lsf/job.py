@@ -85,7 +85,7 @@ class LSFJobManager(BaseJobManager):
                 return job_id
             else:
                 logger.debug("submission of lsf job '{}' failed with code {}:\n{}".format(
-                    code, job_file, err))
+                    job_file, code, err))
                 if retries > 0:
                     retries -= 1
                     time.sleep(retry_delay)
@@ -93,7 +93,7 @@ class LSFJobManager(BaseJobManager):
                 elif silent:
                     return None
                 else:
-                    raise Exception("submission of lsf job '{}' failed:\n{}".format(job_file, err))
+                    raise Exception("submission of lsf job '{}' failed: \n{}".format(job_file, err))
 
     def cancel(self, job_id, queue=None, silent=False):
         # default arguments
@@ -115,7 +115,7 @@ class LSFJobManager(BaseJobManager):
         # check success
         if code != 0 and not silent:
             raise Exception("cancellation of lsf job(s) '{}' failed with code {}:\n{}".format(
-                code, job_id, err))
+                job_id, code, err))
 
     def query(self, job_id, queue=None, silent=False):
         # default arguments
@@ -143,7 +143,7 @@ class LSFJobManager(BaseJobManager):
                 return None
             else:
                 raise Exception("status query of lsf job(s) '{}' failed with code {}:\n{}".format(
-                    code, job_id, err))
+                    job_id, code, err))
 
         # parse the output and extract the status per job
         query_data = self.parse_query_output(out)

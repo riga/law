@@ -95,7 +95,7 @@ class GLiteJobManager(BaseJobManager):
                 return job_id
             else:
                 logger.debug("submission of glite job '{}' failed with code {}:\n{}".format(
-                    code, job_file, out))
+                    job_file, code, out))
                 if retries > 0:
                     retries -= 1
                     time.sleep(retry_delay)
@@ -120,7 +120,7 @@ class GLiteJobManager(BaseJobManager):
         if code != 0 and not silent:
             # glite prints everything to stdout
             raise Exception("cancellation of glite job(s) '{}' failed with code {}:\n{}".format(
-                code, job_id, out))
+                job_id, code, out))
 
     def cleanup(self, job_id, silent=False):
         # build the command
@@ -136,7 +136,7 @@ class GLiteJobManager(BaseJobManager):
         if code != 0 and not silent:
             # glite prints everything to stdout
             raise Exception("cleanup of glite job(s) '{}' failed with code {}:\n{}".format(
-                code, job_id, out))
+                job_id, code, out))
 
     def query(self, job_id, silent=False):
         chunking = isinstance(job_id, (list, tuple))
@@ -158,7 +158,7 @@ class GLiteJobManager(BaseJobManager):
             else:
                 # glite prints everything to stdout
                 raise Exception("status query of glite job(s) '{}' failed with code {}:\n{}".format(
-                    code, job_id, out))
+                    job_id, code, out))
 
         # parse the output and extract the status per job
         query_data = self.parse_query_output(out)

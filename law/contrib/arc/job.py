@@ -108,7 +108,7 @@ class ARCJobManager(BaseJobManager):
                 return job_ids if chunking else job_ids[0]
             else:
                 logger.debug("submission of arc job(s) '{}' failed with code {}:\n{}".format(
-                    code, job_files, out))
+                    job_files, code, out))
                 if retries > 0:
                     retries -= 1
                     time.sleep(retry_delay)
@@ -140,7 +140,7 @@ class ARCJobManager(BaseJobManager):
         if code != 0 and not silent:
             # glite prints everything to stdout
             raise Exception("cancellation of arc job(s) '{}' failed with code {}:\n{}".format(
-                code, job_id, out))
+                job_id, code, out))
 
     def cleanup(self, job_id, job_list=None, silent=False):
         # default arguments
@@ -163,7 +163,7 @@ class ARCJobManager(BaseJobManager):
         if code != 0 and not silent:
             # glite prints everything to stdout
             raise Exception("cleanup of arc job(s) '{}' failed with code {}:\n{}".format(
-                code, job_id, out))
+                job_id, code, out))
 
     def query(self, job_id, job_list=None, silent=False):
         # default arguments
@@ -192,7 +192,7 @@ class ARCJobManager(BaseJobManager):
             else:
                 # glite prints everything to stdout
                 raise Exception("status query of arc job(s) '{}' failed with code {}:\n{}".format(
-                    code, job_id, out))
+                    job_id, code, out))
 
         # parse the output and extract the status per job
         query_data = self.parse_query_output(out)
