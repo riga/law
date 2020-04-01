@@ -476,10 +476,14 @@ def localize(fn, opts, task, *args, **kwargs):
     input_kwargs = opts["input_kwargs"] or {}
     output_kwargs = opts["output_kwargs"] or {}
 
+    # default modes
+    input_kwargs.setdefault("mode", "r")
+    output_kwargs.setdefault("mode", "w")
+
     try:
         # localize both target structs
-        with localize_file_targets(input_struct, "r", **input_kwargs) as localized_inputs, \
-                localize_file_targets(output_struct, "w", **output_kwargs) as localized_outputs:
+        with localize_file_targets(input_struct, **input_kwargs) as localized_inputs, \
+                localize_file_targets(output_struct, **output_kwargs) as localized_outputs:
             # patch the input method to always return the localized inputs
             if opts["input"]:
                 def input_patched(self):
