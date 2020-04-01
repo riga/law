@@ -235,16 +235,7 @@ class FileCollection(TargetCollection):
         # enter localize contexts of all targets
         with localize_file_targets(self.targets, *args, **kwargs) as localized_targets:
             # create a copy of this collection that wraps the localized targets
-            copy = self.__class__(localized_targets, **self._copy_kwargs())
-
-            try:
-                yield copy
-
-            finally:
-                # although tmp_dir would clean itself during garbage collection, an error might have
-                # occurred, so for larger collections it is safer to delete the tmp_dir manually
-                if tmp_dir_created:
-                    tmp_dir.remove()
+            yield self.__class__(localized_targets, **self._copy_kwargs())
 
 
 class SiblingFileCollection(FileCollection):

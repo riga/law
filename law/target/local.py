@@ -347,8 +347,8 @@ class LocalFileTarget(LocalTarget, FileSystemFileTarget):
                     if tmp.exists():
                         tmp.move_to_local(self, perm=perm, dir_perm=dir_perm)
                     else:
-                        logger.warning("cannot move non-existing localized file target {!r}".format(
-                            self))
+                        logger.warning("cannot move non-existing, temporary target to localized "
+                            "file target {!r}".format(self))
                 finally:
                     tmp.remove()
             else:

@@ -323,9 +323,10 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         return kwargs
 
     def _set_parallel_jobs(self, n_parallel):
-        is_inf = n_parallel <= 0 or n_parallel == self.n_parallel_max
-        if is_inf:
-            n_parallel = self.n_parallel_max
+        if n_parallel <= 0:
+            n_parallel == self.n_parallel_max
+
+        is_inf = n_parallel == self.n_parallel_max
 
         # do nothing when the value does not differ from the current one
         if n_parallel == self.poll_data.n_parallel:
@@ -1143,3 +1144,5 @@ class BaseRemoteWorkflow(BaseWorkflow):
             n_str = str(n) if n != self.workflow_proxy.n_parallel_max else "unlimited"
             msg.respond("number of parallel jobs set to {}".format(n_str))
             logger.info("number of parallel jobs of task {} set to {}".format(self, n_str))
+        else:
+            msg.respond("task cannot handle scheduler message: {}".format(msg))
