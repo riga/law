@@ -226,11 +226,9 @@ class FileCollection(TargetCollection):
         # when localizing collections using temporary files, it makes sense to put
         # them all in the same temporary directory
         tmp_dir = kwargs.get("tmp_dir")
-        tmp_dir_created = False
         if not tmp_dir:
             tmp_dir = LocalDirectoryTarget(is_tmp=True)
-            tmp_dir_created = True
-            kwargs["tmp_dir"] = tmp_dir.path
+        kwargs["tmp_dir"] = tmp_dir
 
         # enter localize contexts of all targets
         with localize_file_targets(self.targets, *args, **kwargs) as localized_targets:
