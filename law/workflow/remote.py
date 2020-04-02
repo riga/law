@@ -324,7 +324,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
     def _set_parallel_jobs(self, n_parallel):
         if n_parallel <= 0:
-            n_parallel == self.n_parallel_max
+            n_parallel = self.n_parallel_max
 
         is_inf = n_parallel == self.n_parallel_max
 
