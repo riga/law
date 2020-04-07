@@ -5,7 +5,7 @@ TensorFlow target formatters.
 """
 
 
-__all__ = ["TFConstantGraphFormatter"]
+__all__ = ["TFConstantGraphFormatter", "TFKerasModelFormatter"]
 
 
 import os
@@ -125,3 +125,21 @@ class TFConstantGraphFormatter(Formatter):
         # write the graph
         graph_dir, graph_name = os.path.split(get_path(path))
         return tf1.train.write_graph(constant_graph, graph_dir, graph_name, *args, **kwargs)
+
+
+class TFKerasModelFormatter(Formatter):
+
+    name = "tf_keras_model"
+
+    @classmethod
+    def accepts(cls, path, mode):
+        return get_path(path).endswith((".hdf5", ".h5"))
+
+    @classmethod
+    def dump(cls, path, model, *args, **kwargs):
+        model.save(path, *args, **kwargs)
+
+    @classmethod
+    def load(cls, path, *args, **kwargs):
+        import tensorflow as tf
+        return tf.keras.models.load_model(path, *args, **kwargs)

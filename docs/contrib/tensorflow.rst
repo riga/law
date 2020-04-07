@@ -11,3 +11,10 @@ Class ``TFConstantGraphFormatter``
 
 .. autoclass:: TFConstantGraphFormatter
    :members:
+
+
+Class ``TFKerasModelFormatter``
+-------------------------------
+
+.. autoclass:: TFKerasModelFormatter
+   :members:

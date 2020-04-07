@@ -11,10 +11,3 @@ Class ``KerasModelFormatter``
 
 .. autoclass:: KerasModelFormatter
    :members:
-
-
-Class ``TFKerasModelFormatter``
--------------------------------
-
-.. autoclass:: TFKerasModelFormatter
-   :members:
