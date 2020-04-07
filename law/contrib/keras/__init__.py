@@ -6,8 +6,10 @@ Keras contrib functionality.
 """
 
 
-__all__ = ["KerasModelFormatter", "TFKerasModelFormatter"]
+__all__ = ["KerasModelFormatter", "KerasWeightsFormatter", "TFKerasModelFormatter"]
 
 
 # provisioning imports
-from law.contrib.keras.formatter import KerasModelFormatter, TFKerasModelFormatter
+from law.contrib.keras.formatter import (
+    KerasModelFormatter, KerasWeightsFormatter, TFKerasModelFormatter,
+)

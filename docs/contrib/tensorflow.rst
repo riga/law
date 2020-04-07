@@ -18,3 +18,10 @@ Class ``TFKerasModelFormatter``
 
 .. autoclass:: TFKerasModelFormatter
    :members:
+
+
+Class ``TFKerasWeightsFormatter``
+---------------------------------
+
+.. autoclass:: TFKerasWeightsFormatter
+   :members:

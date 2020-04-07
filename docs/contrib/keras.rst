@@ -11,3 +11,10 @@ Class ``KerasModelFormatter``
 
 .. autoclass:: KerasModelFormatter
    :members:
+
+
+Class ``KerasWeightsFormatter``
+-------------------------------
+
+.. autoclass:: KerasWeightsFormatter
+   :members:

@@ -5,7 +5,7 @@ TensorFlow target formatters.
 """
 
 
-__all__ = ["TFConstantGraphFormatter", "TFKerasModelFormatter"]
+__all__ = ["TFConstantGraphFormatter", "TFKerasModelFormatter", "TFKerasWeightsFormatter"]
 
 
 import os
@@ -109,6 +109,7 @@ class TFConstantGraphFormatter(Formatter):
             When :py:attr:`tf.compat.v1` is not available, a *NotImplementedError* is raised.
         """
         _, tf1 = cls.import_tf()
+        path = get_path(path)
 
         # complain when the v1 compatibility layer is not existing
         if not tf1:
@@ -123,7 +124,7 @@ class TFConstantGraphFormatter(Formatter):
         kwargs.setdefault("as_text", path.endswith((".pbtxt", ".pb.txt")))
 
         # write the graph
-        graph_dir, graph_name = os.path.split(get_path(path))
+        graph_dir, graph_name = os.path.split(path)
         return tf1.train.write_graph(constant_graph, graph_dir, graph_name, *args, **kwargs)
 
 
@@ -133,13 +134,51 @@ class TFKerasModelFormatter(Formatter):
 
     @classmethod
     def accepts(cls, path, mode):
-        return get_path(path).endswith((".hdf5", ".h5"))
+        return get_path(path).endswith((".hdf5", ".h5", ".json", ".yaml", ".yml"))
 
     @classmethod
     def dump(cls, path, model, *args, **kwargs):
-        model.save(path, *args, **kwargs)
+        path = get_path(path)
+
+        # the method for saving the model depends on the file extension
+        if path.endswith((".hdf5", ".h5")):
+            return model.save(path, *args, **kwargs)
+        elif path.endswith(".json"):
+            with open(path, "w") as f:
+                f.write(model.to_json())
+        else:  # .yml, .yaml
+            with open(path, "w") as f:
+                f.write(model.to_yaml())
 
     @classmethod
     def load(cls, path, *args, **kwargs):
         import tensorflow as tf
-        return tf.keras.models.load_model(path, *args, **kwargs)
+
+        path = get_path(path)
+
+        # the method for loading the model depends on the file extension
+        if path.endswith((".hdf5", ".h5")):
+            return tf.keras.models.load_model(path, *args, **kwargs)
+        elif path.endswith(".json"):
+            with open(path, "r") as f:
+                return tf.keras.models.model_from_json(f.read(), *args, **kwargs)
+        else:  # .yml, .yaml
+            with open(path, "r") as f:
+                return tf.keras.models.model_from_yaml(f.read(), *args, **kwargs)
+
+
+class TFKerasWeightsFormatter(Formatter):
+
+    name = "tf_keras_weights"
+
+    @classmethod
+    def accepts(cls, path, mode):
+        return get_path(path).endswith((".hdf5", ".h5"))
+
+    @classmethod
+    def dump(cls, path, model, *args, **kwargs):
+        return model.save_weights(get_path(path), *args, **kwargs)
+
+    @classmethod
+    def load(cls, path, model, *args, **kwargs):
+        return model.load_weights(get_path(path), *args, **kwargs)
