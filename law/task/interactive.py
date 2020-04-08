@@ -26,14 +26,39 @@ from law.util import (
 logger = logging.getLogger(__name__)
 
 
+# indentation spaces
+ind = "  "
+
+
 # helper to create a list of 3-tuples (target, key, depth) of an arbitrarily structured output
-def _flatten_output(struct, depth):
-    if isinstance(struct, (list, tuple)) or is_lazy_iterable(struct):
-        return [(obj, "{}:".format(i), depth) for i, obj in enumerate(struct)]
-    elif isinstance(struct, dict):
-        return [(obj, "{}:".format(k), depth) for k, obj in six.iteritems(struct)]
+def _flatten_output(output, depth):
+    if isinstance(output, (list, tuple)) or is_lazy_iterable(output):
+        return [(outp, "{}:".format(i), depth) for i, outp in enumerate(output)]
+    elif isinstance(output, dict):
+        return [(outp, "{}:".format(k), depth) for k, outp in six.iteritems(output)]
     else:
-        return [(obj, "-", depth) for obj in flatten(struct)]
+        return [(outp, "-", depth) for outp in flatten(output)]
+
+
+def _iter_output(output, offset):
+    lookup = _flatten_output(output, 0)
+    i = -1
+    while lookup:
+        output, okey, odepth = lookup.pop(0)
+        i += 1
+        ooffset = offset + odepth * ind
+
+        if isinstance(output, Target):
+            yield output, okey, odepth, ooffset, lookup
+
+        else:
+            # print the key of the current structure if this is not the root object
+            is_root = i == 0
+            if not is_root:
+                print("{}{}".format(ooffset, okey))
+
+            # update the lookup list
+            lookup[:0] = _flatten_output(output, 0 if is_root else odepth + 1)
 
 
 def print_task_deps(task, max_depth=1):
@@ -41,9 +66,9 @@ def print_task_deps(task, max_depth=1):
 
     print("print task dependencies with max_depth {}\n".format(max_depth))
 
-    ind = "|   "
     for dep, _, depth in task.walk_deps(max_depth=max_depth, order="pre"):
-        print("{}> {}".format(depth * ind, dep.repr(color=True)))
+        offset = depth * ("|" + ind)
+        print("{}> {}".format(offset, dep.repr(color=True)))
 
 
 def print_task_status(task, max_depth=0, target_depth=0, flags=None):
@@ -57,21 +82,20 @@ def print_task_status(task, max_depth=0, target_depth=0, flags=None):
     print("print task status with max_depth {} and target_depth {}".format(
         max_depth, target_depth))
 
-    # helper to print the actual output status text
+    # helper to print the actual output status text during output traversal
     def print_status_text(output, key, offset):
         print("{}{} {}".format(offset, key, output.repr(color=True)))
         status_text = output.status_text(max_depth=target_depth, flags=flags, color=True)
         status_lines = status_text.split("\n")
         status_text = status_lines[0]
         for line in status_lines[1:]:
-            status_text += "\n{}  {}".format(offset, line)
-        print("{}  {}".format(offset, status_text))
+            status_text += "\n{}{}{}".format(offset, ind, line)
+        print("{}{}{}".format(offset, ind, status_text))
 
     # walk through deps
     done = []
-    ind = "|    "
     for dep, _, depth in task.walk_deps(max_depth=max_depth, order="pre"):
-        offset = depth * ind
+        offset = depth * ("|" + ind)
         print(offset)
 
         # when the dep is a workflow, preload its branch map which updates branch parameters
@@ -79,32 +103,17 @@ def print_task_status(task, max_depth=0, target_depth=0, flags=None):
             dep.get_branch_map()
 
         print("{}> check status of {}".format(offset, dep.repr(color=True)))
-        offset += ind
+        offset += "|" + ind
 
         if dep in done:
-            print(offset + "- " + colored("outputs already checked", "yellow"))
+            print(offset + colored("outputs already checked", "yellow"))
             continue
 
         done.append(dep)
 
-        # start the traversing through output structure with a lookup pattern
-        lookup = _flatten_output(dep.output(), 0)
-        i = -1
-        while lookup:
-            output, okey, odepth = lookup.pop(0)
-            i += 1
-            ooffset = offset + odepth * "  "
-            is_root = i == 0
-
-            if isinstance(output, Target):
-                print_status_text(output, okey, ooffset)
-            else:
-                # print the key of the current structure if this is not the root object
-                if not is_root:
-                    print("{}{}".format(ooffset, okey))
-
-                # update the lookup list
-                lookup = _flatten_output(output, 0 if is_root else odepth + 1) + lookup
+        # start the traversing
+        for output, okey, _, ooffset, _ in _iter_output(dep.output(), offset):
+            print_status_text(output, okey, ooffset)
 
 
 def print_task_output(task, max_depth=0):
@@ -144,9 +153,8 @@ def remove_task_output(task, max_depth=0, mode=None, include_external=False):
     print("selected " + colored(mode_name + " mode", "blue", style="bright"))
 
     done = []
-    ind = "|   "
     for dep, _, depth in task.walk_deps(max_depth=max_depth, order="pre"):
-        offset = depth * ind
+        offset = depth * ("|" + ind)
         print(offset)
 
         # when the dep is a workflow, preload its branch map which updates branch parameters
@@ -154,14 +162,14 @@ def remove_task_output(task, max_depth=0, mode=None, include_external=False):
             dep.get_branch_map()
 
         print("{}> remove output of {}".format(offset, dep.repr(color=True)))
-        offset += ind
+        offset += "|" + ind
 
         if not include_external and isinstance(dep, ExternalTask):
-            print(offset + "- " + colored("task is external, skip", "yellow"))
+            print(offset + colored("task is external, skip", "yellow"))
             continue
 
         if dep in done:
-            print(offset + "- " + colored("outputs already removed", "yellow"))
+            print(offset + colored("outputs already removed", "yellow"))
             continue
 
         if mode == "i":
@@ -172,48 +180,32 @@ def remove_task_output(task, max_depth=0, mode=None, include_external=False):
 
         done.append(dep)
 
-        # start the traversing through output structure with a lookup pattern
-        lookup = _flatten_output(dep.output(), 0)
-        i = -1
-        while lookup:
-            output, okey, odepth = lookup.pop(0)
-            i += 1
-            ooffset = offset + odepth * "  "
-            is_root = i == 0
+        # start the traversing through output structure
+        for output, okey, odepth, ooffset, lookup in _iter_output(dep.output(), offset):
+            print("{}{} {}".format(ooffset, okey, output.repr(color=True)))
 
-            if isinstance(output, Target):
-                print("{}{} {}".format(ooffset, okey, output.repr(color=True)))
+            if mode == "d":
+                print(ooffset + ind + colored("dry removed", "yellow"))
+                continue
 
-                if mode == "d":
-                    print(ooffset + "  " + colored("dry removed", "yellow"))
+            if mode == "i" and task_mode != "a":
+                if isinstance(output, TargetCollection):
+                    coll_choice = query_choice(ooffset + ind + "remove?", ("y", "n", "i"),
+                        default="n", descriptions=["yes", "no", "interactive"])
+                    if coll_choice == "i":
+                        lookup[:0] = _flatten_output(output.targets, odepth + 1)
+                        continue
+                    else:
+                        target_choice = coll_choice
+                else:
+                    target_choice = query_choice(ooffset + ind + "remove?", ("y", "n"),
+                        default="n", descriptions=["yes", "no"])
+                if target_choice == "n":
+                    print(ooffset + ind + colored("skipped", "yellow"))
                     continue
 
-                elif mode == "i" and task_mode != "a":
-                    if isinstance(output, TargetCollection):
-                        coll_choice = query_choice(ooffset + "  " + "remove?", ("y", "n", "i"),
-                            default="n", descriptions=["yes", "no", "interactive"])
-                        if coll_choice == "i":
-                            lookup = _flatten_output(output.targets, odepth + 1) + lookup
-                            continue
-                        else:
-                            target_choice = coll_choice
-                    else:
-                        target_choice = query_choice(ooffset + "  " + "remove?", ("y", "n"),
-                            default="n", descriptions=["yes", "no"])
-                    if target_choice == "n":
-                        print(ooffset + "  " + colored("skipped", "yellow"))
-                        continue
-
-                output.remove()
-                print(ooffset + "  " + colored("removed", "red", style="bright"))
-
-            else:
-                # print the key of the current structure if this is not the root object
-                if not is_root:
-                    print("{}{}".format(ooffset, okey))
-
-                # update the lookup list
-                lookup = _flatten_output(output, 0 if is_root else odepth + 1) + lookup
+            output.remove()
+            print(ooffset + ind + colored("removed", "red", style="bright"))
 
 
 def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_external=False):
@@ -247,9 +239,8 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
     print("selected " + colored(mode_name + " mode", "blue", style="bright"))
 
     done = []
-    ind = "|   "
     for dep, _, depth in task.walk_deps(max_depth=max_depth, order="pre"):
-        offset = depth * ind
+        offset = depth * ("|" + ind)
         print(offset)
 
         # when the dep is a workflow, preload its branch map which updates branch parameters
@@ -257,63 +248,74 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
             dep.get_branch_map()
 
         print("{}> fetch output of {}".format(offset, dep.repr(color=True)))
-        offset += ind
+        offset += "|" + ind
 
         if not include_external and isinstance(dep, ExternalTask):
-            print(offset + "- " + colored("task is external, skip", "yellow"))
+            print(offset + colored("task is external, skip", "yellow"))
             continue
 
         if dep in done:
-            print(offset + "- " + colored("outputs already fetched", "yellow"))
+            print(offset + colored("outputs already fetched", "yellow"))
             continue
 
         if mode == "i":
-            task_mode = query_choice(offset + "  walk through outputs?", ("y", "n"),
-                default="y")
+            task_mode = query_choice(offset + "fetch outputs?", ("y", "n", "a"),
+                default="y", descriptions=["yes", "no", "all"])
             if task_mode == "n":
                 continue
 
         done.append(dep)
 
-        outputs = flatten(
-            (outp._flat_target_list if isinstance(outp, TargetCollection) else outp)
-            for outp in flatten(dep.output())
-        )
-        for outp in outputs:
+        # start the traversing through output structure with a lookup pattern
+        for output, okey, odepth, ooffset, lookup in _iter_output(dep.output(), offset):
             try:
-                stat = outp.stat
+                stat = output.stat
             except:
                 stat = None
 
-            target_line = "{}- {}".format(offset, outp.repr(color=True))
+            target_line = "{}{} {}".format(ooffset, okey, output.repr(color=True))
             if stat:
                 target_line += " ({:.2f} {})".format(*human_bytes(stat.st_size))
             print(target_line)
 
-            def print_skip(reason):
-                text = reason + ", skip"
-                print(offset + "  " + colored(text, color="yellow", style="bright"))
-
-            if stat is None:
-                print_skip("not existing")
+            if not isinstance(output, TargetCollection) and stat is None:
+                print(ooffset + ind + colored("not existing, skip", "yellow", style="bright"))
                 continue
 
-            if not callable(getattr(outp, "copy_to_local", None)):
-                print_skip("not a file target")
+            is_copyable = callable(getattr(output, "copy_to_local", None))
+            if not isinstance(output, TargetCollection) and not is_copyable:
+                print(ooffset + ind + colored("not a file target, skip", "yellow", style="bright"))
                 continue
 
             if mode == "d":
-                print("{}  {}".format(offset, colored("dry fetched", "yellow")))
+                print(ooffset + ind + colored("dry fetched", "yellow"))
                 continue
 
-            elif mode == "i":
-                q = offset + "  fetch?"
-                if query_choice(q, ("y", "n"), default="y") == "n":
-                    print(offset + "  " + colored("skipped", "yellow"))
+            to_fetch = [output]
+
+            if mode == "i" and task_mode != "a":
+                if isinstance(output, TargetCollection):
+                    coll_choice = query_choice(ooffset + ind + "fetch?", ("y", "n", "i"),
+                        default="y", descriptions=["yes", "no", "interactive"])
+                    if coll_choice == "i":
+                        lookup[:0] = _flatten_output(output.targets, odepth + 1)
+                        continue
+                    else:
+                        target_choice = coll_choice
+                    to_fetch = list(output._flat_target_list)
+                else:
+                    target_choice = query_choice(ooffset + ind + "fetch?", ("y", "n"),
+                        default="y", descriptions=["yes", "no"])
+                if target_choice == "n":
+                    print(ooffset + ind + colored("skipped", "yellow"))
                     continue
 
-            basename = "{}__{}".format(dep.live_task_id, outp.basename)
-            outp.copy_to_local(os.path.join(target_dir, basename))
+            for outp in to_fetch:
+                if not callable(getattr(outp, "copy_to_local", None)):
+                    continue
 
-            print("{}  {} ({})".format(offset, colored("fetched", "green", style="bright"),
-                basename))
+                basename = "{}__{}".format(dep.live_task_id, outp.basename)
+                outp.copy_to_local(os.path.join(target_dir, basename))
+
+                print("{}{}{} ({})".format(ooffset, ind,
+                    colored("fetched", "green", style="bright"), basename))
