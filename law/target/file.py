@@ -224,10 +224,6 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
         return
 
     @abstractmethod
-    def uri(self, *args, **kwargs):
-        return
-
-    @abstractmethod
     def touch(self):
         return
 

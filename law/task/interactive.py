@@ -19,7 +19,9 @@ import six
 from law.target.base import Target
 from law.target.file import FileSystemTarget
 from law.target.collection import TargetCollection
-from law.util import colored, flatten, check_bool_flag, query_choice, human_bytes, is_lazy_iterable
+from law.util import (
+    colored, flatten, check_bool_flag, query_choice, human_bytes, is_lazy_iterable, make_list,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -109,22 +111,13 @@ def print_task_output(task, max_depth=0):
 
     print("print task output with max_depth {}\n".format(max_depth))
 
-    def print_target(target):
-        if isinstance(target, FileSystemTarget):
-            print(target.uri())
-        else:
-            logger.warning("target listing not yet implemented for {}".format(target.__class__))
-
     done = []
     for dep, _, depth in task.walk_deps(max_depth=max_depth, order="pre"):
         done.append(dep)
 
         for outp in flatten(dep.output()):
-            if isinstance(outp, TargetCollection):
-                for t in outp._flat_target_list:
-                    print_target(t)
-            else:
-                print_target(outp)
+            for uri in make_list(outp.uri()):
+                print(uri)
 
 
 def remove_task_output(task, max_depth=0, mode=None, include_external=False):

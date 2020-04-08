@@ -100,3 +100,7 @@ class Target(luigi.target.Target):
     @abstractproperty
     def hash(self):
         return
+
+    @abstractmethod
+    def uri(self, *args, **kwargs):
+        return
