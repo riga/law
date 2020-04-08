@@ -17,7 +17,6 @@ import logging
 import six
 
 from law.target.base import Target
-from law.target.file import FileSystemTarget
 from law.target.collection import TargetCollection
 from law.util import (
     colored, flatten, check_bool_flag, query_choice, human_bytes, is_lazy_iterable, make_list,
@@ -25,6 +24,16 @@ from law.util import (
 
 
 logger = logging.getLogger(__name__)
+
+
+# helper to create a list of 3-tuples (target, key, depth) of an arbitrarily structured output
+def _flatten_output(struct, depth):
+    if isinstance(struct, (list, tuple)) or is_lazy_iterable(struct):
+        return [(obj, "{}:".format(i), depth) for i, obj in enumerate(struct)]
+    elif isinstance(struct, dict):
+        return [(obj, "{}:".format(k), depth) for k, obj in six.iteritems(struct)]
+    else:
+        return [(obj, "-", depth) for obj in flatten(struct)]
 
 
 def print_task_deps(task, max_depth=1):
@@ -58,15 +67,6 @@ def print_task_status(task, max_depth=0, target_depth=0, flags=None):
             status_text += "\n{}  {}".format(offset, line)
         print("{}  {}".format(offset, status_text))
 
-    # helper to create a list of 3-tuples (target, key, depth) of an arbitrary structure
-    def flatten_output(struct, depth):
-        if isinstance(struct, (list, tuple)) or is_lazy_iterable(struct):
-            return [(obj, "{}:".format(i), depth) for i, obj in enumerate(struct)]
-        elif isinstance(struct, dict):
-            return [(obj, "{}:".format(k), depth) for k, obj in six.iteritems(struct)]
-        else:
-            return [(obj, "-", depth) for obj in flatten(struct)]
-
     # walk through deps
     done = []
     ind = "|    "
@@ -88,22 +88,23 @@ def print_task_status(task, max_depth=0, target_depth=0, flags=None):
         done.append(dep)
 
         # start the traversing through output structure with a lookup pattern
-        lookup = flatten_output(dep.output(), 0)
-        is_root = True
+        lookup = _flatten_output(dep.output(), 0)
+        i = -1
         while lookup:
             output, okey, odepth = lookup.pop(0)
+            i += 1
+            ooffset = offset + odepth * "  "
+            is_root = i == 0
 
             if isinstance(output, Target):
-                print_status_text(output, okey, offset + odepth * "  ")
+                print_status_text(output, okey, ooffset)
             else:
                 # print the key of the current structure if this is not the root object
                 if not is_root:
-                    print("{}{}".format(offset, okey))
+                    print("{}{}".format(ooffset, okey))
 
                 # update the lookup list
-                lookup = flatten_output(output, 0 if is_root else odepth + 1)
-
-            is_root = False
+                lookup = _flatten_output(output, 0 if is_root else odepth + 1) + lookup
 
 
 def print_task_output(task, max_depth=0):
@@ -164,27 +165,55 @@ def remove_task_output(task, max_depth=0, mode=None, include_external=False):
             continue
 
         if mode == "i":
-            task_mode = query_choice(offset + "  remove outputs?", ["y", "n", "a"], default="y",
+            task_mode = query_choice(offset + "remove outputs?", ["y", "n", "a"], default="y",
                 descriptions=["yes", "no", "all"])
             if task_mode == "n":
                 continue
 
         done.append(dep)
 
-        for outp in flatten(dep.output()):
-            print("{}- {}".format(offset, outp.repr(color=True)))
+        # start the traversing through output structure with a lookup pattern
+        lookup = _flatten_output(dep.output(), 0)
+        i = -1
+        while lookup:
+            output, okey, odepth = lookup.pop(0)
+            i += 1
+            ooffset = offset + odepth * "  "
+            is_root = i == 0
 
-            if mode == "d":
-                print(offset + "  " + colored("dry removed", "yellow"))
-                continue
+            if isinstance(output, Target):
+                print("{}{} {}".format(ooffset, okey, output.repr(color=True)))
 
-            elif mode == "i" and task_mode != "a":
-                if query_choice(offset + "  remove?", ("y", "n"), default="n") == "n":
-                    print(offset + "  " + colored("skipped", "yellow"))
+                if mode == "d":
+                    print(ooffset + "  " + colored("dry removed", "yellow"))
                     continue
 
-            outp.remove()
-            print(offset + "  " + colored("removed", "red", style="bright"))
+                elif mode == "i" and task_mode != "a":
+                    if isinstance(output, TargetCollection):
+                        coll_choice = query_choice(ooffset + "  " + "remove?", ("y", "n", "i"),
+                            default="n", descriptions=["yes", "no", "interactive"])
+                        if coll_choice == "i":
+                            lookup = _flatten_output(output.targets, odepth + 1) + lookup
+                            continue
+                        else:
+                            target_choice = coll_choice
+                    else:
+                        target_choice = query_choice(ooffset + "  " + "remove?", ("y", "n"),
+                            default="n", descriptions=["yes", "no"])
+                    if target_choice == "n":
+                        print(ooffset + "  " + colored("skipped", "yellow"))
+                        continue
+
+                output.remove()
+                print(ooffset + "  " + colored("removed", "red", style="bright"))
+
+            else:
+                # print the key of the current structure if this is not the root object
+                if not is_root:
+                    print("{}{}".format(ooffset, okey))
+
+                # update the lookup list
+                lookup = _flatten_output(output, 0 if is_root else odepth + 1) + lookup
 
 
 def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_external=False):
