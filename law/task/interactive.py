@@ -14,9 +14,12 @@ __all__ = [
 import os
 import logging
 
+import six
+
+from law.target.base import Target
 from law.target.file import FileSystemTarget
 from law.target.collection import TargetCollection
-from law.util import colored, flatten, check_bool_flag, query_choice, human_bytes
+from law.util import colored, flatten, check_bool_flag, query_choice, human_bytes, is_lazy_iterable
 
 
 logger = logging.getLogger(__name__)
@@ -43,8 +46,28 @@ def print_task_status(task, max_depth=0, target_depth=0, flags=None):
     print("print task status with max_depth {} and target_depth {}".format(
         max_depth, target_depth))
 
+    # helper to print the actual output status text
+    def print_status_text(output, key, offset):
+        print("{}{} {}".format(offset, key, output.repr(color=True)))
+        status_text = output.status_text(max_depth=target_depth, flags=flags, color=True)
+        status_lines = status_text.split("\n")
+        status_text = status_lines[0]
+        for line in status_lines[1:]:
+            status_text += "\n{}  {}".format(offset, line)
+        print("{}  {}".format(offset, status_text))
+
+    # helper to create a list of 3-tuples (target, key, depth) of an arbitrary structure
+    def flatten_output(struct, depth):
+        if isinstance(struct, (list, tuple)) or is_lazy_iterable(struct):
+            return [(obj, "{}:".format(i), depth) for i, obj in enumerate(struct)]
+        elif isinstance(struct, dict):
+            return [(obj, "{}:".format(k), depth) for k, obj in six.iteritems(struct)]
+        else:
+            return [(obj, "-", depth) for obj in flatten(struct)]
+
+    # walk through deps
     done = []
-    ind = "|   "
+    ind = "|    "
     for dep, _, depth in task.walk_deps(max_depth=max_depth, order="pre"):
         offset = depth * ind
         print(offset)
@@ -62,15 +85,23 @@ def print_task_status(task, max_depth=0, target_depth=0, flags=None):
 
         done.append(dep)
 
-        for outp in flatten(dep.output()):
-            print("{}- {}".format(offset, outp.repr(color=True)))
+        # start the traversing through output structure with a lookup pattern
+        lookup = flatten_output(dep.output(), 0)
+        is_root = True
+        while lookup:
+            output, okey, odepth = lookup.pop(0)
 
-            status_text = outp.status_text(max_depth=target_depth, flags=flags, color=True)
-            status_lines = status_text.split("\n")
-            status_text = status_lines[0]
-            for line in status_lines[1:]:
-                status_text += "\n{}  {}".format(offset, line)
-            print("{}  {}".format(offset, status_text))
+            if isinstance(output, Target):
+                print_status_text(output, okey, offset + odepth * "  ")
+            else:
+                # print the key of the current structure if this is not the root object
+                if not is_root:
+                    print("{}{}".format(offset, okey))
+
+                # update the lookup list
+                lookup = flatten_output(output, 0 if is_root else odepth + 1)
+
+            is_root = False
 
 
 def print_task_output(task, max_depth=0):
