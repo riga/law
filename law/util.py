@@ -879,10 +879,12 @@ def iter_chunks(l, size):
 byte_units = ["bytes", "kB", "MB", "GB", "TB", "PB", "EB"]
 
 
-def human_bytes(n, unit=None):
+def human_bytes(n, unit=None, fmt=False):
     """
     Takes a number of bytes *n*, assigns the best matching unit and returns the respective number
-    and unit string in a tuple. When *unit* is set, that unit is used. Example:
+    and unit string in a tuple. When *unit* is set, that unit is used. When *fmt* is set, it is
+    expected to be a string template with two elements that are filled via *str.format*. It can also
+    be a boolean value in which case the template defaults to ``"{:.1f} {}"`` when *True*. Example:
 
     .. code-block:: python
 
@@ -891,6 +893,12 @@ def human_bytes(n, unit=None):
 
         human_bytes(3407872, "kB")
         # -> (3328.0, "kB")
+
+        human_bytes(3407872, fmt="{:.2f} -- {}")
+        # -> "3.25 -- MB"
+
+        human_bytes(3407872, fmt=True)
+        # -> "3.25 MB"
     """
     # check if the unit exists
     if unit and unit not in byte_units:
@@ -903,7 +911,17 @@ def human_bytes(n, unit=None):
     else:
         idx = int(math.floor(math.log(abs(n), 1024)))
         idx = min(idx, len(byte_units))
-    return n / 1024. ** idx, byte_units[idx]
+
+    # get the value and the unit name
+    value = n / 1024. ** idx
+    unit = byte_units[idx]
+
+    if fmt:
+        if not isinstance(fmt, six.string_types):
+            fmt = "{:.1f} {}"
+        return fmt.format(value, unit)
+    else:
+        return value, unit
 
 
 def parse_bytes(s, input_unit="bytes", unit="bytes"):
