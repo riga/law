@@ -42,7 +42,7 @@ def import_ROOT(batch=True, ignore_cli=True, reset=False):
     return _ROOT
 
 
-def hadd_task(task, inputs, output, cwd=None):
+def hadd_task(task, inputs, output, local=False, cwd=None):
     """
     This method is intended to be used by tasks that are supposed to merge root files, e.g. when
     inheriting from :py:class:`law.contrib.tasks.MergeCascade`. *inputs* should be a sequence of
@@ -68,29 +68,47 @@ def hadd_task(task, inputs, output, cwd=None):
         cwd = LocalDirectoryTarget(cwd)
     cwd.touch()
 
-    # fetch inputs
-    with task.publish_step("fetching inputs ...", runtime=True):
-        def fetch(inp):
-            inp.copy_to_local(cwd.child(inp.unique_basename, type="f"), cache=False)
-            return inp.unique_basename
+    if local:
+        # when local, there is no need to download inputs
+        input_paths = [inp.path for inp in inputs]
 
-        def callback(i):
-            task.publish_message("fetch file {} / {}".format(i + 1, len(inputs)))
-
-        bases = map_verbose(fetch, inputs, every=5, callback=callback)
-
-    # start merging
-    with task.publish_step("merging ...", runtime=True):
-        with output.localize("w", cache=False) as tmp_out:
-            if len(bases) == 1:
-                tmp_out.path = cwd.child(bases[0]).path
+        with task.publish_step("merging ...", runtime=True):
+            if len(inputs) == 1:
+                output.copy_from_local(inputs[0])
             else:
                 # merge using hadd
-                cmd = quote_cmd(["hadd", "-n", "0", "-d", cwd.path, tmp_out.path] + bases)
-                code = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-                    cwd=cwd.path)[0]
+                cmd = quote_cmd(["hadd", "-n", "0", "-d", cwd.path, output.path] + input_paths)
+                code = interruptable_popen(cmd, shell=True, executable="/bin/bash")[0]
                 if code != 0:
                     raise Exception("hadd failed")
 
-                task.publish_message("merged file size: {:.2f} {}".format(
-                    *human_bytes(tmp_out.stat.st_size)))
+        task.publish_message("merged file size: {}".format(human_bytes(
+            output.stat.st_size, fmt=True)))
+
+    else:
+        # when not local, we need to fetch files first into the cwd
+        with task.publish_step("fetching inputs ...", runtime=True):
+            def fetch(inp):
+                inp.copy_to_local(cwd.child(inp.unique_basename, type="f"), cache=False)
+                return inp.unique_basename
+
+            def callback(i):
+                task.publish_message("fetch file {} / {}".format(i + 1, len(inputs)))
+
+            bases = map_verbose(fetch, inputs, every=5, callback=callback)
+
+        # start merging into the localized output
+        with output.localize("w", cache=False) as tmp_out:
+            with task.publish_step("merging ...", runtime=True):
+                if len(bases) == 1:
+                    tmp_out.path = cwd.child(bases[0]).path
+                else:
+                    # merge using hadd
+                    cmd = quote_cmd(["hadd", "-n", "0", "-d", cwd.path, tmp_out.path] + bases)
+                    code = interruptable_popen(cmd, shell=True, executable="/bin/bash",
+                        cwd=cwd.path)[0]
+                    if code != 0:
+                        raise Exception("hadd failed")
+
+                    task.publish_message("merged file size: {}".format(human_bytes(
+                        tmp_out.stat.st_size, fmt=True)))
