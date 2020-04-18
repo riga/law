@@ -42,7 +42,7 @@ def import_ROOT(batch=True, ignore_cli=True, reset=False):
     return _ROOT
 
 
-def hadd_task(task, inputs, output, local=False, cwd=None):
+def hadd_task(task, inputs, output, cwd=None, local=False, force=True):
     """
     This method is intended to be used by tasks that are supposed to merge root files, e.g. when
     inheriting from :py:class:`law.contrib.tasks.MergeCascade`. *inputs* should be a sequence of
@@ -50,6 +50,13 @@ def hadd_task(task, inputs, output, local=False, cwd=None):
     in which hadd is invoked. When empty, a temporary directory is used. The *task* itself is
     used to print and publish messages via its :py:meth:`law.Task.publish_message` and
     :py:meth:`law.Task.publish_step` methods.
+
+    When *local* is *True*, the input and output targets are assumed to be local and the merging is
+    based on their local paths. Otherwise, the targets are fetched first and the output target is
+    localized.
+
+    When *force* is *True*, any existing output file is overwritten (by adding the ``-f`` flag to
+    ``hadd``).
     """
     # ensure inputs are targets
     inputs = [
@@ -68,6 +75,16 @@ def hadd_task(task, inputs, output, local=False, cwd=None):
         cwd = LocalDirectoryTarget(cwd)
     cwd.touch()
 
+    # helper to create the hadd cmd
+    def hadd_cmd(input_paths, output_path):
+        cmd = ["hadd", "-n", "0"]
+        if force:
+            cmd.append("-f")
+        cmd.extend(["-d", cwd.path])
+        cmd.append(output_path)
+        cmd.extend(input_paths)
+        return quote_cmd(cmd)
+
     if local:
         # when local, there is no need to download inputs
         input_paths = [inp.path for inp in inputs]
@@ -77,7 +94,7 @@ def hadd_task(task, inputs, output, local=False, cwd=None):
                 output.copy_from_local(inputs[0])
             else:
                 # merge using hadd
-                cmd = quote_cmd(["hadd", "-n", "0", "-d", cwd.path, output.path] + input_paths)
+                cmd = hadd_cmd(input_paths, output.path)
                 code = interruptable_popen(cmd, shell=True, executable="/bin/bash")[0]
                 if code != 0:
                     raise Exception("hadd failed")
@@ -104,7 +121,7 @@ def hadd_task(task, inputs, output, local=False, cwd=None):
                     tmp_out.path = cwd.child(bases[0]).path
                 else:
                     # merge using hadd
-                    cmd = quote_cmd(["hadd", "-n", "0", "-d", cwd.path, tmp_out.path] + bases)
+                    cmd = hadd_cmd(bases, tmp_out.path)
                     code = interruptable_popen(cmd, shell=True, executable="/bin/bash",
                         cwd=cwd.path)[0]
                     if code != 0:
