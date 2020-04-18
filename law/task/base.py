@@ -19,7 +19,6 @@ from abc import abstractmethod
 from inspect import getargspec
 
 import luigi
-import luigi.util
 import six
 
 from law.config import Config
@@ -27,8 +26,8 @@ from law.parameter import NO_STR, CSVParameter
 from law.target.file import localize_file_targets
 from law.parser import root_task, global_cmdline_values
 from law.util import (
-    abort, colored, uncolored, make_list, multi_match, flatten, BaseStream, human_duration,
-    patch_object,
+    abort, common_task_params, colored, uncolored, make_list, multi_match, flatten, BaseStream,
+    human_duration, patch_object,
 )
 
 
@@ -89,7 +88,7 @@ class BaseTask(luigi.Task):
     @classmethod
     def req_params(cls, inst, _exclude=None, _prefer_cli=None, **kwargs):
         # common/intersection params
-        params = luigi.util.common_params(inst, cls)
+        params = common_task_params(inst, cls)
 
         # determine parameters to exclude
         _exclude = set() if _exclude is None else set(make_list(_exclude))

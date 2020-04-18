@@ -7,11 +7,11 @@ Helpful utility functions.
 
 __all__ = [
     "default_lock", "io_lock", "no_value", "rel_path", "law_src_path", "law_home_path", "law_run",
-    "print_err", "abort", "is_number", "try_int", "str_to_int", "colored", "uncolored",
-    "query_choice", "is_pattern", "brace_expand", "multi_match", "is_lazy_iterable", "make_list",
-    "make_tuple", "flatten", "merge_dicts", "which", "map_verbose", "map_struct", "mask_struct",
-    "tmp_file", "interruptable_popen", "readable_popen", "create_hash", "copy_no_perm",
-    "makedirs_perm", "user_owns_file", "iter_chunks", "human_bytes", "parse_bytes",
+    "print_err", "abort", "is_number", "try_int", "str_to_int", "common_task_params", "colored",
+    "uncolored", "query_choice", "is_pattern", "brace_expand", "multi_match", "is_lazy_iterable",
+    "make_list", "make_tuple", "flatten", "merge_dicts", "which", "map_verbose", "map_struct",
+    "mask_struct", "tmp_file", "interruptable_popen", "readable_popen", "create_hash",
+    "copy_no_perm", "makedirs_perm", "user_owns_file", "iter_chunks", "human_bytes", "parse_bytes",
     "human_duration", "human_time_diff", "parse_duration", "is_file_exists_error",
     "check_bool_flag", "send_mail", "ShorthandDict", "open_compat", "patch_object",
     "join_generators", "quote_cmd", "BaseStream", "TeeStream", "FilteredStream",
@@ -170,6 +170,24 @@ def str_to_int(s):
     m = re.match(r"^0(b|o|d|x)\d+$", s)
     base = {"b": 2, "o": 8, "d": 10, "x": 16}[m.group(1)] if m else 10
     return int(s, base=base)
+
+
+def common_task_params(task_instance, task_cls):
+    """
+    Returns the parameters that are common between a *task_instance* and a *task_cls* in a
+    dictionary with values taken directly from the task instance. The difference with respect to
+    ``luigi.util.common_params`` is that the values are not parsed using the parameter objects of
+    the task class, which might be faster for some purposes.
+    """
+    task_cls_param_names = [name for name, _ in task_cls.get_params()]
+    common_param_names = [
+        name for name, _ in task_instance.get_params()
+        if name in task_cls_param_names
+    ]
+    return {
+        name: getattr(task_instance, name)
+        for name in common_param_names
+    }
 
 
 colors = {
