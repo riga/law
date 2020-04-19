@@ -184,10 +184,7 @@ def common_task_params(task_instance, task_cls):
         name for name, _ in task_instance.get_params()
         if name in task_cls_param_names
     ]
-    return {
-        name: getattr(task_instance, name)
-        for name in common_param_names
-    }
+    return {name: getattr(task_instance, name) for name in common_param_names}
 
 
 colors = {

@@ -319,7 +319,7 @@ def delay(fn, opts, task, *args, **kwargs):
         else:
             raise ValueError("unknown delay decorator pdf '{}'".format(opts["pdf"]))
 
-        time.sleep(t)
+        time.sleep(max(t, 0))
 
         return fn(task, *args, **kwargs)
 
