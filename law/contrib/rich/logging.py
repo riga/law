@@ -13,6 +13,10 @@ from law.util import multi_match
 
 
 def set_handlers(scopes=("luigi.*", "luigi-*", "law.*")):
+    """
+    Replaces all StreamHandlers in logging *scopes*, that log to tty,
+    with instances of rich.logging.RichHandler.
+    """
     from rich import logging as rich_logging
 
     for name, logger in logging.root.manager.loggerDict.items():
