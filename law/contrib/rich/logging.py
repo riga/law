@@ -33,10 +33,3 @@ def set_handlers(scopes=("luigi.*", "luigi-*", "law.*")):
                     # create and add new handler
                     new_hdlr = rich_logging.RichHandler(level)
                     logger.addHandler(new_hdlr)
-
-
-#
-#
-# rename file as logging
-#
-# doc eintrag

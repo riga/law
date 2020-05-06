@@ -10,4 +10,4 @@ __all__ = ["set_handlers"]
 
 
 # provisioning imports
-from law.contrib.rich.handler import set_handlers
+from law.contrib.rich.logging import set_handlers
