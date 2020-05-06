@@ -6,10 +6,8 @@ Rich logging handlers.
 """
 
 
-__all__ = ["RichHandler"]
+__all__ = ["set_handlers"]
 
 
 # provisioning imports
-from law.contrib.rich.handler import RichHandler
-
-RichHandler.set_handlers()
+from law.contrib.rich.handler import set_handlers

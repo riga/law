@@ -1,35 +1,42 @@
 # coding: utf-8
 
 """
-Rich logging handlers.
+Set console logging handlers to rich logging handlers.
 """
 
 
-__all__ = ["RichHandler"]
-
+__all__ = ["set_handlers"]
 
 import logging
 
-import luigi
-from rich import logging as rich_logging
+from law.util import multi_match
 
 
-class RichHandler:
+def set_handlers(scopes=("luigi.*", "luigi-*", "law.*")):
+    from rich import logging as rich_logging
 
-    name = "rich_handler"
+    for name, logger in logging.root.manager.loggerDict.items():
+        if any(multi_match(name, scope) for scope in scopes):
+            if getattr(logger, "handlers", None) is not None:
+                level = logger.level
+                replace_handler = False
+                for hdlr in logger.handlers:
+                    if isinstance(hdlr, logging.StreamHandler) and hdlr.stream.isatty():
+                        if getattr(hdlr, "level", None) is not None:
+                            level = hdlr.level
 
-    @classmethod
-    def set_handlers(self, scopes=["luigi", "law"]):
-        for name, logger in logging.root.manager.loggerDict.items():
-            if any(name.startswith(scope) for scope in scopes):
-                try:
-                    for hdlr in logger.handlers:
                         # remove old handler
                         logger.removeHandler(hdlr)
+                        replace_handler = True
 
-                        # create and add new handler
-                        new_hdlr = rich_logging.RichHandler(logger.level)
-                        logger.addHandler(new_hdlr)
-                except AttributeError:
-                    # pass if logger has no handlers
-                    pass
+                if replace_handler:
+                    # create and add new handler
+                    new_hdlr = rich_logging.RichHandler(level)
+                    logger.addHandler(new_hdlr)
+
+
+#
+#
+# rename file as logging
+#
+# doc eintrag
