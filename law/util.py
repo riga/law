@@ -285,7 +285,7 @@ def colored(msg, color=None, background=None, style=None, force=False):
 
 def uncolored(s):
     """
-    Returns color codes from a string *s* and returns it.
+    Removes all color codes from a string *s* and returns it.
     """
     return uncolor_cre.sub("", s)
 
@@ -411,6 +411,7 @@ def multi_match(name, patterns, mode=any, regex=False):
     = *any*, the default), or in case all patterns matched (*mode* = *all*). Otherwise, *False* is
     returned. When *regex* is *True*, *re.match* is used instead of *fnmatch.fnmatch*.
     """
+    patterns = make_list(patterns)
     if not regex:
         return mode(fnmatch.fnmatch(name, pattern) for pattern in patterns)
     else:
