@@ -5,7 +5,7 @@ Law logging setup.
 """
 
 
-__all__ = ["console_handler", "setup_logging", "LogFormatter"]
+__all__ = ["console_handler", "setup_logging", "is_tty_handler", "get_tty_handlers", "LogFormatter"]
 
 
 import logging
@@ -42,16 +42,40 @@ def setup_logging():
     cfg = Config.instance()
     for name, level in cfg.items("logging"):
         level = level.upper()
-        if hasattr(logging, level):
-            # create / get the logger and set the level
-            logger = logging.getLogger(name)
-            logger.setLevel(getattr(logging, level))
+        if getattr(logging, level, None) is None:
+            continue
 
-            # add the console handler when not part of the law.* namespace
-            if not name.startswith("law."):
-                logger.addHandler(console_handler)
+        # create / get the logger and set the level
+        logger = logging.getLogger(name)
+        logger.setLevel(getattr(logging, level))
 
-            logger.debug("registered logger with level '{}'".format(level))
+        # when the logger is not within the law.* namespace and there is no tty stream handler yet,
+        # add the console handler
+        if not name.startswith("law.") and not get_tty_handlers(logger):
+            logger.addHandler(console_handler)
+
+        logger.debug("registered logger with level '{}'".format(level))
+
+
+def is_tty_handler(handler):
+    """
+    Returns *True* if a logging *handler* is a *StreamHandler* which logs to a tty (i.e. *stdout* or
+    *stderr*) or a base *Handler* with a *console* attribute evaluating to *True*. The latter check
+    is intended to cover a variety of handlers provided by custom modules.
+    """
+    if isinstance(handler, logging.StreamHandler) and getattr(handler, "stream", None) \
+            and handler.stream.isatty():
+        return True
+    elif isinstance(handler, logging.Handler) and getattr(handler, "console", None):
+        return True
+    return False
+
+
+def get_tty_handlers(logger):
+    """
+    Returns a list of all handlers of a *logger* that log to a tty.
+    """
+    return [handler for handler in getattr(logger, "handlers", []) if is_tty_handler(handler)]
 
 
 class LogFormatter(logging.Formatter):
