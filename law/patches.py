@@ -6,9 +6,10 @@ law, rather than changing default luigi behavior.
 """
 
 
-__all__ = ["patch_all"]
+__all__ = ["before_run", "patch_all"]
 
 
+import functools
 import logging
 
 import luigi
@@ -19,6 +20,22 @@ logger = logging.getLogger(__name__)
 
 
 _patched = False
+
+
+_before_run_fns = []
+
+
+def before_run(fn):
+    """
+    Adds a function *fn* to the list of callbacks that are invoked right before luigi commences
+    running scheduled tasks. If *fn* is already registered, it is not added again and *False* is
+    returned. Otherwise, *True* is returned.
+    """
+    if fn in _before_run_fns:
+        return False
+    else:
+        _before_run_fns.append(fn)
+        return True
 
 
 def patch_all():
@@ -39,6 +56,8 @@ def patch_all():
     patch_worker_factory()
     patch_keepalive_run()
     patch_cmdline_parser()
+    patch_schedule_and_run()
+    patch_interface_logging()
 
     logger.debug("applied all law-specific luigi patches")
 
@@ -207,7 +226,6 @@ def patch_cmdline_parser():
     Patches the ``luigi.cmdline_parser.CmdlineParser`` to store the original command line arguments
     for later processing in the :py:class:`law.config.Config`.
     """
-    # store original functions
     _init = luigi.cmdline_parser.CmdlineParser.__init__
 
     # patch init
@@ -218,3 +236,67 @@ def patch_cmdline_parser():
     luigi.cmdline_parser.CmdlineParser.__init__ = __init__
 
     logger.debug("patched luigi.cmdline_parser.CmdlineParser.__init__")
+
+
+def patch_schedule_and_run():
+    """
+    Patches ``luigi.interface._schedule_and_run`` to invoke all callbacks registered via
+    :py:func:`before_run` right before luigi starts running scheduled tasks. This is achieved by
+    patching ``luigi.worker.Worker.run`` within the scope of ``luigi.interface._schedule_and_run``.
+    """
+    _schedule_and_run = luigi.interface._schedule_and_run
+
+    def schedule_and_run(*args, **kwargs):
+        _worker_run = luigi.worker.Worker.run
+
+        @functools.wraps(_worker_run)
+        def worker_run(self):
+            # invoke all registered before_run functions
+            for fn in _before_run_fns:
+                if callable(fn):
+                    logger.debug("calling before_run function {}".format(fn))
+                    fn()
+                else:
+                    logger.warning("registered before_run function {} is not callable".format(fn))
+
+            return _worker_run(self)
+
+        with law.util.patch_object(luigi.worker.Worker, "run", worker_run):
+            return _schedule_and_run(*args, **kwargs)
+
+    luigi.interface._schedule_and_run = schedule_and_run
+
+    logger.debug("patched luigi.interface._schedule_and_run")
+
+
+def patch_interface_logging():
+    """
+    Patches ``luigi.setup_logging.InterfaceLogging._default`` to avoid adding multiple tty stream
+    handlers to the logger named "luigi-interface" and to preserve any previously set log level.
+    """
+    default = luigi.setup_logging.InterfaceLogging._default
+
+    @functools.wraps(default)
+    def _default(cls, opts):
+        _logger = logging.getLogger("luigi-interface")
+
+        level_before = _logger.level
+        tty_handlers_before = law.logger.get_tty_handlers(_logger)
+
+        ret = default(opts)
+
+        level_after = _logger.level
+        tty_handlers_after = law.logger.get_tty_handlers(_logger)
+
+        if level_before != logging.NOTSET and level_before != level_after:
+            _logger.setLevel(level_before)
+
+        if tty_handlers_before:
+            for handler in tty_handlers_after[len(tty_handlers_before):]:
+                _logger.removeHandler(handler)
+
+        return ret
+
+    luigi.setup_logging.InterfaceLogging._default = classmethod(_default)
+
+    logger.debug("patched luigi.setup_logging.InterfaceLogging._default")

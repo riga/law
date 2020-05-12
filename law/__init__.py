@@ -32,8 +32,8 @@ use_software_cache(reload_deps=True)
 
 
 # luigi patches
-from law.patches import patch_all
-patch_all()
+import law.patches
+law.patches.patch_all()
 
 
 # setup logging
