@@ -2,12 +2,12 @@
 # flake8: noqa
 
 """
-Rich logging handlers.
+Rich contrib functionality.
 """
 
 
-__all__ = ["set_handlers"]
+__all__ = ["replace_console_handlers"]
 
 
 # provisioning imports
-from law.contrib.rich.logging import set_handlers
+from law.contrib.rich.logger import replace_console_handlers

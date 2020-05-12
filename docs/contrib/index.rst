@@ -33,6 +33,7 @@ To use on of the following packages in your code, you must import them explicitl
    matplotlib
    mercurial
    numpy
+   rich
    root
    singularity
    slack

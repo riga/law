@@ -5,7 +5,8 @@ rich
 
 .. contents::
 
+
 Functions
 ---------
 
-.. autofunction:: set_handlers
+.. autofunction:: replace_console_handlers
