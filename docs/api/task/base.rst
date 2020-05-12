@@ -46,15 +46,3 @@ Class ``ExternalTask``
 
 .. autoclass:: ExternalTask
    :members:
-
-
-Functions
----------
-
-.. autofunction:: print_task_deps
-
-.. autofunction:: print_task_status
-
-.. autofunction:: print_output
-
-.. autofunction:: remove_task_output

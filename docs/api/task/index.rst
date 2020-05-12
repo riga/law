@@ -8,3 +8,4 @@ law.task
 
    base
    proxy
+   interactive

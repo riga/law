@@ -47,4 +47,4 @@ Functions
 
 .. autofunction:: remove_scheme
 
-.. autofunction:: localize_targets
+.. autofunction:: localize_file_targets

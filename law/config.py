@@ -16,7 +16,6 @@ __all__ = [
 import os
 import re
 import tempfile
-import functools
 import logging
 
 import luigi
@@ -575,9 +574,14 @@ for name in __all__[__all__.index("sections"):]:
         config = Config.instance()
         func = getattr(config, name)
 
-        @functools.wraps(func)
         def wrapper(*args, **kwargs):
+            """
+            Shorthand for :py:meth:`Config.{}` of the singleton instance :py:meth:`Config.instance`.
+            """
             return func(*args, **kwargs)
+
+        wrapper.__name__ = name
+        wrapper.__doc__ = wrapper.__doc__.format(name)
 
         return wrapper
 
