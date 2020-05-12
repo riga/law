@@ -94,6 +94,7 @@ def patch_worker_add_task():
     """
     _add_task = luigi.worker.Worker._add_task
 
+    @functools.wraps(_add_task)
     def add_task(self, *args, **kwargs):
         if law.sandbox.base._sandbox_switched and "deps" in kwargs:
             kwargs["deps"] = None
@@ -112,6 +113,7 @@ def patch_worker_add():
     """
     _add = luigi.worker.Worker._add
 
+    @functools.wraps(_add)
     def add(self, task, *args, **kwargs):
         # _add returns a generator, which we simply drain here
         # when we are in a sandbox
@@ -135,6 +137,7 @@ def patch_worker_run_task():
     """
     _run_task = luigi.worker.Worker._run_task
 
+    @functools.wraps(_run_task)
     def run_task(self, task_id):
         task = self._scheduled_tasks[task_id]
 
@@ -165,6 +168,7 @@ def patch_worker_get_work():
     """
     _get_work = luigi.worker.Worker._get_work
 
+    @functools.wraps(_get_work)
     def get_work(self):
         if law.sandbox.base._sandbox_switched:
             # when the worker is configured to stop requesting work, as triggered by the patched
@@ -209,6 +213,7 @@ def patch_keepalive_run():
     """
     _run = luigi.worker.KeepAliveThread.run
 
+    @functools.wraps(_run)
     def run(self):
         # do not run the keep-alive loop when sandboxed
         if law.sandbox.base._sandbox_switched:
@@ -229,6 +234,7 @@ def patch_cmdline_parser():
     _init = luigi.cmdline_parser.CmdlineParser.__init__
 
     # patch init
+    @functools.wraps(_init)
     def __init__(self, cmdline_args):
         _init(self, cmdline_args)
         self.cmdline_args = cmdline_args
@@ -246,6 +252,7 @@ def patch_schedule_and_run():
     """
     _schedule_and_run = luigi.interface._schedule_and_run
 
+    @functools.wraps(_schedule_and_run)
     def schedule_and_run(*args, **kwargs):
         _worker_run = luigi.worker.Worker.run
 
