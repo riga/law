@@ -18,24 +18,22 @@ import law
 
 logger = logging.getLogger(__name__)
 
-
 _patched = False
 
+_before_run_funcs = []
 
-_before_run_fns = []
 
-
-def before_run(fn):
+def before_run(func, force=False):
     """
-    Adds a function *fn* to the list of callbacks that are invoked right before luigi commences
-    running scheduled tasks. If *fn* is already registered, it is not added again and *False* is
-    returned. Otherwise, *True* is returned.
+    Adds a function *func* to the list of callbacks that are invoked right before luigi starts
+    running scheduled tasks. Unless *force* is *True*, a function that is already registered is not
+    added again and *False* is returned. Otherwise, *True* is returned.
     """
-    if fn in _before_run_fns:
-        return False
-    else:
-        _before_run_fns.append(fn)
+    if func not in _before_run_funcs or force:
+        _before_run_funcs.append(func)
         return True
+    else:
+        return False
 
 
 def patch_all():
@@ -259,12 +257,12 @@ def patch_schedule_and_run():
         @functools.wraps(_worker_run)
         def worker_run(self):
             # invoke all registered before_run functions
-            for fn in _before_run_fns:
-                if callable(fn):
-                    logger.debug("calling before_run function {}".format(fn))
-                    fn()
+            for func in _before_run_funcs:
+                if callable(func):
+                    logger.debug("calling before_run function {}".format(func))
+                    func()
                 else:
-                    logger.warning("registered before_run function {} is not callable".format(fn))
+                    logger.warning("registered before_run function {} is not callable".format(func))
 
             return _worker_run(self)
 
