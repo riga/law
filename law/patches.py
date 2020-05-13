@@ -41,11 +41,11 @@ def patch_all():
     Runs all patches. This function ensures that a second invocation has no effect.
     """
     global _patched
-
     if _patched:
         return
     _patched = True
 
+    patch_schedule_and_run()
     patch_default_retcodes()
     patch_worker_add_task()
     patch_worker_add()
@@ -54,10 +54,41 @@ def patch_all():
     patch_worker_factory()
     patch_keepalive_run()
     patch_cmdline_parser()
-    patch_schedule_and_run()
     patch_interface_logging()
 
     logger.debug("applied all law-specific luigi patches")
+
+
+def patch_schedule_and_run():
+    """
+    Patches ``luigi.interface._schedule_and_run`` to invoke all callbacks registered via
+    :py:func:`before_run` right before luigi starts running scheduled tasks. This is achieved by
+    patching ``luigi.worker.Worker.run`` within the scope of ``luigi.interface._schedule_and_run``.
+    """
+    _schedule_and_run = luigi.interface._schedule_and_run
+
+    @functools.wraps(_schedule_and_run)
+    def schedule_and_run(*args, **kwargs):
+        _worker_run = luigi.worker.Worker.run
+
+        @functools.wraps(_worker_run)
+        def worker_run(self):
+            # invoke all registered before_run functions
+            for func in _before_run_funcs:
+                if callable(func):
+                    logger.debug("calling before_run function {}".format(func))
+                    func()
+                else:
+                    logger.warning("registered before_run function {} is not callable".format(func))
+
+            return _worker_run(self)
+
+        with law.util.patch_object(luigi.worker.Worker, "run", worker_run):
+            return _schedule_and_run(*args, **kwargs)
+
+    luigi.interface._schedule_and_run = schedule_and_run
+
+    logger.debug("patched luigi.interface._schedule_and_run")
 
 
 def patch_default_retcodes():
@@ -240,38 +271,6 @@ def patch_cmdline_parser():
     luigi.cmdline_parser.CmdlineParser.__init__ = __init__
 
     logger.debug("patched luigi.cmdline_parser.CmdlineParser.__init__")
-
-
-def patch_schedule_and_run():
-    """
-    Patches ``luigi.interface._schedule_and_run`` to invoke all callbacks registered via
-    :py:func:`before_run` right before luigi starts running scheduled tasks. This is achieved by
-    patching ``luigi.worker.Worker.run`` within the scope of ``luigi.interface._schedule_and_run``.
-    """
-    _schedule_and_run = luigi.interface._schedule_and_run
-
-    @functools.wraps(_schedule_and_run)
-    def schedule_and_run(*args, **kwargs):
-        _worker_run = luigi.worker.Worker.run
-
-        @functools.wraps(_worker_run)
-        def worker_run(self):
-            # invoke all registered before_run functions
-            for func in _before_run_funcs:
-                if callable(func):
-                    logger.debug("calling before_run function {}".format(func))
-                    func()
-                else:
-                    logger.warning("registered before_run function {} is not callable".format(func))
-
-            return _worker_run(self)
-
-        with law.util.patch_object(luigi.worker.Worker, "run", worker_run):
-            return _schedule_and_run(*args, **kwargs)
-
-    luigi.interface._schedule_and_run = schedule_and_run
-
-    logger.debug("patched luigi.interface._schedule_and_run")
 
 
 def patch_interface_logging():
