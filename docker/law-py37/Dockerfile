@@ -28,14 +28,14 @@ RUN yum -y install libffi-devel openssl-devel bzip2-devel json-c-devel curl-deve
     wget nano screen git cmake cmake3; yum clean all
 
 # python software
-RUN wget -nv https://www.python.org/ftp/python/3.7.6/Python-3.7.6.tgz && \
-    tar -xzf Python-3.7.6.tgz && \
-    cd Python-3.7.6 && \
+RUN wget -nv https://www.python.org/ftp/python/3.7.7/Python-3.7.7.tgz && \
+    tar -xzf Python-3.7.7.tgz && \
+    cd Python-3.7.7 && \
     ./configure --enable-optimizations --enable-shared && \
     make altinstall && \
     cd .. && \
-    rm -rf Python-3.7.6 && \
-    rm Python-3.7.6.tgz && \
+    rm -rf Python-3.7.7 && \
+    rm Python-3.7.7.tgz && \
     ln -s -f "$( which python3.7 )" "$( dirname "$( which python3.7 )" )/python3" && \
     python3 --version && \
     ln -s -f "$( which pip3.7 )" "$( dirname "$( which pip3.7 )" )/pip3" && \
@@ -45,16 +45,16 @@ RUN wget -nv https://www.python.org/ftp/python/3.7.6/Python-3.7.6.tgz && \
 RUN yum -y install boost-devel boost-python; yum clean all
 
 # boost for custom python 3.7
-RUN wget -nv https://dl.bintray.com/boostorg/release/1.72.0/source/boost_1_72_0.tar.gz && \
-    tar -xzf boost_1_72_0.tar.gz && \
-    cd boost_1_72_0 && \
+RUN wget -nv https://dl.bintray.com/boostorg/release/1.73.0/source/boost_1_73_0.tar.gz && \
+    tar -xzf boost_1_73_0.tar.gz && \
+    cd boost_1_73_0 && \
     ./bootstrap.sh --with-libraries=system,thread,python --with-python="$( which python3.7 )" && \
     perl -pi -e 's!(\Qincludes ?= $(prefix)/include/python$(version)\E)!\1m!' tools/build/src/tools/python.jam && \
     ./b2 install --prefix=/usr && \
     ldconfig && \
     cd .. && \
-    rm -rf boost_1_72_0 && \
-    rm boost_1_72_0.tar.gz
+    rm -rf boost_1_73_0 && \
+    rm boost_1_73_0.tar.gz
 
 # WLCG software
 RUN rpm -Uvh https://repo.opensciencegrid.org/osg/3.5/osg-3.5-el7-release-latest.rpm
