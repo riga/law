@@ -2,7 +2,7 @@ FROM riga/law:latest
 
 # labels
 LABEL name="law-examples"
-LABEL version="0.0.37"
+LABEL version="0.0.38"
 
 # expose ports
 EXPOSE 8082
