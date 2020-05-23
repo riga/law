@@ -98,23 +98,24 @@ class TFGraphFormatter(Formatter):
     @classmethod
     def dump(cls, path, obj, variables_to_constants=False, output_names=None, *args, **kwargs):
         """
-        Extracts a TensorFlow graph contained in *obj*, transforms it into a simpler version with
-        variables converted to constants when *variables_to_constants* is *True*, and saves it to a
-        protobuf file at *path*. Depending on the version of the available TensorFlow API, *obj*
-        might have different types and *output_names* might be mandatory or not.
+        Extracts a TensorFlow graph contained in an object *obj*, transforms it into a simpler
+        representation with variables converted to constants when *variables_to_constants* is
+        *True*, and saves it to a protobuf file at *path*. The accepted types of *obj* greatly
+        depend on the available API versions. In general, *obj* can be a ``Graph`` or a ``GraphDef``
+        instance.
 
-        When v1 is detected, *obj* can be a ``Session``, a ``Graph`` or a ``GraphDef``. However,
-        when *variables_to_constants* is *True*, *obj* is expected to be a ``Session`` instance and
-        *output_names* must be a list of names of operations whose subgraphs are extracted and
-        exported. *args* and *kwargs* are forwarded to ``tf.train.write_graph``.
+        When the v1 API is found, ``Graph``, ``GraphDef`` and ``Session`` objects are accepted.
+        However, when *variables_to_constants* is *True*, *obj* must be a session and *output_names*
+        should refer to names of operations whose subgraphs are extracted (usually one).
 
-        When v2 is detected, *obj* can be a ``Session`` (from the ``compat.v1`` API), a ``Graph``, a
-        ``GraphDef``, or an either polymorphic or concrete function as returned by ``tf.function``.
-        See the `TensorFlow documentation on concrete functions
+        For TensorFlow v2, *obj* can also be a polymorphic or concrete function as returned by
+        ``tf.function``. See the `TensorFlow documentation on concrete functions
         <https://www.tensorflow.org/guide/concrete_function>`__ for more info. However, when
-        *variables_to_constants* is *True*, *obj* is expected to be either a concrete function or a
-        polymorphic function whose input signature is frozen or empty. Passing *output_names* or not
-        has no effect. *args* and *kwargs* are forwarded to ``tf.io.write_graph``.
+        *variables_to_constants* is *True*, *obj* must either be concreate, or polymorphic with its
+        input signature frozen or empty.
+
+        *args* and *kwargs* are forwarded to ``tf.train.write_graph`` (v1) or ``tf.io.write_graph``
+        (v2).
         """
         tf, tf1, tf_version = cls.import_tf()
         path = get_path(path)
@@ -123,62 +124,50 @@ class TFGraphFormatter(Formatter):
         # default as_text value
         kwargs.setdefault("as_text", path.endswith((".pbtxt", ".pb.txt")))
 
-        # the dump mechanism depends on the tf API version
-        if tf_version[0] == "1":
-            if variables_to_constants:
-                # validate inputs
-                if not isinstance(obj, tf1.Session):
-                    raise TypeError("when variables_to_constants is true, obj must be a TensorFlow "
-                        "v1 session instance, got '{}' instead".format(obj))
-                if not output_names:
-                    raise ValueError("when variables_to_constants is true, output_names must "
-                        "contain operations to export, got '{}' instead".format(output_names))
-
-                # conversion
-                graph = tf1.graph_util.convert_variables_to_constants(obj, obj.graph.as_graph_def(),
-                    output_names)
-
-            elif isinstance(obj, tf1.Session):
-                graph = obj.graph
-
-            else:
-                graph = obj
-
-            # write it
-            return tf1.train.write_graph(graph, graph_dir, graph_name, *args, **kwargs)
-
-        else:  # v2 API
+        # convert polymorphic to concrete function, v2 only
+        if tf_version[0] != "1":
             from tensorflow.python.eager.def_function import Function
             from tensorflow.python.eager.function import ConcreteFunction
 
-            # convert polymorphic to concrete function
             if isinstance(obj, Function):
                 if obj.function_spec.arg_names and not obj.input_signature:
                     raise ValueError("when obj is a polymorphic function accepting arguments, its "
                         "input signature must be frozen")
                 obj = obj.get_concrete_function()
 
-            if variables_to_constants:
+        # convert variables to constants
+        if variables_to_constants:
+            if tf1 and isinstance(obj, tf1.Session):
+                if not output_names:
+                    raise ValueError("when variables_to_constants is true, output_names must "
+                        "contain operations to export, got '{}' instead".format(output_names))
+                obj = tf1.graph_util.convert_variables_to_constants(obj, obj.graph.as_graph_def(),
+                    output_names)
+
+            elif tf_version[0] != "1":
                 from tensorflow.python.framework import convert_to_constants
 
-                # validate inputs
                 if not isinstance(obj, ConcreteFunction):
                     raise TypeError("when variables_to_constants is true, obj must be a concrete "
-                        " or polymorphic function, got '{}' instead".format(obj))
-
-                # conversion
-                graph = convert_to_constants.convert_variables_to_constants_v2(obj).graph
-
-            elif isinstance(obj, ConcreteFunction):
-                graph = obj.graph
-
-            elif tf1 and isinstance(obj, tf1.Session):
-                graph = obj.graph
+                        "or polymorphic function, got '{}' instead".format(obj))
+                obj = convert_to_constants.convert_variables_to_constants_v2(obj)
 
             else:
-                graph = obj
+                raise TypeError("cannot convert variables to constants for object '{}', type not "
+                    "understood for TensorFlow version {}".format(obj, tf.__version__))
 
-            # write it
+        # extract the graph
+        if tf1 and isinstance(obj, tf1.Session):
+            graph = obj.graph
+        elif tf_version[0] != "1" and isinstance(obj, ConcreteFunction):
+            graph = obj.graph
+        else:
+            graph = obj
+
+        # write it
+        if tf_version[0] == 1:
+            return tf1.train.write_graph(graph, graph_dir, graph_name, *args, **kwargs)
+        else:
             return tf.io.write_graph(graph, graph_dir, graph_name, *args, **kwargs)
 
 
