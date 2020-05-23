@@ -6,10 +6,10 @@ tensorflow
 .. contents::
 
 
-Class ``TFConstantGraphFormatter``
-----------------------------------
+Class ``TFGraphFormatter``
+--------------------------
 
-.. autoclass:: TFConstantGraphFormatter
+.. autoclass:: TFGraphFormatter
    :members:
 
 

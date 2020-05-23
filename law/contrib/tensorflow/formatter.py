@@ -5,7 +5,7 @@ TensorFlow target formatters.
 """
 
 
-__all__ = ["TFConstantGraphFormatter", "TFKerasModelFormatter", "TFKerasWeightsFormatter"]
+__all__ = ["TFGraphFormatter", "TFKerasModelFormatter", "TFKerasWeightsFormatter"]
 
 
 import os
@@ -14,9 +14,9 @@ from law.target.formatter import Formatter
 from law.target.file import get_path
 
 
-class TFConstantGraphFormatter(Formatter):
+class TFGraphFormatter(Formatter):
 
-    name = "tf_const_graph"
+    name = "tf_graph"
 
     @classmethod
     def import_tf(cls):
@@ -24,12 +24,13 @@ class TFConstantGraphFormatter(Formatter):
 
         # keep a reference to the v1 API as long as v2 provides compatibility
         tf1 = None
-        if tf.__version__.startswith("1."):
+        tf_version = tf.__version__.split(".", 2)
+        if tf_version[0] == "1":
             tf1 = tf
-        elif getattr(tf, "compat", None) and getattr(tf.compat, "v1"):
+        elif getattr(tf, "compat", None) is not None and getattr(tf.compat, "v1", None) is not None:
             tf1 = tf.compat.v1
 
-        return tf, tf1
+        return tf, tf1, tf_version
 
     @classmethod
     def accepts(cls, path, mode):
@@ -41,9 +42,9 @@ class TFConstantGraphFormatter(Formatter):
         Reads a saved TensorFlow graph from *path* and returns it. When *create_session* is *True*,
         a session object (compatible with the v1 API) is created and returned as the second value of
         a 2-tuple. The default value of *create_session* is *True* when TensorFlow v1 is detected,
-        and *False* otherwise. When *as_text* is *True*, or *None* and the file extension is
+        and *False* otherwise. When *as_text* is either *True*, or *None* and the file extension is
         ``".pbtxt"`` or ``".pb.txt"``, the content of the file at *path* is expected to be a
-        human-readable text file. Otherwise, it is expected to be a binary protobuf file. Example:
+        human-readable text file. Otherwise, it is read as a binary protobuf file. Example:
 
         .. code-block:: python
 
@@ -51,12 +52,15 @@ class TFConstantGraphFormatter(Formatter):
 
             graph, session = TFConstantGraphFormatter.load("path/to/model.pb", create_session=True)
         """
-        tf, tf1 = cls.import_tf()
+        tf, tf1, tf_version = cls.import_tf()
         path = get_path(path)
 
         # default create_session value
         if create_session is None:
-            create_session = tf1 is not None
+            create_session = tf_version[0] == "1"
+        if create_session and not tf1:
+            raise NotImplementedError("the v1 compatibility layer of TensorFlow v2 is missing, "
+                "but required by when create_session is True")
 
         # default as_text value
         if as_text is None:
@@ -74,7 +78,7 @@ class TFConstantGraphFormatter(Formatter):
 
             else:
                 # use the gfile api depending on the TF version
-                if tf1:
+                if tf_version[0] == "1":
                     from tensorflow.python.platform import gfile
                     with gfile.FastGFile(path, "rb") as f:
                         graph_def.ParseFromString(f.read())
@@ -86,46 +90,96 @@ class TFConstantGraphFormatter(Formatter):
             tf.import_graph_def(graph_def, name="")
 
         if create_session:
-            if not tf1:
-                raise NotImplementedError("the v1 compatibility layer of TensorFlow v2 is missing, "
-                    "but required by when create_session is True")
             session = tf1.Session(graph=graph)
             return graph, session
         else:
             return graph
 
     @classmethod
-    def dump(cls, path, session, output_names, *args, **kwargs):
+    def dump(cls, path, obj, variables_to_constants=False, output_names=None, *args, **kwargs):
         """
-        Takes a TensorFlow *session* object (compatible with the v1 API), converts its contained
-        graph into a simpler version with variables translated into constant tensors, and saves it
-        to a protobuf file at *path*. *output_numes* must be a list of names of output tensors to
-        save. In turn, TensorFlow internally determines which subgraph(s) to convert and save. All
-        *args* and *kwargs* are forwarded to :py:func:`tf.compat.v1.train.write_graph`.
+        Extracts a TensorFlow graph contained in *obj*, transforms it into a simpler version with
+        variables converted to constants when *variables_to_constants* is *True*, and saves it to a
+        protobuf file at *path*. Depending on the version of the available TensorFlow API, *obj*
+        might have different types and *output_names* might be mandatory or not.
 
-        .. note::
+        When v1 is detected, *obj* can be a ``Session``, a ``Graph`` or a ``GraphDef``. However,
+        when *variables_to_constants* is *True*, *obj* is expected to be a ``Session`` instance and
+        *output_names* must be a list of names of operations whose subgraphs are extracted and
+        exported. *args* and *kwargs* are forwarded to ``tf.train.write_graph``.
 
-            When used with TensorFlow v2, this function requires the v1 API compatibility layer.
-            When :py:attr:`tf.compat.v1` is not available, a *NotImplementedError* is raised.
+        When v2 is detected, *obj* can be a ``Session`` (from the ``compat.v1`` API), a ``Graph``, a
+        ``GraphDef``, or an either polymorphic or concrete function as returned by ``tf.function``.
+        See the `TensorFlow documentation on concrete functions
+        <https://www.tensorflow.org/guide/concrete_function>`__ for more info. However, when
+        *variables_to_constants* is *True*, *obj* is expected to be either a concrete function or a
+        polymorphic function whose input signature is frozen or empty. Passing *output_names* or not
+        has no effect. *args* and *kwargs* are forwarded to ``tf.io.write_graph``.
         """
-        _, tf1 = cls.import_tf()
+        tf, tf1, tf_version = cls.import_tf()
         path = get_path(path)
-
-        # complain when the v1 compatibility layer is not existing
-        if not tf1:
-            raise NotImplementedError("the v1 compatibility layer of TensorFlow v2 is missing, but "
-                "required")
-
-        # convert the graph
-        constant_graph = tf1.graph_util.convert_variables_to_constants(session,
-            session.graph.as_graph_def(), output_names)
+        graph_dir, graph_name = os.path.split(path)
 
         # default as_text value
         kwargs.setdefault("as_text", path.endswith((".pbtxt", ".pb.txt")))
 
-        # write the graph
-        graph_dir, graph_name = os.path.split(path)
-        return tf1.train.write_graph(constant_graph, graph_dir, graph_name, *args, **kwargs)
+        # the dump mechanism depends on the tf API version
+        if tf_version[0] == "1":
+            if variables_to_constants:
+                # validate inputs
+                if not isinstance(obj, tf1.Session):
+                    raise TypeError("when variables_to_constants is true, obj must be a TensorFlow "
+                        "v1 session instance, got '{}' instead".format(obj))
+                if not output_names:
+                    raise ValueError("when variables_to_constants is true, output_names must "
+                        "contain operations to export, got '{}' instead".format(output_names))
+
+                # conversion
+                graph = tf1.graph_util.convert_variables_to_constants(obj, obj.graph.as_graph_def(),
+                    output_names)
+
+            elif isinstance(obj, tf1.Session):
+                graph = obj.graph
+
+            else:
+                graph = obj
+
+            # write it
+            return tf1.train.write_graph(graph, graph_dir, graph_name, *args, **kwargs)
+
+        else:  # v2 API
+            from tensorflow.python.eager.def_function import Function
+            from tensorflow.python.eager.function import ConcreteFunction
+
+            # convert polymorphic to concrete function
+            if isinstance(obj, Function):
+                if obj.function_spec.arg_names and not obj.input_signature:
+                    raise ValueError("when obj is a polymorphic function accepting arguments, its "
+                        "input signature must be frozen")
+                obj = obj.get_concrete_function()
+
+            if variables_to_constants:
+                from tensorflow.python.framework import convert_to_constants
+
+                # validate inputs
+                if not isinstance(obj, ConcreteFunction):
+                    raise TypeError("when variables_to_constants is true, obj must be a concrete "
+                        " or polymorphic function, got '{}' instead".format(obj))
+
+                # conversion
+                graph = convert_to_constants.convert_variables_to_constants_v2(obj).graph
+
+            elif isinstance(obj, ConcreteFunction):
+                graph = obj.graph
+
+            elif tf1 and isinstance(obj, tf1.Session):
+                graph = obj.graph
+
+            else:
+                graph = obj
+
+            # write it
+            return tf.io.write_graph(graph, graph_dir, graph_name, *args, **kwargs)
 
 
 class TFKerasModelFormatter(Formatter):
