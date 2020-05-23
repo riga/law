@@ -108,11 +108,11 @@ class TFGraphFormatter(Formatter):
         However, when *variables_to_constants* is *True*, *obj* must be a session and *output_names*
         should refer to names of operations whose subgraphs are extracted (usually one).
 
-        For TensorFlow v2, *obj* can also be a polymorphic or concrete function as returned by
-        ``tf.function``. See the `TensorFlow documentation on concrete functions
-        <https://www.tensorflow.org/guide/concrete_function>`__ for more info. However, when
-        *variables_to_constants* is *True*, *obj* must either be concreate, or polymorphic with its
-        input signature frozen or empty.
+        For TensorFlow v2, *obj* can also be a compiled keras model, or both a polymorphic or
+        concrete function as returned by ``tf.function``. See the `TensorFlow documentation on
+        concrete functions <https://www.tensorflow.org/guide/concrete_function>`__ for more info.
+        However, when *variables_to_constants* is *True*, *obj* must neither be a polymorphic
+        function whose input signature is not set yet, nor an uncompiled keras model.
 
         *args* and *kwargs* are forwarded to ``tf.train.write_graph`` (v1) or ``tf.io.write_graph``
         (v2).
@@ -134,6 +134,15 @@ class TFGraphFormatter(Formatter):
                     raise ValueError("when obj is a polymorphic function accepting arguments, its "
                         "input signature must be frozen")
                 obj = obj.get_concrete_function()
+
+        # extract concrete function from keras models, v2 only
+        if tf_version[0] != "1" and isinstance(obj, tf.keras.Model):
+            from tensorflow.python.keras.saving import saving_utils
+
+            learning_phase_orig = tf.keras.backend.learning_phase
+            tf.keras.backend.set_learning_phase(False)
+            obj = saving_utils.trace_model_call(obj).get_concrete_function()
+            tf.keras.backend.set_learning_phase(learning_phase_orig)
 
         # convert variables to constants
         if variables_to_constants:
