@@ -101,16 +101,16 @@ class TFGraphFormatter(Formatter):
         Extracts a TensorFlow graph contained in an object *obj*, transforms it into a simpler
         representation with variables converted to constants when *variables_to_constants* is
         *True*, and saves it to a protobuf file at *path*. The accepted types of *obj* greatly
-        depend on the available API versions. In general, *obj* can be a ``Graph`` or a ``GraphDef``
-        instance.
+        depend on the available API versions.
 
-        When the v1 API is found, ``Graph``, ``GraphDef`` and ``Session`` objects are accepted.
-        However, when *variables_to_constants* is *True*, *obj* must be a session and *output_names*
-        should refer to names of operations whose subgraphs are extracted (usually one).
+        When the v1 API is found (which is also the case when ``tf.compat.v1`` is available in v2),
+        ``Graph``, ``GraphDef`` and ``Session`` objects are accepted. However, when
+        *variables_to_constants* is *True*, *obj* must be a session and *output_names* should refer
+        to names of operations whose subgraphs are extracted (usually one).
 
-        For TensorFlow v2, *obj* can also be a compiled keras model, or both a polymorphic or
-        concrete function as returned by ``tf.function``. See the `TensorFlow documentation on
-        concrete functions <https://www.tensorflow.org/guide/concrete_function>`__ for more info.
+        For TensorFlow v2, *obj* can also be a compiled keras model, or either a polymorphic or
+        concrete function as returned by ``tf.function``. See the TensorFlow documentation on
+        `concrete functions <https://www.tensorflow.org/guide/concrete_function>`__ for more info.
         However, when *variables_to_constants* is *True*, *obj* must neither be a polymorphic
         function whose input signature is not set yet, nor an uncompiled keras model.
 
@@ -124,25 +124,27 @@ class TFGraphFormatter(Formatter):
         # default as_text value
         kwargs.setdefault("as_text", path.endswith((".pbtxt", ".pb.txt")))
 
-        # convert polymorphic to concrete function, v2 only
+        # convert keras models and polymorphic functions to concrete functions, v2 only
         if tf_version[0] != "1":
+            from tensorflow.python.keras.saving import saving_utils
             from tensorflow.python.eager.def_function import Function
             from tensorflow.python.eager.function import ConcreteFunction
 
-            if isinstance(obj, Function):
+            if isinstance(obj, tf.keras.Model):
+                learning_phase_orig = tf.keras.backend.learning_phase()
+                tf.keras.backend.set_learning_phase(False)
+                model_func = saving_utils.trace_model_call(obj)
+                if model_func.function_spec.arg_names and not model_func.input_signature:
+                    raise ValueError("when obj is a keras model callable accepting arguments, its "
+                        "input signature must be frozen by building the model")
+                obj = model_func.get_concrete_function()
+                tf.keras.backend.set_learning_phase(learning_phase_orig)
+
+            elif isinstance(obj, Function):
                 if obj.function_spec.arg_names and not obj.input_signature:
                     raise ValueError("when obj is a polymorphic function accepting arguments, its "
                         "input signature must be frozen")
                 obj = obj.get_concrete_function()
-
-        # extract concrete function from keras models, v2 only
-        if tf_version[0] != "1" and isinstance(obj, tf.keras.Model):
-            from tensorflow.python.keras.saving import saving_utils
-
-            learning_phase_orig = tf.keras.backend.learning_phase
-            tf.keras.backend.set_learning_phase(False)
-            obj = saving_utils.trace_model_call(obj).get_concrete_function()
-            tf.keras.backend.set_learning_phase(learning_phase_orig)
 
         # convert variables to constants
         if variables_to_constants:
