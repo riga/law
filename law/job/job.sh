@@ -62,6 +62,8 @@
 
 action() {
     echo "running law remote job script"
+    echo
+    echo "start time: $( date +"%d/%m/%Y %T.%N (%Z)" )"
 
 
     #
@@ -166,8 +168,6 @@ action() {
 
         _law_job_call_func "$@"
         local hook_ret="$?"
-
-        _law_job_line 100
 
         return "$hook_ret"
     }
@@ -279,8 +279,9 @@ action() {
 
         # some final logs
         _law_job_section "end"
+        echo "end time      : $( date +"%d/%m/%Y %T.%N (%Z)" )"
         [ ! -z "$task_exit_code" ] && echo "task exit code: $task_exit_code"
-        echo "job exit code: $job_exit_code"
+        echo "job exit code : $job_exit_code"
         echo
 
         return "$job_exit_code"
