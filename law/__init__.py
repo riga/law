@@ -50,7 +50,9 @@ from law.parameter import (
     NO_STR, NO_INT, NO_FLOAT, is_no_param, get_param, TaskInstanceParameter, DurationParameter,
     CSVParameter, NotifyParameter, NotifyMultiParameter, NotifyMailParameter,
 )
-from law.target.file import FileSystemTarget, FileSystemFileTarget, FileSystemDirectoryTarget
+from law.target.file import (
+    FileSystemTarget, FileSystemFileTarget, FileSystemDirectoryTarget, localize_file_targets,
+)
 from law.target.local import LocalFileSystem, LocalTarget, LocalFileTarget, LocalDirectoryTarget
 from law.target.collection import TargetCollection, FileCollection, SiblingFileCollection
 import law.decorator
