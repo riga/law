@@ -61,9 +61,9 @@
 # 80: The stageout command failed.
 
 action() {
-    echo "running law remote job script"
-    echo
-    echo "start time: $( date +"%d/%m/%Y %T.%N (%Z)" )"
+    echo "starting law remote job"
+    local _law_job_start_time="$( date +"%d/%m/%Y %T.%N (%Z)" )"
+    echo "$_law_job_start_time"
 
 
     #
@@ -279,6 +279,7 @@ action() {
 
         # some final logs
         _law_job_section "end"
+        echo "start time    : $_law_job_start_time"
         echo "end time      : $( date +"%d/%m/%Y %T.%N (%Z)" )"
         [ ! -z "$task_exit_code" ] && echo "task exit code: $task_exit_code"
         echo "job exit code : $job_exit_code"
