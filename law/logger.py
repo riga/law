@@ -54,8 +54,6 @@ def setup_logging():
         if not name.startswith("law.") and not get_tty_handlers(logger):
             logger.addHandler(console_handler)
 
-        logger.debug("registered logger with level '{}'".format(level))
-
 
 def is_tty_handler(handler):
     """
