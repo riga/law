@@ -10,6 +10,7 @@ action() {
     if [ ! -d "$sw_dir" ]; then
         mkdir -p "$sw_dir"
         git clone https://github.com/spotify/luigi.git "$sw_dir/luigi"
+        ( cd "$sw_dir/luigi" && git checkout tags/2.8.13 )
         git clone https://github.com/benjaminp/six.git "$sw_dir/six"
     fi
 
