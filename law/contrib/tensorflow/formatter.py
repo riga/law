@@ -176,7 +176,7 @@ class TFGraphFormatter(Formatter):
             graph = obj
 
         # write it
-        if tf_version[0] == 1:
+        if tf_version[0] == "1":
             return tf1.train.write_graph(graph, graph_dir, graph_name, *args, **kwargs)
         else:
             return tf.io.write_graph(graph, graph_dir, graph_name, *args, **kwargs)
