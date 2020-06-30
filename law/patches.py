@@ -148,7 +148,7 @@ def patch_worker_add():
         # when we are in a sandbox
         if law.sandbox.base._sandbox_switched:
             task.task_id = law.sandbox.base._sandbox_task_id
-            for _ in _add(self, task, *args, **kwargs):
+            for _ in _add_orig(self, task, *args, **kwargs):
                 pass
             return []
         else:
