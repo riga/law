@@ -1,20 +1,62 @@
 sudo: required
 
-dist: stretch
+dist: xenial
 
 language: python
 
-python:
-  - "2.7"
-  - "3.6"
-  - "3.7"
-  - "3.8"
+stages:
+  - lint
+  - test
 
-before_install:
-  - pip install docutils
-  - pip install -r requirements.txt
-  - pip install flake8
+jobs:
+  include:
+    - stage: lint
+      python: 3.8
+      env:
+        - JOB=lint
+      install:
+        - pip install docutils
+        - pip install -r requirements.txt
+        - pip install flake8
+      script:
+        - flake8 law setup.py docs/_scripts/*
 
-script:
-  - flake8 law setup.py || exit $?
-  - python -m unittest tests
+    - stage: test
+      python: 2.7
+      env:
+        - JOB=test_python27
+      install:
+        - pip install docutils
+        - pip install -r requirements.txt
+      script:
+        - python -m unittest tests
+
+    - stage: test
+      python: 3.6
+      env:
+        - JOB=test_python36
+      install:
+        - pip install docutils
+        - pip install -r requirements.txt
+      script:
+        - python -m unittest tests
+
+    - stage: test
+      python: 3.7
+      env:
+        - JOB=test_python37
+      install:
+        - pip install docutils
+        - pip install -r requirements.txt
+      script:
+        - python -m unittest tests
+
+    - stage: test
+      python: 3.8
+      env:
+        - JOB=test_python38
+      install:
+        - pip install docutils
+        - pip install -r requirements.txt
+      script:
+        - python -m unittest tests
