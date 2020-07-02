@@ -5,18 +5,29 @@ Package containing optional and third-party functionality.
 """
 
 
+__all__ = ["load", "loaded_packages", "available_packages"]
+
+
 import os
 import logging
 import types
 import uuid
+import glob
 
 import law
 from law.util import law_src_path, flatten
 
 
+thisdir = os.path.dirname(os.path.abspath(__file__))
+
 logger = logging.getLogger(__name__)
 
 loaded_packages = []
+
+available_packages = [
+    os.path.basename(os.path.dirname(contrib_init))
+    for contrib_init in glob.glob(os.path.join(thisdir, "*", "__init__.py"))
+]
 
 
 def load(*packages):
