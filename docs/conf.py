@@ -13,7 +13,7 @@ import law
 
 
 # load all contrib packages
-law.contrib.load(*law.contrib.available_packages)
+law.contrib.load_all()
 
 
 project = law.__name__

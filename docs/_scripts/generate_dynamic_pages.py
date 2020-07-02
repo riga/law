@@ -84,7 +84,7 @@ def create_config_page():
     Reads the configuration example in law.cfg.example, parses it and creates config.rst.
     """
     # we need all contrib packages loaded here
-    law.contrib.load(*law.contrib.available_packages)
+    law.contrib.load_all()
 
     # read the example config
     input_lines = []

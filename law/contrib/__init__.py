@@ -1,11 +1,7 @@
 # coding: utf-8
 
-"""
-Package containing optional and third-party functionality.
-"""
 
-
-__all__ = ["load", "loaded_packages", "available_packages"]
+__all__ = ["available_packages", "loaded_packages", "load", "load_all"]
 
 
 import os
@@ -22,26 +18,26 @@ thisdir = os.path.dirname(os.path.abspath(__file__))
 
 logger = logging.getLogger(__name__)
 
-loaded_packages = []
-
+#: List of names of available contrib packages.
 available_packages = [
     os.path.basename(os.path.dirname(contrib_init))
     for contrib_init in glob.glob(os.path.join(thisdir, "*", "__init__.py"))
 ]
 
+#: List of names of already loaded contrib packages.
+loaded_packages = []
+
 
 def load(*packages):
     """
-    Loads contrib *packages* and adds them to the law namespace. Effectively, this removes the
-    necessity of having ``contrib`` module in imports or when accessing members. Example:
+    Loads contrib *packages* and adds them to the law namespace. Example:
 
     .. code-block:: python
 
         import law
-        law.contrib.load("slack")
+        law.contrib.load("docker")
 
-        print(law.slack.NotifySlackParameter)  # instead of law.contrib.slack.NotifySlackParameter
-        # -> <class '...'>
+        law.docker.DockerSandbox(...)
 
     It is ensured that packages are loaded only once.
     """
@@ -53,7 +49,7 @@ def load(*packages):
             raise Exception("contrib package '{}' does not exist".format(pkg))
         elif getattr(law, pkg, None):
             raise Exception("cannot load contrib package '{}', attribute with that name already "
-                "exists on the law module".format(pkg))
+                "exists in the law module".format(pkg))
 
         mod = __import__("law.contrib.{}".format(pkg), globals(), locals(), [pkg])
         setattr(law, pkg, mod)
@@ -98,3 +94,18 @@ def load(*packages):
             else:
                 logger.debug("skip creating dummy object for attribute {} of package {}".format(
                     attr, pkg))
+
+
+def load_all():
+    """
+    Loads all available contrib packages via :py:func:`load`. A package is skipped when an
+    ImportError was raised. The list of names of loaded packages is returned.
+    """
+    loaded_packages = []
+    for name in available_packages:
+        try:
+            load(name)
+        except ImportError:
+            continue
+        loaded_packages.append(name)
+    return loaded_packages
