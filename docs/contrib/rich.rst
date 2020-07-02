@@ -1,7 +1,7 @@
 rich
 =====
 
-.. automodule:: law.contrib.rich
+.. automodule:: law.rich
 
 .. contents::
 

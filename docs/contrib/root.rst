@@ -1,7 +1,7 @@
 root
 ====
 
-.. automodule:: law.contrib.root
+.. automodule:: law.root
 
 .. contents::
 

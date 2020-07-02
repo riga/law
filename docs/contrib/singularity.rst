@@ -1,7 +1,7 @@
 singularity
 ===========
 
-.. automodule:: law.contrib.singularity
+.. automodule:: law.singularity
 
 .. contents::
 

@@ -1,7 +1,7 @@
 docker
 ======
 
-.. automodule:: law.contrib.docker
+.. automodule:: law.docker
 
 .. contents::
 

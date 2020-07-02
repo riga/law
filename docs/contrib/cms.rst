@@ -1,7 +1,7 @@
 cms
 ===
 
-.. automodule:: law.contrib.cms
+.. automodule:: law.cms
 
 .. contents::
 

@@ -1,7 +1,7 @@
 glite
 =====
 
-.. automodule:: law.contrib.glite
+.. automodule:: law.glite
 
 .. contents::
 

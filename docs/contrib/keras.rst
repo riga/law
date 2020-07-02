@@ -1,7 +1,7 @@
 keras
 =====
 
-.. automodule:: law.contrib.keras
+.. automodule:: law.keras
 
 .. contents::
 

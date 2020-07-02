@@ -9,10 +9,12 @@ To use on of the following packages in your code, you must import them explicitl
 
    import law
 
-   import law.contrib.git
-   import law.contrib.htcondor
-   # or
-   law.contrib.load("git", "htcondor")
+   import law.contrib.docker
+   law.contrib.docker.DockerSandbox(...)
+
+   # or (recommended)
+   law.contrib.load("docker")
+   law.docker.DockerSandbox(...)
 
 
 .. toctree::

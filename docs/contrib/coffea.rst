@@ -1,7 +1,7 @@
 coffea
 ======
 
-.. automodule:: law.contrib.coffea
+.. automodule:: law.coffea
 
 .. contents::
 

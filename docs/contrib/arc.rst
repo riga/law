@@ -1,7 +1,7 @@
 arc
 ===
 
-.. automodule:: law.contrib.arc
+.. automodule:: law.arc
 
 .. contents::
 

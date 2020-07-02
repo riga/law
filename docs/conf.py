@@ -12,6 +12,10 @@ sys.path.insert(0, os.path.dirname(thisdir))
 import law
 
 
+# load all contrib packages
+law.contrib.load(*law.contrib.available_packages)
+
+
 project = law.__name__
 author = law.__author__
 copyright = law.__copyright__
@@ -52,7 +56,10 @@ elif html_theme == "alabaster":
 
 extensions = ["sphinx.ext.autodoc", "pydomain_patch"]
 
-autodoc_member_order = "bysource"
+autodoc_default_options = {
+    "member-order": "bysource",
+    "show-inheritance": True,
+}
 
 
 def setup(app):

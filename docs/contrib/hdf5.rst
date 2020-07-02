@@ -1,7 +1,7 @@
 hdf5
 ====
 
-.. automodule:: law.contrib.hdf5
+.. automodule:: law.hdf5
 
 .. contents::
 

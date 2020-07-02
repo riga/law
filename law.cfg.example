@@ -1,33 +1,35 @@
-; This file is an example of an (overcomplete) law configuration file and structured as follows.
+; This file is an example of an (overcomplete) law configuration file:
 ;
-;   - Features of the law configuration parser:
-;     - The law home directory
-;     - Configuration file resolution order
-;     - Inheritance and extensions
-;     - Option referencing
-;     - Environment variable expansion
-;     - The "None" value
-;     - Synchronization with luigi configuration
+; Table of contents:
 ;
-;   - law configuration:
-;     - [core]
-;     - [modules]
-;     - [logging]
-;     - [task]
-;     - [target]
-;     - [local_fs]
-;     - [wlcg_fs]
-;     - [dropbox_fs]
-;     - [job]
-;     - [notifications]
-;     - [bash_sandbox]
-;     - [bash_sandbox_env]
-;     - [docker_sandbox]
-;     - [docker_sandbox_env]
-;     - [docker_sandbox_volumes]
-;     - [singularity_sandbox]
-;     - [singularity_sandbox_env]
-;     - [singularity_sandbox_volumes]
+; - Features of the law configuration parser
+;   - The law home directory
+;   - Configuration file resolution order
+;   - Inheritance and extensions
+;   - Option referencing
+;   - Environment variable expansion
+;   - The "None" value
+;   - Synchronization with luigi configuration
+;
+; - law configuration
+;   - [core]
+;   - [modules]
+;   - [logging]
+;   - [task]
+;   - [target]
+;   - [local_fs]
+;   - [wlcg_fs]
+;   - [dropbox_fs]
+;   - [job]
+;   - [notifications]
+;   - [bash_sandbox]
+;   - [bash_sandbox_env]
+;   - [docker_sandbox]
+;   - [docker_sandbox_env]
+;   - [docker_sandbox_volumes]
+;   - [singularity_sandbox]
+;   - [singularity_sandbox_env]
+;   - [singularity_sandbox_volumes]
 ;
 ; Please note that configuration options of law contrib packages might also appear in sections of
 ; the general law configuration.
@@ -35,50 +37,52 @@
 
 ; === Features of the law configuration parser =====================================================
 
-; --- The law home directory
+; --- The law home directory -----------------------------------------------------------------------
 ; The law home directory is the default location of a small number of files and directories that are
 ; created when working with law. Please refer to the particular configuration options below for more
 ; information. The law home directory defaults to "$LAW_HOME" or "$HOME/.law".
 
-; --- Configuration file resolution order
+; --- Configuration file resolution order ----------------------------------------------------------
 ; Law configuration files (like the one you are just reading) are looked up in a certain order:
 ; $LAW_CONFIG_FILE, ./law.cfg, "config" in the law home directory, or "etc/law/config". The config
 ; parser only reads the first existing file.
 
-; --- Inheritance and extensions
+; --- Inheritance and extensions -------------------------------------------------------------------
 ; The law configuration can inherit from or can be extended by additional configuration files. See
 ; the options "inherit_configs" and "extend_configs" in the "[core]" section of the law
 ; configuration below. The only difference between the two is that options defined in
 ; "inherit_configs" do not overwrite those in the actual config, whereas options of "extend_configs"
 ; do.
 
-; --- Option referencing
+; --- Option referencing ---------------------------------------------------------------------------
 ; To avoid that some configurations are copied to other options (which is required in some cases),
 ; the law configuration parser supports references. The syntax for references to options in the same
 ; section is "&::other_option", and "&::other_section::other_option" for options in other sections.
 ; None is returned in case a reference cannot be resolved. The same applies to circular references.
 
-; --- Environment variable expansion
+; --- Environment variable expansion ---------------------------------------------------------------
 ; Configuration values that contain environment variables are automatically expanded by most getters
 ; of the law configuration parser, such as "get_expanded", "get_expanded_int", etc.
 
-; --- The "None" value
+; --- The "None" value -----------------------------------------------------------------------------
 ; Getters of the law configuration parser such as "get_default", get_expanded", "get_expanded_int",
 ; etc., are configured to return a default value (which itself defaults to "None" (the NoneType)) in
 ; case an option is not existing. Sometimes it can be useful to actively declare an option as
 ; missing. This can be achieved by setting an option to "None" (string).
 
-; --- Synchronization with luigi configuration
+; --- Synchronization with luigi configuration -----------------------------------------------------
 ; law is built on top of luigi and does not replace it. Therefore, another luigi-specfic
 ; configuration file is actually required. However, law provides a mechanism to define the luigi
-; configuration right within the law configuration file. All sections starting with "luigi_", e.g.
-; "[luigi_worker]" are forwarded to luigi. Environment variable expansion is performed as well.
-; This behavior is configurable by the "sync_luigi_config" option in the "[core]" section.
+; configuration right within the law configuration file. All sections starting with "luigi" plus
+; underscore, e.g. "[luigi_worker]" are forwarded to luigi. Environment variable expansion is
+; performed as well. This behavior is configurable by the "sync_luigi_config" option in the "[core]"
+; section.
 
 
 ; === law configuration ============================================================================
 
 ; --- core section ---------------------------------------------------------------------------------
+
 [core]
 
 ; law_home
@@ -115,13 +119,14 @@
 ; Default: None
 
 ; sync_luigi_config
-; Description: A boolean flag that decides whether sections starting with "luigi_" should be
-; synchronized with the luigi configuration.
+; Description: A boolean flag that decides whether sections starting with "luigi" plus underscore
+; should be synchronized with the luigi configuration.
 ; Type: boolean
 ; Default: True
 
 
 ; --- logging section ------------------------------------------------------------------------------
+
 [logging]
 
 ; law
@@ -143,6 +148,7 @@
 
 
 ; --- modules section ------------------------------------------------------------------------------
+
 [modules]
 
 ; This section only accepts options without values. They are interpreted as a list of modules that
@@ -152,6 +158,7 @@
 
 
 ; --- task section ---------------------------------------------------------------------------------
+
 [task]
 
 ; colored_repr
@@ -162,6 +169,7 @@
 
 
 ; --- target section -------------------------------------------------------------------------------
+
 [target]
 
 ; colored_repr
@@ -172,7 +180,7 @@
 
 ; default_local_fs
 ; Description: The name of the section to lookup for getting the configuration of a
-; "law.LocalFileSystem".
+; "law.target.local.LocalFileSystem".
 ; Type: string
 ; Default: "local_fs"
 
@@ -188,7 +196,7 @@
 ; Default: 0o0770
 
 
-; --- contrib options
+; --- Options of contrib packages
 
 ; default_wlcg_fs
 ; Description: The name of the section to lookup for getting the configuration of a
@@ -198,15 +206,17 @@
 
 ; default_dropbox_fs
 ; Description: The name of the section to lookup for getting the configuration of a
-; "law.dropbox.DropboxFileSytem".
+; "law.dropbox.DropboxFileSystem".
 ; Type: string
 ; Default: "dropbox_fs"
 
 
 ; --- local_fs section -----------------------------------------------------------------------------
+
 [local_fs]
 
-; --- options defined by "law.target.file.FileSystem"
+
+; --- Options defined by "law.target.file.FileSystem"
 
 ; has_perms
 ; Description: A boolean flag that signifies whether the file system should handle permissions,
@@ -228,9 +238,11 @@
 
 
 ; --- wlcg_fs section ------------------------------------------------------------------------------
+
 [wlcg_fs]
 
-; --- options defined by "law.target.file.FileSystem"
+
+; --- Options defined by "law.target.file.FileSystem"
 
 ; has_perms
 ; Description: A boolean flag that signifies whether the file system should handle permissions,
@@ -251,7 +263,7 @@
 ; Default: None
 
 
-; --- options defined by "law.target.remote.RemoteFileSystem"
+; --- Options defined by "law.target.remote.RemoteFileSystem"
 
 ; base
 ; Description: The base path for accessing files on a WLCG storage element. It should with a
@@ -310,7 +322,7 @@
 ; Default: False
 
 
-; --- options defined by "law.target.remote.RemoteCache"
+; --- Options defined by "law.target.remote.RemoteCache"
 
 ; cache_root
 ; Description: The directory in which cached files from remote file operation should be stored. When
@@ -365,12 +377,15 @@
 
 
 ; --- dropbox_fs section ---------------------------------------------------------------------------
+
 [dropbox_fs]
 
+; Note:
 ; To access files on your Dropbox, you to have to register an application to obtain credentials.
 ; Visit https://www.dropbox.com/developers for more information.
 
-; --- options defined by "law.dropbox.DropboxFileSystem"
+
+; --- Options defined by "law.dropbox.DropboxFileSystem"
 
 ; app_key
 ; Description: The Dropbox app key. This value is required for the "law.dropbox.DropboxFileSystem"
@@ -391,7 +406,7 @@
 ; Default: None
 
 
-; --- options defined by "law.target.file.FileSystem"
+; --- Options defined by "law.target.file.FileSystem"
 
 ; has_perms
 ; Description: A boolean flag that signifies whether the file system should handle permissions,
@@ -413,7 +428,7 @@
 ; Default: None
 
 
-; --- options defined by "law.target.remote.RemoteFileSystem"
+; --- Options defined by "law.target.remote.RemoteFileSystem"
 
 ; base
 ; Description: The base path for accessing files on your Dropbox. Normally, it should with
@@ -469,7 +484,7 @@
 ; Default: False
 
 
-; --- options defined by "law.target.remote.RemoteCache"
+; --- Options defined by "law.target.remote.RemoteCache"
 
 ; cache_root
 ; Description: The directory in which cached files from remote file operation should be stored. When
@@ -524,6 +539,7 @@
 
 
 ; --- job section ----------------------------------------------------------------------------------
+
 [job]
 
 ; job_file_dir
@@ -547,80 +563,80 @@
 ; Default: True
 
 
-; --- contrib options
+; --- Options of contrib packages
 
 ; arc_job_file_dir
 ; arc_job_file_dir_mkdtemp
 ; arc_job_file_dir_cleanup
-; Description: These three options are identical to the ones above without the "arc_" prefix, but
+; Description: These three options are identical to the ones above without the "arc" prefix, but
 ; only apply to the "law.arc.ARCJobFileFactory". When "None" or not existing, the values above are
 ; used.
 
 ; arc_chunk_size_submit
 ; Description: Number of jobs that can be submitted in parallel inside a single call to
-; "law.arc.ARCJobManager.submit()", i.e., in a single "arcsub" command.
+; "law.arc.ARCJobManager.submit", i.e., in a single "arcsub" command.
 ; Type: integer
 ; Default: 10
 
 ; arc_chunk_size_cancel
 ; Description: Number of jobs that can be cancelled in parallel inside a single call to
-; "law.arc.ARCJobManager.cancel()", i.e., in a single "arckill" command.
+; "law.arc.ARCJobManager.cancel", i.e., in a single "arckill" command.
 ; Type: integer
 ; Default: 20
 
 ; arc_chunk_size_cleanup
 ; Description: Number of jobs that can be cancelled in parallel inside a single call to
-; "law.arc.ARCJobManager.cleanup()", i.e., in a single "arcclean" command.
+; "law.arc.ARCJobManager.cleanup", i.e., in a single "arcclean" command.
 ; Type: integer
 ; Default: 20
 
 ; arc_chunk_size_query
 ; Description: Number of jobs whose status can be queried in parallel inside a single call to
-; "law.arc.ARCJobManager.query()", i.e., in a single "arcstat" command.
+; "law.arc.ARCJobManager.query", i.e., in a single "arcstat" command.
 ; Type: integer
 ; Default: 20
 
 ; glite_job_file_dir
 ; glite_job_file_dir_mkdtemp
 ; glite_job_file_dir_cleanup
-; Description: These three options are identical to the ones above without the "glite_" prefix, but
+; Description: These three options are identical to the ones above without the "glite" prefix, but
 ; only apply to the "law.glite.GLiteJobFileFactory". When "None" or not existing, the values above
 ; are used.
 
 ; glite_chunk_size_cancel
 ; Description: Number of jobs that can be cancelled in parallel inside a single call to
-; "law.glite.GLiteJobManager.cancel()", i.e., in a single "glite-ce-job-cancel" command.
+; "law.glite.GLiteJobManager.cancel", i.e., in a single "glite-ce-job-cancel" command.
 ; Type: integer
 ; Default: 20
 
 ; glite_chunk_size_cleanup
 ; Description: Number of jobs that can be cancelled in parallel inside a single call to
-; "law.glite.GLiteJobManager.cleanup()", i.e., in a single "glite-ce-job-purge" command.
+; "law.glite.GLiteJobManager.cleanup", i.e., in a single "glite-ce-job-purge" command.
 ; Type: integer
 ; Default: 20
 
 ; glite_chunk_size_query
 ; Description: Number of jobs whose status can be queried in parallel inside a single call to
-; "law.glite.GLiteJobManager.query()", i.e., in a single "glite-ce-job-status" command.
+; "law.glite.GLiteJobManager.query", i.e., in a single "glite-ce-job-status" command.
 ; Type: integer
 ; Default: 20
 
 ; htcondor_job_file_dir
 ; htcondor_job_file_dir_mkdtemp
 ; htcondor_job_file_dir_cleanup
-; Description: These three options are identical to the ones above without the "htcondor_" prefix,
+; Description: These three options are identical to the ones above without the "htcondor" prefix,
 ; but only apply to the "law.htcondor.HTCondorJobFileFactory". When "None" or not existing, the
 ; values above are used.
 
 ; htcondor_chunk_size_cancel
 ; Description: Number of jobs that can be cancelled in parallel inside a single call to
-; "law.htcondor.HTCondorJobManager.cancel()", i.e., in a single "condor_rm" command.
+; "law.htcondor.HTCondorJobManager.cancel", i.e., in a single "condor_rm" command.
 ; Type: integer
 ; Default: 20
 
 ; htcondor_chunk_size_query
 ; Description: Number of jobs whose status can be queried in parallel inside a single call to
-; "law.htcondor.HTCondorJobManager.query()", i.e., in a single "condor_q" or "condor_history"
+; "law.htcondor.HTCondorJobManager.query", i.e., in a single "condor_q" or "condor_history"
 ; command.
 ; Type: integer
 ; Default: 20
@@ -628,24 +644,25 @@
 ; lsf_job_file_dir
 ; lsf_job_file_dir_mkdtemp
 ; lsf_job_file_dir_cleanup
-; Description: These three options are identical to the ones above without the "lsf_" prefix, but
+; Description: These three options are identical to the ones above without the "lsf" prefix, but
 ; only apply to the "law.lsf.LSFJobFileFactory". When "None" or not existing, the values above are
 ; used.
 
 ; lsf_chunk_size_cancel
 ; Description: Number of jobs that can be cancelled in parallel inside a single call to
-; "law.lsf.LSFJobManager.cancel()", i.e., in a single "bkill" command.
+; "law.lsf.LSFJobManager.cancel", i.e., in a single "bkill" command.
 ; Type: integer
 ; Default: 20
 
 ; lsf_chunk_size_query
 ; Description: Number of jobs whose status can be queried in parallel inside a single call to
-; "law.lsf.LSFJobManager.query()", i.e., in a single "bjobs" command.
+; "law.lsf.LSFJobManager.query", i.e., in a single "bjobs" command.
 ; Type: integer
 ; Default: 20
 
 
 ; --- notifications section ------------------------------------------------------------------------
+
 [notifications]
 
 ; mail_recipient
@@ -670,7 +687,7 @@
 ; Default: 25
 
 
-; --- contrib options
+; --- Options of contrib packages
 
 ; slack_token
 ; Description: The token used for notifications sent by "law.slack.notify_slack".
@@ -706,8 +723,10 @@
 
 
 ; --- bash_sandbox section -------------------------------------------------------------------------
+
 [bash_sandbox]
 
+; Note:
 ; This section defines the default options for all bash sandboxes. To configure options per bash
 ; initialization file, create a section "bash_sandbox_<init_file>" with the desired options.
 
@@ -736,20 +755,23 @@
 
 
 ; --- bash_sandbox_env section ---------------------------------------------------------------------
+
 [bash_sandbox_env]
 
+; Note:
 ; Here you can define environment variables via key-value pairs that are accessible in a bash
 ; sandbox. When an option has no value, i.e., when only a key is given, the value of the variable of
 ; the current environment is used.
-
 ; The environment variables defined in this section are applied to all bash sandboxes. To configure
 ; variables per bash initialization file, create a section "bash_sandbox_env_<init_file>" with the
 ; desired values.
 
 
 ; --- docker_sandbox section -----------------------------------------------------------------------
+
 [docker_sandbox]
 
+; Note:
 ; This section defines the default options for all docker sandboxes. To configure options per image,
 ; create a section "docker_sandbox_<image_name>" with the desired options.
 
@@ -801,30 +823,34 @@
 
 
 ; --- docker_sandbox_env section -------------------------------------------------------------------
+
 [docker_sandbox_env]
 
+; Note:
 ; Here you can define environment variables via key-value pairs that are accessible in a docker
 ; sandbox. When an option has no value, i.e., when only a key is given, the value of the variable of
 ; the current environment is used.
-
 ; The environment variables defined in this section are applied to all docker sandboxes. To
 ; configure variables per image, create a section "docker_sandbox_env_<image_name>" with the desired
 ; values.
 
 
 ; --- docker_sandbox_volumes section ---------------------------------------------------------------
+
 [docker_sandbox_volumes]
 
+; Note:
 ; Here you can define volumes that are mounted in docker containers via key-value pairs that
 ; represent host and container directory, respectively.
-
 ; The volumes defined in this section are applied to all docker sandboxes. To configure volumes per
 ; image, create a section "docker_sandbox_volumes_<image_name>" with the desired values.
 
 
 ; --- singularity_sandbox section ------------------------------------------------------------------
+
 [singularity_sandbox]
 
+; Note:
 ; This section defines the default options for all singularity sandboxes. To configure options per
 ; image, create a section "singularity_sandbox_<image_name>" with the desired options.
 
@@ -887,22 +913,24 @@
 
 
 ; --- singularity_sandbox_env section --------------------------------------------------------------
+
 [singularity_sandbox_env]
 
+; Note:
 ; Here you can define environment variables via key-value pairs that are accessible in a singularity
 ; sandbox. When an option has no value, i.e., when only a key is given, the value of the variable of
 ; the current environment is used.
-
 ; The environment variables defined in this section are applied to all singularity sandboxes. To
 ; configure variables per image, create a section "singularity_sandbox_env_<image_name>" with the
 ; desired values.
 
 
 ; --- singularity_sandbox_volumes section ----------------------------------------------------------
+
 [singularity_sandbox_volumes]
 
+; Note:
 ; Here you can define volumes that are bound to singularity containers via key-value pairs that
 ; represent host and container directory, respectively.
-
 ; The volumes defined in this section are applied to all singularity sandboxes. To configure volumes
 ; per image, create a section "singularity_sandbox_volumes_<image_name>" with the desired values.

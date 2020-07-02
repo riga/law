@@ -1,7 +1,7 @@
 ipython
 =======
 
-.. automodule:: law.contrib.ipython
+.. automodule:: law.ipython
 
 .. contents::
 

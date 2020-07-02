@@ -10,7 +10,9 @@ dist
 build
 tmp
 docs/_build
+docs/config.rst
 data
+out
 local_tests
 .law
 .ipynb_checkpoints

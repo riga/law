@@ -1,7 +1,7 @@
 dropbox
 =======
 
-.. automodule:: law.contrib.dropbox
+.. automodule:: law.dropbox
 
 .. contents::
 

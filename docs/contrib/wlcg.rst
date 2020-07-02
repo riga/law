@@ -1,7 +1,7 @@
 wlcg
 ====
 
-.. automodule:: law.contrib.wlcg
+.. automodule:: law.wlcg
 
 .. contents::
 
