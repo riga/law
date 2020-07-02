@@ -21,8 +21,7 @@ The following example shows how a package (e.g. the :py:mod:`~law.docker` packag
    :members:
 
 
-Available pacakges
-------------------
+**Available pacakges**:
 
 .. toctree::
    :maxdepth: 1

@@ -3,6 +3,7 @@
 
 import sys
 import os
+import subprocess
 
 
 thisdir = os.path.dirname(os.path.abspath(__file__))
@@ -62,7 +63,18 @@ autodoc_default_options = {
 }
 
 
+# event handlers
+def generate_dynamic_pages(app):
+    script_path = os.path.join(thisdir, "_scripts", "generate_dynamic_pages.py")
+    subprocess.check_output([script_path])
+
+
+# setup the app
 def setup(app):
+    # connect events
+    app.connect("builder-inited", generate_dynamic_pages)
+
+    # set style sheets
     app.add_stylesheet("styles_common.css")
     if html_theme in ("sphinx_rtd_theme", "alabaster"):
         app.add_stylesheet("styles_{}.css".format(html_theme))
