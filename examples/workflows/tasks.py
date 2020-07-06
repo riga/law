@@ -81,12 +81,9 @@ class CreateChars(Task, law.LocalWorkflow):
         # actual payload: convert to char
         char = chr(num)
 
-        # ensure that the output directory exists
-        output = self.output()
-        output.parent.touch()
-
         # use target formatters (implementing dump and load, based on the file extension)
         # to write the output target
+        output = self.output()
         output.dump({"num": num, "char": char})
 
 
@@ -120,11 +117,8 @@ class CreateAlphabet(Task):
         for inp in six.itervalues(inputs):
             alphabet += inp.load()["char"]
 
-        # ensure that the output directory exists
-        output = self.output()
-        output.parent.touch()
-
         # again, dump the alphabet string into the output file
+        output = self.output()
         output.dump(alphabet + "\n")
 
         # some status message

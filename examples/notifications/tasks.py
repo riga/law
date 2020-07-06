@@ -16,28 +16,19 @@ import time
 import luigi
 import law
 
-law.contrib.load("slack", "telegram")
+law.contrib.load("slack", "tasks", "telegram")
 
 
-class MyTask(law.Task):
+class MyTask(law.tasks.RunOnceTask):
 
     notify_slack = law.slack.NotifySlackParameter()
     notify_telegram = law.telegram.NotifyTelegramParameter()
 
-    fail = luigi.BoolParameter()
-
-    def __init__(self, *args, **kwargs):
-        super(MyTask, self).__init__(*args, **kwargs)
-
-        self._has_run = False
-
-    def complete(self):
-        return self._has_run
+    fail = luigi.BoolParameter(default=False)
 
     @law.decorator.notify
+    @law.tasks.RunOnceTask.complete_on_success
     def run(self):
-        self._has_run = True
-
         self.publish_message("running {}".format(self.__class__.__name__))
 
         time.sleep(2)
