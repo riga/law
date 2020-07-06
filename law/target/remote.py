@@ -356,7 +356,7 @@ class RemoteCache(object):
                 pass
 
     @classmethod
-    def parse_config(cls, section, config=None):
+    def parse_config(cls, section, config=None, overwrite=False):
         # reads a law config section and returns parsed file system configs
         cfg = Config.instance()
 
@@ -366,7 +366,9 @@ class RemoteCache(object):
         # helper to add a config value if it exists, extracted with a config parser method
         def add(option, func):
             cache_option = "cache_" + option
-            if option not in config and not cfg.is_missing_or_none(section, cache_option):
+            if cfg.is_missing_or_none(section, cache_option):
+                return
+            elif option not in config or overwrite:
                 config[option] = func(section, cache_option)
 
         def get_size(section, cache_option):
@@ -658,14 +660,14 @@ class RemoteFileSystem(FileSystem):
     local_fs = _local_fs
 
     @classmethod
-    def parse_config(cls, section, config=None):
+    def parse_config(cls, section, config=None, overwrite=False):
         config = super(RemoteFileSystem, cls).parse_config(section, config=config)
 
         cfg = Config.instance()
 
         # helper to add a config value if it exists, extracted with a config parser method
         def add(option, func):
-            if option not in config:
+            if option not in config or overwrite:
                 config[option] = func(section, option)
 
         def get_expanded_list(section, option):
@@ -705,7 +707,8 @@ class RemoteFileSystem(FileSystem):
 
         # cache options
         if cfg.options(section, prefix="cache_"):
-            RemoteCache.parse_config(section, config.setdefault("cache_config", {}))
+            RemoteCache.parse_config(section, config.setdefault("cache_config", {}),
+                overwrite=overwrite)
 
         return config
 
@@ -1015,19 +1018,29 @@ class RemoteFileSystem(FileSystem):
             # simply copy and return the dst path
             return self._atomic_copy(src, dst, perm=perm, validate=validate, **kwargs)
 
-    def _prepare_dst_dir(self, src, dst, perm=None, **kwargs):
+    def _prepare_dst_dir(self, dst, src=None, perm=None, **kwargs):
+        """
+        Prepares the directory of a target located at *dst* and returns its full location as
+        specified below. *src* can be the location of a source file target, which is (e.g.) used by
+        a file copy or move operation. When *dst* is already a directory, calling this method has no
+        effect and the *dst* path is returned, optionally joined with the basename of *src*. When
+        *dst* is a file, *dst* path is returned unchanged. Otherwise, when *dst* does not exist yet,
+        it is interpreted as a file path and missing directories are created when
+        :py:attr:`create_file_dir` is *True*, using *perm* to set the directory permission. *dst* is
+        returned.
+        """
         rstat = self.exists(dst, stat=True)
-        src_base = os.path.basename(src)
 
         if rstat:
-            if self._s_isdir(rstat.st_mode):
-                full_dst = os.path.join(dst, src_base)
-            else:  # file
+            if self._s_isdir(rstat.st_mode) and src:
+                full_dst = os.path.join(dst, os.path.basename(src))
+            else:
                 full_dst = dst
+
         else:
-            # not existing, treat dst as a file name and create missing dirs
+            # interpret dst as a file name, create missing dirs
             dst_dir = self.dirname(dst)
-            if dst_dir and not self.exists(dst_dir):
+            if dst_dir and self.create_file_dir and not self.isdir(dst_dir):
                 self.mkdir(dst_dir, perm=perm, recursive=True, **kwargs)
             full_dst = dst
 
@@ -1037,9 +1050,9 @@ class RemoteFileSystem(FileSystem):
         # dst might be an existing directory
         if dst:
             if self.is_local(dst):
-                self.local_fs._prepare_dst_dir(src, dst, perm=dir_perm)
+                self.local_fs._prepare_dst_dir(dst, src=src, perm=dir_perm)
             else:
-                self._prepare_dst_dir(src, dst, perm=dir_perm, **kwargs)
+                self._prepare_dst_dir(dst, src=src, perm=dir_perm, **kwargs)
 
         # copy the file
         return self._cached_copy(src, dst, perm=perm, cache=cache, validate=validate, **kwargs)
@@ -1074,8 +1087,7 @@ class RemoteFileSystem(FileSystem):
                 lpath = remove_scheme(lpath)
             else:
                 tmp = LocalFileTarget(is_tmp=self.ext(path, n=0) or True)
-                lpath = tmp.path
-                self.copy(path, add_scheme(lpath, "file"), cache=False, **kwargs)
+                self.copy(path, tmp.uri(), cache=False, **kwargs)
 
             def cleanup():
                 if not cache and tmp.exists():
@@ -1095,7 +1107,7 @@ class RemoteFileSystem(FileSystem):
             def copy_and_cleanup():
                 try:
                     if tmp.exists():
-                        self._cached_copy(add_scheme(lpath, "file"), path, cache=cache, **kwargs)
+                        self.copy(tmp.uri(), path, cache=cache, **kwargs)
                 finally:
                     cleanup()
 

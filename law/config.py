@@ -22,7 +22,7 @@ import luigi
 import six
 from six.moves.configparser import ConfigParser
 
-from law.util import no_value, check_bool_flag, brace_expand, str_to_int
+from law.util import no_value, flag_to_bool, brace_expand, str_to_int
 
 
 logger = logging.getLogger(__name__)
@@ -71,7 +71,7 @@ class Config(ConfigParser):
             "software_dir": os.getenv("LAW_SOFTWARE_DIR") or law_home_path("software"),
             "inherit_configs": None,
             "extend_configs": None,
-            "sync_luigi_config": check_bool_flag(os.getenv("LAW_SYNC_LUIGI_CONFIG", "True")),
+            "sync_luigi_config": flag_to_bool(os.getenv("LAW_SYNC_LUIGI_CONFIG", "True")),
         },
         "logging": {
             "law": os.getenv("LAW_LOG_LEVEL") or "WARNING",
@@ -94,11 +94,13 @@ class Config(ConfigParser):
             "has_perms": True,
             "default_file_perm": None,
             "default_dir_perm": None,
+            "create_file_dir": True,
         },
         "wlcg_fs": {
             "has_perms": False,
             "default_file_perm": None,
             "default_dir_perm": None,
+            "create_file_dir": True,
             "base": None,
             "base_stat": None,
             "base_exists": None,
@@ -302,7 +304,7 @@ class Config(ConfigParser):
                 raise ValueError("Not a boolean: {}".format(value))
             return self._boolean_states[value.lower()]
 
-    def _get_type_converter(self, type):
+    def _get_type_converter(self, type, value):
         if type in (str, "str", "s"):
             return str
         if type in (int, "int", "i"):
@@ -310,7 +312,10 @@ class Config(ConfigParser):
         elif type in (float, "float", "f"):
             return float
         elif type in (bool, "bool", "boolean", "b"):
-            return self._convert_to_boolean
+            if isinstance(value, six.string_types):
+                return self._convert_to_boolean
+            else:
+                return bool
         else:
             raise ValueError("unknown 'type' argument ({}), must be 'str', 'int', 'float', or "
                 "'bool'".format(type))
@@ -459,7 +464,7 @@ class Config(ConfigParser):
                 return default
 
         # return the type-converted value
-        return value if not type else self._get_type_converter(type)(value)
+        return value if not type else self._get_type_converter(type, value)(value)
 
     def get_expanded(self, *args, **kwargs):
         """

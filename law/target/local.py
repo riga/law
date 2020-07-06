@@ -37,16 +37,18 @@ class LocalFileSystem(FileSystem):
 
     def __init__(self, section=None, **kwargs):
         # if present, read options from the section in the law config
+        self.config_section = None
         cfg = Config.instance()
         if not section:
             section = cfg.get_expanded("target", "default_local_fs")
         if isinstance(section, six.string_types):
             if cfg.has_section(section):
-                # extend with the real defaults before parsing
+                # extend options of sections other than "local_fs" with its defaults
                 if section != "local_fs":
                     data = dict(cfg.items("local_fs", expand_vars=False, expand_user=False))
                     cfg.update({section: data}, overwrite_sections=True, overwrite_options=False)
                 kwargs = self.parse_config(section, kwargs)
+                self.config_section = section
             else:
                 raise Exception("law config has no section '{}' to read {} options".format(
                     section, self.__class__.__name__))
@@ -79,8 +81,8 @@ class LocalFileSystem(FileSystem):
             os.chmod(self._unscheme(path), perm)
 
     def remove(self, path, recursive=True, silent=True, **kwargs):
-        path = self._unscheme(path)
         if not silent or self.exists(path):
+            path = self._unscheme(path)
             if self.isdir(path):
                 if recursive:
                     shutil.rmtree(path)
@@ -171,18 +173,32 @@ class LocalFileSystem(FileSystem):
 
         return elems
 
-    def _prepare_dst_dir(self, src, dst, perm=None):
+    def _prepare_dst_dir(self, dst, src=None, perm=None):
+        """
+        Prepares the directory of a target located at *dst* and returns its full location as
+        specified below. *src* can be the location of a source file target, which is (e.g.) used by
+        a file copy or move operation. When *dst* is already a directory, calling this method has no
+        effect and the *dst* path is returned, optionally joined with the basename of *src*. When
+        *dst* is a file, the absolute *dst* path is returned. Otherwise, when *dst* does not exist
+        yet, it is interpreted as a file path and missing directories are created when
+        :py:attr:`create_file_dir` is *True*, using *perm* to set the directory permission. *dst* is
+        returned.
+        """
         dst = self._unscheme(dst)
-        src_base = os.path.basename(src)
 
         if self.isdir(dst):
-            full_dst = os.path.join(dst, src_base)
+            if src:
+                full_dst = os.path.join(dst, os.path.basename(src))
+            else:
+                full_dst = dst
+
         elif self.isfile(dst):
             full_dst = dst
+
         else:
-            # not existing, treat dst as a file name and create missing dirs
+            # interpret dst as a file name, create missing dirs
             dst_dir = self.dirname(dst)
-            if dst_dir and not self.exists(dst_dir):
+            if dst_dir and not self.isdir(dst_dir) and self.create_file_dir:
                 self.mkdir(dst_dir, perm=perm, recursive=True)
             full_dst = dst
 
@@ -190,7 +206,7 @@ class LocalFileSystem(FileSystem):
 
     def copy(self, src, dst, perm=None, dir_perm=None, **kwargs):
         src = self._unscheme(src)
-        dst = self._prepare_dst_dir(src, dst, perm=dir_perm)
+        dst = self._prepare_dst_dir(dst, src=src, perm=dir_perm)
 
         # copy the file
         shutil.copy2(src, dst)
@@ -204,7 +220,7 @@ class LocalFileSystem(FileSystem):
 
     def move(self, src, dst, perm=None, dir_perm=None, **kwargs):
         src = self._unscheme(src)
-        dst = self._prepare_dst_dir(src, dst, perm=dir_perm)
+        dst = self._prepare_dst_dir(dst, src=src, perm=dir_perm)
 
         # move the file
         shutil.move(src, dst)
@@ -217,7 +233,7 @@ class LocalFileSystem(FileSystem):
         return dst
 
     def open(self, path, mode, **kwargs):
-        return open(self._unscheme(path), mode)
+        return open(self._prepare_dst_dir(path), mode)
 
     def load(self, path, formatter, *args, **kwargs):
         _, kwargs = split_transfer_kwargs(kwargs)
@@ -226,7 +242,7 @@ class LocalFileSystem(FileSystem):
 
     def dump(self, path, formatter, *args, **kwargs):
         _, kwargs = split_transfer_kwargs(kwargs)
-        path = self._unscheme(path)
+        path = self._prepare_dst_dir(path)
         return find_formatter(path, "dump", formatter).dump(path, *args, **kwargs)
 
 
@@ -271,7 +287,7 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
                 path += is_tmp
         else:
             # ensure path is not a target and does not contain, then normalize
-            path = remove_scheme(get_path(path))
+            path = fs._unscheme(get_path(path))
             path = fs.abspath(os.path.expandvars(os.path.expanduser(path)))
 
         luigi.LocalTarget.__init__(self, path=path, is_tmp=is_tmp)
@@ -290,16 +306,16 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
 class LocalFileTarget(LocalTarget, FileSystemFileTarget):
 
     def copy_to_local(self, *args, **kwargs):
-        return remove_scheme(self.copy_to(*args, **kwargs))
+        return self.fs._unscheme(self.copy_to(*args, **kwargs))
 
     def copy_from_local(self, *args, **kwargs):
-        return remove_scheme(self.copy_from(*args, **kwargs))
+        return self.fs._unscheme(self.copy_from(*args, **kwargs))
 
     def move_to_local(self, *args, **kwargs):
-        return remove_scheme(self.move_to(*args, **kwargs))
+        return self.fs._unscheme(self.move_to(*args, **kwargs))
 
     def move_from_local(self, *args, **kwargs):
-        return remove_scheme(self.move_from(*args, **kwargs))
+        return self.fs._unscheme(self.move_from(*args, **kwargs))
 
     @contextmanager
     def localize(self, mode="r", perm=None, dir_perm=None, tmp_dir=None, **kwargs):

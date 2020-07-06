@@ -19,7 +19,7 @@ import six
 from law.target.base import Target
 from law.target.collection import TargetCollection
 from law.util import (
-    colored, flatten, check_bool_flag, query_choice, human_bytes, is_lazy_iterable, make_list,
+    colored, flatten, flag_to_bool, query_choice, human_bytes, is_lazy_iterable, make_list,
 )
 
 
@@ -138,7 +138,7 @@ def remove_task_output(task, max_depth=0, mode=None, include_external=False):
 
     print("remove task output with max_depth {}".format(max_depth))
 
-    include_external = check_bool_flag(include_external)
+    include_external = flag_to_bool(include_external)
     if include_external:
         print("include external tasks")
 
@@ -220,7 +220,7 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
     if not os.path.exists(target_dir):
         os.makedirs(target_dir)
 
-    include_external = check_bool_flag(include_external)
+    include_external = flag_to_bool(include_external)
     if include_external:
         print("include external tasks")
 

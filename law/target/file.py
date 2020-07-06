@@ -29,7 +29,7 @@ from law.util import create_hash, make_list, map_struct
 class FileSystem(luigi.target.FileSystem):
 
     @classmethod
-    def parse_config(cls, section, config=None):
+    def parse_config(cls, section, config=None, overwrite=False):
         # reads a law config section and returns parsed file system configs
         cfg = Config.instance()
 
@@ -38,22 +38,25 @@ class FileSystem(luigi.target.FileSystem):
 
         # helper to add a config value if it exists, extracted with a config parser method
         def add(option, func):
-            if option not in config:
+            if option not in config or overwrite:
                 config[option] = func(section, option)
 
         # permissions
         add("has_perms", cfg.get_expanded_boolean)
         add("default_file_perm", cfg.get_expanded_int)
         add("default_dir_perm", cfg.get_expanded_int)
+        add("create_file_dir", cfg.get_expanded_boolean)
 
         return config
 
-    def __init__(self, has_perms=True, default_file_perm=None, default_dir_perm=None, **kwargs):
+    def __init__(self, has_perms=True, default_file_perm=None, default_dir_perm=None,
+            create_file_dir=True, **kwargs):
         luigi.target.FileSystem.__init__(self)
 
         self.has_perms = has_perms
         self.default_file_perm = default_file_perm
         self.default_dir_perm = default_dir_perm
+        self.create_file_dir = create_file_dir
 
     def __repr__(self):
         return "{}({})".format(self.__class__.__name__, hex(id(self)))

@@ -7,14 +7,14 @@ Helpful utility functions.
 
 __all__ = [
     "default_lock", "io_lock", "no_value", "rel_path", "law_src_path", "law_home_path", "law_run",
-    "print_err", "abort", "is_number", "try_int", "str_to_int", "common_task_params", "colored",
-    "uncolored", "query_choice", "is_pattern", "brace_expand", "multi_match", "is_lazy_iterable",
-    "make_list", "make_tuple", "flatten", "merge_dicts", "which", "map_verbose", "map_struct",
-    "mask_struct", "tmp_file", "interruptable_popen", "readable_popen", "create_hash",
-    "copy_no_perm", "makedirs_perm", "user_owns_file", "iter_chunks", "human_bytes", "parse_bytes",
-    "human_duration", "human_time_diff", "parse_duration", "is_file_exists_error",
-    "check_bool_flag", "send_mail", "ShorthandDict", "open_compat", "patch_object",
-    "join_generators", "quote_cmd", "BaseStream", "TeeStream", "FilteredStream",
+    "print_err", "abort", "is_number", "try_int", "str_to_int", "flag_to_bool",
+    "common_task_params", "colored", "uncolored", "query_choice", "is_pattern", "brace_expand",
+    "multi_match", "is_lazy_iterable", "make_list", "make_tuple", "flatten", "merge_dicts", "which",
+    "map_verbose", "map_struct", "mask_struct", "tmp_file", "interruptable_popen", "readable_popen",
+    "create_hash", "copy_no_perm", "makedirs_perm", "user_owns_file", "iter_chunks", "human_bytes",
+    "parse_bytes", "human_duration", "human_time_diff", "parse_duration", "is_file_exists_error",
+    "send_mail", "ShorthandDict", "open_compat", "patch_object", "join_generators", "quote_cmd",
+    "BaseStream", "TeeStream", "FilteredStream",
 ]
 
 
@@ -170,6 +170,23 @@ def str_to_int(s):
     m = re.match(r"^0(b|o|d|x)\d+$", s)
     base = {"b": 2, "o": 8, "d": 10, "x": 16}[m.group(1)] if m else 10
     return int(s, base=base)
+
+
+def flag_to_bool(s):
+    """
+    Takes a string flag *s* and returns whether it evaluates to *True* (values ``"1"``, ``"true"``
+    ``"yes"``, ``"on"``, case-insensitive) or *False* (values ``"0"``, ``"false"``, `"no"``,
+    ``"off"``, case-insensitive). When *s* is already a boolean, it is returned unchanged. An error
+    is thrown when *s* is neither of the allowed values.
+    """
+    if isinstance(s, bool):
+        return s
+    elif isinstance(s, six.string_types):
+        if s.lower() in ("true", "1", "yes", "on"):
+            return True
+        elif s.lower() in ("false", "0", "no", "off"):
+            return False
+    raise ValueError("cannot convert to bool: {}".format(s))
 
 
 def common_task_params(task_instance, task_cls):
@@ -1291,15 +1308,6 @@ def is_file_exists_error(e):
         return isinstance(e, FileExistsError)  # noqa: F821
     else:
         return isinstance(e, OSError) and e.errno == 17
-
-
-def check_bool_flag(s):
-    """
-    Takes a string flag *s* and returns whether it evaluates to *True* (values ``"1"``, ``"true"``
-    and ``"yes"``, case-insensitive) or *False* (any other value). When *s* is not a string, *s* is
-    returned unchanged.
-    """
-    return s.lower() in ("1", "yes", "true") if isinstance(s, six.string_types) else s
 
 
 def send_mail(recipient, sender, subject="", content="", smtp_host="127.0.0.1", smtp_port=25):

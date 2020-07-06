@@ -53,16 +53,18 @@ class DropboxFileSystem(RemoteFileSystem):
         kwargs["transfer_config"].setdefault("checksum_check", False)
 
         # if present, read options from the section in the law config
+        self.config_section = None
         cfg = Config.instance()
         if not section:
             section = cfg.get_expanded("target", "default_dropbox_fs")
         if isinstance(section, six.string_types):
             if cfg.has_section(section):
-                # extend with the real defaults before parsing
+                # extend options of sections other than "dropbox_fs" with its defaults
                 if section != "dropbox_fs":
                     data = dict(cfg.items("dropbox_fs", expand_vars=False, expand_user=False))
                     cfg.update({section: data}, overwrite_sections=True, overwrite_options=False)
                 kwargs = self.parse_config(section, kwargs)
+                self.config_section = section
             else:
                 raise Exception("law config has no section '{}' to read {} options".format(
                     section, self.__class__.__name__))

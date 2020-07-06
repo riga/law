@@ -236,6 +236,12 @@
 ; Type: integer
 ; Default: None
 
+; create_file_dir
+; Description: A boolean flag that signifies whether directories should be created when a a file is
+; created via open, copy, move or dump operations.
+; Type: boolean
+; Default: True
+
 
 ; --- wlcg_fs section ------------------------------------------------------------------------------
 
@@ -261,6 +267,12 @@
 ; "has_perms" is "False", the current umask is used. The value can be expressed by an octal number.
 ; Type: integer
 ; Default: None
+
+; create_file_dir
+; Description: A boolean flag that signifies whether directories should be created when a a file is
+; created via open, copy, move or dump operations.
+; Type: boolean
+; Default: True
 
 
 ; --- Options defined by "law.target.remote.RemoteFileSystem"
