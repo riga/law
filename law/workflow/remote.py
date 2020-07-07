@@ -10,7 +10,6 @@ __all__ = ["SubmissionData", "StatusData", "BaseRemoteWorkflowProxy", "BaseRemot
 
 import sys
 import time
-import math
 import re
 import random
 import threading
@@ -24,7 +23,7 @@ import six
 from law.workflow.base import BaseWorkflow, BaseWorkflowProxy
 from law.job.dashboard import NoJobDashboard
 from law.parameter import NO_FLOAT, NO_INT, get_param, DurationParameter
-from law.util import is_number, iter_chunks, merge_dicts, ShorthandDict
+from law.util import is_number, iter_chunks, merge_dicts, human_duration, ShorthandDict
 
 
 logger = logging.getLogger(__name__)
@@ -723,35 +722,36 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         # total job count
         n_jobs = len(self.submission_data)
 
-        # get job kwargs for status querying
-        query_kwargs = self._get_job_kwargs("query")
-
-        # store the number of consecutive polling failures and get the maximum number of polls
-        n_poll_fails = 0
-        if task.walltime == NO_FLOAT:
-            max_polls = sys.maxsize
-        else:
-            max_polls = int(math.ceil((task.walltime * 3600.) / (task.poll_interval * 60.)))
-
-        # update variable attributes for polling
-        self.poll_data.n_finished_min = task.acceptance * (1 if task.acceptance > 1 else n_jobs)
-        self.poll_data.n_failed_max = task.tolerance * (1 if task.tolerance > 1 else n_jobs)
-
         # track finished and failed jobs in dicts holding status data
         finished_jobs = OrderedDict()
         failed_jobs = OrderedDict()
 
+        # track number of consecutive polling failures and the start time
+        n_poll_fails = 0
+        start_time = time.time()
+
+        # get job kwargs for status querying
+        query_kwargs = self._get_job_kwargs("query")
+
         # start the poll loop
-        for i in six.moves.range(max_polls):
+        i = -1
+        while True:
+            i += 1
+
             # sleep after the first iteration
             if i > 0:
                 time.sleep(task.poll_interval * 60)
 
-            # handle scheduler messages first
-            if task.scheduler_messages:
-                while not task.scheduler_messages.empty():
-                    msg = task.scheduler_messages.get()
-                    task.handle_scheduler_message(msg)
+            # handle scheduler messages, which could change task some parameters
+            task._handle_scheduler_messages()
+
+            # walltime exceeded?
+            if task.walltime != NO_FLOAT and (time.time() - start_time()) > task.walltime * 3600:
+                raise Exception("exceeded walltime: {}".format(human_duration(hours=task.walltime)))
+
+            # update variable attributes for polling
+            self.poll_data.n_finished_min = task.acceptance * (1 if task.acceptance > 1 else n_jobs)
+            self.poll_data.n_failed_max = task.tolerance * (1 if task.tolerance > 1 else n_jobs)
 
             # determine the currently active jobs, i.e., the jobs whose states should be checked,
             # and also store jobs whose ids are unknown
@@ -931,9 +931,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             # parameter was set so that only failed jobs are resubmitted once
             if task.no_poll:
                 break
-        else:
-            # walltime exceeded
-            raise Exception("walltime exceeded")
+
+        duration = round(time.time() - start_time)
+        logger.debug("polling of task {!r} took {}".format(self, human_duration(seconds=duration)))
 
 
 class BaseRemoteWorkflow(BaseWorkflow):
@@ -1128,21 +1128,79 @@ class BaseRemoteWorkflow(BaseWorkflow):
 
         return isinstance(self.workflow_proxy, BaseRemoteWorkflowProxy)
 
-    def handle_scheduler_message(self, msg):
-        """
-        Hook that is called when a scheduler message *msg* is received during polling. By default,
-        this method checks for messages with the format ``"parallel_jobs:<int>"`` to dynamically set
-        the number of parallely running jobs.
-        """
-        if not getattr(self, "workflow_proxy", None):
-            return
+    def handle_scheduler_message(self, msg, _attr_value=None):
+        """ handle_scheduler_message(msg)
+        Hook that is called when a scheduler message *msg* is received. Returns *True* when the
+        messages was handled, and *False* otherwise.
 
-        m = re.match(r"^\s*(parallel\_jobs)\s*(\=|\:)\s*((|\+|\-)\d+)\s*$", str(msg))
-        if m:
-            n = int(m.group(3))
-            n = self.workflow_proxy._set_parallel_jobs(n)
-            n_str = str(n) if n != self.workflow_proxy.n_parallel_max else "unlimited"
-            msg.respond("number of parallel jobs set to {}".format(n_str))
-            logger.info("number of parallel jobs of task {} set to {}".format(self, n_str))
-        else:
-            msg.respond("task cannot handle scheduler message: {}".format(msg))
+        Handled messages in addition to those defined in
+        :py:meth:`law.workflow.base.BaseWorkflow.handle_scheduler_message`:
+
+            - ``parallel_jobs = <int>``
+            - ``walltime = <str/int/float>``
+            - ``poll_fails = <int>``
+            - ``poll_interval = <str/int/float>``
+            - ``retries = <int>``
+        """
+        attr, value = _attr_value or (None, None)
+
+        # handle "parallel_jobs"
+        if attr is None:
+            m = re.match(r"^\s*(parallel\_jobs)\s*(\=|\:)\s*(.*)\s*$", str(msg))
+            if m:
+                attr = "parallel_jobs"
+                # the workflow proxy must be set here
+                if not getattr(self, "workflow_proxy", None):
+                    value = Exception("workflow_proxy not set yet")
+                else:
+                    try:
+                        n = self.workflow_proxy._set_parallel_jobs(int(m.group(3)))
+                        value = "unlimited" if n == self.workflow_proxy.n_parallel_max else str(n)
+                    except ValueError as e:
+                        value = e
+
+        # handle "walltime"
+        if attr is None:
+            m = re.match(r"^\s*(walltime)\s*(\=|\:)\s*(.*)\s*$", str(msg))
+            if m:
+                attr = "walltime"
+                try:
+                    self.walltime = self.__class__.walltime.parse(m.group(3))
+                    value = human_duration(hours=self.walltime, colon_format=True)
+                except ValueError as e:
+                    value = e
+
+        # handle "poll_fails"
+        if attr is None:
+            m = re.match(r"^\s*(poll\_fails)\s*(\=|\:)\s*(.*)\s*$", str(msg))
+            if m:
+                attr = "poll_fails"
+                try:
+                    self.poll_fails = int(m.group(3))
+                    value = self.poll_fails
+                except ValueError as e:
+                    value = e
+
+        # handle "poll_interval"
+        if attr is None:
+            m = re.match(r"^\s*(poll\_interval)\s*(\=|\:)\s*(.*)\s*$", str(msg))
+            if m:
+                attr = "poll_interval"
+                try:
+                    self.poll_interval = self.__class__.poll_interval.parse(m.group(3))
+                    value = human_duration(hours=self.poll_interval, colon_format=True)
+                except ValueError as e:
+                    value = e
+
+        # handle "retries"
+        if attr is None:
+            m = re.match(r"^\s*(retries)\s*(\=|\:)\s*(.*)\s*$", str(msg))
+            if m:
+                attr = "retries"
+                try:
+                    self.retries = int(m.group(3))
+                    value = self.retries
+                except ValueError as e:
+                    value = e
+
+        return super(BaseRemoteWorkflow, self).handle_scheduler_message(msg, (attr, value))

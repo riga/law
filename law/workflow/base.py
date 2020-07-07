@@ -9,6 +9,7 @@ __all__ = ["BaseWorkflow", "workflow_property", "cached_workflow_property"]
 
 
 import sys
+import re
 import functools
 import logging
 from collections import OrderedDict
@@ -619,6 +620,59 @@ class BaseWorkflow(Task):
             raise Exception("calls to requires_from_branch are forbidden for branch tasks")
 
         return self.__class__.requires(self)
+
+    def _handle_scheduler_messages(self):
+        if self.scheduler_messages:
+            while not self.scheduler_messages.empty():
+                msg = self.scheduler_messages.get()
+                self.handle_scheduler_message(msg)
+
+    def handle_scheduler_message(self, msg, _attr_value=None):
+        """ handle_scheduler_message(msg)
+        Hook that is called when a scheduler message *msg* is received. Returns *True* when the
+        messages was handled, and *False* otherwise.
+
+        Handled messages:
+
+            - ``tolerance = <int/float>``
+            - ``acceptance = <int/float>``
+        """
+        attr, value = _attr_value or (None, None)
+
+        # handle "tolerance"
+        if attr is None:
+            m = re.match(r"^\s*(tolerance)\s*(\=|\:)\s*(.*)\s*$", str(msg))
+            if m:
+                attr = "tolerance"
+                try:
+                    self.tolerance = float(m.group(3))
+                    value = self.tolerance
+                except ValueError as e:
+                    value = e
+
+        # handle "acceptance"
+        if attr is None:
+            m = re.match(r"^\s*(acceptance)\s*(\=|\:)\s*(.*)\s*$", str(msg))
+            if m:
+                attr = "acceptance"
+                try:
+                    self.acceptance = float(m.group(3))
+                    value = self.acceptance
+                except ValueError as e:
+                    value = e
+
+        # respond
+        if attr:
+            if isinstance(value, Exception):
+                msg.respond("cannot set {}: {}".format(attr, value))
+                logger.info("cannot set {} of task {}: {}".format(attr, self, value))
+            else:
+                msg.respond("{} set to {}".format(attr, value))
+                logger.info("{} of task {} set to {}".format(attr, self, value))
+            return True
+        else:
+            msg.respond("task cannot handle scheduler message: {}".format(msg))
+            return False
 
 
 BaseWorkflow.workflow_property = workflow_property

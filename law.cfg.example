@@ -237,7 +237,7 @@
 ; Default: None
 
 ; create_file_dir
-; Description: A boolean flag that signifies whether directories should be created when a a file is
+; Description: A boolean flag that signifies whether directories should be created when a file is
 ; created via open, copy, move or dump operations.
 ; Type: boolean
 ; Default: True
@@ -269,7 +269,7 @@
 ; Default: None
 
 ; create_file_dir
-; Description: A boolean flag that signifies whether directories should be created when a a file is
+; Description: A boolean flag that signifies whether directories should be created when a file is
 ; created via open, copy, move or dump operations.
 ; Type: boolean
 ; Default: True
