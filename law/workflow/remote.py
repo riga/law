@@ -933,7 +933,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 break
 
         duration = round(time.time() - start_time)
-        self.publish_message("polling took {}".format(human_duration(seconds=duration)))
+        task.publish_message("polling took {}".format(human_duration(seconds=duration)))
 
 
 class BaseRemoteWorkflow(BaseWorkflow):
