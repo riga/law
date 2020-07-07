@@ -933,7 +933,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 break
 
         duration = round(time.time() - start_time)
-        logger.debug("polling of task {!r} took {}".format(self, human_duration(seconds=duration)))
+        self.publish_message("polling took {}".format(human_duration(seconds=duration)))
 
 
 class BaseRemoteWorkflow(BaseWorkflow):
@@ -1188,7 +1188,7 @@ class BaseRemoteWorkflow(BaseWorkflow):
                 attr = "poll_interval"
                 try:
                     self.poll_interval = self.__class__.poll_interval.parse(m.group(3))
-                    value = human_duration(hours=self.poll_interval, colon_format=True)
+                    value = human_duration(minutes=self.poll_interval, colon_format=True)
                 except ValueError as e:
                     value = e
 
