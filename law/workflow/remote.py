@@ -746,7 +746,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             task._handle_scheduler_messages()
 
             # walltime exceeded?
-            if task.walltime != NO_FLOAT and (time.time() - start_time()) > task.walltime * 3600:
+            if task.walltime != NO_FLOAT and (time.time() - start_time) > task.walltime * 3600:
                 raise Exception("exceeded walltime: {}".format(human_duration(hours=task.walltime)))
 
             # update variable attributes for polling
