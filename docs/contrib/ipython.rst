@@ -6,6 +6,13 @@ ipython
 .. contents::
 
 
+Task ``Task``
+-------------
+
+.. autoclass:: Task
+   :members:
+
+
 Functions
 ---------
 
