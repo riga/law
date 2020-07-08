@@ -114,6 +114,10 @@ def execute(args):
             continue
         seen_families.append(task_family)
 
+        # skip tasks in __main__ module in interactive sessions
+        if cls.__module__ == "__main__":
+            continue
+
         # skip when explicitly excluded
         if cls.exclude_index:
             continue

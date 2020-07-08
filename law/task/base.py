@@ -15,7 +15,7 @@ import math
 import logging
 from collections import OrderedDict
 from contextlib import contextmanager
-from abc import abstractmethod
+from abc import ABCMeta, abstractmethod
 from inspect import getargspec
 
 import luigi
@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 class BaseRegister(luigi.task_register.Register):
 
     def __new__(metacls, classname, bases, classdict):
-        # default attributes
+        # default attributes, irrespective of inheritance
         classdict.setdefault("exclude_index", False)
 
         # union "exclude_params_*" sets with those of all base classes
@@ -48,7 +48,22 @@ class BaseRegister(luigi.task_register.Register):
                     if isinstance(params, set):
                         params.update(base_params)
 
-        return super(BaseRegister, metacls).__new__(metacls, classname, bases, classdict)
+        # create the class
+        cls = ABCMeta.__new__(metacls, classname, bases, classdict)
+
+        # default attributes, include of inheritance
+        if getattr(cls, "update_register", None) is None:
+            cls.update_register = False
+
+        # deregister when requested
+        if cls.update_register:
+            cls.deregister()
+
+        # add to register (mimic luigi.task_register.Register.__new__)
+        cls._namespace_at_class_time = metacls._get_namespace(cls.__module__)
+        metacls._reg.append(cls)
+
+        return cls
 
 
 @six.add_metaclass(BaseRegister)
@@ -65,6 +80,39 @@ class BaseTask(luigi.Task):
         if host is None:
             host = socket.gethostname().partition(".")[0]
         return "{}_{}".format(host, name)
+
+    @classmethod
+    def deregister(cls, task_cls=None):
+        """
+        Removes a task class *task_cls* from the luigi task register. When *None*, *this* class is
+        used. Task family strings and patterns are accepted as well. *True* is returned when at
+        least one class was successfully removed, and *False* otherwise.
+        """
+        # always compare task families
+        if task_cls is None:
+            task_family = cls.task_family
+        elif isinstance(task_cls, six.string_types):
+            task_family = task_cls
+        else:
+            task_family = task_cls.task_family
+
+        success = False
+
+        # remove from the register
+        i = -1
+        while True:
+            i += 1
+            if i >= len(Register._reg):
+                break
+            registered_cls = Register._reg[i]
+
+            if multi_match(registered_cls.task_family, task_family, mode=any):
+                Register._reg.pop(i)
+                i -= 1
+                success = True
+                logger.debug("removed task class {} from register".format(registered_cls))
+
+        return success
 
     @classmethod
     def get_param_values(cls, *args, **kwargs):
@@ -358,18 +406,18 @@ class Task(BaseTask):
     def __repr__(self):
         return self.repr(color=False)
 
-    def repr(self, all_params=False, color=None):
+    def repr(self, all_params=False, color=None, **kwargs):
         if color is None:
             cfg = Config.instance()
             color = cfg.get_expanded_boolean("task", "colored_repr")
 
-        family = self._repr_family(self.get_task_family(), color=color)
+        family = self._repr_family(self.get_task_family(), color=color, **kwargs)
 
         parts = [
-            self._repr_param(name, value, color=color)
+            self._repr_param(name, value, color=color, **kwargs)
             for name, value in six.iteritems(self._repr_params(all_params=all_params))
         ] + [
-            self._repr_flag(flag, color=color)
+            self._repr_flag(flag, color=color, **kwargs)
             for flag in self._repr_flags()
         ]
 
@@ -407,15 +455,15 @@ class Task(BaseTask):
         return set()
 
     @classmethod
-    def _repr_family(cls, family, color=False):
+    def _repr_family(cls, family, color=False, **kwargs):
         return colored(family, "green") if color else family
 
     @classmethod
-    def _repr_param(cls, name, value, color=False):
+    def _repr_param(cls, name, value, color=False, **kwargs):
         return "{}={}".format(colored(name, color="blue", style="bright") if color else name, value)
 
     @classmethod
-    def _repr_flag(cls, name, color=False):
+    def _repr_flag(cls, name, color=False, **kwargs):
         return colored(name, color="magenta") if color else name
 
     def _print_deps(self, args):
