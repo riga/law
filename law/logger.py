@@ -11,7 +11,7 @@ __all__ = ["console_handler", "setup_logging", "is_tty_handler", "get_tty_handle
 import logging
 
 from law.config import Config
-from law.util import colored
+from law.util import colored, ipykernel
 
 
 #: Instance of a ``logging.StreamHandler`` that is used by logs in law. Its formatting is done by
@@ -58,13 +58,15 @@ def setup_logging():
 def is_tty_handler(handler):
     """
     Returns *True* if a logging *handler* is a *StreamHandler* which logs to a tty (i.e. *stdout* or
-    *stderr*) or a base *Handler* with a *console* attribute evaluating to *True*. The latter check
-    is intended to cover a variety of handlers provided by custom modules.
+    *stderr*), an IPython *OutStream*, or a base *Handler* with a *console* attribute evaluating to
+    *True*. The latter check is intended to cover a variety of handlers provided by custom modules.
     """
-    if isinstance(handler, logging.StreamHandler) and getattr(handler, "stream", None) \
-            and handler.stream.isatty():
-        return True
-    elif isinstance(handler, logging.Handler) and getattr(handler, "console", None):
+    if isinstance(handler, logging.StreamHandler) and getattr(handler, "stream", None):
+        if callable(getattr(handler.stream, "isatty", None)) and handler.stream.isatty():
+            return True
+        elif ipykernel and isinstance(handler.stream, ipykernel.iostream.OutStream):
+            return True
+    if isinstance(handler, logging.Handler) and getattr(handler, "console", None):
         return True
     return False
 

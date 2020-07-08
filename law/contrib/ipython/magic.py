@@ -23,8 +23,10 @@ logger = logging.getLogger(__name__)
 
 def create_magics(init_cmd=None, init_fn=None, line_cmd=None, line_fn=None, log_level=None):
     # prepare commands
-    init_cmd = quote_cmd(init_cmd) if isinstance(init_cmd, list) else init_cmd.strip()
-    line_cmd = quote_cmd(line_cmd) if isinstance(line_cmd, list) else line_cmd.strip()
+    if init_cmd:
+        init_cmd = quote_cmd(init_cmd) if isinstance(init_cmd, list) else init_cmd.strip()
+    if line_cmd:
+        line_cmd = quote_cmd(line_cmd) if isinstance(line_cmd, list) else line_cmd.strip()
 
     # set the log level
     if isinstance(log_level, six.string_types):
