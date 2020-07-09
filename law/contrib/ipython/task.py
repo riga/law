@@ -45,6 +45,6 @@ class Task(_Task):
     @classmethod
     def _repr_flag(cls, name, color=False, html=False):
         if color and html:
-            return "<span style='color: magenta;'>{}</span>={}".format(name)
+            return "<span style='color: magenta;'>{}</span>".format(name)
         else:
             return super(Task, cls)._repr_flag(name, color=color)
