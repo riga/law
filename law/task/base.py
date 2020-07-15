@@ -330,15 +330,17 @@ class Task(BaseTask):
     def is_root_task(self):
         return root_task() == self
 
-    def publish_message(self, *args):
-        msg = " ".join(str(arg) for arg in args)
-        print(msg)
+    def publish_message(self, msg, scheduler=True):
+        msg = str(msg)
+
+        sys.stdout.write(msg + "\n")
         sys.stdout.flush()
 
-        self._publish_message(*args)
+        if scheduler:
+            self._publish_message(msg)
 
-    def _publish_message(self, *args):
-        msg = " ".join(str(arg) for arg in args)
+    def _publish_message(self, msg):
+        msg = str(msg)
 
         # add to message cache and handle overflow
         msg = uncolored(msg)
@@ -357,8 +359,9 @@ class Task(BaseTask):
         return TaskMessageStream(self, *args, **kwargs)
 
     @contextmanager
-    def publish_step(self, msg, success_message="done", fail_message="failed", runtime=False):
-        self.publish_message(msg)
+    def publish_step(self, msg, success_message="done", fail_message="failed", runtime=True,
+            scheduler=True):
+        self.publish_message(msg, scheduler=scheduler)
         success = False
         t0 = time.time()
         try:
@@ -369,7 +372,7 @@ class Task(BaseTask):
             if runtime:
                 diff = time.time() - t0
                 msg = "{} (took {})".format(msg, human_duration(seconds=diff))
-            self.publish_message(msg)
+            self.publish_message(msg, scheduler=scheduler)
 
     def publish_progress(self, percentage):
         percentage = int(math.floor(percentage))
@@ -520,16 +523,17 @@ class ExternalTask(Task):
 
 class TaskMessageStream(BaseStream):
 
-    def __init__(self, task, stdout=True):
+    def __init__(self, task, stdout=True, scheduler=True):
         super(TaskMessageStream, self).__init__()
         self.task = task
         self.stdout = stdout
+        self.scheduler = scheduler
 
-    def _write(self, *args):
+    def _write(self, msg):
         if self.stdout:
-            self.task.publish_message(*args)
-        else:
-            self.task._publish_message(*args)
+            self.task.publish_message(msg, scheduler=self.scheduler)
+        elif self.scheduler:
+            self.task._publish_message(msg)
 
 
 # trailing imports
