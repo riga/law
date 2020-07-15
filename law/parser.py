@@ -108,10 +108,10 @@ def global_cmdline_args(exclude=None):
     .. code-block:: python
 
         global_cmdline_args()
-        # -> ["--local-scheduler", "--workers", "4"]
+        # -> ["--local-scheduler", "True", --workers", "4"]
 
         global_cmdline_args(exclude=[("--workers", 1)])
-        # -> ["--local-scheduler"]
+        # -> ["--local-scheduler", "True"]
     """
     global _global_cmdline_args
 
@@ -178,29 +178,82 @@ def add_cmdline_arg(args, arg, *values):
     """
     Adds a command line argument *arg* to a list of argument *args*, e.g. as returned from
     :py:func:`global_cmdline_args`. When *arg* exists, *args* is returned unchanged. Otherwise,
-    *arg* is appended to the end with optional argument *values*. Example:
+    *arg* is appended to the end with optional argument *values*. Examples:
 
     .. code-block:: python
 
         args = global_cmdline_values()
-        # -> ["--local-scheduler"]
+        # -> ["--local-scheduler", "True"]
 
-        add_cmdline_arg(args, "--local-scheduler")
-        # -> ["--local-scheduler"]
+        add_cmdline_arg(args, "--local-scheduler", True)
+        # -> ["--local-scheduler", "True"]
 
         add_cmdline_arg(args, "--workers", 4)
         # -> ["--local-scheduler", "--workers", "4"]
     """
     if arg not in args:
-        args = list(args) + [arg] + list(values)
+        args = list(args) + [arg] + [str(value) for value in values]
     return args
+
+
+def get_cmdline_arg(args, arg, n=None, exact=True):
+    """
+    Returns the value of a command line argument *arg* from a list of arguments *args*. When *arg*
+    is not found within *args*, *None* is returned. The type of the return value depends on *n*.
+
+
+    - When *n* is not set (or *None*, the default), the next value following *arg* is returned if
+      there is any. *None* is returned when *arg* is the last element in *args*.
+    - When *n* is 0, *True* is returned when *arg* was found and *None* otherwise.
+    - When *n* is larger than 0, the next *n* values following *arg* are returned in a list. When
+      the number of expected values is not matched and *exact* is *True*, *None* is returned.
+      Otherwise, the number of returned values might be smaller than *n*.
+
+    Examples:
+
+    .. code-block:: python
+
+        args = global_cmdline_values()
+        # -> ["--local-scheduler", "True", "--workers", "4"]
+
+        get_cmdline_arg(args, "--local-scheduler")
+        # -> "True"
+
+        get_cmdline_arg(args, "--local-scheduler", n=0)
+        # -> True
+
+        get_cmdline_arg(args, "--workers")
+        # -> "4"
+
+        get_cmdline_arg(args, "--workers", n=1)
+        # -> ["4"]
+
+        get_cmdline_arg(args, "--workers", n=2)
+        # -> None
+
+        get_cmdline_arg(args, "--workers", n=2, exact=False)
+        # -> ["4"]
+    """
+    if arg not in args:
+        return None
+    elif n == 0:
+        return True
+
+    idx = args.index(arg)
+
+    if n is None:
+        values = args[idx + 1:idx + 2]
+        return None if not values else values[0]
+    else:
+        values = args[idx + 1:idx + 1 + n]
+        return None if len(values) != n and exact else values
 
 
 def remove_cmdline_arg(args, arg, n=0):
     """
-    Removes the command line argument *args* from a list of arguments *args*, e.g. as returned from
+    Removes the command line argument *arg* from a list of arguments *args*, e.g. as returned from
     :py:func:`global_cmdline_args`. When *n* is 0 (the default), only the argument is removed.
-    Otherwise, the following *n* values are removed. Example:
+    Otherwise, the following *n* values are removed. Examples:
 
     .. code-block:: python
 

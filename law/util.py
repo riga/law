@@ -172,12 +172,13 @@ def str_to_int(s):
     return int(s, base=base)
 
 
-def flag_to_bool(s):
+def flag_to_bool(s, silent=False):
     """
     Takes a string flag *s* and returns whether it evaluates to *True* (values ``"1"``, ``"true"``
     ``"yes"``, ``"on"``, case-insensitive) or *False* (values ``"0"``, ``"false"``, `"no"``,
     ``"off"``, case-insensitive). When *s* is already a boolean, it is returned unchanged. An error
-    is thrown when *s* is neither of the allowed values.
+    is thrown when *s* is neither of the allowed values and *silent* is *False*. Otherwise, *None*
+    is returned.
     """
     if isinstance(s, bool):
         return s
@@ -186,7 +187,10 @@ def flag_to_bool(s):
             return True
         elif s.lower() in ("false", "0", "no", "off"):
             return False
-    raise ValueError("cannot convert to bool: {}".format(s))
+    elif silent:
+        return None
+    else:
+        raise ValueError("cannot convert to bool: {}".format(s))
 
 
 def common_task_params(task_instance, task_cls):
