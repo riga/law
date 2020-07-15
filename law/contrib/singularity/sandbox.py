@@ -18,6 +18,7 @@ from law.config import Config
 from law.sandbox.base import Sandbox
 from law.target.local import LocalDirectoryTarget
 from law.cli.software import deps as law_deps
+from law.parser import remove_cmdline_arg
 from law.util import make_list, interruptable_popen, quote_cmd, flatten, law_src_path
 
 
@@ -230,9 +231,9 @@ class SingularitySandbox(Sandbox):
                 mount(hdir, cdir)
 
         # handle scheduling within the container
-        ls_flag = "--local-scheduler"
-        if self.force_local_scheduler() and ls_flag not in proxy_cmd:
-            proxy_cmd.extend([ls_flag, "True"])
+        if self.force_local_scheduler():
+            proxy_cmd = remove_cmdline_arg(proxy_cmd, "--local-scheduler", n=1)
+            proxy_cmd.extend(["--local-scheduler", "True"])
 
         # get the singularity exec command, add arguments from above
         singularity_exec_cmd = self._singularity_exec_cmd() + args
