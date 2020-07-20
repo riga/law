@@ -73,7 +73,7 @@ class TFGraphFormatter(Formatter):
             if as_text:
                 # use a simple pb reader to load the file into graph_def
                 from google.protobuf import text_format
-                with open(path, "r") as f:
+                with open(path, "rb") as f:
                     text_format.Merge(f.read(), graph_def)
 
             else:
@@ -98,21 +98,21 @@ class TFGraphFormatter(Formatter):
     @classmethod
     def dump(cls, path, obj, variables_to_constants=False, output_names=None, *args, **kwargs):
         """
-        Extracts a TensorFlow graph contained in an object *obj*, transforms it into a simpler
-        representation with variables converted to constants when *variables_to_constants* is
-        *True*, and saves it to a protobuf file at *path*. The accepted types of *obj* greatly
-        depend on the available API versions.
+        Extracts a TensorFlow graph from an object *obj* and saves it at *path*. The graph is
+        optionally transformed into a simpler representation with all its variables converted to
+        constants when *variables_to_constants* is *True*. The saved file contains the graph as a
+        protobuf. The accepted types of *obj* greatly depend on the available API versions.
 
         When the v1 API is found (which is also the case when ``tf.compat.v1`` is available in v2),
         ``Graph``, ``GraphDef`` and ``Session`` objects are accepted. However, when
         *variables_to_constants* is *True*, *obj* must be a session and *output_names* should refer
-        to names of operations whose subgraphs are extracted (usually one).
+        to names of operations whose subgraphs are extracted (usually just one).
 
         For TensorFlow v2, *obj* can also be a compiled keras model, or either a polymorphic or
-        concrete function as returned by ``tf.function``. See the TensorFlow documentation on
-        `concrete functions <https://www.tensorflow.org/guide/concrete_function>`__ for more info.
-        However, when *variables_to_constants* is *True*, *obj* must neither be a polymorphic
-        function whose input signature is not set yet, nor an uncompiled keras model.
+        concrete function as returned by ``tf.function``. Polymorphic functions either must have a
+        defined input signature (``tf.function(input_signature=(...,))``) or they must accept no
+        arguments in the first place. See the TensorFlow documentation on `concrete functions
+        <https://www.tensorflow.org/guide/concrete_function>`__ for more info.
 
         *args* and *kwargs* are forwarded to ``tf.train.write_graph`` (v1) or ``tf.io.write_graph``
         (v2).

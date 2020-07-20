@@ -37,8 +37,14 @@ with open(os.path.join(this_dir, "README.rst"), "r") as f:
 
 
 # load installation requirements
+readlines = lambda f: [line.strip() for line in f.readlines() if line.strip()]
 with open(os.path.join(this_dir, "requirements.txt"), "r") as f:
-    install_requires = [line.strip() for line in f.readlines() if line.strip()]
+    install_requires = readlines(f)
+
+
+# load docs requirements
+with open(os.path.join(this_dir, "requirements_docs.txt"), "r") as f:
+    docs_requires = [line for line in readlines(f) if line not in install_requires]
 
 
 # load package infos
@@ -75,6 +81,9 @@ setup(
     long_description=long_description,
     install_requires=install_requires,
     python_requires=">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, <4'",
+    extras_require={
+        "docs": docs_requires,
+    },
     zip_safe=False,
     packages=find_packages(exclude=["tests"]),
     include_package_data=True,

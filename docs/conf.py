@@ -55,12 +55,21 @@ elif html_theme == "alabaster":
         "travis_button": True,
     })
 
-extensions = ["sphinx.ext.autodoc", "pydomain_patch"]
+extensions = [
+    "sphinx.ext.autodoc",
+    "sphinx.ext.intersphinx",
+    "sphinx.ext.viewcode",
+    "sphinx.ext.autosectionlabel",
+    "autodocsumm",
+    "pydomain_patch",
+]
 
 autodoc_default_options = {
     "member-order": "bysource",
     "show-inheritance": True,
 }
+
+intersphinx_mapping = {"python": ("https://docs.python.org/3", None)}
 
 
 # event handlers
