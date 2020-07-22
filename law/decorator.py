@@ -117,17 +117,20 @@ def factory(**default_opts):
 
             # optional:
             def on_error(e, t0):
-                # only called when an exception occured in one of the above functions
+                # called when an exception occured in call,
+                # return True to prevent the error from being raised
                 ...
 
             return before_call, call, after_call[, on_error]
 
     ``before_call()`` is invoked only once. It can be used to setup objects, etc, and its return
     value is passed as a single argument to both ``call()`` and ``after_call()``, even when *None*.
-    The former function should (at least) call the actual wrapped function and returns its result
+    The former function should (at least) call the actual wrapped function and return its result
     while the latter is intended to execute custom logic afterwards. The use of a 4th function for
     handling exceptions is optional. It is called when an exception is raised inside ``call()`` with
-    the exception instance and the return value of ``before_call`` as arguments.
+    the exception instance and the return value of ``before_call`` as arguments. When its return
+    value is *True*, the error is not raised and the return value of the wrapped function becomes
+    *None*.
 
     A decorator that accepts generator functions can also be used to decorate plain, non-generator
     functions, but not vice-versa.
@@ -331,7 +334,7 @@ def delay(fn, opts, task, *args, **kwargs):
 
 @factory(on_success=True, on_failure=True, accept_generator=True)
 def notify(fn, opts, task, *args, **kwargs):
-    """ notify(on_success=True, on_failure=True, **kwargs)
+    """ notify(on_success=True, on_failure=True)
     Wraps a bound method of a task and guards its execution. Information about the execution (task
     name, duration, etc) is collected and dispatched to all notification transports registered on
     wrapped task via adding :py:class:`law.NotifyParameter` parameters. Example:
@@ -423,7 +426,7 @@ def notify(fn, opts, task, *args, **kwargs):
 
 @factory(publish_message=False, accept_generator=True)
 def timeit(fn, opts, task, *args, **kwargs):
-    """
+    """ timeit(publish_message=False)
     Wraps a bound method of a task and logs its execution time in a human readable format. Logs in
     info mode. When *publish_message* is *True*, the duration is also published as a task message to
     the scheduler. Accepts generator functions.
@@ -457,7 +460,7 @@ def timeit(fn, opts, task, *args, **kwargs):
 
 @factory(input=True, output=True, input_kwargs=None, output_kwargs=None, accept_generator=False)
 def localize(fn, opts, task, *args, **kwargs):
-    """
+    """ localize(input=True, output=True, input_kwargs=None, output_kwargs=None)
     Wraps a bound method of a task and temporarily changes the input and output methods to return
     localized targets. When *input* (*output*) is *True*, :py:meth:`Task.input`
     (:py:meth:`Task.output`) is adjusted. *input_kwargs* and *output_kwargs* can be dictionaries
@@ -506,7 +509,7 @@ def localize(fn, opts, task, *args, **kwargs):
 
 @factory(sandbox=None, accept_generator=True)
 def require_sandbox(fn, opts, task, *args, **kwargs):
-    """
+    """ require_sandbox(sandbox=None)
     Wraps a bound method of a sandbox task and throws an exception when the method is called while
     the task is not sandboxed yet. This is intended to prevent undesired results or non-verbose
     error messages when the method is invoked outside the requested sandbox. When *sandbox* is set,

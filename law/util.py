@@ -6,15 +6,16 @@ Helpful utility functions.
 
 
 __all__ = [
-    "default_lock", "io_lock", "no_value", "rel_path", "law_src_path", "law_home_path", "law_run",
-    "print_err", "abort", "is_number", "try_int", "str_to_int", "flag_to_bool",
-    "common_task_params", "colored", "uncolored", "query_choice", "is_pattern", "brace_expand",
-    "multi_match", "is_lazy_iterable", "make_list", "make_tuple", "flatten", "merge_dicts", "which",
-    "map_verbose", "map_struct", "mask_struct", "tmp_file", "interruptable_popen", "readable_popen",
-    "create_hash", "copy_no_perm", "makedirs_perm", "user_owns_file", "iter_chunks", "human_bytes",
-    "parse_bytes", "human_duration", "human_time_diff", "parse_duration", "is_file_exists_error",
-    "send_mail", "ShorthandDict", "open_compat", "patch_object", "join_generators", "quote_cmd",
-    "BaseStream", "TeeStream", "FilteredStream",
+    "default_lock", "io_lock", "console_lock", "no_value", "rel_path", "law_src_path",
+    "law_home_path", "law_run", "print_err", "abort", "is_number", "try_int", "str_to_int",
+    "flag_to_bool", "common_task_params", "colored", "uncolored", "query_choice", "is_pattern",
+    "brace_expand", "multi_match", "is_lazy_iterable", "make_list", "make_tuple", "flatten",
+    "merge_dicts", "which", "map_verbose", "map_struct", "mask_struct", "tmp_file",
+    "interruptable_popen", "readable_popen", "create_hash", "copy_no_perm", "makedirs_perm",
+    "user_owns_file", "iter_chunks", "human_bytes", "parse_bytes", "human_duration",
+    "human_time_diff", "parse_duration", "is_file_exists_error", "send_mail", "ShorthandDict",
+    "open_compat", "patch_object", "join_generators", "quote_cmd", "BaseStream", "TeeStream",
+    "FilteredStream",
 ]
 
 
@@ -54,6 +55,7 @@ logger = logging.getLogger(__name__)
 # some globally usable thread locks
 default_lock = threading.Lock()
 io_lock = threading.Lock()
+console_lock = threading.Lock()
 
 
 class NoValue(object):
