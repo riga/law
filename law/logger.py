@@ -94,6 +94,7 @@ class LogFormatter(logging.Formatter):
     """
 
     tmpl = "{level}: {name} - {msg}"
+    tmpl_error = "{level}: {name} - {msg}\n{traceback}"
 
     level_styles = {
         "NOTSET": {},
@@ -106,8 +107,16 @@ class LogFormatter(logging.Formatter):
 
     def format(self, record):
         """"""
-        return self.tmpl.format(
+        data = dict(
             level=colored(record.levelname, **self.level_styles.get(record.levelname, {})),
             name=record.name,
             msg=record.getMessage(),
         )
+        tmpl = self.tmpl
+
+        # add traceback and change the template when the record contains exception info
+        if record.exc_info:
+            data["traceback"] = self.formatException(record.exc_info)
+            tmpl = self.tmpl_error
+
+        return tmpl.format(**data)
