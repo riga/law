@@ -5,9 +5,6 @@ LABEL law.version="0.0.39"
 LABEL law.image_name="law-py27"
 LABEL law.image_tag="py27"
 
-# workdir
-WORKDIR /root
-
 # expose ports
 EXPOSE 8082
 
@@ -22,6 +19,9 @@ ENV LAW_IMAGE_PYTHON_MINOR 7
 ENV LD_LIBRARY_PATH /usr/lib64:$LD_LIBRARY_PATH
 ENV GFAL_PLUGIN_DIR /usr/lib64/gfal2-plugins
 ENV LAW_SANDBOX docker::riga/law:py27
+
+# initial workdir
+WORKDIR /root/install
 
 # prepare yum
 RUN yum -y update; yum clean all
@@ -66,12 +66,17 @@ RUN pip install slackclient
 RUN pip install python-telegram-bot
 RUN pip install flake8
 
+# cleanup initial workdir
+WORKDIR /root
+RUN rm -rf install
+
 # install law master
 RUN git clone https://github.com/riga/law && \
     cd law && \
-    python setup.py install && \
+    pip install . && \
     cd .. && \
     rm -rf law
+WORKDIR /root/law
 
 # shell initialization
 RUN echo 'source "$( law completion )"' >> /root/.bash_profile
