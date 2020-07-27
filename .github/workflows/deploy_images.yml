@@ -1,6 +1,7 @@
 name: Deploy images
 
 on:
+  push:
   workflow_dispatch:
 
 jobs:
