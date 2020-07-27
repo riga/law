@@ -23,7 +23,11 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
+<<<<<<< HEAD
         python: ["27", "37", "38"]
+=======
+        python: ["2.7", "3.7", "3.8"]
+>>>>>>> e1b2020dc9516eaede87da475e8c2799eac6dcd1
     name: test (python ${{ matrix.python }})
     steps:
       - name: Checkout 🛎️
@@ -35,4 +39,8 @@ jobs:
         run: docker pull riga/law:py${{ matrix.python }}
 
       - name: Test 🎢
+<<<<<<< HEAD
         run: ./tests/docker.sh riga/law:py${{ matrix.python }}
+=======
+        run: ./tests/docker.sh riga/law:py:${{ matrix.python }}
+>>>>>>> e1b2020dc9516eaede87da475e8c2799eac6dcd1
