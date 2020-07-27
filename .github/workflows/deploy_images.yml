@@ -15,12 +15,76 @@ jobs:
       - name: Build image 🏗
         run: |
           cd docker/law-py27
-          docker build . -t riga/law:py27 -t riga/law:py2
+          docker build . -t riga/law:py27
 
       - name: Deploy image 🐳
         uses: elgohr/Publish-Docker-Github-Action@master
         with:
-          name: riga/law
+          name: riga/law:py27
           tags: "py27,py2"
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+  py-37:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v2
+        with:
+          persist-credentials: false
+
+      - name: Build image 🏗
+        run: |
+          cd docker/law-py37
+          docker build . -t riga/law:py37
+
+      - name: Deploy image 🐳
+        uses: elgohr/Publish-Docker-Github-Action@master
+        with:
+          name: riga/law:py37
+          tags: "py37"
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+  py-38:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v2
+        with:
+          persist-credentials: false
+
+      - name: Build image 🏗
+        run: |
+          cd docker/law-py38
+          docker build . -t riga/law:py38
+
+      - name: Deploy image 🐳
+        uses: elgohr/Publish-Docker-Github-Action@master
+        with:
+          name: riga/law:py38
+          tags: "py37,py3,latest"
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+  example:
+    needs: py-38
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v2
+        with:
+          persist-credentials: false
+
+      - name: Build image 🏗
+        run: |
+          cd docker/law-example
+          docker build . -t riga/law:example
+
+      - name: Deploy image 🐳
+        uses: elgohr/Publish-Docker-Github-Action@master
+        with:
+          name: riga/law:example
+          tags: "example"
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
