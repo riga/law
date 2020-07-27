@@ -3,8 +3,9 @@ name: Deploy images
 on:
   workflow_dispatch:
   push:
-    tags:
-      - "v*"
+  # push:
+  #   tags:
+  #     - "v*"
 
 jobs:
   py27:
