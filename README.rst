@@ -3,8 +3,8 @@
    :align: center
    :alt: law logo
 
-.. image:: https://img.shields.io/travis/riga/law/master.svg?style=flat
-   :target: https://travis-ci.org/riga/law
+.. image:: https://github.com/riga/law/workflows/Lint%20and%20test/badge.svg
+   :target: https://github.com/riga/law/actions?query=workflow%3A%22Lint+and+test%22
    :alt: Build status
 
 .. image:: https://readthedocs.org/projects/law/badge/?version=latest
@@ -71,9 +71,10 @@ To run and test law, there are three docker images available on the `DockerHub <
 
 Tags:
 
-- ``latest``, ``py3``, ``py38``: Python 3.8.2
-- ``py37``: Python 3.7.6
+- ``latest``, ``py3``, ``py38``: Latest Python 3.8
+- ``py37``: Latest Python 3.7
 - ``py2``, ``py27``: Python 2.7.5
+- ``example``: Example runner, based on ``latest`` (see [below](#examples))
 
 
 `Usage at CERN <https://github.com/riga/law/wiki/Usage-at-CERN>`__

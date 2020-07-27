@@ -1,0 +1,38 @@
+name: Lint and test
+
+on:
+  workflow_dispatch:
+  push:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v2
+        with:
+          persist-credentials: false
+
+      - name: Pull docker image 🐳
+        run: docker pull riga/law
+
+      - name: Lint 🔍
+        run: ./tests/docker.sh riga/law ./tests/lint.sh
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["27", "37", "38"]
+    name: test (python ${{ matrix.python }})
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v2
+        with:
+          persist-credentials: false
+
+      - name: Pull docker image 🐳
+        run: docker pull riga/law:py${{ matrix.python }}
+
+      - name: Test 🎢
+        run: ./tests/docker.sh riga/law:py${{ matrix.python }}

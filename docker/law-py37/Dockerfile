@@ -2,14 +2,11 @@ FROM centos:7
 
 # labels
 LABEL law.version="0.0.39"
-LABEL law.image_name="law-py37"
+LABEL law.image_name="riga/law"
 LABEL law.image_tag="py37"
-
-# workdir
-WORKDIR /root
-
-# expose ports
-EXPOSE 8082
+LABEL law.image_dir="law-py37"
+LABEL law.image_python_major="3"
+LABEL law.image_python_minor="7"
 
 # law specific environment variables
 ENV LAW_SANDBOX docker::riga/law:py37
@@ -22,6 +19,12 @@ ENV LAW_IMAGE_PYTHON_MINOR 7
 ENV CPATH /usr/local/include/python3.7m:$CPATH
 ENV LD_LIBRARY_PATH /usr/local/lib:$LD_LIBRARY_PATH
 ENV GFAL_PLUGIN_DIR /usr/lib64/gfal2-plugins
+
+# expose ports
+EXPOSE 8082
+
+# installation workdir
+WORKDIR /root/install
 
 # prepare yum
 RUN yum -y update; yum clean all
@@ -90,18 +93,21 @@ RUN git clone https://github.com/cern-it-sdc-id/gfal2-dropbox.git && \
 RUN cd /usr/bin; curl https://getmic.ro | bash
 
 # python packages
-RUN pip3 install luigi
-RUN pip3 install six
+RUN pip3 install --upgrade pip
+RUN pip3 install --upgrade setuptools
 RUN pip3 install slackclient
 RUN pip3 install python-telegram-bot
 RUN pip3 install flake8
 
+# cleanup installation workdir
+WORKDIR /root
+RUN rm -rf install
+
 # install law master
 RUN git clone https://github.com/riga/law && \
     cd law && \
-    python3 setup.py install && \
-    cd .. && \
-    rm -rf law
+    pip3 install .
+WORKDIR /root/law
 
 # shell initialization
 RUN echo 'source "$( law completion )"' >> /root/.bash_profile

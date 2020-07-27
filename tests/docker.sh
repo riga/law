@@ -17,9 +17,9 @@ action() {
     echo "running docker image $image"
 
     if [ "$cmd" = "i" ] || [ "$cmd" = "interactive" ]; then
-        docker run --rm -ti -v "$repo_dir":/root/law -w /root/law "$image" bash
+        docker run --rm -ti -v "$repo_dir":/root/law "$image" bash
     else
-        docker run --rm -t -v "$repo_dir":/root/law -w /root/law "$image" bash -c "$cmd"
+        docker run --rm -t -v "$repo_dir":/root/law "$image" bash -c "$cmd"
     fi
 }
 action "$@"
