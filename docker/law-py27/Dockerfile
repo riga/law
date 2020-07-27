@@ -11,8 +11,14 @@ WORKDIR /root
 # expose ports
 EXPOSE 8082
 
+# law specific environment variables
+ENV LAW_SANDBOX docker::riga/law:py27,docker::riga/law:py2
+ENV LAW_IMAGE_NAME law-py27
+ENV LAW_IMAGE_TAG py27
+ENV LAW_IMAGE_PYTHON_MAJOR 2
+ENV LAW_IMAGE_PYTHON_MINOR 7
+
 # basic environment variables
-ENV WORKDIR /root
 ENV LD_LIBRARY_PATH /usr/lib64:$LD_LIBRARY_PATH
 ENV GFAL_PLUGIN_DIR /usr/lib64/gfal2-plugins
 ENV LAW_SANDBOX docker::riga/law:py27

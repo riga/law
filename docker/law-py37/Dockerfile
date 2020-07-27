@@ -11,12 +11,17 @@ WORKDIR /root
 # expose ports
 EXPOSE 8082
 
+# law specific environment variables
+ENV LAW_SANDBOX docker::riga/law:py37
+ENV LAW_IMAGE_NAME law-py37
+ENV LAW_IMAGE_TAG py37
+ENV LAW_IMAGE_PYTHON_MAJOR 3
+ENV LAW_IMAGE_PYTHON_MINOR 7
+
 # basic environment variables
-ENV WORKDIR /root
 ENV CPATH /usr/local/include/python3.7m:$CPATH
 ENV LD_LIBRARY_PATH /usr/local/lib:$LD_LIBRARY_PATH
 ENV GFAL_PLUGIN_DIR /usr/lib64/gfal2-plugins
-ENV LAW_SANDBOX docker::riga/law:py37,docker::riga/law:latest,docker::riga/law
 
 # prepare yum
 RUN yum -y update; yum clean all

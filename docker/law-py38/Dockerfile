@@ -11,12 +11,17 @@ WORKDIR /root
 # expose ports
 EXPOSE 8082
 
+# law specific environment variables
+ENV LAW_SANDBOX docker::riga/law:py38,docker::riga/law:py3,docker::riga/law:latest,docker::riga/law
+ENV LAW_IMAGE_NAME law-py38
+ENV LAW_IMAGE_TAG py38
+ENV LAW_IMAGE_PYTHON_MAJOR 3
+ENV LAW_IMAGE_PYTHON_MINOR 8
+
 # basic environment variables
-ENV WORKDIR /root
 ENV CPATH /usr/local/include/python3.8:$CPATH
 ENV LD_LIBRARY_PATH /usr/local/lib:$LD_LIBRARY_PATH
 ENV GFAL_PLUGIN_DIR /usr/lib64/gfal2-plugins
-ENV LAW_SANDBOX docker::riga/law:py38,docker::riga/law:latest,docker::riga/law
 
 # prepare yum
 RUN yum -y update; yum clean all
