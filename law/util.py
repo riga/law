@@ -46,6 +46,7 @@ import six
 
 try:
     import ipykernel
+    import ipykernel.iostream
 except ImportError:
     ipykernel = None
 
@@ -279,7 +280,7 @@ def colored(msg, color=None, background=None, style=None, force=False):
         except:
             pass
 
-        if not tty and getattr(ipykernel, "iostream", None):
+        if not tty and ipykernel is not None:
             ipy = isinstance(sys.stdout, ipykernel.iostream.OutStream)
 
         if not tty and not ipy:

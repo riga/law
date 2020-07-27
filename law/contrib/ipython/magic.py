@@ -12,7 +12,6 @@ import shlex
 import logging
 
 import six
-import IPython.core as ipc
 
 import law.cli
 from law.util import law_run, quote_cmd
@@ -22,6 +21,8 @@ logger = logging.getLogger(__name__)
 
 
 def create_magics(init_cmd=None, init_fn=None, line_cmd=None, line_fn=None, log_level=None):
+    import IPython.core as ipc
+
     # prepare commands
     if init_cmd:
         init_cmd = quote_cmd(init_cmd) if isinstance(init_cmd, list) else init_cmd.strip()
