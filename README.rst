@@ -71,9 +71,10 @@ To run and test law, there are three docker images available on the `DockerHub <
 
 Tags:
 
-- ``latest``, ``py3``, ``py38``: Python 3.8.2
-- ``py37``: Python 3.7.6
+- ``latest``, ``py3``, ``py38``: Latest Python 3.8
+- ``py37``: Latest Python 3.7
 - ``py2``, ``py27``: Python 2.7.5
+- ``example``: Example runner, based on ``latest`` (see [below](#examples))
 
 
 `Usage at CERN <https://github.com/riga/law/wiki/Usage-at-CERN>`__
