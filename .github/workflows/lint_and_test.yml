@@ -2,7 +2,7 @@ name: Lint and test
 
 on:
   workflow_dispatch:
-  push:
+  # push:
 
 jobs:
   lint:
