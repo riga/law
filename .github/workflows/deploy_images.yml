@@ -16,17 +16,12 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Build image 🏗
-        run: |
-          cd docker/law-py27
-          docker build . -t riga/law:py27
-
       - name: Build and deploy image (py27) 🐳
         uses: docker/build-push-action@v1
         with:
+          path: docker/law-py27
           repository: riga/law
           tags: py27,py2
-          path: docker/law-py27
           push: true
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}

@@ -2,8 +2,11 @@ FROM centos:7
 
 # labels
 LABEL law.version="0.0.39"
-LABEL law.image_name="law-py27"
+LABEL law.image_name="riga/law"
 LABEL law.image_tag="py27"
+LABEL law.image_dir="law-py27"
+LABEL law.image_python_major="2"
+LABEL law.image_python_minor="7"
 
 # expose ports
 EXPOSE 8082
@@ -18,7 +21,6 @@ ENV LAW_IMAGE_PYTHON_MINOR 7
 # basic environment variables
 ENV LD_LIBRARY_PATH /usr/lib64:$LD_LIBRARY_PATH
 ENV GFAL_PLUGIN_DIR /usr/lib64/gfal2-plugins
-ENV LAW_SANDBOX docker::riga/law:py27
 
 # initial workdir
 WORKDIR /root/install
