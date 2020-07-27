@@ -90,7 +90,11 @@ RUN git clone https://github.com/cern-it-sdc-id/gfal2-dropbox.git && \
 RUN cd /usr/bin; curl https://getmic.ro | bash
 
 # python packages
-RUN pip3 install luigi six slackclient python-telegram-bot
+RUN pip3 install luigi
+RUN pip3 install six
+RUN pip3 install slackclient
+RUN pip3 install python-telegram-bot
+RUN pip3 install flake8
 
 # install law master
 RUN git clone https://github.com/riga/law && \
