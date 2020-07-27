@@ -1,8 +1,9 @@
 FROM centos:7
 
 # labels
-LABEL name="law-py27"
-LABEL version="0.0.39"
+LABEL law.version="0.0.39"
+LABEL law.image_name="law-py27"
+LABEL law.image_tag="py27"
 
 # workdir
 WORKDIR /root

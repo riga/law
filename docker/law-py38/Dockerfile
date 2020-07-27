@@ -1,8 +1,9 @@
 FROM centos:7
 
 # labels
-LABEL name="law-py38"
-LABEL version="0.0.39"
+LABEL law.version="0.0.39"
+LABEL law.image_name="law-py38"
+LABEL law.image_tag="py38"
 
 # workdir
 WORKDIR /root
@@ -28,14 +29,14 @@ RUN yum -y install libffi-devel openssl-devel bzip2-devel json-c-devel curl-deve
     wget nano screen git cmake cmake3; yum clean all
 
 # python software
-RUN wget -nv https://www.python.org/ftp/python/3.8.3/Python-3.8.3.tgz && \
-    tar -xzf Python-3.8.3.tgz && \
-    cd Python-3.8.3 && \
+RUN wget -nv https://www.python.org/ftp/python/3.8.5/Python-3.8.5.tgz && \
+    tar -xzf Python-3.8.5.tgz && \
+    cd Python-3.8.5 && \
     ./configure --enable-optimizations --enable-shared && \
     make altinstall && \
     cd .. && \
-    rm -rf Python-3.8.3 && \
-    rm Python-3.8.3.tgz && \
+    rm -rf Python-3.8.5 && \
+    rm Python-3.8.5.tgz && \
     ln -s -f "$( which python3.8 )" "$( dirname "$( which python3.8 )" )/python3" && \
     python3 --version && \
     ln -s -f "$( which pip3.8 )" "$( dirname "$( which pip3.8 )" )/pip3" && \

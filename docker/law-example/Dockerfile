@@ -1,8 +1,9 @@
 FROM riga/law:latest
 
 # labels
-LABEL name="law-examples"
-LABEL version="0.0.39"
+LABEL law.version="0.0.39"
+LABEL law.image_name="law-examples"
+LABEL law.image_tag="examples"
 
 # expose ports
 EXPOSE 8082
