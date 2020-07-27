@@ -3,8 +3,8 @@
    :align: center
    :alt: law logo
 
-.. image:: https://img.shields.io/travis/riga/law/master.svg?style=flat
-   :target: https://travis-ci.org/riga/law
+.. image:: https://github.com/riga/law/workflows/Lint%20and%20test/badge.svg
+   :target: https://github.com/riga/law/actions?query=workflow%3A%22Lint+and+test%22
    :alt: Build status
 
 .. image:: https://readthedocs.org/projects/law/badge/?version=latest
