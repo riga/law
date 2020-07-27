@@ -8,9 +8,6 @@ LABEL law.image_dir="law-py27"
 LABEL law.image_python_major="2"
 LABEL law.image_python_minor="7"
 
-# expose ports
-EXPOSE 8082
-
 # law specific environment variables
 ENV LAW_SANDBOX docker::riga/law:py27,docker::riga/law:py2
 ENV LAW_IMAGE_NAME law-py27
@@ -22,7 +19,10 @@ ENV LAW_IMAGE_PYTHON_MINOR 7
 ENV LD_LIBRARY_PATH /usr/lib64:$LD_LIBRARY_PATH
 ENV GFAL_PLUGIN_DIR /usr/lib64/gfal2-plugins
 
-# initial workdir
+# expose ports
+EXPOSE 8082
+
+# installation workdir
 WORKDIR /root/install
 
 # prepare yum
@@ -54,30 +54,30 @@ RUN git clone https://github.com/cern-it-sdc-id/gfal2-dropbox.git && \
     cmake .. -DCMAKE_INSTALL_PREFIX=/usr && \
     make && \
     make install && \
-    cd ../.. \
-    && rm -rf gfal2-dropbox
+    cd ../.. && \
+    rm -rf gfal2-dropbox
 
 # micro editor
 RUN cd /usr/bin; curl https://getmic.ro | bash
 
 # python packages
 # use luigi 2.7.6, as 2.7.7 dropped support for python version < 2.7.9 (centos 7 comes with 2.7.5)
+RUN pip install --upgrade pip
+RUN pip install --upgrade setuptools
 RUN pip install luigi==2.7.6
 RUN pip install six
 RUN pip install slackclient
 RUN pip install python-telegram-bot
 RUN pip install flake8
 
-# cleanup initial workdir
+# cleanup installation workdir
 WORKDIR /root
 RUN rm -rf install
 
 # install law master
 RUN git clone https://github.com/riga/law && \
     cd law && \
-    pip install . && \
-    cd .. && \
-    rm -rf law
+    pip install .
 WORKDIR /root/law
 
 # shell initialization
