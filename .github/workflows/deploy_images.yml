@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  py-27:
+  py27:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -25,7 +25,7 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-  py-37:
+  py37:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -46,7 +46,7 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-  py-38:
+  py38:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -68,7 +68,7 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
 
   example:
-    needs: py-38
+    needs: py38
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
