@@ -14,6 +14,7 @@ ENV LAW_IMAGE_NAME law-py38
 ENV LAW_IMAGE_TAG py38
 ENV LAW_IMAGE_PYTHON_MAJOR 3
 ENV LAW_IMAGE_PYTHON_MINOR 8
+ENV LAW_IMAGE_SOURCE_DIR /root/law
 
 # basic environment variables
 ENV CPATH /usr/local/include/python3.8:$CPATH
@@ -104,10 +105,10 @@ WORKDIR /root
 RUN rm -rf install
 
 # install law master
-RUN git clone https://github.com/riga/law && \
-    cd law && \
+RUN git clone https://github.com/riga/law "$LAW_IMAGE_SOURCE_DIR" && \
+    cd "$LAW_IMAGE_SOURCE_DIR" && \
     pip3 install .
-WORKDIR /root/law
+WORKDIR $LAW_IMAGE_SOURCE_DIR
 
 # shell initialization
 RUN echo 'source "$( law completion )"' >> /root/.bash_profile

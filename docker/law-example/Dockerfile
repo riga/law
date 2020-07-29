@@ -16,8 +16,8 @@ WORKDIR /root
 RUN yum -y update; yum clean all
 
 # update the law repository
-RUN cd law && git pull
+RUN cd "$LAW_IMAGE_SOURCE_DIR" && git pull
 
 # entry point
-CMD ["loremipsum"]
 ENTRYPOINT ["/root/start_example.sh"]
+CMD ["loremipsum"]

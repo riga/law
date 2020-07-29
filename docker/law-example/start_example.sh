@@ -2,7 +2,7 @@
 
 action() {
     local example_name="${1:-loremipsum}"
-    local example_dir="$WORKDIR/examples/$example_name"
+    local example_dir="$LAW_IMAGE_SOURCE_DIR/examples/$example_name"
 
     # valid example?
     if [ ! -d "$example_dir" ]; then
