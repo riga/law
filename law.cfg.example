@@ -1,4 +1,4 @@
-; This file is an example of an (overcomplete) law configuration file:
+; This file is an example of an (overcomplete) law configuration file.
 ;
 ; Table of contents:
 ;
@@ -310,26 +310,41 @@
 ; Default: True
 
 ; retries
-; Description: The number of retries to perform when a file operation fails.
+; Description: The default number of retries to perform when a file operation fails. The value can
+; also be set per operation.
 ; Type: integer
 ; Default: 1
 
 ; retry_delay
-; Description: The amount of time to wait before retrying a failed file operation. The default unit
-; is seconds.
+; Description: The default amount of time to wait before retrying a failed file operation. The
+; default unit is seconds. The value can also be set per operation.
 ; Type: integer, string
 ; Default: "5s"
 
 ; random_base
-; Desciption: A boolean flag that, if a base path above is given as a list of paths, decides whether
-; a random path should be chosen per file operation. When "True" and a file operation fails, the
-; next attempt is made with a different yet still random base path.
+; Desciption: A boolean flag that, if a base path above is given as a list of paths, decides
+; whether, by default, a random path should be chosen per file operation. When "True" and a file
+; operation fails, the next attempt is made with a different yet still random base path. The exact
+; behavior can also be set per operation.
 ; Type: boolean
 ; Default: True
 
 ; validate_copy
-; Description: A boolean flag that decides whether a validation should be performed after each file
-; copy (or move) operation.
+; Description: A boolean flag that decides whether, by default, a validation should be performed
+; after each file copy (or move) operation. The exact behavior can also be set per operation.
+; Type: boolean
+; Default: False
+
+; recursive_remove
+; Description: A boolean flag that decides whether, by default, the removal of a directory triggers
+; the recursive removal of all its content first. The exact behavior can also be set per operation.
+; Type: boolean
+; Default: True
+
+; use_cache
+; Description: A boolean flag that decides whether, by default, certain operations (copy, move,
+; open, etc.) should use the local cache (when existing). The exact behavior can also be set per
+; operation.
 ; Type: boolean
 ; Default: False
 
@@ -472,26 +487,41 @@
 ; Default: False
 
 ; retries
-; Description: The number of retries to perform when a file operation fails.
+; Description: The default number of retries to perform when a file operation fails. The value can
+; also be set per operation.
 ; Type: integer
 ; Default: 1
 
 ; retry_delay
-; Description: The amount of time to wait before retrying a failed file operation. The default unit
-; is seconds.
+; Description: The default amount of time to wait before retrying a failed file operation. The
+; default unit is seconds. The value can also be set per operation.
 ; Type: integer, string
 ; Default: "5s"
 
 ; random_base
-; Desciption: A boolean flag that, if a base path above is given as a list of paths, decides whether
-; a random path should be chosen per file operation. When "True" and a file operation fails, the
-; next attempt is made with a different yet still random base path.
+; Desciption: A boolean flag that, if a base path above is given as a list of paths, decides
+; whether, by default, a random path should be chosen per file operation. When "True" and a file
+; operation fails, the next attempt is made with a different yet still random base path. The exact
+; behavior can also be set per operation.
 ; Type: boolean
 ; Default: True
 
 ; validate_copy
-; Description: A boolean flag that decides whether a validation should be performed after each file
-; copy (or move) operation.
+; Description: A boolean flag that decides whether, by default, a validation should be performed
+; after each file copy (or move) operation. The exact behavior can also be set per operation.
+; Type: boolean
+; Default: False
+
+; recursive_remove
+; Description: A boolean flag that decides whether, by default, the removal of a directory triggers
+; the recursive removal of all its content first. The exact behavior can also be set per operation.
+; Type: boolean
+; Default: False
+
+; use_cache
+; Description: A boolean flag that decides whether, by default, certain operations (copy, move,
+; open, etc.) should use the local cache (when existing). The exact behavior can also be set per
+; operation.
 ; Type: boolean
 ; Default: False
 

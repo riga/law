@@ -74,6 +74,7 @@ def retry(func=None, uri_cmd=None):
     def wrapper(func):
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
+            # get the number of retries
             if global_retries is not None:
                 retries = global_retries
             else:
@@ -81,6 +82,7 @@ def retry(func=None, uri_cmd=None):
                 if retries is None:
                     retries = self.retries
 
+            # get the retry delay
             if global_retry_delay is not None:
                 delay = global_retry_delay
             else:
@@ -88,6 +90,7 @@ def retry(func=None, uri_cmd=None):
                 if delay is None:
                     delay = self.retry_delay
 
+            # get the random base setting
             random_base = kwargs.pop("random_base", None)
             if random_base is None:
                 random_base = self.random_base
@@ -690,20 +693,26 @@ class RemoteFileSystem(FileSystem):
             if not cfg.is_missing_or_none(section, option)
         })
 
-        # atomic contexts
+        # use atomic contexts per operation
         add("atomic_contexts", cfg.get_expanded_boolean)
 
-        # number of retries
+        # default number of retries
         add("retries", cfg.get_expanded_int)
 
-        # delay between retries
+        # default delay between retries
         add("retry_delay", get_time)
 
-        # random base selection
+        # default setting for the random base selection
         add("random_base", cfg.get_expanded_boolean)
 
-        # validation after copy
+        # default setting for validation after copy
         add("validate_copy", cfg.get_expanded_boolean)
+
+        # default setting for recursive directory removal
+        add("recursive_remove", cfg.get_expanded_boolean)
+
+        # default setting for using the cache
+        add("use_cache", cfg.get_expanded_boolean)
 
         # cache options
         if cfg.options(section, prefix="cache_"):
@@ -714,7 +723,7 @@ class RemoteFileSystem(FileSystem):
 
     def __init__(self, base, bases=None, gfal_options=None, transfer_config=None,
             atomic_contexts=False, retries=0, retry_delay=0, random_base=True, validate_copy=False,
-            cache_config=None, local_fs=None, **kwargs):
+            recursive_remove=False, use_cache=False, cache_config=None, local_fs=None, **kwargs):
         FileSystem.__init__(self, **kwargs)
 
         # configure the gfal interface
@@ -724,6 +733,8 @@ class RemoteFileSystem(FileSystem):
 
         # store other configs
         self.validate_copy = validate_copy
+        self.recursive_remove = recursive_remove
+        self.use_cache = use_cache
 
         # set the cache when a cache root is set
         if cache_config and cache_config.get("root"):
@@ -744,6 +755,14 @@ class RemoteFileSystem(FileSystem):
 
     def __eq__(self, other):
         return self is other
+
+    def _eval_use_cache(self, use_cache):
+        if self.cache is None:
+            return False
+        elif use_cache is None:
+            return self.use_cache
+        else:
+            return bool(use_cache)
 
     def is_local(self, path):
         return get_scheme(path) == "file"
@@ -789,7 +808,10 @@ class RemoteFileSystem(FileSystem):
                 if not silent:
                     raise
 
-    def remove(self, path, recursive=True, silent=True, **kwargs):
+    def remove(self, path, recursive=None, silent=True, **kwargs):
+        if recursive is None:
+            recursive = self.recursive_remove
+
         if self.abspath(path) == "/":
             logger.warning("refused request to remove base directory of {!r}".format(self))
             return
@@ -922,18 +944,10 @@ class RemoteFileSystem(FileSystem):
 
         return dst
 
-    def _use_cache(self, cache):
-        if self.cache is None:
-            return False
-        elif cache is None:
-            return self.cache is not None
-        else:
-            return bool(cache)
-
     # generic copy with caching ability (local paths must have a "file://" scheme)
     def _cached_copy(self, src, dst, perm=None, cache=None, prefer_cache=False, validate=None,
             **kwargs):
-        cache = self._use_cache(cache)
+        cache = self._eval_use_cache(cache)
 
         # ensure absolute paths
         src = self.abspath(src)
@@ -1046,7 +1060,7 @@ class RemoteFileSystem(FileSystem):
 
         return full_dst
 
-    def copy(self, src, dst, perm=None, dir_perm=None, cache=None, validate=None, **kwargs):
+    def copy(self, src, dst, perm=None, dir_perm=None, **kwargs):
         # dst might be an existing directory
         if dst:
             if self.is_local(dst):
@@ -1055,15 +1069,15 @@ class RemoteFileSystem(FileSystem):
                 self._prepare_dst_dir(dst, src=src, perm=dir_perm, **kwargs)
 
         # copy the file
-        return self._cached_copy(src, dst, perm=perm, cache=cache, validate=validate, **kwargs)
+        return self._cached_copy(src, dst, perm=perm, **kwargs)
 
-    def move(self, src, dst, perm=None, dir_perm=None, validate=None, **kwargs):
+    def move(self, src, dst, perm=None, dir_perm=None, **kwargs):
         if not dst:
             raise Exception("move requires dst to be set")
 
         # copy the file
-        dst = self.copy(src, dst, perm=perm, dir_perm=dir_perm, cache=False, validate=validate,
-            **kwargs)
+        kwargs.pop("cache", None)
+        dst = self.copy(src, dst, perm=perm, dir_perm=dir_perm, cache=False, **kwargs)
 
         # remove the src
         if self.is_local(src):
@@ -1074,7 +1088,7 @@ class RemoteFileSystem(FileSystem):
         return dst
 
     def open(self, path, mode, cache=None, **kwargs):
-        cache = self._use_cache(cache)
+        cache = self._eval_use_cache(cache)
 
         yield_path = kwargs.pop("_yield_path", False)
 

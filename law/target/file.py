@@ -217,7 +217,7 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
         return self.fs.unique_basename(self.path)
 
     def remove(self, silent=True, **kwargs):
-        self.fs.remove(self.path, recursive=True, silent=silent, **kwargs)
+        self.fs.remove(self.path, silent=silent, **kwargs)
 
     def chmod(self, perm, silent=False, **kwargs):
         self.fs.chmod(self.path, perm, silent=silent, **kwargs)
