@@ -14,6 +14,7 @@ ENV LAW_IMAGE_NAME law-py37
 ENV LAW_IMAGE_TAG py37
 ENV LAW_IMAGE_PYTHON_MAJOR 3
 ENV LAW_IMAGE_PYTHON_MINOR 7
+ENV LAW_IMAGE_SOURCE_DIR /root/law
 
 # basic environment variables
 ENV CPATH /usr/local/include/python3.7m:$CPATH
