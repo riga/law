@@ -56,7 +56,8 @@ def execute(args, argv):
             if modid_unknown:
                 # keep the error in case the task family cannot be inferred from the index file
                 error = e
-            raise
+            else:
+                raise
 
     # read task info from the index file and import it
     if task_family is None:
