@@ -45,14 +45,18 @@ def execute(args, argv):
         modid, cls_name = parts
         try:
             mod = __import__(modid, globals(), locals(), [cls_name])
-            if hasattr(mod, cls_name):
-                task_cls = getattr(mod, cls_name)
+            task_cls = getattr(mod, cls_name, None)
+            if task_cls is not None:
                 if not issubclass(task_cls, Task):
                     abort("object '{}' is not a Task".format(args.task_family))
                 task_family = task_cls.get_task_family()
         except ImportError as e:
-            # keep the error in case the task family cannot be inferred from the index file
-            error = e
+            # distinguish import errors resulting from an unknown modid from all other cases
+            modid_unknown = str(e) == "No module named {}".format(modid)
+            if modid_unknown:
+                # keep the error in case the task family cannot be inferred from the index file
+                error = e
+            raise
 
     # read task info from the index file and import it
     if task_family is None:
