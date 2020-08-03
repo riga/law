@@ -46,6 +46,7 @@ The following example shows how a package (e.g. the :py:mod:`~law.docker` packag
    root
    singularity
    slack
+   slurm
    tasks
    telegram
    tensorflow
