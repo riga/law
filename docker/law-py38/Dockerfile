@@ -94,11 +94,11 @@ RUN git clone https://github.com/cern-it-sdc-id/gfal2-dropbox.git && \
 RUN cd /usr/bin; curl https://getmic.ro | bash
 
 # python packages
-RUN pip3 install --upgrade pip
-RUN pip3 install --upgrade setuptools
-RUN pip3 install slackclient
-RUN pip3 install python-telegram-bot
-RUN pip3 install flake8
+RUN pip3 install --no-cache-dir --upgrade pip
+RUN pip3 install --no-cache-dir --upgrade setuptools
+RUN pip3 install --no-cache-dir slackclient
+RUN pip3 install --no-cache-dir python-telegram-bot
+RUN pip3 install --no-cache-dir flake8
 
 # cleanup installation workdir
 WORKDIR /root
@@ -107,7 +107,7 @@ RUN rm -rf install
 # install law master
 RUN git clone https://github.com/riga/law "$LAW_IMAGE_SOURCE_DIR" && \
     cd "$LAW_IMAGE_SOURCE_DIR" && \
-    pip3 install .
+    pip3 install --no-cache-dir .
 WORKDIR $LAW_IMAGE_SOURCE_DIR
 
 # shell initialization

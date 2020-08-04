@@ -63,11 +63,11 @@ RUN cd /usr/bin; curl https://getmic.ro | bash
 
 # python packages
 # use luigi 2.7.6, as 2.7.7 dropped support for python version < 2.7.9 (centos 7 comes with 2.7.5)
-RUN pip install --upgrade pip
-RUN pip install --upgrade setuptools
-RUN pip install slackclient
-RUN pip install python-telegram-bot
-RUN pip install flake8
+RUN pip install --no-cache-dir --upgrade pip
+RUN pip install --no-cache-dir --upgrade setuptools
+RUN pip install --no-cache-dir slackclient
+RUN pip install --no-cache-dir python-telegram-bot
+RUN pip install --no-cache-dir flake8
 
 # cleanup installation workdir
 WORKDIR /root
@@ -76,7 +76,7 @@ RUN rm -rf install
 # install law master
 RUN git clone https://github.com/riga/law && \
     cd law && \
-    pip install .
+    pip install --no-cache-dir .
 WORKDIR /root/law
 
 # shell initialization
