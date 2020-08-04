@@ -7,6 +7,10 @@
    :target: https://github.com/riga/law/actions?query=workflow%3A%22Lint+and+test%22
    :alt: Build status
 
+.. image:: https://github.com/riga/law/workflows/Deploy%20images/badge.svg
+   :target: https://github.com/riga/law/actions?query=workflow%3A%22Deploy+images%22
+   :alt: Docker images
+
 .. image:: https://readthedocs.org/projects/law/badge/?version=latest
    :target: http://law.readthedocs.io/en/latest
    :alt: Documentation status
@@ -156,4 +160,3 @@ Development
 
 
 .. marker-after-body
-
