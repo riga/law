@@ -22,8 +22,8 @@ jobs:
           repository: riga/law
           tags: py27,py2
           push: true
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
   py37:
     runs-on: ubuntu-latest
@@ -40,8 +40,8 @@ jobs:
           repository: riga/law
           tags: py37
           push: true
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
   py38:
     runs-on: ubuntu-latest
@@ -58,8 +58,8 @@ jobs:
           repository: riga/law
           tags: py38,py3,latest
           push: true
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
   example:
     needs: py38
@@ -77,5 +77,5 @@ jobs:
           repository: riga/law
           tags: example
           push: true
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
