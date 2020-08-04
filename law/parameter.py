@@ -17,6 +17,7 @@ import luigi
 from law.notification import notify_mail
 from law.util import (
     human_duration, parse_duration, time_units, time_unit_aliases, is_lazy_iterable, make_tuple,
+    make_unique,
 )
 
 
@@ -136,18 +137,27 @@ class DurationParameter(luigi.Parameter):
 class CSVParameter(luigi.Parameter):
     """
     Parameter that parses a comma-separated value (CSV) and produces a tuple. *cls* can refer to an
-    other luigi parameter class that will be used to parse and serialize the particular items.
+    other parameter class that will be used to parse and serialize the particular items.
+
+    When *unique* is *True*, both parsing and serialization methods make sure that values are
+    unique.
+
     Example:
 
     .. code-block:: python
 
-        p = CSVParameter(cls=luigi.IntParameter, default=(1, 2, 3)]
+        p = CSVParameter(cls=luigi.IntParameter)
 
-        p.parse("4,5,6")
-        # => (4, 5, 6)
+        p.parse("4,5,6,6")
+        # => (4, 5, 6, 6)
 
         p.serialize((7, 8, 9))
         # => "7,8,9"
+
+        p = CSVParameter(cls=luigi.IntParameter, unique=True)
+
+        p.parse("4,5,6,6")
+        # => (4, 5, 6)
 
     .. note::
 
@@ -165,8 +175,9 @@ class CSVParameter(luigi.Parameter):
     """
 
     def __init__(self, *args, **kwargs):
-        """ __init__(*args, cls=luigi.Parameter, **kwargs) """
-        cls = kwargs.pop("cls", luigi.Parameter)
+        """ __init__(*args, cls=luigi.Parameter, unique=False, **kwargs) """
+        self._cls = kwargs.pop("cls", luigi.Parameter)
+        self._unique = kwargs.pop("unique", False)
 
         # ensure that the default value is a tuple
         if "default" in kwargs:
@@ -174,22 +185,29 @@ class CSVParameter(luigi.Parameter):
 
         super(CSVParameter, self).__init__(*args, **kwargs)
 
-        self._inst = cls()
+        self._inst = self._cls()
 
     def parse(self, inp):
         """"""
         if not inp:
-            return ()
+            ret = tuple()
         elif isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
-            return make_tuple(inp)
+            ret = make_tuple(inp)
         else:
-            return tuple(self._inst.parse(elem) for elem in inp.split(","))
+            ret = tuple(self._inst.parse(elem) for elem in inp.split(","))
+
+        if self._unique:
+            ret = make_unique(ret)
+
+        return ret
 
     def serialize(self, value):
         """"""
         if not value:
             return ""
         else:
+            if self._unique:
+                value = make_unique(value)
             return ",".join(str(self._inst.serialize(elem)) for elem in value)
 
 
