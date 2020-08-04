@@ -355,12 +355,14 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             return super(BaseRemoteWorkflowProxy, self).complete()
 
     def requires(self):
-        reqs = OrderedDict()
-
-        # add upstream and workflow specific requirements when not controlling running jobs
-        if not self.task.is_controlling_remote_jobs():
-            reqs.update(super(BaseRemoteWorkflowProxy, self).requires())
-            reqs.update(self._get_task_attribute("workflow_requires")())
+        # use upstream and workflow specific requirements only when not controlling running jobs
+        if self.task.is_controlling_remote_jobs():
+            reqs = OrderedDict()
+        else:
+            reqs = super(BaseRemoteWorkflowProxy, self).requires()
+            remote_reqs = self._get_task_attribute("workflow_requires")()
+            if remote_reqs:
+                reqs.update(remote_reqs)
 
         return reqs
 

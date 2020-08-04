@@ -97,7 +97,9 @@ class BaseWorkflowProxy(ProxyTask):
         the return value of the task's *workflow_requires* method.
         """
         reqs = OrderedDict()
-        reqs.update(self.task.workflow_requires())
+        workflow_reqs = self.task.workflow_requires()
+        if workflow_reqs:
+            reqs.update(workflow_reqs)
         return reqs
 
     def output(self):
