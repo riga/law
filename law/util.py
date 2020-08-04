@@ -9,13 +9,13 @@ __all__ = [
     "default_lock", "io_lock", "console_lock", "no_value", "rel_path", "law_src_path",
     "law_home_path", "law_run", "print_err", "abort", "is_number", "try_int", "str_to_int",
     "flag_to_bool", "common_task_params", "colored", "uncolored", "query_choice", "is_pattern",
-    "brace_expand", "multi_match", "is_lazy_iterable", "make_list", "make_tuple", "flatten",
-    "merge_dicts", "which", "map_verbose", "map_struct", "mask_struct", "tmp_file",
-    "interruptable_popen", "readable_popen", "create_hash", "copy_no_perm", "makedirs_perm",
-    "user_owns_file", "iter_chunks", "human_bytes", "parse_bytes", "human_duration",
-    "human_time_diff", "parse_duration", "is_file_exists_error", "send_mail", "ShorthandDict",
-    "open_compat", "patch_object", "join_generators", "quote_cmd", "BaseStream", "TeeStream",
-    "FilteredStream",
+    "brace_expand", "multi_match", "is_iterable", "is_lazy_iterable", "make_list", "make_tuple",
+    "make_unique", "flatten", "merge_dicts", "which", "map_verbose", "map_struct", "mask_struct",
+    "tmp_file", "interruptable_popen", "readable_popen", "create_hash", "copy_no_perm",
+    "makedirs_perm", "user_owns_file", "iter_chunks", "human_bytes", "parse_bytes",
+    "human_duration", "human_time_diff", "parse_duration", "is_file_exists_error", "send_mail",
+    "ShorthandDict", "open_compat", "patch_object", "join_generators", "quote_cmd", "BaseStream",
+    "TeeStream", "FilteredStream",
 ]
 
 
@@ -442,6 +442,17 @@ def multi_match(name, patterns, mode=any, regex=False):
         return mode(re.match(pattern, name) for pattern in patterns)
 
 
+def is_iterable(obj):
+    """
+    Returns *True* when an object *obj* is iterable and *False* otherwise.
+    """
+    try:
+        iter(obj)
+    except Exception:
+        return False
+    return True
+
+
 def is_lazy_iterable(obj):
     """
     Returns whether *obj* is iterable lazily, such as generators, range objects, maps, etc.
@@ -480,6 +491,24 @@ def make_tuple(obj, cast=True):
         return tuple(obj)
     else:
         return (obj,)
+
+
+def make_unique(obj):
+    """
+    Takes a list or tuple *obj*, removes duplicate elements in order of their appearance and returns
+    the sequence of remaining, unique elements. The sequence type is preserved. When *obj* is
+    neither a list nor a tuple, but iterable, a list is returned. Otherwise, a *TypeError* is
+    raised.
+    """
+    if not isinstance(obj, (list, tuple)):
+        if is_iterable(obj):
+            obj = list(obj)
+        else:
+            raise TypeError("object is neither list, tuple, nor generic iterable")
+
+    ret = sorted(obj.__class__(set(obj)), key=lambda elem: obj.index(elem))
+
+    return obj.__class__(ret) if isinstance(obj, tuple) else ret
 
 
 def flatten(*structs, **kwargs):
