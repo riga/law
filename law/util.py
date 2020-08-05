@@ -843,8 +843,9 @@ def interruptable_popen(*args, **kwargs):
             interrupt_callback(p)
 
         # when the process is still alive, send SIGTERM to gracefully terminate it
+        pgid = os.getpgid(p.pid)
         if p.poll() is None:
-            os.killpg(os.getpgid(p.pid), signal.SIGTERM)
+            os.killpg(pgid, signal.SIGTERM)
 
         # when a kill_timeout is set, and the process is still running after that period,
         # send SIGKILL to force its termination
@@ -856,7 +857,9 @@ def interruptable_popen(*args, **kwargs):
                     # the process terminated, exit the loop
                     break
             else:
-                os.killpg(os.getpgid(p.pid), signal.SIGKILL)
+                # check the status again to avoid race conditinos
+                if p.poll() is None:
+                    os.killpg(pgid, signal.SIGKILL)
 
         # transparently reraise
         raise
