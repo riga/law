@@ -1,7 +1,7 @@
 FROM riga/law:latest
 
 # labels
-LABEL law.version="0.0.39"
+LABEL law.version="0.0.40"
 LABEL law.image_name="riga/law"
 LABEL law.image_tag="example"
 LABEL law.image_dir="law-example"

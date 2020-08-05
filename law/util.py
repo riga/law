@@ -817,14 +817,14 @@ def interruptable_popen(*args, **kwargs):
     by *KeyboardInterrupt*. The return code, standard output and standard error are returned in a
     3-tuple.
 
-    *interrupt_callback* can be a functionm accepting the process instance as an argument, that is
+    *interrupt_callback* can be a function, accepting the process instance as an argument, that is
     called immediately after a *KeyboardInterrupt* occurs. After that, a SIGTERM signal is send to
-    the subprocess to allow for a graceful process shutdown.
+    the subprocess to allow it to gracefully shutdown.
 
     When *kill_timeout* is set, and the process is still alive after that period (in seconds), a
-    SIGKILL signal is sent for force the process termination.
+    SIGKILL signal is sent to force the process termination.
 
-    All other *args* and *kwargs* are forwatded to the :py:class:`Popen` constructor.
+    All other *args* and *kwargs* are forwarded to the :py:class:`Popen` constructor.
     """
     # get kwargs not being passed to Popen
     interrupt_callback = kwargs.pop("interrupt_callback", None)
@@ -857,7 +857,7 @@ def interruptable_popen(*args, **kwargs):
                     # the process terminated, exit the loop
                     break
             else:
-                # check the status again to avoid race conditinos
+                # check the status again to avoid race conditions
                 if p.poll() is None:
                     os.killpg(pgid, signal.SIGKILL)
 
