@@ -19,6 +19,26 @@ jobs:
       - name: Lint 🔍
         run: ./tests/docker.sh riga/law ./tests/lint.sh
 
+  pypi:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v2
+        with:
+          persist-credentials: false
+
+      - name: Install dependencies ☕️
+        run: |
+          pip install --no-cache-dir --upgrade pip
+          pip install --no-cache-dir --upgrade setuptools
+          pip install --no-cache-dir --upgrade twine
+
+      - name: Check bundling 📦
+        run: python setup.py sdist
+
+      - name: Check setup 🚦
+        run: twine check "dist/$( python setup.py --fullname ).tar.gz"
+
   test:
     runs-on: ubuntu-latest
     strategy:
