@@ -41,10 +41,16 @@ class DockerSandbox(Sandbox):
         return None if ":" not in self.image else self.image.split(":", 1)[1]
 
     def _docker_run_cmd(self):
+        """
+        Part of the "docker run" command that is common to env requests and run.
+        """
         cmd = ["docker", "run"]
 
         # rm flag
         cmd.extend(["--rm"])
+
+        # use the pid namespace of the host so killing the outer process will stop the container
+        cmd.extend(["--pid", "host"])
 
         # task-specific arguments
         if self.task:
@@ -172,7 +178,7 @@ class DockerSandbox(Sandbox):
             else:
                 vsrc = os.path.join(path, name + ".py")
                 vdst = dst(python_dir, name + ".py")
-            mount(vsrc, vdst)
+            mount(vsrc, vdst, "ro")
 
         # forward the law cli dir to bin as it contains a law executable
         env["PATH"] = os.pathsep.join([dst(python_dir, "law", "cli"), env["PATH"]])
@@ -193,7 +199,7 @@ class DockerSandbox(Sandbox):
         vols = self._get_volumes()
         for hdir, cdir in six.iteritems(vols):
             if not cdir:
-                mount(hdir)
+                mount(hdir, hdir)
             else:
                 cdir = self._expand_volume(cdir, bin_dir=dst(bin_dir), python_dir=dst(python_dir))
                 mount(hdir, cdir)
