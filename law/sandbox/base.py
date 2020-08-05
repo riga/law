@@ -72,6 +72,14 @@ class StageInfo(object):
         self.stage_dir = stage_dir
         self.stage_targets = stage_targets
 
+    def __str__(self):
+        tmpl = "{}.{} object at {}:\n  targets      : {}\n  stage_dir    : {}\n  stage_targets: {}"
+        return tmpl.format(self.__class__.__module__, self.__class__.__name__, hex(id(self)),
+            self.targets, self.stage_dir.path, self.stage_targets)
+
+    def __repr__(self):
+        return str(self)
+
 
 @six.add_metaclass(ABCMeta)
 class Sandbox(object):
@@ -231,13 +239,7 @@ class Sandbox(object):
     def _expand_volume(self, vol, bin_dir=None, python_dir=None):
         def replace(vol, name, repl):
             # warn about the deprecation of the legacy format "${name}" (until v0.1)
-            var = "{" + name + "}"
-            old_var = "${" + name + "}"
-            if old_var in vol:
-                logger.warning("the volume definition '{}' contains a deprecated variable '{}' "
-                    "which will be removed in the future, please use '{}' instead".format(
-                        vol, old_var, var))
-                vol = vol.replace(old_var, repl)
+            var = "{{LAW_FORWARD_" + name + "}}"
             vol = vol.replace(var, repl)
             return vol
 
@@ -309,10 +311,10 @@ class SandboxProxy(ProxyTask):
         cmd = self.sandbox_inst.cmd(self.proxy_cmd())
 
         # run with log section before and after actual run call
-        with self._run_log(cmd):
+        with self._run_context(cmd):
             code, out, err = self.sandbox_inst.run(cmd)
             if code != 0:
-                raise Exception("Sandbox '{}' failed with exit code {}".format(
+                raise Exception("sandbox '{}' failed with exit code {}".format(
                     self.sandbox_inst.key, code))
 
         # actual stage_out
@@ -427,7 +429,7 @@ class SandboxProxy(ProxyTask):
         logger.info("staged-out {} file(s)".format(len(stageout_info.stage_dir.listdir())))
 
     @contextmanager
-    def _run_log(self, cmd=None):
+    def _run_context(self, cmd=None):
         def print_banner(msg, color):
             print("")
             print(colored(" {} ".format(msg).center(80, "="), color=color))
@@ -524,7 +526,7 @@ class SandboxTask(Task):
         return mask_struct(self.sandbox_stagein(), staged_inputs, inputs)
 
     def _staged_output(self):
-        if not _sandbox_stagein_dir:
+        if not _sandbox_stageout_dir:
             raise Exception("LAW_SANDBOX_STAGEOUT_DIR must not be empty in a sandbox when target "
                 "stage-out is required")
 
