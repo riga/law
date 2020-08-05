@@ -27,11 +27,15 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Setup python 🐍
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.7
+
       - name: Install dependencies ☕️
         run: |
-          pip install --no-cache-dir --upgrade pip
-          pip install --no-cache-dir --upgrade setuptools
-          pip install --no-cache-dir --upgrade twine
+          python -m pip install --upgrade pip
+          pip install twine
 
       - name: Check bundling 📦
         run: python setup.py sdist
