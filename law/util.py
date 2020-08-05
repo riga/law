@@ -35,6 +35,7 @@ import copy
 import collections
 import contextlib
 import smtplib
+import time
 import datetime
 import random
 import threading
@@ -811,20 +812,53 @@ def tmp_file(*args, **kwargs):
 
 
 def interruptable_popen(*args, **kwargs):
-    """
-    Shorthand to :py:class:`Popen` followed by :py:meth:`Popen.communicate`. All *args* and *kwargs*
-    are forwatded to the :py:class:`Popen` constructor. The return code, standard output and
-    standard error are returned in a tuple. The call :py:meth:`Popen.communicate` is interruptable
-    by the user.
-    """
-    kwargs["preexec_fn"] = os.setsid
+    """ interruptable_popen(*args, interrupt_callback=None, kill_timeout=None, **kwargs)
+    Shorthand to :py:class:`Popen` followed by :py:meth:`Popen.communicate` which can be interrupted
+    by *KeyboardInterrupt*. The return code, standard output and standard error are returned in a
+    3-tuple.
 
+    *interrupt_callback* can be a functionm accepting the process instance as an argument, that is
+    called immediately after a *KeyboardInterrupt* occurs. After that, a SIGTERM signal is send to
+    the subprocess to allow for a graceful process shutdown.
+
+    When *kill_timeout* is set, and the process is still alive after that period (in seconds), a
+    SIGKILL signal is sent for force the process termination.
+
+    All other *args* and *kwargs* are forwatded to the :py:class:`Popen` constructor.
+    """
+    # get kwargs not being passed to Popen
+    interrupt_callback = kwargs.pop("interrupt_callback", None)
+    kill_timeout = kwargs.pop("kill_timeout", None)
+
+    # start the subprocess in a new process group
+    kwargs["preexec_fn"] = os.setsid
     p = subprocess.Popen(*args, **kwargs)
 
+    # handle interrupts
     try:
         out, err = p.communicate()
     except KeyboardInterrupt:
-        os.killpg(os.getpgid(p.pid), signal.SIGTERM)
+        # allow the interrupt_callback to perform a custom process termination
+        if callable(interrupt_callback):
+            interrupt_callback(p)
+
+        # when the process is still alive, send SIGTERM to gracefully terminate it
+        if p.poll() is None:
+            os.killpg(os.getpgid(p.pid), signal.SIGTERM)
+
+        # when a kill_timeout is set, and the process is still running after that period,
+        # send SIGKILL to force its termination
+        if kill_timeout is not None:
+            target_time = time.time() + kill_timeout
+            while target_time > time.time():
+                time.sleep(0.05)
+                if p.poll() is not None:
+                    # the process terminated, exit the loop
+                    break
+            else:
+                os.killpg(os.getpgid(p.pid), signal.SIGKILL)
+
+        # transparently reraise
         raise
 
     if six.PY3:
