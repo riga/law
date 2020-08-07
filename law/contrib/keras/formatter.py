@@ -30,14 +30,14 @@ class KerasModelFormatter(Formatter):
         path = get_path(path)
 
         # the method for saving the model depends on the file extension
-        if path.endswith((".hdf5", ".h5")):
-            return model.save(path, *args, **kwargs)
-        elif path.endswith(".json"):
+        if path.endswith(".json"):
             with open(path, "w") as f:
                 f.write(model.to_json())
-        else:  # .yml, .yaml
+        elif path.endswith((".yml", ".yaml")):
             with open(path, "w") as f:
                 f.write(model.to_yaml())
+        else:  # .hdf5, .h5, bundle
+            return model.save(path, *args, **kwargs)
 
     @classmethod
     def load(cls, path, *args, **kwargs):
@@ -46,14 +46,14 @@ class KerasModelFormatter(Formatter):
         path = get_path(path)
 
         # the method for loading the model depends on the file extension
-        if path.endswith((".hdf5", ".h5")):
-            return keras.models.load_model(path, *args, **kwargs)
-        elif path.endswith(".json"):
+        if path.endswith(".json"):
             with open(path, "r") as f:
                 return keras.models.model_from_json(f.read(), *args, **kwargs)
-        else:  # .yml, .yaml
+        elif path.endswith((".yml", ".yaml")):
             with open(path, "r") as f:
                 return keras.models.model_from_yaml(f.read(), *args, **kwargs)
+        else:  # .hdf5, .h5, bundle
+            return keras.models.load_model(path, *args, **kwargs)
 
 
 class KerasWeightsFormatter(Formatter):
