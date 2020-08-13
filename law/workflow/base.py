@@ -335,15 +335,17 @@ class BaseWorkflow(Task):
     tolerance = luigi.FloatParameter(default=0.0, significant=False, description="number of failed "
         "tasks to still consider the task successful, relative fraction (<= 1) or absolute value "
         "(> 1), default: 0.0")
-    pilot = luigi.BoolParameter(significant=False, description="disable requirements of the "
-        "workflow to let branch tasks resolve requirements on their own")
+    pilot = luigi.BoolParameter(default=False, significant=False, description="disable "
+        "requirements of the workflow to let branch tasks resolve requirements on their own, "
+        "default: False")
     branch = luigi.IntParameter(default=-1, description="the branch number/index to run this "
         "task for, -1 means this task is the workflow, default: -1")
-    start_branch = luigi.IntParameter(default=NO_INT, description="the branch to start at, "
-        "default: 0")
+    start_branch = luigi.IntParameter(default=NO_INT, description="the branch to start at, NO_INT "
+        "means first, default: NO_INT")
     end_branch = luigi.IntParameter(default=NO_INT, description="the branch to end at, NO_INT "
-        "means end, default: NO_INT")
-    branches = CSVParameter(default=(), description="list of branches to select, default: ()")
+        "means last, default: NO_INT")
+    branches = CSVParameter(default=(), unique=True, description="list of branches to select, "
+        "default: ()")
 
     workflow_proxy_cls = BaseWorkflowProxy
 

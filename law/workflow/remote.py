@@ -1042,10 +1042,10 @@ class BaseRemoteWorkflow(BaseWorkflow):
         "to be processed by one job, default: 1")
     parallel_jobs = luigi.IntParameter(default=NO_INT, significant=False, description="maximum "
         "number of parallel running jobs, default: infinite")
-    only_missing = luigi.BoolParameter(significant=False, description="skip tasks that are "
-        "considered complete")
-    no_poll = luigi.BoolParameter(significant=False, description="just submit, do not initiate "
-        "status polling after submission")
+    only_missing = luigi.BoolParameter(default=False, significant=False, description="skip tasks "
+        "that are considered complete, default: False")
+    no_poll = luigi.BoolParameter(default=False, significant=False, description="just submit, do "
+        "not initiate status polling after submission, default: False")
     threads = luigi.IntParameter(default=4, significant=False, description="number of threads to "
         "use for (re)submission and status queries, default: 4")
     walltime = DurationParameter(default=NO_FLOAT, unit="h", significant=False,
@@ -1054,13 +1054,17 @@ class BaseRemoteWorkflow(BaseWorkflow):
         "between status polls, default unit is minutes, default: 1")
     poll_fails = luigi.IntParameter(default=5, significant=False, description="maximum number of "
         "consecutive errors during polling, default: 5")
-    shuffle_jobs = luigi.BoolParameter(description="shuffled job submission", significant=False)
-    cancel_jobs = luigi.BoolParameter(description="cancel all submitted jobs, no new submission")
-    cleanup_jobs = luigi.BoolParameter(description="cleanup all submitted jobs, no new submission")
-    ignore_submission = luigi.BoolParameter(significant=False, description="ignore any existing "
-        "submission file from a previous submission and start a new one")
-    transfer_logs = luigi.BoolParameter(significant=False, description="transfer job logs to the "
-        "output directory")
+    shuffle_jobs = luigi.BoolParameter(default=False, significant=False, description="shuffled job "
+        "submission, default: False")
+    cancel_jobs = luigi.BoolParameter(default=False, description="cancel all submitted jobs, no "
+        "new submission, default: False")
+    cleanup_jobs = luigi.BoolParameter(default=False, description="cleanup all submitted jobs, no "
+        "new submission, default: False")
+    ignore_submission = luigi.BoolParameter(default=False, significant=False, description="ignore "
+        "any existing submission file from a previous submission and start a new one, default: "
+        "False")
+    transfer_logs = luigi.BoolParameter(default=False, significant=False, description="transfer "
+        "job logs to the output directory, default: False")
 
     align_polling_status_line = False
     check_unreachable_acceptance = False

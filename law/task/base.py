@@ -118,7 +118,7 @@ class BaseTask(luigi.Task):
     def get_param_values(cls, *args, **kwargs):
         values = super(BaseTask, cls).get_param_values(*args, **kwargs)
         if callable(cls.modify_param_values):
-            return cls.modify_param_values(OrderedDict(values)).items()
+            return list(cls.modify_param_values(OrderedDict(values)).items())
         else:
             return values
 
