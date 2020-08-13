@@ -142,22 +142,27 @@ class CSVParameter(luigi.Parameter):
     When *unique* is *True*, both parsing and serialization methods make sure that values are
     unique.
 
+    When *min_len* (*max_len*) is set to an integer, an error is raised in case the number of
+    elements to serialize or parse is deceeds (exceeds) that value.
+
     Example:
 
     .. code-block:: python
 
         p = CSVParameter(cls=luigi.IntParameter)
-
         p.parse("4,5,6,6")
         # => (4, 5, 6, 6)
-
         p.serialize((7, 8, 9))
         # => "7,8,9"
 
         p = CSVParameter(cls=luigi.IntParameter, unique=True)
-
         p.parse("4,5,6,6")
         # => (4, 5, 6)
+
+        p = CSVParameter(cls=luigi.IntParameter, max_len=2)
+
+        p.parse("4,5,6")
+        # => ValueError
 
     .. note::
 
@@ -175,9 +180,12 @@ class CSVParameter(luigi.Parameter):
     """
 
     def __init__(self, *args, **kwargs):
-        """ __init__(*args, cls=luigi.Parameter, unique=False, **kwargs) """
+        """ __init__(*args, cls=luigi.Parameter, unique=False, min_len=None, max_len=None, **kwargs)
+        """
         self._cls = kwargs.pop("cls", luigi.Parameter)
         self._unique = kwargs.pop("unique", False)
+        self._min_len = kwargs.pop("min_len", None)
+        self._max_len = kwargs.pop("max_len", None)
 
         # ensure that the default value is a tuple
         if "default" in kwargs:
@@ -186,6 +194,18 @@ class CSVParameter(luigi.Parameter):
         super(CSVParameter, self).__init__(*args, **kwargs)
 
         self._inst = self._cls()
+
+    def _check_len(self, value):
+        str_repr = lambda: ",".join(str(v) for v in value)
+
+        if self._min_len is not None and len(value) < self._min_len:
+            raise ValueError("'{}' contains {} value(s), a minimum of {} is required".format(
+                str_repr(), len(value), self._min_len))
+
+        # check max_len
+        if self._max_len is not None and len(value) > self._max_len:
+            raise ValueError("{} contains {} value(s), a maximum of {} is required".format(
+                str_repr(), len(value), self._max_len))
 
     def parse(self, inp):
         """"""
@@ -196,8 +216,12 @@ class CSVParameter(luigi.Parameter):
         else:
             ret = tuple(self._inst.parse(elem) for elem in inp.split(","))
 
+        # ensure uniqueness
         if self._unique:
             ret = make_unique(ret)
+
+        # check min_len and max_len
+        self._check_len(ret)
 
         return ret
 
@@ -206,8 +230,13 @@ class CSVParameter(luigi.Parameter):
         if not value:
             return ""
         else:
+            # ensure uniqueness
             if self._unique:
                 value = make_unique(value)
+
+            # check min_len and max_len
+            self._check_len(value)
+
             return ",".join(str(self._inst.serialize(elem)) for elem in value)
 
 
