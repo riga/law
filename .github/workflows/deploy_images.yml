@@ -41,7 +41,7 @@ jobs:
           path: docker/law-py37
           repository: riga/law
           tags: py37
-          push: "${{ github.event.inputs.skip_push }}" !== "true"
+          push: "${{ github.event.inputs.skip_push }}" != "true"
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
@@ -59,13 +59,13 @@ jobs:
           path: docker/law-py38
           repository: riga/law
           tags: py38,py3,latest
-          push: "${{ github.event.inputs.skip_push }}" !== "true"
+          push: "${{ github.event.inputs.skip_push }}" != "true"
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
   example:
     needs: py38
-    if: "${{ github.event.inputs.skip_push }}" !== "true"
+    if: "${{ github.event.inputs.skip_push }}" != "true"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
