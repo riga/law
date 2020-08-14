@@ -23,7 +23,7 @@ jobs:
           path: docker/law-py27
           repository: riga/law
           tags: py27,py2
-          push: "${{ github.event.inputs.skip_push }}" !== "true"
+          push: "${{ github.event.inputs.skip_push }}" != "true"
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
