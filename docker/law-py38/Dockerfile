@@ -7,6 +7,9 @@ LABEL law.image_tag="py38"
 LABEL law.image_dir="law-py38"
 LABEL law.image_python_major="3"
 LABEL law.image_python_minor="8"
+LABEL law.image_python_patch="5"
+LABEL law.image_python="3.8.5"
+LABEL law.image_python_mm="3.8"
 
 # law specific environment variables
 ENV LAW_SANDBOX docker::riga/law:py38,docker::riga/law:py3,docker::riga/law:latest,docker::riga/law
@@ -14,10 +17,13 @@ ENV LAW_IMAGE_NAME law-py38
 ENV LAW_IMAGE_TAG py38
 ENV LAW_IMAGE_PYTHON_MAJOR 3
 ENV LAW_IMAGE_PYTHON_MINOR 8
+ENV LAW_IMAGE_PYTHON_PATCH 5
+ENV LAW_IMAGE_PYTHON $LAW_IMAGE_PYTHON_MAJOR.$LAW_IMAGE_PYTHON_MINOR.$LAW_IMAGE_PYTHON_PATCH
+ENV LAW_IMAGE_PYTHON_MM $LAW_IMAGE_PYTHON_MAJOR.$LAW_IMAGE_PYTHON_MINOR
 ENV LAW_IMAGE_SOURCE_DIR /root/law
 
 # basic environment variables
-ENV CPATH /usr/local/include/python3.8:$CPATH
+ENV CPATH /usr/local/include/python${LAW_IMAGE_PYTHON_MM}:/usr/local/include/python${LAW_IMAGE_PYTHON_MM}m:$CPATH
 ENV LD_LIBRARY_PATH /usr/local/lib:$LD_LIBRARY_PATH
 ENV GFAL_PLUGIN_DIR /usr/lib64/gfal2-plugins
 
@@ -38,27 +44,27 @@ RUN yum -y install libffi-devel openssl-devel bzip2-devel json-c-devel curl-deve
     wget nano screen git cmake cmake3; yum clean all
 
 # python software
-RUN wget -nv https://www.python.org/ftp/python/3.8.5/Python-3.8.5.tgz && \
-    tar -xzf Python-3.8.5.tgz && \
-    cd Python-3.8.5 && \
+RUN wget -nv https://www.python.org/ftp/python/${LAW_IMAGE_PYTHON}/Python-${LAW_IMAGE_PYTHON}.tgz && \
+    tar -xzf Python-${LAW_IMAGE_PYTHON}.tgz && \
+    cd Python-${LAW_IMAGE_PYTHON} && \
     ./configure --enable-optimizations --enable-shared && \
     make altinstall && \
     cd .. && \
-    rm -rf Python-3.8.5 && \
-    rm Python-3.8.5.tgz && \
-    ln -s -f "$( which python3.8 )" "$( dirname "$( which python3.8 )" )/python3" && \
+    rm -rf Python-${LAW_IMAGE_PYTHON} && \
+    rm Python-${LAW_IMAGE_PYTHON}.tgz && \
+    ln -s -f "$( which python${LAW_IMAGE_PYTHON_MM} )" "$( dirname "$( which python${LAW_IMAGE_PYTHON_MM} )" )/python3" && \
     python3 --version && \
-    ln -s -f "$( which pip3.8 )" "$( dirname "$( which pip3.8 )" )/pip3" && \
+    ln -s -f "$( which pip${LAW_IMAGE_PYTHON_MM} )" "$( dirname "$( which pip${LAW_IMAGE_PYTHON_MM} )" )/pip3" && \
     pip3 --version
 
 # boost for system python 2.7
 RUN yum -y install boost-devel boost-python; yum clean all
 
-# boost for custom python 3.8
+# boost for custom python
 RUN wget -nv https://dl.bintray.com/boostorg/release/1.73.0/source/boost_1_73_0.tar.gz && \
     tar -xzf boost_1_73_0.tar.gz && \
     cd boost_1_73_0 && \
-    ./bootstrap.sh --with-libraries=system,thread,python --with-python="$( which python3.8 )" && \
+    ./bootstrap.sh --with-libraries=system,thread,python --with-python="$( which python3 )" && \
     perl -pi -e 's!(\Qincludes ?= $(prefix)/include/python$(version)\E)!\1m!' tools/build/src/tools/python.jam && \
     ./b2 install --prefix=/usr && \
     ldconfig && \
@@ -77,7 +83,7 @@ RUN yum -y install gfal2-all gfal2-devel gfal2-util; yum clean all
 RUN git clone https://gitlab.cern.ch/mrieger/gfal2-bindings.git && \
     cd gfal2-bindings && \
     git checkout 00fbad0f && \
-    python3.8 setup.py install && \
+    python3 setup.py install && \
     cd .. && \
     rm -rf gfal2-bindings
 RUN git clone https://github.com/cern-it-sdc-id/gfal2-dropbox.git && \

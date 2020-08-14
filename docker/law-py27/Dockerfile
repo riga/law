@@ -7,6 +7,9 @@ LABEL law.image_tag="py27"
 LABEL law.image_dir="law-py27"
 LABEL law.image_python_major="2"
 LABEL law.image_python_minor="7"
+LABEL law.image_python_patch="5"
+LABEL law.image_python="2.7.5"
+LABEL law.image_python_mm="2.7"
 
 # law specific environment variables
 ENV LAW_SANDBOX docker::riga/law:py27,docker::riga/law:py2
@@ -14,6 +17,9 @@ ENV LAW_IMAGE_NAME law-py27
 ENV LAW_IMAGE_TAG py27
 ENV LAW_IMAGE_PYTHON_MAJOR 2
 ENV LAW_IMAGE_PYTHON_MINOR 7
+ENV LAW_IMAGE_PYTHON_PATCH 5
+ENV LAW_IMAGE_PYTHON $LAW_IMAGE_PYTHON_MAJOR.$LAW_IMAGE_PYTHON_MINOR.$LAW_IMAGE_PYTHON_PATCH
+ENV LAW_IMAGE_PYTHON_MM $LAW_IMAGE_PYTHON_MAJOR.$LAW_IMAGE_PYTHON_MINOR
 ENV LAW_IMAGE_SOURCE_DIR /root/law
 
 # basic environment variables
