@@ -86,7 +86,7 @@ RUN git clone https://github.com/riga/law && \
 WORKDIR /root/law
 
 # shell initialization
-RUN echo 'source "$( law completion )"' >> /root/.bash_profile
+RUN echo 'source "$( law completion )" ""' >> /root/.bash_profile
 
 # init command
 CMD bash --login
