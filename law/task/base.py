@@ -27,7 +27,7 @@ from law.target.file import localize_file_targets
 from law.parser import root_task, global_cmdline_values
 from law.util import (
     abort, common_task_params, colored, uncolored, make_list, multi_match, flatten, BaseStream,
-    human_duration, patch_object,
+    human_duration, patch_object, quote_cmd,
 )
 
 
@@ -220,22 +220,23 @@ class BaseTask(luigi.Task):
             elif order == "pre":
                 tasks[:0] = deps
 
-    def cli_args(self, exclude=None, replace=None):
+    def cli_args(self, exclude=None, replace=None, join=False):
         exclude = set() if exclude is None else set(make_list(exclude))
         if replace is None:
             replace = {}
 
-        args = []
+        args = OrderedDict()
         for name, param in self.get_params():
             if multi_match(name, exclude, any):
                 continue
             raw = replace.get(name, getattr(self, name))
             val = param.serialize(raw)
-            arg = "--{}".format(name.replace("_", "-"))
-            # TODO: why does quote_cmd([val]) fail while str(val) doesn't
-            args.extend([arg, str(val)])
+            args["--" + name.replace("_", "-")] = str(val)
 
-        return args
+        if join:
+            return ["{}={}".format(k, quote_cmd([v])) for k, v in args.items()]
+        else:
+            return args
 
     @abstractmethod
     def run(self):
@@ -253,7 +254,7 @@ class Register(BaseRegister):
             if value:
                 skip_abort = False
                 try:
-                    logger.debug("evaluating interactive parameter '{}' with value '{}'".format(
+                    logger.debug("evaluating interactive parameter '{}' with value {}".format(
                         param, value))
                     skip_abort = getattr(inst, "_" + param)(value)
                 except KeyboardInterrupt:
@@ -398,13 +399,13 @@ class Task(BaseTask):
         else:
             return make_callback(n_total, *reach)
 
-    def cli_args(self, exclude=None, replace=None):
+    def cli_args(self, exclude=None, replace=None, join=False):
         exclude = set() if exclude is None else set(make_list(exclude))
 
         # always exclude interactive parameters
         exclude |= set(self.interactive_params)
 
-        return super(Task, self).cli_args(exclude=exclude, replace=replace)
+        return super(Task, self).cli_args(exclude=exclude, replace=replace, join=join)
 
     def __repr__(self):
         return self.repr(color=False)

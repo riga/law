@@ -21,7 +21,6 @@ from law.config import Config
 from law.sandbox.base import Sandbox
 from law.target.local import LocalFileTarget
 from law.cli.software import deps as law_deps
-from law.parser import remove_cmdline_arg
 from law.util import make_list, interruptable_popen, quote_cmd, flatten
 
 
@@ -204,15 +203,15 @@ class DockerSandbox(Sandbox):
                 cdir = self._expand_volume(cdir, bin_dir=dst(bin_dir), python_dir=dst(python_dir))
                 mount(hdir, cdir)
 
-        # handle scheduling within the container
+        # handle local scheduling within the container
         if self.force_local_scheduler():
-            proxy_cmd = remove_cmdline_arg(proxy_cmd, "--local-scheduler", n=1)
+            proxy_cmd = [cmd for cmd in proxy_cmd if not cmd.startswith("--local-scheduler=")]
             proxy_cmd.extend(["--local-scheduler", "True"])
         elif self.scheduler_on_host():
             # when the scheduler runs on the host system, we need to set the network interface to
             # the host system and set the correct host address as seen by the container
             args.extend(["--network", "host"])
-            proxy_cmd.extend(["--scheduler-host", self.get_host_ip()])
+            proxy_cmd.append("--scheduler-host=" + quote_cmd([self.get_host_ip()]))
 
         # get the docker run command, add arguments from above
         docker_run_cmd = self._docker_run_cmd() + args

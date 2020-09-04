@@ -277,10 +277,10 @@ class SandboxProxy(ProxyTask):
         cmd = ["law", "run", "{}.{}".format(self.task.__module__, self.task.__class__.__name__)]
 
         # add cli args, exclude some parameters
-        cmd.extend(self.task.cli_args(exclude=self.task.exclude_params_sandbox))
+        cmd.extend(self.task.cli_args(exclude=self.task.exclude_params_sandbox, join=True))
 
         # add global args, explicitely remove the --workers argument
-        cmd.extend(global_cmdline_args(exclude=[("--workers", 1)]))
+        cmd.extend(global_cmdline_args(exclude=["workers"], join=True))
 
         return cmd
 

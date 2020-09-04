@@ -17,8 +17,8 @@ from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments
 from law.target.file import get_path
 from law.parameter import CSVParameter
-from law.parser import global_cmdline_args, add_cmdline_arg
-from law.util import law_src_path, merge_dicts, is_number
+from law.parser import global_cmdline_args
+from law.util import law_src_path, merge_dicts, quote_cmd, is_number
 
 from law.contrib.arc.job import ARCJobManager, ARCJobFileFactory
 
@@ -57,15 +57,14 @@ class ARCWorkflowProxy(BaseRemoteWorkflowProxy):
         config.executable = os.path.basename(wrapper_file)
 
         # collect task parameters
-        task_params = task.as_branch(branches[0]).cli_args(exclude={"branch"})
-        task_params += global_cmdline_args(exclude=[("--workers", 1), ("--local-scheduler", 1)])
+        task_params = task.as_branch(branches[0]).cli_args(exclude={"branch"}, join=True)
+        task_params += global_cmdline_args(exclude=["workers", "local-scheduler"], join=True)
         if task.arc_use_local_scheduler():
-            task_params = add_cmdline_arg(task_params, "--local-scheduler", "True")
-        for arg in task.arc_cmdline_args() or []:
-            if isinstance(arg, tuple):
-                task_params = add_cmdline_arg(task_params, *arg)
-            else:
-                task_params = add_cmdline_arg(task_params, arg)
+            task_params.append("--local-scheduler=True")
+        for arg, value in OrderedDict(task.arc_cmdline_args()).items():
+            if not arg.startswith("--"):
+                arg = "--" + arg
+            task_params.append("{}={}".format(arg, quote_cmd([value])))
 
         # job script arguments
         job_args = JobArguments(
@@ -233,4 +232,4 @@ class ARCWorkflow(BaseRemoteWorkflow):
         return True
 
     def arc_cmdline_args(self):
-        return []
+        return {}

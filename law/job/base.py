@@ -855,7 +855,7 @@ class JobArguments(object):
         Encodes a list of command line parameters *params* into a string via
         :py:func:`law.util.quote_cmd` followed by base64 encoding.
         """
-        encoded = base64.b64encode(six.b(quote_cmd(params) or "-"))
+        encoded = base64.b64encode(six.b(" ".join(params) or "-"))
         return encoded.decode("utf-8") if six.PY3 else encoded
 
     def get_args(self):

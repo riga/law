@@ -397,7 +397,7 @@ class BaseWorkflow(Task):
     def __getattribute__(self, attr, proxy=True):
         return get_proxy_attribute(self, attr, proxy=proxy, super_cls=Task)
 
-    def cli_args(self, exclude=None, replace=None):
+    def cli_args(self, exclude=None, replace=None, join=False):
         exclude = set() if exclude is None else set(make_list(exclude))
 
         if self.is_branch():
@@ -405,7 +405,7 @@ class BaseWorkflow(Task):
         else:
             exclude |= self.exclude_params_workflow
 
-        return super(BaseWorkflow, self).cli_args(exclude=exclude, replace=replace)
+        return super(BaseWorkflow, self).cli_args(exclude=exclude, replace=replace, join=join)
 
     def _repr_params(self, *args, **kwargs):
         values = super(BaseWorkflow, self)._repr_params(*args, **kwargs)

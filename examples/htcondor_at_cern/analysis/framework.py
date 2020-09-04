@@ -10,6 +10,7 @@ and only needs to be defined once per user / group / etc.
 
 
 import os
+import math
 
 import luigi
 import law
@@ -49,6 +50,9 @@ class HTCondorWorkflow(law.htcondor.HTCondorWorkflow):
     configuration is required.
     """
 
+    max_runtime = law.DurationParameter(default=2.0, unit="h", significant=False,
+        description="maximum runtime, default unit is hours, default: 2")
+
     def htcondor_output_directory(self):
         # the directory where submission meta data should be stored
         return law.LocalDirectoryTarget(self.local_path())
@@ -63,6 +67,8 @@ class HTCondorWorkflow(law.htcondor.HTCondorWorkflow):
         config.render_variables["analysis_path"] = os.getenv("ANALYSIS_PATH")
         # force to run on CC7, http://batchdocs.web.cern.ch/batchdocs/local/submit.html#os-choice
         config.custom_content.append(("requirements", "(OpSysAndVer =?= \"CentOS7\")"))
+        # maximum runtime
+        config.custom_content.append(("+MaxRuntime", int(math.floor(self.max_runtime * 3600)) - 1))
         # copy the entire environment
         config.custom_content.append(("getenv", "true"))
         # the CERN htcondor setup requires a "log" config, but we can safely set it to /dev/null
