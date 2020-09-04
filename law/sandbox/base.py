@@ -272,7 +272,7 @@ class SandboxProxy(ProxyTask):
     def sandbox_inst(self):
         return self.task.sandbox_inst
 
-    def proxy_cmd(self):
+    def create_proxy_cmd(self):
         return ProxyCommand(self.task, exclude_task_args=self.task.exclude_params_sandbox,
             exclude_global_args=["workers"])
 
