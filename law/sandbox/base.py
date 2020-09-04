@@ -21,11 +21,11 @@ import six
 
 from law.config import Config
 from law.task.base import Task
-from law.task.proxy import ProxyTask, get_proxy_attribute
+from law.task.proxy import ProxyTask, ProxyCommand, get_proxy_attribute
 from law.target.local import LocalDirectoryTarget
 from law.target.collection import TargetCollection
 from law.parameter import NO_STR
-from law.parser import global_cmdline_args, root_task
+from law.parser import root_task
 from law.util import (
     colored, is_pattern, multi_match, mask_struct, map_struct, interruptable_popen, patch_object,
     flatten,
@@ -272,17 +272,9 @@ class SandboxProxy(ProxyTask):
     def sandbox_inst(self):
         return self.task.sandbox_inst
 
-    def proxy_cmd(self):
-        # start with "law run <module.task>"
-        cmd = ["law", "run", "{}.{}".format(self.task.__module__, self.task.__class__.__name__)]
-
-        # add cli args, exclude some parameters
-        cmd.extend(self.task.cli_args(exclude=self.task.exclude_params_sandbox))
-
-        # add global args, explicitely remove the --workers argument
-        cmd.extend(global_cmdline_args(exclude=[("--workers", 1)]))
-
-        return cmd
+    def create_proxy_cmd(self):
+        return ProxyCommand(self.task, exclude_task_args=self.task.exclude_params_sandbox,
+            exclude_global_args=["workers"])
 
     def run(self):
         # before_run hook
@@ -308,7 +300,7 @@ class SandboxProxy(ProxyTask):
             logger.debug("configured sandbox stage-out data")
 
         # create the actual command to run
-        cmd = self.sandbox_inst.cmd(self.proxy_cmd())
+        cmd = self.sandbox_inst.cmd(self.create_proxy_cmd())
 
         # run with log section before and after actual run call
         with self._run_context(cmd):

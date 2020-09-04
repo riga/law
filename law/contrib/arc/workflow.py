@@ -15,9 +15,9 @@ from collections import OrderedDict
 
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments
+from law.task.proxy import ProxyCommand
 from law.target.file import get_path
 from law.parameter import CSVParameter
-from law.parser import global_cmdline_args, add_cmdline_arg
 from law.util import law_src_path, merge_dicts, is_number
 
 from law.contrib.arc.job import ARCJobManager, ARCJobFileFactory
@@ -57,20 +57,17 @@ class ARCWorkflowProxy(BaseRemoteWorkflowProxy):
         config.executable = os.path.basename(wrapper_file)
 
         # collect task parameters
-        task_params = task.as_branch(branches[0]).cli_args(exclude={"branch"})
-        task_params += global_cmdline_args(exclude=[("--workers", 1), ("--local-scheduler", 1)])
+        proxy_cmd = ProxyCommand(task.as_branch(branches[0]), exclude_task_args={"branch"},
+            exclude_global_args=["workers", "local-scheduler"])
         if task.arc_use_local_scheduler():
-            task_params = add_cmdline_arg(task_params, "--local-scheduler", "True")
-        for arg in task.arc_cmdline_args() or []:
-            if isinstance(arg, tuple):
-                task_params = add_cmdline_arg(task_params, *arg)
-            else:
-                task_params = add_cmdline_arg(task_params, arg)
+            proxy_cmd.add_arg("--local-scheduler", "True", overwrite=True)
+        for key, value in OrderedDict(task.arc_cmdline_args()).items():
+            proxy_cmd.add_arg(key, value, overwrite=True)
 
         # job script arguments
         job_args = JobArguments(
             task_cls=task.__class__,
-            task_params=task_params,
+            task_params=proxy_cmd.build(skip_run=True),
             branches=branches,
             auto_retry=False,
             dashboard_data=self.dashboard.remote_hook_data(
@@ -233,4 +230,4 @@ class ARCWorkflow(BaseRemoteWorkflow):
         return True
 
     def arc_cmdline_args(self):
-        return []
+        return {}

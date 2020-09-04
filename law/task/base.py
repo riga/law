@@ -225,15 +225,13 @@ class BaseTask(luigi.Task):
         if replace is None:
             replace = {}
 
-        args = []
+        args = OrderedDict()
         for name, param in self.get_params():
             if multi_match(name, exclude, any):
                 continue
             raw = replace.get(name, getattr(self, name))
             val = param.serialize(raw)
-            arg = "--{}".format(name.replace("_", "-"))
-            # TODO: why does quote_cmd([val]) fail while str(val) doesn't
-            args.extend([arg, str(val)])
+            args["--" + name.replace("_", "-")] = str(val)
 
         return args
 
@@ -253,7 +251,7 @@ class Register(BaseRegister):
             if value:
                 skip_abort = False
                 try:
-                    logger.debug("evaluating interactive parameter '{}' with value '{}'".format(
+                    logger.debug("evaluating interactive parameter '{}' with value {}".format(
                         param, value))
                     skip_abort = getattr(inst, "_" + param)(value)
                 except KeyboardInterrupt:

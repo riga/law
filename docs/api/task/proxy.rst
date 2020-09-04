@@ -13,6 +13,13 @@ Class ``ProxyTask``
    :members:
 
 
+Class ``ProxyCommand``
+----------------------
+
+.. autoclass:: ProxyCommand
+   :members:
+
+
 Functions
 ---------
 
