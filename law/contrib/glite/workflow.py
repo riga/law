@@ -17,10 +17,10 @@ from collections import OrderedDict
 
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments
+from law.task.proxy import ProxyCommand
 from law.target.file import get_path
 from law.parameter import CSVParameter
-from law.parser import global_cmdline_args
-from law.util import law_src_path, merge_dicts, quote_cmd
+from law.util import law_src_path, merge_dicts
 from law.contrib.wlcg import delegate_voms_proxy_glite, get_ce_endpoint
 
 from law.contrib.glite.job import GLiteJobManager, GLiteJobFileFactory
@@ -62,19 +62,17 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
         config.executable = os.path.basename(wrapper_file)
 
         # collect task parameters
-        task_params = task.as_branch(branches[0]).cli_args(exclude={"branch"}, join=True)
-        task_params += global_cmdline_args(exclude=["workers", "local-scheduler"], join=True)
+        proxy_cmd = ProxyCommand(task.as_branch(branches[0]), exclude_task_args={"branch"},
+            exclude_global_args=["workers", "local-scheduler"])
         if task.glite_use_local_scheduler():
-            task_params.append("--local-scheduler=True")
-        for arg, value in OrderedDict(task.glite_cmdline_args()).items():
-            if not arg.startswith("--"):
-                arg = "--" + arg
-            task_params.append("{}={}".format(arg, quote_cmd([value])))
+            proxy_cmd.add_arg("--local-scheduler", "True", overwrite=True)
+        for key, value in OrderedDict(task.glite_cmdline_args()).items():
+            proxy_cmd.add_arg(key, value, overwrite=True)
 
         # job script arguments
         job_args = JobArguments(
             task_cls=task.__class__,
-            task_params=task_params,
+            task_params=proxy_cmd.build(skip_run=True),
             branches=branches,
             auto_retry=False,
             dashboard_data=self.dashboard.remote_hook_data(

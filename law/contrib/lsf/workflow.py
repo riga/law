@@ -17,11 +17,11 @@ import luigi
 
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments
+from law.task.proxy import ProxyCommand
 from law.target.file import get_path
 from law.target.local import LocalDirectoryTarget
 from law.parameter import NO_STR
-from law.parser import global_cmdline_args
-from law.util import law_src_path, merge_dicts, quote_cmd
+from law.util import law_src_path, merge_dicts
 
 from law.contrib.lsf.job import LSFJobManager, LSFJobFileFactory
 
@@ -50,19 +50,17 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
         pf = lambda s: "postfix:{}".format(s)
 
         # collect task parameters
-        task_params = task.as_branch(branches[0]).cli_args(exclude={"branch"}, join=True)
-        task_params += global_cmdline_args(exclude=["workers", "local-scheduler"], join=True)
+        proxy_cmd = ProxyCommand(task.as_branch(branches[0]), exclude_task_args={"branch"},
+            exclude_global_args=["workers", "local-scheduler"])
         if task.lsf_use_local_scheduler():
-            task_params.append("--local-scheduler=True")
-        for arg, value in OrderedDict(task.lsf_cmdline_args()).items():
-            if not arg.startswith("--"):
-                arg = "--" + arg
-            task_params.append("{}={}".format(arg, quote_cmd([value])))
+            proxy_cmd.add_arg("--local-scheduler", "True", overwrite=True)
+        for key, value in OrderedDict(task.lsf_cmdline_args()).items():
+            proxy_cmd.add_arg(key, value, overwrite=True)
 
         # job script arguments
         job_args = JobArguments(
             task_cls=task.__class__,
-            task_params=task_params,
+            task_params=proxy_cmd.build(skip_run=True),
             branches=branches,
             auto_retry=False,
             dashboard_data=self.dashboard.remote_hook_data(

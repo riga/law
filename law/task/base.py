@@ -220,7 +220,7 @@ class BaseTask(luigi.Task):
             elif order == "pre":
                 tasks[:0] = deps
 
-    def cli_args(self, exclude=None, replace=None, join=False):
+    def cli_args(self, exclude=None, replace=None):
         exclude = set() if exclude is None else set(make_list(exclude))
         if replace is None:
             replace = {}
@@ -233,10 +233,7 @@ class BaseTask(luigi.Task):
             val = param.serialize(raw)
             args["--" + name.replace("_", "-")] = str(val)
 
-        if join:
-            return ["{}={}".format(k, quote_cmd([v])) for k, v in args.items()]
-        else:
-            return args
+        return args
 
     @abstractmethod
     def run(self):
@@ -399,13 +396,13 @@ class Task(BaseTask):
         else:
             return make_callback(n_total, *reach)
 
-    def cli_args(self, exclude=None, replace=None, join=False):
+    def cli_args(self, exclude=None, replace=None):
         exclude = set() if exclude is None else set(make_list(exclude))
 
         # always exclude interactive parameters
         exclude |= set(self.interactive_params)
 
-        return super(Task, self).cli_args(exclude=exclude, replace=replace, join=join)
+        return super(Task, self).cli_args(exclude=exclude, replace=replace)
 
     def __repr__(self):
         return self.repr(color=False)

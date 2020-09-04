@@ -99,13 +99,12 @@ def root_task_parser():
     return _root_task_parser
 
 
-def global_cmdline_args(exclude=None, join=False):
+def global_cmdline_args(exclude=None):
     """
     Returns a dictionary with keys and string values of command line arguments that do not belong to
     the root task. For bool parameters, such as ``--local-scheduler``, ``"True"`` is assumed if they
     are used as flags, i.e., without a parameter value. The returned dict is cached. *exclude* can
-    be a list of argument names (with or without the leading ``"--"``) to be removed. When *join* is
-    *True*, the key value pairs are joined into quoted strings and returned as a list. Example:
+    be a list of argument names (with or without the leading ``"--"``) to be removed. Example:
 
     .. code-block:: python
 
@@ -114,9 +113,6 @@ def global_cmdline_args(exclude=None, join=False):
 
         global_cmdline_args(exclude=["workers"])
         # -> {"--local-scheduler": "True"}
-
-        global_cmdline_args(join=True)
-        # -> ["--local-scheduler=True", "--workers=4"]
     """
     global _global_cmdline_args
 
@@ -148,15 +144,12 @@ def global_cmdline_args(exclude=None, join=False):
     if exclude:
         args = OrderedDict(args)
 
-        for name in exclude:
-            if not name.startswith("--"):
-                name = "--" + name
-            args.pop(name, None)
+        for key in exclude:
+            if not key.startswith("--"):
+                key = "--" + key.lstrip("-")
+            args.pop(key, None)
 
-    if join:
-        return ["{}={}".format(k, quote_cmd([v])) for k, v in args.items()]
-    else:
-        return args
+    return args
 
 
 def global_cmdline_values():

@@ -842,20 +842,19 @@ class JobArguments(object):
         return "yes" if b else "no"
 
     @classmethod
+    def encode_string(cls, s):
+        """
+        Encodes a string *s* via base64 encoding.
+        """
+        encoded = base64.b64encode(six.b(s or "-"))
+        return encoded.decode("utf-8") if six.PY3 else encoded
+
+    @classmethod
     def encode_list(cls, l):
         """
         Encodes a list *l* into a string via base64 encoding.
         """
         encoded = base64.b64encode(six.b(" ".join(str(v) for v in l) or "-"))
-        return encoded.decode("utf-8") if six.PY3 else encoded
-
-    @classmethod
-    def encode_params(cls, params):
-        """
-        Encodes a list of command line parameters *params* into a string via
-        :py:func:`law.util.quote_cmd` followed by base64 encoding.
-        """
-        encoded = base64.b64encode(six.b(" ".join(params) or "-"))
         return encoded.decode("utf-8") if six.PY3 else encoded
 
     def get_args(self):
@@ -866,7 +865,7 @@ class JobArguments(object):
         return [
             self.task_cls.__module__,
             self.task_cls.__name__,
-            self.encode_params(self.task_params),
+            self.encode_string(self.task_params),
             self.encode_list(self.branches),
             self.encode_bool(self.auto_retry),
             self.encode_list(self.dashboard_data),
