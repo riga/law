@@ -95,14 +95,13 @@ class BashSandbox(Sandbox):
         # build commands to setup the environment
         setup_cmds = self._build_setup_cmds(env)
 
-        # handle scheduling within the container
-        ls_flag = "--local-scheduler"
-        if self.force_local_scheduler() and ls_flag not in proxy_cmd:
-            proxy_cmd.append(ls_flag)
+        # handle local scheduling within the container
+        if self.force_local_scheduler():
+            proxy_cmd.add_arg("--local-scheduler", "True", overwrite=True)
 
         # build the final command
         cmd = quote_cmd(bash_cmd + ["-c", "; ".join(
-            flatten("source \"{}\" \"\"".format(self.script), setup_cmds, quote_cmd(proxy_cmd)))
+            flatten("source \"{}\" \"\"".format(self.script), setup_cmds, proxy_cmd.build()))
         ])
 
         return cmd

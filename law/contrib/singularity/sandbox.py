@@ -231,8 +231,7 @@ class SingularitySandbox(Sandbox):
 
         # handle local scheduling within the container
         if self.force_local_scheduler():
-            proxy_cmd = [cmd for cmd in proxy_cmd if not cmd.startswith("--local-scheduler=")]
-            proxy_cmd.append("--local-scheduler=True")
+            proxy_cmd.add_arg("--local-scheduler", "True", overwrite=True)
 
         # get the singularity exec command, add arguments from above
         singularity_exec_cmd = self._singularity_exec_cmd() + args
@@ -242,7 +241,7 @@ class SingularitySandbox(Sandbox):
 
         # build the final command
         cmd = quote_cmd(singularity_exec_cmd + [self.image, "bash", "-l", "-c",
-            "; ".join(flatten(setup_cmds, quote_cmd(proxy_cmd)))
+            "; ".join(flatten(setup_cmds, proxy_cmd.build()))
         ])
 
         return cmd

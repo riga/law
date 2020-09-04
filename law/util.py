@@ -385,8 +385,8 @@ def brace_expand(s, split_csv=False):
         # -> ["A1B", "A2B", "C3D"]
     """
     # first, replace escaped braces
-    br_open = "__LAW_BRACE_OPEN__"
-    br_close = "__LAW_BRACE_CLOSE__"
+    br_open = "__law_brace_open__"
+    br_close = "__law_brace_close__"
     s = s.replace(r"\{", br_open).replace(r"\}", br_close)
 
     # compile the expression that finds brace statements
@@ -395,7 +395,7 @@ def brace_expand(s, split_csv=False):
     # take into account csv splitting
     if split_csv:
         # replace commas in brace statements to avoid splitting
-        br_comma = "__LAW_BRACE_COMMA__"
+        br_comma = "__law_brace_comma__"
         _s = cre.sub(lambda m: m.group(0).replace(",", br_comma), s)
         # split by real csv commas and start recursion when a comma was found, otherwise continue
         parts = _s.split(",")

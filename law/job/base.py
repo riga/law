@@ -21,7 +21,7 @@ from abc import ABCMeta, abstractmethod
 import six
 
 from law.config import Config
-from law.util import colored, make_list, iter_chunks, flatten, quote_cmd
+from law.util import colored, make_list, iter_chunks, flatten
 
 
 def get_async_result_silent(result, timeout=None):

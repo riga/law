@@ -28,7 +28,7 @@ from law.parameter import NO_STR
 from law.parser import global_cmdline_args, root_task
 from law.util import (
     colored, is_pattern, multi_match, mask_struct, map_struct, interruptable_popen, patch_object,
-    flatten,
+    flatten, quote_cmd,
 )
 
 
@@ -79,6 +79,52 @@ class StageInfo(object):
 
     def __repr__(self):
         return str(self)
+
+
+class ProxyCommand(object):
+
+    arg_sep = "__law_arg_sep__"
+
+    def __init__(self, task, exclude_task_args=None, exclude_global_args=None):
+        super(ProxyCommand, self).__init__()
+
+        self.task = task
+        self.exclude_task_args = exclude_task_args
+        self.exclude_global_args = exclude_global_args
+
+        self.args = self.build_args()
+
+    def build_args(self):
+        args = []
+
+        # add cli args as key value tuples
+        args.extend(self.task.cli_args(exclude=self.exclude_task_args).items())
+
+        # add global args as key value tuples
+        args.extend(global_cmdline_args(exclude=self.exclude_global_args).items())
+
+        return args
+
+    def remove_arg(self, key):
+        self.args = [(_key, value) for _key, value in self.args if _key != key]
+
+    def add_arg(self, key, value, overwrite=False):
+        if overwrite:
+            self.remove_arg(key)
+        self.args.append((key, value))
+
+    def build(self):
+        # start with "law run <module.task>"
+        cmd = ["law", "run", "{}.{}".format(self.task.__module__, self.task.__class__.__name__)]
+
+        # add arguments and insert dummary key value separators which are replaced with "=" later
+        for key, value in self.args:
+            cmd.extend([key, self.arg_sep, value])
+
+        cmd = " ".join(quote_cmd([c]) for c in cmd)
+        cmd = cmd.replace(" " + self.arg_sep + " ", "=")
+
+        return cmd
 
 
 @six.add_metaclass(ABCMeta)
@@ -273,16 +319,8 @@ class SandboxProxy(ProxyTask):
         return self.task.sandbox_inst
 
     def proxy_cmd(self):
-        # start with "law run <module.task>"
-        cmd = ["law", "run", "{}.{}".format(self.task.__module__, self.task.__class__.__name__)]
-
-        # add cli args, exclude some parameters
-        cmd.extend(self.task.cli_args(exclude=self.task.exclude_params_sandbox, join=True))
-
-        # add global args, explicitely remove the --workers argument
-        cmd.extend(global_cmdline_args(exclude=["workers"], join=True))
-
-        return cmd
+        return ProxyCommand(self.task, exclude_task_args=self.task.exclude_params_sandbox,
+            exclude_global_args=["workers"])
 
     def run(self):
         # before_run hook

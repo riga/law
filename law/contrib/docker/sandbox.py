@@ -205,13 +205,12 @@ class DockerSandbox(Sandbox):
 
         # handle local scheduling within the container
         if self.force_local_scheduler():
-            proxy_cmd = [cmd for cmd in proxy_cmd if not cmd.startswith("--local-scheduler=")]
-            proxy_cmd.extend(["--local-scheduler", "True"])
+            proxy_cmd.add_arg("--local-scheduler", "True", overwrite=True)
         elif self.scheduler_on_host():
             # when the scheduler runs on the host system, we need to set the network interface to
             # the host system and set the correct host address as seen by the container
             args.extend(["--network", "host"])
-            proxy_cmd.append("--scheduler-host=" + quote_cmd([self.get_host_ip()]))
+            proxy_cmd.add_arg("--scheduler-host", self.get_host_ip(), overwrite=True)
 
         # get the docker run command, add arguments from above
         docker_run_cmd = self._docker_run_cmd() + args
@@ -221,7 +220,7 @@ class DockerSandbox(Sandbox):
 
         # build the final command
         cmd = quote_cmd(docker_run_cmd + [self.image, "bash", "-l", "-c",
-            "; ".join(flatten(setup_cmds, quote_cmd(proxy_cmd)))
+            "; ".join(flatten(setup_cmds, proxy_cmd.build()))
         ])
 
         return cmd
