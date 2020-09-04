@@ -14,8 +14,6 @@ from argparse import ArgumentParser
 
 import luigi
 
-from law.util import quote_cmd
-
 
 logger = logging.getLogger(__name__)
 
