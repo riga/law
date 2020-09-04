@@ -27,7 +27,7 @@ from law.target.file import localize_file_targets
 from law.parser import root_task, global_cmdline_values
 from law.util import (
     abort, common_task_params, colored, uncolored, make_list, multi_match, flatten, BaseStream,
-    human_duration, patch_object, quote_cmd,
+    human_duration, patch_object,
 )
 
 
