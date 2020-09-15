@@ -131,9 +131,15 @@ def global_cmdline_args(exclude=None):
             if not arg.startswith("--"):
                 raise Exception("global argument must start with '--', found '{}'".format(arg))
 
-            # when the argument is a boolean flag without subsequent value, assume "True"
-            is_flag = not args or args[0].startswith("--")
-            value = "True" if is_flag else args.pop(0)
+            # get the corresponding value which is either part of the argument itself in the format
+            # "--arg=value" or passed in the next argument which must not start with "--" (in this
+            # case it is interpreted as a boolean "True" value)
+            if "=" in arg:
+                arg, value = arg.split("=", 1)
+            elif args and not args[0].startswith("--"):
+                value = args.pop(0)
+            else:
+                value = "True"
 
             _global_cmdline_args[arg] = value
 
