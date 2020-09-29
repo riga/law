@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 
-# Bundles a git repository into a tar archive considering
-# all local changes that are not excluded by the .gitignore file
-# and all recursive submodules.
+# Bundles a git repository into a tar archive considering all local changes that are not excluded by
+# the .gitignore file and all recursive submodules.
 
 # Arguments:
 # 1. the absolute path to the repository
@@ -70,13 +69,12 @@ action() {
         sgit add -A . &> /dev/null && \
         [ ! -z "$$include_files" ] && sgit add -f $include_files &> /dev/null; \
         sgit commit -m "$commit_msg" &> /dev/null; \
-        for elem in $( sgit ls-files ); do echo "$repo_name/$elem" >> "$tmp_list"; done && \
+        for elem in $( sgit ls-files ); do echo "$elem" >> "$tmp_list"; done && \
         sgit submodule foreach --recursive --quiet "\
             git add -A . &> /dev/null && \
             git commit -m \"$commit_msg\" &> /dev/null; \
-            for elem in \$( git ls-files ); do echo \"$repo_name/\$path/\$elem\" >> \"$tmp_list\"; done" && \
+            for elem in \$( git ls-files ); do echo \"\$path/\$elem\" >> \"$tmp_list\"; done" && \
         mkdir -p "$( dirname "$dst_path" )" && \
-        cd "$tmp_dir" && \
         tar -czf "$dst_path" -T "$tmp_list"
     )
     local ret="$?"
