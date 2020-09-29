@@ -65,10 +65,8 @@ class RunOnceTask(Task):
 class TransferLocalFile(Task):
 
     source_path = luigi.Parameter(default=NO_STR, description="path to the file to transfer")
-    replicas = luigi.IntParameter(default=0, description="number of replicas to generate, uses "
-        "replica_format when > 0 for creating target basenames, default: 0")
-
-    replica_format = "{name}.{i}{ext}"
+    replicas = luigi.IntParameter(default=0, description="number of replicas to generate; when > 0 "
+        "the output will be a file collection instead of a single file; default: 0")
 
     exclude_index = True
 
@@ -84,19 +82,23 @@ class TransferLocalFile(Task):
     def single_output(self):
         return
 
+    def get_replicated_path(self, basename, i=None):
+        if i is None:
+            return basename
+        else:
+            name, ext = os.path.splitext(basename)
+            return "{name}.{i}{ext}".format(name=name, ext=ext, i=i)
+
     def output(self):
         output = self.single_output()
         if self.replicas <= 0:
             return output
 
-        # prepare replica naming
-        name, ext = os.path.splitext(output.basename)
-        basename = lambda i: self.replica_format.format(name=name, ext=ext, i=i)
-
         # return the replicas in a SiblingFileCollection
         output_dir = output.parent
         return SiblingFileCollection([
-            output_dir.child(basename(i), "f") for i in six.moves.range(self.replicas)
+            output_dir.child(self.get_replicated_path(output.basename, i), "f")
+            for i in six.moves.range(self.replicas)
         ])
 
     def run(self):
@@ -119,13 +121,13 @@ class TransferLocalFile(Task):
 
 class CascadeMerge(LocalWorkflow):
 
-    cascade_tree = luigi.IntParameter(default=0, description="the index of the cascade tree, only "
-        "necessary when multiple trees (a forrest) are used, -1 denotes a wrapper that requires "
-        "and outputs all trees, default: 0")
+    cascade_tree = luigi.IntParameter(default=0, description="the index of the cascade tree; only "
+        "necessary when multiple trees (a forrest) are used; -1 denotes a wrapper that requires "
+        "and outputs all trees; default: 0")
     cascade_depth = luigi.IntParameter(default=0, description="the depth of this workflow in the "
-        "cascade tree with 0 being the root of the tree, default: 0")
-    keep_nodes = luigi.BoolParameter(significant=False, description="keep merged results from "
-        "intermediary nodes in the cascade cache directory")
+        "cascade tree with 0 being the root of the tree; default: 0")
+    keep_nodes = luigi.BoolParameter(default=False, significant=False, description="keep merged "
+        "results from intermediary nodes in the cascade cache directory; default: False")
 
     # internal parameter
     n_cascade_leaves = luigi.IntParameter(default=NO_INT, significant=False)
@@ -422,13 +424,13 @@ class CascadeMerge(LocalWorkflow):
 class ForestMerge(LocalWorkflow):
 
     branch = luigi.IntParameter(default=0, description="the branch number/index to run this "
-        "task for, -1 means this task is the workflow, default: 0")
+        "task for; -1 means this task is the workflow; default: 0")
     tree_index = luigi.IntParameter(default=-1, description="the index of the merged tree in the "
-        "forest, -1 denotes the forest itself which requires and outputs all trees, default: -1")
+        "forest; -1 denotes the forest itself which requires and outputs all trees; default: -1")
     tree_depth = luigi.IntParameter(default=0, description="the depth of this workflow in the "
-        "merge tree, 0 denotes the root, default: 0")
+        "merge tree; 0 denotes the root; default: 0")
     keep_nodes = luigi.BoolParameter(significant=False, description="keep merged results, i.e., "
-        "task outputs from intermediate nodes in the merge tree, default: False")
+        "task outputs from intermediate nodes in the merge tree; default: False")
 
     # fix some workflow parameters
     acceptance = 1.
