@@ -50,7 +50,7 @@ class ARCWorkflowProxy(BaseRemoteWorkflowProxy):
         # the file postfix is pythonic range made from branches, e.g. [0, 1, 2, 4] -> "_0To5"
         postfix = "_{}To{}".format(branches[0], branches[-1] + 1)
         config.postfix = postfix
-        pf = lambda s: "postfix:{}".format(s)
+        pf = lambda s: "__law_job_postfix__:{}".format(s)
 
         # get the actual wrapper file that will be executed by the remote job
         wrapper_file = get_path(task.arc_wrapper_file())
@@ -115,7 +115,7 @@ class ARCWorkflowProxy(BaseRemoteWorkflowProxy):
             log_file = "stdall.txt"
             config.stdout = log_file
             config.stderr = log_file
-            config.output_files.append(log_file)
+            config.custom_log_file = log_file
             config.render_variables["log_file"] = pf(log_file)
         else:
             config.stdout = None
@@ -128,7 +128,16 @@ class ARCWorkflowProxy(BaseRemoteWorkflowProxy):
         input_basenames = [pf(os.path.basename(path)) for path in config.input_files]
         config.render_variables["input_files"] = " ".join(input_basenames)
 
-        return self.job_file_factory(**config.__dict__)
+        # build the job file and get the sanitized config
+        job_file, config = self.job_file_factory(**config.__dict__)
+
+        # determine the custom log file uri if set
+        abs_log_file = None
+        if config.custom_log_file:
+            abs_log_file = os.path.join(config.output_uri, config.custom_log_file)
+
+        # return job and log files
+        return {"job": job_file, "log": abs_log_file}
 
     def destination_info(self):
         return "ce: {}".format(",".join(self.task.arc_ce))

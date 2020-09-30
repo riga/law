@@ -18,7 +18,7 @@ import six
 
 from law.config import Config
 from law.job.base import BaseJobManager, BaseJobFileFactory
-from law.util import interruptable_popen, make_list, quote_cmd
+from law.util import interruptable_popen, make_list, make_unique, quote_cmd
 
 
 logger = logging.getLogger(__name__)
@@ -265,7 +265,7 @@ class LSFJobFileFactory(BaseJobFileFactory):
         if postfix and "file_postfix" not in render_variables:
             render_variables["file_postfix"] = postfix
 
-        # linearize render_variables
+        # linearize render variables
         render_variables = self.linearize_render_variables(render_variables)
 
         # prepare paths
@@ -284,6 +284,11 @@ class LSFJobFileFactory(BaseJobFileFactory):
             c.output_files = [self.postfix_file(path, postfix) for path in c.output_files]
             c.stdout = c.stdout and self.postfix_file(c.stdout, postfix)
             c.stderr = c.stdout and self.postfix_file(c.stderr, postfix)
+
+        # custom log file
+        if c.custom_log_file:
+            c.custom_log_file = self.postfix_file(c.custom_log_file, postfix)
+            c.output_files.append(c.custom_log_file)
 
         # job file content
         content = []
@@ -305,18 +310,18 @@ class LSFJobFileFactory(BaseJobFileFactory):
             content += c.custom_content
 
         if not c.manual_stagein:
-            for input_file in c.input_files:
+            for input_file in make_unique(c.input_files):
                 content.append(("-f", "\"{} > {}\"".format(
                     input_file, os.path.basename(input_file))))
 
         if not c.manual_stageout:
-            for output_file in c.output_files:
+            for output_file in make_unique(c.output_files):
                 content.append(("-f", "\"{} < {}\"".format(
                     output_file, os.path.basename(output_file))))
 
         if c.manual_stagein:
             tmpl = "cp " + ("{}" if c.absolute_paths else "$LS_EXECCWD/{}") + " $( pwd )/{}"
-            for input_file in c.input_files:
+            for input_file in make_unique(c.input_files):
                 content.append(tmpl.format(input_file, os.path.basename(input_file)))
 
         content.append(c.command)
@@ -335,7 +340,7 @@ class LSFJobFileFactory(BaseJobFileFactory):
 
         logger.debug("created lsf job file at '{}'".format(job_file))
 
-        return job_file
+        return job_file, c
 
     @classmethod
     def create_line(cls, key, value=None):

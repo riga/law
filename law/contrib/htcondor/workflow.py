@@ -46,7 +46,7 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         # the file postfix is pythonic range made from branches, e.g. [0, 1, 2, 4] -> "_0To5"
         postfix = "_{}To{}".format(branches[0], branches[-1] + 1)
         config.postfix = postfix
-        pf = lambda s: "postfix:{}".format(s)
+        pf = lambda s: "__law_job_postfix__:{}".format(s)
 
         # get the actual wrapper file that will be executed by the remote job
         wrapper_file = get_path(task.htcondor_wrapper_file())
@@ -110,7 +110,7 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         config.stderr = None
         if task.transfer_logs:
             log_file = "stdall.txt"
-            config.output_files.append(log_file)
+            config.custom_log_file = log_file
             config.render_variables["log_file"] = pf(log_file)
 
         # we can use condor's file stageout only when the output directory is local
@@ -129,7 +129,16 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         input_basenames = [pf(os.path.basename(path)) for path in config.input_files[1:]]
         config.render_variables["input_files"] = " ".join(input_basenames)
 
-        return self.job_file_factory(**config.__dict__)
+        # build the job file and get the sanitized config
+        job_file, config = self.job_file_factory(**config.__dict__)
+
+        # determine the absolute custom log file if set
+        abs_log_file = None
+        if config.custom_log_file and isinstance(output_dir, LocalDirectoryTarget):
+            abs_log_file = output_dir.child(config.custom_log_file, type="f").path
+
+        # return job and log files
+        return {"job": job_file, "log": abs_log_file}
 
     def destination_info(self):
         info = []

@@ -47,7 +47,7 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
         postfix = "_{}To{}".format(branches[0], branches[-1] + 1)
         config.postfix = postfix
         _postfix = lambda path: self.job_file_factory.postfix_file(path, postfix)
-        pf = lambda s: "postfix:{}".format(s)
+        pf = lambda s: "__law_job_postfix__:{}".format(s)
 
         # collect task parameters
         proxy_cmd = ProxyCommand(task.as_branch(branches[0]), exclude_task_args={"branch"},
@@ -113,17 +113,17 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
         config.stderr = None
         if task.transfer_logs:
             log_file = "stdall.txt"
-            config.output_files.append(log_file)
+            config.custom_log_file = log_file
             config.render_variables["log_file"] = pf(log_file)
 
         # we can use lsf's file stageout only when the output directory is local
         # otherwise, one should use the stageout_file and stageout manually
         output_dir = task.lsf_output_directory()
-        if not isinstance(output_dir, LocalDirectoryTarget):
-            del config.output_files[:]
-        else:
+        if isinstance(output_dir, LocalDirectoryTarget):
             config.absolute_paths = True
             config.cwd = output_dir.path
+        else:
+            del config.output_files[:]
 
         # task hook
         config = task.lsf_job_config(config, job_num, branches)
@@ -132,7 +132,16 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
         input_basenames = [pf(os.path.basename(path)) for path in config.input_files]
         config.render_variables["input_files"] = " ".join(input_basenames)
 
-        return self.job_file_factory(**config.__dict__)
+        # build the job file and get the sanitized config
+        job_file, config = self.job_file_factory(**config.__dict__)
+
+        # determine the absolute custom log file if set
+        abs_log_file = None
+        if config.custom_log_file and isinstance(output_dir, LocalDirectoryTarget):
+            abs_log_file = output_dir.child(config.custom_log_file, type="f").path
+
+        # return job and log files
+        return {"job": job_file, "log": abs_log_file}
 
     def destination_info(self):
         return "queue: {}".format(self.task.lsf_queue) if self.task.lsf_queue != NO_STR else ""

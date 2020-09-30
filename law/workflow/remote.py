@@ -52,12 +52,12 @@ class SubmissionData(ShorthandDict):
     dummy_job_id = "dummy_job_id"
 
     @classmethod
-    def job_data(cls, job_id=dummy_job_id, branches=None, **kwargs):
+    def job_data(cls, job_id=dummy_job_id, branches=None, log_file=None, **kwargs):
         """
-        Returns a dictionary containing default job submission information such as the *job_id* and
-        task *branches* covered by the job.
+        Returns a dictionary containing default job submission information such as the *job_id*,
+        task *branches* covered by the job, and an optional *log_file*.
         """
-        return dict(job_id=job_id, branches=branches or [])
+        return dict(job_id=job_id, branches=branches or [], log_file=log_file)
 
     def __len__(self):
         return len(self.jobs) + len(self.unsubmitted_jobs)
@@ -92,7 +92,7 @@ class StatusData(ShorthandDict):
     dummy_job_id = SubmissionData.dummy_job_id
 
     @classmethod
-    def job_data(cls, job_id=dummy_job_id, status=None, code=None, error=None, **kwargs):
+    def job_data(cls, job_id=dummy_job_id, status=None, code=None, error=None):
         """
         Returns a dictionary containing default job status information such as the *job_id*, a job
         *status* string, a job return code, and an *error* message.
@@ -580,7 +580,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         # handle jobs for resubmission
         if retry_jobs:
             for job_num, branches in six.iteritems(retry_jobs):
-                # some retry jobs can be skipped
+                # some retry jobs might be skipped
                 if self._can_skip_job(job_num, branches):
                     continue
 
@@ -642,11 +642,11 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             len(submit_jobs), self.workflow_type, dst_info))
 
         # actual submission
-        job_ids = self.submit_jobs(job_files)
+        job_ids = self.submit_jobs([files["job"] for files in job_files])
 
         # store submission data
         errors = []
-        for job_num, job_id in six.moves.zip(submit_jobs, job_ids):
+        for job_num, job_id, files in six.moves.zip(submit_jobs, job_ids, job_files):
             # handle errors
             if isinstance(job_id, Exception):
                 errors.append((job_num, job_id))
@@ -655,7 +655,8 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             # set the job id in the job data
             job_data = self.submission_data.jobs[job_num]
             job_data["job_id"] = job_id
-            new_submission_data[job_num] = job_data
+            job_data["log_file"] = files.get("log")
+            new_submission_data[job_num] = job_data.copy()
 
             # inform the dashboard
             task.forward_dashboard_event(self.dashboard, job_data, "action.submit", job_num)
@@ -837,6 +838,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 elif data["status"] == self.job_manager.FINISHED:
                     finished_jobs[job_num] = data
                     self.poll_data.n_active -= 1
+                    self.submission_data.jobs[job_num]["job_id"] = self.submission_data.dummy_job_id
                     task.forward_dashboard_event(self.dashboard, data, "status.finished", job_num)
 
                 elif data["status"] in (self.job_manager.FAILED, self.job_manager.RETRY):
@@ -882,15 +884,22 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             # log newly failed jobs
             if newly_failed_jobs:
                 print("{} failed job(s) in task {}:".format(len(newly_failed_jobs), task.task_id))
-                tmpl = "    job: {}, branch(es): {}, id: {job_id}, status: {status}, " \
-                    "code: {code}, error: {error}{}"
+                tmpl = "    job: {job_num}, branch(es): {branches}, id: {job_id}, " \
+                    "status: {status}, code: {code}, error: {error}{ext}"
+
                 for i, (job_num, data) in enumerate(six.iteritems(newly_failed_jobs)):
                     branches = self.submission_data.jobs[job_num]["branches"]
-                    law_err = ""
+                    log_file = self.submission_data.jobs[job_num]["log_file"]
+                    ext = ""
                     if data["code"] in self.job_error_messages:
                         law_err = self.job_error_messages[data["code"]]
-                        law_err = ", job script error: {}".format(law_err)
-                    print(tmpl.format(job_num, ",".join(str(b) for b in branches), law_err, **data))
+                        ext += ", job script error: {}".format(law_err)
+                    if log_file:
+                        ext += ", log: {}".format(log_file)
+
+                    print(tmpl.format(job_num=job_num, branches=",".join(str(b) for b in branches),
+                        ext=ext, **data))
+
                     if i + 1 >= self.show_errors:
                         remaining = len(newly_failed_jobs) - self.show_errors
                         if remaining > 0:

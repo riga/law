@@ -546,7 +546,7 @@ class BaseJobFileFactory(object):
        is *None*.
     """
 
-    config_attrs = ["dir"]
+    config_attrs = ["dir", "custom_log_file"]
 
     render_key_cre = re.compile(r"\{\{(\w+)\}\}")
 
@@ -570,7 +570,7 @@ class BaseJobFileFactory(object):
         def __contains__(self, attr):
             return attr in self.__dict__
 
-    def __init__(self, dir=None, mkdtemp=None, cleanup=None):
+    def __init__(self, dir=None, custom_log_file=None, mkdtemp=None, cleanup=None):
         super(BaseJobFileFactory, self).__init__()
 
         cfg = Config.instance()
@@ -598,6 +598,9 @@ class BaseJobFileFactory(object):
         # check if it should be extended by a temporary dir
         if mkdtemp:
             self.dir = tempfile.mkdtemp(dir=self.dir)
+
+        # store the custom log file
+        self.custom_log_file = custom_log_file
 
     def __del__(self):
         self.cleanup_dir(force=False)
@@ -709,9 +712,9 @@ class BaseJobFileFactory(object):
             return cls.postfix_file(m.group(1), postfix)
 
         for key, value in six.iteritems(render_variables):
-            # value might contain paths that should be postfixed, denoted by "postfix:..."
+            # value might contain paths to be postfixed, denoted by "__law_job_postfix__:..."
             if postfix:
-                value = re.sub(r"postfix:([^\s]+)", postfix_fn, value)
+                value = re.sub(r"\_\_law\_job\_postfix\_\_:(.+)", postfix_fn, value)
             content = cls.render_string(content, key, value)
 
         # finally, replace all non-rendered keys with empty strings

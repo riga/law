@@ -17,7 +17,7 @@ import logging
 
 from law.config import Config
 from law.job.base import BaseJobManager, BaseJobFileFactory
-from law.util import interruptable_popen, make_list, quote_cmd
+from law.util import interruptable_popen, make_list, make_unique, quote_cmd
 
 
 logger = logging.getLogger(__name__)
@@ -349,7 +349,7 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
         if postfix and "file_postfix" not in render_variables:
             render_variables["file_postfix"] = postfix
 
-        # linearize render_variables
+        # linearize render variables
         render_variables = self.linearize_render_variables(render_variables)
 
         # prepare the job file and the executable
@@ -384,6 +384,11 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
             c.stdout = c.stdout and self.postfix_file(c.stdout, postfix)
             c.stderr = c.stdout and self.postfix_file(c.stderr, postfix)
 
+        # custom log file
+        if c.custom_log_file:
+            c.custom_log_file = self.postfix_file(c.custom_log_file, postfix)
+            c.output_files.append(c.custom_log_file)
+
         # job file content
         content = []
         content.append(("universe", c.universe))
@@ -397,9 +402,9 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
         if c.input_files or c.output_files:
             content.append(("should_transfer_files", "YES"))
         if c.input_files:
-            content.append(("transfer_input_files", c.input_files))
+            content.append(("transfer_input_files", make_unique(c.input_files)))
         if c.output_files:
-            content.append(("transfer_output_files", c.output_files))
+            content.append(("transfer_output_files", make_unique(c.output_files)))
             content.append(("when_to_transfer_output", "ON_EXIT"))
         if c.notification:
             content.append(("notification", c.notification))
@@ -424,7 +429,7 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
 
         logger.debug("created htcondor job file at '{}'".format(job_file))
 
-        return job_file
+        return job_file, c
 
     @classmethod
     def create_line(cls, key, value=None):

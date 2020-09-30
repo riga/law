@@ -19,7 +19,7 @@ import logging
 from law.config import Config
 from law.job.base import BaseJobManager, BaseJobFileFactory
 from law.target.file import add_scheme
-from law.util import interruptable_popen, make_list, quote_cmd
+from law.util import interruptable_popen, make_list, make_unique, quote_cmd
 
 
 logger = logging.getLogger(__name__)
@@ -305,7 +305,7 @@ class GLiteJobFileFactory(BaseJobFileFactory):
         if c.output_uri and "output_uri" not in render_variables:
             render_variables["output_uri"] = c.output_uri
 
-        # linearize render_variables
+        # linearize render variables
         render_variables = self.linearize_render_variables(render_variables)
 
         # prepare the job file and the executable
@@ -334,15 +334,20 @@ class GLiteJobFileFactory(BaseJobFileFactory):
             c.stdout = c.stdout and self.postfix_file(c.stdout, postfix)
             c.stderr = c.stderr and self.postfix_file(c.stderr, postfix)
 
+        # custom log file
+        if c.custom_log_file:
+            c.custom_log_file = self.postfix_file(c.custom_log_file, postfix)
+            c.output_files.append(c.custom_log_file)
+
         # job file content
         content = []
         content.append(("Executable", c.executable))
         if c.arguments:
             content.append(("Arguments", c.arguments))
         if c.input_files:
-            content.append(("InputSandbox", c.input_files))
+            content.append(("InputSandbox", make_unique(c.input_files)))
         if c.output_files:
-            content.append(("OutputSandbox", c.output_files))
+            content.append(("OutputSandbox", make_unique(c.output_files)))
         if c.output_uri:
             content.append(("OutputSandboxBaseDestUri", c.output_uri))
         if c.vo:
@@ -365,7 +370,7 @@ class GLiteJobFileFactory(BaseJobFileFactory):
 
         logger.debug("created glite job file at '{}'".format(job_file))
 
-        return job_file
+        return job_file, c
 
     @classmethod
     def create_line(cls, key, value):
