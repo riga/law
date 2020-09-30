@@ -1270,10 +1270,15 @@ class RemoteFileProxy(object):
         return self.f.__enter__() if self.is_file else self.f
 
     def __exit__(self, exc_type, exc_value, traceback):
+        # when an exception was raised, the context was not successful
+        success = exc_type is None
+
+        # invoke the exit of the file object
+        # when its return value is True, it overwrites the success flag
         if getattr(self.f, "__exit__", None) is not None:
-            success = self.f.__exit__(exc_type, exc_value, traceback)
-        else:
-            success = exc_type is None
+            exit_ret = self.f.__exit__(exc_type, exc_value, traceback)
+            if exit_ret is True:
+                success = True
 
         if success:
             if callable(self.success_fn):

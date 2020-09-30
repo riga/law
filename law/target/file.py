@@ -250,7 +250,6 @@ class FileSystemFileTarget(FileSystemTarget):
 
         if perm is None:
             perm = self.fs.default_file_perm
-
         self.chmod(perm, **kwargs)
 
     def open(self, mode, **kwargs):
