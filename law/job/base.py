@@ -714,7 +714,7 @@ class BaseJobFileFactory(object):
         for key, value in six.iteritems(render_variables):
             # value might contain paths to be postfixed, denoted by "__law_job_postfix__:..."
             if postfix:
-                value = re.sub(r"\_\_law\_job\_postfix\_\_:(.+)", postfix_fn, value)
+                value = re.sub(r"\_\_law\_job\_postfix\_\_:([^\s]+)", postfix_fn, value)
             content = cls.render_string(content, key, value)
 
         # finally, replace all non-rendered keys with empty strings
