@@ -1046,34 +1046,34 @@ class BaseRemoteWorkflow(BaseWorkflow):
     """
 
     retries = luigi.IntParameter(default=5, significant=False, description="number of automatic "
-        "resubmission attempts per job, default: 5")
+        "resubmission attempts per job; default: 5")
     tasks_per_job = luigi.IntParameter(default=1, significant=False, description="number of tasks "
-        "to be processed by one job, default: 1")
+        "to be processed by one job; default: 1")
     parallel_jobs = luigi.IntParameter(default=NO_INT, significant=False, description="maximum "
-        "number of parallel running jobs, default: infinite")
+        "number of parallel running jobs; default: infinite")
     only_missing = luigi.BoolParameter(default=False, significant=False, description="skip tasks "
-        "that are considered complete, default: False")
+        "that are considered complete; default: False")
     no_poll = luigi.BoolParameter(default=False, significant=False, description="just submit, do "
-        "not initiate status polling after submission, default: False")
+        "not initiate status polling after submission; default: False")
     threads = luigi.IntParameter(default=4, significant=False, description="number of threads to "
-        "use for (re)submission and status queries, default: 4")
+        "use for (re)submission and status queries; default: 4")
     walltime = DurationParameter(default=NO_FLOAT, unit="h", significant=False,
-        description="maximum wall time, default unit is hours, default: not set")
+        description="maximum wall time; default unit is hours; default: infinite")
     poll_interval = DurationParameter(default=1, unit="m", significant=False, description="time "
-        "between status polls, default unit is minutes, default: 1")
+        "between status polls; default unit is minutes; default: 1")
     poll_fails = luigi.IntParameter(default=5, significant=False, description="maximum number of "
-        "consecutive errors during polling, default: 5")
+        "consecutive errors during polling; default: 5")
     shuffle_jobs = luigi.BoolParameter(default=False, significant=False, description="shuffled job "
-        "submission, default: False")
-    cancel_jobs = luigi.BoolParameter(default=False, description="cancel all submitted jobs, no "
-        "new submission, default: False")
-    cleanup_jobs = luigi.BoolParameter(default=False, description="cleanup all submitted jobs, no "
-        "new submission, default: False")
+        "submission; default: False")
+    cancel_jobs = luigi.BoolParameter(default=False, description="cancel all submitted jobs but do "
+        "not submit new jobs; default: False")
+    cleanup_jobs = luigi.BoolParameter(default=False, description="cleanup all submitted jobs but "
+        "do not submit new jobs; default: False")
     ignore_submission = luigi.BoolParameter(default=False, significant=False, description="ignore "
-        "any existing submission file from a previous submission and start a new one, default: "
+        "any existing submission file from a previous submission and start a new one; default: "
         "False")
     transfer_logs = luigi.BoolParameter(default=False, significant=False, description="transfer "
-        "job logs to the output directory, default: False")
+        "job logs to the output directory; default: False")
 
     align_polling_status_line = False
     check_unreachable_acceptance = False

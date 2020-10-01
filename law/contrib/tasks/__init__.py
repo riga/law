@@ -64,7 +64,8 @@ class RunOnceTask(Task):
 
 class TransferLocalFile(Task):
 
-    source_path = luigi.Parameter(default=NO_STR, description="path to the file to transfer")
+    source_path = luigi.Parameter(default=NO_STR, description="path to the file to transfer; when "
+        "empty, the task input is used; default: empty")
     replicas = luigi.IntParameter(default=0, description="number of replicas to generate; when > 0 "
         "the output will be a file collection instead of a single file; default: 0")
 

@@ -158,9 +158,9 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
     htcondor_job_file_factory_defaults = None
 
     htcondor_pool = luigi.Parameter(default=NO_STR, significant=False, description="target "
-        "htcondor pool")
+        "htcondor pool; default: empty")
     htcondor_scheduler = luigi.Parameter(default=NO_STR, significant=False, description="target "
-        "htcondor scheduler")
+        "htcondor scheduler; default: empty")
 
     htcondor_job_kwargs = ["htcondor_pool", "htcondor_scheduler"]
     htcondor_job_kwargs_submit = None

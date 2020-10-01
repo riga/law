@@ -64,10 +64,12 @@ def _iter_output(output, offset):
 def print_task_deps(task, max_depth=1):
     max_depth = int(max_depth)
 
-    print("print task dependencies with max_depth {}\n".format(max_depth))
+    print("print task dependencies with max_depth {}".format(max_depth))
 
     for dep, _, depth in task.walk_deps(max_depth=max_depth, order="pre"):
         offset = depth * ("|" + ind)
+        print(offset)
+
         print("{}> {}".format(offset, dep.repr(color=True)))
 
 

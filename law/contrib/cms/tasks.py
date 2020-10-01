@@ -29,9 +29,9 @@ class BundleCMSSW(Task):
     task_namespace = "law.cms"
 
     exclude = luigi.Parameter(default=NO_STR, description="regular expression for excluding files "
-        "or directories, relative to CMSSW_BASE, default: empty")
-    custom_checksum = luigi.Parameter(default=NO_STR, description="a custom checksum to use, "
-        "default: NO_STR")
+        "or directories relative to CMSSW_BASE; default: empty")
+    custom_checksum = luigi.Parameter(default=NO_STR, description="a custom checksum to use; "
+        "default: empty")
 
     cmssw_checksumming = True
 

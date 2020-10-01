@@ -155,7 +155,8 @@ class LSFWorkflow(BaseRemoteWorkflow):
     lsf_job_manager_defaults = None
     lsf_job_file_factory_defaults = None
 
-    lsf_queue = luigi.Parameter(default=NO_STR, significant=False, description="target lsf queue")
+    lsf_queue = luigi.Parameter(default=NO_STR, significant=False, description="target lsf queue; "
+        "default: empty")
 
     lsf_job_kwargs = ["lsf_queue"]
     lsf_job_kwargs_submit = None

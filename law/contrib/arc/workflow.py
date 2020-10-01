@@ -178,7 +178,7 @@ class ARCWorkflow(BaseRemoteWorkflow):
     arc_job_file_factory_defaults = None
 
     arc_ce = CSVParameter(default=(), significant=False, description="target arc computing "
-        "element(s), default: ()")
+        "element(s); default: empty")
 
     arc_job_kwargs = []
     arc_job_kwargs_submit = ["arc_ce"]

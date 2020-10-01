@@ -267,7 +267,7 @@ class Register(BaseRegister):
 @six.add_metaclass(Register)
 class Task(BaseTask):
 
-    log_file = luigi.Parameter(default=NO_STR, significant=False, description="a custom log file, "
+    log_file = luigi.Parameter(default=NO_STR, significant=False, description="a custom log file; "
         "default: <task.default_log_file>")
     print_deps = CSVParameter(default=(), significant=False, description="print task dependencies "
         "but do not run any task; this CSV parameter accepts a single integer value which sets the "
@@ -279,7 +279,7 @@ class Task(BaseTask):
         "'')")
     print_output = CSVParameter(default=(), significant=False, description="print a flat list of "
         "output targets but do not run any task; this CSV parameter accepts a single integer value "
-        "which sets the task recursion depth (0 means non-recursive")
+        "which sets the task recursion depth (0 means non-recursive)")
     remove_output = CSVParameter(default=(), significant=False, description="remove task outputs "
         "but do not run any task; this CSV parameter accepts up to three values: 1. the task "
         "recursion depth (0 means non-recursive), 2. one of the modes 'i' (interactive), 'a' "

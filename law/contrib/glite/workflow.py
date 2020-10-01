@@ -168,7 +168,7 @@ class GLiteWorkflow(BaseRemoteWorkflow):
     glite_job_file_factory_defaults = None
 
     glite_ce = CSVParameter(default=(), significant=False, description="target glite computing "
-        "element(s), default: ()")
+        "element(s); default: empty")
 
     glite_job_kwargs = []
     glite_job_kwargs_submit = ["glite_ce"]
