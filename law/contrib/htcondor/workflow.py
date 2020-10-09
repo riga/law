@@ -32,6 +32,7 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
     workflow_type = "htcondor"
 
     def create_job_manager(self, **kwargs):
+        del kwargs['threads']
         return self.task.htcondor_create_job_manager(**kwargs)
 
     def create_job_file_factory(self, **kwargs):
