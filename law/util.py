@@ -7,12 +7,12 @@ Helpful utility functions.
 
 __all__ = [
     "default_lock", "io_lock", "console_lock", "no_value", "rel_path", "law_src_path",
-    "law_home_path", "law_run", "print_err", "abort", "is_number", "try_int", "str_to_int",
-    "flag_to_bool", "common_task_params", "colored", "uncolored", "query_choice", "is_pattern",
-    "brace_expand", "multi_match", "is_iterable", "is_lazy_iterable", "make_list", "make_tuple",
-    "make_unique", "flatten", "merge_dicts", "which", "map_verbose", "map_struct", "mask_struct",
-    "tmp_file", "interruptable_popen", "readable_popen", "create_hash", "copy_no_perm",
-    "makedirs_perm", "user_owns_file", "iter_chunks", "human_bytes", "parse_bytes",
+    "law_home_path", "law_run", "print_err", "abort", "is_number", "try_int", "round_discrete",
+    "str_to_int", "flag_to_bool", "common_task_params", "colored", "uncolored", "query_choice",
+    "is_pattern", "brace_expand", "multi_match", "is_iterable", "is_lazy_iterable", "make_list",
+    "make_tuple", "make_unique", "flatten", "merge_dicts", "which", "map_verbose", "map_struct",
+    "mask_struct", "tmp_file", "interruptable_popen", "readable_popen", "create_hash",
+    "copy_no_perm", "makedirs_perm", "user_owns_file", "iter_chunks", "human_bytes", "parse_bytes",
     "human_duration", "human_time_diff", "parse_duration", "is_file_exists_error", "send_mail",
     "ShorthandDict", "open_compat", "patch_object", "join_generators", "quote_cmd", "BaseStream",
     "TeeStream", "FilteredStream",
@@ -163,6 +163,40 @@ def try_int(n):
     """
     n_int = int(n)
     return n_int if n == n_int else n
+
+
+def round_discrete(n, base=1., round_fn=round):
+    """ round_discrete(n, base=1.0, round_fn="round")
+    Rounds a number *n* to a discrete *base*. *round_fn* can be a function used for rounding and
+    defaults to the built-in ``round`` function. It also accepts string values ``"round"``,
+    ``"floor"`` and ``"ceil"`` which are resolved to the corresponding math functions. Example:
+
+    .. code-block:: python
+
+        round_discrete(17, 5)
+        # -> 15.
+
+        round_discrete(17, 2.5)
+        # -> 17.5
+
+        round_discrete(17, 2.5)
+        # -> 17.5
+
+        round_discrete(17, 2.5, math.floor)
+        round_discrete(17, 2.5, "floor")
+        # -> 15.0
+    """
+    if isinstance(round_fn, six.string_types):
+        if round_fn == "round":
+            round_fn = round
+        elif round_fn == "floor":
+            round_fn = math.floor
+        elif round_fn == "ceil":
+            round_fn = math.ceil
+        else:
+            raise ValueError("unknown round function '{}'".format(round_fn))
+
+    return base * round_fn(float(n) / base)
 
 
 def str_to_int(s):

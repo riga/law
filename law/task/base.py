@@ -27,7 +27,7 @@ from law.target.file import localize_file_targets
 from law.parser import root_task, global_cmdline_values
 from law.util import (
     abort, common_task_params, colored, uncolored, make_list, multi_match, flatten, BaseStream,
-    human_duration, patch_object,
+    human_duration, patch_object, round_discrete,
 )
 
 
@@ -51,7 +51,7 @@ class BaseRegister(luigi.task_register.Register):
         # create the class
         cls = ABCMeta.__new__(metacls, classname, bases, classdict)
 
-        # default attributes, include of inheritance
+        # default attributes, apart from inheritance
         if getattr(cls, "update_register", None) is None:
             cls.update_register = False
 
@@ -372,8 +372,8 @@ class Task(BaseTask):
                 msg = "{} (took {})".format(msg, human_duration(seconds=diff))
             self.publish_message(msg, scheduler=scheduler)
 
-    def publish_progress(self, percentage):
-        percentage = int(math.floor(percentage))
+    def publish_progress(self, percentage, precision=1):
+        percentage = int(round_discrete(percentage, precision, "floor"))
         if percentage != self._last_progress_percentage:
             self._last_progress_percentage = percentage
 
@@ -383,10 +383,10 @@ class Task(BaseTask):
                 logger.warning("set_progress_percentage not set, cannot send task progress to "
                     "scheduler")
 
-    def create_progress_callback(self, n_total, reach=(0, 100)):
+    def create_progress_callback(self, n_total, reach=(0, 100), precision=1):
         def make_callback(n, start, end):
             def callback(i):
-                self.publish_progress(start + (i + 1) / float(n) * (end - start))
+                self.publish_progress(start + (i + 1) / float(n) * (end - start), precision)
             return callback
 
         if isinstance(n_total, (list, tuple)):
