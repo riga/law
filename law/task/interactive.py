@@ -30,35 +30,31 @@ logger = logging.getLogger(__name__)
 ind = "  "
 
 
-# helper to create a list of 3-tuples (target, key, depth) of an arbitrarily structured output
+# helper to create a list of 3-tuples (target, depth, prefix) of an arbitrarily structured output
 def _flatten_output(output, depth):
     if isinstance(output, (list, tuple)) or is_lazy_iterable(output):
-        return [(outp, "{}:".format(i), depth) for i, outp in enumerate(output)]
+        return [(outp, depth, "{}: ".format(i)) for i, outp in enumerate(output)]
     elif isinstance(output, dict):
-        return [(outp, "{}:".format(k), depth) for k, outp in six.iteritems(output)]
+        return [(outp, depth, "{}: ".format(k)) for k, outp in six.iteritems(output)]
     else:
-        return [(outp, "-", depth) for outp in flatten(output)]
+        return [(outp, depth, "") for outp in flatten(output)]
 
 
 def _iter_output(output, offset):
     lookup = _flatten_output(output, 0)
-    i = -1
     while lookup:
-        output, okey, odepth = lookup.pop(0)
-        i += 1
+        output, odepth, oprefix = lookup.pop(0)
         ooffset = offset + odepth * ind
 
         if isinstance(output, Target):
-            yield output, okey, odepth, ooffset, lookup
+            yield output, odepth, oprefix, ooffset, lookup
 
         else:
-            # print the key of the current structure if this is not the root object
-            is_root = i == 0
-            if not is_root:
-                print("{}{}".format(ooffset, okey))
+            # print the key of the current structure
+            print("{} {}".format(ooffset, oprefix))
 
             # update the lookup list
-            lookup[:0] = _flatten_output(output, 0 if is_root else odepth + 1)
+            lookup[:0] = _flatten_output(output, odepth + 1)
 
 
 def print_task_deps(task, max_depth=1):
@@ -84,16 +80,6 @@ def print_task_status(task, max_depth=0, target_depth=0, flags=None):
     print("print task status with max_depth {} and target_depth {}".format(
         max_depth, target_depth))
 
-    # helper to print the actual output status text during output traversal
-    def print_status_text(output, key, offset):
-        print("{}{} {}".format(offset, key, output.repr(color=True)))
-        status_text = output.status_text(max_depth=target_depth, flags=flags, color=True)
-        status_lines = status_text.split("\n")
-        status_text = status_lines[0]
-        for line in status_lines[1:]:
-            status_text += "\n{}{}{}".format(offset, ind, line)
-        print("{}{}{}".format(offset, ind, status_text))
-
     # walk through deps
     done = []
     for dep, _, depth in task.walk_deps(max_depth=max_depth, order="pre"):
@@ -114,8 +100,14 @@ def print_task_status(task, max_depth=0, target_depth=0, flags=None):
         done.append(dep)
 
         # start the traversing
-        for output, okey, _, ooffset, _ in _iter_output(dep.output(), offset):
-            print_status_text(output, okey, ooffset)
+        for output, _, oprefix, ooffset, _ in _iter_output(dep.output(), offset):
+            print("{} {}{}".format(ooffset, oprefix, output.repr(color=True)))
+            status_text = output.status_text(max_depth=target_depth, flags=flags, color=True)
+            status_lines = status_text.split("\n")
+            status_text = status_lines[0]
+            for line in status_lines[1:]:
+                status_text += "\n{}{} {}".format(ooffset, ind, line)
+            print("{}{} {}".format(ooffset, ind, status_text))
 
 
 def print_task_output(task, max_depth=0):
@@ -167,15 +159,15 @@ def remove_task_output(task, max_depth=0, mode=None, include_external=False):
         offset += "|" + ind
 
         if not include_external and isinstance(dep, ExternalTask):
-            print(offset + colored("task is external, skip", "yellow"))
+            print(offset + colored(" task is external", "yellow"))
             continue
 
         if dep in done:
-            print(offset + colored("outputs already removed", "yellow"))
+            print(offset + colored(" already removed", "yellow"))
             continue
 
         if mode == "i":
-            task_mode = query_choice(offset + "remove outputs?", ["y", "n", "a"], default="y",
+            task_mode = query_choice(offset + " remove outputs?", ["y", "n", "a"], default="y",
                 descriptions=["yes", "no", "all"])
             if task_mode == "n":
                 continue
@@ -183,16 +175,16 @@ def remove_task_output(task, max_depth=0, mode=None, include_external=False):
         done.append(dep)
 
         # start the traversing through output structure
-        for output, okey, odepth, ooffset, lookup in _iter_output(dep.output(), offset):
-            print("{}{} {}".format(ooffset, okey, output.repr(color=True)))
+        for output, odepth, oprefix, ooffset, lookup in _iter_output(dep.output(), offset):
+            print("{} {}{}".format(ooffset, oprefix, output.repr(color=True)))
 
             if mode == "d":
-                print(ooffset + ind + colored("dry removed", "yellow"))
+                print(ooffset + ind + colored(" dry removed", "yellow"))
                 continue
 
             if mode == "i" and task_mode != "a":
                 if isinstance(output, TargetCollection):
-                    coll_choice = query_choice(ooffset + ind + "remove?", ("y", "n", "i"),
+                    coll_choice = query_choice(ooffset + ind + " remove?", ("y", "n", "i"),
                         default="n", descriptions=["yes", "no", "interactive"])
                     if coll_choice == "i":
                         lookup[:0] = _flatten_output(output.targets, odepth + 1)
@@ -200,14 +192,14 @@ def remove_task_output(task, max_depth=0, mode=None, include_external=False):
                     else:
                         target_choice = coll_choice
                 else:
-                    target_choice = query_choice(ooffset + ind + "remove?", ("y", "n"),
+                    target_choice = query_choice(ooffset + ind + " remove?", ("y", "n"),
                         default="n", descriptions=["yes", "no"])
                 if target_choice == "n":
-                    print(ooffset + ind + colored("skipped", "yellow"))
+                    print(ooffset + ind + colored(" skipped", "yellow"))
                     continue
 
             output.remove()
-            print(ooffset + ind + colored("removed", "red", style="bright"))
+            print(ooffset + ind + colored(" removed", "red", style="bright"))
 
 
 def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_external=False):
@@ -253,44 +245,45 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
         offset += "|" + ind
 
         if not include_external and isinstance(dep, ExternalTask):
-            print(offset + colored("task is external, skip", "yellow"))
+            print(offset + colored(" task is external", "yellow"))
             continue
 
         if dep in done:
-            print(offset + colored("outputs already fetched", "yellow"))
+            print(offset + colored(" outputs already fetched", "yellow"))
             continue
 
         if mode == "i":
-            task_mode = query_choice(offset + "fetch outputs?", ("y", "n", "a"),
+            task_mode = query_choice(offset + " fetch outputs?", ("y", "n", "a"),
                 default="y", descriptions=["yes", "no", "all"])
             if task_mode == "n":
+                print(offset + colored(" skipped", "yellow"))
                 continue
 
         done.append(dep)
 
         # start the traversing through output structure with a lookup pattern
-        for output, okey, odepth, ooffset, lookup in _iter_output(dep.output(), offset):
+        for output, odepth, oprefix, ooffset, lookup in _iter_output(dep.output(), offset):
             try:
                 stat = output.stat
             except:
                 stat = None
 
-            target_line = "{}{} {}".format(ooffset, okey, output.repr(color=True))
+            target_line = "{} {}{}".format(ooffset, oprefix, output.repr(color=True))
             if stat:
                 target_line += " ({:.2f} {})".format(*human_bytes(stat.st_size))
             print(target_line)
 
             if not isinstance(output, TargetCollection) and stat is None:
-                print(ooffset + ind + colored("not existing, skip", "yellow", style="bright"))
+                print(ooffset + ind + colored(" not existing, skip", "yellow"))
                 continue
 
             is_copyable = callable(getattr(output, "copy_to_local", None))
             if not isinstance(output, TargetCollection) and not is_copyable:
-                print(ooffset + ind + colored("not a file target, skip", "yellow", style="bright"))
+                print(ooffset + ind + colored(" not a file target, skip", "yellow"))
                 continue
 
             if mode == "d":
-                print(ooffset + ind + colored("dry fetched", "yellow"))
+                print(ooffset + ind + colored(" dry fetched", "yellow"))
                 continue
 
             to_fetch = [output]
@@ -309,7 +302,7 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
                     target_choice = query_choice(ooffset + ind + "fetch?", ("y", "n"),
                         default="y", descriptions=["yes", "no"])
                 if target_choice == "n":
-                    print(ooffset + ind + colored("skipped", "yellow"))
+                    print(ooffset + ind + colored(" skipped", "yellow"))
                     continue
 
             for outp in to_fetch:
@@ -319,5 +312,5 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
                 basename = "{}__{}".format(dep.live_task_id, outp.basename)
                 outp.copy_to_local(os.path.join(target_dir, basename))
 
-                print("{}{}{} ({})".format(ooffset, ind,
+                print("{}{} {} ({})".format(ooffset, ind,
                     colored("fetched", "green", style="bright"), basename))

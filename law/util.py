@@ -340,7 +340,7 @@ def query_choice(msg, choices, default=None, descriptions=None, lower=True):
     choice = None
     while choice not in _choices:
         if choice is not None:
-            print("invalid choice: '{}'\n".format(choice))
+            print("invalid choice: '{}'".format(choice))
         choice = six.moves.input(msg)
         if default is not None and choice == "":
             choice = default
