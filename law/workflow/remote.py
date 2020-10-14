@@ -415,6 +415,8 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         Actual run method that starts the processing of jobs and initiates the status polling, or
         performs job cancelling or cleaning, depending on the task parameters.
         """
+        super(BaseRemoteWorkflowProxy, self).run()
+
         task = self.task
         self._outputs = self.output()
 

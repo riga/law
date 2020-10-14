@@ -64,6 +64,8 @@ class BaseWorkflowProxy(ProxyTask):
                     self.run = run_func.__get__(self)
                     break
 
+        self._workflow_has_reset_branch_map = False
+
     def _get_task_attribute(self, name, fallback=False):
         """
         Return an attribute of the actual task named ``<workflow_type>_<name>``. When the attribute
@@ -135,6 +137,17 @@ class BaseWorkflowProxy(ProxyTask):
 
         acceptance = self.task.acceptance
         return (acceptance * n) if acceptance <= 1 else acceptance
+
+    def run(self):
+        """
+        Default run implementation that resets the branch map once if requested.
+        """
+        if self.task.reset_branch_map_before_run and not self._workflow_has_reset_branch_map:
+            self._workflow_has_reset_branch_map = True
+
+            # reset both branch map and cached branch tasks
+            self.task._branch_map = None
+            self.task._branch_tasks = None
 
 
 def workflow_property(func):
@@ -287,6 +300,12 @@ class BaseWorkflow(Task):
        Flag that denotes if this workflow is forced to use contiguous branch numbers, starting from
        0. If *False*, an exception is raised otherwise.
 
+    .. py:classattribute:: reset_branch_map_before_run
+       type: bool
+
+       Flag that denotes whether the branch map should be recreated from scratch before the run
+       method of the underlying workflow proxy is called.
+
     .. py:classattribute:: workflow_property
        type: function
 
@@ -353,6 +372,7 @@ class BaseWorkflow(Task):
 
     output_collection_cls = None
     force_contiguous_branches = False
+    reset_branch_map_before_run = False
 
     workflow_property = None
     cached_workflow_property = None
