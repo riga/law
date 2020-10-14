@@ -145,9 +145,11 @@ class BaseWorkflowProxy(ProxyTask):
         if self.task.reset_branch_map_before_run and not self._workflow_has_reset_branch_map:
             self._workflow_has_reset_branch_map = True
 
-            # reset both branch map and cached branch tasks
+            # reset cached branch map, branch tasks and boundaries
             self.task._branch_map = None
             self.task._branch_tasks = None
+            self.task.start_branch = self.task._initial_start_branch
+            self.task.end_branch = self.task._initial_end_branch
 
 
 def workflow_property(func):
@@ -413,6 +415,10 @@ class BaseWorkflow(Task):
 
         # cached attributes for branches
         self._workflow_task = None
+
+        # store original branch boundaries
+        self._initial_start_branch = self.start_branch
+        self._initial_end_branch = self.end_branch
 
     def __getattribute__(self, attr, proxy=True):
         return get_proxy_attribute(self, attr, proxy=proxy, super_cls=Task)
