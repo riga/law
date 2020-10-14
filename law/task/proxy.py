@@ -52,7 +52,7 @@ class ProxyCommand(object):
         if not key.startswith("--"):
             key = "--" + key.lstrip("-")
 
-        self.args = filter((lambda tpl: tpl[0] != key), self.args)
+        self.args = [tpl for tpl in self.args if tpl[0] != key]
 
     def add_arg(self, key, value, overwrite=False):
         if not key.startswith("--"):
