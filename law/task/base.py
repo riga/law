@@ -11,7 +11,6 @@ __all__ = ["Task", "WrapperTask", "ExternalTask"]
 import sys
 import socket
 import time
-import math
 import logging
 from collections import OrderedDict
 from contextlib import contextmanager
