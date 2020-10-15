@@ -62,14 +62,24 @@ console_lock = threading.Lock()
 
 class NoValue(object):
 
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super(NoValue, cls).__new__(cls, *args, **kwargs)
+        return cls._instance
+
     def __bool__(self):
         return False
 
     def __nonzero__(self):
         return False
 
+    def __str__(self):
+        return "{}.no_value".format(self.__module__)
 
-#: Unique dummy value that evaluates to *False*.
+
+#: Unique dummy value that is used to denote missing values and always evaluates to *False*.
 no_value = NoValue()
 
 
