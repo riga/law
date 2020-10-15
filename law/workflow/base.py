@@ -22,7 +22,7 @@ from law.task.base import Task, Register
 from law.task.proxy import ProxyTask, get_proxy_attribute
 from law.target.collection import TargetCollection
 from law.parameter import NO_STR, NO_INT, CSVParameter
-from law.util import no_value, make_list
+from law.util import no_value, make_list, DotDict
 
 
 logger = logging.getLogger(__name__)
@@ -98,7 +98,7 @@ class BaseWorkflowProxy(ProxyTask):
         Returns the default workflow requirements in an ordered dictionary, which is updated with
         the return value of the task's *workflow_requires* method.
         """
-        reqs = OrderedDict()
+        reqs = DotDict()
         workflow_reqs = self.task.workflow_requires()
         if workflow_reqs:
             reqs.update(workflow_reqs)
@@ -121,7 +121,7 @@ class BaseWorkflowProxy(ProxyTask):
         targets = luigi.task.getpaths(self.task.get_branch_tasks())
         collection = cls(targets, threshold=self.threshold(len(targets)))
 
-        return OrderedDict([("collection", collection)])
+        return DotDict([("collection", collection)])
 
     def threshold(self, n=None):
         """
@@ -626,7 +626,7 @@ class BaseWorkflow(Task):
         if self.is_branch():
             raise Exception("calls to workflow_requires are forbidden for branch tasks")
 
-        return OrderedDict()
+        return DotDict()
 
     def workflow_input(self):
         """

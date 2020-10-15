@@ -18,7 +18,7 @@ from law.job.base import JobArguments
 from law.task.proxy import ProxyCommand
 from law.target.file import get_path
 from law.parameter import CSVParameter
-from law.util import law_src_path, merge_dicts, is_number
+from law.util import law_src_path, merge_dicts, is_number, DotDict
 
 from law.contrib.arc.job import ARCJobManager, ARCJobFileFactory
 
@@ -205,7 +205,7 @@ class ARCWorkflow(BaseRemoteWorkflow):
         return None
 
     def arc_workflow_requires(self):
-        return OrderedDict()
+        return DotDict()
 
     def arc_output_postfix(self):
         self.get_branch_map()

@@ -21,7 +21,7 @@ from law.task.proxy import ProxyCommand
 from law.target.file import get_path
 from law.target.local import LocalDirectoryTarget
 from law.parameter import NO_STR
-from law.util import law_src_path, merge_dicts
+from law.util import law_src_path, merge_dicts, DotDict
 
 from law.contrib.lsf.job import LSFJobManager, LSFJobFileFactory
 
@@ -181,7 +181,7 @@ class LSFWorkflow(BaseRemoteWorkflow):
         return None
 
     def lsf_workflow_requires(self):
-        return OrderedDict()
+        return DotDict()
 
     def lsf_output_postfix(self):
         self.get_branch_map()

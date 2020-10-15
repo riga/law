@@ -8,9 +8,8 @@ Local workflow implementation.
 __all__ = ["LocalWorkflow"]
 
 
-import collections
-
 from law.workflow.base import BaseWorkflow, BaseWorkflowProxy
+from law.util import DotDict
 
 
 class LocalWorkflowProxy(BaseWorkflowProxy):
@@ -82,4 +81,4 @@ class LocalWorkflow(BaseWorkflow):
     exclude_index = True
 
     def local_workflow_requires(self):
-        return collections.OrderedDict()
+        return DotDict()

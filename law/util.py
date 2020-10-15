@@ -14,8 +14,8 @@ __all__ = [
     "mask_struct", "tmp_file", "interruptable_popen", "readable_popen", "create_hash",
     "copy_no_perm", "makedirs_perm", "user_owns_file", "iter_chunks", "human_bytes", "parse_bytes",
     "human_duration", "human_time_diff", "parse_duration", "is_file_exists_error", "send_mail",
-    "ShorthandDict", "open_compat", "patch_object", "join_generators", "quote_cmd", "BaseStream",
-    "TeeStream", "FilteredStream",
+    "DotDict", "ShorthandDict", "open_compat", "patch_object", "join_generators", "quote_cmd",
+    "BaseStream", "TeeStream", "FilteredStream",
 ]
 
 
@@ -1435,6 +1435,41 @@ def send_mail(recipient, sender, subject="", content="", smtp_host="127.0.0.1", 
     return True
 
 
+class DotDict(collections.OrderedDict):
+    """
+    Subclass of *OrderedDict* that provides read access for items via attributes by implementing
+    ``__getattr__``. In case a item is accessed via attribute and it does not exist, an
+    *AttriuteError* is raised rather than a *KeyError*. Example:
+
+    .. code-block:: python
+
+       d = DotDict()
+       d["foo"] = 1
+
+       print(d["foo"])
+       # => 1
+
+       print(d.foo)
+       # => 1
+
+       print(d["bar"])
+       # => KeyError
+
+       print(d.bar)
+       # => AttributeError
+    """
+
+    def __getattr__(self, attr):
+        if attr == "_OrderedDict__root":
+            return super(DotDict, self).__getattr__(attr)
+        else:
+            try:
+                return self[attr]
+            except KeyError:
+                raise AttributeError("'{}' object has no attribute '{}'".format(
+                    self.__class__.__name__, attr))
+
+
 class ShorthandDict(collections.OrderedDict):
     """
     Subclass of *OrderedDict* that implements ``__getattr__`` and ``__setattr__`` for a configurable
@@ -1443,7 +1478,6 @@ class ShorthandDict(collections.OrderedDict):
     .. code-block:: python
 
         MyDict(ShorthandDict):
-
             attributes = {"foo": 1, "bar": 2}
 
         d = MyDict(foo=9)

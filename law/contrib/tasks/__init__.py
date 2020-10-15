@@ -9,7 +9,6 @@ __all__ = ["RunOnceTask", "TransferLocalFile", "CascadeMerge", "ForestMerge"]
 
 
 import os
-from collections import OrderedDict
 from abc import abstractmethod
 import logging
 
@@ -24,7 +23,7 @@ from law.target.local import LocalFileTarget
 from law.target.collection import TargetCollection, SiblingFileCollection
 from law.parameter import NO_INT, NO_STR
 from law.decorator import factory
-from law.util import iter_chunks
+from law.util import iter_chunks, DotDict
 
 
 logger = logging.getLogger(__name__)
@@ -335,7 +334,7 @@ class CascadeMerge(LocalWorkflow):
         return reqs
 
     def requires(self):
-        reqs = OrderedDict()
+        reqs = DotDict()
 
         if self.is_forest():
             # require the workflows for all cascade trees
@@ -654,7 +653,7 @@ class ForestMerge(LocalWorkflow):
         return reqs
 
     def requires(self):
-        reqs = OrderedDict()
+        reqs = DotDict()
 
         if self.is_forest():
             n_trees = len(self.merge_forest)

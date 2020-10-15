@@ -20,7 +20,7 @@ from law.job.base import JobArguments
 from law.task.proxy import ProxyCommand
 from law.target.file import get_path
 from law.parameter import CSVParameter
-from law.util import law_src_path, merge_dicts
+from law.util import law_src_path, merge_dicts, DotDict
 from law.contrib.wlcg import delegate_voms_proxy_glite, get_ce_endpoint
 
 from law.contrib.glite.job import GLiteJobManager, GLiteJobFileFactory
@@ -195,7 +195,7 @@ class GLiteWorkflow(BaseRemoteWorkflow):
         return None
 
     def glite_workflow_requires(self):
-        return OrderedDict()
+        return DotDict()
 
     def glite_output_postfix(self):
         self.get_branch_map()

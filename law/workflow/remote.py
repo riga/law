@@ -23,7 +23,7 @@ import six
 from law.workflow.base import BaseWorkflow, BaseWorkflowProxy
 from law.job.dashboard import NoJobDashboard
 from law.parameter import NO_FLOAT, NO_INT, get_param, DurationParameter
-from law.util import is_number, iter_chunks, merge_dicts, human_duration, ShorthandDict
+from law.util import is_number, iter_chunks, merge_dicts, human_duration, DotDict, ShorthandDict
 
 
 logger = logging.getLogger(__name__)
@@ -357,7 +357,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
     def requires(self):
         # use upstream and workflow specific requirements only when not controlling running jobs
         if self.task.is_controlling_remote_jobs():
-            reqs = OrderedDict()
+            reqs = DotDict()
         else:
             reqs = super(BaseRemoteWorkflowProxy, self).requires()
             remote_reqs = self._get_task_attribute("workflow_requires")()
@@ -379,7 +379,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         out_dir = self._get_task_attribute("output_directory")()
 
         # define outputs
-        outputs = OrderedDict()
+        outputs = DotDict()
         postfix = self._get_task_attribute("output_postfix")()
 
         # a file containing the submission data, i.e. job ids etc

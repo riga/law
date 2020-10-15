@@ -21,7 +21,7 @@ from law.task.proxy import ProxyCommand
 from law.target.file import get_path
 from law.target.local import LocalDirectoryTarget
 from law.parameter import NO_STR
-from law.util import law_src_path, merge_dicts
+from law.util import law_src_path, merge_dicts, DotDict
 
 from law.contrib.htcondor.job import HTCondorJobManager, HTCondorJobFileFactory
 
@@ -176,7 +176,7 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
         return None
 
     def htcondor_workflow_requires(self):
-        return OrderedDict()
+        return DotDict()
 
     def htcondor_bootstrap_file(self):
         return None
