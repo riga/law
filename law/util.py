@@ -477,7 +477,7 @@ def brace_expand(s, split_csv=False):
 def multi_match(name, patterns, mode=any, regex=False):
     """
     Compares *name* to multiple *patterns* and returns *True* in case of at least one match (*mode*
-    = *any*, the default), or in case all patterns matched (*mode* = *all*). Otherwise, *False* is
+    = *any*, the default), or in case all patterns match (*mode* = *all*). Otherwise, *False* is
     returned. When *regex* is *True*, *re.match* is used instead of *fnmatch.fnmatch*.
     """
     patterns = make_list(patterns)
