@@ -164,7 +164,7 @@ def create_config_page():
             n_indent = len(listing_match.group(1))
             if n_indent % 2 != 0:
                 raise Exception("uneven indentation found in line {}".format(i + 1))
-            line = "{}- {}".format("   " * (n_indent / 2), listing_match.group(2))
+            line = "{}- {}".format("   " * int(n_indent / 2), listing_match.group(2))
 
         # handle toc links
         if within_toc and listing_match:
