@@ -24,6 +24,7 @@ from law.config import Config
 from law.parameter import NO_STR, CSVParameter
 from law.target.file import localize_file_targets
 from law.parser import root_task, global_cmdline_values
+from law.logger import setup_logger
 from law.util import (
     abort, common_task_params, colored, uncolored, make_list, multi_match, flatten, BaseStream,
     human_duration, patch_object, round_discrete,
@@ -166,6 +167,15 @@ class BaseTask(luigi.Task):
                     del params[name]
 
         return params
+
+    def get_logger_name(self):
+        return "{}.{}".format(self.__module__, self.__class__.__name__)
+
+    @property
+    def logger(self):
+        name = self.get_logger_name()
+        is_configured = name in logging.root.manager.loggerDict
+        return logging.getLogger(name) if is_configured else setup_logger(name)
 
     def complete(self):
         outputs = [t for t in flatten(self.output()) if not t.optional]

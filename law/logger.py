@@ -5,10 +5,15 @@ Law logging setup.
 """
 
 
-__all__ = ["console_handler", "setup_logging", "is_tty_handler", "get_tty_handlers", "LogFormatter"]
+__all__ = [
+    "console_handler", "setup_logging", "setup_logger", "is_tty_handler", "get_tty_handlers",
+    "LogFormatter",
+]
 
 
 import logging
+
+import six
 
 from law.config import Config
 from law.util import colored, ipykernel
@@ -41,18 +46,41 @@ def setup_logging():
     # set levels for all loggers and add the console handler for all non-law loggers
     cfg = Config.instance()
     for name, level in cfg.items("logging"):
-        level = level.upper()
-        if getattr(logging, level, None) is None:
-            continue
+        add_console_handler = not name.startswith("law.") and not get_tty_handlers(name)
+        setup_logger(name, level, add_console_handler=add_console_handler, clear=False)
 
-        # create / get the logger and set the level
-        logger = logging.getLogger(name)
-        logger.setLevel(getattr(logging, level))
 
-        # when the logger is not within the law.* namespace and there is no tty stream handler yet,
-        # add the console handler
-        if not name.startswith("law.") and not get_tty_handlers(logger):
-            logger.addHandler(console_handler)
+def setup_logger(name, level=None, add_console_handler=True, clear=False):
+    """
+    Sets up a logger given by its *name*, configures it to have a certain *level* and adds a
+    preconfigured console handler when *add_console_handler* is *True*. The *name* can either be an
+    integer or the name of a level present in the *logging* module. When no *level* is given, the
+    level of the ``"law"`` base logger is used as a default. When the logger already existed and
+    *clear* is *True*, all handlers and filters are removed first. The logger object is returned.
+    """
+    # sanitize the level
+    if isinstance(level, six.string_types):
+        level = getattr(logging, level.upper(), None)
+    if level is None:
+        level = logging.getLogger("law").level
+
+    # clear handlers and filters
+    is_existing = name in logging.root.manager.loggerDict
+    logger = logging.getLogger(name)
+    if is_existing and clear:
+        for h in list(logger.handlers):
+            logger.removeHandler(h)
+        for f in list(logger.filters):
+            logger.removeFilter(f)
+
+    # set the level
+    logger.setLevel(level)
+
+    # add the global console handler
+    if console_handler and add_console_handler:
+        logger.addHandler(console_handler)
+
+    return logger
 
 
 def is_tty_handler(handler):
@@ -75,6 +103,8 @@ def get_tty_handlers(logger):
     """
     Returns a list of all handlers of a *logger* that log to a tty.
     """
+    if isinstance(logger, six.string_types):
+        logger = logging.getLogger(logger)
     return [handler for handler in getattr(logger, "handlers", []) if is_tty_handler(handler)]
 
 
