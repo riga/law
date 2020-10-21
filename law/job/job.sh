@@ -61,7 +61,8 @@
 # 80: The stageout command failed.
 
 action() {
-    echo "starting law remote job"
+    echo "law remote job script"
+    echo "====================="
     local _law_job_start_time="$( date +"%d/%m/%Y %T.%N (%Z)" )"
     echo "$_law_job_start_time"
 
@@ -364,6 +365,12 @@ action() {
 
     _law_job_section "environment"
 
+    if type hostnamectl &> /dev/null; then
+        echo
+        _law_job_subsection "host infos:"
+        hostnamectl status
+    fi
+
     _law_job_subsection "job infos"
     echo "shell    : $SHELL"
     echo "hostname : $( hostname )"
@@ -385,14 +392,9 @@ action() {
     echo "auto retry    : $LAW_JOB_AUTO_RETRY"
     echo "dashboard data: $LAW_JOB_DASHBOARD_DATA"
 
-    if type hostnamectl &> /dev/null; then
-        echo
-        _law_job_subsection "host infos:"
-        hostnamectl status
-    fi
-
     echo
     _law_job_subsection "file infos:"
+    echo "ls -la"
     ls -la
 
 
