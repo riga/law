@@ -27,7 +27,7 @@ from law.parser import root_task, global_cmdline_values
 from law.logger import setup_logger
 from law.util import (
     abort, common_task_params, colored, uncolored, make_list, multi_match, flatten, BaseStream,
-    human_duration, patch_object, round_discrete,
+    human_duration, patch_object, round_discrete, classproperty,
 )
 
 
@@ -168,12 +168,13 @@ class BaseTask(luigi.Task):
 
         return params
 
-    def get_logger_name(self):
-        return "{}.{}".format(self.__module__, self.__class__.__name__)
+    @classmethod
+    def get_logger_name(cls):
+        return "{}.{}".format(cls.__module__, cls.__name__)
 
-    @property
-    def logger(self):
-        name = self.get_logger_name()
+    @classproperty
+    def logger(cls):
+        name = cls.get_logger_name()
         is_configured = name in logging.root.manager.loggerDict
         return logging.getLogger(name) if is_configured else setup_logger(name)
 

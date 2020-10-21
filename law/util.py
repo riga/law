@@ -15,7 +15,7 @@ __all__ = [
     "copy_no_perm", "makedirs_perm", "user_owns_file", "iter_chunks", "human_bytes", "parse_bytes",
     "human_duration", "human_time_diff", "parse_duration", "is_file_exists_error", "send_mail",
     "DotDict", "ShorthandDict", "open_compat", "patch_object", "join_generators", "quote_cmd",
-    "BaseStream", "TeeStream", "FilteredStream",
+    "classproperty", "BaseStream", "TeeStream", "FilteredStream",
 ]
 
 
@@ -1643,6 +1643,41 @@ def quote_cmd(cmd):
 
     # quote all parts and join
     return " ".join(six.moves.shlex_quote(part) for part in cmd)
+
+
+class ClassPropertyDescriptor(object):
+    """
+    Generic descriptor class that is used by :py:func:`classproperty`. Setters are currently not
+    supported.
+    """
+
+    def __init__(self, fget, fset=None):
+        self.fget = fget
+        self.fset = fset
+
+    def __get__(self, obj, cls=None):
+        if cls is None:
+            cls = type(obj)
+
+        return self.fget.__get__(obj, cls)()
+
+    def __set__(self, obj, value):
+        if not self.fset:
+            raise AttributeError("can't set attribute")
+
+        type_ = type(obj)
+
+        return self.fset.__get__(obj, type_)(value)
+
+
+def classproperty(func):
+    """
+    Propety decorator for class-level methods.
+    """
+    if not isinstance(func, (classmethod, staticmethod)):
+        func = classmethod(func)
+
+    return ClassPropertyDescriptor(func)
 
 
 class BaseStream(object):
