@@ -90,7 +90,7 @@ def print_task_status(task, max_depth=0, target_depth=0, flags=None):
         if isinstance(dep, BaseWorkflow):
             dep.get_branch_map()
 
-        print("{}> check status of {}".format(offset, dep.repr(color=True)))
+        print("{}> {}".format(offset, dep.repr(color=True)))
         offset += "|" + ind
 
         if dep in done:
@@ -155,7 +155,7 @@ def remove_task_output(task, max_depth=0, mode=None, include_external=False):
         if isinstance(dep, BaseWorkflow):
             dep.get_branch_map()
 
-        print("{}> remove output of {}".format(offset, dep.repr(color=True)))
+        print("{}> {}".format(offset, dep.repr(color=True)))
         offset += "|" + ind
 
         if not include_external and isinstance(dep, ExternalTask):
@@ -241,7 +241,7 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
         if isinstance(dep, BaseWorkflow):
             dep.get_branch_map()
 
-        print("{}> fetch output of {}".format(offset, dep.repr(color=True)))
+        print("{}> {}".format(offset, dep.repr(color=True)))
         offset += "|" + ind
 
         if not include_external and isinstance(dep, ExternalTask):
