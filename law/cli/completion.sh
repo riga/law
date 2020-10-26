@@ -20,9 +20,6 @@ _law_complete() {
     # determine the LAW_INDEX_FILE
     local index_file="${LAW_INDEX_FILE:-$law_home/index}"
 
-    # common task run parameters
-    local common_run_params="workers local-scheduler log-level help"
-
     # the current word
     local cur="${COMP_WORDS[COMP_CWORD]}"
 
@@ -43,6 +40,9 @@ _law_complete() {
 
     # complete the "run" subcommand
     if [ "$sub_cmd" = "run" ]; then
+        # common task run parameters
+        local common_run_params="workers local-scheduler log-level help"
+
         # no completion when no index file is found
         if [ ! -f "$index_file" ]; then
             return "1"

@@ -7,12 +7,13 @@ Custom luigi parameters.
 
 __all__ = [
     "NO_STR", "NO_INT", "NO_FLOAT", "is_no_param", "get_param", "TaskInstanceParameter",
-    "DurationParameter", "CSVParameter", "NotifyParameter", "NotifyMultiParameter",
-    "NotifyMailParameter",
+    "DurationParameter", "CSVParameter", "MultiCSVParameter", "NotifyParameter",
+    "NotifyMultiParameter", "NotifyMailParameter",
 ]
 
 
 import luigi
+import six
 
 from law.notification import notify_mail
 from law.util import (
@@ -160,7 +161,6 @@ class CSVParameter(luigi.Parameter):
         # => (4, 5, 6)
 
         p = CSVParameter(cls=luigi.IntParameter, max_len=2)
-
         p.parse("4,5,6")
         # => ValueError
 
@@ -172,12 +172,20 @@ class CSVParameter(luigi.Parameter):
         parameter produces a tuple and, in particular, not a list. To avoid undesired side effects,
         the *default* value given to the constructor is also converted to a tuple.
 
+    .. py:classattribute:: CSV_SEP
+       type: string
+
+        Character used as a separator between CSV elements when parsing strings and serializing
+        values.
+
     .. py:attribute:: _inst
        type: cls
 
         Instance of the luigi parameter class *cls* that is used internally for parameter parsing
         and serialization.
     """
+
+    CSV_SEP = ","
 
     def __init__(self, *args, **kwargs):
         """ __init__(*args, cls=luigi.Parameter, unique=False, min_len=None, max_len=None, **kwargs)
@@ -196,7 +204,7 @@ class CSVParameter(luigi.Parameter):
         self._inst = self._cls()
 
     def _check_len(self, value):
-        str_repr = lambda: ",".join(str(v) for v in value)
+        str_repr = lambda: self.CSV_SEP.join(str(v) for v in value)
 
         if self._min_len is not None and len(value) < self._min_len:
             raise ValueError("'{}' contains {} value(s), a minimum of {} is required".format(
@@ -204,17 +212,17 @@ class CSVParameter(luigi.Parameter):
 
         # check max_len
         if self._max_len is not None and len(value) > self._max_len:
-            raise ValueError("{} contains {} value(s), a maximum of {} is required".format(
+            raise ValueError("'{}' contains {} value(s), a maximum of {} is required".format(
                 str_repr(), len(value), self._max_len))
 
     def parse(self, inp):
         """"""
-        if not inp:
-            ret = tuple()
-        elif isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
+        if isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
             ret = make_tuple(inp)
+        elif isinstance(inp, six.string_types):
+            ret = tuple(self._inst.parse(elem) for elem in inp.split(self.CSV_SEP))
         else:
-            ret = tuple(self._inst.parse(elem) for elem in inp.split(","))
+            ret = (ret,)
 
         # ensure uniqueness
         if self._unique:
@@ -237,7 +245,79 @@ class CSVParameter(luigi.Parameter):
             # check min_len and max_len
             self._check_len(value)
 
-            return ",".join(str(self._inst.serialize(elem)) for elem in value)
+            return self.CSV_SEP.join(str(self._inst.serialize(elem)) for elem in value)
+
+
+class MultiCSVParameter(CSVParameter):
+    """
+    Parameter that parses several comma-separated values (CSV), separated by colons, and produces a
+    nested tuple. *cls* can refer to an other parameter class that will be used to parse and
+    serialize the particular items.
+
+    Except for the additional support for multuple CSV sequences, the implementation is based on
+    :py:class:`CSVParameter`, which also handles the features controlled by *unique*, *max_len* and
+    *min_len*.
+
+    Example:
+
+    .. code-block:: python
+
+        p = MultiCSVParameter(cls=luigi.IntParameter)
+        p.parse("4,5:6,6")
+        # => ((4, 5), (6, 6))
+        p.serialize((7, 8, (9,)))
+        # => "7,8:9"
+
+        p = MultiCSVParameter(cls=luigi.IntParameter, unique=True)
+        p.parse("4,5:6,6")
+        # => ((4, 5), (6,))
+
+        p = MultiCSVParameter(cls=luigi.IntParameter, max_len=2)
+        p.parse("4,5:6,7,8")
+        # => ValueError
+
+    .. note::
+
+        Due to the way `instance caching
+        <https://luigi.readthedocs.io/en/stable/parameters.html#parameter-instance-caching>`__
+        is implemented in luigi, parameters should always have hashable values. Therefore, this
+        parameter produces a (nested) tuple and, in particular, not a list. To avoid undesired side
+        effects, the *default* value given to the constructor is also converted to a tuple.
+
+    .. py:classattribute:: MULTI_CSV_SEP
+       type: string
+
+        Character used as a separator between CSV sequences when parsing strings and serializing
+        values.
+
+    .. py:attribute:: _inst
+       type: cls
+
+        Instance of the luigi parameter class *cls* that is used internally for parameter parsing
+        and serialization.
+    """
+
+    MULTI_CSV_SEP = ":"
+
+    def parse(self, inp):
+        """"""
+        if isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
+            ret = tuple(super(MultiCSVParameter, self).parse(v) for v in inp)
+        elif isinstance(inp, six.string_types):
+            ret = tuple(
+                super(MultiCSVParameter, self).parse(v) for v in inp.split(self.MULTI_CSV_SEP))
+        else:
+            ret = (super(MultiCSVParameter, self).parse(inp),)
+
+        return ret
+
+    def serialize(self, value):
+        """"""
+        if not value:
+            return ""
+        else:
+            return self.MULTI_CSV_SEP.join(
+                super(MultiCSVParameter, self).serialize(v) for v in value)
 
 
 class NotifyParameter(luigi.BoolParameter):
