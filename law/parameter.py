@@ -217,7 +217,9 @@ class CSVParameter(luigi.Parameter):
 
     def parse(self, inp):
         """"""
-        if isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
+        if inp in (None, "", NO_STR):
+            ret = tuple()
+        elif isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
             ret = make_tuple(inp)
         elif isinstance(inp, six.string_types):
             ret = tuple(self._inst.parse(elem) for elem in inp.split(self.CSV_SEP))
