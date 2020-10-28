@@ -301,6 +301,11 @@ class MultiCSVParameter(CSVParameter):
 
     MULTI_CSV_SEP = ":"
 
+    def __init__(self, *args, **kwargs):
+        """ __init__(*args, cls=luigi.Parameter, unique=False, min_len=None, max_len=None, **kwargs)
+        """
+        super(MultiCSVParameter, self).__init__(*args, **kwargs)
+
     def parse(self, inp):
         """"""
         if isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
