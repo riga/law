@@ -62,13 +62,13 @@ action() {
 
     # strategy: add and commit everything recursively to take into account rules defined in
     # .gitignore files, then create a list of files currently under source control and run tar -c
-    ( \
+    (
         eval rsync $rsync_args "$repo_path" "$tmp_dir/" && \
         cd "$tmp_dir/$repo_name" && \
         rm -rf $ignore_files && \
         sgit add -A . &> /dev/null && \
-        [ ! -z "$$include_files" ] && sgit add -f $include_files &> /dev/null; \
-        sgit commit -m "$commit_msg" &> /dev/null; \
+        [ ! -z "$$include_files" ] && sgit add -f $include_files &> /dev/null
+        sgit commit -m "$commit_msg" &> /dev/null
         for elem in $( sgit ls-files ); do echo "$elem" >> "$tmp_list"; done && \
         sgit submodule foreach --recursive --quiet "\
             git add -A . &> /dev/null && \

@@ -371,6 +371,7 @@ action() {
         hostnamectl status
     fi
 
+    echo
     _law_job_subsection "job infos"
     echo "shell    : $SHELL"
     echo "hostname : $( hostname )"
