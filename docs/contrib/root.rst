@@ -1,7 +1,7 @@
 root
 ====
 
-.. automodule:: law.contrib.root
+.. automodule:: law.root
 
 .. contents::
 
@@ -20,8 +20,30 @@ Class ``ROOTNumpyFormatter``
    :members:
 
 
+Class ``ROOTPandasFormatter``
+-----------------------------
+
+.. autoclass:: ROOTPandasFormatter
+   :members:
+
+
 Class ``UprootFormatter``
 -------------------------
 
 .. autoclass:: UprootFormatter
    :members:
+
+
+Class ``GuardedTFile``
+----------------------
+
+.. autoclass:: GuardedTFile
+   :members:
+
+
+Functions
+---------
+
+.. autofunction:: import_ROOT
+
+.. autofunction:: hadd_task

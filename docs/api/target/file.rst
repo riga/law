@@ -46,3 +46,5 @@ Functions
 .. autofunction:: add_scheme
 
 .. autofunction:: remove_scheme
+
+.. autofunction:: localize_file_targets

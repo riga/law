@@ -8,127 +8,171 @@
 # the law cli completion function
 _law_complete() {
     # determine the directory of this file
-    if [ ! -z "$ZSH_VERSION" ]; then
-        local this_file="${(%):-%x}"
-    else
-        local this_file="${BASH_SOURCE[0]}"
-    fi
+    local this_file="$( [ ! -z "$ZSH_VERSION" ] && echo "${(%):-%x}" || echo "${BASH_SOURCE[0]}" )"
     local this_dir="$( cd "$( dirname "$this_file" )" && pwd )"
 
     # load polyfills
     source "$this_dir/../polyfills.sh" ""
 
     # determine LAW_HOME
-    local law_home="$LAW_HOME"
-    [ -z "$law_home" ] && law_home="$HOME/.law"
+    local law_home="${LAW_HOME:-$HOME/.law}"
 
     # determine the LAW_INDEX_FILE
-    local index_file="$LAW_INDEX_FILE"
-    [ -z "$index_file" ] && index_file="$law_home/index"
-
-    # common task run parameters
-    local common_run_params="workers local-scheduler log-level help"
+    local index_file="${LAW_INDEX_FILE:-$law_home/index}"
 
     # the current word
     local cur="${COMP_WORDS[COMP_CWORD]}"
 
+    # reset the completion reply
+    COMPREPLY=()
+
     # trivial case
     if [ "$COMP_CWORD" = "0" ]; then
-        return
+        return "0"
     fi
 
     # complete the subcommand
     if [ "$COMP_CWORD" = "1" ]; then
         COMPREPLY=( $( compgen -W "run index config software completion location --help --version" -- "$cur" ) )
-        return
+        return "0"
     fi
     local sub_cmd="${COMP_WORDS[1]}"
 
     # complete the "run" subcommand
     if [ "$sub_cmd" = "run" ]; then
+        # common task run parameters
+        local common_run_params="workers local-scheduler log-level help"
+
+        # no completion when no index file is found
         if [ ! -f "$index_file" ]; then
-            COMPREPLY=()
-            return
+            return "1"
         fi
 
-        # task family
+        # complete the task family
         if [ "$COMP_CWORD" = "2" ]; then
             COMPREPLY=( $( compgen -W "$( _law_grep_Po "[^\:]+\:\K(.+)(?=\:.+)" "$index_file" )" -- "$cur" ) )
-            return
+            return "0"
         fi
         local task_family="${COMP_WORDS[2]}"
 
-        # parameters of the root task
+        # complete parameters of the root task
+        # and if parameters were found, stop
         local inp="${cur##-}"
         inp="${inp##-}"
         COMPREPLY=( $( compgen -W "$( _law_grep_Po "[^\:]+\:$task_family\:\K.+" "$index_file" ) $common_run_params" -P "--" -- "$inp" ) )
+        if [ "${#COMPREPLY[@]}" != "0" ]; then
+            return "0"
+        fi
 
-        if [ "${#COMPREPLY[@]}" = "0" ] && [ "${cur:0:2}" = "--" ]; then
-            local tasks=( $( _law_grep_Po "[^\:]+\:\K$inp[^\:]*(?=\:.+)" "$index_file" ) )
+        # when no root task parameters were found, try to complete task-level parameters,
+        # but only when the current input starts with two "-"
+        if [ "${cur:0:2}" = "--" ]; then
+            # luigi has a tiny consistency in the treatment of "_" in task families and task-level
+            # parameters: while they are preserved for task families and thus, for the lookup of the
+            # task to execute, they are replaced by "-" for task-level parameters, so since we are
+            # dealing with task-level parameters here, revert the replacement manually and keep
+            # variables for both versions
 
-            if [[ "$( echo $inp | _law_grep_Po "\K[^\.]+$" )" != *"-"* ]] && [ "${#tasks[@]}" -gt "1" ]; then
-                # other task families
-                COMPREPLY=( $( compgen -W "$( echo ${tasks[@]} )" -P "--" -S "-" -- "$inp" ) )
+            # get the task namespace
+            local namespace_raw="$( echo "$inp" | _law_grep_Po "^.*\.(?=[^\.]*$)" )"
+            local namespace="$( echo "$namespace_raw" | sed "s/-/_/g" )"
+            local namespace_repl="$( echo "$namespace_raw" | sed "s/_/-/g" )"
+
+            # get the class and parameter parts
+            local class_and_param_raw="$( echo "$inp" | _law_grep_Po "\.?\K[^\.]*$" )"
+            local class="$( echo "$class_and_param_raw" | _law_grep_Po "^[^-]+" )"
+            local param="$( echo "$class_and_param_raw" | _law_grep_Po "^[^-]+-\K.*" )"
+
+            # build the family
+            local family="$namespace$class"
+            local family_repl="$namespace_repl$class"
+
+            # find tasks that match the family
+            local matches=( $( _law_grep_Po "[^\:]+\:\K$family[^\:]*(?=\:.+)" "$index_file" ) )
+            local tasks=()
+            local tasks_repl=()
+            for (( i=0; i<${#matches[@]}; i++ )); do
+                if [ ! -z "${matches[$i]}" ]; then
+                    tasks+=( "${matches[$i]}" )
+                    tasks_repl+=( "$( echo "${matches[$i]}" | sed "s/_/-/g" )" )
+                fi
+            done
+            unset i
+            local n_tasks="${#tasks[@]}"
+
+            # stop here when there is no match
+            if [ "$n_tasks" = "0" ]; then
+                return "0"
+            fi
+
+            # complete the task family when there is more than one match and
+            # when there is not yet a "-" after the task class name
+            if [ "$n_tasks" -gt "1" ] && [[ "$class_and_param_raw" != *"-"* ]]; then
+                # complete the task family
+                COMPREPLY=( $( compgen -W "$( echo ${tasks_repl[@]} )" -P "--" -S "-" -- "$inp" ) )
+                return "0"
             else
-                # parameters of other tasks
-                local task="$( echo $inp | _law_grep_Po "^[^-]*" )"
-                local curparam="$( echo $inp | _law_grep_Po "^[^-]*-\K.*" )"
+                # complete parameters, including the matching task family
+                # when there is only one matching task, overwrite the family
+                if [ "$n_tasks" = "1" ]; then
+                    family="${tasks[0]}"
+                    family_repl="${tasks_repl[0]}"
+                fi
 
-                [[ "$( echo $inp | _law_grep_Po "\K[^\.]+$" )" != *"-"* ]] && task="${tasks[0]}"
-                [ "$( echo ${task:${#task}-1} )" == "-" ] && task="${task:0:${#task}-1}"
-
-                local params=( $( _law_grep_Po "[^\:]\:$task\:\K.*" "$index_file" ) )
+                # get all parameters and do a simple comparison
+                local all_params=( $( _law_grep_Po "[^\:]\:$family\:\K.*" "$index_file" ) )
                 local words=()
-                for param in "${params[@]}"; do
-                    if [ -z "$curparam" ] || [ ! -z "$( echo "$param" | _law_grep_Po "^$curparam" )" ]; then
-                        words+=("$task-$param")
+                for p in "${all_params[@]}"; do
+                    if [ -z "$param" ] || [ ! -z "$( echo "$p" | _law_grep_Po "^$param" )" ]; then
+                        words+=("$family_repl-$p")
                     fi
                 done
-                unset param
+                unset p
 
                 COMPREPLY=( $( compgen -W "$( echo ${words[@]} )" -P "--" -- "$inp" ) )
+                return "0"
             fi
         fi
-    fi
 
     # complete the "index" subcommand
-    if [ "$sub_cmd" = "index" ]; then
-        local words="modules no-externals remove location verbose help"
+    elif [ "$sub_cmd" = "index" ]; then
+        local words="modules no-externals remove show location verbose help"
         local inp="${cur##-}"
         inp="${inp##-}"
         COMPREPLY=( $( compgen -W "$( echo $words )" -P "--" -- "$inp" ) )
-    fi
+        return "0"
 
     # complete the "software" subcommand
-    if [ "$sub_cmd" = "software" ]; then
+    elif [ "$sub_cmd" = "software" ]; then
         local words="location remove help"
         local inp="${cur##-}"
         inp="${inp##-}"
         COMPREPLY=( $( compgen -W "$( echo $words )" -P "--" -- "$inp" ) )
-    fi
+        return "0"
 
     # complete the "config" subcommand
-    if [ "$sub_cmd" = "config" ]; then
+    elif [ "$sub_cmd" = "config" ]; then
         local words="remove expand location help"
         local inp="${cur##-}"
         inp="${inp##-}"
         COMPREPLY=( $( compgen -W "$( echo $words )" -P "--" -- "$inp" ) )
-    fi
+        return "0"
 
     # complete the "completion" subcommand
-    if [ "$sub_cmd" = "completion" ]; then
+    elif [ "$sub_cmd" = "completion" ]; then
         local words="help"
         local inp="${cur##-}"
         inp="${inp##-}"
         COMPREPLY=( $( compgen -W "$( echo $words )" -P "--" -- "$inp" ) )
-    fi
+        return "0"
 
     # complete the "location" subcommand
-    if [ "$sub_cmd" = "location" ]; then
+    elif [ "$sub_cmd" = "location" ]; then
         local words="help"
         local inp="${cur##-}"
         inp="${inp##-}"
         COMPREPLY=( $( compgen -W "$( echo $words )" -P "--" -- "$inp" ) )
+        return "0"
     fi
 }
 

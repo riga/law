@@ -1,9 +1,16 @@
 cms
 ===
 
-.. automodule:: law.contrib.cms
+.. automodule:: law.cms
 
 .. contents::
+
+
+Task ``BundleCMSSW``
+--------------------
+
+.. autoclass:: BundleCMSSW
+   :members:
 
 
 Class ``CMSJobDashboard``
@@ -13,8 +20,14 @@ Class ``CMSJobDashboard``
    :members:
 
 
-Task ``BundleCMSSW``
---------------------
+Class ``Site``
+--------------
 
-.. autoclass:: BundleCMSSW
+.. autoclass:: Site
    :members:
+
+
+Functions
+---------
+
+.. autofunction:: lfn_to_pfn

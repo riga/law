@@ -15,7 +15,7 @@ request. Usage:
 >   attempt=<attempt> \
 >   init_timestamp=<init_timestamp>
 
-Further optional arguments: log_leve, site, code, event
+Further optional arguments: log_level, site, code, event
 """
 
 

@@ -1,7 +1,7 @@
 lsf
 ===
 
-.. automodule:: law.contrib.lsf
+.. automodule:: law.lsf
 
 .. contents::
 

@@ -1,0 +1,979 @@
+; This file is an example of an (overcomplete) law configuration file.
+;
+; Table of contents:
+;
+; - Features of the law configuration parser
+;   - The law home directory
+;   - Configuration file resolution order
+;   - Inheritance and extensions
+;   - Option referencing
+;   - Environment variable expansion
+;   - The "None" value
+;   - Synchronization with luigi configuration
+;
+; - law configuration
+;   - [core]
+;   - [modules]
+;   - [logging]
+;   - [task]
+;   - [target]
+;   - [local_fs]
+;   - [wlcg_fs]
+;   - [dropbox_fs]
+;   - [job]
+;   - [notifications]
+;   - [bash_sandbox]
+;   - [bash_sandbox_env]
+;   - [docker_sandbox]
+;   - [docker_sandbox_env]
+;   - [docker_sandbox_volumes]
+;   - [singularity_sandbox]
+;   - [singularity_sandbox_env]
+;   - [singularity_sandbox_volumes]
+;
+; Please note that configuration options of law contrib packages might also appear in sections of
+; the general law configuration.
+
+
+; === Features of the law configuration parser =====================================================
+
+; --- The law home directory -----------------------------------------------------------------------
+; The law home directory is the default location of a small number of files and directories that are
+; created when working with law. Please refer to the particular configuration options below for more
+; information. The law home directory defaults to "$LAW_HOME" or "$HOME/.law".
+
+; --- Configuration file resolution order ----------------------------------------------------------
+; Law configuration files (like the one you are just reading) are looked up in a certain order:
+; $LAW_CONFIG_FILE, ./law.cfg, "config" in the law home directory, or "etc/law/config". The config
+; parser only reads the first existing file.
+
+; --- Inheritance and extensions -------------------------------------------------------------------
+; The law configuration can inherit from or can be extended by additional configuration files. See
+; the options "inherit_configs" and "extend_configs" in the "[core]" section of the law
+; configuration below. The only difference between the two is that options defined in
+; "inherit_configs" do not overwrite those in the actual config, whereas options of "extend_configs"
+; do.
+
+; --- Option referencing ---------------------------------------------------------------------------
+; To avoid that some configurations are copied to other options (which is required in some cases),
+; the law configuration parser supports references. The syntax for references to options in the same
+; section is "&::other_option", and "&::other_section::other_option" for options in other sections.
+; None is returned in case a reference cannot be resolved. The same applies to circular references.
+
+; --- Environment variable expansion ---------------------------------------------------------------
+; Configuration values that contain environment variables are automatically expanded by most getters
+; of the law configuration parser, such as "get_expanded", "get_expanded_int", etc.
+
+; --- The "None" value -----------------------------------------------------------------------------
+; Getters of the law configuration parser such as "get_default", get_expanded", "get_expanded_int",
+; etc., are configured to return a default value (which itself defaults to "None" (the NoneType)) in
+; case an option is not existing. Sometimes it can be useful to actively declare an option as
+; missing. This can be achieved by setting an option to "None" (string).
+
+; --- Synchronization with luigi configuration -----------------------------------------------------
+; law is built on top of luigi and does not replace it. Therefore, another luigi-specfic
+; configuration file is actually required. However, law provides a mechanism to define the luigi
+; configuration right within the law configuration file. All sections starting with "luigi" plus
+; underscore, e.g. "[luigi_worker]" are forwarded to luigi. Environment variable expansion is
+; performed as well. This behavior is configurable by the "sync_luigi_config" option in the "[core]"
+; section.
+
+
+; === law configuration ============================================================================
+
+; --- core section ---------------------------------------------------------------------------------
+
+[core]
+
+; law_home
+; Description: The law home directory is the default location of a small number of files and
+; directories that are created when working with law.
+; Type: string
+; Default: "$LAW_HOME", "$HOME/.law"
+
+; index_file
+; Description: The location of the file that contains a list of all tasks, their module, and their
+; parameters for the purpose of fast autocompletion on the command line.
+; Type: string
+; Default: "$LAW_INDEX_FILE", "index" in the law home directory
+
+; software_dir
+; Description: The default location where softwar is copied to by the "law software" command. This
+; can be especially useful for (e.g.) forwarding law and its dependencies into a container. Type
+; "law software --help" for more info.
+; Type: string
+; Default: "$LAW_SOFTWARE_DIR", "software" in the law home directory
+
+; inherit_configs
+; Description: A comma-separated list of files that this config is inheriting, i.e., their options
+; do _not_ overwrite the ones defined in _this_ file. Relative paths are resolved with respect to
+; _this_ file. Brace expansion, such as "myfile{1,2}.cfg" to "myfile1.cfg, myfile2.cfg" is applied.
+; Type: string, list of strings
+; Default: None
+
+; extend_configs
+; Description: A comma-separated list of files that this config is extended by, i.e., their options
+; _do_ overwrite the ones defined in _this_ file. Relative paths are resolved with respect to _this_
+; file. Brace expansion, such as "myfile{1,2}.cfg" to "myfile1.cfg, myfile2.cfg" is applied.
+; Type: string, list of strings
+; Default: None
+
+; sync_luigi_config
+; Description: A boolean flag that decides whether sections starting with "luigi" plus underscore
+; should be synchronized with the luigi configuration.
+; Type: boolean
+; Default: True
+
+
+; --- logging section ------------------------------------------------------------------------------
+
+[logging]
+
+; law
+; Description: The log level of the law root logger. Accepted values are the default python log
+; levels, i.e., NOTSET, DEBUG, INFO, WARNING, ERROR, or CRITICAL.
+; Type: string
+; Default: "$LAW_LOG_LEVEL", "WARNING"
+
+; gfal2
+; Description: Operations on remote targets are performed using the gfal2 package. This value
+; defines the level of the "gfal2" logger.
+; Type: string
+; Default: "WARNING"
+
+; Other loggers can be configured conveniently by adding "my_logger: my_level" to this section. For
+; instance, "law.workflow.remote: DEBUG" will set the log level of the logger defined in
+; "law/workflow/remote.py" to "DEBUG". Loggers that are not part of the "law" namespace are
+; supported as well.
+
+
+; --- modules section ------------------------------------------------------------------------------
+
+[modules]
+
+; This section only accepts options without values. They are interpreted as a list of modules that
+; are loaded and checked for law tasks classes when "law index" is executed. This command creates
+; the index file that contains a list of task names and their parameters for fast autocompletion on
+; the command line.
+
+
+; --- task section ---------------------------------------------------------------------------------
+
+[task]
+
+; colored_repr
+; Description: A boolean flag that decides whether the output of "task.repr()" is colorized by
+; default.
+; Type: boolean
+; Default: True
+
+
+; --- target section -------------------------------------------------------------------------------
+
+[target]
+
+; colored_repr
+; Description: A boolean flag that decides whether the output of "target.repr()" is colorized by
+; default.
+; Type: boolean
+; Default: True
+
+; default_local_fs
+; Description: The name of the section to lookup for getting the configuration of a
+; "law.target.local.LocalFileSystem".
+; Type: string
+; Default: "local_fs"
+
+; tmp_dir
+; Description:: The directory in which temporary local targets are stored.
+; Type: string
+; Default: "$LAW_TARGET_TMP_DIR", "tempfile.gettempdir()"
+
+; tmp_dir_perm
+; Description: When the tmp_dir does not exist, it is created with this permission. The value can be
+; expressed by an octal number.
+; Type: integer
+; Default: 0o0770
+
+
+; --- Options of contrib packages
+
+; default_wlcg_fs
+; Description: The name of the section to lookup for getting the configuration of a
+; "law.wlcg.WLCGFileSystem".
+; Type: string
+; Default: "wlcg_fs"
+
+; default_dropbox_fs
+; Description: The name of the section to lookup for getting the configuration of a
+; "law.dropbox.DropboxFileSystem".
+; Type: string
+; Default: "dropbox_fs"
+
+
+; --- local_fs section -----------------------------------------------------------------------------
+
+[local_fs]
+
+
+; --- Options defined by "law.target.file.FileSystem"
+
+; has_perms
+; Description: A boolean flag that signifies whether the file system should handle permissions,
+; i.e., whether "chmod" operations should be evaluated. When "False", the current umask is used.
+; Type: boolean
+; Default: True
+
+; default_file_perm
+; Description: The default permission of newly created files. When "None" or empty, or when
+; "has_perms" is "False", the current umask is used. The value can be expressed by an octal number.
+; Type: integer
+; Default: None
+
+; default_dir_perm
+; Description: The default permission of newly created directories. When "None" or empty, or when
+; "has_perms" is "False", the current umask is used. The value can be expressed by an octal number.
+; Type: integer
+; Default: None
+
+; create_file_dir
+; Description: A boolean flag that signifies whether directories should be created when a file is
+; created via open, copy, move or dump operations.
+; Type: boolean
+; Default: True
+
+
+; --- wlcg_fs section ------------------------------------------------------------------------------
+
+[wlcg_fs]
+
+
+; --- Options defined by "law.target.file.FileSystem"
+
+; has_perms
+; Description: A boolean flag that signifies whether the file system should handle permissions,
+; i.e., whether "chmod" operations should be evaluated.
+; Type: boolean
+; Default: False
+
+; default_file_perm
+; Description: The default permission of newly created files. When "None" or empty, or when
+; "has_perms" is "False", the current umask is used. The value can be expressed by an octal number.
+; Type: integer
+; Default: None
+
+; default_dir_perm
+; Description: The default permission of newly created directories. When "None" or empty, or when
+; "has_perms" is "False", the current umask is used. The value can be expressed by an octal number.
+; Type: integer
+; Default: None
+
+; create_file_dir
+; Description: A boolean flag that signifies whether directories should be created when a file is
+; created via open, copy, move or dump operations.
+; Type: boolean
+; Default: True
+
+
+; --- Options defined by "law.target.remote.RemoteFileSystem"
+
+; base
+; Description: The base path for accessing files on a WLCG storage element. It should with a
+; protocol, such as "root://" or "gsiftp://", that can be handled by gfal. This value is required
+; for the "law.wlcg.WLCGFileSystem" to work. Brace expansion into a list of paths is applied.
+; Type: string, list of strings
+; Default: None
+
+; base_stat
+; base_exists
+; base_chmod
+; base_unlink
+; base_rmdir
+; base_mkdir
+; base_mkdir_rec
+; base_listdir
+; base_filecopy
+; Description: Different base paths for certain file or directory operations. When empty, the value
+; of "base" is used for that operation. As an example, if you use a base path starting with
+; "srm://...", you might want to choose a different protocol for listdir operations as SRM is too
+; inefficient for directory listings (runtime linear to number of items). Brace expansion into a
+; list of paths is applied.
+; Type: string, list of strings
+; Default: None
+
+; atomic_contexts
+; Description: A boolean flag that decides whether each operation of the gfal2 interface should be
+; placed in its own gfal2 context. For the "law.wlcg.WLCGFileSystem" it is highly recommended to set
+; this option to "True" to enfore that FTP connections are closed as soon as possible and remote
+; resources are freed properly.
+; Type: boolean
+; Default: True
+
+; retries
+; Description: The default number of retries to perform when a file operation fails. The value can
+; also be set per operation.
+; Type: integer
+; Default: 1
+
+; retry_delay
+; Description: The default amount of time to wait before retrying a failed file operation. The
+; default unit is seconds. The value can also be set per operation.
+; Type: integer, string
+; Default: "5s"
+
+; random_base
+; Desciption: A boolean flag that, if a base path above is given as a list of paths, decides
+; whether, by default, a random path should be chosen per file operation. When "True" and a file
+; operation fails, the next attempt is made with a different yet still random base path. The exact
+; behavior can also be set per operation.
+; Type: boolean
+; Default: True
+
+; validate_copy
+; Description: A boolean flag that decides whether, by default, a validation should be performed
+; after each file copy (or move) operation. The exact behavior can also be set per operation.
+; Type: boolean
+; Default: False
+
+; recursive_remove
+; Description: A boolean flag that decides whether, by default, the removal of a directory triggers
+; the recursive removal of all its content first. The exact behavior can also be set per operation.
+; Type: boolean
+; Default: True
+
+; use_cache
+; Description: A boolean flag that decides whether, by default, certain operations (copy, move,
+; open, etc.) should use the local cache (when existing). The exact behavior can also be set per
+; operation.
+; Type: boolean
+; Default: False
+
+
+; --- Options defined by "law.target.remote.RemoteCache"
+
+; cache_root
+; Description: The directory in which cached files from remote file operation should be stored. When
+; "None" or empty, file caching is disabled. When "__TMP__", a temporary directory is created.
+; Type: string
+; Default: None
+
+; cache_cleanup
+; Description: A boolean flag that decides whether the cache should be removed when the program
+; terminates.
+; Type: boolean
+; Default: False
+
+; cache_max_size
+; Description: The maximum size of the cache directory. When a file should be cached, but the
+; maximum size is reached, files are deleted from the cache in order of their smallest modification
+; time until enough disk space is freed. The default unit is MB. When zero or negative, the maximum
+; cache size is equal to 90% of the available disk space.
+; Type: integer, string
+; Default: "0MB"
+
+; cache_file_perm
+; Description: The permission of files in the cache. When "None" or empty, the current umask is
+; used. The value can be expressed by an octal number.
+; Type: integer
+; Default: 0o0660
+
+; cache_dir_perm
+; Description: The permission of the cache root directory in case it is not existing yet and has to
+; be created. When "None" or empty, the current umask is used. The value can be expressed by an
+; octal number.
+; Type: integer
+; Default: 0o0770
+
+; cache_wait_delay
+; Description: The amount of time to wait for a file in the cache to be unlocked. The default unit
+; is seconds.
+; Type: integer, string
+; Default: "5s"
+
+; cache_max_waits
+; Description: The maximum number of times to wait for a duration of "cache_wait_delay" for a file
+; in the cache to be unlocked before an error is thrown that the file is unavailable.
+; Type: integer
+; Default: 120
+
+; cache_global_lock
+; Description: A boolean flag that decides whether each cache operation is locked by a global
+; locking mechanism that prevents simultaneous cache access.
+; Type: boolean
+; Default: False
+
+
+; --- dropbox_fs section ---------------------------------------------------------------------------
+
+[dropbox_fs]
+
+; Note:
+; To access files on your Dropbox, you to have to register an application to obtain credentials.
+; Visit https://www.dropbox.com/developers for more information.
+
+
+; --- Options defined by "law.dropbox.DropboxFileSystem"
+
+; app_key
+; Description: The Dropbox app key. This value is required for the "law.dropbox.DropboxFileSystem"
+; to work.
+; Type: string
+; Default: None
+
+; app_secret
+; Description: The Dropbox app secret. This value is required for the
+; "law.dropbox.DropboxFileSystem" to work.
+; Type: string
+; Default: None
+
+; access_token
+; Description: The Dropbox app access token. This value is required for the
+; "law.dropbox.DropboxFileSystem" to work.
+; Type: string
+; Default: None
+
+
+; --- Options defined by "law.target.file.FileSystem"
+
+; has_perms
+; Description: A boolean flag that signifies whether the file system should handle permissions,
+; i.e., whether "chmod" operations should be evaluated. For the "law.dropbox.DropboxFileSystem",
+; this value should usually be "False".
+; Type: boolean
+; Default: False
+
+; default_file_perm
+; Description: The default permission of newly created files. When "None" or empty, or when
+; "has_perms" is "False", the current umask is used. The value can be expressed by an octal number.
+; Type: integer
+; Default: None
+
+; default_dir_perm
+; Description: The default permission of newly created directories. When "None" or empty, or when
+; "has_perm" is "False", the current umask is used. The value can be expressed by an octal number.
+; Type: integer
+; Default: None
+
+
+; --- Options defined by "law.target.remote.RemoteFileSystem"
+
+; base
+; Description: The base path for accessing files on your Dropbox. Normally, it should with
+; "dropbox://dropbox.com/...". This value is required for the "law.dropbox.DropboxFileSystem" to
+; work.
+; Type: string, list of strings
+; Default: None
+
+; base_stat
+; base_exists
+; base_chmod
+; base_unlink
+; base_rmdir
+; base_mkdir
+; base_mkdir_rec
+; base_listdir
+; base_filecopy
+; Description: Different base paths for certain file or directory operations. When empty, the value
+; of "base" is used for that operation. For the "law.dropbox.DropboxFileSystem", setting different
+; base paths is usually not required as Dropbox does not provide different entry points per
+; operation type.
+; Type: string, list of strings
+; Default: None
+
+; atomic_contexts
+; Description: A boolean flag that decides whether each operation of the gfal2 interface should be
+; placed in its own gfal2 context.
+; Type: boolean
+; Default: False
+
+; retries
+; Description: The default number of retries to perform when a file operation fails. The value can
+; also be set per operation.
+; Type: integer
+; Default: 1
+
+; retry_delay
+; Description: The default amount of time to wait before retrying a failed file operation. The
+; default unit is seconds. The value can also be set per operation.
+; Type: integer, string
+; Default: "5s"
+
+; random_base
+; Desciption: A boolean flag that, if a base path above is given as a list of paths, decides
+; whether, by default, a random path should be chosen per file operation. When "True" and a file
+; operation fails, the next attempt is made with a different yet still random base path. The exact
+; behavior can also be set per operation.
+; Type: boolean
+; Default: True
+
+; validate_copy
+; Description: A boolean flag that decides whether, by default, a validation should be performed
+; after each file copy (or move) operation. The exact behavior can also be set per operation.
+; Type: boolean
+; Default: False
+
+; recursive_remove
+; Description: A boolean flag that decides whether, by default, the removal of a directory triggers
+; the recursive removal of all its content first. The exact behavior can also be set per operation.
+; Type: boolean
+; Default: False
+
+; use_cache
+; Description: A boolean flag that decides whether, by default, certain operations (copy, move,
+; open, etc.) should use the local cache (when existing). The exact behavior can also be set per
+; operation.
+; Type: boolean
+; Default: False
+
+
+; --- Options defined by "law.target.remote.RemoteCache"
+
+; cache_root
+; Description: The directory in which cached files from remote file operation should be stored. When
+; "None" or empty, file caching is disabled. When "__TMP__", a temporary directory is created.
+; Type: string
+; Default: None
+
+; cache_cleanup
+; Description: A boolean flag that decides whether the cache should be removed when the program
+; terminates.
+; Type: boolean
+; Default: False
+
+; cache_max_size
+; Description: The maximum size of the cache directory. When a file should be cached, but the
+; maximum size is reached, files are deleted from the cache in order of their smallest modification
+; time until enough disk space is freed. The default unit is MB. When zero or negative, the maximum
+; cache size is equal to 90% of the available disk space.
+; Type: integer, string
+; Default: "0MB"
+
+; cache_file_perm
+; Description: The permission of files in the cache. When "None" or empty, the current umask is
+; used. The value can be expressed by an octal number.
+; Type: integer
+; Default: 0o0660
+
+; cache_dir_perm
+; Description: The permission of the cache root directory in case it is not existing yet and has to
+; be created. When "None" or empty, the current umask is used. The value can be expressed by an
+; octal number.
+; Type: integer
+; Default: 0o0770
+
+; cache_wait_delay
+; Description: The amount of time to wait for a file in the cache to be unlocked. The default unit
+; is seconds.
+; Type: integer, string
+; Default: "5s"
+
+; cache_max_waits
+; Description: The maximum number of times to wait for a duration of "cache_wait_delay" for a file
+; in the cache to be unlocked before an error is thrown that the file is unavailable.
+; Type: integer
+; Default: 120
+
+; cache_global_lock
+; Description: A boolean flag that decides whether each cache operation is locked by a global
+; locking mechanism that prevents simultaneous cache access.
+; Type: boolean
+; Default: False
+
+
+; --- job section ----------------------------------------------------------------------------------
+
+[job]
+
+; job_file_dir
+; Description: The location of the directory in which a job file factory saves temporary files that
+; are used for job submission.
+; Type: string
+; Default: "$LAW_JOB_FILE_DIR", "tempfile.gettempdir()"
+
+; job_file_dir_mkdtemp
+; Description: A boolean flag that decides if a temporary directory inside job_file_dir should be
+; created in which the actual job files are stored. It is recommended to set this option to "True"
+; in order to have a clear separation between files created by different job file factories.
+; Type: boolean
+; Default: True
+
+; job_file_dir_cleanup
+; Description: A boolean flag that decides whether a job file factory should remove its file
+; diretory once it is destructed. Set this option to "False" in case you want to debug the job files
+; that are created for submission.
+; Type: boolean
+; Default: True
+
+
+; --- Options of contrib packages
+
+; arc_job_file_dir
+; arc_job_file_dir_mkdtemp
+; arc_job_file_dir_cleanup
+; Description: These three options are identical to the ones above without the "arc" prefix, but
+; only apply to the "law.arc.ARCJobFileFactory". When "None" or not existing, the values above are
+; used.
+
+; arc_chunk_size_submit
+; Description: Number of jobs that can be submitted in parallel inside a single call to
+; "law.arc.ARCJobManager.submit", i.e., in a single "arcsub" command.
+; Type: integer
+; Default: 10
+
+; arc_chunk_size_cancel
+; Description: Number of jobs that can be cancelled in parallel inside a single call to
+; "law.arc.ARCJobManager.cancel", i.e., in a single "arckill" command.
+; Type: integer
+; Default: 20
+
+; arc_chunk_size_cleanup
+; Description: Number of jobs that can be cancelled in parallel inside a single call to
+; "law.arc.ARCJobManager.cleanup", i.e., in a single "arcclean" command.
+; Type: integer
+; Default: 20
+
+; arc_chunk_size_query
+; Description: Number of jobs whose status can be queried in parallel inside a single call to
+; "law.arc.ARCJobManager.query", i.e., in a single "arcstat" command.
+; Type: integer
+; Default: 20
+
+; glite_job_file_dir
+; glite_job_file_dir_mkdtemp
+; glite_job_file_dir_cleanup
+; Description: These three options are identical to the ones above without the "glite" prefix, but
+; only apply to the "law.glite.GLiteJobFileFactory". When "None" or not existing, the values above
+; are used.
+
+; glite_chunk_size_cancel
+; Description: Number of jobs that can be cancelled in parallel inside a single call to
+; "law.glite.GLiteJobManager.cancel", i.e., in a single "glite-ce-job-cancel" command.
+; Type: integer
+; Default: 20
+
+; glite_chunk_size_cleanup
+; Description: Number of jobs that can be cancelled in parallel inside a single call to
+; "law.glite.GLiteJobManager.cleanup", i.e., in a single "glite-ce-job-purge" command.
+; Type: integer
+; Default: 20
+
+; glite_chunk_size_query
+; Description: Number of jobs whose status can be queried in parallel inside a single call to
+; "law.glite.GLiteJobManager.query", i.e., in a single "glite-ce-job-status" command.
+; Type: integer
+; Default: 20
+
+; htcondor_job_file_dir
+; htcondor_job_file_dir_mkdtemp
+; htcondor_job_file_dir_cleanup
+; Description: These three options are identical to the ones above without the "htcondor" prefix,
+; but only apply to the "law.htcondor.HTCondorJobFileFactory". When "None" or not existing, the
+; values above are used. The only exception is "htcondor_job_file_dir_cleanup" whose default value
+; is False.
+
+; htcondor_chunk_size_cancel
+; Description: Number of jobs that can be cancelled in parallel inside a single call to
+; "law.htcondor.HTCondorJobManager.cancel", i.e., in a single "condor_rm" command.
+; Type: integer
+; Default: 20
+
+; htcondor_chunk_size_query
+; Description: Number of jobs whose status can be queried in parallel inside a single call to
+; "law.htcondor.HTCondorJobManager.query", i.e., in a single "condor_q" or "condor_history"
+; command.
+; Type: integer
+; Default: 20
+
+; lsf_job_file_dir
+; lsf_job_file_dir_mkdtemp
+; lsf_job_file_dir_cleanup
+; Description: These three options are identical to the ones above without the "lsf" prefix, but
+; only apply to the "law.lsf.LSFJobFileFactory". When "None" or not existing, the values above are
+; used. The only exception is "lsf_job_file_dir_cleanup" whose default value is False.
+
+; lsf_chunk_size_cancel
+; Description: Number of jobs that can be cancelled in parallel inside a single call to
+; "law.lsf.LSFJobManager.cancel", i.e., in a single "bkill" command.
+; Type: integer
+; Default: 20
+
+; lsf_chunk_size_query
+; Description: Number of jobs whose status can be queried in parallel inside a single call to
+; "law.lsf.LSFJobManager.query", i.e., in a single "bjobs" command.
+; Type: integer
+; Default: 20
+
+
+; --- notifications section ------------------------------------------------------------------------
+
+[notifications]
+
+; mail_recipient
+; Description: The address of the recipient for notifications sent by
+; "law.notification.notify_mail".
+; Type: string
+; Default: None
+
+; mail_sender
+; Description: The sender of notifications sent by "law.notification.notify_mail".
+; Type: string
+; Default: None
+
+; mail_smtp_host
+; Description: The SMTP host for notifications sent by "law.notification.notify_mail".
+; Type: string
+; Default: "127.0.0.1"
+
+; mail_smtp_port
+; Description: The SMTP port for notifications sent by "law.notification.notify_mail".
+; Type: integer
+; Default: 25
+
+
+; --- Options of contrib packages
+
+; slack_token
+; Description: The token used for notifications sent by "law.slack.notify_slack".
+; Type: string
+; Default: None
+
+; slack_channel
+; Description: The channel used for notifications sent by "law.slack.notify_slack".
+; Type: string
+; Default: None
+
+; slack_mention_user
+; Description: When set, notifications sent by "law.slack.notify_slack" mention this user
+; explicitly.
+; Type: string
+; Default: None
+
+; telegram_token
+; Description: The token used for notifications sent by "law.telegram.notify_telegram".
+; Type: string
+; Default: None
+
+; telegram_chat
+; Description: The chat used for notifications sent by "law.telegram.notify_telegram".
+; Type: string
+; Default: None
+
+; telegram_mention_user
+; Description: When set, notifications sent by "law.telegram.notify_telegram" mention this user
+; explicitly.
+; Type: string
+; Default: None
+
+
+; --- bash_sandbox section -------------------------------------------------------------------------
+
+[bash_sandbox]
+
+; Note:
+; This section defines the default options for all bash sandboxes. To configure options per bash
+; initialization file, create a section "bash_sandbox_<init_file>" with the desired options.
+
+
+; stagein_dir_name
+; Description: Name of a directory which is placed automatically inside a temporary directory and to
+; which input files are staged-in outside of the sandbox and provided to the sandboxed task. When
+; "None", no stage-in is performed and the task is assumed to be able to access inputs directly from
+; within the sandbox.
+; Type: string
+; Default: "stagein"
+
+; stageout_dir_name
+; Description: Name of a directory which is placed automatically inside a temporary directory and
+; provided to sandboxed tasks to store outputs and from which those files are staged-out outside the
+; sandbox. When "None", no stage-out is performed and the task is assumed to be able to store
+; outputs directly from within the sandbox.
+; Type: string
+; Default: "stageout"
+
+; login
+; Description: A boolean flag that decides whether the bash sandbox should be invoked as a login
+; shell.
+; Type: boolean
+; Default: False
+
+
+; --- bash_sandbox_env section ---------------------------------------------------------------------
+
+[bash_sandbox_env]
+
+; Note:
+; Here you can define environment variables via key-value pairs that are accessible in a bash
+; sandbox. When an option has no value, i.e., when only a key is given, the value of the variable of
+; the current environment is used.
+; The environment variables defined in this section are applied to all bash sandboxes. To configure
+; variables per bash initialization file, create a section "bash_sandbox_env_<init_file>" with the
+; desired values.
+
+
+; --- docker_sandbox section -----------------------------------------------------------------------
+
+[docker_sandbox]
+
+; Note:
+; This section defines the default options for all docker sandboxes. To configure options per image,
+; create a section "docker_sandbox_<image_name>" with the desired options.
+
+
+; stagein_dir_name
+; Description: Name of a directory which is placed automatically inside a temporary directory and to
+; which input files are staged-in outside of the sandbox and provided to the sandboxed task. When
+; "None", no stage-in is performed and the task is assumed to be able to access inputs directly from
+; within the sandbox.
+; Type: string
+; Default: "stagein"
+
+; stageout_dir_name
+; Description: Name of a directory which is placed automatically inside a temporary directory and
+; provided to sandboxed tasks to store outputs and from which those files are staged-out outside the
+; sandbox. When "None", no stage-out is performed and the task is assumed to be able to store
+; outputs directly from within the sandbox.
+; Type: string
+; Default: "stageout"
+
+; uid
+; Description: The user id of the account inside the docker container. When "None", the container is
+; started with its default value.
+; Type: integer
+; Default: None
+
+; gid
+; Description: The grouo id of the account inside the docker container. When "None", the container
+; is started with its default value.
+; Type: integer
+; Default: None
+
+; forward_dir
+; Description: The container directory in which forwarded files and directories are located.
+; Type: string
+; Default: "/law_forward"
+
+; python_dir
+; Description: The container directory in which forwarded python modules are located, relative to
+; "forward_directory".
+; Type: string
+; Default: "py"
+
+; bin_dir
+; Description: The container directory in which forwarded executables are located, relative to
+; "forward_directory".
+; Type: string
+; Default: "bin"
+
+
+; --- docker_sandbox_env section -------------------------------------------------------------------
+
+[docker_sandbox_env]
+
+; Note:
+; Here you can define environment variables via key-value pairs that are accessible in a docker
+; sandbox. When an option has no value, i.e., when only a key is given, the value of the variable of
+; the current environment is used.
+; The environment variables defined in this section are applied to all docker sandboxes. To
+; configure variables per image, create a section "docker_sandbox_env_<image_name>" with the desired
+; values.
+
+
+; --- docker_sandbox_volumes section ---------------------------------------------------------------
+
+[docker_sandbox_volumes]
+
+; Note:
+; Here you can define volumes that are mounted in docker containers via key-value pairs that
+; represent host and container directory, respectively.
+; The volumes defined in this section are applied to all docker sandboxes. To configure volumes per
+; image, create a section "docker_sandbox_volumes_<image_name>" with the desired values.
+
+
+; --- singularity_sandbox section ------------------------------------------------------------------
+
+[singularity_sandbox]
+
+; Note:
+; This section defines the default options for all singularity sandboxes. To configure options per
+; image, create a section "singularity_sandbox_<image_name>" with the desired options.
+
+
+; stagein_dir_name
+; Description: Name of a directory which is placed automatically inside a temporary directory and to
+; which input files are staged-in outside of the sandbox and provided to the sandboxed task. When
+; "None", no stage-in is performed and the task is assumed to be able to access inputs directly from
+; within the sandbox.
+; Type: string
+; Default: "stagein"
+
+; stageout_dir_name
+; Description: Name of a directory which is placed automatically inside a temporary directory and
+; provided to sandboxed tasks to store outputs and from which those files are staged-out outside the
+; sandbox. When "None", no stage-out is performed and the task is assumed to be able to store
+; outputs directly from within the sandbox.
+; Type: string
+; Default: "stageout"
+
+; uid
+; Description: The user id of the account inside the docker container. When "None", the container is
+; started with its default value.
+; Type: integer
+; Default: None
+
+; gid
+; Description: The grouo id of the account inside the docker container. When "None", the container
+; is started with its default value.
+; Type: integer
+; Default: None
+
+; forward_dir
+; Description: The container directory in which forwarded files and directories are located.
+; Type: string
+; Default: "/law_forward"
+
+; python_dir
+; Description: The container directory in which forwarded python modules are located, relative to
+; "forward_directory".
+; Type: string
+; Default: "py"
+
+; bin_dir
+; Description: The container directory in which forwarded executables are located, relative to
+; "forward_directory".
+; Type: string
+; Default: "bin"
+
+; allow_binds
+; Description: A boolean flag that decides whether singularity binds are allowed.
+; Type: boolean
+; Default: True
+
+; forward_law
+; Description: A boolean flag that decides whether the law python package and executable should be
+; forwarded into the conatiner. When "False", the container is assumed to have law accessible.
+; Type: boolean
+; Default: True
+
+
+; --- singularity_sandbox_env section --------------------------------------------------------------
+
+[singularity_sandbox_env]
+
+; Note:
+; Here you can define environment variables via key-value pairs that are accessible in a singularity
+; sandbox. When an option has no value, i.e., when only a key is given, the value of the variable of
+; the current environment is used.
+; The environment variables defined in this section are applied to all singularity sandboxes. To
+; configure variables per image, create a section "singularity_sandbox_env_<image_name>" with the
+; desired values.
+
+
+; --- singularity_sandbox_volumes section ----------------------------------------------------------
+
+[singularity_sandbox_volumes]
+
+; Note:
+; Here you can define volumes that are bound to singularity containers via key-value pairs that
+; represent host and container directory, respectively.
+; The volumes defined in this section are applied to all singularity sandboxes. To configure volumes
+; per image, create a section "singularity_sandbox_volumes_<image_name>" with the desired values.

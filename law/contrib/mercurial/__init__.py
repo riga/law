@@ -14,8 +14,10 @@ from abc import abstractmethod
 
 import luigi
 
-from law import Task, LocalFileTarget, CSVParameter, NO_STR
+from law.task.base import Task
 from law.target.file import get_path
+from law.target.local import LocalFileTarget
+from law.parameter import NO_STR, CSVParameter
 from law.decorator import log
 from law.util import rel_path, interruptable_popen
 
@@ -24,10 +26,12 @@ class BundleMercurialRepository(Task):
 
     task_namespace = "law.mercurial"
 
-    exclude_files = CSVParameter(default=[], description="patterns of files to exclude")
-    include_files = CSVParameter(default=[], description="patterns of files to force-include, "
-        "takes precedence over .hgignore")
-    custom_checksum = luigi.Parameter(default=NO_STR, description="a custom checksum to use")
+    exclude_files = CSVParameter(default=(), description="patterns of files to exclude, default: "
+        "()")
+    include_files = CSVParameter(default=(), description="patterns of files to force-include, "
+        "takes precedence over .hgignore, default: ()")
+    custom_checksum = luigi.Parameter(default=NO_STR, description="a custom checksum to use, "
+        "default: NO_STR")
 
     def __init__(self, *args, **kwargs):
         super(BundleMercurialRepository, self).__init__(*args, **kwargs)
@@ -70,6 +74,6 @@ class BundleMercurialRepository(Task):
         cmd += [" ".join(self.exclude_files)]
         cmd += [" ".join(self.include_files)]
 
-        code = interruptable_popen(cmd)[0]
+        code = interruptable_popen(cmd, executable="/bin/bash")[0]
         if code != 0:
             raise Exception("repository bundling failed")

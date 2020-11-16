@@ -14,7 +14,7 @@ print(top_dir.url())
 top_dir.listdir()
 
 
-data_file = law.DropboxFileTarget("/data.json")
+data_file = law.dropbox.DropboxFileTarget("/data.json")
 data_file = top_dir.child("data.json", type="f")
 
 print(data_file.parent == top_dir)

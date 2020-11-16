@@ -5,6 +5,9 @@ NumPy target formatters.
 """
 
 
+__all__ = ["NumpyFormatter"]
+
+
 import logging
 
 from law.target.formatter import Formatter
@@ -19,9 +22,8 @@ class NumpyFormatter(Formatter):
     name = "numpy"
 
     @classmethod
-    def accepts(cls, path):
-        path = get_path(path)
-        return path.endswith(".npy") or path.endswith(".npz") or path.endswith(".txt")
+    def accepts(cls, path, mode):
+        return get_path(path).endswith((".npy", ".npz", ".txt"))
 
     @classmethod
     def load(cls, path, *args, **kwargs):

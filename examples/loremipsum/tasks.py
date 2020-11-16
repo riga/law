@@ -15,9 +15,11 @@ import time
 import random
 from collections import defaultdict
 
+from six.moves import urllib
 import luigi
 import law
-from six.moves import urllib
+
+law.contrib.load("tasks")  # to have the RunOnceTask
 
 
 URL = "http://www.loremipsum.de/downloads/version{}.txt"
@@ -26,7 +28,8 @@ URL = "http://www.loremipsum.de/downloads/version{}.txt"
 def maybe_wait(func):
     """
     Wrapper around run() methods that reads the *slow* flag to decide whether to wait some seconds
-    for illustrative purposes. This is very straight forward, so no need for functools.wraps here.
+    for illustrative purposes. This is very straight forward, so no need for ``functools.wraps`` or
+    ``law.decorator.factory`` here.
     """
     def wrapper(self, *args, **kwargs):
         if self.slow:
@@ -38,8 +41,8 @@ def maybe_wait(func):
 
 class LoremIpsumBase(law.Task):
     """
-    Base task that we use to force a *file_index* parameter on all inheriting tasks to define which
-    of the 6 possible lorem ipsumfiles do use. It also provides some convenience methods to create
+    Base task that we use to add a *file_index* parameter to all inheriting tasks to define which of
+    the 6 possible lorem ipsumfiles to use. It also provides some convenience methods to create
     local file and directory targets at the default data path.
     """
 
@@ -50,7 +53,7 @@ class LoremIpsumBase(law.Task):
     def local_path(self, *path):
         # LOREMIPSUM_DATA_PATH is defined in setup.sh
         parts = (os.getenv("LOREMIPSUM_DATA_PATH"),) + path
-        return os.path.join(*parts)
+        return os.path.join(*(str(p) for p in parts))
 
     def local_target(self, *path):
         return law.LocalFileTarget(self.local_path(*path))
@@ -58,8 +61,8 @@ class LoremIpsumBase(law.Task):
 
 class FetchLoremIpsum(LoremIpsumBase):
     """
-    Task that simply fetches one of the 6 loremipsum files. Note the LoremIpsumBase base task which
-    adds the *file_index* and *slow* parameter.
+    Task that fetches one of the 6 loremipsum files. Note the LoremIpsumBase base task which adds
+    the *file_index* and *slow* parameters.
     """
 
     def output(self):
@@ -67,27 +70,18 @@ class FetchLoremIpsum(LoremIpsumBase):
 
     @maybe_wait
     def run(self):
-        # ensure the output directory exists
-        output = self.output()
-        output.parent.touch()
-
-        # download the file to the output location
-        urllib.request.urlretrieve(URL.format(self.file_index), output.path)
-
-        # the verbose approach above obviously works only for local targets, but
-        # there is even a shorter way that works also for remote targets (DCache, Dropbox, etc):
-        #
-        #    with self.output().localize("w") as tmp:
-        #        urllib.request.urlretrieve(URL.format(self.file_index), tmp.path)
-        #
-        # note: localize("r") yields a local, temporary target for reading, also for remote targets
+        # download the file, ensure the correct encoding and write it to the output location
+        url = URL.format(self.file_index)
+        with open(urllib.request.urlretrieve(url)[0], "rb") as f:
+            content = f.read().decode("utf-8", "ignore")
+            self.output().dump(content, formatter="text")
 
 
 class CountChars(LoremIpsumBase):
 
     def requires(self):
         # req() is defined on all tasks and handles the passing of all parameter values that are
-        # common between the required task and the instance (self)
+        # common between the required task (FetchLoremIpsum) and the instance (self)
         return FetchLoremIpsum.req(self)
 
     def output(self):
@@ -103,7 +97,7 @@ class CountChars(LoremIpsumBase):
         # again, there is a faster alternative: target formatters
         # formatters are called when either load() or dump() are called on targets
         #
-        #    content = self.input().load("txt")
+        #    content = self.input().load(formatter="txt")
         #
         # you can also omit the "txt" parameter, in which case law will determine a formatter based
         # on the file extension (current formatters: txt, json, zip, tgz, root, numpy, uproot)
@@ -140,29 +134,22 @@ class MergeCounts(LoremIpsumBase):
         # as we learned the basic mechanisms above, this could is streamlined
         merged_counts = defaultdict(int)
         for inp in self.input():
-            # each *inp* is an output of CountChars
+            # each *inp* is the output of a CountChars instance
             for c, count in inp.load().items():
                 merged_counts[c] += count
 
         self.output().dump(merged_counts, indent=4)
 
 
-class ShowFrequencies(LoremIpsumBase):
+class ShowFrequencies(LoremIpsumBase, law.tasks.RunOnceTask):
     """
     This task grabs the merged character counts from MergeCounts and prints the results. There is no
-    output. Therefore, the complete() method is overwritten, which decides if a task is - well -
-    complete.
+    output. Therefore, the task inherits from law.tasks.RunOnceTask which has a custom complete()
+    method. To mark it as complete, mark_complete() is invoked at the and of the run() method.
     """
 
     # again, this task has no file_index
     file_index = None
-
-    # flag that denotes that this task has not run yet
-    # we can use a class member, as the run() methods sets it to True on instance level
-    has_run = False
-
-    def complete(self):
-        return self.has_run
 
     def requires(self):
         return MergeCounts.req(self)
@@ -171,13 +158,34 @@ class ShowFrequencies(LoremIpsumBase):
     def run(self):
         counts = self.input().load()
 
-        # normalize, convert to frequency in %, and sort descending by count
+        # normalize, convert to frequency in %, and sort descending
         count_sum = sum(counts.values())
-        counts = {c: int(100. * count / count_sum) for c, count in counts.items()}
-        counts = sorted(counts.items(), key=lambda tpl: -tpl[1])
+        freqs = {c: 100. * count / count_sum for c, count in counts.items()}
+        freqs = sorted(list(freqs.items()), key=lambda tpl: -tpl[1])
 
         # prepare the output text
-        text = "\n".join("{}: {} {}%".format(c, "xx" * count, count) for c, count in counts)
+        text = "\n".join(
+            "{}: {} {:.1f} %".format(c, self.x(freq), freq)
+            for c, freq in freqs
+        )
 
         # prints the frequences but also sends them as a message to the scheduler (if any)
         self.publish_message(text)
+
+        # mark this task as complete, so luigi would consider it done without checking for output
+        # (this is a feature of the RunOnceTask)
+        self.mark_complete()
+
+    @staticmethod
+    def x(freq):
+        text = "-" if not freq else "x" * max(int(round(freq * 3)), 1)
+
+        color = None
+        if freq >= 7:
+            color = "green"
+        elif freq >= 4:
+            color = "yellow"
+        elif freq > 0:
+            color = "red"
+
+        return law.util.colored(text, color)

@@ -8,5 +8,3 @@ law.sandbox
 
    base
    bash
-   docker
-   singularity

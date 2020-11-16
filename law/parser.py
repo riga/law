@@ -9,6 +9,7 @@ __all__ = []
 
 
 import logging
+from collections import OrderedDict
 from argparse import ArgumentParser
 
 import luigi
@@ -18,10 +19,30 @@ logger = logging.getLogger(__name__)
 
 
 # cached objects
+_root_task = None
 _full_parser = None
 _root_task_parser = None
 _global_cmdline_args = None
 _global_cmdline_values = None
+
+
+def root_task():
+    """
+    Returns the instance of the task that was triggered on the command line. The returned instance
+    is cached.
+    """
+    global _root_task
+
+    if not _root_task:
+        luigi_parser = luigi.cmdline_parser.CmdlineParser.get_instance()
+        if not luigi_parser:
+            return None
+
+        _root_task = luigi_parser.get_task_obj()
+
+        logger.debug("built root task instance using luigi argument parser")
+
+    return _root_task
 
 
 def full_parser():
@@ -31,77 +52,108 @@ def full_parser():
     """
     global _full_parser
 
-    if _full_parser:
-        return _full_parser
+    if not _full_parser:
+        luigi_parser = luigi.cmdline_parser.CmdlineParser.get_instance()
+        if not luigi_parser:
+            return None
 
-    luigi_parser = luigi.cmdline_parser.CmdlineParser.get_instance()
-    if not luigi_parser:
-        return None
+        # build the full argument parser with luigi helpers
+        root_task = luigi_parser.known_args.root_task
+        _full_parser = luigi_parser._build_parser(root_task)
 
-    # build the full argument parser with luigi helpers
-    root_task = luigi_parser.known_args.root_task
-    _full_parser = luigi_parser._build_parser(root_task)
-
-    logger.debug("build full luigi argument parser")
+        logger.debug("built full luigi argument parser")
 
     return _full_parser
 
 
 def root_task_parser():
     """
-    Returns a new *ArgumentParser* instance that only contains paremeter actions of the root task.
+    Returns a new *ArgumentParser* instance that only contains parameter actions of the root task.
     The returned instance is cached.
     """
     global _root_task_parser
 
-    if _root_task_parser:
-        return _root_task_parser
+    if not _root_task_parser:
+        luigi_parser = luigi.cmdline_parser.CmdlineParser.get_instance()
+        if not luigi_parser:
+            return None
 
-    luigi_parser = luigi.cmdline_parser.CmdlineParser.get_instance()
-    if not luigi_parser:
-        return None
+        root_task = luigi_parser.known_args.root_task
 
-    root_task = luigi_parser.known_args.root_task
+        # get all root task parameter destinations
+        root_dests = []
+        for task_name, _, param_name, _ in luigi.task_register.Register.get_all_params():
+            if task_name == root_task:
+                root_dests.append(param_name)
 
-    # get all root task parameter destinations
-    root_dests = []
-    for task_name, _, param_name, _ in luigi.task_register.Register.get_all_params():
-        if task_name == root_task:
-            root_dests.append(param_name)
+        # create a new parser and add all root actions
+        _root_task_parser = ArgumentParser(add_help=False)
+        for action in list(full_parser()._actions):
+            if not action.option_strings or action.dest in root_dests:
+                _root_task_parser._add_action(action)
 
-    # create a new parser and add all root actions
-    _root_task_parser = ArgumentParser(add_help=False)
-    for action in list(full_parser()._actions):
-        if not action.option_strings or action.dest in root_dests:
-            _root_task_parser._add_action(action)
-
-    logger.debug("build luigi argument parser for root task {}".format(root_task))
+        logger.debug("built luigi argument parser for root task {}".format(root_task))
 
     return _root_task_parser
 
 
-def global_cmdline_args():
+def global_cmdline_args(exclude=None):
     """
-    Returns the list of command line arguments that do not belong to the root task. The returned
-    list is cached. Example:
+    Returns a dictionary with keys and string values of command line arguments that do not belong to
+    the root task. For bool parameters, such as ``--local-scheduler``, ``"True"`` is assumed if they
+    are used as flags, i.e., without a parameter value. The returned dict is cached. *exclude* can
+    be a list of argument names (with or without the leading ``"--"``) to be removed. Example:
 
     .. code-block:: python
 
         global_cmdline_args()
-        # -> ["--local-scheduler"]
+        # -> {"--local-scheduler": "True", "--workers": "4"}
+
+        global_cmdline_args(exclude=["workers"])
+        # -> {"--local-scheduler": "True"}
     """
     global _global_cmdline_args
 
-    if _global_cmdline_args:
-        return _global_cmdline_args
+    if not _global_cmdline_args:
+        luigi_parser = luigi.cmdline_parser.CmdlineParser.get_instance()
+        if not luigi_parser:
+            return None
 
-    luigi_parser = luigi.cmdline_parser.CmdlineParser.get_instance()
-    if not luigi_parser:
-        return None
+        _global_cmdline_args = OrderedDict()
 
-    _global_cmdline_args = root_task_parser().parse_known_args(luigi_parser.cmdline_args)[1]
+        args = list(root_task_parser().parse_known_args(luigi_parser.cmdline_args)[1])
 
-    return _global_cmdline_args
+        # expand bool flags
+        while args:
+            arg = args.pop(0)
+
+            # the argument must start with "--"
+            if not arg.startswith("--"):
+                raise Exception("global argument must start with '--', found '{}'".format(arg))
+
+            # get the corresponding value which is either part of the argument itself in the format
+            # "--arg=value" or passed in the next argument which must not start with "--" (in this
+            # case it is interpreted as a boolean "True" value)
+            if "=" in arg:
+                arg, value = arg.split("=", 1)
+            elif args and not args[0].startswith("--"):
+                value = args.pop(0)
+            else:
+                value = "True"
+
+            _global_cmdline_args[arg] = value
+
+    args = _global_cmdline_args
+
+    if exclude:
+        args = OrderedDict(args)
+
+        for key in exclude:
+            if not key.startswith("--"):
+                key = "--" + key.lstrip("-")
+            args.pop(key, None)
+
+    return args
 
 
 def global_cmdline_values():
@@ -117,66 +169,18 @@ def global_cmdline_values():
     """
     global _global_cmdline_values
 
-    if _global_cmdline_values:
-        return _global_cmdline_values
+    if not _global_cmdline_values:
+        luigi_parser = luigi.cmdline_parser.CmdlineParser.get_instance()
+        if not luigi_parser:
+            return None
 
-    luigi_parser = luigi.cmdline_parser.CmdlineParser.get_instance()
-    if not luigi_parser:
-        return None
-
-    # go through all actions of the full luigi parser and compare option strings
-    # with the global cmdline args
-    parser = full_parser()
-    global_args = global_cmdline_args()
-    _global_cmdline_values = {}
-    for action in parser._actions:
-        if any(arg in action.option_strings for arg in global_args):
-            _global_cmdline_values[action.dest] = getattr(luigi_parser.known_args, action.dest)
+        # go through all actions of the full luigi parser and compare option strings
+        # with the global cmdline args
+        parser = full_parser()
+        global_args = global_cmdline_args()
+        _global_cmdline_values = {}
+        for action in parser._actions:
+            if any(arg in action.option_strings for arg in global_args):
+                _global_cmdline_values[action.dest] = getattr(luigi_parser.known_args, action.dest)
 
     return _global_cmdline_values
-
-
-def add_cmdline_arg(args, arg, *values):
-    """
-    Adds a command line argument *arg* to a list of argument *args*, e.g. as returned from
-    :py:func:`global_cmdline_args`. When *arg* exists, *args* is returned unchanged. Otherwise,
-    *arg* is appended to the end with optional argument *values*. Example:
-
-    .. code-block:: python
-
-        args = global_cmdline_values()
-        # -> ["--local-scheduler"]
-
-        add_cmdline_arg(args, "--local-scheduler")
-        # -> ["--local-scheduler"]
-
-        add_cmdline_arg(args, "--workers", 4)
-        # -> ["--local-scheduler", "--workers", "4"]
-    """
-    if arg not in args:
-        args = list(args) + [arg] + list(values)
-    return args
-
-
-def remove_cmdline_arg(args, arg, n=1):
-    """
-    Removes the command line argument *args* from a list of arguments *args*, e.g. as returned from
-    :py:func:`global_cmdline_args`. When *n* is 1 or less, only the argument is removed. Otherwise,
-    the following *n-1* values are removed. Example:
-
-    .. code-block:: python
-
-        args = global_cmdline_values()
-        # -> ["--local-scheduler", "--workers", "4"]
-
-        remove_cmdline_arg(args, "--local-scheduler")
-        # -> ["--workers", "4"]
-
-        remove_cmdline_arg(args, "--workers", 2)
-        # -> ["--local-scheduler"]
-    """
-    if arg in args:
-        idx = args.index(arg)
-        args = list(args)
-        del args[idx:idx + max(n, 1)]
-    return args

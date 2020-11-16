@@ -8,17 +8,25 @@ For more information about the optimization strategy used in this example take a
 
 Resources: [luigi](http://luigi.readthedocs.io/en/stable), [law](http://law.readthedocs.io/en/latest), [scikit optimize](https://scikit-optimize.github.io/), [matplotlib](https://matplotlib.org/)
 
+There are multiple ways to setup and run this example:
+
+1. Docker: `docker run -ti riga/law:example loremipsum`
+2. Local: `source setup.sh`
+
+
 #### 1. Install dependencies for this example
 
 ```shell
 pip install luigi scikit-optimize matplotlib
 ```
 
+
 #### 2. Source the setup script (just sets up some variables)
 
 ```shell
 source setup.sh
 ```
+
 
 #### 3. Let law index your the tasks and their parameters (for autocompletion)
 
@@ -40,6 +48,7 @@ module 'tasks', 3 task(s):
 written 3 task(s) to index file '/examplepath/.law/index'
 ```
 
+
 #### 4. Check the status of the OptimizerPlot task
 
 ```shell
@@ -58,16 +67,18 @@ print task status with max_depth -1 and target_depth 0
 
 The `-1` value tells law to recursively check the task status. Given a positive number, law stops at that level. The task itself has a depth of `0`.
 
+
 #### 5. Run the OptimizerPlot task
 
 ```shell
-law run OptimizerPlot --iterations 10 --n-initial-points 10 --n-parallel 4 --local-schedule
+law run OptimizerPlot --iterations 10 --n-initial-points 10 --n-parallel 4
 ```
 
 This should take a minute to process.
 You can see the plots being created after each optimization step at `data/OptimizerPlot`.
 
-If you want to see how the task tree is built and subsequently run, start a luigi scheduler in a second terminal with `luigid` (you might want to source the setup script again before). This will start a central scheduler at _localhost:8082_ (the default address). Also remove the `--local-scheduler` from the `law run` command, so tasks (or _workers_) know they can communicate with a central scheduler.
+By default, this example uses a local scheduler, which - by definition - offers no visualization tools in the browser. If you want to see how the task tree is built and subsequently run, run ``luigid`` in a second terminal. This will start a central scheduler at *localhost:8082* (the default address). To inform tasks (or rather *workers*) about the scheduler, either add ``--local-scheduler False`` to the ``law run`` command, or set the ``local-scheduler`` value in the ``[luigi_core]`` config section in the ``law.cfg`` file to ``False``.
+
 
 #### 6. Check the status again
 
@@ -84,6 +95,7 @@ print task status with max_depth -1 and target_depth 0
 |   - check TargetCollection(len=10, threshold=1.0)
 |     -> existent (10/10)
 ```
+
 
 #### 7. Look at the results
 

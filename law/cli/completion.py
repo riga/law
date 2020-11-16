@@ -12,8 +12,8 @@ def setup_parser(sub_parsers):
     """
     Sets up the command line parser for the *completion* subprogram and adds it to *sub_parsers*.
     """
-    sub_parsers.add_parser("completion", prog="law completion", description="Print the location of"
-        " the law completion file to source it in your shell via 'source $(law completion)'.")
+    sub_parsers.add_parser("completion", prog="law completion", description="Print the location of "
+        "the law completion file to source it in your shell via 'source $(law completion)'.")
 
 
 def execute(args):

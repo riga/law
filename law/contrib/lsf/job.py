@@ -16,21 +16,30 @@ import logging
 
 import six
 
+from law.config import Config
 from law.job.base import BaseJobManager, BaseJobFileFactory
-from law.util import interruptable_popen, make_list
+from law.util import interruptable_popen, make_list, make_unique, quote_cmd
 
 
 logger = logging.getLogger(__name__)
 
+_cfg = Config.instance()
+
 
 class LSFJobManager(BaseJobManager):
 
+    # chunking settings
+    chunk_size_submit = 0
+    chunk_size_cancel = _cfg.get_expanded_int("job", "lsf_chunk_size_cancel")
+    chunk_size_query = _cfg.get_expanded_int("job", "lsf_chunk_size_query")
+
     submission_job_id_cre = re.compile(r"^Job <(\d+)> is submitted.+$")
 
-    def __init__(self, queue=None, threads=1):
+    def __init__(self, queue=None, emails=False, threads=1):
         super(LSFJobManager, self).__init__()
 
         self.queue = queue
+        self.emails = emails
         self.threads = threads
 
     def cleanup(self, *args, **kwargs):
@@ -39,9 +48,12 @@ class LSFJobManager(BaseJobManager):
     def cleanup_batch(self, *args, **kwargs):
         raise NotImplementedError("LSFJobManager.cleanup_batch is not implemented")
 
-    def submit(self, job_file, queue=None, emails=False, retries=0, retry_delay=3, silent=False):
+    def submit(self, job_file, queue=None, emails=None, retries=0, retry_delay=3, silent=False):
         # default arguments
-        queue = queue or self.queue
+        if queue is None:
+            queue = self.queue
+        if emails is None:
+            emails = self.emails
 
         # get the job file location as the submission command is run it the same directory
         job_file_dir, job_file_name = os.path.split(os.path.abspath(job_file))
@@ -56,8 +68,8 @@ class LSFJobManager(BaseJobManager):
         while True:
             # run the command
             logger.debug("submit lsf job with command '{}'".format(cmd))
-            code, out, err = interruptable_popen(cmd, shell=True, stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE, cwd=job_file_dir)
+            code, out, err = interruptable_popen(cmd, shell=True, executable="/bin/bash",
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=job_file_dir)
 
             # get the job id
             if code == 0:
@@ -72,7 +84,8 @@ class LSFJobManager(BaseJobManager):
             if code == 0:
                 return job_id
             else:
-                logger.debug("submission of lsf job '{}' failed:\n{}".format(job_file, err))
+                logger.debug("submission of lsf job '{}' failed with code {}:\n{}".format(
+                    job_file, code, err))
                 if retries > 0:
                     retries -= 1
                     time.sleep(retry_delay)
@@ -80,47 +93,57 @@ class LSFJobManager(BaseJobManager):
                 elif silent:
                     return None
                 else:
-                    raise Exception("submission of lsf job '{}' failed:\n{}".format(job_file, err))
+                    raise Exception("submission of lsf job '{}' failed: \n{}".format(job_file, err))
 
     def cancel(self, job_id, queue=None, silent=False):
         # default arguments
-        queue = queue or self.queue
+        if queue is None:
+            queue = self.queue
 
         # build the command
         cmd = ["bkill"]
         if queue:
             cmd += ["-q", queue]
         cmd += make_list(job_id)
+        cmd = quote_cmd(cmd)
 
         # run it
         logger.debug("cancel lsf job(s) with command '{}'".format(cmd))
-        code, out, err = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        code, out, err = interruptable_popen(cmd, shell=True, executable="/bin/bash",
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         # check success
         if code != 0 and not silent:
-            raise Exception("cancellation of lsf job(s) '{}' failed:\n{}".format(job_id, err))
+            raise Exception("cancellation of lsf job(s) '{}' failed with code {}:\n{}".format(
+                job_id, code, err))
 
     def query(self, job_id, queue=None, silent=False):
         # default arguments
-        queue = queue or self.queue
+        if queue is None:
+            queue = self.queue
 
-        multi = isinstance(job_id, (list, tuple))
+        chunking = isinstance(job_id, (list, tuple))
         job_ids = make_list(job_id)
 
-        # query the condor queue
+        # build the command
         cmd = ["bjobs", "-noheader"]
         if queue:
             cmd += ["-q", queue]
         cmd += job_ids
+        cmd = quote_cmd(cmd)
+
+        # run it
         logger.debug("query lsf job(s) with command '{}'".format(cmd))
-        code, out, err = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        code, out, err = interruptable_popen(cmd, shell=True, executable="/bin/bash",
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         # handle errors
         if code != 0:
             if silent:
                 return None
             else:
-                raise Exception("status query of lsf job(s) '{}' failed:\n{}".format(job_id, err))
+                raise Exception("status query of lsf job(s) '{}' failed with code {}:\n{}".format(
+                    job_id, code, err))
 
         # parse the output and extract the status per job
         query_data = self.parse_query_output(out)
@@ -128,7 +151,7 @@ class LSFJobManager(BaseJobManager):
         # compare to the requested job ids and perform some checks
         for _job_id in job_ids:
             if _job_id not in query_data:
-                if not multi:
+                if not chunking:
                     if silent:
                         return None
                     else:
@@ -138,7 +161,7 @@ class LSFJobManager(BaseJobManager):
                     query_data[_job_id] = self.job_status_dict(job_id=_job_id, status=self.FAILED,
                         error="job not found in query response")
 
-        return query_data if multi else query_data[job_id]
+        return query_data if chunking else query_data[job_id]
 
     @classmethod
     def parse_query_output(cls, out):
@@ -191,6 +214,18 @@ class LSFJobFileFactory(BaseJobFileFactory):
             output_files=None, postfix_output_files=True, manual_stagein=False,
             manual_stageout=False, job_name=None, stdout="stdout.txt", stderr="stderr.txt",
             shell="bash", emails=False, custom_content=None, absolute_paths=False, **kwargs):
+        # get some default kwargs from the config
+        cfg = Config.instance()
+        if kwargs.get("dir") is None:
+            kwargs["dir"] = cfg.get_expanded("job", cfg.find_option("job",
+                "lsf_job_file_dir", "job_file_dir"))
+        if kwargs.get("mkdtemp") is None:
+            kwargs["mkdtemp"] = cfg.get_expanded_boolean("job", cfg.find_option("job",
+                "lsf_job_file_dir_mkdtemp", "job_file_dir_mkdtemp"))
+        if kwargs.get("cleanup") is None:
+            kwargs["cleanup"] = cfg.get_expanded_boolean("job", cfg.find_option("job",
+                "lsf_job_file_dir_cleanup", "job_file_dir_cleanup"))
+
         super(LSFJobFileFactory, self).__init__(**kwargs)
 
         self.file_name = file_name
@@ -222,9 +257,16 @@ class LSFJobFileFactory(BaseJobFileFactory):
         elif not c.shell:
             raise ValueError("shell must not be empty")
 
-        # linearize render_variables
-        if render_variables:
-            render_variables = self.linearize_render_variables(render_variables)
+        # default render variables
+        if not render_variables:
+            render_variables = {}
+
+        # add postfix to render variables
+        if postfix and "file_postfix" not in render_variables:
+            render_variables["file_postfix"] = postfix
+
+        # linearize render variables
+        render_variables = self.linearize_render_variables(render_variables)
 
         # prepare paths
         job_file = self.postfix_file(os.path.join(c.dir, c.file_name), postfix)
@@ -242,6 +284,11 @@ class LSFJobFileFactory(BaseJobFileFactory):
             c.output_files = [self.postfix_file(path, postfix) for path in c.output_files]
             c.stdout = c.stdout and self.postfix_file(c.stdout, postfix)
             c.stderr = c.stdout and self.postfix_file(c.stderr, postfix)
+
+        # custom log file
+        if c.custom_log_file:
+            c.custom_log_file = self.postfix_file(c.custom_log_file, postfix)
+            c.output_files.append(c.custom_log_file)
 
         # job file content
         content = []
@@ -263,18 +310,18 @@ class LSFJobFileFactory(BaseJobFileFactory):
             content += c.custom_content
 
         if not c.manual_stagein:
-            for input_file in c.input_files:
+            for input_file in make_unique(c.input_files):
                 content.append(("-f", "\"{} > {}\"".format(
                     input_file, os.path.basename(input_file))))
 
         if not c.manual_stageout:
-            for output_file in c.output_files:
+            for output_file in make_unique(c.output_files):
                 content.append(("-f", "\"{} < {}\"".format(
                     output_file, os.path.basename(output_file))))
 
         if c.manual_stagein:
             tmpl = "cp " + ("{}" if c.absolute_paths else "$LS_EXECCWD/{}") + " $( pwd )/{}"
-            for input_file in c.input_files:
+            for input_file in make_unique(c.input_files):
                 content.append(tmpl.format(input_file, os.path.basename(input_file)))
 
         content.append(c.command)
@@ -293,7 +340,7 @@ class LSFJobFileFactory(BaseJobFileFactory):
 
         logger.debug("created lsf job file at '{}'".format(job_file))
 
-        return job_file
+        return job_file, c
 
     @classmethod
     def create_line(cls, key, value=None):

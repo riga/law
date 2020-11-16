@@ -8,6 +8,7 @@
 # 2. the path where the bundle should be stored, should end with .tgz
 # 3. (optional) space-separated list of files or directories to ignore, supports globbing
 # 4. (optional) space-separated list of files or directories to force-add, supports globbing
+# 5. (optional) commit message, defaults to "[tmp] Commit before bundling."
 
 action() {
     # handle arguments
@@ -33,15 +34,30 @@ action() {
         return "4"
     fi
 
+    local ignore_files="$3"
+    local include_files="$4"
+    local commit_msg="$5"
+    [ -z "$commit_msg" ] && commit_msg="[tmp] Commit before bundling."
+
     local tmp_dir="$( mktemp -d )"
 
+    # build rsync args containing --exclude statements built from files to ignore
+    local rsync_args="-a"
+    if [ ! -z "$ignore_files" ]; then
+        local files
+        IFS=" " read -ra files <<< "$ignore_files"
+        for f in "${files[@]}"; do
+            rsync_args="$rsync_args --exclude \"$f\""
+        done
+    fi
+
     ( \
-        cp -R "$repo_path" "$tmp_dir/" && \
+        eval rsync $rsync_args "$repo_path" "$tmp_dir/" && \
         cd "$tmp_dir/$( basename "$repo_path" )" && \
-        rm -rf $3 && \
+        rm -rf $ignore_files && \
         hg add &> /dev/null && \
-        hg add $4 &> /dev/null; \
-        hg commit -m "[tmp] Add all changes." > /dev/null; \
+        hg add $include_files &> /dev/null; \
+        hg commit -m "$commit_msg" > /dev/null; \
         hg archive --prefix="$( basename "$repo_path" )/" --type tgz "$dst_path" \
     )
     local ret="$?"

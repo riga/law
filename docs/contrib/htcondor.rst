@@ -1,7 +1,7 @@
 htcondor
 ========
 
-.. automodule:: law.contrib.htcondor
+.. automodule:: law.htcondor
 
 .. contents::
 

@@ -1,13 +1,27 @@
 tensorflow
 ==========
 
-.. automodule:: law.contrib.tensorflow
+.. automodule:: law.tensorflow
 
 .. contents::
 
 
-Class ``TFConstantGraphFormatter``
-----------------------------------
+Class ``TFGraphFormatter``
+--------------------------
 
-.. autoclass:: TFConstantGraphFormatter
+.. autoclass:: TFGraphFormatter
+   :members:
+
+
+Class ``TFKerasModelFormatter``
+-------------------------------
+
+.. autoclass:: TFKerasModelFormatter
+   :members:
+
+
+Class ``TFKerasWeightsFormatter``
+---------------------------------
+
+.. autoclass:: TFKerasWeightsFormatter
    :members:

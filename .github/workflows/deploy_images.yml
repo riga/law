@@ -1,0 +1,107 @@
+name: Deploy images
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_only:
+        description: Build only? (true|false)
+        required: false
+        default: 'false'
+
+jobs:
+  py27:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v2
+        with:
+          persist-credentials: false
+
+      - name: Build and deploy image 🐳
+        uses: docker/build-push-action@v1
+        with:
+          path: docker
+          dockerfile: docker/Dockerfile_27
+          repository: riga/law
+          tags: py27,py2
+          push: ${{ github.event.inputs.build_only != 'true' }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  py37:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v2
+        with:
+          persist-credentials: false
+
+      - name: Build and deploy image 🐳
+        uses: docker/build-push-action@v1
+        with:
+          path: docker
+          dockerfile: docker/Dockerfile_37
+          repository: riga/law
+          tags: py37
+          push: ${{ github.event.inputs.build_only != 'true' }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  py38:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v2
+        with:
+          persist-credentials: false
+
+      - name: Build and deploy image 🐳
+        uses: docker/build-push-action@v1
+        with:
+          path: docker
+          dockerfile: docker/Dockerfile_38
+          repository: riga/law
+          tags: py38,py3,latest
+          push: ${{ github.event.inputs.build_only != 'true' }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  py39:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v2
+        with:
+          persist-credentials: false
+
+      - name: Build and deploy image 🐳
+        uses: docker/build-push-action@v1
+        with:
+          path: docker
+          dockerfile: docker/Dockerfile_39
+          repository: riga/law
+          tags: py39
+          push: ${{ github.event.inputs.build_only != 'true' }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  example:
+    needs: py38
+    if: ${{ github.event.inputs.build_only != 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v2
+        with:
+          persist-credentials: false
+
+      - name: Build and deploy image 🐳
+        uses: docker/build-push-action@v1
+        with:
+          path: docker
+          dockerfile: docker/Dockerfile_example
+          repository: riga/law
+          tags: example
+          push: true
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}

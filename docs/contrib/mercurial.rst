@@ -1,7 +1,7 @@
 mercurial
 =========
 
-.. automodule:: law.contrib.mercurial
+.. automodule:: law.mercurial
 
 .. contents::
 

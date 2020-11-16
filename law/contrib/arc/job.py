@@ -19,15 +19,24 @@ import logging
 
 import six
 
+from law.config import Config
 from law.job.base import BaseJobManager, BaseJobFileFactory
 from law.target.file import get_scheme
-from law.util import interruptable_popen, make_list
+from law.util import interruptable_popen, make_list, make_unique, quote_cmd
 
 
 logger = logging.getLogger(__name__)
 
+_cfg = Config.instance()
+
 
 class ARCJobManager(BaseJobManager):
+
+    # chunking settings
+    chunk_size_submit = _cfg.get_expanded_int("job", "arc_chunk_size_submit")
+    chunk_size_cancel = _cfg.get_expanded_int("job", "arc_chunk_size_cancel")
+    chunk_size_cleanup = _cfg.get_expanded_int("job", "arc_chunk_size_cleanup")
+    chunk_size_query = _cfg.get_expanded_int("job", "arc_chunk_size_query")
 
     submission_job_id_cre = re.compile("^Job submitted with jobid: (.+)$")
     status_block_cre = re.compile(r"\s*([^:]+): (.*)\n")
@@ -35,25 +44,33 @@ class ARCJobManager(BaseJobManager):
     status_missing_job_cre = re.compile(
         "^.+: Job information not found in the information system: (.+)$")
 
-    def __init__(self, ce=None, job_list=None, threads=1):
+    def __init__(self, job_list=None, ce=None, threads=1):
         super(ARCJobManager, self).__init__()
 
-        self.ce = ce
         self.job_list = job_list
+        self.ce = ce
         self.threads = threads
 
-    def submit(self, job_file, ce=None, job_list=None, retries=0, retry_delay=3, silent=False):
+    def submit(self, job_file, job_list=None, ce=None, retries=0, retry_delay=3, silent=False):
         # default arguments
-        ce = ce or self.ce
-        job_list = job_list or self.job_list
+        if job_list is None:
+            job_list = self.job_list
+        if ce is None:
+            ce = self.ce
 
         # check arguments
         if not ce:
             raise ValueError("ce must not be empty")
         ce = make_list(ce)
 
-        # get the job file location as the submission command is run it the same directory
-        job_file_dir, job_file_name = os.path.split(os.path.abspath(job_file))
+        # arc supports multiple jobs to be submitted with a single arcsub call,
+        # so job_file can be a sequence of files
+        # when this is the case, we have to make the assumption that their input files are all
+        # absolute, or they are relative but all in the same directory
+        chunking = isinstance(job_file, (list, tuple))
+        job_files = make_list(job_file)
+        job_file_dir = os.path.dirname(os.path.abspath(job_files[0]))
+        job_file_names = [os.path.basename(jf) for jf in job_files]
 
         # define the actual submission in a loop to simplify retries
         while True:
@@ -61,27 +78,37 @@ class ARCJobManager(BaseJobManager):
             cmd = ["arcsub", "-c", random.choice(ce)]
             if job_list:
                 cmd += ["-j", job_list]
-            cmd += [job_file_name]
+            cmd += job_file_names
+            cmd = quote_cmd(cmd)
 
             # run the command
-            logger.debug("submit arc job with command '{}'".format(cmd))
-            code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=sys.stderr,
-                cwd=job_file_dir)
+            logger.debug("submit arc job(s) with command '{}'".format(cmd))
+            code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
+                stdout=subprocess.PIPE, stderr=sys.stderr, cwd=job_file_dir)
 
-            # in some cases, the return code is 0 but the ce did not respond with a valid id
+            # in some cases, the return code is 0 but the ce did not respond valid job ids
+            job_ids = []
             if code == 0:
-                m = self.submission_job_id_cre.match(out.strip())
-                if m:
-                    job_id = m.group(1)
-                else:
+                for line in out.strip().split("\n"):
+                    m = self.submission_job_id_cre.match(line.strip())
+                    if m:
+                        job_id = m.group(1)
+                        job_ids.append(job_id)
+
+                if not job_ids:
                     code = 1
-                    out = "cannot find job id output:\n{}".format(out)
+                    out = "cannot find job id(s) in output:\n{}".format(out)
+                elif len(job_ids) != len(job_files):
+                    raise Exception("number of job ids in output ({}) does not match number of "
+                        "jobs to submit ({}) in output:\n{}".format(len(job_ids), len(job_files),
+                        out))
 
             # retry or done?
             if code == 0:
-                return job_id
+                return job_ids if chunking else job_ids[0]
             else:
-                logger.debug("submission of arc job '{}' failed:\n{}".format(job_file, out))
+                logger.debug("submission of arc job(s) '{}' failed with code {}:\n{}".format(
+                    job_files, code, out))
                 if retries > 0:
                     retries -= 1
                     time.sleep(retry_delay)
@@ -89,56 +116,74 @@ class ARCJobManager(BaseJobManager):
                 elif silent:
                     return None
                 else:
-                    raise Exception("submission of arc job '{}' failed:\n{}".format(job_file, out))
+                    raise Exception("submission of arc job(s) '{}' failed:\n{}".format(job_files,
+                        out))
 
     def cancel(self, job_id, job_list=None, silent=False):
         # default arguments
-        job_list = job_list or self.job_list
+        if job_list is None:
+            job_list = self.job_list
 
-        # build the command and run it
+        # build the command
         cmd = ["arckill"]
         if job_list:
             cmd += ["-j", job_list]
         cmd += make_list(job_id)
+        cmd = quote_cmd(cmd)
+
+        # run it
         logger.debug("cancel arc job(s) with command '{}'".format(cmd))
-        code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=sys.stderr)
+        code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
+            stdout=subprocess.PIPE, stderr=sys.stderr)
 
         # check success
         if code != 0 and not silent:
             # glite prints everything to stdout
-            raise Exception("cancellation of arc job(s) '{}' failed:\n{}".format(job_id, out))
+            raise Exception("cancellation of arc job(s) '{}' failed with code {}:\n{}".format(
+                job_id, code, out))
 
     def cleanup(self, job_id, job_list=None, silent=False):
         # default arguments
-        job_list = job_list or self.job_list
+        if job_list is None:
+            job_list = self.job_list
 
-        # build the command and run it
+        # build the command
         cmd = ["arcclean"]
         if job_list:
             cmd += ["-j", job_list]
         cmd += make_list(job_id)
+        cmd = quote_cmd(cmd)
+
+        # run it
         logger.debug("cleanup arc job(s) with command '{}'".format(cmd))
-        code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=sys.stderr)
+        code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
+            stdout=subprocess.PIPE, stderr=sys.stderr)
 
         # check success
         if code != 0 and not silent:
             # glite prints everything to stdout
-            raise Exception("cleanup of arc job(s) '{}' failed:\n{}".format(job_id, out))
+            raise Exception("cleanup of arc job(s) '{}' failed with code {}:\n{}".format(
+                job_id, code, out))
 
     def query(self, job_id, job_list=None, silent=False):
         # default arguments
-        job_list = job_list or self.job_list
+        if job_list is None:
+            job_list = self.job_list
 
-        multi = isinstance(job_id, (list, tuple))
+        chunking = isinstance(job_id, (list, tuple))
         job_ids = make_list(job_id)
 
-        # build the command and run it
+        # build the command
         cmd = ["arcstat"]
         if job_list:
             cmd += ["-j", job_list]
         cmd += job_ids
+        cmd = quote_cmd(cmd)
+
+        # run it
         logger.debug("query arc job(s) with command '{}'".format(cmd))
-        code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
         # handle errors
         if code != 0:
@@ -146,7 +191,8 @@ class ARCJobManager(BaseJobManager):
                 return None
             else:
                 # glite prints everything to stdout
-                raise Exception("status query of arc job(s) '{}' failed:\n{}".format(job_id, out))
+                raise Exception("status query of arc job(s) '{}' failed with code {}:\n{}".format(
+                    job_id, code, out))
 
         # parse the output and extract the status per job
         query_data = self.parse_query_output(out)
@@ -154,7 +200,7 @@ class ARCJobManager(BaseJobManager):
         # compare to the requested job ids and perform some checks
         for _job_id in job_ids:
             if _job_id not in query_data:
-                if not multi:
+                if not chunking:
                     if silent:
                         return None
                     else:
@@ -164,7 +210,7 @@ class ARCJobManager(BaseJobManager):
                     query_data[_job_id] = self.job_status_dict(job_id=_job_id, status=self.FAILED,
                         error="job not found in query response")
 
-        return query_data if multi else query_data[job_id]
+        return query_data if chunking else query_data[job_id]
 
     @classmethod
     def parse_query_output(cls, out):
@@ -225,7 +271,7 @@ class ARCJobManager(BaseJobManager):
     @classmethod
     def map_status(cls, status):
         # see http://www.nordugrid.org/documents/arc-ui.pdf
-        if status in ("Queuing", "Accepted", "Preparing"):
+        if status in ("Queuing", "Accepted", "Preparing", "Submitting"):
             return cls.PENDING
         elif status in ("Running", "Finishing"):
             return cls.RUNNING
@@ -248,7 +294,19 @@ class ARCJobFileFactory(BaseJobFileFactory):
     def __init__(self, file_name="job.xrsl", executable=None, arguments=None, input_files=None,
             output_files=None, postfix_output_files=True, output_uri=None,
             overwrite_output_files=True, job_name=None, log="log.txt", stdout="stdout.txt",
-            stderr="stderr.txt", custom_content=None, absolute_paths=False, **kwargs):
+            stderr="stderr.txt", custom_content=None, absolute_paths=True, **kwargs):
+        # get some default kwargs from the config
+        cfg = Config.instance()
+        if kwargs.get("dir") is None:
+            kwargs["dir"] = cfg.get_expanded("job", cfg.find_option("job",
+                "arc_job_file_dir", "job_file_dir"))
+        if kwargs.get("mkdtemp") is None:
+            kwargs["mkdtemp"] = cfg.get_expanded_boolean("job", cfg.find_option("job",
+                "arc_job_file_dir_mkdtemp", "job_file_dir_mkdtemp"))
+        if kwargs.get("cleanup") is None:
+            kwargs["cleanup"] = cfg.get_expanded_boolean("job", cfg.find_option("job",
+                "arc_job_file_dir_cleanup", "job_file_dir_cleanup"))
+
         super(ARCJobFileFactory, self).__init__(**kwargs)
 
         self.file_name = file_name
@@ -280,11 +338,15 @@ class ARCJobFileFactory(BaseJobFileFactory):
         if not render_variables:
             render_variables = {}
 
-        # always add output_uri to render variables
+        # add postfix to render variables
+        if postfix and "file_postfix" not in render_variables:
+            render_variables["file_postfix"] = postfix
+
+        # add output_uri to render variables
         if c.output_uri and "output_uri" not in render_variables:
             render_variables["output_uri"] = c.output_uri
 
-        # linearize render_variables
+        # linearize render variables
         render_variables = self.linearize_render_variables(render_variables)
 
         # prepare the job file
@@ -345,6 +407,11 @@ class ARCJobFileFactory(BaseJobFileFactory):
             c.stdout = c.stdout and self.postfix_file(c.stdout, postfix)
             c.stderr = c.stderr and self.postfix_file(c.stderr, postfix)
 
+        # custom log file
+        if c.custom_log_file:
+            c.output_files.append(prepare_output(c.custom_log_file))
+            c.custom_log_file = self.postfix_file(c.custom_log_file, postfix)
+
         # job file content
         content = []
         content.append(("executable", c.executable))
@@ -353,9 +420,9 @@ class ARCJobFileFactory(BaseJobFileFactory):
         if c.job_name:
             content.append(("jobName", c.job_name))
         if c.input_files:
-            content.append(("inputFiles", c.input_files))
+            content.append(("inputFiles", make_unique(c.input_files)))
         if c.output_files:
-            content.append(("outputFiles", c.output_files))
+            content.append(("outputFiles", make_unique(c.output_files)))
         if c.log:
             content.append(("gmlog", c.log))
         if c.stdout:
@@ -376,7 +443,7 @@ class ARCJobFileFactory(BaseJobFileFactory):
 
         logger.debug("created glite job file at '{}'".format(job_file))
 
-        return job_file
+        return job_file, c
 
     @classmethod
     def create_line(cls, key, value):

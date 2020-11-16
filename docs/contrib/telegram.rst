@@ -1,7 +1,7 @@
 telegram
 ========
 
-.. automodule:: law.contrib.telegram
+.. automodule:: law.telegram
 
 .. contents::
 

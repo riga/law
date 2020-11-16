@@ -8,10 +8,13 @@ __all__ = [
     "BaseWorkflow", "LocalWorkflow", "workflow_property", "cached_workflow_property",
     "FileSystemTarget", "FileSystemFileTarget", "FileSystemDirectoryTarget",
     "LocalFileSystem", "LocalTarget", "LocalFileTarget, LocalDirectoryTarget",
-    "TargetCollection", "SiblingFileCollection",
+    "TargetCollection", "FileCollection", "SiblingFileCollection",
+    "Sandbox", "BashSandbox",
     "NO_STR", "NO_INT", "NO_FLOAT", "is_no_param", "get_param", "TaskInstanceParameter",
-    "CSVParameter", "NotifyParameter", "NotifyMailParameter",
+    "DurationParameter", "CSVParameter", "MultiCSVParameter", "NotifyParameter",
+    "NotifyMultiParameter", "NotifyMailParameter",
     "Config",
+    "run",
     "notify_mail",
 ]
 
@@ -29,8 +32,8 @@ use_software_cache(reload_deps=True)
 
 
 # luigi patches
-from law.patches import patch_all
-patch_all()
+import law.patches
+law.patches.patch_all()
 
 
 # setup logging
@@ -40,22 +43,24 @@ law.logger.setup_logging()
 
 # provisioning imports
 import law.util
+from law.util import law_run as run
 from law.config import Config
 from law.notification import notify_mail
 from law.parameter import (
-    NO_STR, NO_INT, NO_FLOAT, is_no_param, get_param, TaskInstanceParameter, CSVParameter,
-    NotifyParameter, NotifyMailParameter,
+    NO_STR, NO_INT, NO_FLOAT, is_no_param, get_param, TaskInstanceParameter, DurationParameter,
+    CSVParameter, MultiCSVParameter, NotifyParameter, NotifyMultiParameter, NotifyMailParameter,
 )
-from law.target.file import FileSystemTarget, FileSystemFileTarget, FileSystemDirectoryTarget
+from law.target.file import (
+    FileSystemTarget, FileSystemFileTarget, FileSystemDirectoryTarget, localize_file_targets,
+)
 from law.target.local import LocalFileSystem, LocalTarget, LocalFileTarget, LocalDirectoryTarget
-from law.target.collection import TargetCollection, SiblingFileCollection
+from law.target.collection import TargetCollection, FileCollection, SiblingFileCollection
 import law.decorator
 from law.task.base import Task, WrapperTask, ExternalTask
 from law.workflow.base import BaseWorkflow, workflow_property, cached_workflow_property
 from law.workflow.local import LocalWorkflow
-from law.sandbox.base import SandboxTask
-import law.sandbox.docker
-import law.sandbox.bash
+from law.sandbox.base import Sandbox, SandboxTask
+from law.sandbox.bash import BashSandbox
 import law.job.base
 import law.job.dashboard
 import law.workflow.remote

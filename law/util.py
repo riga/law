@@ -6,13 +6,16 @@ Helpful utility functions.
 
 
 __all__ = [
-    "no_value", "rel_path", "law_src_path", "law_home_path", "print_err", "abort", "colored",
-    "uncolored", "query_choice", "multi_match", "is_lazy_iterable", "make_list", "make_tuple",
-    "flatten", "merge_dicts", "which", "map_verbose", "map_struct", "mask_struct", "tmp_file",
-    "interruptable_popen", "readable_popen", "create_hash", "copy_no_perm", "makedirs_perm",
-    "user_owns_file", "iter_chunks", "human_bytes", "human_time_diff", "is_file_exists_error",
-    "check_bool_flag", "send_mail", "ShorthandDict", "open_compat", "patch_object", "BaseStream",
-    "TeeStream", "FilteredStream",
+    "default_lock", "io_lock", "console_lock", "no_value", "rel_path", "law_src_path",
+    "law_home_path", "law_run", "print_err", "abort", "is_number", "try_int", "round_discrete",
+    "str_to_int", "flag_to_bool", "common_task_params", "colored", "uncolored", "query_choice",
+    "is_pattern", "brace_expand", "multi_match", "is_iterable", "is_lazy_iterable", "make_list",
+    "make_tuple", "make_unique", "flatten", "merge_dicts", "which", "map_verbose", "map_struct",
+    "mask_struct", "tmp_file", "interruptable_popen", "readable_popen", "create_hash",
+    "copy_no_perm", "makedirs_perm", "user_owns_file", "iter_chunks", "human_bytes", "parse_bytes",
+    "human_duration", "human_time_diff", "parse_duration", "is_file_exists_error", "send_mail",
+    "DotDict", "ShorthandDict", "open_compat", "patch_object", "join_generators", "quote_cmd",
+    "classproperty", "BaseStream", "TeeStream", "FilteredStream",
 ]
 
 
@@ -22,6 +25,7 @@ import types
 import re
 import math
 import fnmatch
+import itertools
 import tempfile
 import subprocess
 import signal
@@ -31,14 +35,39 @@ import copy
 import collections
 import contextlib
 import smtplib
-import logging
+import time
 import datetime
+import random
+import threading
 import io
+import shlex
+import logging
 
 import six
 
+try:
+    import ipykernel
+    import ipykernel.iostream
+except ImportError:
+    ipykernel = None
+
+
+logger = logging.getLogger(__name__)
+
+# some globally usable thread locks
+default_lock = threading.Lock()
+io_lock = threading.Lock()
+console_lock = threading.Lock()
+
 
 class NoValue(object):
+
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super(NoValue, cls).__new__(cls, *args, **kwargs)
+        return cls._instance
 
     def __bool__(self):
         return False
@@ -46,8 +75,11 @@ class NoValue(object):
     def __nonzero__(self):
         return False
 
+    def __str__(self):
+        return "{}.no_value".format(self.__module__)
 
-#: Unique dummy value that evaluates to *False*.
+
+#: Unique dummy value that is used to denote missing values and always evaluates to *False*.
 no_value = NoValue()
 
 
@@ -71,12 +103,35 @@ def law_src_path(*paths):
 
 def law_home_path(*paths):
     """
-    Returns the law home directory (``$LAW_HOME``) that defaults to ``"$HOME/.law"``, optionally
-    joined with *paths*.
+    Returns the law home directory, optionally joined with *paths*.
     """
-    home = os.getenv("LAW_HOME", "$HOME/.law")
-    home = os.path.expandvars(os.path.expanduser(home))
-    return os.path.normpath(os.path.join(home, *paths))
+    from law.config import law_home_path
+    return law_home_path(*paths)
+
+
+def law_run(argv):
+    """
+    Runs a task with certain parameters as defined in *argv*, which can be a string or a list of
+    strings. It must start with the family of the task to run, followed by the desired parameters.
+    Example:
+
+    .. code-block:: python
+
+        law_run(["MyTask", "--param", "value"])
+        law_run("MyTask --param value")
+    """
+    from luigi.interface import run as luigi_run
+
+    # ensure that argv is a list of strings
+    if isinstance(argv, six.string_types):
+        argv = shlex.split(argv)
+    else:
+        argv = [str(arg) for arg in argv]
+
+    # luigis pid locking must be disabled
+    argv.append("--no-lock")
+
+    return luigi_run(argv)
 
 
 def print_err(*args, **kwargs):
@@ -88,17 +143,117 @@ def print_err(*args, **kwargs):
         sys.stderr.flush()
 
 
-def abort(msg=None, exitcode=1):
+def abort(msg=None, exitcode=1, color=True):
     """
     Aborts the process (*sys.exit*) with an *exitcode*. If *msg* is not *None*, it is printed first
-    to stdout if *exitcode* is 0 or *None*, and to stderr otherwise.
+    to stdout if *exitcode* is 0 or *None*, and to stderr otherwise. When *color* is *True* and
+    *exitcode* is not 0 or *None*, the message is printed in red.
     """
     if msg is not None:
         if exitcode in (None, 0):
             print(msg)
         else:
+            if color:
+                msg = colored(msg, color="red")
             print_err(msg)
     sys.exit(exitcode)
+
+
+def is_number(n):
+    """
+    Returns *True* if *n* is a number, i.e., integer or float, and in particular no boolean.
+    """
+    return isinstance(n, six.integer_types + (float,)) and not isinstance(n, bool)
+
+
+def try_int(n):
+    """
+    Takes a number *n* and tries to convert it to an integer. When *n* has no decimals, an integer
+    is returned with the same value as *n*. Otherwise, a float is returned.
+    """
+    n_int = int(n)
+    return n_int if n == n_int else n
+
+
+def round_discrete(n, base=1., round_fn=round):
+    """ round_discrete(n, base=1.0, round_fn="round")
+    Rounds a number *n* to a discrete *base*. *round_fn* can be a function used for rounding and
+    defaults to the built-in ``round`` function. It also accepts string values ``"round"``,
+    ``"floor"`` and ``"ceil"`` which are resolved to the corresponding math functions. Example:
+
+    .. code-block:: python
+
+        round_discrete(17, 5)
+        # -> 15.
+
+        round_discrete(17, 2.5)
+        # -> 17.5
+
+        round_discrete(17, 2.5)
+        # -> 17.5
+
+        round_discrete(17, 2.5, math.floor)
+        round_discrete(17, 2.5, "floor")
+        # -> 15.0
+    """
+    if isinstance(round_fn, six.string_types):
+        if round_fn == "round":
+            round_fn = round
+        elif round_fn == "floor":
+            round_fn = math.floor
+        elif round_fn == "ceil":
+            round_fn = math.ceil
+        else:
+            raise ValueError("unknown round function '{}'".format(round_fn))
+
+    return base * round_fn(float(n) / base)
+
+
+def str_to_int(s):
+    """
+    Converts a string *s* into an integer under consideration of binary, octal, decimal and
+    hexadecimal representations, such as ``"0o0660"``.
+    """
+    s = str(s).lower()
+    m = re.match(r"^0(b|o|d|x)\d+$", s)
+    base = {"b": 2, "o": 8, "d": 10, "x": 16}[m.group(1)] if m else 10
+    return int(s, base=base)
+
+
+def flag_to_bool(s, silent=False):
+    """
+    Takes a string flag *s* and returns whether it evaluates to *True* (values ``"1"``, ``"true"``
+    ``"yes"``, ``"on"``, case-insensitive) or *False* (values ``"0"``, ``"false"``, `"no"``,
+    ``"off"``, case-insensitive). When *s* is already a boolean, it is returned unchanged. An error
+    is thrown when *s* is neither of the allowed values and *silent* is *False*. Otherwise, *None*
+    is returned.
+    """
+    if isinstance(s, bool):
+        return s
+    elif isinstance(s, six.string_types):
+        if s.lower() in ("true", "1", "yes", "on"):
+            return True
+        elif s.lower() in ("false", "0", "no", "off"):
+            return False
+    elif silent:
+        return None
+    else:
+        raise ValueError("cannot convert to bool: {}".format(s))
+
+
+def common_task_params(task_instance, task_cls):
+    """
+    Returns the parameters that are common between a *task_instance* and a *task_cls* in a
+    dictionary with values taken directly from the task instance. The difference with respect to
+    ``luigi.util.common_params`` is that the values are not parsed using the parameter objects of
+    the task class, which might be faster for some purposes.
+    """
+    task_cls_param_names = [name for name, _ in task_cls.get_params()]
+    common_param_names = [
+        name for name, _ in task_instance.get_params()
+        if name in task_cls_param_names
+    ]
+    return {name: getattr(task_instance, name) for name in common_param_names}
 
 
 colors = {
@@ -157,28 +312,49 @@ uncolor_cre = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
 def colored(msg, color=None, background=None, style=None, force=False):
     """
     Return the colored version of a string *msg*. For *color*, *background* and *style* options, see
-    https://misc.flogisoft.com/bash/tip_colors_and_formatting. Unless *force* is *True*, the *msg*
-    string is returned unchanged in case the output is not a tty.
+    https://misc.flogisoft.com/bash/tip_colors_and_formatting. They can also be explicitely set to
+    ``"random"`` to get a random value. Unless *force* is *True*, the *msg* string is returned
+    unchanged in case the output is neither a tty nor an IPython output stream.
     """
-    try:
-        if not force and not os.isatty(sys.stdout.fileno()):
-            return msg
-    except:
-        return msg
+    if not force:
+        tty = False
+        ipy = False
 
-    color = colors.get(color, colors["default"])
-    background = backgrounds.get(background, backgrounds["default"])
+        try:
+            tty = os.isatty(sys.stdout.fileno())
+        except:
+            pass
+
+        if not tty and ipykernel is not None:
+            ipy = isinstance(sys.stdout, ipykernel.iostream.OutStream)
+
+        if not tty and not ipy:
+            return msg
+
+    if color == "random":
+        color = random.choice(list(colors.values()))
+    else:
+        color = colors.get(color, colors["default"])
+
+    if background == "random":
+        background = random.choice(list(backgrounds.values()))
+    else:
+        background = backgrounds.get(background, backgrounds["default"])
 
     if not isinstance(style, (tuple, list, set)):
         style = (style,)
-    style = ";".join(str(styles.get(s, styles["default"])) for s in style)
+    style_values = list(styles.values())
+    style = ";".join(
+        str(random.choice(style_values) if s == "random" else styles.get(s, styles["default"]))
+        for s in style
+    )
 
     return "\033[{};{};{}m{}\033[0m".format(style, background, color, msg)
 
 
 def uncolored(s):
     """
-    Returns color codes from a string *s* and returns it.
+    Removes all color codes from a string *s* and returns it.
     """
     return uncolor_cre.sub("", s)
 
@@ -208,7 +384,7 @@ def query_choice(msg, choices, default=None, descriptions=None, lower=True):
     choice = None
     while choice not in _choices:
         if choice is not None:
-            print("invalid choice: '{}'\n".format(choice))
+            print("invalid choice: '{}'".format(choice))
         choice = six.moves.input(msg)
         if default is not None and choice == "":
             choice = default
@@ -218,24 +394,118 @@ def query_choice(msg, choices, default=None, descriptions=None, lower=True):
     return choice
 
 
+def is_pattern(s):
+    """
+    Returns *True* if the string *s* represents a pattern, i.e., if it contains characters such as
+    ``"*"`` or ``"?"``.
+    """
+    return "*" in s or "?" in s
+
+
+def brace_expand(s, split_csv=False):
+    """
+    Expands brace statements in a string *s* and returns a list containing all possible string
+    combinations. When *split_csv* is *True*, the input string is split by all ``","`` characters
+    located outside braces and the expansion is performed sequentially on all elements. Example:
+
+    .. code-block:: python
+
+        brace_expand("A{1,2}B")
+        # -> ["A1B", "A2B"]
+
+        brace_expand("A{1,2}B{3,4}C")
+        # -> ["A1B3C", "A1B4C", "A2B3C", "A2B4C"]
+
+        brace_expand("A{1,2}B,C{3,4}D")
+        # note the full 2x2 expansion
+        # -> ["A1B,C3D", "A1B,C4D", "A2B,C3D", "A2B,C4D"]
+
+        brace_expand("A{1,2}B,C{3,4}D", split_csv=True)
+        # note the 2+2 sequential expansion
+        # -> ["A1B", "A2B", "C3D", "C4D"]
+
+        brace_expand("A{1,2}B,C{3}D", split_csv=True)
+        # note the 2+1 sequential expansion
+        # -> ["A1B", "A2B", "C3D"]
+    """
+    # first, replace escaped braces
+    br_open = "__law_brace_open__"
+    br_close = "__law_brace_close__"
+    s = s.replace(r"\{", br_open).replace(r"\}", br_close)
+
+    # compile the expression that finds brace statements
+    cre = re.compile(r"\{[^\{]*\}")
+
+    # take into account csv splitting
+    if split_csv:
+        # replace commas in brace statements to avoid splitting
+        br_comma = "__law_brace_comma__"
+        _s = cre.sub(lambda m: m.group(0).replace(",", br_comma), s)
+        # split by real csv commas and start recursion when a comma was found, otherwise continue
+        parts = _s.split(",")
+        if len(parts) > 1:
+            # replace commas in braces again and recurse
+            parts = [part.replace(br_comma, ",") for part in parts]
+            return sum((brace_expand(part, split_csv=False) for part in parts), [])
+
+    # split the string into n sequences with values to expand and n+1 fixed entities
+    sequences = cre.findall(s)
+    entities = cre.split(s)
+    if len(sequences) + 1 != len(entities):
+        raise ValueError("the number of sequences ({}) and the number of fixed entities ({}) are "
+            "not compatible".format(",".join(sequences), ",".join(entities)))
+
+    # split each sequence by comma
+    sequences = [seq[1:-1].split(",") for seq in sequences]
+
+    # create a template using the fixed entities used for formatting
+    tmpl = "{}".join(entities)
+
+    # build all combinations
+    res = []
+    for values in itertools.product(*sequences):
+        _s = tmpl.format(*values)
+
+        # insert escaped braces again
+        _s = _s.replace(br_open, r"\{").replace(br_close, r"\}")
+
+        res.append(_s)
+
+    return res
+
+
 def multi_match(name, patterns, mode=any, regex=False):
     """
     Compares *name* to multiple *patterns* and returns *True* in case of at least one match (*mode*
-    = *any*, the default), or in case all patterns matched (*mode* = *all*). Otherwise, *False* is
+    = *any*, the default), or in case all patterns match (*mode* = *all*). Otherwise, *False* is
     returned. When *regex* is *True*, *re.match* is used instead of *fnmatch.fnmatch*.
     """
+    patterns = make_list(patterns)
     if not regex:
         return mode(fnmatch.fnmatch(name, pattern) for pattern in patterns)
     else:
         return mode(re.match(pattern, name) for pattern in patterns)
 
 
+def is_iterable(obj):
+    """
+    Returns *True* when an object *obj* is iterable and *False* otherwise.
+    """
+    try:
+        iter(obj)
+    except Exception:
+        return False
+    return True
+
+
 def is_lazy_iterable(obj):
     """
-    Returns whether *obj* is iterable lazily, such as generators, range objects, etc.
+    Returns whether *obj* is iterable lazily, such as generators, range objects, maps, etc.
     """
-    return isinstance(obj,
-        (types.GeneratorType, collections.MappingView, six.moves.range, enumerate))
+    iter_types = (
+        types.GeneratorType, collections.MappingView, six.moves.range, six.moves.map, enumerate,
+    )
+    return isinstance(obj, iter_types)
 
 
 def make_list(obj, cast=True):
@@ -259,7 +529,7 @@ def make_tuple(obj, cast=True):
     converted if *cast* is *True*. Otherwise, and for all other types, *obj* is put in a new tuple.
     """
     if isinstance(obj, tuple):
-        return tuple(obj)
+        return obj
     elif is_lazy_iterable(obj):
         return tuple(obj)
     elif isinstance(obj, (list, set)) and cast:
@@ -268,18 +538,53 @@ def make_tuple(obj, cast=True):
         return (obj,)
 
 
-def flatten(struct):
+def make_unique(obj):
     """
-    Flattens and returns a complex structured object *struct*.
+    Takes a list or tuple *obj*, removes duplicate elements in order of their appearance and returns
+    the sequence of remaining, unique elements. The sequence type is preserved. When *obj* is
+    neither a list nor a tuple, but iterable, a list is returned. Otherwise, a *TypeError* is
+    raised.
     """
-    if isinstance(struct, dict):
-        return flatten(struct.values())
-    elif isinstance(struct, (list, tuple, set)) or is_lazy_iterable(struct):
-        objs = []
-        for obj in struct:
-            objs.extend(flatten(obj))
-        return objs
+    if not isinstance(obj, (list, tuple)):
+        if is_iterable(obj):
+            obj = list(obj)
+        else:
+            raise TypeError("object is neither list, tuple, nor generic iterable")
+
+    ret = sorted(obj.__class__(set(obj)), key=lambda elem: obj.index(elem))
+
+    return obj.__class__(ret) if isinstance(obj, tuple) else ret
+
+
+def flatten(*structs, **kwargs):
+    """ flatten(*structs, flatten_dict=True, flatten_list=True, flatten_tuple=True, flatten_set=True)
+    Takes one or multiple complex structured objects *structs*, flattens them, and returns a single
+    list. *flatten_dict*, *flatten_list*, *flatten_tuple* and *flatten_set* configure if objects of
+    the respective types are flattened (the default). If not, they are returned unchanged.
+    """
+    if len(structs) == 0:
+        return []
+    elif len(structs) > 1:
+        return flatten(structs, **kwargs)
     else:
+        struct = structs[0]
+
+        flatten_seq = lambda seq: sum((flatten(obj, **kwargs) for obj in seq), [])
+        if isinstance(struct, dict):
+            if kwargs.get("flatten_dict", True):
+                return flatten_seq(struct.values())
+        elif isinstance(struct, list):
+            if kwargs.get("flatten_list", True):
+                return flatten_seq(struct)
+        elif isinstance(struct, tuple):
+            if kwargs.get("flatten_tuple", True):
+                return flatten_seq(struct)
+        elif isinstance(struct, set):
+            if kwargs.get("flatten_set", True):
+                return flatten_seq(struct)
+        elif is_lazy_iterable(struct):
+            return flatten_seq(struct)
+
         return [struct]
 
 
@@ -402,22 +707,23 @@ def map_struct(func, struct, map_dict=True, map_list=True, map_tuple=False, map_
     if is_lazy_iterable(struct):
         struct = list(struct)
 
+    # determine valid types for struct traversal
     valid_types = tuple()
     if map_dict:
         valid_types += (dict,)
-        if isinstance(map_dict, int) and not isinstance(map_dict, bool):
+        if is_number(map_dict):
             map_dict -= 1
     if map_list:
         valid_types += (list,)
-        if isinstance(map_list, int) and not isinstance(map_list, bool):
+        if is_number(map_list):
             map_list -= 1
     if map_tuple:
         valid_types += (tuple,)
-        if isinstance(map_tuple, int) and not isinstance(map_tuple, bool):
+        if is_number(map_tuple):
             map_tuple -= 1
     if map_set:
         valid_types += (set,)
-        if isinstance(map_set, int) and not isinstance(map_set, bool):
+        if is_number(map_set):
             map_set -= 1
 
     # is an explicit cls set?
@@ -530,9 +836,10 @@ def mask_struct(mask, struct, replace=no_value):
 @contextlib.contextmanager
 def tmp_file(*args, **kwargs):
     """
-    Context manager that generates a temporary file, yields the file descriptor number and temporary
-    path, and eventually removes the files. All *args* and *kwargs* are passed to
-    :py:meth:`tempfile.mkstemp`.
+    Context manager that creates an empty, temporary file, yields the file descriptor number and
+    temporary path, and eventually removes it. All *args* and *kwargs* are passed to
+    :py:meth:`tempfile.mkstemp`. The behavior of this function is similar to
+    ``tempfile.NamedTemporaryFile`` which, however, yields an already opened file object.
     """
     fileno, path = tempfile.mkstemp(*args, **kwargs)
 
@@ -549,20 +856,56 @@ def tmp_file(*args, **kwargs):
 
 
 def interruptable_popen(*args, **kwargs):
-    """
-    Shorthand to :py:class:`Popen` followed by :py:meth:`Popen.communicate`. All *args* and *kwargs*
-    are forwatded to the :py:class:`Popen` constructor. The return code, standard output and
-    standard error are returned in a tuple. The call :py:meth:`Popen.communicate` is interruptable
-    by the user.
-    """
-    kwargs["preexec_fn"] = os.setsid
+    """ interruptable_popen(*args, interrupt_callback=None, kill_timeout=None, **kwargs)
+    Shorthand to :py:class:`Popen` followed by :py:meth:`Popen.communicate` which can be interrupted
+    by *KeyboardInterrupt*. The return code, standard output and standard error are returned in a
+    3-tuple.
 
+    *interrupt_callback* can be a function, accepting the process instance as an argument, that is
+    called immediately after a *KeyboardInterrupt* occurs. After that, a SIGTERM signal is send to
+    the subprocess to allow it to gracefully shutdown.
+
+    When *kill_timeout* is set, and the process is still alive after that period (in seconds), a
+    SIGKILL signal is sent to force the process termination.
+
+    All other *args* and *kwargs* are forwarded to the :py:class:`Popen` constructor.
+    """
+    # get kwargs not being passed to Popen
+    interrupt_callback = kwargs.pop("interrupt_callback", None)
+    kill_timeout = kwargs.pop("kill_timeout", None)
+
+    # start the subprocess in a new process group
+    kwargs["preexec_fn"] = os.setsid
     p = subprocess.Popen(*args, **kwargs)
 
+    # handle interrupts
     try:
         out, err = p.communicate()
     except KeyboardInterrupt:
-        os.killpg(os.getpgid(p.pid), signal.SIGTERM)
+        # allow the interrupt_callback to perform a custom process termination
+        if callable(interrupt_callback):
+            interrupt_callback(p)
+
+        # when the process is still alive, send SIGTERM to gracefully terminate it
+        pgid = os.getpgid(p.pid)
+        if p.poll() is None:
+            os.killpg(pgid, signal.SIGTERM)
+
+        # when a kill_timeout is set, and the process is still running after that period,
+        # send SIGKILL to force its termination
+        if kill_timeout is not None:
+            target_time = time.time() + kill_timeout
+            while target_time > time.time():
+                time.sleep(0.05)
+                if p.poll() is not None:
+                    # the process terminated, exit the loop
+                    break
+            else:
+                # check the status again to avoid race conditions
+                if p.poll() is None:
+                    os.killpg(pgid, signal.SIGKILL)
+
+        # transparently reraise
         raise
 
     if six.PY3:
@@ -619,7 +962,7 @@ def copy_no_perm(src, dst):
     """
     Copies a file from *src* to *dst* including meta data except for permission bits.
     """
-    shutil.copy(src, dst)
+    shutil.copyfile(src, dst)
     perm = os.stat(dst).st_mode
     shutil.copystat(src, dst)
     os.chmod(dst, perm)
@@ -686,10 +1029,12 @@ def iter_chunks(l, size):
 byte_units = ["bytes", "kB", "MB", "GB", "TB", "PB", "EB"]
 
 
-def human_bytes(n, unit=None):
+def human_bytes(n, unit=None, fmt=False):
     """
     Takes a number of bytes *n*, assigns the best matching unit and returns the respective number
-    and unit string in a tuple. When *unit* is set, that unit is used. Example:
+    and unit string in a tuple. When *unit* is set, that unit is used. When *fmt* is set, it is
+    expected to be a string template with two elements that are filled via *str.format*. It can also
+    be a boolean value in which case the template defaults to ``"{:.1f} {}"`` when *True*. Example:
 
     .. code-block:: python
 
@@ -698,7 +1043,17 @@ def human_bytes(n, unit=None):
 
         human_bytes(3407872, "kB")
         # -> (3328.0, "kB")
+
+        human_bytes(3407872, fmt="{:.2f} -- {}")
+        # -> "3.25 -- MB"
+
+        human_bytes(3407872, fmt=True)
+        # -> "3.25 MB"
     """
+    # check if the unit exists
+    if unit and unit not in byte_units:
+        raise ValueError("unknown unit '{}', valid values are {}".format(unit, byte_units))
+
     if n == 0:
         idx = 0
     elif unit:
@@ -706,36 +1061,360 @@ def human_bytes(n, unit=None):
     else:
         idx = int(math.floor(math.log(abs(n), 1024)))
         idx = min(idx, len(byte_units))
-    return n / 1024. ** idx, byte_units[idx]
+
+    # get the value and the unit name
+    value = n / 1024. ** idx
+    unit = byte_units[idx]
+
+    if fmt:
+        if not isinstance(fmt, six.string_types):
+            fmt = "{:.1f} {}"
+        return fmt.format(value, unit)
+    else:
+        return value, unit
 
 
-time_units = [("day", 86400), ("hour", 3600), ("minute", 60), ("second", 1)]
+def parse_bytes(s, input_unit="bytes", unit="bytes"):
+    """
+    Takes a string *s*, interprets it as a size with an optional unit, and returns a float that
+    represents that size in a given *unit*. When no unit is found in *s*, *input_unit* is used as a
+    default. A *ValueError* is raised, when *s* cannot be successfully converted. Example:
+
+    .. code-block:: python
+
+        parse_bytes("100")
+        # -> 100.
+
+        parse_bytes("2048", unit="kB")
+        # -> 2.
+
+        parse_bytes("2048 kB", unit="kB")
+        # -> 2048.
+
+        parse_bytes("2048 kB", unit="MB")
+        # -> 2.
+
+        parse_bytes("2048", "kB", unit="MB")
+        # -> 2.
+
+        parse_bytes(2048, "kB", unit="MB")  # note the float type of the first argument
+        # -> 2.
+    """
+    # check if the units exists
+    if input_unit not in byte_units:
+        raise ValueError("unknown input_unit '{}', valid values are {}".format(
+            input_unit, byte_units))
+    if unit not in byte_units:
+        raise ValueError("unknown unit '{}', valid values are {}".format(
+            unit, byte_units))
+
+    # when s is a number, interpret it as bytes right away
+    # otherwise parse it
+    if isinstance(s, (float, six.integer_types)):
+        input_value = float(s)
+    else:
+        m = re.match(r"^\s*(-?\d+\.?\d*)\s*(|{})\s*$".format("|".join(byte_units)), s)
+        if not m:
+            raise ValueError("cannot parse bytes from string '{}'".format(s))
+
+        input_value, _input_unit = m.groups()
+        input_value = float(input_value)
+        if _input_unit:
+            input_unit = _input_unit
+
+    # convert the input value to bytes
+    idx = byte_units.index(input_unit)
+    size_bytes = input_value * 1024. ** idx
+
+    # use human_bytes to convert the size
+    return human_bytes(size_bytes, unit)[0]
+
+
+time_units = collections.OrderedDict([
+    ("day", 86400),
+    ("hour", 3600),
+    ("minute", 60),
+    ("second", 1),
+])
+
+time_unit_aliases = {
+    "d": "day",
+    "days": "day",
+    "h": "hour",
+    "hours": "hour",
+    "m": "minute",
+    "min": "minute",
+    "mins": "minute",
+    "minutes": "minute",
+    "s": "second",
+    "sec": "second",
+    "secs": "second",
+    "seconds": "second",
+}
+
+
+def human_duration(colon_format=False, plural=True, **kwargs):
+    """ human_duration
+    Returns a human readable duration. The largest unit is days. When *colon_format* is *True*, the
+    return value has the format ``"[d:][hh:]mm:ss[.ms]"``. *colon_format* can also be a string value
+    referring to a limiting  unit. In that case, the returned time string has no field above that
+    unit, e.g. passing ``"m"`` results in a string ``"mm:ss[.ms]"`` where the minute field is
+    potentially larger than 60. Passing ``"s"`` is a special case. Since the colon format always has
+    a minute field (to mark it as colon format in the first place), the returned string will have
+    the format ``"00:ss[.ms]"``. Unless *plural* is *False*, units corresponding to values other
+    than **exactly** one are used in plural e.g. ``"1 second"`` but ``"1.5 seconds"``. All other
+    *kwargs* are passed to ``datetime.timedelta`` to get the total duration in seconds. Example:
+
+    .. code-block:: python
+
+    human_duration(seconds=1233)
+    # -> "20 minutes, 33 seconds"
+
+    human_duration(seconds=90001)
+    # -> "1 day, 1 hour, 1 second"
+
+    human_duration(seconds=1233, colon_format=True)
+    # -> "20:33"
+
+    human_duration(seconds=-1233, colon_format=True)
+    # -> "-20:33"
+
+    human_duration(seconds=90001, colon_format=True)
+    # -> "1:01:00:01"
+
+    human_duration(seconds=90001, colon_format="h")
+    # -> "25:00:01"
+
+    human_duration(seconds=65, colon_format="s")
+    # -> "00:65"
+
+    human_duration(minutes=15, colon_format=True)
+    # -> "15:00"
+
+    human_duration(minutes=15)
+    # -> "15 minutes"
+
+    human_duration(minutes=15, plural=False)
+    # -> "15 minute"
+
+    human_duration(minutes=-15)
+    # -> "minus 15 minutes"
+    """
+    seconds = float(datetime.timedelta(**kwargs).total_seconds())
+    sign = 1 if seconds >= 0 else -1
+    seconds = abs(seconds)
+
+    # when using colon_format, check if a limiting unit is set
+    colon_unit_limit = None
+    if isinstance(colon_format, six.string_types):
+        colon_unit_limit = time_unit_aliases.get(colon_format, colon_format)
+        if colon_unit_limit not in time_units:
+            raise ValueError("unknown colon_format unit '{}', valid values are {}".format(
+                colon_unit_limit, ",".join(time_units)))
+        colon_unit_index = list(time_units.keys()).index(colon_unit_limit)
+
+    parts = []
+    for i, (unit, mul) in enumerate(six.iteritems(time_units)):
+        # skip this iteration when a colon unit limit is set
+        if colon_unit_limit and i < colon_unit_index:
+            continue
+
+        # build the value for this unit
+        if unit == "second":
+            # try to round to 2 digits or convert to int
+            value = try_int(round(seconds, 2))
+        else:
+            # get the integer divider and adjust the remaining number of seconds
+            value = int(seconds // mul)
+            seconds -= value * mul
+
+        # skip zeros under certain conditions
+        if not value:
+            leading = not parts
+            if colon_format:
+                # skip zeros when leading but not referring to minutes or seconds
+                if leading and unit not in ("minute", "second"):
+                    continue
+            else:
+                # skip zeros always, except when leading and the unit is seconds
+                if not leading or unit != "second":
+                    continue
+
+        # build the human readable representation
+        if colon_format:
+            if unit == "second" and value < 10:
+                # special case for seconds to format floating points properly
+                fmt = "0{}"
+            elif unit in ["hour", "minute"]:
+                fmt = "{:02d}"
+            else:
+                fmt = "{}"
+            parts.append(fmt.format(value))
+        else:
+            plural_postfix = "" if (not plural or value == 1) else "s"
+            parts.append("{} {}{}".format(value, unit, plural_postfix))
+
+    # special case: the minute field is mandatory for colon_format in any case
+    if colon_format and len(parts) == 1:
+        parts.insert(0, "00")
+
+    # denote negative values
+    sign_prefix = ""
+    if sign == -1:
+        sign_prefix = "-" if colon_format else "minus "
+
+    return sign_prefix + (":" if colon_format else ", ").join(parts)
 
 
 def human_time_diff(*args, **kwargs):
     """
-    Returns a human readable time difference. The largest unit is days. All *args* and *kwargs* are
-    passed to ``datetime.timedelta``. Example:
+    Deprecated. Use :py:func:`human_duration` instead.
+    """
+    # deprecation warning until v0.1
+    logger.warning("law.util.human_time_diff is deprecated, use law.util.human_duration instead")
+
+    return human_duration(*args, **kwargs)
+
+
+def parse_duration(s, input_unit="s", unit="s"):
+    """
+    Takes a string *s*, interprets it as a duration with an optional unit, and returns a float that
+    represents that size in a given *unit*. When no unit is found in *s*, *input_unit* is used as a
+    default. A *ValueError* is raised, when *s* cannot be successfully converted. Multiple input
+    formats are parsed: Example:
 
     .. code-block:: python
 
-        human_time_diff(seconds=1233)
-        # -> "20 minutes, 33 seconds"
+        # plain number
+        parse_duration(100)
+        # -> 100.
 
-        human_time_diff(seconds=90001)
-        # -> "1 day, 1 hour, 1 second"
+        parse_duration(100, unit="min")
+        # -> 1.667
+
+        parse_duration(100, input_unit="min")
+        # -> 6000.
+
+        parse_duration(-100, input_unit="min")
+        # -> -6000.
+
+        # string separated with ":", interpreted from the back as seconds, minutes, etc.
+        # input_unit is disregarded, unit works as above
+        parse_duration("2:1")
+        # -> 121.
+
+        parse_duration("04:02:01.1")
+        # -> 14521.1
+
+        parse_duration("04:02:01.1", unit="min")
+        # -> 242.0183
+
+        # human-readable string, optionally multiple of them
+        # missing units are interpreted as input_unit, unit works as above
+        parse_duration("10 mins")
+        # -> 600.0
+
+        parse_duration("10 mins", unit="min")
+        # -> 10.0
+
+        parse_duration("10", unit="min")
+        # -> 0.167
+
+        parse_duration("10", input_unit="min", unit="min")
+        # -> 10.0
+
+        parse_duration("10 mins, 15 secs")
+        # -> 615.0
+
+        parse_duration("10 mins and 15 secs")
+        # -> 615.0
+
+        parse_duration("minus 10 mins and 15 secs")
+        # -> -615.0
     """
-    secs = float(datetime.timedelta(*args, **kwargs).total_seconds())
-    parts = []
-    for unit, mul in time_units:
-        if secs / mul >= 1 or mul == 1:
-            if mul > 1:
-                n = int(math.floor(secs / mul))
-                secs -= n * mul
-            else:
-                n = round(secs, 1)
-            parts.append("{} {}{}".format(n, unit, "" if n == 1 else "s"))
-    return ", ".join(parts)
+    # consider unit aliases
+    input_unit = time_unit_aliases.get(input_unit, input_unit)
+    unit = time_unit_aliases.get(unit, unit)
+
+    # check units
+    if input_unit not in time_units:
+        raise ValueError("unknown input_unit '{}', valid values are {}".format(
+            input_unit, ",".join(time_units)))
+    if unit not in time_units:
+        raise ValueError("unknown unit '{}', valid values are {}".format(
+            unit, ",".join(time_units)))
+
+    sign = 1
+    duration_seconds = 0.
+
+    # number or string?
+    if isinstance(s, six.integer_types + (float,)):
+        duration_seconds += s * time_units[input_unit]
+    else:
+        s = s.strip()
+
+        # check the format
+        if "," not in s and ":" in s:
+            # colon format, "[d:][h:][m:]s"
+            unit_order = ["second", "minute", "hour", "day"]
+
+            # interpret leading "-" or "+" as the sign of the duration
+            if s[0] in "+-":
+                sign = 1 if s[0] == "+" else -1
+                s = s[1:]
+
+            # split and check the number of parts
+            parts = s.split(":")
+            if len(parts) > len(unit_order):
+                raise ValueError("cannot parse duration string '{}', too many ':'".format(s))
+
+            # convert each part, starting from the back to match unit_order
+            for i, part in enumerate(parts[::-1]):
+                u = unit_order[i]
+                try:
+                    d = float(part.strip())
+                except ValueError as e:
+                    raise ValueError("cannot parse duration string '{}', {}".format(s, e))
+
+                duration_seconds += d * time_units[u]
+
+        else:
+            # human readable format
+            # interpret leading "+", "-", "plus" and "minus" as the sign of the duration
+            m = re.match(r"^(\+|\-|plus\s|minus\s)\s*(.*)$", s)
+            if m:
+                sign = 1 if m.group(1) in ("plus ", "+") else -1
+                s = m.group(2)
+
+            # replace "and" with comma, replace multiple commas with one, then split
+            s = re.sub(r"\,+", ",", s.replace("and", ","))
+            parts = s.split(",")
+
+            units = list(time_units.keys()) + list(time_unit_aliases.keys())
+            cre = re.compile(r"^\s*(\d+|\d+\.|\.\d+|\d+\.\d+)\s*(|{})\s*$".format("|".join(units)))
+
+            # convert each part
+            for part in parts:
+                part = part.strip()
+                if not part:
+                    continue
+
+                m = cre.match(part)
+                if not m:
+                    raise ValueError("cannot parse duration string '{}'".format(s))
+
+                d, u = m.groups()
+                d = float(d)
+                if not u:
+                    u = input_unit
+                u = time_unit_aliases.get(u, u)
+
+                duration_seconds += d * time_units[u]
+
+    # convert to output unit
+    duration = sign * duration_seconds / time_units[unit]
+
+    return duration
 
 
 def is_file_exists_error(e):
@@ -748,15 +1427,6 @@ def is_file_exists_error(e):
         return isinstance(e, OSError) and e.errno == 17
 
 
-def check_bool_flag(s):
-    """
-    Takes a string flag *s* and returns whether it evaluates to *True* (values ``"1"``, ``"true"``
-    and ``"yes"``, case-insensitive) or *False* (any other value). When *s* is not a string, *s* is
-    returned unchanged.
-    """
-    return s.lower() in ("1", "yes", "true") if isinstance(s, six.string_types) else s
-
-
 def send_mail(recipient, sender, subject="", content="", smtp_host="127.0.0.1", smtp_port=25):
     """
     Lightweight mail functionality. Sends an mail from *sender* to *recipient* with *subject* and
@@ -766,7 +1436,6 @@ def send_mail(recipient, sender, subject="", content="", smtp_host="127.0.0.1", 
     try:
         server = smtplib.SMTP(smtp_host, smtp_port)
     except Exception as e:
-        logger = logging.getLogger(__name__)
         logger.warning("cannot create SMTP server: {}".format(e))
         return False
 
@@ -774,6 +1443,41 @@ def send_mail(recipient, sender, subject="", content="", smtp_host="127.0.0.1", 
     server.sendmail(sender, recipient, header + content)
 
     return True
+
+
+class DotDict(collections.OrderedDict):
+    """
+    Subclass of *OrderedDict* that provides read access for items via attributes by implementing
+    ``__getattr__``. In case a item is accessed via attribute and it does not exist, an
+    *AttriuteError* is raised rather than a *KeyError*. Example:
+
+    .. code-block:: python
+
+       d = DotDict()
+       d["foo"] = 1
+
+       print(d["foo"])
+       # => 1
+
+       print(d.foo)
+       # => 1
+
+       print(d["bar"])
+       # => KeyError
+
+       print(d.bar)
+       # => AttributeError
+    """
+
+    def __getattr__(self, attr):
+        if attr == "_OrderedDict__root":
+            return super(DotDict, self).__getattr__(attr)
+        else:
+            try:
+                return self[attr]
+            except KeyError:
+                raise AttributeError("'{}' object has no attribute '{}'".format(
+                    self.__class__.__name__, attr))
 
 
 class ShorthandDict(collections.OrderedDict):
@@ -784,7 +1488,6 @@ class ShorthandDict(collections.OrderedDict):
     .. code-block:: python
 
         MyDict(ShorthandDict):
-
             attributes = {"foo": 1, "bar": 2}
 
         d = MyDict(foo=9)
@@ -861,18 +1564,28 @@ def open_compat(*args, **kwargs):
 
 
 @contextlib.contextmanager
-def patch_object(obj, attr, value):
+def patch_object(obj, attr, value, lock=False):
     """
     Context manager that temporarily patches an object *obj* by replacing its attribute *attr* with
-    *value*. The original value is set again when the context is closed.
+    *value*. The original value is set again when the context is closed. When *lock* is *True*, the
+    py:attr:`default_lock` object is used to ensure the patch is thread-safe. When *lock* is a lock
+    instance, this object is used instead.
     """
     orig = getattr(obj, attr, no_value)
+
+    if lock:
+        if isinstance(lock, bool):
+            lock = default_lock
+        lock.acquire()
 
     try:
         setattr(obj, attr, value)
 
         yield obj
     finally:
+        if lock and lock.locked():
+            lock.release()
+
         try:
             if orig is no_value:
                 delattr(obj, attr)
@@ -880,6 +1593,91 @@ def patch_object(obj, attr, value):
                 setattr(obj, attr, orig)
         except:
             pass
+
+
+def join_generators(*generators, **kwargs):
+    """ join_generators(*generators, on_error=None)
+    Joins multiple *generators* and returns a single generator for simplified iteration. Yielded
+    objects are transparently sent back to ``yield`` assignments of the same generator. When
+    *on_error* is callable, it is invoked in case an exception is raised while iterating, including
+    *KeyboardInterrupt*'s. If its return value evaluates to *True*, the state is reset and
+    iterations continue. Otherwise, the exception is raised.
+    """
+    on_error = kwargs.get("on_error")
+    for gen in generators:
+        last_result = no_value
+        while True:
+            try:
+                if last_result == no_value:
+                    last_result = yield six.next(gen)
+                else:
+                    last_result = yield gen.send(last_result)
+            except StopIteration:
+                break
+            except (Exception, KeyboardInterrupt) as error:
+                if callable(on_error) and on_error(error):
+                    last_result = no_value
+                else:
+                    raise
+
+
+def quote_cmd(cmd):
+    """
+    Takes a shell command *cmd* given as a list and returns a single string representation of that
+    command with proper quoting. To denote nested commands (such as shown below), *cmd* can also
+    contain nested lists. Example:
+
+    .. code-block:: python
+
+        print(quote_cmd(["bash", "-c", "echo", "foobar"]))
+        # -> "bash -c echo foobar"
+
+        print(quote_cmd(["bash", "-c", ["echo", "foobar"]]))
+        # -> "bash -c 'echo foobar'"
+    """
+    # expand lists recursively
+    cmd = [
+        (quote_cmd(part) if isinstance(part, (list, tuple)) else str(part))
+        for part in cmd
+    ]
+
+    # quote all parts and join
+    return " ".join(six.moves.shlex_quote(part) for part in cmd)
+
+
+class ClassPropertyDescriptor(object):
+    """
+    Generic descriptor class that is used by :py:func:`classproperty`. Setters are currently not
+    supported.
+    """
+
+    def __init__(self, fget, fset=None):
+        self.fget = fget
+        self.fset = fset
+
+    def __get__(self, obj, cls=None):
+        if cls is None:
+            cls = type(obj)
+
+        return self.fget.__get__(obj, cls)()
+
+    def __set__(self, obj, value):
+        if not self.fset:
+            raise AttributeError("can't set attribute")
+
+        type_ = type(obj)
+
+        return self.fset.__get__(obj, type_)(value)
+
+
+def classproperty(func):
+    """
+    Propety decorator for class-level methods.
+    """
+    if not isinstance(func, (classmethod, staticmethod)):
+        func = classmethod(func)
+
+    return ClassPropertyDescriptor(func)
 
 
 class BaseStream(object):

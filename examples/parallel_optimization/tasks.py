@@ -4,6 +4,7 @@ import os
 
 import luigi
 import law
+
 law.contrib.load("matplotlib")
 
 
@@ -99,7 +100,6 @@ class OptimizerPlot(Task, law.LocalWorkflow):
 
         result = self.input().load().run(None, 0)
         output = self.output()
-        output.dir.touch()
 
         with output.targets["convergence"].localize("w") as tmp:
             plot_convergence(result)

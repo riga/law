@@ -10,21 +10,24 @@ __all__ = ["Task", "WrapperTask", "ExternalTask"]
 
 import sys
 import socket
+import time
 import logging
-import warnings
 from collections import OrderedDict
 from contextlib import contextmanager
-from abc import abstractmethod
+from abc import ABCMeta, abstractmethod
+from inspect import getargspec
 
 import luigi
-import luigi.util
 import six
 
-from law.parameter import NO_STR, TaskInstanceParameter, CSVParameter
-from law.parser import global_cmdline_values
+from law.config import Config
+from law.parameter import NO_STR, CSVParameter
+from law.target.file import localize_file_targets
+from law.parser import root_task, global_cmdline_values
+from law.logger import setup_logger
 from law.util import (
-    abort, colored, uncolored, make_list, query_choice, multi_match, flatten, check_bool_flag,
-    BaseStream,
+    abort, common_task_params, colored, uncolored, make_list, multi_match, flatten, BaseStream,
+    human_duration, patch_object, round_discrete, classproperty,
 )
 
 
@@ -34,7 +37,7 @@ logger = logging.getLogger(__name__)
 class BaseRegister(luigi.task_register.Register):
 
     def __new__(metacls, classname, bases, classdict):
-        # default attributes
+        # default attributes, irrespective of inheritance
         classdict.setdefault("exclude_index", False)
 
         # union "exclude_params_*" sets with those of all base classes
@@ -42,9 +45,25 @@ class BaseRegister(luigi.task_register.Register):
             for attr, base_params in vars(base).items():
                 if isinstance(base_params, set) and attr.startswith("exclude_params_"):
                     params = classdict.setdefault(attr, set())
-                    params |= base_params
+                    if isinstance(params, set):
+                        params.update(base_params)
 
-        return super(BaseRegister, metacls).__new__(metacls, classname, bases, classdict)
+        # create the class
+        cls = ABCMeta.__new__(metacls, classname, bases, classdict)
+
+        # default attributes, apart from inheritance
+        if getattr(cls, "update_register", None) is None:
+            cls.update_register = False
+
+        # deregister when requested
+        if cls.update_register:
+            cls.deregister()
+
+        # add to register (mimic luigi.task_register.Register.__new__)
+        cls._namespace_at_class_time = metacls._get_namespace(cls.__module__)
+        metacls._reg.append(cls)
+
+        return cls
 
 
 @six.add_metaclass(BaseRegister)
@@ -53,7 +72,7 @@ class BaseTask(luigi.Task):
     exclude_index = True
     exclude_params_index = set()
     exclude_params_req = set()
-    exclude_params_req_pass = set()
+    exclude_params_req_set = set()
     exclude_params_req_get = set()
 
     @staticmethod
@@ -63,10 +82,43 @@ class BaseTask(luigi.Task):
         return "{}_{}".format(host, name)
 
     @classmethod
+    def deregister(cls, task_cls=None):
+        """
+        Removes a task class *task_cls* from the luigi task register. When *None*, *this* class is
+        used. Task family strings and patterns are accepted as well. *True* is returned when at
+        least one class was successfully removed, and *False* otherwise.
+        """
+        # always compare task families
+        if task_cls is None:
+            task_family = cls.task_family
+        elif isinstance(task_cls, six.string_types):
+            task_family = task_cls
+        else:
+            task_family = task_cls.task_family
+
+        success = False
+
+        # remove from the register
+        i = -1
+        while True:
+            i += 1
+            if i >= len(Register._reg):
+                break
+            registered_cls = Register._reg[i]
+
+            if multi_match(registered_cls.task_family, task_family, mode=any):
+                Register._reg.pop(i)
+                i -= 1
+                success = True
+                logger.debug("removed task class {} from register".format(registered_cls))
+
+        return success
+
+    @classmethod
     def get_param_values(cls, *args, **kwargs):
         values = super(BaseTask, cls).get_param_values(*args, **kwargs)
         if callable(cls.modify_param_values):
-            return cls.modify_param_values(OrderedDict(values)).items()
+            return list(cls.modify_param_values(OrderedDict(values)).items())
         else:
             return values
 
@@ -84,15 +136,15 @@ class BaseTask(luigi.Task):
     @classmethod
     def req_params(cls, inst, _exclude=None, _prefer_cli=None, **kwargs):
         # common/intersection params
-        params = luigi.util.common_params(inst, cls)
+        params = common_task_params(inst, cls)
 
         # determine parameters to exclude
         _exclude = set() if _exclude is None else set(make_list(_exclude))
 
         # also use this class' req and req_get sets
-        # and the req and req_pass sets of the instance's class
+        # and the req and req_set sets of the instance's class
         _exclude.update(cls.exclude_params_req, cls.exclude_params_req_get)
-        _exclude.update(inst.exclude_params_req, inst.exclude_params_req_pass)
+        _exclude.update(inst.exclude_params_req, inst.exclude_params_req_set)
 
         # remove excluded parameters
         for name in list(params.keys()):
@@ -105,7 +157,7 @@ class BaseTask(luigi.Task):
         # remove params that are preferably set via cli class arguments
         if _prefer_cli:
             cls_args = []
-            prefix = cls.task_family + "_"
+            prefix = cls.get_task_family() + "_"
             if luigi.cmdline_parser.CmdlineParser.get_instance():
                 for key in global_cmdline_values().keys():
                     if key.startswith(prefix):
@@ -116,24 +168,47 @@ class BaseTask(luigi.Task):
 
         return params
 
-    def __init__(self, *args, **kwargs):
-        self.param_kwargs = {}
-        super(BaseTask, self).__init__(*args, **kwargs)
+    @classmethod
+    def get_logger_name(cls):
+        return "{}.{}".format(cls.__module__, cls.__name__)
 
-    def __setattr__(self, attr, value):
-        if isinstance(getattr(self.__class__, attr, None), luigi.Parameter):
-            self.param_kwargs[attr] = value
-        super(BaseTask, self).__setattr__(attr, value)
+    @classproperty
+    def logger(cls):
+        name = cls.get_logger_name()
+        is_configured = name in logging.root.manager.loggerDict
+        return logging.getLogger(name) if is_configured else setup_logger(name)
 
     def complete(self):
         outputs = [t for t in flatten(self.output()) if not t.optional]
 
         if len(outputs) == 0:
-            msg = "task {!r} has either no non-optional outputs or no custom complete() method"
-            warnings.warn(msg.format(self), stacklevel=2)
+            logger.warning("task {!r} has either no non-optional outputs or no custom complete() "
+                "method".format(self))
             return False
 
         return all(t.exists() for t in outputs)
+
+    @property
+    def live_task_id(self):
+        """
+        The task id depends on the task family and parameters, and is generated by luigi once in the
+        constructor. As the latter may change, this property returns to the id with the current set
+        of parameters.
+        """
+        # create a temporary dictionary of param_kwargs that is patched for the duration of the
+        # call to create the string representation of the parameters
+        param_kwargs = {attr: getattr(self, attr) for attr in self.param_kwargs}
+        # only_public was introduced in 2.8.0, so check if that arg exists
+        str_params_kwargs = {"only_significant": True}
+        if "only_public" in getargspec(self.to_str_params).args:
+            str_params_kwargs["only_public"] = True
+        with patch_object(self, "param_kwargs", param_kwargs):
+            str_params = self.to_str_params(**str_params_kwargs)
+
+        # create the task id
+        task_id = luigi.task.task_id_str(self.get_task_family(), str_params)
+
+        return task_id
 
     def walk_deps(self, max_depth=-1, order="level"):
         # see https://en.wikipedia.org/wiki/Tree_traversal
@@ -145,7 +220,7 @@ class BaseTask(luigi.Task):
             task, depth = tasks.pop(0)
             if max_depth >= 0 and depth > max_depth:
                 continue
-            deps = luigi.task.flatten(task.requires())
+            deps = flatten(task.requires())
 
             yield (task, deps, depth)
 
@@ -156,25 +231,17 @@ class BaseTask(luigi.Task):
                 tasks[:0] = deps
 
     def cli_args(self, exclude=None, replace=None):
-        if exclude is None:
-            exclude = set()
+        exclude = set() if exclude is None else set(make_list(exclude))
         if replace is None:
             replace = {}
 
-        args = []
+        args = OrderedDict()
         for name, param in self.get_params():
             if multi_match(name, exclude, any):
                 continue
             raw = replace.get(name, getattr(self, name))
             val = param.serialize(raw)
-            arg = "--{}".format(name.replace("_", "-"))
-            if isinstance(param, luigi.BoolParameter):
-                if raw:
-                    args.extend([arg])
-            elif isinstance(param, (luigi.IntParameter, luigi.FloatParameter)):
-                args.extend([arg, str(val)])
-            else:
-                args.extend([arg, "\"{}\"".format(val)])
+            args["--" + name.replace("_", "-")] = str(val)
 
         return args
 
@@ -192,13 +259,17 @@ class Register(BaseRegister):
         for param in inst.interactive_params:
             value = getattr(inst, param)
             if value:
+                skip_abort = False
                 try:
-                    logger.debug("evaluating interactive parameter '{}' with value '{}'".format(
+                    logger.debug("evaluating interactive parameter '{}' with value {}".format(
                         param, value))
-                    getattr(inst, "_" + param)(*value)
+                    skip_abort = getattr(inst, "_" + param)(value)
                 except KeyboardInterrupt:
                     print("\naborted")
-                abort("", exitcode=0)
+
+                # abort the process if not explicitly skipped
+                if not skip_abort:
+                    abort(exitcode=0)
 
         return inst
 
@@ -206,22 +277,50 @@ class Register(BaseRegister):
 @six.add_metaclass(Register)
 class Task(BaseTask):
 
-    log_file = luigi.Parameter(default=NO_STR, significant=False, description="a custom log file, "
+    log_file = luigi.Parameter(default=NO_STR, significant=False, description="a custom log file; "
         "default: <task.default_log_file>")
-    print_deps = CSVParameter(default=[], significant=False, description="print task dependencies, "
-        "do not run any task, the passed numbers set the recursion depth (0 means non-recursive)")
-    print_status = CSVParameter(default=[], significant=False, description="print the task status, "
-        "do not run any task, the passed numbers set the recursion depth (0 means non-recursive) "
-        "and optionally the collection depth")
-    remove_output = CSVParameter(default=[], significant=False, description="remove all outputs, "
-        "do not run any task, the passed number sets the recursion depth (0 means non-recursive)")
+    print_deps = CSVParameter(default=(), significant=False, description="print task dependencies "
+        "but do not run any task; this CSV parameter accepts a single integer value which sets the "
+        "task recursion depth (0 means non-recursive)")
+    print_status = CSVParameter(default=(), significant=False, description="print the task status "
+        "but do not run any task; this CSV parameter accepts up to three values: 1. the task "
+        "recursion depth (0 means non-recursive), 2. the depth of the status text of target "
+        "collections (default: 0), 3. a flag that is passed to the status text creation (default: "
+        "'')")
+    print_output = CSVParameter(default=(), significant=False, description="print a flat list of "
+        "output targets but do not run any task; this CSV parameter accepts a single integer value "
+        "which sets the task recursion depth (0 means non-recursive)")
+    remove_output = CSVParameter(default=(), significant=False, description="remove task outputs "
+        "but do not run any task; this CSV parameter accepts up to three values: 1. the task "
+        "recursion depth (0 means non-recursive), 2. one of the modes 'i' (interactive), 'a' "
+        "(all), 'd' (dry run) (default: 'i'), 3. a flag that decides whether outputs of external "
+        "tasks should be removed (default: False)")
+    fetch_output = CSVParameter(default=(), significant=False, description="copy all task outputs "
+        "into a local directory but do not run any task; this CSV parameter accepts up to four "
+        "values: 1. the task recursion depth (0 means non-recursive), 2. one of the modes 'i' "
+        "(interactive), 'a' (all), 'd' (dry run) (default: 'i'), 3. the target directory (default: "
+        "'.'), 4. a flag that decides whether outputs of external tasks should be fetched "
+        "(default: False)")
 
-    interactive_params = ["print_deps", "print_status", "remove_output"]
+    interactive_params = [
+        "print_deps", "print_status", "print_output", "remove_output", "fetch_output",
+    ]
 
     message_cache_size = 10
 
     exclude_index = True
-    exclude_params_req = set(interactive_params)
+    exclude_params_req = set()
+    exclude_params_repr = set()
+
+    @classmethod
+    def req_params(cls, inst, _exclude=None, _prefer_cli=None, **kwargs):
+        _exclude = set() if _exclude is None else set(make_list(_exclude))
+
+        # always exclude interactive parameters
+        _exclude |= set(inst.interactive_params)
+
+        return super(Task, cls).req_params(inst, _exclude=_exclude, _prefer_cli=_prefer_cli,
+            **kwargs)
 
     def __init__(self, *args, **kwargs):
         super(Task, self).__init__(*args, **kwargs)
@@ -236,15 +335,20 @@ class Task(BaseTask):
     def default_log_file(self):
         return "-"
 
-    def publish_message(self, *args):
-        msg = " ".join(str(arg) for arg in args)
-        print(msg)
+    def is_root_task(self):
+        return root_task() == self
+
+    def publish_message(self, msg, scheduler=True):
+        msg = str(msg)
+
+        sys.stdout.write(msg + "\n")
         sys.stdout.flush()
 
-        self._publish_message(*args)
+        if scheduler:
+            self._publish_message(msg)
 
-    def _publish_message(self, *args):
-        msg = " ".join(str(arg) for arg in args)
+    def _publish_message(self, msg):
+        msg = str(msg)
 
         # add to message cache and handle overflow
         msg = uncolored(msg)
@@ -254,31 +358,45 @@ class Task(BaseTask):
             del self._message_cache[:end]
 
         # set status message using the current message cache
-        self.set_status_message("\n".join(self._message_cache))
+        if callable(getattr(self, "set_status_message", None)):
+            self.set_status_message("\n".join(self._message_cache))
+        else:
+            logger.warning("set_status_message not set, cannot send task message to scheduler")
 
     def create_message_stream(self, *args, **kwargs):
         return TaskMessageStream(self, *args, **kwargs)
 
     @contextmanager
-    def publish_step(self, msg, success_message="done", fail_message="failed"):
-        self.publish_message(msg)
+    def publish_step(self, msg, success_message="done", fail_message="failed", runtime=True,
+            scheduler=True):
+        self.publish_message(msg, scheduler=scheduler)
         success = False
+        t0 = time.time()
         try:
             yield
             success = True
         finally:
-            self.publish_message(success_message if success else fail_message)
+            msg = success_message if success else fail_message
+            if runtime:
+                diff = time.time() - t0
+                msg = "{} (took {})".format(msg, human_duration(seconds=diff))
+            self.publish_message(msg, scheduler=scheduler)
 
-    def publish_progress(self, percentage, precision=0):
-        percentage = round(percentage, precision)
+    def publish_progress(self, percentage, precision=1):
+        percentage = int(round_discrete(percentage, precision, "floor"))
         if percentage != self._last_progress_percentage:
             self._last_progress_percentage = percentage
-            self.set_progress_percentage(percentage)
 
-    def create_progress_callback(self, n_total, reach=(0, 100)):
+            if callable(getattr(self, "set_progress_percentage", None)):
+                self.set_progress_percentage(percentage)
+            else:
+                logger.warning("set_progress_percentage not set, cannot send task progress to "
+                    "scheduler")
+
+    def create_progress_callback(self, n_total, reach=(0, 100), precision=1):
         def make_callback(n, start, end):
             def callback(i):
-                self.publish_progress(start + (i + 1) / float(n) * (end - start))
+                self.publish_progress(start + (i + 1) / float(n) * (end - start), precision)
             return callback
 
         if isinstance(n_total, (list, tuple)):
@@ -288,50 +406,99 @@ class Task(BaseTask):
         else:
             return make_callback(n_total, *reach)
 
-    def colored_repr(self, color=True):
-        family = self._repr_family(self.task_family, color=color)
+    def cli_args(self, exclude=None, replace=None):
+        exclude = set() if exclude is None else set(make_list(exclude))
 
-        parts = [self._repr_param(*pair, color=color) for pair in self._repr_params()]
-        parts += [self._repr_flag(flag, color=color) for flag in self._repr_flags()]
+        # always exclude interactive parameters
+        exclude |= set(self.interactive_params)
+
+        return super(Task, self).cli_args(exclude=exclude, replace=replace)
+
+    def __repr__(self):
+        return self.repr(color=False)
+
+    def repr(self, all_params=False, color=None, **kwargs):
+        if color is None:
+            cfg = Config.instance()
+            color = cfg.get_expanded_boolean("task", "colored_repr")
+
+        family = self._repr_family(self.get_task_family(), color=color, **kwargs)
+
+        parts = [
+            self._repr_param(name, value, color=color, **kwargs)
+            for name, value in six.iteritems(self._repr_params(all_params=all_params))
+        ] + [
+            self._repr_flag(flag, color=color, **kwargs)
+            for flag in self._repr_flags()
+        ]
 
         return "{}({})".format(family, ", ".join(parts))
 
-    def _repr_params(self):
+    def colored_repr(self, all_params=False):
+        # deprecation warning until v0.1
+        logger.warning("the use of {0}.colored_repr() is deprecated, please use "
+            "{0}.repr(color=True) instead".format(self.__class__.__name__))
+
+        return self.repr(all_params=all_params, color=True)
+
+    def _repr_params(self, all_params=False):
         # build key value pairs of all significant parameters
         params = self.get_params()
-        param_values = self.get_param_values(params, [], self.param_kwargs)
-        param_objs = dict(params)
 
-        pairs = []
-        for param_name, param_value in param_values:
-            if param_objs[param_name].significant:
-                pairs.append((param_name, param_objs[param_name].serialize(param_value)))
+        exclude = set()
+        if not all_params:
+            exclude |= self.exclude_params_repr
+            exclude |= self.inst_exclude_params_repr()
+            exclude |= set(self.interactive_params)
 
-        return pairs
+        values = OrderedDict()
+        for name, param in params:
+            if param.significant and not multi_match(name, exclude):
+                value = getattr(self, name)
+                values[name] = param.serialize(value)
+
+        return values
 
     def _repr_flags(self):
         return []
 
+    def inst_exclude_params_repr(self):
+        return set()
+
     @classmethod
-    def _repr_family(cls, family, color=True):
+    def _repr_family(cls, family, color=False, **kwargs):
         return colored(family, "green") if color else family
 
     @classmethod
-    def _repr_param(cls, name, value, color=True):
+    def _repr_param(cls, name, value, color=False, **kwargs):
         return "{}={}".format(colored(name, color="blue", style="bright") if color else name, value)
 
     @classmethod
-    def _repr_flag(cls, name, color=True):
+    def _repr_flag(cls, name, color=False, **kwargs):
         return colored(name, color="magenta") if color else name
 
-    def _print_deps(self, *args, **kwargs):
-        return print_task_deps(self, *args, **kwargs)
+    def _print_deps(self, args):
+        return print_task_deps(self, *args)
 
-    def _print_status(self, *args, **kwargs):
-        return print_task_status(self, *args, **kwargs)
+    def _print_status(self, args):
+        return print_task_status(self, *args)
 
-    def _remove_output(self, *args, **kwargs):
-        return remove_task_output(self, *args, **kwargs)
+    def _print_output(self, args):
+        return print_task_output(self, *args)
+
+    def _remove_output(self, args):
+        return remove_task_output(self, *args)
+
+    def _fetch_output(self, args):
+        import law.target.remote as ltr
+        with patch_object(ltr, "global_retries", 0, lock=True):
+            return fetch_task_output(self, *args)
+
+    def localize_input(self, *args, **kwargs):
+        return localize_file_targets(self.input(), *args, **kwargs)
+
+    def localize_output(self, *args, **kwargs):
+        return localize_file_targets(self.output(), *args, **kwargs)
 
 
 class WrapperTask(Task):
@@ -362,143 +529,22 @@ class ExternalTask(Task):
         return super(ExternalTask, self)._repr_flags() + ["external"]
 
 
-class ProxyTask(BaseTask):
-
-    task = TaskInstanceParameter()
-
-    exclude_params_req = {"task"}
-
-
 class TaskMessageStream(BaseStream):
 
-    def __init__(self, task, stdout=True):
+    def __init__(self, task, stdout=True, scheduler=True):
         super(TaskMessageStream, self).__init__()
         self.task = task
         self.stdout = stdout
+        self.scheduler = scheduler
 
-    def _write(self, *args):
+    def _write(self, msg):
         if self.stdout:
-            self.task.publish_message(*args)
-        else:
-            self.task._publish_message(*args)
+            self.task.publish_message(msg, scheduler=self.scheduler)
+        elif self.scheduler:
+            self.task._publish_message(msg)
 
 
-def getreqs(struct):
-    # same as luigi.task.getpaths but for requires()
-    if isinstance(struct, Task):
-        return struct.requires()
-    elif isinstance(struct, dict):
-        r = struct.__class__()
-        for k, v in six.iteritems(struct):
-            r[k] = getreqs(v)
-        return r
-    else:
-        try:
-            s = list(struct)
-        except TypeError:
-            raise Exception("Cannot map {} to Task/dict/list".format(struct))
-
-        return struct.__class__(getreqs(r) for r in s)
-
-
-def print_task_deps(task, max_depth=1):
-    max_depth = int(max_depth)
-
-    print("print task dependencies with max_depth {}\n".format(max_depth))
-
-    ind = "|   "
-    for dep, _, depth in task.walk_deps(max_depth=max_depth, order="pre"):
-        print(depth * ind + "> " + dep.colored_repr())
-
-
-def print_task_status(task, max_depth=0, target_depth=0, flags=None):
-    max_depth = int(max_depth)
-    target_depth = int(target_depth)
-    if flags:
-        flags = tuple(flags.lower().split("-"))
-
-    print("print task status with max_depth {} and target_depth {}".format(
-        max_depth, target_depth))
-
-    done = []
-    ind = "|   "
-    for dep, _, depth in task.walk_deps(max_depth=max_depth, order="pre"):
-        offset = depth * ind
-        print(offset)
-        print("{}> check status of {}".format(offset, dep.colored_repr()))
-        offset += ind
-
-        if dep in done:
-            print(offset + "- " + colored("outputs already checked", "yellow"))
-            continue
-
-        done.append(dep)
-
-        for outp in luigi.task.flatten(dep.output()):
-            print("{}- check {}".format(offset, outp.colored_repr()))
-
-            status_lines = outp.status_text(max_depth=target_depth, flags=flags).split("\n")
-            status_text = status_lines[0]
-            for line in status_lines[1:]:
-                status_text += "\n" + offset + "     " + line
-            print("{}  -> {}".format(offset, status_text))
-
-
-def remove_task_output(task, max_depth=0, mode=None, include_external=False):
-    max_depth = int(max_depth)
-
-    print("remove task output with max_depth {}".format(max_depth))
-
-    include_external = check_bool_flag(include_external)
-    if include_external:
-        print("include external tasks")
-
-    # determine the mode, i.e., all, dry, interactive
-    modes = ["i", "a", "d"]
-    mode_names = ["interactive", "all", "dry"]
-    if mode is None:
-        mode = query_choice("removal mode?", modes, default="i", descriptions=mode_names)
-    elif isinstance(mode, int):
-        mode = modes[mode]
-    else:
-        mode = mode[0].lower()
-    if mode not in modes:
-        raise Exception("unknown removal mode '{}'".format(mode))
-    mode_name = mode_names[modes.index(mode)]
-    print("selected " + colored(mode_name + " mode", "blue", style="bright"))
-
-    done = []
-    ind = "|   "
-    for dep, _, depth in task.walk_deps(max_depth=max_depth, order="pre"):
-        offset = depth * ind
-        print(offset)
-        print("{}> remove output of {}".format(offset, dep.colored_repr()))
-        offset += ind
-
-        if not include_external and isinstance(dep, ExternalTask):
-            print(offset + "- " + colored("task is external, skip", "yellow"))
-            continue
-
-        if dep in done:
-            print(offset + "- " + colored("outputs already removed", "yellow"))
-            continue
-
-        if mode == "i":
-            task_mode = query_choice(offset + "  walk through outputs?", ("y", "n"), default="y")
-            if task_mode == "n":
-                continue
-
-        done.append(dep)
-
-        for outp in luigi.task.flatten(dep.output()):
-            print("{}- remove {}".format(offset, outp.colored_repr()))
-
-            if mode == "d":
-                continue
-            elif mode == "i":
-                if query_choice(offset + "  remove?", ("y", "n"), default="n") == "n":
-                    print(offset + colored("  skipped", "yellow"))
-                    continue
-
-            outp.remove()
-            print(offset + "  " + colored("removed", "red", style="bright"))
+# trailing imports
+from law.task.interactive import (
+    print_task_deps, print_task_status, print_task_output, remove_task_output, fetch_task_output,
+)

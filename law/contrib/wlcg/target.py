@@ -26,41 +26,35 @@ class WLCGFileSystem(RemoteFileSystem):
 
     default_instance = None
 
-    def __init__(self, config=None, base=None, bases=None, **kwargs):
-        # default configs
-        kwargs.setdefault("retries", 1)
-        kwargs.setdefault("retry_delay", 5)
-        kwargs.setdefault("transfer_config", {"checksum_check": False})
-        kwargs.setdefault("validate_copy", False)
-        kwargs.setdefault("cache_config", {})
-        kwargs.setdefault("atomic_contexts", True)
-        kwargs.setdefault("permissions", False)
+    def __init__(self, section=None, **kwargs):
+        # default gfal transfer config
+        kwargs.setdefault("transfer_config", {})
+        kwargs["transfer_config"].setdefault("checksum_check", False)
 
-        # prepare the gfal options
-        # resolution order: config, base+bases, default wlcg fs section
+        # if present, read options from the section in the law config
+        self.config_section = None
         cfg = Config.instance()
-        if not config:
-            config = cfg.get("target", "default_wlcg_fs")
+        if not section:
+            section = cfg.get_expanded("target", "default_wlcg_fs")
+        if isinstance(section, six.string_types):
+            if cfg.has_section(section):
+                # extend options of sections other than "wlcg_fs" with its defaults
+                if section != "wlcg_fs":
+                    data = dict(cfg.items("wlcg_fs", expand_vars=False, expand_user=False))
+                    cfg.update({section: data}, overwrite_sections=True, overwrite_options=False)
+                kwargs = self.parse_config(section, kwargs)
+                self.config_section = section
+            else:
+                raise Exception("law config has no section '{}' to read {} options".format(
+                    section, self.__class__.__name__))
 
-        # config might be a section in the law config
-        if cfg.has_section(config):
-            # parse it
-            self.parse_config(config, kwargs)
+        # base path is mandatory
+        if not kwargs.get("base"):
+            raise Exception("{}.base is missing, set either 'section', 'base', or change the "
+                "target.default_wlcg_fs option in your law config".format(self.__class__.__name__))
 
-            # set base and bases explicitely
-            _base = kwargs.pop("base", None)
-            if base is None:
-                base = _base
-            _bases = kwargs.pop("bases", None)
-            if bases is None:
-                bases = _bases
-
-        # base is required
-        if base is None:
-            raise Exception("invalid arguments, set either config, base or the "
-                "target.default_wlcg_fs option in your law config")
-
-        RemoteFileSystem.__init__(self, base, bases, **kwargs)
+        base = kwargs.pop("base")
+        RemoteFileSystem.__init__(self, base, **kwargs)
 
     def _s_isdir(self, st_mode):
         # some WLCG file protocols do not return standard st_mode values in stat requests,
@@ -76,7 +70,7 @@ try:
     logger.debug("created default WLCGFileSystem instance '{}'".format(
         WLCGFileSystem.default_instance))
 except Exception as e:
-    logger.debug("could not create default WLCGFileSystem instance: {}".format(e))
+    logger.warning("could not create default WLCGFileSystem instance: {}".format(e))
 
 
 class WLCGTarget(RemoteTarget):
@@ -84,7 +78,9 @@ class WLCGTarget(RemoteTarget):
     def __init__(self, path, fs=WLCGFileSystem.default_instance, **kwargs):
         """ __init__(path, fs=WLCGFileSystem.default_instance, **kwargs)
         """
-        if isinstance(fs, six.string_types):
+        if fs is None:
+            fs = WLCGFileSystem.default_instance
+        elif isinstance(fs, six.string_types):
             fs = WLCGFileSystem(fs)
         RemoteTarget.__init__(self, path, fs, **kwargs)
 

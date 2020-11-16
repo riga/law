@@ -18,9 +18,7 @@ import weakref
 import functools
 import atexit
 import gc
-import random
-import threading
-import warnings
+import random as _random
 import logging
 from contextlib import contextmanager
 
@@ -34,7 +32,8 @@ from law.target.file import (
 from law.target.local import LocalFileSystem, LocalFileTarget
 from law.target.formatter import find_formatter
 from law.util import (
-    make_list, copy_no_perm, makedirs_perm, human_bytes, create_hash, user_owns_file,
+    make_list, brace_expand, makedirs_perm, human_bytes, parse_bytes, parse_duration, create_hash,
+    user_owns_file, io_lock, is_lazy_iterable,
 )
 
 
@@ -52,10 +51,6 @@ try:
         gfal2._law_configured_logging = True
         gfal2_logger = logging.getLogger("gfal2")
         gfal2_logger.addHandler(logging.StreamHandler())
-        level = Config.instance().get("target", "gfal2_log_level")
-        if isinstance(level, six.string_types):
-            level = getattr(logging, level, logging.WARNING)
-        gfal2_logger.setLevel(level)
 
 except ImportError:
     HAS_GFAL2 = False
@@ -70,56 +65,88 @@ except ImportError:
 
 _local_fs = LocalFileSystem.default_instance
 
+global_retries = None
 
-def retry(func):
-    @functools.wraps(func)
-    def wrapper(self, *args, **kwargs):
-        retries = kwargs.pop("retries", None)
-        if retries is None:
-            retries = self.retries
+global_retry_delay = None
 
-        delay = kwargs.pop("retry_delay", None)
-        if delay is None:
-            delay = self.retry_delay
 
-        attempt = 0
-        try:
-            while True:
-                try:
-                    return func(self, *args, **kwargs)
-                except gfal2.GError as e:
-                    attempt += 1
-                    if attempt > retries:
-                        raise e
-                    else:
-                        logger.debug("gfal2.{}(args: {}, kwargs: {}) failed, retry".format(
-                            func.__name__, args, kwargs))
-                        time.sleep(delay)
-        except Exception as e:
-            e.message += "\nfunction: {}\nattempt : {}\nargs    : {}\nkwargs  : {}".format(
-                func.__name__, attempt, args, kwargs)
-            raise e
+def retry(func=None, uri_cmd=None):
+    def wrapper(func):
+        @functools.wraps(func)
+        def wrapper(self, *args, **kwargs):
+            # get the number of retries
+            if global_retries is not None:
+                retries = global_retries
+            else:
+                retries = kwargs.pop("retries", None)
+                if retries is None:
+                    retries = self.retries
 
-    return wrapper
+            # get the retry delay
+            if global_retry_delay is not None:
+                delay = global_retry_delay
+            else:
+                delay = kwargs.pop("retry_delay", None)
+                if delay is None:
+                    delay = self.retry_delay
+
+            # get the random base setting
+            random_base = kwargs.pop("random_base", None)
+            if random_base is None:
+                random_base = self.random_base
+
+            attempt = 0
+            try:
+                base = None
+                base_set = bool(kwargs.get("base"))
+                skip_indices = []
+                while True:
+                    # when no base was set initially and an uri cmd is given, get a random
+                    # uri base under consideration of bases (or their indices) to skip
+                    if not base_set and uri_cmd:
+                        base, idx = self.get_base(cmd=uri_cmd, random=random_base,
+                            skip_indices=skip_indices, return_index=True)
+                        kwargs["base"] = base
+                        skip_indices.append(idx)
+
+                    try:
+                        return func(self, *args, **kwargs)
+                    except gfal2.GError as e:
+                        attempt += 1
+                        if attempt > retries:
+                            raise e
+                        else:
+                            logger.debug("gfal2.{}(args: {}, kwargs: {}) failed, retry".format(
+                                func.__name__, args, kwargs))
+                            time.sleep(delay)
+
+            except Exception as e:
+                e.message += "\nfunction: {}\nattempt : {}\nargs    : {}\nkwargs  : {}".format(
+                    func.__name__, attempt, args, kwargs)
+                raise e
+
+        return wrapper
+
+    return wrapper(func) if func else wrapper
 
 
 class GFALInterface(object):
 
     def __init__(self, base, bases=None, gfal_options=None, transfer_config=None,
-            atomic_contexts=False, retries=0, retry_delay=0):
+            atomic_contexts=False, retries=0, retry_delay=0, random_base=True):
         object.__init__(self)
 
         # cache for gfal context objects and transfer parameters per pid for thread safety
         self._contexts = {}
         self._transfer_parameters = {}
 
-        # convert base(s) to list for round-robin
+        # convert base(s) to list for random selection
         self.base = make_list(base)
         self.bases = {k: make_list(b) for k, b in six.iteritems(bases)} if bases else {}
 
         # expand variables in base and bases
-        self.base = map(os.path.expandvars, self.base)
-        self.bases = {k: map(os.path.expandvars, b) for k, b in six.iteritems(self.bases)}
+        self.base = list(map(os.path.expandvars, self.base))
+        self.bases = {k: list(map(os.path.expandvars, b)) for k, b in six.iteritems(self.bases)}
 
         # prepare gfal options
         self.gfal_options = gfal_options or {}
@@ -134,6 +161,7 @@ class GFALInterface(object):
         self.atomic_contexts = atomic_contexts
         self.retries = retries
         self.retry_delay = retry_delay
+        self.random_base = random_base
 
     @classmethod
     def gfal_str(cls, s):
@@ -183,72 +211,128 @@ class GFALInterface(object):
             if self.atomic_contexts and pid in self._transfer_parameters:
                 del self._transfer_parameters[pid]
 
-    def url(self, path, cmd=None, rnd=True):
+    def uri(self, path, *args, **kwargs):
+        """ uri(path, base=None, *args, **kwargs)
+        """
+        # get the base
+        base = kwargs.pop("base", None)
+        if not base:
+            kwargs["return_index"] = False
+            base = self.get_base(*args, **kwargs)
+
+        # helper to join the path to a base b
+        uri = lambda b: os.path.join(b, self.gfal_str(path).lstrip("/")).rstrip("/")
+
+        if isinstance(base, (list, tuple)) or is_lazy_iterable(base):
+            return [uri(b) for b in base]
+        else:
+            return uri(base)
+
+    def get_base(self, cmd=None, random=None, skip_indices=None, return_index=False,
+            return_all=False):
+        if random is None:
+            random = self.random_base
+
         # get potential bases for the given cmd
-        bases = self.base
+        bases = make_list(self.base)
         if cmd:
             for cmd in make_list(cmd):
                 if cmd in self.bases:
                     bases = self.bases[cmd]
                     break
 
-        # select one when there are multple
-        if not rnd or len(bases) == 1:
+        if not bases:
+            raise Exception("no bases available for command '{}'".format(cmd))
+
+        # are there indices to skip?
+        all_bases = bases
+        if skip_indices:
+            _bases = [b for i, b in enumerate(bases) if i not in skip_indices]
+            if _bases:
+                bases = _bases
+
+        # return all?
+        if return_all:
+            return bases
+
+        # select one
+        if len(bases) == 1 or not random:
+            # select the first base
             base = bases[0]
         else:
-            base = random.choice(bases)
+            # select a random base
+            base = _random.choice(bases)
 
-        return os.path.join(base, self.gfal_str(path).strip("/"))
+        return base if not return_index else (base, all_bases.index(base))
 
-    def exists(self, path, stat=False):
-        cmd = "stat" if stat else ("exists", "stat")
+    def exists(self, path, stat=False, base=None):
+        uri = self.uri(path, cmd="stat" if stat else ("exists", "stat"), base=base)
         with self.context() as ctx:
             try:
-                rstat = ctx.stat(self.url(path, cmd=cmd))
+                rstat = ctx.stat(uri)
                 return rstat if stat else True
             except gfal2.GError:
                 return None if stat else False
 
-    @retry
-    def stat(self, path):
+    @retry(uri_cmd="stat")
+    def stat(self, path, base=None):
+        uri = self.uri(path, cmd="stat", base=base)
         with self.context() as ctx:
-            return ctx.stat(self.url(path, "stat"))
+            return ctx.stat(uri)
 
-    @retry
-    def chmod(self, path, perm):
+    @retry(uri_cmd="chmod")
+    def chmod(self, path, perm, base=None):
         if perm:
+            uri = self.uri(path, cmd="chmod", base=base)
             with self.context() as ctx:
-                return ctx.chmod(self.url(path, "chmod"), perm)
+                return ctx.chmod(uri, perm)
 
-    @retry
-    def unlink(self, path):
+    @retry(uri_cmd="unlink")
+    def unlink(self, path, base=None):
+        uri = self.uri(path, cmd="unlink", base=base)
         with self.context() as ctx:
-            return ctx.unlink(self.url(path, "unlink"))
+            return ctx.unlink(uri)
 
-    @retry
-    def rmdir(self, path):
+    @retry(uri_cmd="rmdir")
+    def rmdir(self, path, base=None):
+        uri = self.uri(path, cmd="rmdir", base=base)
         with self.context() as ctx:
-            return ctx.rmdir(self.url(path, "rmdir"))
+            return ctx.rmdir(uri)
 
-    @retry
-    def mkdir(self, path, perm):
+    @retry(uri_cmd="mkdir")
+    def mkdir(self, path, perm, base=None):
+        uri = self.uri(path, cmd="mkdir", base=base)
         with self.context() as ctx:
-            return ctx.mkdir(self.url(path, "mkdir"), perm or 0o0770)
+            return ctx.mkdir(uri, perm or 0o0770)
 
-    @retry
-    def mkdir_rec(self, path, perm):
+    @retry(uri_cmd=["mkdir_rec", "mkdir"])
+    def mkdir_rec(self, path, perm, base=None):
+        uri = self.uri(path, cmd=["mkdir_rec", "mkdir"], base=base)
         with self.context() as ctx:
-            return ctx.mkdir_rec(self.url(path, ("mkdir_rec", "mkdir")), perm or 0o0770)
+            return ctx.mkdir_rec(uri, perm or 0o0770)
 
-    @retry
-    def listdir(self, path):
+    @retry(uri_cmd="listdir")
+    def listdir(self, path, base=None):
+        uri = self.uri(path, cmd="listdir", base=base)
         with self.context() as ctx:
-            return ctx.listdir(self.url(path, "listdir"))
+            return ctx.listdir(uri)
 
-    @retry
-    def filecopy(self, src, dst):
+    @retry(uri_cmd="filecopy")
+    def filecopy(self, src, dst, base=None):
+        if has_scheme(src):
+            src = self.gfal_str(src)
+        else:
+            src = self.uri(src, cmd="filecopy", base=base)
+
+        if has_scheme(dst):
+            dst = self.gfal_str(dst)
+        else:
+            dst = self.uri(dst, cmd="filecopy", base=base)
+
         with self.context() as ctx, self.transfer_parameters(ctx) as params:
-            return ctx.filecopy(params, self.gfal_str(src), self.gfal_str(dst))
+            ctx.filecopy(params, src, dst)
+
+        return src, dst
 
 
 class RemoteCache(object):
@@ -270,13 +354,49 @@ class RemoteCache(object):
     def cleanup_all(cls):
         for inst in cls._instances:
             try:
-                inst.cleanup()
+                inst._cleanup()
             except:
                 pass
 
-    def __init__(self, fs, root=TMP, auto_flush=False, max_size=-1, dir_perm=0o0770,
-            file_perm=0o0660, wait_delay=5, max_waits=120, global_lock=False):
+    @classmethod
+    def parse_config(cls, section, config=None, overwrite=False):
+        # reads a law config section and returns parsed file system configs
+        cfg = Config.instance()
+
+        if config is None:
+            config = {}
+
+        # helper to add a config value if it exists, extracted with a config parser method
+        def add(option, func):
+            cache_option = "cache_" + option
+            if cfg.is_missing_or_none(section, cache_option):
+                return
+            elif option not in config or overwrite:
+                config[option] = func(section, cache_option)
+
+        def get_size(section, cache_option):
+            value = cfg.get_expanded(section, cache_option)
+            return parse_bytes(value, input_unit="MB", unit="MB")
+
+        def get_time(section, cache_option):
+            value = cfg.get_expanded(section, cache_option)
+            return parse_duration(value, input_unit="s", unit="s")
+
+        add("root", cfg.get_expanded)
+        add("cleaup", cfg.get_expanded_boolean)
+        add("max_size", get_size)
+        add("file_perm", cfg.get_expanded_int)
+        add("dir_perm", cfg.get_expanded_int)
+        add("wait_delay", get_time)
+        add("max_waits", cfg.get_expanded_int)
+        add("global_lock", cfg.get_expanded_boolean)
+
+        return config
+
+    def __init__(self, fs, root=TMP, cleanup=False, max_size=0, file_perm=0o0660, dir_perm=0o0770,
+            wait_delay=5., max_waits=120, global_lock=False):
         object.__init__(self)
+        # max_size is in MB, wait_delay is in seconds
 
         # create a unique name based on fs attributes
         name = "{}_{}".format(fs.__class__.__name__, create_hash(fs.gfal.base[0]))
@@ -284,9 +404,10 @@ class RemoteCache(object):
         # create the root dir, handle tmp
         root = os.path.expandvars(os.path.expanduser(root)) or self.TMP
         if not os.path.exists(root) and root == self.TMP:
-            tmp_dir = Config.instance().get_expanded("target", "tmp_dir")
+            cfg = Config.instance()
+            tmp_dir = cfg.get_expanded("target", "tmp_dir")
             base = tempfile.mkdtemp(dir=tmp_dir)
-            auto_flush = True
+            cleanup = True
         else:
             base = os.path.join(root, name)
             makedirs_perm(base, dir_perm)
@@ -296,7 +417,7 @@ class RemoteCache(object):
         self.fs_ref = weakref.ref(fs)
         self.base = base
         self.name = name
-        self.auto_flush = auto_flush
+        self.cleanup = cleanup
         self.max_size = max_size
         self.dir_perm = dir_perm
         self.file_perm = file_perm
@@ -312,33 +433,8 @@ class RemoteCache(object):
 
         logger.debug("created RemoteCache at '{}'".format(self.base))
 
-    @classmethod
-    def parse_config(cls, section, config=None):
-        # reads a law config section and returns parsed file system configs
-        cfg = Config.instance()
-
-        if config is None:
-            config = {}
-
-        # helper to add a config value if it exists, extracted with a config parser method
-        def add(key, func):
-            cache_key = "cache_" + key
-            if cfg.has_option(section, cache_key):
-                config[key] = func(section, cache_key)
-
-        add("root", cfg.get_expanded)
-        add("auto_flush", cfg.getboolean)
-        add("max_size", cfg.getint)
-        add("dir_perm", cfg.getint)
-        add("file_perm", cfg.getint)
-        add("wait_delay", cfg.getfloat)
-        add("max_waits", cfg.getint)
-        add("global_lock", cfg.getboolean)
-
-        return config
-
     def __del__(self):
-        self.cleanup()
+        self._cleanup()
 
     def __repr__(self):
         return "<{} '{}' at {}>".format(self.__class__.__name__, self.base, hex(id(self)))
@@ -350,9 +446,9 @@ class RemoteCache(object):
     def fs(self):
         return self.fs_ref()
 
-    def cleanup(self):
-        # full flush or remove open locks
-        if getattr(self, "auto_flush", False):
+    def _cleanup(self):
+        # full cleanup or remove open locks
+        if getattr(self, "cleanup", False):
             if os.path.exists(self.base):
                 shutil.rmtree(self.base)
         else:
@@ -444,7 +540,7 @@ class RemoteCache(object):
         self._await_global(**kwargs)
 
         try:
-            with threading.Lock():
+            with io_lock:
                 with open(self._global_lock_path, "w") as f:
                     f.write("")
                 os.utime(self._global_lock_path, None)
@@ -460,7 +556,7 @@ class RemoteCache(object):
         self._await(cpath, **kwargs)
 
         try:
-            with threading.Lock():
+            with io_lock:
                 with open(lock_path, "w") as f:
                     f.write("")
                 self._locked_cpaths.add(cpath)
@@ -498,19 +594,19 @@ class RemoteCache(object):
 
         # determine the maximum size of the cache
         # make sure it is always smaller than what is available
-        if self.max_size < 0:
+        if self.max_size <= 0:
             max_size = current_size + free_size
         else:
-            max_size = min(self.max_size, current_size + free_size)
+            max_size = min(self.max_size * 1024**2, current_size + free_size)
 
         # determine the size of files that need to be deleted
         delete_size = current_size + size - max_size
         if delete_size <= 0:
-            logger.debug("cache space sufficient, {0[0]:.2f} {0[1]} bytes remaining".format(
+            logger.debug("cache space sufficient, {0[0]:.2f} {0[1]} remaining".format(
                 human_bytes(-delete_size)))
-            return
+            return True
 
-        logger.info("need to delete {0[0]:.2f} {0[1]} bytes from cache".format(
+        logger.info("need to delete {0[0]:.2f} {0[1]} from cache".format(
             human_bytes(delete_size)))
 
         # delete files, ordered by their access time, skip locked ones
@@ -520,10 +616,12 @@ class RemoteCache(object):
             self._remove(cpath)
             delete_size -= cstat.st_size
             if delete_size <= 0:
-                break
-        else:
-            logger.warning("could not allocate remaining {0[0]:.2f} {0[1]} in cache".format(
-                human_bytes(delete_size)))
+                return True
+
+        logger.warning("could not allocate remaining {0[0]:.2f} {0[1]} in cache".format(
+            human_bytes(delete_size)))
+
+        return False
 
     def _touch(self, cpath, times=None):
         if os.path.exists(cpath):
@@ -562,19 +660,81 @@ atexit.register(RemoteCache.cleanup_all)
 
 class RemoteFileSystem(FileSystem):
 
+    local_fs = _local_fs
+
+    @classmethod
+    def parse_config(cls, section, config=None, overwrite=False):
+        config = super(RemoteFileSystem, cls).parse_config(section, config=config)
+
+        cfg = Config.instance()
+
+        # helper to add a config value if it exists, extracted with a config parser method
+        def add(option, func):
+            if option not in config or overwrite:
+                config[option] = func(section, option)
+
+        def get_expanded_list(section, option):
+            # get config value, run brace expansion taking into account csv splitting
+            value = cfg.get_expanded(section, option)
+            return value and [v.strip() for v in brace_expand(value.strip(), split_csv=True)]
+
+        def get_time(section, option):
+            value = cfg.get_expanded(section, option)
+            return parse_duration(value, input_unit="s", unit="s")
+
+        # base path(s)
+        add("base", get_expanded_list)
+
+        # base path(s) per operation
+        options = cfg.options(section, prefix="base_")
+        add("bases", lambda *_: {
+            option[5:]: get_expanded_list(section, option)
+            for option in options
+            if not cfg.is_missing_or_none(section, option)
+        })
+
+        # use atomic contexts per operation
+        add("atomic_contexts", cfg.get_expanded_boolean)
+
+        # default number of retries
+        add("retries", cfg.get_expanded_int)
+
+        # default delay between retries
+        add("retry_delay", get_time)
+
+        # default setting for the random base selection
+        add("random_base", cfg.get_expanded_boolean)
+
+        # default setting for validation after copy
+        add("validate_copy", cfg.get_expanded_boolean)
+
+        # default setting for recursive directory removal
+        add("recursive_remove", cfg.get_expanded_boolean)
+
+        # default setting for using the cache
+        add("use_cache", cfg.get_expanded_boolean)
+
+        # cache options
+        if cfg.options(section, prefix="cache_"):
+            RemoteCache.parse_config(section, config.setdefault("cache_config", {}),
+                overwrite=overwrite)
+
+        return config
+
     def __init__(self, base, bases=None, gfal_options=None, transfer_config=None,
-            atomic_contexts=False, retries=0, retry_delay=0, permissions=True, validate_copy=False,
-            cache_config=None):
-        FileSystem.__init__(self)
+            atomic_contexts=False, retries=0, retry_delay=0, random_base=True, validate_copy=False,
+            recursive_remove=False, use_cache=False, cache_config=None, local_fs=None, **kwargs):
+        FileSystem.__init__(self, **kwargs)
 
         # configure the gfal interface
         self.gfal = GFALInterface(base, bases, gfal_options=gfal_options,
             transfer_config=transfer_config, atomic_contexts=atomic_contexts, retries=retries,
-            retry_delay=retry_delay)
+            retry_delay=retry_delay, random_base=random_base)
 
         # store other configs
-        self.permissions = permissions
         self.validate_copy = validate_copy
+        self.recursive_remove = recursive_remove
+        self.use_cache = use_cache
 
         # set the cache when a cache root is set
         if cache_config and cache_config.get("root"):
@@ -582,62 +742,27 @@ class RemoteFileSystem(FileSystem):
         else:
             self.cache = None
 
-    @classmethod
-    def parse_config(cls, section, config=None):
-        # reads a law config section and returns parsed file system configs
-        cfg = Config.instance()
-
-        if config is None:
-            config = {}
-
-        # helper to expand config a string and split by commas
-        def expand_split(key):
-            return [s.strip() for s in cfg.get_expanded(section, key).strip().split(",")]
-
-        # helper to add a config value if it exists, extracted with a config parser method
-        def add(key, func):
-            if cfg.has_option(section, key):
-                config[key] = func(section, key)
-
-        # base path(s)
-        config["base"] = expand_split("base")
-
-        # base path(s) per operation
-        keys = cfg.keys(section, prefix="base_")
-        if keys:
-            config["bases"] = {key[5:]: expand_split(key) for key in keys}
-
-        # atomic contexts
-        add("atomic_contexts", cfg.getboolean)
-
-        # number of retries
-        add("retries", cfg.getint)
-
-        # delay between retries
-        add("retry_delay", cfg.getfloat)
-
-        # permissions
-        add("permissions", cfg.getboolean)
-
-        # validation after copy
-        add("validate", cfg.getboolean)
-
-        # cache options
-        if cfg.keys(section, prefix="cache_"):
-            RemoteCache.parse_config(section, config.setdefault("cache_config", {}))
-
-        return config
+        if local_fs:
+            self.local_fs = local_fs
 
     def __del__(self):
         # cleanup the cache
         if getattr(self, "cache", None):
-            self.cache.cleanup()
+            self.cache._cleanup()
 
     def __repr__(self):
         return "{}(base={}, {})".format(self.__class__.__name__, self.gfal.base[0], hex(id(self)))
 
     def __eq__(self, other):
         return self is other
+
+    def _eval_use_cache(self, use_cache):
+        if self.cache is None:
+            return False
+        elif use_cache is None:
+            return self.use_cache
+        else:
+            return bool(use_cache)
 
     def is_local(self, path):
         return get_scheme(path) == "file"
@@ -676,16 +801,19 @@ class RemoteFileSystem(FileSystem):
         return not self._s_isdir(rstat.st_mode) if rstat else False
 
     def chmod(self, path, perm, silent=True, **kwargs):
-        if self.permissions and perm is not None:
+        if self.has_perms and perm is not None:
             try:
                 self.gfal.chmod(self.abspath(path), perm, **kwargs)
             except gfal2.GError:
                 if not silent:
                     raise
 
-    def remove(self, path, recursive=True, silent=True, **kwargs):
+    def remove(self, path, recursive=None, silent=True, **kwargs):
+        if recursive is None:
+            recursive = self.recursive_remove
+
         if self.abspath(path) == "/":
-            warnings.warn("refused request to remove base directory of {}".format(self))
+            logger.warning("refused request to remove base directory of {!r}".format(self))
             return
 
         # first get the remote stat object
@@ -704,6 +832,10 @@ class RemoteFileSystem(FileSystem):
 
     def mkdir(self, path, perm=None, recursive=True, silent=True, **kwargs):
         func = self.gfal.mkdir_rec if recursive else self.gfal.mkdir
+
+        if perm is None:
+            perm = self.default_dir_perm
+
         try:
             func(self.abspath(path), perm, **kwargs)
         except gfal2.GError:
@@ -791,35 +923,35 @@ class RemoteFileSystem(FileSystem):
         return elems
 
     # atomic copy
-    def _atomic_copy(self, src, dst, validate=None, **kwargs):
+    def _atomic_copy(self, src, dst, perm=None, validate=None, **kwargs):
         if validate is None:
             validate = self.validate_copy
 
         src = self.abspath(src)
         dst = self.abspath(dst)
 
-        self.gfal.filecopy(src, dst, **kwargs)
+        # actual copy
+        src, dst = self.gfal.filecopy(src, dst, **kwargs)
 
+        # copy validation
+        dst_fs = self.local_fs if self.is_local(dst) else self
         if validate:
-            fs = self if not self.is_local(dst) else _local_fs
-            if not fs.exists(dst):
+            if not dst_fs.exists(dst):
                 raise Exception("validation failed after copying {} to {}".format(src, dst))
 
-    def _use_cache(self, cache):
-        if self.cache is None:
-            return False
-        elif cache is None:
-            return self.cache is not None
-        else:
-            return bool(cache)
+        # handle permissions
+        dst_fs.chmod(dst, perm if perm is not None else dst_fs.default_file_perm)
 
-    # generic copy with caching ability (local paths must have "file" scheme)
-    def _cached_copy(self, src, dst, cache=None, prefer_cache=False, validate=None, **kwargs):
-        cache = self._use_cache(cache)
+        return dst
+
+    # generic copy with caching ability (local paths must have a "file://" scheme)
+    def _cached_copy(self, src, dst, perm=None, cache=None, prefer_cache=False, validate=None,
+            **kwargs):
+        cache = self._eval_use_cache(cache)
 
         # ensure absolute paths
         src = self.abspath(src)
-        dst = self.abspath(dst) if dst else None
+        dst = dst and self.abspath(dst) or None
 
         # determine the copy mode for code readability
         # (remote-remote: "rr", remote-local: "rl", remote-cache: "rc", ...)
@@ -835,11 +967,11 @@ class RemoteFileSystem(FileSystem):
         if dst is None and not cache:
             raise Exception("copy destination must not be empty when caching is disabled")
 
-        # paths including scheme and base
-        full_src = src if has_scheme(src) else self.gfal.url(src, cmd="filecopy")
-        full_dst = None
+        # append the basename of src when dst is a directory
         if dst:
-            full_dst = dst if has_scheme(dst) else self.gfal.url(dst, cmd="filecopy")
+            dst_fs = self.local_fs if self.is_local(dst) else self
+            if dst_fs.isdir(dst):
+                dst = os.path.join(dst, os.path.basename(src))
 
         if cache:
             kwargs_no_retries = kwargs.copy()
@@ -850,8 +982,8 @@ class RemoteFileSystem(FileSystem):
             if mode == "lr":
                 # strategy: copy to remote, copy to cache, sync stats
 
-                # copy to remote, no need to validate as we need the stat anyway
-                self._atomic_copy(src, full_dst, validate=False, **kwargs)
+                # copy to remote, no need to validate as we compute the stat anyway
+                dst_uri = self._atomic_copy(src, dst, perm=perm, validate=False, **kwargs)
                 rstat = self.stat(dst, **kwargs_no_retries)
 
                 # remove the cache entry
@@ -859,20 +991,20 @@ class RemoteFileSystem(FileSystem):
                     self.cache.remove(dst)
 
                 # allocate cache space and copy to cache
-                lstat = _local_fs.stat(src)
+                lstat = self.local_fs.stat(src)
                 self.cache.allocate(lstat.st_size)
-                full_cdst = add_scheme(self.cache.cache_path(dst), "file")
+                cdst_uri = add_scheme(self.cache.cache_path(dst), "file")
                 with self.cache.lock(dst):
-                    self._atomic_copy(src, full_cdst, validate=False)
+                    self._atomic_copy(src, cdst_uri, validate=False)
                     self.cache.touch(dst, (int(time.time()), rstat.st_mtime))
 
-                return dst
+                return dst_uri
 
             else:  # rl, rc
                 # strategy: copy to cache when not up to date, sync stats, opt. copy to local
 
-                # build the full cache path of the src file
-                full_csrc = add_scheme(self.cache.cache_path(src), "file")
+                # build the uri to the cache path of the src file
+                csrc_uri = add_scheme(self.cache.cache_path(src), "file")
 
                 # if the file is cached and prefer_cache is true,
                 # return the cache path, no questions asked
@@ -886,61 +1018,77 @@ class RemoteFileSystem(FileSystem):
                         # in cache at all?
                         if src not in self.cache:
                             self.cache.allocate(rstat.st_size)
-                            self._atomic_copy(full_src, full_csrc, validate=validate, **kwargs)
+                            self._atomic_copy(src, csrc_uri, validate=validate, **kwargs)
                             self.cache.touch(src, (int(time.time()), rstat.st_mtime))
 
                 if mode == "rl":
-                    # copy to local without permission bits
-                    copy_no_perm(remove_scheme(full_csrc), remove_scheme(full_dst))
+                    # simply use the local_fs for copying
+                    self.local_fs.copy(csrc_uri, dst, perm=perm)
                     return dst
                 else:  # rc
-                    return full_csrc
+                    return csrc_uri
 
         else:
             # simply copy and return the dst path
-            self._atomic_copy(full_src, full_dst, validate=validate, **kwargs)
+            return self._atomic_copy(src, dst, perm=perm, validate=validate, **kwargs)
 
-            return full_dst if dst_local else dst
-
-    def _prepare_dst_dir(self, src, dst, **kwargs):
+    def _prepare_dst_dir(self, dst, src=None, perm=None, **kwargs):
+        """
+        Prepares the directory of a target located at *dst* and returns its full location as
+        specified below. *src* can be the location of a source file target, which is (e.g.) used by
+        a file copy or move operation. When *dst* is already a directory, calling this method has no
+        effect and the *dst* path is returned, optionally joined with the basename of *src*. When
+        *dst* is a file, *dst* path is returned unchanged. Otherwise, when *dst* does not exist yet,
+        it is interpreted as a file path and missing directories are created when
+        :py:attr:`create_file_dir` is *True*, using *perm* to set the directory permission. *dst* is
+        returned.
+        """
         rstat = self.exists(dst, stat=True)
-        if rstat and stat.S_ISDIR(rstat.st_mode):
-            # add src basename to dst
-            dst = os.path.join(dst, os.path.basename(src))
-        else:
-            # create missing dirs
-            dst_dir = self.dirname(dst)
-            if dst_dir and (not rstat or not self.exists(dst_dir)):
-                self.mkdir(dst_dir, recursive=True, **kwargs)
 
-    def copy(self, src, dst, dir_perm=None, cache=None, validate=None, **kwargs):
+        if rstat:
+            if self._s_isdir(rstat.st_mode) and src:
+                full_dst = os.path.join(dst, os.path.basename(src))
+            else:
+                full_dst = dst
+
+        else:
+            # interpret dst as a file name, create missing dirs
+            dst_dir = self.dirname(dst)
+            if dst_dir and self.create_file_dir and not self.isdir(dst_dir):
+                self.mkdir(dst_dir, perm=perm, recursive=True, **kwargs)
+            full_dst = dst
+
+        return full_dst
+
+    def copy(self, src, dst, perm=None, dir_perm=None, **kwargs):
         # dst might be an existing directory
         if dst:
             if self.is_local(dst):
-                _local_fs._prepare_dst_dir(src, dst, perm=dir_perm)
+                self.local_fs._prepare_dst_dir(dst, src=src, perm=dir_perm)
             else:
-                self._prepare_dst_dir(src, dst, perm=dir_perm, **kwargs)
+                self._prepare_dst_dir(dst, src=src, perm=dir_perm, **kwargs)
 
         # copy the file
-        return self._cached_copy(src, dst, cache=cache, validate=validate, **kwargs)
+        return self._cached_copy(src, dst, perm=perm, **kwargs)
 
-    def move(self, src, dst, dir_perm=None, validate=None, **kwargs):
+    def move(self, src, dst, perm=None, dir_perm=None, **kwargs):
         if not dst:
             raise Exception("move requires dst to be set")
 
         # copy the file
-        dst = self.copy(src, dst, dir_perm=dir_perm, cache=False, validate=validate, **kwargs)
+        kwargs.pop("cache", None)
+        dst = self.copy(src, dst, perm=perm, dir_perm=dir_perm, cache=False, **kwargs)
 
         # remove the src
         if self.is_local(src):
-            _local_fs.remove(src)
+            self.local_fs.remove(src)
         else:
             self.remove(src, **kwargs)
 
         return dst
 
     def open(self, path, mode, cache=None, **kwargs):
-        cache = self._use_cache(cache)
+        cache = self._eval_use_cache(cache)
 
         yield_path = kwargs.pop("_yield_path", False)
 
@@ -953,8 +1101,7 @@ class RemoteFileSystem(FileSystem):
                 lpath = remove_scheme(lpath)
             else:
                 tmp = LocalFileTarget(is_tmp=self.ext(path, n=0) or True)
-                lpath = tmp.path
-                self.copy(path, add_scheme(lpath, "file"), cache=False, **kwargs)
+                self.copy(path, tmp.uri(), cache=False, **kwargs)
 
             def cleanup():
                 if not cache and tmp.exists():
@@ -974,7 +1121,7 @@ class RemoteFileSystem(FileSystem):
             def copy_and_cleanup():
                 try:
                     if tmp.exists():
-                        self._cached_copy(add_scheme(lpath, "file"), path, cache=cache, **kwargs)
+                        self.copy(tmp.uri(), path, cache=cache, **kwargs)
                 finally:
                     cleanup()
 
@@ -985,13 +1132,13 @@ class RemoteFileSystem(FileSystem):
             raise Exception("unknown mode {}, use r or w".format(mode))
 
     def load(self, path, formatter, *args, **kwargs):
-        fmt = find_formatter(formatter, path)
+        fmt = find_formatter(path, "load", formatter)
         transfer_kwargs, kwargs = split_transfer_kwargs(kwargs)
         with self.open(path, "r", _yield_path=True, **transfer_kwargs) as lpath:
             return fmt.load(lpath, *args, **kwargs)
 
     def dump(self, path, formatter, *args, **kwargs):
-        fmt = find_formatter(formatter, path)
+        fmt = find_formatter(path, "dump", formatter)
         transfer_kwargs, kwargs = split_transfer_kwargs(kwargs)
         with self.open(path, "w", _yield_path=True, **transfer_kwargs) as lpath:
             return fmt.dump(lpath, *args, **kwargs)
@@ -1026,53 +1173,67 @@ class RemoteTarget(FileSystemTarget):
 
         self._path = self.fs.abspath(path)
 
+    def uri(self, *args, **kwargs):
+        return self.fs.gfal.uri(self.path, *args, **kwargs)
+
     def url(self, *args, **kwargs):
-        return self.fs.gfal.url(self.path, *args, **kwargs)
+        # deprecation warning until v0.1
+        logger.warning("the use of {0}.url() is deprecated, please use {0}.uri() instead".format(
+            self.__class__.__name__))
+
+        return self.uri(*args, **kwargs)
 
 
 class RemoteFileTarget(RemoteTarget, FileSystemFileTarget):
 
-    def copy_to_local(self, dst=None, dir_perm=None, **kwargs):
+    def copy_to_local(self, dst=None, perm=None, dir_perm=None, **kwargs):
         if dst:
-            dst = add_scheme(_local_fs.abspath(get_path(dst)), "file")
-        return FileSystemFileTarget.copy_to(self, dst, dir_perm=dir_perm, **kwargs)
+            dst = add_scheme(self.fs.local_fs.abspath(get_path(dst)), "file")
+        dst = FileSystemFileTarget.copy_to(self, dst, perm=perm, dir_perm=dir_perm, **kwargs)
+        return remove_scheme(dst)
 
-    def copy_from_local(self, src=None, dir_perm=None, **kwargs):
-        src = add_scheme(_local_fs.abspath(get_path(src)), "file")
-        return FileSystemFileTarget.copy_from(self, src, dir_perm=dir_perm, **kwargs)
+    def copy_from_local(self, src=None, perm=None, dir_perm=None, **kwargs):
+        src = add_scheme(self.fs.local_fs.abspath(get_path(src)), "file")
+        return FileSystemFileTarget.copy_from(self, src, perm=perm, dir_perm=dir_perm, **kwargs)
 
-    def move_to_local(self, dst=None, dir_perm=None, **kwargs):
+    def move_to_local(self, dst=None, perm=None, dir_perm=None, **kwargs):
         if dst:
-            dst = add_scheme(_local_fs.abspath(get_path(dst)), "file")
-        return FileSystemFileTarget.move_to(self, dst, dir_perm=dir_perm, **kwargs)
+            dst = add_scheme(self.fs.local_fs.abspath(get_path(dst)), "file")
+        dst = FileSystemFileTarget.move_to(self, dst, perm=perm, dir_perm=dir_perm, **kwargs)
+        return remove_scheme(dst)
 
-    def move_from_local(self, src=None, dir_perm=None, **kwargs):
-        src = add_scheme(_local_fs.abspath(get_path(src)), "file")
-        return FileSystemFileTarget.move_from(self, src, dir_perm=dir_perm, **kwargs)
+    def move_from_local(self, src=None, perm=None, dir_perm=None, **kwargs):
+        src = add_scheme(self.fs.local_fs.abspath(get_path(src)), "file")
+        return FileSystemFileTarget.move_from(self, src, perm=perm, dir_perm=dir_perm, **kwargs)
 
     @contextmanager
-    def localize(self, mode="r", perm=None, parent_perm=None, **kwargs):
+    def localize(self, mode="r", perm=None, dir_perm=None, tmp_dir=None, **kwargs):
+        if mode not in ("r", "w", "a"):
+            raise Exception("unknown mode '{}', use 'r', 'w' or 'a'".format(mode))
+
+        logger.debug("localizing file target {!r} with mode '{}'".format(self, mode))
+
         if mode == "r":
-            with self.fs.open(self.path, "r", _yield_path=True, **kwargs) as lpath:
+            with self.fs.open(self.path, "r", _yield_path=True, perm=perm, **kwargs) as lpath:
                 yield LocalFileTarget(lpath)
 
-        elif mode == "w":
-            tmp = LocalFileTarget(is_tmp=self.ext() or True)
+        else:  # mode "w" or "a"
+            tmp = LocalFileTarget(is_tmp=self.ext(n=1) or True, tmp_dir=tmp_dir)
+
+            # copy to local in append mode
+            if mode == "a" and self.exists():
+                self.copy_to_local(tmp)
 
             try:
                 yield tmp
 
                 if tmp.exists():
-                    self.copy_from_local(tmp, dir_perm=parent_perm, **kwargs)
-                    self.chmod(perm)
+                    self.copy_from_local(tmp, perm=perm, dir_perm=dir_perm, **kwargs)
                 else:
                     logger.warning("cannot move non-existing localized file target {!r}".format(
                         self))
             finally:
-                del tmp
-
-        else:
-            raise Exception("unknown mode '{}', use r or w".format(mode))
+                tmp.remove()
 
 
 class RemoteDirectoryTarget(RemoteTarget, FileSystemDirectoryTarget):
@@ -1109,10 +1270,15 @@ class RemoteFileProxy(object):
         return self.f.__enter__() if self.is_file else self.f
 
     def __exit__(self, exc_type, exc_value, traceback):
+        # when an exception was raised, the context was not successful
+        success = exc_type is None
+
+        # invoke the exit of the file object
+        # when its return value is True, it overwrites the success flag
         if getattr(self.f, "__exit__", None) is not None:
-            success = self.f.__exit__(exc_type, exc_value, traceback)
-        else:
-            success = not exc_type
+            exit_ret = self.f.__exit__(exc_type, exc_value, traceback)
+            if exit_ret is True:
+                success = True
 
         if success:
             if callable(self.success_fn):

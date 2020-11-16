@@ -8,31 +8,39 @@
 import os
 import sys
 import traceback
+import logging
 from importlib import import_module
 from collections import OrderedDict
 
 import luigi
 import six
 
-from law.task.base import Task, ExternalTask
 from law.config import Config
-from law.util import multi_match, colored
+from law.task.base import Task, ExternalTask
+from law.util import multi_match, colored, abort
+
+
+logger = logging.getLogger(__name__)
+
+_cfg = Config.instance()
 
 
 def setup_parser(sub_parsers):
     """
     Sets up the command line parser for the *index* subprogram and adds it to *sub_parsers*.
     """
-    parser = sub_parsers.add_parser("index", prog="law index", description="Create or update the"
-        " (human-readable) law task index file ({}). This is only required for the shell"
-        " auto-completion.".format(Config.instance().get("core", "index_file")))
+    parser = sub_parsers.add_parser("index", prog="law index", description="Create or update the "
+        "(human-readable) law task index file ({}). This is only required for the shell "
+        "auto-completion.".format(_cfg.get_expanded("core", "index_file")))
 
     parser.add_argument("--modules", "-m", nargs="+", help="additional modules to traverse")
     parser.add_argument("--no-externals", "-e", action="store_true", help="skip external tasks")
-    parser.add_argument("--remove", "-r", action="store_true", help="remove the index file and"
-        " exit")
-    parser.add_argument("--location", "-l", action="store_true", help="print the location of the"
-        " index file and exit")
+    parser.add_argument("--remove", "-r", action="store_true", help="remove the index file and "
+        "exit")
+    parser.add_argument("--show", "-s", action="store_true", help="print the content of the index "
+        "file and exit")
+    parser.add_argument("--location", "-l", action="store_true", help="print the location of the "
+        "index file and exit")
     parser.add_argument("--verbose", "-v", action="store_true", help="verbose output")
 
 
@@ -40,12 +48,22 @@ def execute(args):
     """
     Executes the *index* subprogram with parsed commandline *args*.
     """
-    index_file = Config.instance().get_expanded("core", "index_file")
+    cfg = Config.instance()
+    index_file = cfg.get_expanded("core", "index_file")
 
     # just print the file location?
     if args.location:
         print(index_file)
         return
+
+    # just show the file content?
+    if args.show:
+        if os.path.exists(index_file):
+            with open(index_file, "r") as f:
+                print(f.read())
+            return
+        else:
+            abort("index file {} does not exist".format(index_file))
 
     # just remove the index file?
     if args.remove:
@@ -55,11 +73,11 @@ def execute(args):
         return
 
     # get modules to lookup
-    lookup = [m.strip() for m in Config.instance().keys("modules")]
+    lookup = [m.strip() for m in cfg.options("modules")]
     if args.modules:
         lookup += args.modules
 
-    print("loading tasks from {} module(s)".format(len(lookup)))
+    print("indexing tasks in {} module(s)".format(len(lookup)))
 
     # loop through modules, import everything to load tasks
     for modid in lookup:
@@ -73,9 +91,9 @@ def execute(args):
             import_module(modid)
         except Exception as e:
             if not args.verbose:
-                print("Error in module '{}': {}".format(colored(modid, "red"), str(e)))
+                print("error in module '{}': {}".format(colored(modid, "red"), str(e)))
             else:
-                print("\n\nError in module '{}':".format(colored(modid, "red")))
+                print("\n\nerror in module '{}':".format(colored(modid, "red")))
                 traceback.print_exc()
             continue
 
@@ -91,9 +109,14 @@ def execute(args):
         lookup.extend(cls.__subclasses__())
 
         # skip already seen task families
-        if cls.task_family in seen_families:
+        task_family = cls.get_task_family()
+        if task_family in seen_families:
             continue
-        seen_families.append(cls.task_family)
+        seen_families.append(task_family)
+
+        # skip tasks in __main__ module in interactive sessions
+        if cls.__module__ == "__main__":
+            continue
 
         # skip when explicitly excluded
         if cls.exclude_index:
@@ -110,6 +133,25 @@ def execute(args):
         if not is_external_task and (not run_is_callable or run_is_abstract):
             continue
 
+        # show an error when there is a "-" in the task family as the luigi command line parser will
+        # automatically map it to "_", i.e., it will fail to lookup the actual task class
+        # skip the task
+        if "-" in task_family:
+            logger.critical("skipping task '{}' as its family '{}' contains a '-' which cannot be "
+                "interpreted by luigi's command line parser, please use '_' or alike".format(
+                    cls, task_family))
+            continue
+
+        # show an error when there is a "_" after a "." in the task family, i.e., when there is a
+        # "_" in the class name (which is bad python practice anyway), as the shell autocompletion
+        # is not able to decide whether it should complete the task family or a task-level parameter
+        # skip the task
+        if "_" in task_family.rsplit(".", 1)[-1]:
+            logger.error("skipping task '{}' as its family '{}' contains a '_' after the namespace "
+                "definition which would lead to ambiguities between task families and task-level "
+                "parameters in the law shell autocompletion".format(cls, task_family))
+            continue
+
         task_classes.append(cls)
 
     def get_task_params(cls):
@@ -124,7 +166,7 @@ def execute(args):
 
     def index_line(cls, params):
         # format: "module_id:task_family:param param ..."
-        return "{}:{}:{}".format(cls.__module__, cls.task_family, " ".join(params))
+        return "{}:{}:{}".format(cls.__module__, cls.get_task_family(), " ".join(params))
 
     stats = OrderedDict()
 
@@ -140,7 +182,7 @@ def execute(args):
             # fill stats
             if cls.__module__ not in stats:
                 stats[cls.__module__] = []
-            stats[cls.__module__].append((cls.task_family, params))
+            stats[cls.__module__].append((cls.get_task_family(), params))
 
             f.write(index_line(cls, params) + "\n")
 

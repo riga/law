@@ -1,7 +1,7 @@
-law.sandbox.singularity
-=======================
+singularity
+===========
 
-.. automodule:: law.sandbox.singularity
+.. automodule:: law.singularity
 
 .. contents::
 

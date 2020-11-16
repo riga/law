@@ -1,7 +1,7 @@
 wlcg
 ====
 
-.. automodule:: law.contrib.wlcg
+.. automodule:: law.wlcg
 
 .. contents::
 
@@ -36,6 +36,8 @@ Class ``WLCGDirectoryTarget``
 
 Functions
 ---------
+
+.. autofunction:: ensure_voms_proxy
 
 .. autofunction:: get_voms_proxy_file
 

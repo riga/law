@@ -6,8 +6,14 @@ ROOT contrib functionality.
 """
 
 
-__all__ = ["ROOTFormatter", "ROOTNumpyFormatter", "UprootFormatter"]
+__all__ = [
+    "import_ROOT", "hadd_task",
+    "ROOTFormatter", "ROOTNumpyFormatter", "ROOTPandasFormatter", "UprootFormatter", "GuardedTFile",
+]
 
 
 # provisioning imports
-from law.contrib.root.formatter import ROOTFormatter, ROOTNumpyFormatter, UprootFormatter
+from law.contrib.root.util import import_ROOT, hadd_task
+from law.contrib.root.formatter import (
+    ROOTFormatter, ROOTNumpyFormatter, ROOTPandasFormatter, UprootFormatter, GuardedTFile,
+)

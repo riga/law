@@ -5,18 +5,32 @@ Custom luigi parameters.
 """
 
 
-__all__ = ["NO_STR", "NO_INT", "NO_FLOAT", "is_no_param", "get_param", "TaskInstanceParameter",
-           "CSVParameter", "NotifyParameter", "NotifyMailParameter"]
+__all__ = [
+    "NO_STR", "NO_INT", "NO_FLOAT", "is_no_param", "get_param", "TaskInstanceParameter",
+    "DurationParameter", "CSVParameter", "MultiCSVParameter", "NotifyParameter",
+    "NotifyMultiParameter", "NotifyMailParameter",
+]
 
 
 import luigi
+import six
 
 from law.notification import notify_mail
+from law.util import (
+    human_duration, parse_duration, time_units, time_unit_aliases, is_lazy_iterable, make_tuple,
+    make_unique,
+)
 
 
 # make luigi's BoolParameter parsing explicit globally, https://github.com/spotify/luigi/pull/2427
 luigi.BoolParameter.parsing = getattr(luigi.BoolParameter, "EXPLICIT_PARSING", "explicit")
 
+# also update existing BoolParameter instances in luigi's config classes to have explicit parsing
+for cls in luigi.task.Config.__subclasses__():
+    for attr in dir(cls):
+        member = getattr(cls, attr)
+        if isinstance(member, luigi.BoolParameter):
+            member.parsing = luigi.BoolParameter.parsing
 
 #: String value denoting an empty parameter.
 NO_STR = "NO_STR"
@@ -55,20 +69,114 @@ class TaskInstanceParameter(luigi.Parameter):
         return str(x)
 
 
-class CSVParameter(luigi.Parameter):
+class DurationParameter(luigi.Parameter):
     """
-    Parameter that can be parsed from a comma-separated value (CSV). *cls* can refer to an other
-    luigi parameter class that will be used to parse and serialize the particular items. Example:
+    Parameter that interprets a string (or float) value as a duration, represented by a float
+    number with a configurable unit. *unit* is forwarded as both the *unit* and *input_unit*
+    argument to :py:func:`law.util.parse_duration` which is used for the conversion. For best
+    precision, value serialization uses :py:func:`law.util.human_duration` with *colon_format*.
+    Example:
 
     .. code-block:: python
 
-        p = CSVParameter(cls=luigi.IntParameter, default=[1, 2, 3])
+        p = DurationParameter(unit="s")
+        p.parse("5")                      # -> 5. (using the unit implicitly)
+        p.parse("5s")                     # -> 5.
+        p.parse("5m")                     # -> 300.
+        p.parse("05:10")                  # -> 310.
+        p.parse("5 minutes, 15 seconds")  # -> 310.
+        p.serialize(310)                  # -> 05:15
 
-        p.parse("4,5,6")
-        # => [4, 5, 6]
+        p = DurationParameter(unit="m")
+        p.parse("5")                      # -> 5. (using the unit implicitly)
+        p.parse("5s")                     # -> 0.083
+        p.parse("5m")                     # -> 5.
+        p.parse("05:10")                  # -> 5.167
+        p.parse("5 minutes, 15 seconds")  # -> 5.25
+        p.serialize(310)                  # -> 05:15
 
-        p.serialize([7, 8, 9])
+    For more info, see :py:func:`law.util.parse_duration` and :py:func:`law.util.human_duration`.
+    """
+
+    def __init__(self, *args, **kwargs):
+        """ __init__(unit="s", *args, **kwargs) """
+        # validate and set the unit
+        self._unit = None
+        self.unit = kwargs.pop("unit", "s")
+
+        super(DurationParameter, self).__init__(*args, **kwargs)
+
+    @property
+    def unit(self):
+        return self._unit
+
+    @unit.setter
+    def unit(self, unit):
+        unit = time_unit_aliases.get(unit, unit)
+        if unit not in time_units:
+            raise ValueError("unknown unit '{}', valid values are {}".format(
+                unit, time_units.keys()))
+
+        self._unit = unit
+
+    def parse(self, inp):
+        """"""
+        if not inp:
+            return 0.
+        else:
+            return parse_duration(inp, input_unit=self.unit, unit=self.unit)
+
+    def serialize(self, value):
+        """"""
+        if not value:
+            return "0"
+        else:
+            value_seconds = parse_duration(value, input_unit=self.unit, unit="s")
+            return human_duration(seconds=value_seconds, colon_format=True)
+
+
+class CSVParameter(luigi.Parameter):
+    """
+    Parameter that parses a comma-separated value (CSV) and produces a tuple. *cls* can refer to an
+    other parameter class that will be used to parse and serialize the particular items.
+
+    When *unique* is *True*, both parsing and serialization methods make sure that values are
+    unique.
+
+    When *min_len* (*max_len*) is set to an integer, an error is raised in case the number of
+    elements to serialize or parse is deceeds (exceeds) that value.
+
+    Example:
+
+    .. code-block:: python
+
+        p = CSVParameter(cls=luigi.IntParameter)
+        p.parse("4,5,6,6")
+        # => (4, 5, 6, 6)
+        p.serialize((7, 8, 9))
         # => "7,8,9"
+
+        p = CSVParameter(cls=luigi.IntParameter, unique=True)
+        p.parse("4,5,6,6")
+        # => (4, 5, 6)
+
+        p = CSVParameter(cls=luigi.IntParameter, max_len=2)
+        p.parse("4,5,6")
+        # => ValueError
+
+    .. note::
+
+        Due to the way `instance caching
+        <https://luigi.readthedocs.io/en/stable/parameters.html#parameter-instance-caching>`__
+        is implemented in luigi, parameters should always have hashable values. Therefore, this
+        parameter produces a tuple and, in particular, not a list. To avoid undesired side effects,
+        the *default* value given to the constructor is also converted to a tuple.
+
+    .. py:classattribute:: CSV_SEP
+       type: string
+
+        Character used as a separator between CSV elements when parsing strings and serializing
+        values.
 
     .. py:attribute:: _inst
        type: cls
@@ -77,27 +185,146 @@ class CSVParameter(luigi.Parameter):
         and serialization.
     """
 
+    CSV_SEP = ","
+
     def __init__(self, *args, **kwargs):
-        """ __init__(cls=luigi.Parameter, *args, **kwargs) """
-        cls = kwargs.pop("cls", luigi.Parameter)
+        """ __init__(*args, cls=luigi.Parameter, unique=False, min_len=None, max_len=None, **kwargs)
+        """
+        self._cls = kwargs.pop("cls", luigi.Parameter)
+        self._unique = kwargs.pop("unique", False)
+        self._min_len = kwargs.pop("min_len", None)
+        self._max_len = kwargs.pop("max_len", None)
+
+        # ensure that the default value is a tuple
+        if "default" in kwargs:
+            kwargs["default"] = make_tuple(kwargs["default"])
 
         super(CSVParameter, self).__init__(*args, **kwargs)
 
-        self._inst = cls()
+        self._inst = self._cls()
+
+    def _check_len(self, value):
+        str_repr = lambda: self.CSV_SEP.join(str(v) for v in value)
+
+        if self._min_len is not None and len(value) < self._min_len:
+            raise ValueError("'{}' contains {} value(s), a minimum of {} is required".format(
+                str_repr(), len(value), self._min_len))
+
+        # check max_len
+        if self._max_len is not None and len(value) > self._max_len:
+            raise ValueError("'{}' contains {} value(s), a maximum of {} is required".format(
+                str_repr(), len(value), self._max_len))
 
     def parse(self, inp):
         """"""
-        if not inp:
-            return []
+        if inp in (None, "", NO_STR):
+            ret = tuple()
+        elif isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
+            ret = make_tuple(inp)
+        elif isinstance(inp, six.string_types):
+            ret = tuple(self._inst.parse(elem) for elem in inp.split(self.CSV_SEP))
         else:
-            return [self._inst.parse(elem) for elem in inp.split(",")]
+            ret = (ret,)
+
+        # ensure uniqueness
+        if self._unique:
+            ret = make_unique(ret)
+
+        # check min_len and max_len
+        self._check_len(ret)
+
+        return ret
 
     def serialize(self, value):
         """"""
         if not value:
             return ""
         else:
-            return ",".join(str(self._inst.serialize(elem)) for elem in value)
+            # ensure uniqueness
+            if self._unique:
+                value = make_unique(value)
+
+            # check min_len and max_len
+            self._check_len(value)
+
+            return self.CSV_SEP.join(str(self._inst.serialize(elem)) for elem in value)
+
+
+class MultiCSVParameter(CSVParameter):
+    """
+    Parameter that parses several comma-separated values (CSV), separated by colons, and produces a
+    nested tuple. *cls* can refer to an other parameter class that will be used to parse and
+    serialize the particular items.
+
+    Except for the additional support for multuple CSV sequences, the implementation is based on
+    :py:class:`CSVParameter`, which also handles the features controlled by *unique*, *max_len* and
+    *min_len*.
+
+    Example:
+
+    .. code-block:: python
+
+        p = MultiCSVParameter(cls=luigi.IntParameter)
+        p.parse("4,5:6,6")
+        # => ((4, 5), (6, 6))
+        p.serialize((7, 8, (9,)))
+        # => "7,8:9"
+
+        p = MultiCSVParameter(cls=luigi.IntParameter, unique=True)
+        p.parse("4,5:6,6")
+        # => ((4, 5), (6,))
+
+        p = MultiCSVParameter(cls=luigi.IntParameter, max_len=2)
+        p.parse("4,5:6,7,8")
+        # => ValueError
+
+    .. note::
+
+        Due to the way `instance caching
+        <https://luigi.readthedocs.io/en/stable/parameters.html#parameter-instance-caching>`__
+        is implemented in luigi, parameters should always have hashable values. Therefore, this
+        parameter produces a (nested) tuple and, in particular, not a list. To avoid undesired side
+        effects, the *default* value given to the constructor is also converted to a tuple.
+
+    .. py:classattribute:: MULTI_CSV_SEP
+       type: string
+
+        Character used as a separator between CSV sequences when parsing strings and serializing
+        values.
+
+    .. py:attribute:: _inst
+       type: cls
+
+        Instance of the luigi parameter class *cls* that is used internally for parameter parsing
+        and serialization.
+    """
+
+    MULTI_CSV_SEP = ":"
+
+    def __init__(self, *args, **kwargs):
+        """ __init__(*args, cls=luigi.Parameter, unique=False, min_len=None, max_len=None, **kwargs)
+        """
+        super(MultiCSVParameter, self).__init__(*args, **kwargs)
+
+    def parse(self, inp):
+        """"""
+        if isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
+            ret = tuple(super(MultiCSVParameter, self).parse(v) for v in inp)
+        elif isinstance(inp, six.string_types):
+            ret = tuple(
+                super(MultiCSVParameter, self).parse(v) for v in inp.split(self.MULTI_CSV_SEP))
+        else:
+            ret = (super(MultiCSVParameter, self).parse(inp),)
+
+        return ret
+
+    def serialize(self, value):
+        """"""
+        if not value:
+            return ""
+        else:
+            return self.MULTI_CSV_SEP.join(
+                super(MultiCSVParameter, self).serialize(v) for v in value)
 
 
 class NotifyParameter(luigi.BoolParameter):
@@ -128,6 +355,32 @@ class NotifyParameter(luigi.BoolParameter):
         dictionary with ``"func"`` and ``"raw"`` (optional) fields.
         """
         return None
+
+
+class NotifyMultiParameter(NotifyParameter):
+    """
+    Parameter that takes multiple other :py:class:`NotifyParameter`'s to join their notification
+    functionality in a single parameter. Example:
+
+    .. code-block:: python
+
+        class MyTask(law.Task):
+
+            notify = law.NotifyMultiParameter(parameters=[
+                law.NotifyMailParameter(significant=False),
+                ...  # further NotifyParameters
+            ])
+    """
+
+    def __init__(self, *args, **kwargs):
+        """ __init__(parameters=[], *args, **kwargs) """
+        self.parameters = kwargs.pop("parameters", [])
+
+        super(NotifyMultiParameter, self).__init__(*args, **kwargs)
+
+    def get_transport(self):
+        """"""
+        return [param.get_transport() for param in self.parameters]
 
 
 class NotifyMailParameter(NotifyParameter):

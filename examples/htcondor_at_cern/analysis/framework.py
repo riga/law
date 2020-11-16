@@ -10,6 +10,7 @@ and only needs to be defined once per user / group / etc.
 
 
 import os
+import math
 
 import luigi
 import law
@@ -40,7 +41,7 @@ class Task(law.Task):
         return law.LocalFileTarget(self.local_path(*path))
 
 
-class HTCondorWorkflow(law.HTCondorWorkflow):
+class HTCondorWorkflow(law.htcondor.HTCondorWorkflow):
     """
     Batch systems are typically very heterogeneous by design, and so is HTCondor. Law does not aim
     to "magically" adapt to all possible HTCondor setups which would certainly end in a mess.
@@ -48,6 +49,9 @@ class HTCondorWorkflow(law.HTCondorWorkflow):
     the CERN HTCondor environment. In most cases, like in this example, only a minimal amount of
     configuration is required.
     """
+
+    max_runtime = law.DurationParameter(default=2.0, unit="h", significant=False,
+        description="maximum runtime, default unit is hours, default: 2")
 
     def htcondor_output_directory(self):
         # the directory where submission meta data should be stored
@@ -59,10 +63,12 @@ class HTCondorWorkflow(law.HTCondorWorkflow):
         return law.util.rel_path(__file__, "bootstrap.sh")
 
     def htcondor_job_config(self, config, job_num, branches):
-        # render_data is rendered into all files sent with a job
+        # render_variables are rendered into all files sent with a job
         config.render_variables["analysis_path"] = os.getenv("ANALYSIS_PATH")
         # force to run on CC7, http://batchdocs.web.cern.ch/batchdocs/local/submit.html#os-choice
         config.custom_content.append(("requirements", "(OpSysAndVer =?= \"CentOS7\")"))
+        # maximum runtime
+        config.custom_content.append(("+MaxRuntime", int(math.floor(self.max_runtime * 3600)) - 1))
         # copy the entire environment
         config.custom_content.append(("getenv", "true"))
         # the CERN htcondor setup requires a "log" config, but we can safely set it to /dev/null

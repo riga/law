@@ -9,6 +9,7 @@ __all__ = ["LocalWorkflow"]
 
 
 from law.workflow.base import BaseWorkflow, BaseWorkflowProxy
+from law.util import DotDict
 
 
 class LocalWorkflowProxy(BaseWorkflowProxy):
@@ -18,28 +19,19 @@ class LocalWorkflowProxy(BaseWorkflowProxy):
 
     workflow_type = "local"
 
-    add_workflow_run_decorators = False
-
     def __init__(self, *args, **kwargs):
         super(LocalWorkflowProxy, self).__init__(*args, **kwargs)
 
-        self._has_run = False
-        self._has_yielded = False
-
-    def complete(self):
-        """
-        When *local_workflow_require_branches* of the task was set to *True*, returns whether the
-        :py:meth:`run` method has been called before. Otherwise, the call is forwarded to the super
-        class.
-        """
-        if self.task.local_workflow_require_branches:
-            return self._has_run
-        else:
-            return super(LocalWorkflowProxy, self).complete()
+        self._local_workflow_has_yielded = False
 
     def requires(self):
         reqs = super(LocalWorkflowProxy, self).requires()
 
+        local_reqs = self.task.local_workflow_requires()
+        if local_reqs:
+            reqs.update(local_reqs)
+
+        # when local_workflow_require_branches is True, add all branch tasks as dependencies
         if self.task.local_workflow_require_branches:
             reqs["branches"] = self.task.get_branch_tasks()
 
@@ -50,12 +42,12 @@ class LocalWorkflowProxy(BaseWorkflowProxy):
         When *local_workflow_require_branches* of the task was set to *False*, starts all branch
         tasks via dynamic dependencies by yielding them in a list, or simply does nothing otherwise.
         """
-        if not self._has_yielded and not self.task.local_workflow_require_branches:
-            self._has_yielded = True
+        super(LocalWorkflowProxy, self).run()
+
+        if not self.task.local_workflow_require_branches and not self._local_workflow_has_yielded:
+            self._local_workflow_has_yielded = True
 
             yield list(self.task.get_branch_tasks().values())
-
-        self._has_run = True
 
 
 class LocalWorkflow(BaseWorkflow):
@@ -87,3 +79,6 @@ class LocalWorkflow(BaseWorkflow):
     local_workflow_require_branches = False
 
     exclude_index = True
+
+    def local_workflow_requires(self):
+        return DotDict()

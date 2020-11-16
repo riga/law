@@ -2,7 +2,7 @@
 
 """
 Temporary subprogram that logs an error when "law db" is started.
-This was renamed to "law index".
+This was renamed to "law index". To be removed for v0.1.
 """
 
 

@@ -19,12 +19,12 @@ from contextlib import contextmanager
 import luigi
 import six
 
+from law.config import Config
 from law.target.file import (
-    FileSystem, FileSystemTarget, FileSystemFileTarget, FileSystemDirectoryTarget, get_scheme,
-    remove_scheme, split_transfer_kwargs,
+    FileSystem, FileSystemTarget, FileSystemFileTarget, FileSystemDirectoryTarget, get_path,
+    get_scheme, add_scheme, remove_scheme, split_transfer_kwargs,
 )
 from law.target.formatter import find_formatter
-from law.config import Config
 from law.util import is_file_exists_error
 
 
@@ -34,6 +34,26 @@ logger = logging.getLogger(__name__)
 class LocalFileSystem(FileSystem):
 
     default_instance = None
+
+    def __init__(self, section=None, **kwargs):
+        # if present, read options from the section in the law config
+        self.config_section = None
+        cfg = Config.instance()
+        if not section:
+            section = cfg.get_expanded("target", "default_local_fs")
+        if isinstance(section, six.string_types):
+            if cfg.has_section(section):
+                # extend options of sections other than "local_fs" with its defaults
+                if section != "local_fs":
+                    data = dict(cfg.items("local_fs", expand_vars=False, expand_user=False))
+                    cfg.update({section: data}, overwrite_sections=True, overwrite_options=False)
+                kwargs = self.parse_config(section, kwargs)
+                self.config_section = section
+            else:
+                raise Exception("law config has no section '{}' to read {} options".format(
+                    section, self.__class__.__name__))
+
+        FileSystem.__init__(self, **kwargs)
 
     def __eq__(self, other):
         return self.__class__ == other.__class__
@@ -57,12 +77,12 @@ class LocalFileSystem(FileSystem):
         return os.path.isfile(self._unscheme(path))
 
     def chmod(self, path, perm, silent=True, **kwargs):
-        if perm is not None and (not silent or self.exists(path)):
+        if self.has_perms and perm is not None and (not silent or self.exists(path)):
             os.chmod(self._unscheme(path), perm)
 
     def remove(self, path, recursive=True, silent=True, **kwargs):
-        path = self._unscheme(path)
         if not silent or self.exists(path):
+            path = self._unscheme(path)
             if self.isdir(path):
                 if recursive:
                     shutil.rmtree(path)
@@ -74,6 +94,9 @@ class LocalFileSystem(FileSystem):
     def mkdir(self, path, perm=None, recursive=True, silent=True, **kwargs):
         if self.exists(path):
             return
+
+        if perm is None:
+            perm = self.default_dir_perm
 
         # the mode passed to os.mkdir or os.makedirs is ignored on some systems, so the strategy
         # here is to disable the process' current umask, create the directories and use chmod again
@@ -150,51 +173,77 @@ class LocalFileSystem(FileSystem):
 
         return elems
 
-    def _prepare_dst_dir(self, src, dst, perm=None):
+    def _prepare_dst_dir(self, dst, src=None, perm=None):
+        """
+        Prepares the directory of a target located at *dst* and returns its full location as
+        specified below. *src* can be the location of a source file target, which is (e.g.) used by
+        a file copy or move operation. When *dst* is already a directory, calling this method has no
+        effect and the *dst* path is returned, optionally joined with the basename of *src*. When
+        *dst* is a file, the absolute *dst* path is returned. Otherwise, when *dst* does not exist
+        yet, it is interpreted as a file path and missing directories are created when
+        :py:attr:`create_file_dir` is *True*, using *perm* to set the directory permission. *dst* is
+        returned.
+        """
         dst = self._unscheme(dst)
 
-        # dst might be an existing directory
         if self.isdir(dst):
-            # add src basename to dst
-            dst = os.path.join(dst, os.path.basename(src))
+            if src:
+                full_dst = os.path.join(dst, os.path.basename(src))
+            else:
+                full_dst = dst
+
+        elif self.isfile(dst):
+            full_dst = dst
+
         else:
-            # create missing dirs
+            # interpret dst as a file name, create missing dirs
             dst_dir = self.dirname(dst)
-            if dst_dir and not self.exists(dst_dir):
-                self.mkdir(dst_dir, dir_perm=perm, recursive=True)
+            if dst_dir and not self.isdir(dst_dir) and self.create_file_dir:
+                self.mkdir(dst_dir, perm=perm, recursive=True)
+            full_dst = dst
 
-        return dst
+        return full_dst
 
-    def copy(self, src, dst, dir_perm=None, **kwargs):
+    def copy(self, src, dst, perm=None, dir_perm=None, **kwargs):
         src = self._unscheme(src)
-        dst = self._prepare_dst_dir(src, dst, perm=dir_perm)
+        dst = self._prepare_dst_dir(dst, src=src, perm=dir_perm)
 
         # copy the file
         shutil.copy2(src, dst)
 
+        # set permissions
+        if perm is None:
+            perm = self.default_file_perm
+        self.chmod(dst, perm)
+
         return dst
 
-    def move(self, src, dst, dir_perm=None, **kwargs):
+    def move(self, src, dst, perm=None, dir_perm=None, **kwargs):
         src = self._unscheme(src)
-        dst = self._prepare_dst_dir(src, dst, perm=dir_perm)
+        dst = self._prepare_dst_dir(dst, src=src, perm=dir_perm)
 
         # move the file
         shutil.move(src, dst)
 
+        # set permissions
+        if perm is None:
+            perm = self.default_file_perm
+        self.chmod(dst, perm)
+
         return dst
 
     def open(self, path, mode, **kwargs):
-        return open(self._unscheme(path), mode)
+        return open(self._prepare_dst_dir(path), mode)
 
     def load(self, path, formatter, *args, **kwargs):
         _, kwargs = split_transfer_kwargs(kwargs)
         path = self._unscheme(path)
-        return find_formatter(formatter, path).load(path, *args, **kwargs)
+        return find_formatter(path, "load", formatter).load(path, *args, **kwargs)
 
     def dump(self, path, formatter, *args, **kwargs):
         _, kwargs = split_transfer_kwargs(kwargs)
-        path = self._unscheme(path)
-        return find_formatter(formatter, path).dump(path, *args, **kwargs)
+        path = self._prepare_dst_dir(path)
+        return find_formatter(path, "dump", formatter).dump(path, *args, **kwargs)
 
 
 LocalFileSystem.default_instance = LocalFileSystem()
@@ -204,22 +253,31 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
 
     fs = LocalFileSystem.default_instance
 
-    def __init__(self, path=None, is_tmp=False, **kwargs):
+    def __init__(self, path=None, fs=LocalFileSystem.default_instance, is_tmp=False, tmp_dir=None,
+            **kwargs):
+        if isinstance(fs, six.string_types):
+            fs = LocalFileSystem(fs)
+
         # handle tmp paths manually since luigi uses the env tmp dir
         if not path:
             if not is_tmp:
                 raise Exception("either path or is_tmp must be set")
 
-            # get the tmp dir from the config and ensure it exists
-            tmp_dir = os.path.realpath(Config.instance().get_expanded("target", "tmp_dir"))
-            if not self.fs.exists(tmp_dir):
-                perm = Config.instance().get("target", "tmp_dir_permission")
-                self.fs.mkdir(tmp_dir, perm=perm and int(perm))
+            # if not set, get the tmp dir from the config and ensure that it exists
+            cfg = Config.instance()
+            if tmp_dir:
+                tmp_dir = get_path(tmp_dir)
+            else:
+                tmp_dir = os.path.realpath(cfg.get_expanded("target", "tmp_dir"))
+            if not fs.exists(tmp_dir):
+                perm = cfg.get_expanded_int("target", "tmp_dir_perm")
+                fs.mkdir(tmp_dir, perm=perm)
 
             # create a random path
             while True:
-                path = os.path.join(tmp_dir, "luigi-tmp-%09d" % (random.randint(0, 999999999,)))
-                if not self.fs.exists(path):
+                basename = "luigi-tmp-{:09d}".format(random.randint(0, 999999999))
+                path = os.path.join(tmp_dir, basename)
+                if not fs.exists(path):
                     break
 
             # is_tmp might be a file extension
@@ -228,10 +286,12 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
                     is_tmp = "." + is_tmp
                 path += is_tmp
         else:
-            path = self.fs.abspath(os.path.expandvars(os.path.expanduser(remove_scheme(path))))
+            # ensure path is not a target and does not contain, then normalize
+            path = fs._unscheme(get_path(path))
+            path = fs.abspath(os.path.expandvars(os.path.expanduser(path)))
 
         luigi.LocalTarget.__init__(self, path=path, is_tmp=is_tmp)
-        FileSystemTarget.__init__(self, self.path, **kwargs)
+        FileSystemTarget.__init__(self, self.path, fs=fs, **kwargs)
 
     def _repr_flags(self):
         flags = FileSystemTarget._repr_flags(self)
@@ -239,36 +299,40 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
             flags.append("temporary")
         return flags
 
+    def uri(self, *args, **kwargs):
+        return add_scheme(self.fs.abspath(self.path), "file")
+
 
 class LocalFileTarget(LocalTarget, FileSystemFileTarget):
 
     def copy_to_local(self, *args, **kwargs):
-        return self.copy_to(*args, **kwargs)
+        return self.fs._unscheme(self.copy_to(*args, **kwargs))
 
     def copy_from_local(self, *args, **kwargs):
-        return self.copy_from(*args, **kwargs)
+        return self.fs._unscheme(self.copy_from(*args, **kwargs))
 
     def move_to_local(self, *args, **kwargs):
-        return self.move_to(*args, **kwargs)
+        return self.fs._unscheme(self.move_to(*args, **kwargs))
 
     def move_from_local(self, *args, **kwargs):
-        return self.move_from(*args, **kwargs)
+        return self.fs._unscheme(self.move_from(*args, **kwargs))
 
     @contextmanager
-    def localize(self, mode="r", perm=None, parent_perm=None, **kwargs):
-        """ localize(mode="r", perm=None, parent_perm=None, skip_copy=False, is_tmp=None, **kwargs)
+    def localize(self, mode="r", perm=None, dir_perm=None, tmp_dir=None, **kwargs):
+        """ localize(mode="r", perm=None, dir_perm=None, tmp_dir=None, is_tmp=None, **kwargs)
         """
-        if mode not in ("r", "w"):
-            raise Exception("unknown mode '{}', use r or w".format(mode))
+        if mode not in ("r", "w", "a"):
+            raise Exception("unknown mode '{}', use 'r', 'w' or 'a'".format(mode))
+
+        logger.debug("localizing file target {!r} with mode '{}'".format(self, mode))
 
         # get additional arguments
-        skip_copy = kwargs.pop("skip_copy", False)
-        is_tmp = kwargs.pop("is_tmp", mode == "w")
+        is_tmp = kwargs.pop("is_tmp", mode in ("w", "a"))
 
         if mode == "r":
             if is_tmp:
                 # create a temporary target
-                tmp = self.__class__(is_tmp=self.ext(n=1) or True)
+                tmp = self.__class__(is_tmp=self.ext(n=1) or True, tmp_dir=tmp_dir)
 
                 # always copy
                 self.copy_to_local(tmp)
@@ -282,13 +346,13 @@ class LocalFileTarget(LocalTarget, FileSystemFileTarget):
                 # simply yield
                 yield self
 
-        else:  # write mode
+        else:  # mode "w" or "a"
             if is_tmp:
                 # create a temporary target
-                tmp = self.__class__(is_tmp=self.ext(n=1) or True)
+                tmp = self.__class__(is_tmp=self.ext(n=1) or True, tmp_dir=tmp_dir)
 
-                # copy when existing
-                if not skip_copy and self.exists():
+                # copy in append mode
+                if mode == "a" and self.exists():
                     self.copy_to_local(tmp)
 
                 # yield the copy
@@ -297,16 +361,15 @@ class LocalFileTarget(LocalTarget, FileSystemFileTarget):
 
                     # move back again
                     if tmp.exists():
-                        tmp.move_to_local(self, dir_perm=parent_perm)
-                        self.chmod(perm)
+                        tmp.move_to_local(self, perm=perm, dir_perm=dir_perm)
                     else:
-                        logger.warning("cannot move non-existing localized file target {!r}".format(
-                            self))
+                        logger.warning("cannot move non-existing, temporary target to localized "
+                            "file target {!r}".format(self))
                 finally:
                     tmp.remove()
             else:
                 # create the parent dir
-                self.parent.touch(perm=parent_perm)
+                self.parent.touch(perm=dir_perm)
 
                 # simply yield
                 yield self

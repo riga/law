@@ -1,7 +1,7 @@
 numpy
 =====
 
-.. automodule:: law.contrib.numpy
+.. automodule:: law.numpy
 
 .. contents::
 

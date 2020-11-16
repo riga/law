@@ -31,14 +31,14 @@ def setup_parser(sub_parsers):
     """
     Sets up the command line parser for the *software* subprogram and adds it to *sub_parsers*.
     """
-    parser = sub_parsers.add_parser("software", prog="law software", description="Create or update"
-        " the law software cache ({}). This is only required for some sandboxes that need to"
-        " forward software into containers.".format(get_sw_dir()))
+    parser = sub_parsers.add_parser("software", prog="law software", description="Create or update "
+        "the law software cache ({}). This is only required for some sandboxes that need to "
+        "forward software into containers.".format(get_sw_dir()))
 
-    parser.add_argument("--remove", "-r", action="store_true", help="remove the software cache"
-        " directory and exit")
-    parser.add_argument("--location", "-l", action="store_true", help="print the location of the"
-        " software cache directory and exit")
+    parser.add_argument("--remove", "-r", action="store_true", help="remove the software cache "
+        "directory and exit")
+    parser.add_argument("--location", "-l", action="store_true", help="print the location of the "
+        "software cache directory and exit")
 
 
 def execute(args):
@@ -126,11 +126,12 @@ def use_software_cache(sw_dir=None, reload_deps=False):
 
 def get_sw_dir(sw_dir=None):
     """
-    Returns the software directory defined in the ``config.software_dir`` config. When *sw_dir* is
-    not *None*, it is expanded and returned instead.
+    Returns the software directory defined in the ``core.software_dir`` config. When *sw_dir* is not
+    *None*, it is expanded and returned instead.
     """
     if sw_dir is None:
-        sw_dir = Config.instance().get("core", "software_dir")
+        cfg = Config.instance()
+        sw_dir = cfg.get_expanded("core", "software_dir")
 
     sw_dir = os.path.expandvars(os.path.expanduser(sw_dir))
 

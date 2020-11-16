@@ -52,6 +52,9 @@ class CMSJobDashboard(BaseJobDashboard):
             e.args = (e.message,) + e.args[1:]
             raise e
 
+        # get the task family for use as default application name
+        task_family = task.get_task_family() if isinstance(task, law.Task) else task
+
         # mandatory (persistent) attributes
         self.task_id = task.task_id if isinstance(task, law.Task) else task
         self.cms_user = cms_user
@@ -62,7 +65,7 @@ class CMSJobDashboard(BaseJobDashboard):
         self.task_type = task_type
         self.site = site
         self.executable = executable
-        self.application = application or (task.task_family if isinstance(task, law.Task) else task)
+        self.application = application or task_family
         self.application_version = application_version or self.task_id.rsplit("_", 1)[1]
         self.submission_tool = submission_tool
         self.submission_type = submission_type

@@ -1,7 +1,7 @@
-law.sandbox.docker
-==================
+docker
+======
 
-.. automodule:: law.sandbox.docker
+.. automodule:: law.docker
 
 .. contents::
 

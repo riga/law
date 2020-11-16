@@ -1,5 +1,11 @@
 /* common styles */
 
+/* logo dimensions in navbar */
 img.logo {
     height: 120px !important;
+}
+
+/* hide attribute values */
+dl.data > dt > em.property {
+    display: none !important;
 }

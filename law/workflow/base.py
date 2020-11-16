@@ -9,6 +9,7 @@ __all__ = ["BaseWorkflow", "workflow_property", "cached_workflow_property"]
 
 
 import sys
+import re
 import functools
 import logging
 from collections import OrderedDict
@@ -17,16 +18,14 @@ from abc import abstractmethod
 import luigi
 import six
 
-from law.config import Config
-from law.task.base import Task, ProxyTask, Register
-from law.target.collection import TargetCollection, SiblingFileCollection
+from law.task.base import Task, Register
+from law.task.proxy import ProxyTask, get_proxy_attribute
+from law.target.collection import TargetCollection
 from law.parameter import NO_STR, NO_INT, CSVParameter
+from law.util import no_value, make_list, DotDict
 
 
 logger = logging.getLogger(__name__)
-
-
-_forward_attributes = ("requires", "output", "run", "complete")
 
 
 class BaseWorkflowProxy(ProxyTask):
@@ -65,6 +64,25 @@ class BaseWorkflowProxy(ProxyTask):
                     self.run = run_func.__get__(self)
                     break
 
+        self._workflow_has_reset_branch_map = False
+
+    def _get_task_attribute(self, name, fallback=False):
+        """
+        Return an attribute of the actual task named ``<workflow_type>_<name>``. When the attribute
+        does not exist and *fallback* is *True*, try to return the task attribute simply named
+        *name*. In any case, if a requested task attribute is eventually not found, an
+        AttributeError is raised.
+        """
+        attr = "{}_{}".format(self.workflow_type, name)
+        if fallback:
+            value = getattr(self.task, attr, no_value)
+            if value != no_value:
+                return value
+            else:
+                return getattr(self.task, name)
+        else:
+            return getattr(self.task, attr)
+
     def complete(self):
         """
         Custom completion check that invokes the task's *workflow_complete* if it is callable, or
@@ -80,8 +98,10 @@ class BaseWorkflowProxy(ProxyTask):
         Returns the default workflow requirements in an ordered dictionary, which is updated with
         the return value of the task's *workflow_requires* method.
         """
-        reqs = OrderedDict()
-        reqs.update(self.task.workflow_requires())
+        reqs = DotDict()
+        workflow_reqs = self.task.workflow_requires()
+        if workflow_reqs:
+            reqs.update(workflow_reqs)
         return reqs
 
     def output(self):
@@ -89,17 +109,19 @@ class BaseWorkflowProxy(ProxyTask):
         Returns the default workflow outputs in an ordered dictionary. At the moment this is just
         the collection of outputs of the branch tasks, stored with the key ``"collection"``.
         """
-        if self.task.target_collection_cls is not None:
-            cls = self.task.target_collection_cls
-        elif self.task.outputs_siblings:
-            cls = SiblingFileCollection
-        else:
-            cls = TargetCollection
+        # warn about the deprecation of the legacy "outputs_siblings" and
+        # "target_collection_cls" flag (until v0.1)
+        attrs = ("outputs_siblings", "target_collection_cls")
+        if any(getattr(self.task, attr, None) for attr in attrs):
+            attrs = ", ".join(attrs[:-1]) + " and " + attrs[-1]
+            logger.warning("the attributes {} to define the class of the workflow output target "
+                "collection are deprecated, please use output_collection_cls instead".format(attrs))
 
+        cls = self.task.output_collection_cls or TargetCollection
         targets = luigi.task.getpaths(self.task.get_branch_tasks())
         collection = cls(targets, threshold=self.threshold(len(targets)))
 
-        return OrderedDict([("collection", collection)])
+        return DotDict([("collection", collection)])
 
     def threshold(self, n=None):
         """
@@ -116,14 +138,18 @@ class BaseWorkflowProxy(ProxyTask):
         acceptance = self.task.acceptance
         return (acceptance * n) if acceptance <= 1 else acceptance
 
-    def get_prefixed_config(self, section, option, **kwargs):
+    def run(self):
         """
-        TODO.
+        Default run implementation that resets the branch map once if requested.
         """
-        cfg = Config.instance()
-        default = cfg.get_expanded(section, option, **kwargs)
-        return cfg.get_expanded(section, "{}_{}".format(self.workflow_type, option),
-            default=default, **kwargs)
+        if self.task.reset_branch_map_before_run and not self._workflow_has_reset_branch_map:
+            self._workflow_has_reset_branch_map = True
+
+            # reset cached branch map, branch tasks and boundaries
+            self.task._branch_map = None
+            self.task._branch_tasks = None
+            self.task.start_branch = self.task._initial_start_branch
+            self.task.end_branch = self.task._initial_end_branch
 
 
 def workflow_property(func):
@@ -155,13 +181,15 @@ def workflow_property(func):
     return property(wrapper)
 
 
-def cached_workflow_property(func=None, attr=None, setter=True):
+def cached_workflow_property(func=None, empty_value=no_value, attr=None, setter=True):
     """
     Decorator to declare an attribute that is stored only on a workflow and also cached for
     subsequent calls. Therefore, the decorated method is expected to (lazily) provide the value to
-    cache. The resulting value is stored as ``_workflow_cached_<func.__name__>`` on the workflow,
-    which can be overwritten by setting the *attr* argument. By default, a setter is provded to
-    overwrite the cache value. Set *setter* to *False* to disable this feature. Example:
+    cache. When the value is equal to *empty_value*, it is not cached and the next access to the
+    property will invoke the decorated method again. The resulting value is stored as
+    ``_workflow_cached_<func.__name__>`` on the workflow, which can be overwritten by setting the
+    *attr* argument. By default, a setter is provded to overwrite the cache value. Set *setter* to
+    *False* to disable this feature. Example:
 
     .. code-block:: python
 
@@ -182,7 +210,7 @@ def cached_workflow_property(func=None, attr=None, setter=True):
         @functools.wraps(func)
         def getter(self):
             wf = self.as_workflow()
-            if not hasattr(wf, _attr):
+            if getattr(wf, _attr, empty_value) == empty_value:
                 setattr(wf, _attr, func(wf))
             return getattr(wf, _attr)
 
@@ -263,24 +291,24 @@ class BaseWorkflow(Task):
 
        Custom completion check that is used by the workflow's proxy when callable.
 
-    .. py:classattribute:: outputs_siblings
-       type: bool
-
-       Flag that denotes whether the outputs of all branches of this workflow are stored in the same
-       directory. If *True*, the :py:meth:`BaseWorkflowProxy.output` method will use a
-       :py:class:`law.SiblingFileCollection`, or a plain :py:class:`law.TargetCollection` otherwise.
-
-    .. py:classattribute:: target_collection_cls
+    .. py:classattribute:: output_collection_cls
        type: TargetCollection
 
-       Configurable target collection class to use. When set, the attribute has precedence over the
-       :py:attr:`outputs_siblings` flag.
+       Configurable target collection class to use, such as
+       :py:class:`target.collection.TargetCollection`, :py:class:`target.collection.FileCollection`
+       or :py:class:`target.collection.SiblingFileCollection`.
 
     .. py:classattribute:: force_contiguous_branches
        type: bool
 
        Flag that denotes if this workflow is forced to use contiguous branch numbers, starting from
        0. If *False*, an exception is raised otherwise.
+
+    .. py:classattribute:: reset_branch_map_before_run
+       type: bool
+
+       Flag that denotes whether the branch map should be recreated from scratch before the run
+       method of the underlying workflow proxy is called.
 
     .. py:classattribute:: workflow_property
        type: function
@@ -323,30 +351,32 @@ class BaseWorkflow(Task):
     """
 
     workflow = luigi.Parameter(default=NO_STR, significant=False, description="the type of the "
-        "workflow to use")
+        "workflow to use; uses the first workflow type in the MRO when empty; default: empty")
     acceptance = luigi.FloatParameter(default=1.0, significant=False, description="number of "
-        "finished tasks to consider the task successful, relative fraction (<= 1) or absolute "
-        "value (> 1), default: 1.0")
+        "finished tasks to consider the task successful; relative fraction (<= 1) or absolute "
+        "value (> 1); default: 1.0")
     tolerance = luigi.FloatParameter(default=0.0, significant=False, description="number of failed "
-        "tasks to still consider the task successful, relative fraction (<= 1) or absolute value "
-        "(> 1), default: 0.0")
-    pilot = luigi.BoolParameter(significant=False, description="disable requirements of the "
-        "workflow to let branch tasks resolve requirements on their own")
+        "tasks to still consider the task successful; relative fraction (<= 1) or absolute value "
+        "(> 1); default: 0.0")
+    pilot = luigi.BoolParameter(default=False, significant=False, description="disable "
+        "requirements of the workflow to let branch tasks resolve requirements on their own; "
+        "default: False")
     branch = luigi.IntParameter(default=-1, description="the branch number/index to run this "
-        "task for, -1 means this task is the workflow, default: -1")
-    start_branch = luigi.IntParameter(default=NO_INT, description="the branch to start at, "
-        "default: 0")
-    end_branch = luigi.IntParameter(default=NO_INT, description="the branch to end at, NO_INT "
-        "means end, default: NO_INT")
-    branches = CSVParameter(default=[], significant=False, description="branches to use")
+        "task for; -1 means this task is the workflow; default: -1")
+    start_branch = luigi.IntParameter(default=NO_INT, description="the branch to start at; empty "
+        "value means first; default: empty")
+    end_branch = luigi.IntParameter(default=NO_INT, description="the branch to end at; empty value "
+        "means last; default: empty")
+    branches = CSVParameter(default=(), unique=True, description="list of branches to select; "
+        "empty value means all; default: empty")
 
     workflow_proxy_cls = BaseWorkflowProxy
 
     workflow_complete = None
 
-    outputs_siblings = False
-    target_collection_cls = None
+    output_collection_cls = None
     force_contiguous_branches = False
+    reset_branch_map_before_run = False
 
     workflow_property = None
     cached_workflow_property = None
@@ -355,8 +385,9 @@ class BaseWorkflow(Task):
 
     exclude_index = True
 
-    exclude_params_branch = {"print_deps", "print_status", "remove_output", "workflow",
-        "acceptance", "tolerance", "pilot", "start_branch", "end_branch", "branches"}
+    exclude_params_branch = {
+        "workflow", "acceptance", "tolerance", "pilot", "start_branch", "end_branch", "branches",
+    }
     exclude_params_workflow = {"branch"}
 
     def __init__(self, *args, **kwargs):
@@ -380,27 +411,22 @@ class BaseWorkflow(Task):
             else:
                 raise ValueError("unknown workflow type {}".format(self.workflow))
 
-            # cached attributes for the workflow
-            self._branch_map = None
-            self._branch_tasks = None
+        # cached attributes for the workflow
+        self._branch_map = None
+        self._branch_tasks = None
 
-        else:
-            # cached attributes for branches
-            self._workflow_task = None
+        # cached attributes for branches
+        self._workflow_task = None
 
-    def _forward_attribute(self, attr):
-        return attr in _forward_attributes and self.is_workflow()
+        # store original branch boundaries
+        self._initial_start_branch = self.start_branch
+        self._initial_end_branch = self.end_branch
 
-    def __getattribute__(self, attr, proxy=True, force=False):
-        if proxy and attr != "__class__":
-            if force or (attr != "_forward_attribute" and self._forward_attribute(attr)):
-                return getattr(self.workflow_proxy, attr)
-
-        return super(BaseWorkflow, self).__getattribute__(attr)
+    def __getattribute__(self, attr, proxy=True):
+        return get_proxy_attribute(self, attr, proxy=proxy, super_cls=Task)
 
     def cli_args(self, exclude=None, replace=None):
-        if exclude is None:
-            exclude = set()
+        exclude = set() if exclude is None else set(make_list(exclude))
 
         if self.is_branch():
             exclude |= self.exclude_params_branch
@@ -408,6 +434,15 @@ class BaseWorkflow(Task):
             exclude |= self.exclude_params_workflow
 
         return super(BaseWorkflow, self).cli_args(exclude=exclude, replace=replace)
+
+    def _repr_params(self, *args, **kwargs):
+        values = super(BaseWorkflow, self)._repr_params(*args, **kwargs)
+
+        # when this is a workflow, add the workflow type
+        if self.is_workflow() and "workflow" not in values:
+            values["workflow"] = self.workflow
+
+        return values
 
     def is_branch(self):
         """
@@ -429,7 +464,7 @@ class BaseWorkflow(Task):
         if self.is_branch():
             return self
         else:
-            return self.req(self, branch=branch)
+            return self.req(self, branch=branch, _exclude=self.exclude_params_branch)
 
     def as_workflow(self):
         """
@@ -440,8 +475,15 @@ class BaseWorkflow(Task):
             return self
         else:
             if self._workflow_task is None:
-                self._workflow_task = self.req(self, branch=-1)
+                self._workflow_task = self.req(self, branch=-1,
+                    _exclude=self.exclude_params_workflow)
             return self._workflow_task
+
+    def inst_exclude_params_repr(self):
+        params = super(BaseWorkflow, self).inst_exclude_params_repr()
+        if self.is_branch():
+            params.update(self.exclude_params_branch)
+        return params
 
     @abstractmethod
     def create_branch_map(self):
@@ -524,6 +566,8 @@ class BaseWorkflow(Task):
                 # some type and sanity checks
                 if isinstance(self._branch_map, (list, tuple)):
                     self._branch_map = dict(enumerate(self._branch_map))
+                elif isinstance(self._branch_map, six.integer_types):
+                    self._branch_map = dict(enumerate(range(self._branch_map)))
                 elif self.force_contiguous_branches:
                     n = len(self._branch_map)
                     if set(self._branch_map.keys()) != set(range(n)):
@@ -584,7 +628,7 @@ class BaseWorkflow(Task):
         if self.is_branch():
             raise Exception("calls to workflow_requires are forbidden for branch tasks")
 
-        return OrderedDict()
+        return DotDict()
 
     def workflow_input(self):
         """
@@ -608,6 +652,59 @@ class BaseWorkflow(Task):
             raise Exception("calls to requires_from_branch are forbidden for branch tasks")
 
         return self.__class__.requires(self)
+
+    def _handle_scheduler_messages(self):
+        if self.scheduler_messages:
+            while not self.scheduler_messages.empty():
+                msg = self.scheduler_messages.get()
+                self.handle_scheduler_message(msg)
+
+    def handle_scheduler_message(self, msg, _attr_value=None):
+        """ handle_scheduler_message(msg)
+        Hook that is called when a scheduler message *msg* is received. Returns *True* when the
+        messages was handled, and *False* otherwise.
+
+        Handled messages:
+
+            - ``tolerance = <int/float>``
+            - ``acceptance = <int/float>``
+        """
+        attr, value = _attr_value or (None, None)
+
+        # handle "tolerance"
+        if attr is None:
+            m = re.match(r"^\s*(tolerance)\s*(\=|\:)\s*(.*)\s*$", str(msg))
+            if m:
+                attr = "tolerance"
+                try:
+                    self.tolerance = float(m.group(3))
+                    value = self.tolerance
+                except ValueError as e:
+                    value = e
+
+        # handle "acceptance"
+        if attr is None:
+            m = re.match(r"^\s*(acceptance)\s*(\=|\:)\s*(.*)\s*$", str(msg))
+            if m:
+                attr = "acceptance"
+                try:
+                    self.acceptance = float(m.group(3))
+                    value = self.acceptance
+                except ValueError as e:
+                    value = e
+
+        # respond
+        if attr:
+            if isinstance(value, Exception):
+                msg.respond("cannot set {}: {}".format(attr, value))
+                logger.info("cannot set {} of task {}: {}".format(attr, self, value))
+            else:
+                msg.respond("{} set to {}".format(attr, value))
+                logger.info("{} of task {} set to {}".format(attr, self, value))
+            return True
+        else:
+            msg.respond("task cannot handle scheduler message: {}".format(msg))
+            return False
 
 
 BaseWorkflow.workflow_property = workflow_property

@@ -13,13 +13,14 @@ import logging
 from abc import abstractmethod
 from collections import OrderedDict
 
-from law import CSVParameter
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments
-from law.contrib.arc.job import ARCJobManager, ARCJobFileFactory
+from law.task.proxy import ProxyCommand
 from law.target.file import get_path
-from law.parser import global_cmdline_args, add_cmdline_arg, remove_cmdline_arg
-from law.util import law_src_path, merge_dicts
+from law.parameter import CSVParameter
+from law.util import law_src_path, merge_dicts, is_number, DotDict
+
+from law.contrib.arc.job import ARCJobManager, ARCJobFileFactory
 
 
 logger = logging.getLogger(__name__)
@@ -49,29 +50,24 @@ class ARCWorkflowProxy(BaseRemoteWorkflowProxy):
         # the file postfix is pythonic range made from branches, e.g. [0, 1, 2, 4] -> "_0To5"
         postfix = "_{}To{}".format(branches[0], branches[-1] + 1)
         config.postfix = postfix
-        pf = lambda s: "postfix:{}".format(s)
+        pf = lambda s: "__law_job_postfix__:{}".format(s)
 
         # get the actual wrapper file that will be executed by the remote job
         wrapper_file = get_path(task.arc_wrapper_file())
         config.executable = os.path.basename(wrapper_file)
 
         # collect task parameters
-        task_params = task.as_branch(branches[0]).cli_args(exclude={"branch"})
-        task_params += global_cmdline_args()
-        # add and remove some arguments
-        task_params = remove_cmdline_arg(task_params, "--workers", 2)
+        proxy_cmd = ProxyCommand(task.as_branch(branches[0]), exclude_task_args={"branch"},
+            exclude_global_args=["workers", "local-scheduler"])
         if task.arc_use_local_scheduler():
-            task_params = add_cmdline_arg(task_params, "--local-scheduler")
-        for arg in task.arc_cmdline_args() or []:
-            if isinstance(arg, tuple):
-                task_params = add_cmdline_arg(task_params, *arg)
-            else:
-                task_params = add_cmdline_arg(task_params, arg)
+            proxy_cmd.add_arg("--local-scheduler", "True", overwrite=True)
+        for key, value in OrderedDict(task.arc_cmdline_args()).items():
+            proxy_cmd.add_arg(key, value, overwrite=True)
 
         # job script arguments
         job_args = JobArguments(
             task_cls=task.__class__,
-            task_params=task_params,
+            task_params=proxy_cmd.build(skip_run=True),
             branches=branches,
             auto_retry=False,
             dashboard_data=self.dashboard.remote_hook_data(
@@ -119,7 +115,7 @@ class ARCWorkflowProxy(BaseRemoteWorkflowProxy):
             log_file = "stdall.txt"
             config.stdout = log_file
             config.stderr = log_file
-            config.output_files.append(log_file)
+            config.custom_log_file = log_file
             config.render_variables["log_file"] = pf(log_file)
         else:
             config.stdout = None
@@ -132,7 +128,16 @@ class ARCWorkflowProxy(BaseRemoteWorkflowProxy):
         input_basenames = [pf(os.path.basename(path)) for path in config.input_files]
         config.render_variables["input_files"] = " ".join(input_basenames)
 
-        return self.job_file_factory(**config.__dict__)
+        # build the job file and get the sanitized config
+        job_file, config = self.job_file_factory(**config.__dict__)
+
+        # determine the custom log file uri if set
+        abs_log_file = None
+        if config.custom_log_file:
+            abs_log_file = os.path.join(config.output_uri, config.custom_log_file)
+
+        # return job and log files
+        return {"job": job_file, "log": abs_log_file}
 
     def destination_info(self):
         return "ce: {}".format(",".join(self.task.arc_ce))
@@ -140,11 +145,25 @@ class ARCWorkflowProxy(BaseRemoteWorkflowProxy):
     def submit_jobs(self, job_files):
         task = self.task
 
+        # prepare objects for dumping intermediate submission data
+        dump_freq = task.arc_dump_intermediate_submission_data()
+        if dump_freq and not is_number(dump_freq):
+            dump_freq = 50
+
         # progress callback to inform the scheduler
-        def progress_callback(i, result):
-            i += 1
-            if i in (1, len(job_files)) or i % 25 == 0:
-                task.publish_message("submitted {}/{} job(s)".format(i, len(job_files)))
+        def progress_callback(i, job_id):
+            job_num = i + 1
+
+            # set the job id early
+            self.submission_data.jobs[job_num]["job_id"] = job_id
+
+            # log a message every 25 jobs
+            if job_num in (1, len(job_files)) or job_num % 25 == 0:
+                task.publish_message("submitted {}/{} job(s)".format(job_num, len(job_files)))
+
+            # dump intermediate submission data with a certain frequency
+            if dump_freq and job_num % dump_freq == 0:
+                self.dump_submission_data()
 
         return self.job_manager.submit_batch(job_files, ce=task.arc_ce, retries=3,
             threads=task.threads, callback=progress_callback)
@@ -158,8 +177,14 @@ class ARCWorkflow(BaseRemoteWorkflow):
     arc_job_manager_defaults = None
     arc_job_file_factory_defaults = None
 
-    arc_ce = CSVParameter(default=[], significant=False, description="target arc computing "
-        "element(s)")
+    arc_ce = CSVParameter(default=(), significant=False, description="target arc computing "
+        "element(s); default: empty")
+
+    arc_job_kwargs = []
+    arc_job_kwargs_submit = ["arc_ce"]
+    arc_job_kwargs_cancel = None
+    arc_job_kwargs_cleanup = None
+    arc_job_kwargs_query = None
 
     exclude_params_branch = {"arc_ce"}
 
@@ -180,11 +205,14 @@ class ARCWorkflow(BaseRemoteWorkflow):
         return None
 
     def arc_workflow_requires(self):
-        return OrderedDict()
+        return DotDict()
 
     def arc_output_postfix(self):
         self.get_branch_map()
-        return "_{}To{}".format(self.start_branch, self.end_branch)
+        if self.branches:
+            return "_" + "_".join(str(b) for b in sorted(self.branches))
+        else:
+            return "_{}To{}".format(self.start_branch, self.end_branch)
 
     def arc_output_uri(self):
         return self.arc_output_directory().url()
@@ -194,18 +222,15 @@ class ARCWorkflow(BaseRemoteWorkflow):
         return ARCJobManager(**kwargs)
 
     def arc_create_job_file_factory(self, **kwargs):
-        # job file fectory config priority: config file < class defaults < kwargs
-        get_prefixed_config = self.workflow_proxy.get_prefixed_config
-        cfg = {
-            "dir": get_prefixed_config("job", "job_file_dir"),
-            "mkdtemp": get_prefixed_config("job", "job_file_dir_mkdtemp", type=bool),
-            "cleanup": get_prefixed_config("job", "job_file_dir_cleanup", type=bool),
-        }
-        kwargs = merge_dicts(cfg, self.arc_job_file_factory_defaults, kwargs)
+        # job file fectory config priority: kwargs > class defaults
+        kwargs = merge_dicts({}, self.arc_job_file_factory_defaults, kwargs)
         return ARCJobFileFactory(**kwargs)
 
     def arc_job_config(self, config, job_num, branches):
         return config
+
+    def arc_dump_intermediate_submission_data(self):
+        return True
 
     def arc_post_submit_delay(self):
         return self.poll_interval * 60
@@ -214,4 +239,4 @@ class ARCWorkflow(BaseRemoteWorkflow):
         return True
 
     def arc_cmdline_args(self):
-        return []
+        return {}

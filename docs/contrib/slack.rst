@@ -1,7 +1,7 @@
 slack
 =====
 
-.. automodule:: law.contrib.slack
+.. automodule:: law.slack
 
 .. contents::
 

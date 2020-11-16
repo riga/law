@@ -4,7 +4,8 @@
 CMS-related utilities.
 """
 
-__all__ = ["Site"]
+
+__all__ = ["Site", "lfn_to_pfn"]
 
 
 import os
@@ -19,20 +20,19 @@ class Site(object):
     .. code-block:: python
 
         site = Site() # executed on T2_DE_RWTH
-        print site.name       # "T2_DE_RWTH"
-        print site.country    # "DE"
-        print site.redirector # "xrootd-cms.infn.it"
+        print(site.name)        # "T2_DE_RWTH"
+        print(site.country)     # "DE"
+        print(site.redirector)  # "xrootd-cms.infn.it"
 
         site = Site("T1_US_FNAL")
-        print site.name       # "T1_US_FNAL"
-        print site.country    # "US"
-        print site.redirector # "cmsxrootd.fnal.gov"
+        print(site.name)        # "T1_US_FNAL"
+        print(site.country)     # "US"
+        print(site.redirector)  # "cmsxrootd.fnal.gov"
 
-    .. py:attribute:: redirectors
+    .. py:classattribute:: redirectors
        type: dict
-       classmember
 
-       A mapping of country codes to redirectors. Also contains ``EU`` and ``global``.
+       A mapping of country codes to redirectors.
 
     .. py:attribute:: name
        type: string
@@ -43,8 +43,8 @@ class Site(object):
 
     redirectors = {
         "global": "cms-xrd-global.cern.ch",
-        "EU": "xrootd-cms.infn.it",
-        "US": "cmsxrootd.fnal.gov",
+        "eu": "xrootd-cms.infn.it",
+        "us": "cmsxrootd.fnal.gov",
     }
 
     def __init__(self, name=None):
@@ -99,4 +99,15 @@ class Site(object):
         The XRD redirector that should be used on this site. For more information on XRD, see
         `this link <https://twiki.cern.ch/twiki/bin/view/CMSPublic/WorkBookXrootdService>`_.
         """
-        return self.redirectors.get(self.country, self.redirectors["EU"])
+        return self.redirectors.get(self.country.lower(), self.redirectors["global"])
+
+
+def lfn_to_pfn(lfn, redirector="global"):
+    """
+    Converts a logical file name *lfn* to a physical file name *pfn* using a *redirector*. Valid
+    values for *redirector* are defined by :py:attr:`Site.redirectors`.
+    """
+    if redirector not in Site.redirectors:
+        raise ValueError("unknown redirector: {}".format(redirector))
+
+    return "root://{}/{}".format(Site.redirectors[redirector], lfn)

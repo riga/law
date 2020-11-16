@@ -46,22 +46,3 @@ Class ``ExternalTask``
 
 .. autoclass:: ExternalTask
    :members:
-
-
-Class ``ProxyTask``
--------------------
-
-.. autoclass:: ProxyTask
-   :members:
-
-
-Functions
----------
-
-.. autofunction:: getreqs
-
-.. autofunction:: print_task_deps
-
-.. autofunction:: print_task_status
-
-.. autofunction:: remove_task_output

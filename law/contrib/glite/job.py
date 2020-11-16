@@ -16,15 +16,24 @@ import random
 import subprocess
 import logging
 
+from law.config import Config
 from law.job.base import BaseJobManager, BaseJobFileFactory
 from law.target.file import add_scheme
-from law.util import interruptable_popen, make_list
+from law.util import interruptable_popen, make_list, make_unique, quote_cmd
 
 
 logger = logging.getLogger(__name__)
 
+_cfg = Config.instance()
+
 
 class GLiteJobManager(BaseJobManager):
+
+    # chunking settings
+    chunk_size_submit = 0
+    chunk_size_cancel = _cfg.get_expanded_int("job", "glite_chunk_size_cancel")
+    chunk_size_cleanup = _cfg.get_expanded_int("job", "glite_chunk_size_cleanup")
+    chunk_size_query = _cfg.get_expanded_int("job", "glite_chunk_size_query")
 
     submission_job_id_cre = re.compile(r"^https?\:\/\/.+\:\d+\/.+")
     status_block_cre = re.compile(r"(\w+)\s*\=\s*\[([^\]]*)\]")
@@ -38,8 +47,10 @@ class GLiteJobManager(BaseJobManager):
 
     def submit(self, job_file, ce=None, delegation_id=None, retries=0, retry_delay=3, silent=False):
         # default arguments
-        ce = ce or self.ce
-        delegation_id = delegation_id or self.delegation_id
+        if ce is None:
+            ce = self.ce
+        if delegation_id is None:
+            delegation_id = self.delegation_id
 
         # check arguments
         if not ce:
@@ -64,12 +75,13 @@ class GLiteJobManager(BaseJobManager):
             if delegation_id:
                 cmd += ["-D", delegation_id[i]]
             cmd += [job_file_name]
+            cmd = quote_cmd(cmd)
 
             # run the command
             # glite prints everything to stdout
             logger.debug("submit glite job with command '{}'".format(cmd))
-            code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=sys.stderr,
-                cwd=job_file_dir)
+            code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
+                stdout=subprocess.PIPE, stderr=sys.stderr, cwd=job_file_dir)
 
             # in some cases, the return code is 0 but the ce did not respond with a valid id
             if code == 0:
@@ -82,7 +94,8 @@ class GLiteJobManager(BaseJobManager):
             if code == 0:
                 return job_id
             else:
-                logger.debug("submission of glite job '{}' failed:\n{}".format(job_file, out))
+                logger.debug("submission of glite job '{}' failed with code {}:\n{}".format(
+                    job_file, code, out))
                 if retries > 0:
                     retries -= 1
                     time.sleep(retry_delay)
@@ -94,35 +107,49 @@ class GLiteJobManager(BaseJobManager):
                         job_file, out))
 
     def cancel(self, job_id, silent=False):
-        # build the command and run it
+        # build the command
         cmd = ["glite-ce-job-cancel", "-N"] + make_list(job_id)
+        cmd = quote_cmd(cmd)
+
+        # run it
         logger.debug("cancel glite job(s) with command '{}'".format(cmd))
-        code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=sys.stderr)
+        code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
+            stdout=subprocess.PIPE, stderr=sys.stderr)
 
         # check success
         if code != 0 and not silent:
             # glite prints everything to stdout
-            raise Exception("cancellation of glite job(s) '{}' failed:\n{}".format(job_id, out))
+            raise Exception("cancellation of glite job(s) '{}' failed with code {}:\n{}".format(
+                job_id, code, out))
 
     def cleanup(self, job_id, silent=False):
-        # build the command and run it
+        # build the command
         cmd = ["glite-ce-job-purge", "-N"] + make_list(job_id)
+        cmd = quote_cmd(cmd)
+
+        # run it
         logger.debug("cleanup glite job(s) with command '{}'".format(cmd))
-        code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=sys.stderr)
+        code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
+            stdout=subprocess.PIPE, stderr=sys.stderr)
 
         # check success
         if code != 0 and not silent:
             # glite prints everything to stdout
-            raise Exception("cleanup of glite job(s) '{}' failed:\n{}".format(job_id, out))
+            raise Exception("cleanup of glite job(s) '{}' failed with code {}:\n{}".format(
+                job_id, code, out))
 
     def query(self, job_id, silent=False):
-        multi = isinstance(job_id, (list, tuple))
+        chunking = isinstance(job_id, (list, tuple))
         job_ids = make_list(job_id)
 
-        # build the command and run it
+        # build the command
         cmd = ["glite-ce-job-status", "-n", "-L", "0"] + job_ids
+        cmd = quote_cmd(cmd)
+
+        # run it
         logger.debug("query glite job(s) with command '{}'".format(cmd))
-        code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE, stderr=sys.stderr)
+        code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
+            stdout=subprocess.PIPE, stderr=sys.stderr)
 
         # handle errors
         if code != 0:
@@ -130,7 +157,8 @@ class GLiteJobManager(BaseJobManager):
                 return None
             else:
                 # glite prints everything to stdout
-                raise Exception("status query of glite job(s) '{}' failed:\n{}".format(job_id, out))
+                raise Exception("status query of glite job(s) '{}' failed with code {}:\n{}".format(
+                    job_id, code, out))
 
         # parse the output and extract the status per job
         query_data = self.parse_query_output(out)
@@ -138,7 +166,7 @@ class GLiteJobManager(BaseJobManager):
         # compare to the requested job ids and perform some checks
         for _job_id in job_ids:
             if _job_id not in query_data:
-                if not multi:
+                if not chunking:
                     if silent:
                         return None
                     else:
@@ -148,7 +176,7 @@ class GLiteJobManager(BaseJobManager):
                     query_data[_job_id] = self.job_status_dict(job_id=_job_id, status=self.FAILED,
                         error="job not found in query response")
 
-        return query_data if multi else query_data[job_id]
+        return query_data if chunking else query_data[job_id]
 
     @classmethod
     def parse_query_output(cls, out):
@@ -228,6 +256,18 @@ class GLiteJobFileFactory(BaseJobFileFactory):
     def __init__(self, file_name="job.jdl", executable=None, arguments=None, input_files=None,
             output_files=None, postfix_output_files=True, output_uri=None, stdout="stdout.txt",
             stderr="stderr.txt", vo=None, custom_content=None, absolute_paths=False, **kwargs):
+        # get some default kwargs from the config
+        cfg = Config.instance()
+        if kwargs.get("dir") is None:
+            kwargs["dir"] = cfg.get_expanded("job", cfg.find_option("job",
+                "glite_job_file_dir", "job_file_dir"))
+        if kwargs.get("mkdtemp") is None:
+            kwargs["mkdtemp"] = cfg.get_expanded_boolean("job", cfg.find_option("job",
+                "glite_job_file_dir_mkdtemp", "job_file_dir_mkdtemp"))
+        if kwargs.get("cleanup") is None:
+            kwargs["cleanup"] = cfg.get_expanded_boolean("job", cfg.find_option("job",
+                "glite_job_file_dir_cleanup", "job_file_dir_cleanup"))
+
         super(GLiteJobFileFactory, self).__init__(**kwargs)
 
         self.file_name = file_name
@@ -257,11 +297,15 @@ class GLiteJobFileFactory(BaseJobFileFactory):
         if not render_variables:
             render_variables = {}
 
-        # always add output_uri to render variables
+        # add postfix to render variables
+        if postfix and "file_postfix" not in render_variables:
+            render_variables["file_postfix"] = postfix
+
+        # add output_uri to render variables
         if c.output_uri and "output_uri" not in render_variables:
             render_variables["output_uri"] = c.output_uri
 
-        # linearize render_variables
+        # linearize render variables
         render_variables = self.linearize_render_variables(render_variables)
 
         # prepare the job file and the executable
@@ -290,15 +334,20 @@ class GLiteJobFileFactory(BaseJobFileFactory):
             c.stdout = c.stdout and self.postfix_file(c.stdout, postfix)
             c.stderr = c.stderr and self.postfix_file(c.stderr, postfix)
 
+        # custom log file
+        if c.custom_log_file:
+            c.custom_log_file = self.postfix_file(c.custom_log_file, postfix)
+            c.output_files.append(c.custom_log_file)
+
         # job file content
         content = []
         content.append(("Executable", c.executable))
         if c.arguments:
             content.append(("Arguments", c.arguments))
         if c.input_files:
-            content.append(("InputSandbox", c.input_files))
+            content.append(("InputSandbox", make_unique(c.input_files)))
         if c.output_files:
-            content.append(("OutputSandbox", c.output_files))
+            content.append(("OutputSandbox", make_unique(c.output_files)))
         if c.output_uri:
             content.append(("OutputSandboxBaseDestUri", c.output_uri))
         if c.vo:
@@ -321,7 +370,7 @@ class GLiteJobFileFactory(BaseJobFileFactory):
 
         logger.debug("created glite job file at '{}'".format(job_file))
 
-        return job_file
+        return job_file, c
 
     @classmethod
     def create_line(cls, key, value):

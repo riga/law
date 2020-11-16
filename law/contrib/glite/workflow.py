@@ -15,14 +15,15 @@ import logging
 from abc import abstractmethod
 from collections import OrderedDict
 
-from law import CSVParameter
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments
-from law.contrib.glite.job import GLiteJobManager, GLiteJobFileFactory
+from law.task.proxy import ProxyCommand
 from law.target.file import get_path
-from law.parser import global_cmdline_args, add_cmdline_arg, remove_cmdline_arg
-from law.util import law_src_path, merge_dicts
+from law.parameter import CSVParameter
+from law.util import law_src_path, merge_dicts, DotDict
 from law.contrib.wlcg import delegate_voms_proxy_glite, get_ce_endpoint
+
+from law.contrib.glite.job import GLiteJobManager, GLiteJobFileFactory
 
 
 logger = logging.getLogger(__name__)
@@ -54,29 +55,24 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
         # the file postfix is pythonic range made from branches, e.g. [0, 1, 2, 4] -> "_0To5"
         postfix = "_{}To{}".format(branches[0], branches[-1] + 1)
         config.postfix = postfix
-        pf = lambda s: "postfix:{}".format(s)
+        pf = lambda s: "__law_job_postfix__:{}".format(s)
 
         # get the actual wrapper file that will be executed by the remote job
         wrapper_file = get_path(task.glite_wrapper_file())
         config.executable = os.path.basename(wrapper_file)
 
         # collect task parameters
-        task_params = task.as_branch(branches[0]).cli_args(exclude={"branch"})
-        task_params += global_cmdline_args()
-        # add and remove some arguments
-        task_params = remove_cmdline_arg(task_params, "--workers", 2)
+        proxy_cmd = ProxyCommand(task.as_branch(branches[0]), exclude_task_args={"branch"},
+            exclude_global_args=["workers", "local-scheduler"])
         if task.glite_use_local_scheduler():
-            task_params = add_cmdline_arg(task_params, "--local-scheduler")
-        for arg in task.glite_cmdline_args() or []:
-            if isinstance(arg, tuple):
-                task_params = add_cmdline_arg(task_params, *arg)
-            else:
-                task_params = add_cmdline_arg(task_params, arg)
+            proxy_cmd.add_arg("--local-scheduler", "True", overwrite=True)
+        for key, value in OrderedDict(task.glite_cmdline_args()).items():
+            proxy_cmd.add_arg(key, value, overwrite=True)
 
         # job script arguments
         job_args = JobArguments(
             task_cls=task.__class__,
-            task_params=task_params,
+            task_params=proxy_cmd.build(skip_run=True),
             branches=branches,
             auto_retry=False,
             dashboard_data=self.dashboard.remote_hook_data(
@@ -122,7 +118,7 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
             log_file = "stdall.txt"
             config.stdout = log_file
             config.stderr = log_file
-            config.output_files.append(log_file)
+            config.custom_log_file = log_file
             config.render_variables["log_file"] = pf(log_file)
         else:
             config.stdout = None
@@ -135,12 +131,21 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
         input_basenames = [pf(os.path.basename(path)) for path in config.input_files]
         config.render_variables["input_files"] = " ".join(input_basenames)
 
-        return self.job_file_factory(**config.__dict__)
+        # build the job file and get the sanitized config
+        job_file, config = self.job_file_factory(**config.__dict__)
+
+        # determine the custom log file uri if set
+        abs_log_file = None
+        if config.custom_log_file:
+            abs_log_file = os.path.join(config.output_uri, config.custom_log_file)
+
+        # return job and log files
+        return {"job": job_file, "log": abs_log_file}
 
     def destination_info(self):
         return "ce: {}".format(",".join(self.task.glite_ce))
 
-    def submit_jobs(self, job_files):
+    def submit_jobs(self, job_files, **kwargs):
         task = self.task
 
         # delegate the voms proxy to all endpoints
@@ -149,16 +154,9 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
             for ce in task.glite_ce:
                 endpoint = get_ce_endpoint(ce)
                 self.delegation_ids.append(task.glite_delegate_proxy(endpoint))
+        kwargs["delegation_id"] = self.delegation_ids
 
-        # progress callback to inform the scheduler
-        def progress_callback(i, result):
-            i += 1
-            if i in (1, len(job_files)) or i % 25 == 0:
-                task.publish_message("submitted {}/{} job(s)".format(i, len(job_files)))
-
-        return self.job_manager.submit_batch(job_files, ce=task.glite_ce,
-            delegation_id=self.delegation_ids, retries=3, threads=task.threads,
-            callback=progress_callback)
+        return super(GLiteWorkflowProxy, self).submit_jobs(job_files, **kwargs)
 
 
 class GLiteWorkflow(BaseRemoteWorkflow):
@@ -169,8 +167,14 @@ class GLiteWorkflow(BaseRemoteWorkflow):
     glite_job_manager_defaults = None
     glite_job_file_factory_defaults = None
 
-    glite_ce = CSVParameter(default=[], significant=False, description="target glite computing "
-        "element(s)")
+    glite_ce = CSVParameter(default=(), significant=False, description="target glite computing "
+        "element(s); default: empty")
+
+    glite_job_kwargs = []
+    glite_job_kwargs_submit = ["glite_ce"]
+    glite_job_kwargs_cancel = None
+    glite_job_kwargs_cleanup = None
+    glite_job_kwargs_query = None
 
     exclude_params_branch = {"glite_ce"}
 
@@ -191,11 +195,14 @@ class GLiteWorkflow(BaseRemoteWorkflow):
         return None
 
     def glite_workflow_requires(self):
-        return OrderedDict()
+        return DotDict()
 
     def glite_output_postfix(self):
         self.get_branch_map()
-        return "_{}To{}".format(self.start_branch, self.end_branch)
+        if self.branches:
+            return "_" + "_".join(str(b) for b in sorted(self.branches))
+        else:
+            return "_{}To{}".format(self.start_branch, self.end_branch)
 
     def glite_output_uri(self):
         return self.glite_output_directory().url()
@@ -209,18 +216,15 @@ class GLiteWorkflow(BaseRemoteWorkflow):
         return GLiteJobManager(**kwargs)
 
     def glite_create_job_file_factory(self, **kwargs):
-        # job file fectory config priority: config file < class defaults < kwargs
-        get_prefixed_config = self.workflow_proxy.get_prefixed_config
-        cfg = {
-            "dir": get_prefixed_config("job", "job_file_dir"),
-            "mkdtemp": get_prefixed_config("job", "job_file_dir_mkdtemp", type=bool),
-            "cleanup": get_prefixed_config("job", "job_file_dir_cleanup", type=bool),
-        }
-        kwargs = merge_dicts(cfg, self.glite_job_file_factory_defaults, kwargs)
+        # job file fectory config priority: kwargs > class defaults
+        kwargs = merge_dicts({}, self.glite_job_file_factory_defaults, kwargs)
         return GLiteJobFileFactory(**kwargs)
 
     def glite_job_config(self, config, job_num, branches):
         return config
+
+    def glite_dump_intermediate_submission_data(self):
+        return True
 
     def glite_post_submit_delay(self):
         return self.poll_interval * 60
@@ -229,4 +233,4 @@ class GLiteWorkflow(BaseRemoteWorkflow):
         return True
 
     def glite_cmdline_args(self):
-        return []
+        return {}

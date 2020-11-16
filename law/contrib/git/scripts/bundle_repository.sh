@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 
-# Bundles a git repository into a tar archive considering
-# all local changes that are not excluded by the .gitignore file
-# and all recursive submodules.
+# Bundles a git repository into a tar archive considering all local changes that are not excluded by
+# the .gitignore file and all recursive submodules.
 
 # Arguments:
 # 1. the absolute path to the repository
 # 2. the path where the bundle should be stored, should end with .tgz
 # 3. (optional) space-separated list of files or directories to ignore, supports globbing
 # 4. (optional) space-separated list of files or directories to force-add, supports globbing
+# 5. (optional) commit message, defaults to "[tmp] Commit before bundling."
 
 action() {
     # handle arguments
@@ -34,33 +34,48 @@ action() {
         return "4"
     fi
 
+    local ignore_files="$3"
+    local include_files="$4"
+    local commit_msg="$5"
+    [ -z "$commit_msg" ] && commit_msg="[tmp] Commit before bundling."
+
     local repo_name="$( basename "$repo_path" )"
     local tmp_dir="$( mktemp -d )"
-    local tmp_arc="$( mktemp -p "$tmp_dir" --suffix .tar -u )"
-    local rnd="$RANDOM"
+    local tmp_list="$( mktemp -u "$tmp_dir/tmp.XXXXXXXXXX" ).txt"
 
-    # on nfs systems the .git/index.lock might be re-appear due to sync purposes
+    # build rsync args containing --exclude statements built from files to ignore
+    local rsync_args="-a"
+    if [ ! -z "$ignore_files" ]; then
+        local files
+        IFS=" " read -ra files <<< "$ignore_files"
+        for f in "${files[@]}"; do
+            rsync_args="$rsync_args --exclude \"$f\""
+        done
+    fi
+
+    # on nfs systems the .git/index.lock might be re-appear due to sync issues
     sgit() {
         rm -f .git/index.lock
         git "$@"
     }
-    export -f sgit
+    [ -z "$ZSH_VERSION" ] && export -f sgit
 
-    ( \
-        cp -R "$repo_path" "$tmp_dir/" && \
+    # strategy: add and commit everything recursively to take into account rules defined in
+    # .gitignore files, then create a list of files currently under source control and run tar -c
+    (
+        eval rsync $rsync_args "$repo_path" "$tmp_dir/" && \
         cd "$tmp_dir/$repo_name" && \
-        rm -rf $3 && \
+        rm -rf $ignore_files && \
         sgit add -A . &> /dev/null && \
-        sgit add -f $4 &> /dev/null; \
-        sgit commit -m "[tmp] Add all changes." > /dev/null && \
-        # sgit archive --prefix="$repo_name/" --format=tar.gz -o "$dst_path" HEAD \
-        sgit archive --prefix="$repo_name/" --format=tar -o "$tmp_arc" HEAD && \
-        sgit submodule foreach --recursive "\
-            sgit archive --prefix=\"$repo_name/\$path/\" --format=tar --output=\"$rnd_\$sha1.tar\" HEAD && \
-            tar --concatenate --file=\"$tmp_arc\" \"$rnd_\$sha1.tar\" \
-            && rm \"$rnd_\$sha1.tar\"" && \
+        [ ! -z "$$include_files" ] && sgit add -f $include_files &> /dev/null
+        sgit commit -m "$commit_msg" &> /dev/null
+        for elem in $( sgit ls-files ); do echo "$elem" >> "$tmp_list"; done && \
+        sgit submodule foreach --recursive --quiet "\
+            git add -A . &> /dev/null && \
+            git commit -m \"$commit_msg\" &> /dev/null; \
+            for elem in \$( git ls-files ); do echo \"\$path/\$elem\" >> \"$tmp_list\"; done" && \
         mkdir -p "$( dirname "$dst_path" )" && \
-        gzip -c "$tmp_arc" > "$dst_path"
+        tar -czf "$dst_path" -T "$tmp_list"
     )
     local ret="$?"
 

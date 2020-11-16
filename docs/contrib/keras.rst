@@ -1,7 +1,7 @@
 keras
 =====
 
-.. automodule:: law.contrib.keras
+.. automodule:: law.keras
 
 .. contents::
 
@@ -13,8 +13,8 @@ Class ``KerasModelFormatter``
    :members:
 
 
-Class ``TFKerasModelFormatter``
+Class ``KerasWeightsFormatter``
 -------------------------------
 
-.. autoclass:: TFKerasModelFormatter
+.. autoclass:: KerasWeightsFormatter
    :members:

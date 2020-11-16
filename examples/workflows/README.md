@@ -6,15 +6,13 @@ The actual payload of the tasks is rather trivial. The workflow consists of 26 t
 
 Resources: [luigi](http://luigi.readthedocs.io/en/stable), [law](http://law.readthedocs.io/en/latest)
 
+There are multiple ways to setup and run this example:
 
-#### 1. Source the setup script (just software and some variables)
-
-```shell
-source setup.sh
-```
+1. Docker: `docker run -ti riga/law:example loremipsum`
+2. Local: `source setup.sh`
 
 
-#### 2. Let law index your the tasks and their parameters (for autocompletion)
+#### 1. Let law index your the tasks and their parameters (for autocompletion)
 
 ```shell
 law index --verbose
@@ -34,7 +32,7 @@ written 2 task(s) to index file '/law/examples/workflows/.law/index'
 ```
 
 
-#### 3. Check the status of the CreateAlphabet task
+#### 2. Check the status of the CreateAlphabet task
 
 ```shell
 law run CreateAlphabet --print-status -1
@@ -55,29 +53,31 @@ print task status with max_depth -1 and target_depth 0
 ```
 
 
-#### 4. Run the CreateAlphabet task
+#### 3. Run the CreateAlphabet task
 
 
 ```shell
-law run CreateAlphabet --local-scheduler
+law run CreateAlphabet
 ```
 
 This should take only a few seconds to process.
 
-If you want to see how the task tree is built and subsequently run, start a luigi scheduler in a second terminal with ``luigid`` (you might want to source the setup script again before). This will start a central scheduler at *localhost:8082* (the default address). Also remove the ``--local-scheduler`` from the ``law run`` command, so tasks (or *workers*) know they can communicate with a central scheduler. You might want to add the ``--slow`` parameter to make the tasks somewhat slower in order to see the actual progress in the scheduler (this is of course not a feature of law, but only implemented by the tasks in this example ;) ).
+By default, this example uses a local scheduler, which - by definition - offers no visualization tools in the browser. If you want to see how the task tree is built and subsequently run, run ``luigid`` in a second terminal. This will start a central scheduler at *localhost:8082* (the default address). To inform tasks (or rather *workers*) about the scheduler, either add ``--local-scheduler False`` to the ``law run`` command, or set the ``local-scheduler`` value in the ``[luigi_core]`` config section in the ``law.cfg`` file to ``False``.
 
 The task tree should look like this in the scheduler app:
 
 ![Workflow graph](https://www.dropbox.com/s/o2lcz42u4y6ncvg/law_workflows.png?raw=1 "Workflow graph")
 
+Also, you might want to add the ``--slow`` parameter to make the tasks somewhat slower in order to see the actual progress in the scheduler (this is of course not a feature of law, but only implemented by the tasks in this example ;) ).
 
-#### 5. Check the status again
+
+#### 3. Check the status again
 
 ```shell
 law run CreateAlphabet --print-status 1
 ```
 
-When step 4 succeeded, all output targets should exist:
+When step 2 succeeded, all output targets should exist:
 
 ```shell
 print task status with max_depth 1 and target_depth 0
@@ -95,7 +95,7 @@ To see the status of the targets in the collection, i.e., the grouped outputs of
 set the target depth via `--print-status 1,1`.
 
 
-#### 6. Look at the results
+#### 4. Look at the results
 
 ```shell
 cd data
@@ -103,7 +103,7 @@ ls
 ```
 
 
-#### 7. Cleanup the results
+#### 5. Cleanup the results
 
 ```shell
 law run CreateAlphabet --remove-output -1

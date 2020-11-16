@@ -2,21 +2,17 @@
 
 action() {
     # determine the directory of this file
-    if [ ! -z "$ZSH_VERSION" ]; then
-        local this_file="${(%):-%x}"
-    else
-        local this_file="${BASH_SOURCE[0]}"
-    fi
-    local base="$( cd "$( dirname "$this_file" )" && pwd )"
+    local this_file="$( [ ! -z "$ZSH_VERSION" ] && echo "${(%):-%x}" || echo "${BASH_SOURCE[0]}" )"
+    local this_dir="$( cd "$( dirname "$this_file" )" && pwd )"
 
-    export PYTHONPATH="$base:$PYTHONPATH"
-    export LAW_HOME="$base/.law"
-    export LAW_CONFIG_FILE="$base/law.cfg"
+    export PYTHONPATH="$this_dir:$PYTHONPATH"
+    export LAW_HOME="$this_dir/.law"
+    export LAW_CONFIG_FILE="$this_dir/law.cfg"
 
-    export ANALYSIS_PATH="$base"
+    export ANALYSIS_PATH="$this_dir"
     export ANALYSIS_DATA_PATH="$ANALYSIS_PATH/data"
 
-    source "/home/Marcel/public/law_sw/setup.sh"
-    source "$( law completion )"
+    source "/home/Marcel/public/law_sw/setup.sh" ""
+    source "$( law completion )" ""
 }
 action

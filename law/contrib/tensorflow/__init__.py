@@ -6,8 +6,10 @@ TensorFlow contrib functionality.
 """
 
 
-__all__ = ["TFConstantGraphFormatter"]
+__all__ = ["TFGraphFormatter", "TFKerasModelFormatter", "TFKerasWeightsFormatter"]
 
 
 # provisioning imports
-from law.contrib.tensorflow.formatter import TFConstantGraphFormatter
+from law.contrib.tensorflow.formatter import (
+    TFGraphFormatter, TFKerasModelFormatter, TFKerasWeightsFormatter,
+)

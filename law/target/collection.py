@@ -5,20 +5,25 @@ Collections that wrap multiple targets.
 """
 
 
-__all__ = ["TargetCollection", "SiblingFileCollection"]
+__all__ = ["TargetCollection", "FileCollection", "SiblingFileCollection"]
 
 
 import types
 import random
+from contextlib import contextmanager
 
 import six
 
 from law.target.base import Target
-from law.target.file import FileSystemTarget
+from law.target.file import FileSystemTarget, FileSystemDirectoryTarget, localize_file_targets
+from law.target.local import LocalDirectoryTarget
 from law.util import colored, flatten, create_hash
 
 
 class TargetCollection(Target):
+    """
+    Collection of arbitrary targets.
+    """
 
     def __init__(self, targets, threshold=1.0, **kwargs):
         if isinstance(targets, types.GeneratorType):
@@ -51,12 +56,12 @@ class TargetCollection(Target):
     def __iter__(self):
         raise TypeError("'{}' object is not iterable".format(self.__class__.__name__))
 
-    def _stage_kwargs(self):
-        kwargs = Target._stage_kwargs(self)
+    def _copy_kwargs(self):
+        kwargs = Target._copy_kwargs(self)
         kwargs["threshold"] = self.threshold
         return kwargs
 
-    def _repr_pairs(self, color=True):
+    def _repr_pairs(self, color=False):
         return Target._repr_pairs(self) + [("len", len(self)), ("threshold", self.threshold)]
 
     def _iter_flat(self, keys=False):
@@ -87,10 +92,25 @@ class TargetCollection(Target):
         else:  # dict
             return list(self._flat_targets.keys())
 
+    def uri(self, *args, **kwargs):
+        return flatten(t.uri(*args, **kwargs) for t in self._flat_target_list)
+
     @property
     def hash(self):
         target_hashes = "".join(target.hash for target in self._flat_target_list)
         return create_hash(self.__class__.__name__ + target_hashes)
+
+    @property
+    def first_target(self):
+        if not self._flat_target_list:
+            return None
+
+        target = self._flat_target_list[0]
+
+        if isinstance(target, TargetCollection):
+            return target.first_target
+        else:
+            return target
 
     def remove(self, silent=True):
         for target in self._flat_target_list:
@@ -104,12 +124,16 @@ class TargetCollection(Target):
         else:
             return min(len(self), max(self.threshold, 0.))
 
-    def exists(self):
+    def exists(self, count=None):
         threshold = self._abs_threshold()
 
         # trivial case
         if threshold == 0:
             return True
+
+        # when a count was passed, simple compare with the threshold
+        if count is not None:
+            return count >= threshold
 
         # simple counting with early stopping criteria for both success and fail
         n = 0
@@ -146,7 +170,7 @@ class TargetCollection(Target):
         else:  # dict
             return random.choice(list(self.targets.values()))
 
-    def status_text(self, max_depth=0, flags=None, color=True):
+    def status_text(self, max_depth=0, flags=None, color=False, exists=None):
         count, existing_keys = self.count(keys=True)
         exists = count >= self._abs_threshold()
 
@@ -174,50 +198,100 @@ class TargetCollection(Target):
                 text += "\n{}: ".format(key)
 
                 if isinstance(item, TargetCollection):
-                    t = item.status_text(max_depth - 1, color=color)
+                    t = item.status_text(max_depth=max_depth - 1, color=color)
                     text += "\n  ".join(t.split("\n"))
                 elif isinstance(item, Target):
-                    t = item.status_text(color=color)
-                    text += "{} ({})".format(t, item.colored_repr(color=color))
+                    t = item.status_text(color=color, exists=key in existing_keys)
+                    text += "{} ({})".format(t, item.repr(color=color))
                 else:
-                    t = self.__class__(item).status_text(max_depth - 1, color=color)
+                    t = self.__class__(item).status_text(max_depth=max_depth - 1, color=color)
                     text += "\n   ".join(t.split("\n"))
 
         return text
 
 
-class SiblingFileCollection(TargetCollection):
+class FileCollection(TargetCollection):
+    """
+    Collection of targets that represent files or other FileCollection's.
+    """
 
     def __init__(self, *args, **kwargs):
         TargetCollection.__init__(self, *args, **kwargs)
 
-        # check if all targets are file system targets or nested SiblingFileCollection's
-        # (it's the user's responsibility to pass targets that are really in the same directory)
+        # check if all targets are either FileSystemTarget's or FileCollection's
         for target in self._flat_target_list:
-            if not isinstance(target, (FileSystemTarget, SiblingFileCollection)):
-                raise TypeError("SiblingFileCollection's only wrap FileSystemTarget's and "
-                    "other SiblingFileCollection's, got {}".format(target.__class__))
+            if not isinstance(target, (FileSystemTarget, FileCollection)):
+                raise TypeError("FileCollection's only wrap FileSystemTarget's and other "
+                    "FileCollection's, got {}".format(target.__class__))
+
+    @contextmanager
+    def localize(self, *args, **kwargs):
+        # when localizing collections using temporary files, it makes sense to put
+        # them all in the same temporary directory
+        tmp_dir = kwargs.get("tmp_dir")
+        if not tmp_dir:
+            tmp_dir = LocalDirectoryTarget(is_tmp=True)
+        kwargs["tmp_dir"] = tmp_dir
+
+        # enter localize contexts of all targets
+        with localize_file_targets(self.targets, *args, **kwargs) as localized_targets:
+            # create a copy of this collection that wraps the localized targets
+            yield self.__class__(localized_targets, **self._copy_kwargs())
+
+
+class SiblingFileCollection(FileCollection):
+    """
+    Collection of targets that represent files which are all located in the same directory. This is
+    especially beneficial for large collections of remote files. It is the user's responsibility to
+    ensure that all targets are really located in the same directory.
+    """
+
+    @classmethod
+    def from_directory(cls, directory, **kwargs):
+        # dir should be a FileSystemDirectoryTarget or a string, in which case it is interpreted as
+        # a local path
+        if isinstance(directory, six.string_types):
+            d = LocalDirectoryTarget(directory)
+        elif isinstance(d, FileSystemDirectoryTarget):
+            d = directory
+        else:
+            raise TypeError("directory must either be a string or a FileSystemDirectoryTarget "
+                "object, got {}".format(directory))
+
+        # find all files, pass kwargs which may filter the result further
+        kwargs["type"] = "f"
+        basenames = d.listdir(**kwargs)
+
+        # convert to file targets
+        targets = [d.child(basename, type="f") for basename in basenames]
+
+        return cls(targets)
+
+    def __init__(self, *args, **kwargs):
+        FileCollection.__init__(self, *args, **kwargs)
 
         # find the first target and store its directory
-        first_target = self._flat_target_list[0]
-        if isinstance(first_target, FileSystemTarget):
-            self.dir = first_target.parent
-        else:  # SiblingFileCollection
-            self.dir = first_target.dir
+        if self.first_target is None:
+            raise Exception("{} requires at least one file target".format(self.__class__.__name__))
+        self.dir = self.first_target.parent
 
-    def _repr_pairs(self, color=True):
+    def _repr_pairs(self, color=False):
         return TargetCollection._repr_pairs(self) + [("dir", self.dir.path)]
 
-    def exists(self, basenames=None):
+    def exists(self, count=None, basenames=None):
         threshold = self._abs_threshold()
-
-        # check the dir
-        if not self.dir.exists():
-            return False
 
         # trivial case
         if threshold == 0:
             return True
+
+        # when a count was passed, simple compare with the threshold
+        if count is not None:
+            return count >= threshold
+
+        # check the dir
+        if not self.dir.exists():
+            return False
 
         # get the basenames of all elements of the directory
         if basenames is None:

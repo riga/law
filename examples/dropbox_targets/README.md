@@ -4,26 +4,17 @@ This example shows how to work with file and directory targets that are stored i
 
 Resources: [luigi](http://luigi.readthedocs.io/en/stable), [law](http://law.readthedocs.io/en/latest)
 
+There are multiple ways to setup and run this example:
+
 
 #### Before you start
 
 ##### 1. `gfal2`
 
-Dropbox targets, as well as other remote targets in law, require the [gfal2 library](https://gitlab.cern.ch/dmc/gfal2), its [python bindings](https://gitlab.cern.ch/dmc/gfal2-bindings) and the [Dropbox plugin](https://github.com/cern-it-sdc-id/gfal2-dropbox) to be installed on your system. If you are familiar with docker, you can also use a [law docker image](https://hub.docker.com/r/riga/law/tags):
+Dropbox targets, as well as other remote targets in law, require the [gfal2 library](https://gitlab.cern.ch/dmc/gfal2), its [python bindings](https://gitlab.cern.ch/dmc/gfal2-bindings) and the [Dropbox plugin](https://github.com/cern-it-sdc-id/gfal2-dropbox) to be installed on your system. If you are familiar with docker, you can also use a [law example docker image](https://hub.docker.com/r/riga/law/tags) which ships with everything you need and sets up this example:
 
-```bash
-# python 2.7
-docker run -ti riga/law
-
-# python 3.6
-docker run -ti riga/law:py36
-```
-
-*Tip*: When you cloned the law repository to your local machine, you can forward it into the docker
-container:
-
-```bash
-docker run -ti -v `pwd`:/root/law riga/law
+```shell
+docker run -ti riga/law:example dropbox_targets
 ```
 
 
@@ -42,12 +33,6 @@ access_token: ...
 
 `base` can refer to any directory in your Dropbox. All target paths are resolved relative to this directory and cannot access anything above it.
 
-After adding your information, source the setup file which just sets a few variables and uses the law version of your checkout:
-
-```bash
-source setup.sh
-```
-
 
 #### Play with targets
 
@@ -63,7 +48,7 @@ law.contrib.load("dropbox")
 
 # the top directory was already created by dropbox
 # after setting up the API credentials
-top_dir = law.DropboxDirectoryTarget("/")
+top_dir = law.dropbox.DropboxDirectoryTarget("/")
 
 top_dir.path
 # => "/"
@@ -81,7 +66,7 @@ Now, we create a file target called `data.json`:
 
 ```python
 # method 1: use the full path
-data_file = law.DropboxFileTarget("/data.json")
+data_file = law.dropbox.DropboxFileTarget("/data.json")
 
 # method 2: use child(), when the file does not exist yet, you must
 # pass the target type (f or d)
@@ -218,7 +203,7 @@ Let's get fancy. Now, we want to load a numpy array from one file in the *defaul
 # load the numpy contribs which contains the numpy target formatter
 law.contrib.load("numpy")
 
-pred_file = law.DropboxFileTarget("/prediction.npy", fs="dropbox_results")
+pred_file = law.dropbox.DropboxFileTarget("/prediction.npy", fs="dropbox_results")
 pred_file.dump(array_file.load()["prediction"])
 ```
 
@@ -235,8 +220,8 @@ import numpy as np
 # load the numpy contribs which contains the numpy target formatter
 law.contrib.load("numpy")
 
-inputs = [law.DropboxFileTarget("/my_array_%d.npy" % i) for i in range(10)]
-output = law.DropboxFileTarget("/my_big_array.npy")
+inputs = [law.dropbox.DropboxFileTarget("/my_array_%d.npy" % i) for i in range(10)]
+output = law.dropbox.DropboxFileTarget("/my_big_array.npy")
 
 output.dump(np.concatenate([inp.load(cache=False) for inp in inputs]))
 ```
