@@ -18,7 +18,7 @@ import six
 from law.notification import notify_mail
 from law.util import (
     human_duration, parse_duration, time_units, time_unit_aliases, is_lazy_iterable, make_tuple,
-    make_unique,
+    make_unique, brace_expand,
 )
 
 
@@ -146,6 +146,9 @@ class CSVParameter(luigi.Parameter):
     When *min_len* (*max_len*) is set to an integer, an error is raised in case the number of
     elements to serialize or parse is deceeds (exceeds) that value.
 
+    When *brace_expand* is *True*, brace expansion is applied, potentially extending the list of
+    values.
+
     Example:
 
     .. code-block:: python
@@ -163,6 +166,10 @@ class CSVParameter(luigi.Parameter):
         p = CSVParameter(cls=luigi.IntParameter, max_len=2)
         p.parse("4,5,6")
         # => ValueError
+
+        p = CSVParameter(cls=luigi.IntParameter, brace_expand=True)
+        p.parse("1{2,3,4}9")
+        # => (129, 139, 149)
 
     .. note::
 
@@ -188,12 +195,13 @@ class CSVParameter(luigi.Parameter):
     CSV_SEP = ","
 
     def __init__(self, *args, **kwargs):
-        """ __init__(*args, cls=luigi.Parameter, unique=False, min_len=None, max_len=None, **kwargs)
+        """ __init__(*args, cls=luigi.Parameter, unique=False, min_len=None, max_len=None, brace_expand=False, **kwargs)
         """
         self._cls = kwargs.pop("cls", luigi.Parameter)
         self._unique = kwargs.pop("unique", False)
         self._min_len = kwargs.pop("min_len", None)
         self._max_len = kwargs.pop("max_len", None)
+        self._brace_expand = kwargs.pop("brace_expand", False)
 
         # ensure that the default value is a tuple
         if "default" in kwargs:
@@ -222,7 +230,11 @@ class CSVParameter(luigi.Parameter):
         elif isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
             ret = make_tuple(inp)
         elif isinstance(inp, six.string_types):
-            ret = tuple(self._inst.parse(elem) for elem in inp.split(self.CSV_SEP))
+            if self._brace_expand:
+                elems = brace_expand(inp, split_csv=True)
+            else:
+                elems = inp.split(self.CSV_SEP)
+            ret = tuple(map(self._inst.parse, elems))
         else:
             ret = (ret,)
 
@@ -260,6 +272,9 @@ class MultiCSVParameter(CSVParameter):
     :py:class:`CSVParameter`, which also handles the features controlled by *unique*, *max_len* and
     *min_len*.
 
+    When *brace_expand* is *True*, brace expansion is applied, potentially extending the lists of
+    values.
+
     Example:
 
     .. code-block:: python
@@ -277,6 +292,10 @@ class MultiCSVParameter(CSVParameter):
         p = MultiCSVParameter(cls=luigi.IntParameter, max_len=2)
         p.parse("4,5:6,7,8")
         # => ValueError
+
+        p = MultiCSVParameter(cls=luigi.IntParameter, brace_expand=True)
+        p.parse("4,5:6,7,8{8,9}")
+        # => ((4, 5), (6, 7, 88, 89))
 
     .. note::
 
@@ -302,7 +321,7 @@ class MultiCSVParameter(CSVParameter):
     MULTI_CSV_SEP = ":"
 
     def __init__(self, *args, **kwargs):
-        """ __init__(*args, cls=luigi.Parameter, unique=False, min_len=None, max_len=None, **kwargs)
+        """ __init__(*args, cls=luigi.Parameter, unique=False, min_len=None, max_len=None, brace_expand=False, **kwargs)
         """
         super(MultiCSVParameter, self).__init__(*args, **kwargs)
 
@@ -311,8 +330,8 @@ class MultiCSVParameter(CSVParameter):
         if isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
             ret = tuple(super(MultiCSVParameter, self).parse(v) for v in inp)
         elif isinstance(inp, six.string_types):
-            ret = tuple(
-                super(MultiCSVParameter, self).parse(v) for v in inp.split(self.MULTI_CSV_SEP))
+            elems = inp.split(self.MULTI_CSV_SEP)
+            ret = tuple(map(super(MultiCSVParameter, self).parse, elems))
         else:
             ret = (super(MultiCSVParameter, self).parse(inp),)
 
