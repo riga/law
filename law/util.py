@@ -919,19 +919,24 @@ def interruptable_popen(*args, **kwargs):
 
 def readable_popen(*args, **kwargs):
     """
-    Shorthand to :py:class:`Popen` which yields the output live line-by-line. All *args* and
-    *kwargs* are forwatded to the :py:class:`Popen` constructor. When EOF is reached,
-    ``communicate()`` is called on the subprocess and it is yielded. Example:
+    Creates a :py:class:`Popen` object and a generator function yielding the output line-by-line as
+    it comes in. All *args* and *kwargs* are forwarded to the :py:class:`Popen` constructor.
+    Example:
 
     .. code-block:: python
 
-        for line in readable_popen(["some_executable", "--args"]):
-            if isinstance(line, str):
-                print(line)
-            else:
-                process = line
-                if process.returncode != 0:
-                    raise Exception("complain ...")
+        # create the popen object and line generator
+        p, lines = readable_popen(["some_executable", "--args"])
+
+        # loop through output lines as they come in
+        for line in lines:
+            print(line)
+
+        if p.returncode != 0:
+            raise Exception("complain ...")
+
+    ``communicate()`` is called automatically after the output iteration terminates which sets the
+    subprocess' *returncode* member.
     """
     # force pipes
     kwargs["stdout"] = subprocess.PIPE
@@ -939,14 +944,16 @@ def readable_popen(*args, **kwargs):
 
     p = subprocess.Popen(*args, **kwargs)
 
-    for line in iter(lambda: p.stdout.readline(), ""):
-        if six.PY3:
-            line = line.decode("utf-8")
-        yield line.rstrip()
+    def line_gen():
+        for line in iter(lambda: p.stdout.readline(), ""):
+            if six.PY3:
+                line = line.decode("utf-8")
+            yield line.rstrip()
 
-    # yield the process itself in the end
-    p.communicate()
-    yield p
+        # communicate in the end
+        p.communicate()
+
+    return p, line_gen()
 
 
 def create_hash(inp, l=10, algo="sha256"):

@@ -22,7 +22,7 @@ from law.task.base import Task, Register
 from law.task.proxy import ProxyTask, get_proxy_attribute
 from law.target.collection import TargetCollection
 from law.parameter import NO_STR, NO_INT, CSVParameter
-from law.util import no_value, make_list, DotDict
+from law.util import no_value, make_list, iter_chunks, DotDict
 
 
 logger = logging.getLogger(__name__)
@@ -607,18 +607,71 @@ class BaseWorkflow(Task):
         """
         if self.is_branch():
             return self.as_workflow().get_branch_tasks()
-        else:
-            if self._branch_tasks is None:
-                branch_map = self.get_branch_map()
-                if branch_map is None:
-                    raise AttributeError("workflow task '{}' requires a branch_map".format(self))
 
-                self._branch_tasks = OrderedDict()
-                for b in branch_map:
-                    self._branch_tasks[b] = self.req(self, branch=b,
-                        _exclude=self.exclude_params_branch)
+        if self._branch_tasks is None:
+            branch_map = self.get_branch_map()
+            if branch_map is None:
+                raise AttributeError("workflow task '{}' requires a branch_map".format(self))
 
-            return self._branch_tasks
+            self._branch_tasks = OrderedDict()
+            for b in branch_map:
+                self._branch_tasks[b] = self.req(self, branch=b,
+                    _exclude=self.exclude_params_branch)
+
+        return self._branch_tasks
+
+    def get_branch_chunks(self, chunk_size):
+        """
+        Returns a list of chunks of branch numbers defined in this workflow with a certain
+        *chunk_size*. Example:
+
+        .. code-block:: python
+
+            wf = SomeWorkflowTask()  # has 8 branches
+            print(wf.get_branch_chunks(3))
+            # -> [[0, 1, 2], [3, 4, 5], [6, 7]]
+
+            wf2 = SomeWorkflowTask(end_branch=5)  # has 5 branches
+            print(wf2.get_branch_chunks(3))
+            # -> [[0, 1, 2], [3, 4]]
+        """
+        if self.is_branch():
+            return self.as_workflow().get_branch_chunks(chunk_size)
+
+        # get the branch map and create chunks of its branch values
+        branch_chunks = iter_chunks(self.branch_map.keys(), chunk_size)
+
+        return list(branch_chunks)
+
+    def get_all_branch_chunks(self, chunk_size, **kwargs):
+        """
+        Returns a list of chunks of all branch numbers of this workflow (i.e. without
+        *start_branch*, *end_branch* and *branches* parameters applied) with a certain *chunk_size*.
+        Internally, a new instance of this workflow is created using :py:meth:`BaseTask.req`,
+        forwarding all *kwargs*. Its *_exclude* list will contain ``["start_branch", "end_branch",
+        "branches"]`` in order to use all possible branch values. Example:
+
+        .. code-block:: python
+
+            wf = SomeWorkflowTask()  # has 8 branches
+            print(wf.get_all_branch_chunks(3))
+            # -> [[0, 1, 2], [3, 4, 5], [6, 7]]
+
+            wf2 = SomeWorkflowTask(end_branch=5)  # has 5 branches
+            print(wf2.get_all_branch_chunks(3))
+            # -> [[0, 1, 2], [3, 4, 5], [6, 7]]
+        """
+        if self.is_branch():
+            return self.as_workflow().get_all_branch_chunks(chunk_size, **kwargs)
+
+        # create a new instance
+        _exclude = make_list(kwargs.get("_exclude", []))
+        _exclude.extend(["start_branch", "end_branch", "branches"])
+        kwargs["_exclude"] = _exclude
+        inst = self.req(self, **kwargs)
+
+        # return its branch chunks
+        return inst.get_branch_chunks(chunk_size)
 
     def workflow_requires(self):
         """
