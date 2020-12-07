@@ -70,7 +70,7 @@ class TaskInstanceParameter(luigi.Parameter):
 
 
 class DurationParameter(luigi.Parameter):
-    """
+    """ __init__(unit="s", *args, **kwargs)
     Parameter that interprets a string (or float) value as a duration, represented by a float
     number with a configurable unit. *unit* is forwarded as both the *unit* and *input_unit*
     argument to :py:func:`law.util.parse_duration` which is used for the conversion. For best
@@ -99,7 +99,6 @@ class DurationParameter(luigi.Parameter):
     """
 
     def __init__(self, *args, **kwargs):
-        """ __init__(unit="s", *args, **kwargs) """
         # validate and set the unit
         self._unit = None
         self.unit = kwargs.pop("unit", "s")
@@ -136,7 +135,8 @@ class DurationParameter(luigi.Parameter):
 
 
 class CSVParameter(luigi.Parameter):
-    """
+    """ __init__(*args, cls=luigi.Parameter, unique=False, min_len=None, max_len=None, \
+        brace_expand=False, x=y, **kwargs)
     Parameter that parses a comma-separated value (CSV) and produces a tuple. *cls* can refer to an
     other parameter class that will be used to parse and serialize the particular items.
 
@@ -195,8 +195,6 @@ class CSVParameter(luigi.Parameter):
     CSV_SEP = ","
 
     def __init__(self, *args, **kwargs):
-        """ __init__(*args, cls=luigi.Parameter, unique=False, min_len=None, max_len=None, brace_expand=False, **kwargs)
-        """
         self._cls = kwargs.pop("cls", luigi.Parameter)
         self._unique = kwargs.pop("unique", False)
         self._min_len = kwargs.pop("min_len", None)
@@ -263,7 +261,8 @@ class CSVParameter(luigi.Parameter):
 
 
 class MultiCSVParameter(CSVParameter):
-    """
+    """ __init__(*args, cls=luigi.Parameter, unique=False, min_len=None, max_len=None, \
+        brace_expand=False, **kwargs)
     Parameter that parses several comma-separated values (CSV), separated by colons, and produces a
     nested tuple. *cls* can refer to an other parameter class that will be used to parse and
     serialize the particular items.
@@ -320,11 +319,6 @@ class MultiCSVParameter(CSVParameter):
 
     MULTI_CSV_SEP = ":"
 
-    def __init__(self, *args, **kwargs):
-        """ __init__(*args, cls=luigi.Parameter, unique=False, min_len=None, max_len=None, brace_expand=False, **kwargs)
-        """
-        super(MultiCSVParameter, self).__init__(*args, **kwargs)
-
     def parse(self, inp):
         """"""
         if isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
@@ -377,7 +371,7 @@ class NotifyParameter(luigi.BoolParameter):
 
 
 class NotifyMultiParameter(NotifyParameter):
-    """
+    """ __init__(parameters=[], *args, **kwargs)
     Parameter that takes multiple other :py:class:`NotifyParameter`'s to join their notification
     functionality in a single parameter. Example:
 
@@ -392,7 +386,6 @@ class NotifyMultiParameter(NotifyParameter):
     """
 
     def __init__(self, *args, **kwargs):
-        """ __init__(parameters=[], *args, **kwargs) """
         self.parameters = kwargs.pop("parameters", [])
 
         super(NotifyMultiParameter, self).__init__(*args, **kwargs)

@@ -1731,7 +1731,7 @@ class BaseStream(object):
 
 
 class TeeStream(BaseStream):
-    """
+    """ __init__(*consumers, mode="w")
     Multi-stream object that forwards calls to :py:meth:`write` and :py:meth:`flush` to all
     registered *consumer* streams. When a *consumer* is a string, it is interpreted as a file which
     is opened for writing (similar to *tee* in bash). Example:
@@ -1743,8 +1743,6 @@ class TeeStream(BaseStream):
     """
 
     def __init__(self, *consumers, **kwargs):
-        """ __init__(*consumers, mode="w")
-        """
         super(TeeStream, self).__init__()
 
         mode = kwargs.get("mode", "w")

@@ -74,10 +74,10 @@ except Exception as e:
 
 
 class WLCGTarget(RemoteTarget):
+    """ __init__(path, fs=WLCGFileSystem.default_instance, **kwargs)
+    """
 
     def __init__(self, path, fs=WLCGFileSystem.default_instance, **kwargs):
-        """ __init__(path, fs=WLCGFileSystem.default_instance, **kwargs)
-        """
         if fs is None:
             fs = WLCGFileSystem.default_instance
         elif isinstance(fs, six.string_types):
