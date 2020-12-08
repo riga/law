@@ -17,6 +17,8 @@ from collections import OrderedDict
 
 import six
 
+from law.util import make_list
+
 
 logger = logging.getLogger(__name__)
 
@@ -152,7 +154,7 @@ class PickleFormatter(Formatter):
     @classmethod
     def accepts(cls, path, mode):
         path = get_path(path)
-        return path.endswith(".pkl") or path.endswith(".pickle") or path.endswith(".p")
+        return path.endswith((".pkl", ".pickle", ".p"))
 
     @classmethod
     def load(cls, path, *args, **kwargs):
@@ -172,7 +174,7 @@ class YAMLFormatter(Formatter):
     @classmethod
     def accepts(cls, path, mode):
         path = get_path(path)
-        return path.endswith(".yaml") or path.endswith(".yml")
+        return path.endswith((".yaml", ".yml"))
 
     @classmethod
     def load(cls, path, *args, **kwargs):
@@ -238,10 +240,12 @@ class TarFormatter(Formatter):
     @classmethod
     def infer_compression(cls, path):
         path = get_path(path)
-        if path.endswith(".tar.gz") or path.endswith(".tgz"):
+        if path.endswith((".tar.tgz", ".tgz")):
             return "gz"
-        elif path.endswith(".tbz2") or path.endswith(".bz2"):
+        elif path.endswith((".tar.bz2", ".tbz2", ".bz2")):
             return "bz2"
+        elif path.endswith((".tar.xz", ".txz", ".lzma")):
+            return "xz"
         else:
             return None
 
@@ -280,12 +284,10 @@ class TarFormatter(Formatter):
 
         # open a new zip file and add all files in src
         with tarfile.open(get_path(path), mode, *args, **kwargs) as f:
-            src = get_path(src)
-            if os.path.isfile(src):
-                f.add(src, os.path.basename(src), filter=_filter)
-            else:
-                for elem in os.listdir(src):
-                    f.add(os.path.join(src, elem), elem, filter=_filter)
+            srcs = [os.path.abspath(get_path(src)) for src in make_list(src)]
+            common_prefix = os.path.commonprefix(srcs)
+            for src in srcs:
+                f.add(src, arcname=os.path.relpath(src, common_prefix), filter=_filter)
 
 
 # trailing imports
