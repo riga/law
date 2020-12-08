@@ -142,32 +142,6 @@ class ARCWorkflowProxy(BaseRemoteWorkflowProxy):
     def destination_info(self):
         return "ce: {}".format(",".join(self.task.arc_ce))
 
-    def submit_jobs(self, job_files):
-        task = self.task
-
-        # prepare objects for dumping intermediate submission data
-        dump_freq = self._get_task_attribute("dump_intermediate_submission_data")()
-        if dump_freq and not is_number(dump_freq):
-            dump_freq = 50
-
-        # progress callback to inform the scheduler
-        def progress_callback(i, job_id):
-            job_num = i + 1
-
-            # set the job id early
-            self.submission_data.jobs[job_num]["job_id"] = job_id
-
-            # log a message every 25 jobs
-            if job_num in (1, len(job_files)) or job_num % 25 == 0:
-                task.publish_message("submitted {}/{} job(s)".format(job_num, len(job_files)))
-
-            # dump intermediate submission data with a certain frequency
-            if dump_freq and job_num % dump_freq == 0:
-                self.dump_submission_data()
-
-        return self.job_manager.submit_batch(job_files, ce=task.arc_ce, retries=3,
-            threads=task.threads, callback=progress_callback)
-
 
 class ARCWorkflow(BaseRemoteWorkflow):
 

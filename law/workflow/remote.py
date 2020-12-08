@@ -579,6 +579,12 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         # collect data of jobs that should be submitted: num -> branches
         submit_jobs = OrderedDict()
 
+        # keep track of the list of unsubmitted job nums before retry jobs are handled to control
+        # whether they are resubmitted immediately or at the end (subject to shuffling)
+        unsubmitted_job_nums = list(self.submission_data.unsubmitted_jobs.keys())
+        if task.shuffle_jobs:
+            random.shuffle(unsubmitted_job_nums)
+
         # handle jobs for resubmission
         if retry_jobs:
             for job_num, branches in six.iteritems(retry_jobs):
@@ -586,42 +592,42 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 if self._can_skip_job(job_num, branches):
                     continue
 
-                # the number of parallel jobs might be reached as well
-                # in that case, add the jobs back to the unsubmitted ones and update the job id
+                # in the case that the number of parallel jobs might be reached, or when retry jobs
+                # are configured to be tried last, add the jobs back to the unsubmitted ones and
+                # update the job id
                 n = self.poll_data.n_active + len(submit_jobs)
-                if n >= self.poll_data.n_parallel:
+                if n >= self.poll_data.n_parallel or task.append_retry_jobs:
+                    self.submission_data.jobs.pop(job_num, None)
                     self.submission_data.unsubmitted_jobs[job_num] = branches
-                    del self.submission_data.jobs[job_num]
+                    if task.append_retry_jobs:
+                        unsubmitted_job_nums.insert(0, job_num)
+                    else:
+                        unsubmitted_job_nums.append(job_num)
                     continue
 
                 # mark job for resubmission
                 submit_jobs[job_num] = sorted(branches)
 
-        # fill with jobs from the list of unsubmitted jobs until maximum number of parallel jobs is
-        # reached
-        new_jobs = OrderedDict()
-        for job_num, branches in list(self.submission_data.unsubmitted_jobs.items()):
+        # fill with unsubmitted jobs until maximum number of parallel jobs is reached
+        for job_num in unsubmitted_job_nums:
+            branches = self.submission_data.unsubmitted_jobs[job_num]
+
             # remove jobs that don't need to be submitted
             if self._can_skip_job(job_num, branches):
-                del self.submission_data.unsubmitted_jobs[job_num]
+                self.submission_data.unsubmitted_jobs.pop(job_num, None)
                 continue
 
             # do nothing when n_parallel is already reached
-            n = self.poll_data.n_active + len(submit_jobs) + len(new_jobs)
+            n = self.poll_data.n_active + len(submit_jobs)
             if n >= self.poll_data.n_parallel:
                 continue
 
             # mark jobs for submission
-            del self.submission_data.unsubmitted_jobs[job_num]
-            new_jobs[job_num] = sorted(branches)
+            self.submission_data.unsubmitted_jobs.pop(job_num, None)
+            submit_jobs[job_num] = sorted(branches)
 
-        # add new jobs to the jobs to submit, maybe also shuffle
+        # store submission data for jobs about to be submitted
         new_submission_data = OrderedDict()
-        new_job_nums = list(new_jobs.keys())
-        if task.shuffle_jobs:
-            random.shuffle(new_job_nums)
-        for job_num in new_job_nums:
-            submit_jobs[job_num] = new_jobs[job_num]
 
         # when there is nothing to submit, dump the submission data to the output file and stop here
         if not submit_jobs:
@@ -634,8 +640,10 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             job_data = self.submission_data_cls.job_data(branches=branches)
             self.submission_data.jobs[job_num] = job_data
 
-        # create job submission files
-        job_files = [self.create_job_file(*tpl) for tpl in six.iteritems(submit_jobs)]
+        # create job submission files mapped to job nums
+        job_files = OrderedDict()
+        for job_num, branches in six.iteritems(submit_jobs):
+            job_files[job_num] = self.create_job_file(job_num, branches)
 
         # log some stats
         dst_info = self.destination_info() or ""
@@ -644,11 +652,11 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             len(submit_jobs), self.workflow_type, dst_info))
 
         # actual submission
-        job_ids = self.submit_jobs([files["job"] for files in job_files])
+        job_ids = self._submit(job_files)
 
         # store submission data
         errors = []
-        for job_num, job_id, files in six.moves.zip(submit_jobs, job_ids, job_files):
+        for job_num, job_id, files in six.moves.zip(submit_jobs, job_ids, job_files.values()):
             # handle errors
             if isinstance(job_id, Exception):
                 errors.append((job_num, job_id))
@@ -683,37 +691,42 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
         return new_submission_data
 
-    def submit_jobs(self, job_files, **kwargs):
+    def _submit(self, job_files, **kwargs):
         task = self.task
+
+        # job_files is an ordered mapping job_num -> {"job": PATH, "log": PATH/None}, get keys and
+        # values for faster lookup by numeric index
+        job_nums = list(job_files.keys())
+        job_files = [f["job"] for f in six.itervalues(job_files)]
 
         # prepare objects for dumping intermediate submission data
         dump_freq = self._get_task_attribute("dump_intermediate_submission_data", True)()
         if dump_freq and not is_number(dump_freq):
             dump_freq = 50
 
+        # get job kwargs for submission and merge with passed kwargs
+        submit_kwargs = self._get_job_kwargs("submit")
+        submit_kwargs = merge_dicts(submit_kwargs, kwargs)
+
         # progress callback to inform the scheduler
         def progress_callback(i, job_id):
-            job_num = i + 1
+            job_num = job_nums[i]
 
             # some job managers respond with a list of job ids per submission (e.g. htcondor, slurm)
-            # batched submission is not yet supported, so get the first id
-            if isinstance(job_id, list):
+            # so get the first id as long as batched submission is not yet supported
+            if isinstance(job_id, list) and not self.job_manager.chunk_size_submit:
                 job_id = job_id[0]
 
             # set the job id early
             self.submission_data.jobs[job_num]["job_id"] = job_id
 
             # log a message every 25 jobs
-            if job_num in (1, len(job_files)) or job_num % 25 == 0:
-                task.publish_message("submitted {}/{} job(s)".format(job_num, len(job_files)))
+            if i in (0, len(job_files) - 1) or (i + 1) % 25 == 0:
+                task.publish_message("submitted {}/{} job(s)".format(i + 1, len(job_files)))
 
             # dump intermediate submission data with a certain frequency
-            if dump_freq and job_num % dump_freq == 0:
+            if dump_freq and (i + 1) % dump_freq == 0:
                 self.dump_submission_data()
-
-        # get job kwargs for submission and merge with passed kwargs
-        submit_kwargs = self._get_job_kwargs("submit")
-        submit_kwargs = merge_dicts(submit_kwargs, kwargs)
 
         return self.job_manager.submit_batch(job_files, retries=3, threads=task.threads,
             callback=progress_callback, **submit_kwargs)
@@ -972,6 +985,13 @@ class BaseRemoteWorkflow(BaseWorkflow):
        Alignment value that is passed to :py:meth:`law.job.base.BaseJobManager.status_line` to print
        the status line during job status polling. Defaults to *False*.
 
+    .. py:classattribute:: append_retry_jobs
+       type: bool
+
+       When *True*, jobs to retry are added to the end of the jobs to submit, giving priority to new
+       ones. However, when *shuffle_jobs* is *True*, they might be submitted again earlier.
+       Defaults to *False*.
+
     .. py:classattribute:: retries
        type: luigi.IntParameter
 
@@ -1077,8 +1097,9 @@ class BaseRemoteWorkflow(BaseWorkflow):
     transfer_logs = luigi.BoolParameter(default=False, significant=False, description="transfer "
         "job logs to the output directory; default: False")
 
-    align_polling_status_line = False
     check_unreachable_acceptance = False
+    align_polling_status_line = False
+    append_retry_jobs = False
 
     exclude_index = True
 

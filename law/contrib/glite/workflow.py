@@ -145,7 +145,7 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
     def destination_info(self):
         return "ce: {}".format(",".join(self.task.glite_ce))
 
-    def submit_jobs(self, job_files, **kwargs):
+    def _submit(self, *args, **kwargs):
         task = self.task
 
         # delegate the voms proxy to all endpoints
@@ -156,7 +156,7 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
                 self.delegation_ids.append(task.glite_delegate_proxy(endpoint))
         kwargs["delegation_id"] = self.delegation_ids
 
-        return super(GLiteWorkflowProxy, self).submit_jobs(job_files, **kwargs)
+        return super(GLiteWorkflowProxy, self)._submit(*args, **kwargs)
 
 
 class GLiteWorkflow(BaseRemoteWorkflow):
