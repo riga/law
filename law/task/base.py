@@ -40,13 +40,21 @@ class BaseRegister(luigi.task_register.Register):
         # default attributes, irrespective of inheritance
         classdict.setdefault("exclude_index", False)
 
-        # union "exclude_params_*" sets with those of all base classes
+        # unite "exclude_params_*" sets with those of all base classes
         for base in bases:
             for attr, base_params in vars(base).items():
-                if isinstance(base_params, set) and attr.startswith("exclude_params_"):
+                if attr.startswith("exclude_params_") and isinstance(base_params, set):
                     params = classdict.setdefault(attr, set())
                     if isinstance(params, set):
                         params.update(base_params)
+
+        # remove those parameter names from "exclude_params_*" sets which are explicitly
+        # listed in corresponding "include_params_*" sets defined on the class itself
+        for attr, include_params in classdict.items():
+            if attr.startswith("include_params_") and isinstance(include_params, set):
+                exclude_attr = "exclude" + attr[len("include"):]
+                if exclude_attr in classdict and isinstance(classdict[exclude_attr], set):
+                    classdict[exclude_attr] -= include_params
 
         # create the class
         cls = ABCMeta.__new__(metacls, classname, bases, classdict)
