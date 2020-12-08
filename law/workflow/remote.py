@@ -1080,6 +1080,8 @@ class BaseRemoteWorkflow(BaseWorkflow):
     align_polling_status_line = False
     check_unreachable_acceptance = False
 
+    exclude_index = True
+
     exclude_params_branch = {
         "retries", "tasks_per_job", "parallel_jobs", "only_missing", "no_poll", "threads",
         "walltime", "poll_interval", "poll_fails", "shuffle_jobs", "cancel_jobs", "cleanup_jobs",
@@ -1087,7 +1089,9 @@ class BaseRemoteWorkflow(BaseWorkflow):
     }
     exclude_params_repr = {"cancel_jobs", "cleanup_jobs"}
 
-    exclude_index = True
+    abstract_workflow_methods = BaseWorkflow.abstract_workflow_methods | {
+        "workflow_requires", "output_directory", "output_postfix",
+    }
 
     def inst_exclude_params_repr(self):
         params = super(BaseRemoteWorkflow, self).inst_exclude_params_repr()
