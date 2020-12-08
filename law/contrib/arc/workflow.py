@@ -18,7 +18,7 @@ from law.job.base import JobArguments
 from law.task.proxy import ProxyCommand
 from law.target.file import get_path
 from law.parameter import CSVParameter
-from law.util import law_src_path, merge_dicts, is_number, DotDict
+from law.util import law_src_path, merge_dicts, DotDict
 
 from law.contrib.arc.job import ARCJobManager, ARCJobFileFactory
 
