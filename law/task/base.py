@@ -502,9 +502,7 @@ class Task(BaseTask):
         return remove_task_output(self, *args)
 
     def _fetch_output(self, args):
-        import law.target.remote as ltr
-        with patch_object(ltr, "global_retries", 0, lock=True):
-            return fetch_task_output(self, *args)
+        return fetch_task_output(self, *args)
 
     def localize_input(self, *args, **kwargs):
         return localize_file_targets(self.input(), *args, **kwargs)
