@@ -1078,13 +1078,13 @@ class RemoteFileSystem(FileSystem):
         if mode == "r":
             if cache:
                 lpath = self._cached_copy(path, None, cache=True, **kwargs)
-                lpath = remove_scheme(lpath)
             else:
                 tmp = LocalFileTarget(is_tmp=self.ext(path, n=0) or True)
-                self.copy(path, tmp.uri(), cache=False, **kwargs)
+                lpath = self.copy(path, tmp.uri(), cache=False, **kwargs)
+            lpath = remove_scheme(lpath)
 
             def cleanup():
-                if not cache and tmp.exists():
+                if not cache and tmp and tmp.exists():
                     tmp.remove()
 
             f = lpath if yield_path else open(lpath, "r")
