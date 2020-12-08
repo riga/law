@@ -478,9 +478,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                     self.submit()
 
                     # sleep once to give the job interface time to register the jobs
-                    post_submit_delay = self._get_task_attribute("post_submit_delay")()
-                    if post_submit_delay:
-                        logger.debug("sleep for {} seconds due to post_submit_delay".format(
+                    post_submit_delay = self._get_task_attribute("post_submit_delay", True)()
+                    if post_submit_delay > 0:
+                        logger.debug("sleep for {} second(s) due to post_submit_delay".format(
                             post_submit_delay))
                         time.sleep(post_submit_delay)
 
@@ -687,7 +687,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         task = self.task
 
         # prepare objects for dumping intermediate submission data
-        dump_freq = self._get_task_attribute("dump_intermediate_submission_data")()
+        dump_freq = self._get_task_attribute("dump_intermediate_submission_data", True)()
         if dump_freq and not is_number(dump_freq):
             dump_freq = 50
 
@@ -1112,6 +1112,16 @@ class BaseRemoteWorkflow(BaseWorkflow):
         that can be changed within this method.
         """
         return
+
+    def post_submit_delay(self):
+        """
+        Configurable delay in seconds to wait after submitting jobs and before starting the status
+        polling.
+        """
+        return self.poll_interval * 60
+
+    def dump_intermediate_submission_data(self):
+        return True
 
     def create_job_dashboard(self):
         """

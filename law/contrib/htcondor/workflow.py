@@ -188,11 +188,7 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
         return None
 
     def htcondor_output_postfix(self):
-        self.get_branch_map()
-        if self.branches:
-            return "_" + "_".join(str(b) for b in sorted(self.branches))
-        else:
-            return "_{}To{}".format(self.start_branch, self.end_branch)
+        return "_" + self.get_branches_repr()
 
     def htcondor_create_job_manager(self, **kwargs):
         kwargs = merge_dicts(self.htcondor_job_manager_defaults, kwargs)
@@ -205,12 +201,6 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
 
     def htcondor_job_config(self, config, job_num, branches):
         return config
-
-    def htcondor_dump_intermediate_submission_data(self):
-        return True
-
-    def htcondor_post_submit_delay(self):
-        return self.poll_interval * 60
 
     def htcondor_use_local_scheduler(self):
         return False

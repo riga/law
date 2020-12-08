@@ -26,8 +26,8 @@ from law.target.file import localize_file_targets
 from law.parser import root_task, global_cmdline_values
 from law.logger import setup_logger
 from law.util import (
-    abort, common_task_params, colored, uncolored, make_list, multi_match, flatten, BaseStream,
-    human_duration, patch_object, round_discrete, classproperty,
+    no_value, abort, common_task_params, colored, uncolored, make_list, multi_match, flatten,
+    BaseStream, human_duration, patch_object, round_discrete, classproperty,
 )
 
 
@@ -442,22 +442,20 @@ class Task(BaseTask):
         return self.repr(all_params=all_params, color=True)
 
     def _repr_params(self, all_params=False):
-        # build key value pairs of all significant parameters
-        params = self.get_params()
-
+        # determine parameters to exclude
         exclude = set()
         if not all_params:
             exclude |= self.exclude_params_repr
             exclude |= self.inst_exclude_params_repr()
             exclude |= set(self.interactive_params)
 
-        values = OrderedDict()
-        for name, param in params:
+        # build a map "name -> value" for all significant parameters
+        params = OrderedDict()
+        for name, param in self.get_params():
             if param.significant and not multi_match(name, exclude):
-                value = getattr(self, name)
-                values[name] = param.serialize(value)
+                params[name] = getattr(self, name)
 
-        return values
+        return params
 
     def _repr_flags(self):
         return []
@@ -470,7 +468,13 @@ class Task(BaseTask):
         return colored(family, "green") if color else family
 
     @classmethod
-    def _repr_param(cls, name, value, color=False, **kwargs):
+    def _repr_param(cls, name, value, color=False, serialize=True, **kwargs):
+        # try to serialize first unless explicitly disabled
+        if serialize:
+            param = getattr(cls, name, no_value)
+            if param != no_value:
+                value = param.serialize(value)
+
         return "{}={}".format(colored(name, color="blue", style="bright") if color else name, value)
 
     @classmethod
