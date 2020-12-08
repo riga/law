@@ -43,7 +43,7 @@ RUN yum -y install libffi-devel openssl-devel libsqlite3x-devel bzip2-devel ncur
     json-c-devel curl-devel gcc-c++ which wget nano screen git cmake cmake3; yum clean all
 
 # python software
-RUN yum -y install python-setuptools python-docutils; yum clean all
+RUN yum -y install python-devel python-setuptools python-docutils; yum clean all
 RUN easy_install pip
 
 # WLCG software
