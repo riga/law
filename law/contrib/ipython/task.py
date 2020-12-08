@@ -11,6 +11,7 @@ __all__ = ["Task"]
 import logging
 
 from law.task.base import Task as _Task
+from law.util import no_value
 
 
 logger = logging.getLogger(__name__)
@@ -36,11 +37,16 @@ class Task(_Task):
             return super(Task, cls)._repr_family(family, color=color)
 
     @classmethod
-    def _repr_param(cls, name, value, color=False, html=False):
+    def _repr_param(cls, name, value, color=False, serialize=True, html=False):
+        if serialize:
+            param = getattr(cls, name, no_value)
+            if param != no_value:
+                value = param.serialize(value)
+
         if color and html:
             return "<span style='color: blue;'>{}</span>={}".format(name, value)
         else:
-            return super(Task, cls)._repr_param(name, value, color=color)
+            return super(Task, cls)._repr_param(name, value, color=color, serialize=False)
 
     @classmethod
     def _repr_flag(cls, name, color=False, html=False):

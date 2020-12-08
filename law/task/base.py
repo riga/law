@@ -26,8 +26,8 @@ from law.target.file import localize_file_targets
 from law.parser import root_task, global_cmdline_values
 from law.logger import setup_logger
 from law.util import (
-    abort, common_task_params, colored, uncolored, make_list, multi_match, flatten, BaseStream,
-    human_duration, patch_object, round_discrete, classproperty,
+    no_value, abort, common_task_params, colored, uncolored, make_list, multi_match, flatten,
+    BaseStream, human_duration, patch_object, round_discrete, classproperty,
 )
 
 
@@ -40,13 +40,21 @@ class BaseRegister(luigi.task_register.Register):
         # default attributes, irrespective of inheritance
         classdict.setdefault("exclude_index", False)
 
-        # union "exclude_params_*" sets with those of all base classes
+        # unite "exclude_params_*" sets with those of all base classes
         for base in bases:
             for attr, base_params in vars(base).items():
-                if isinstance(base_params, set) and attr.startswith("exclude_params_"):
+                if attr.startswith("exclude_params_") and isinstance(base_params, set):
                     params = classdict.setdefault(attr, set())
                     if isinstance(params, set):
                         params.update(base_params)
+
+        # remove those parameter names from "exclude_params_*" sets which are explicitly
+        # listed in corresponding "include_params_*" sets defined on the class itself
+        for attr, include_params in classdict.items():
+            if attr.startswith("include_params_") and isinstance(include_params, set):
+                exclude_attr = "exclude" + attr[len("include"):]
+                if exclude_attr in classdict and isinstance(classdict[exclude_attr], set):
+                    classdict[exclude_attr] -= include_params
 
         # create the class
         cls = ABCMeta.__new__(metacls, classname, bases, classdict)
@@ -442,22 +450,20 @@ class Task(BaseTask):
         return self.repr(all_params=all_params, color=True)
 
     def _repr_params(self, all_params=False):
-        # build key value pairs of all significant parameters
-        params = self.get_params()
-
+        # determine parameters to exclude
         exclude = set()
         if not all_params:
             exclude |= self.exclude_params_repr
             exclude |= self.inst_exclude_params_repr()
             exclude |= set(self.interactive_params)
 
-        values = OrderedDict()
-        for name, param in params:
+        # build a map "name -> value" for all significant parameters
+        params = OrderedDict()
+        for name, param in self.get_params():
             if param.significant and not multi_match(name, exclude):
-                value = getattr(self, name)
-                values[name] = param.serialize(value)
+                params[name] = getattr(self, name)
 
-        return values
+        return params
 
     def _repr_flags(self):
         return []
@@ -470,7 +476,13 @@ class Task(BaseTask):
         return colored(family, "green") if color else family
 
     @classmethod
-    def _repr_param(cls, name, value, color=False, **kwargs):
+    def _repr_param(cls, name, value, color=False, serialize=True, **kwargs):
+        # try to serialize first unless explicitly disabled
+        if serialize:
+            param = getattr(cls, name, no_value)
+            if param != no_value:
+                value = param.serialize(value)
+
         return "{}={}".format(colored(name, color="blue", style="bright") if color else name, value)
 
     @classmethod
@@ -490,9 +502,7 @@ class Task(BaseTask):
         return remove_task_output(self, *args)
 
     def _fetch_output(self, args):
-        import law.target.remote as ltr
-        with patch_object(ltr, "global_retries", 0, lock=True):
-            return fetch_task_output(self, *args)
+        return fetch_task_output(self, *args)
 
     def localize_input(self, *args, **kwargs):
         return localize_file_targets(self.input(), *args, **kwargs)

@@ -310,7 +310,7 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
                     continue
 
                 basename = "{}__{}".format(dep.live_task_id, outp.basename)
-                outp.copy_to_local(os.path.join(target_dir, basename))
+                outp.copy_to_local(os.path.join(target_dir, basename), retries=0)
 
                 print("{}{} {} ({})".format(ooffset, ind,
                     colored("fetched", "green", style="bright"), basename))

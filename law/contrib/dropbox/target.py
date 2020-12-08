@@ -100,10 +100,10 @@ except Exception as e:
 
 
 class DropboxTarget(RemoteTarget):
+    """ __init__(path, fs=DropboxFileSystem.default_instance, **kwargs)
+    """
 
     def __init__(self, path, fs=DropboxFileSystem.default_instance, **kwargs):
-        """ __init__(path, fs=DropboxFileSystem.default_instance, **kwargs)
-        """
         if fs is None:
             fs = DropboxFileSystem.default_instance
         elif isinstance(fs, six.string_types):

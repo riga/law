@@ -146,7 +146,7 @@ class ARCWorkflowProxy(BaseRemoteWorkflowProxy):
         task = self.task
 
         # prepare objects for dumping intermediate submission data
-        dump_freq = task.arc_dump_intermediate_submission_data()
+        dump_freq = self._get_task_attribute("dump_intermediate_submission_data")()
         if dump_freq and not is_number(dump_freq):
             dump_freq = 50
 
@@ -208,11 +208,7 @@ class ARCWorkflow(BaseRemoteWorkflow):
         return DotDict()
 
     def arc_output_postfix(self):
-        self.get_branch_map()
-        if self.branches:
-            return "_" + "_".join(str(b) for b in sorted(self.branches))
-        else:
-            return "_{}To{}".format(self.start_branch, self.end_branch)
+        return "_" + self.get_branches_repr()
 
     def arc_output_uri(self):
         return self.arc_output_directory().url()
@@ -228,12 +224,6 @@ class ARCWorkflow(BaseRemoteWorkflow):
 
     def arc_job_config(self, config, job_num, branches):
         return config
-
-    def arc_dump_intermediate_submission_data(self):
-        return True
-
-    def arc_post_submit_delay(self):
-        return self.poll_interval * 60
 
     def arc_use_local_scheduler(self):
         return True

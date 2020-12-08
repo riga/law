@@ -17,6 +17,8 @@ from collections import OrderedDict
 
 import six
 
+from law.util import make_list
+
 
 logger = logging.getLogger(__name__)
 
@@ -152,7 +154,7 @@ class PickleFormatter(Formatter):
     @classmethod
     def accepts(cls, path, mode):
         path = get_path(path)
-        return path.endswith(".pkl") or path.endswith(".pickle") or path.endswith(".p")
+        return path.endswith((".pkl", ".pickle", ".p"))
 
     @classmethod
     def load(cls, path, *args, **kwargs):
@@ -172,7 +174,7 @@ class YAMLFormatter(Formatter):
     @classmethod
     def accepts(cls, path, mode):
         path = get_path(path)
-        return path.endswith(".yaml") or path.endswith(".yml")
+        return path.endswith((".yaml", ".yml"))
 
     @classmethod
     def load(cls, path, *args, **kwargs):
@@ -238,10 +240,12 @@ class TarFormatter(Formatter):
     @classmethod
     def infer_compression(cls, path):
         path = get_path(path)
-        if path.endswith(".tar.gz") or path.endswith(".tgz"):
+        if path.endswith((".tar.gz", ".tgz")):
             return "gz"
-        elif path.endswith(".tbz2") or path.endswith(".bz2"):
+        elif path.endswith((".tar.bz2", ".tbz2", ".bz2")):
             return "bz2"
+        elif path.endswith((".tar.xz", ".txz", ".lzma")):
+            return "xz"
         else:
             return None
 
@@ -251,14 +255,15 @@ class TarFormatter(Formatter):
 
     @classmethod
     def load(cls, path, dst, *args, **kwargs):
-        # assume read mode with inferred compression, but also check args and kwargs
-        compression = cls.infer_compression(path)
-        mode = "r" if not compression else "r:" + compression
+        # get the mode from args and kwargs, default to read mode with inferred compression
         if args:
             mode = args[0]
             args = args[1:]
         elif "mode" in kwargs:
             mode = kwargs.pop("mode")
+        else:
+            compression = cls.infer_compression(path)
+            mode = "r" if not compression else "r:" + compression
 
         # open zip file and extract to dst
         with tarfile.open(get_path(path), mode, *args, **kwargs) as f:
@@ -266,26 +271,25 @@ class TarFormatter(Formatter):
 
     @classmethod
     def dump(cls, path, src, *args, **kwargs):
-        # assume write mode with inferred compression, but also check args and kwargs
-        compression = cls.infer_compression(path)
-        mode = "w" if not compression else "w:" + compression
+        # get the mode from args and kwargs, default to write mode with inferred compression
         if args:
             mode = args[0]
             args = args[1:]
         elif "mode" in kwargs:
             mode = kwargs.pop("mode")
+        else:
+            compression = cls.infer_compression(path)
+            mode = "w" if not compression else "w:" + compression
 
         # get the filter callback that is forwarded to add()
         _filter = kwargs.pop("filter", None)
 
         # open a new zip file and add all files in src
         with tarfile.open(get_path(path), mode, *args, **kwargs) as f:
-            src = get_path(src)
-            if os.path.isfile(src):
-                f.add(src, os.path.basename(src), filter=_filter)
-            else:
-                for elem in os.listdir(src):
-                    f.add(os.path.join(src, elem), elem, filter=_filter)
+            srcs = [os.path.abspath(get_path(src)) for src in make_list(src)]
+            common_prefix = os.path.commonprefix(srcs)
+            for src in srcs:
+                f.add(src, arcname=os.path.relpath(src, common_prefix), filter=_filter)
 
 
 # trailing imports
