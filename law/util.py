@@ -9,13 +9,13 @@ __all__ = [
     "default_lock", "io_lock", "console_lock", "no_value", "rel_path", "law_src_path",
     "law_home_path", "law_run", "print_err", "abort", "is_number", "try_int", "round_discrete",
     "str_to_int", "flag_to_bool", "common_task_params", "colored", "uncolored", "query_choice",
-    "is_pattern", "brace_expand", "multi_match", "is_iterable", "is_lazy_iterable", "make_list",
-    "make_tuple", "make_unique", "flatten", "merge_dicts", "which", "map_verbose", "map_struct",
-    "mask_struct", "tmp_file", "interruptable_popen", "readable_popen", "create_hash",
-    "copy_no_perm", "makedirs_perm", "user_owns_file", "iter_chunks", "human_bytes", "parse_bytes",
-    "human_duration", "human_time_diff", "parse_duration", "is_file_exists_error", "send_mail",
-    "DotDict", "ShorthandDict", "open_compat", "patch_object", "join_generators", "quote_cmd",
-    "classproperty", "BaseStream", "TeeStream", "FilteredStream",
+    "is_pattern", "brace_expand", "range_expand", "range_join", "multi_match", "is_iterable",
+    "is_lazy_iterable", "make_list", "make_tuple", "make_unique", "flatten", "merge_dicts", "which",
+    "map_verbose", "map_struct", "mask_struct", "tmp_file", "interruptable_popen", "readable_popen",
+    "create_hash", "copy_no_perm", "makedirs_perm", "user_owns_file", "iter_chunks", "human_bytes",
+    "parse_bytes", "human_duration", "human_time_diff", "parse_duration", "is_file_exists_error",
+    "send_mail", "DotDict", "ShorthandDict", "open_compat", "patch_object", "join_generators",
+    "quote_cmd", "classproperty", "BaseStream", "TeeStream", "FilteredStream",
 ]
 
 
@@ -472,6 +472,120 @@ def brace_expand(s, split_csv=False):
         res.append(_s)
 
     return res
+
+
+def range_expand(s, min_value=None, max_value=None):
+    """
+    Takes a string or sequence of strings denoting single positive numbers or ranges of positive
+    numbers such as ``"1-3"`` and returns a list of all selected values, inclusive at both edges.
+    One sided range expressions such as ``"-4"`` or ``"4-"`` are also expanded but they require
+    *min_value* and *max_value* to be set (an exception is raised otherwise). Also, when a
+    *min_value* (*max_value*) is given, no value in the returned list of numbers can be smaller
+    (larger). Example:
+
+    .. code-block:: python
+
+        range_expand("5-8")
+        # -> [5, 6, 7, 8]
+
+        range_expand(["5-8", "10"])
+        # -> [5, 6, 7, 8, 10]
+
+        range_expand(["5-8", "10-"])
+        # -> Exception, no max_value set
+
+        range_expand(["5-8", "10-"], max_value=12)
+        # -> [5, 6, 7, 8, 10, 11, 12]
+    """
+    def to_int(v, s=None):
+        try:
+            return int(v)
+        except ValueError:
+            raise ValueError("invalid number or range '{}'".format(v if s is None else s))
+
+    numbers = []
+    for s in make_list(s):
+        s = str(s)
+        if "-" in s:
+            # split into start and stop value and handle empty values
+            start, stop = s.split("-", 1)
+            if not start:
+                if min_value is None:
+                    raise Exception("range '{}' with missing start value requires min_value to be "
+                        "set".format(s))
+                start = min_value
+            if not stop:
+                if max_value is None:
+                    raise Exception("range '{}' with missing stop value requires max_value to be "
+                        "set".format(s))
+                stop = max_value
+
+            # convert to integers and potentially swap
+            start = to_int(start)
+            stop = to_int(stop)
+            if start > stop:
+                start, stop = stop, start
+
+            # add numbers
+            numbers.extend(range(start, stop + 1))
+        else:
+            # no "-" in s, assume it to be a number
+            numbers.append(to_int(s))
+
+    # apply min and max cuts when given
+    if min_value is not None:
+        numbers = [n for n in numbers if n >= min_value]
+    if max_value is not None:
+        numbers = [n for n in numbers if n <= max_value]
+
+    # remove duplicates preserving the order
+    numbers = make_unique(numbers)
+
+    return numbers
+
+
+def range_join(numbers, to_str=False):
+    """
+    Takes a sequence of positive integer numbers and returns a sequence 1- and 2-tuples, denoting
+    either single numbers or inclusive start and stop values of possible ranges. When *to_str* is
+    *True*, a string is returned in a format consistent to :py:func:`range_expand`. Example:
+
+    .. code-block:: python
+
+        range_join([1, 2, 3, 5])
+        # -> [(1, 3), (5,)]
+
+        range_join([1, 2, 3, 5, 7, 8, 9])
+        # -> [(1, 3), (5,), (7, 9)]
+
+        range_join([1, 2, 3, 5, 7, 8, 9], to_str=True)
+        # -> "1-3,5,7-9"
+    """
+    if not numbers:
+        return "" if to_str else []
+
+    # type check and sort
+    for n in numbers:
+        if not isinstance(n, six.integer_types):
+            raise TypeError("cannot handle non-integer value '{}' in numbers to join".format(n))
+    numbers = sorted(numbers)
+
+    # iterate through numbers, keep track of last starts and stops and fill a list of range tuples
+    ranges = []
+    start = stop = numbers[0]
+    for n in numbers[1:]:
+        if n == stop + 1:
+            stop += 1
+        else:
+            ranges.append((start,) if start == stop else (start, stop))
+            start = stop = n
+    ranges.append((start,) if start == stop else (start, stop))
+
+    # convert to string representation
+    if to_str:
+        ranges = ",".join(("{}" if len(r) == 1 else "{}-{}").format(*r) for r in ranges)
+
+    return ranges
 
 
 def multi_match(name, patterns, mode=any, regex=False):
