@@ -240,7 +240,7 @@ class TarFormatter(Formatter):
     @classmethod
     def infer_compression(cls, path):
         path = get_path(path)
-        if path.endswith((".tar.tgz", ".tgz")):
+        if path.endswith((".tar.gz", ".tgz")):
             return "gz"
         elif path.endswith((".tar.bz2", ".tbz2", ".bz2")):
             return "bz2"
