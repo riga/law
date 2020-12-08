@@ -283,12 +283,10 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
     def _can_skip_job(self, job_num, branches):
         """
-        Returns *True* when a job can be potentially skipped, which is the case when
-        :py:attr:`only_missing` is *True* and all branch tasks given by *branches* are complete.
+        Returns *True* when a job can be potentially skipped, which is the case when all branch
+        tasks given by *branches* are complete.
         """
-        if not self.task.only_missing:
-            return False
-        elif job_num in self.skip_jobs:
+        if job_num in self.skip_jobs:
             return self.skip_jobs[job_num]
         else:
             self.skip_jobs[job_num] = all(
@@ -600,9 +598,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                     self.submission_data.jobs.pop(job_num, None)
                     self.submission_data.unsubmitted_jobs[job_num] = branches
                     if task.append_retry_jobs:
-                        unsubmitted_job_nums.insert(0, job_num)
-                    else:
                         unsubmitted_job_nums.append(job_num)
+                    else:
+                        unsubmitted_job_nums.insert(0, job_num)
                     continue
 
                 # mark job for resubmission
@@ -949,8 +947,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             # configurable poll callback
             task.poll_callback(self.poll_data)
 
-            # trigger automatic resubmission and submission of unsubmitted jobs
-            self.submit(retry_jobs)
+            # trigger automatic resubmission and submission of unsubmitted jobs if necessary
+            if retry_jobs or self.poll_data.n_active < self.poll_data.n_parallel:
+                self.submit(retry_jobs)
 
             # break when no polling is desired
             # we can get to this point when there was already a submission and the no_poll
@@ -1008,11 +1007,6 @@ class BaseRemoteWorkflow(BaseWorkflow):
 
        Maximum number of parallel running jobs, e.g. to protect a very busy queue of a batch system.
        Empty default value (infinity).
-
-    .. py:classattribute:: only_missing
-       type: luigi.BoolParameter
-
-       When *True*, only consider incomplete tasks for job submisson. Defaults to *False*.
 
     .. py:classattribute:: no_poll
        type: luigi.BoolParameter
@@ -1073,8 +1067,6 @@ class BaseRemoteWorkflow(BaseWorkflow):
         "to be processed by one job; default: 1")
     parallel_jobs = luigi.IntParameter(default=NO_INT, significant=False, description="maximum "
         "number of parallel running jobs; default: infinite")
-    only_missing = luigi.BoolParameter(default=False, significant=False, description="skip tasks "
-        "that are considered complete; default: False")
     no_poll = luigi.BoolParameter(default=False, significant=False, description="just submit, do "
         "not initiate status polling after submission; default: False")
     threads = luigi.IntParameter(default=4, significant=False, description="number of threads to "
@@ -1104,8 +1096,8 @@ class BaseRemoteWorkflow(BaseWorkflow):
     exclude_index = True
 
     exclude_params_branch = {
-        "retries", "tasks_per_job", "parallel_jobs", "only_missing", "no_poll", "threads",
-        "walltime", "poll_interval", "poll_fails", "shuffle_jobs", "cancel_jobs", "cleanup_jobs",
+        "retries", "tasks_per_job", "parallel_jobs", "no_poll", "threads", "walltime",
+        "poll_interval", "poll_fails", "shuffle_jobs", "cancel_jobs", "cleanup_jobs",
         "ignore_submission", "transfer_logs",
     }
     exclude_params_repr = {"cancel_jobs", "cleanup_jobs"}
