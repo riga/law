@@ -255,14 +255,15 @@ class TarFormatter(Formatter):
 
     @classmethod
     def load(cls, path, dst, *args, **kwargs):
-        # assume read mode with inferred compression, but also check args and kwargs
-        compression = cls.infer_compression(path)
-        mode = "r" if not compression else "r:" + compression
+        # get the mode from args and kwargs, default to read mode with inferred compression
         if args:
             mode = args[0]
             args = args[1:]
         elif "mode" in kwargs:
             mode = kwargs.pop("mode")
+        else:
+            compression = cls.infer_compression(path)
+            mode = "r" if not compression else "r:" + compression
 
         # open zip file and extract to dst
         with tarfile.open(get_path(path), mode, *args, **kwargs) as f:
@@ -270,14 +271,15 @@ class TarFormatter(Formatter):
 
     @classmethod
     def dump(cls, path, src, *args, **kwargs):
-        # assume write mode with inferred compression, but also check args and kwargs
-        compression = cls.infer_compression(path)
-        mode = "w" if not compression else "w:" + compression
+        # get the mode from args and kwargs, default to write mode with inferred compression
         if args:
             mode = args[0]
             args = args[1:]
         elif "mode" in kwargs:
             mode = kwargs.pop("mode")
+        else:
+            compression = cls.infer_compression(path)
+            mode = "w" if not compression else "w:" + compression
 
         # get the filter callback that is forwarded to add()
         _filter = kwargs.pop("filter", None)
