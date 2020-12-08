@@ -7,7 +7,7 @@ import law
 law.contrib.load("dropbox")
 
 
-top_dir = law.DropboxDirectoryTarget("/")
+top_dir = law.dropbox.DropboxDirectoryTarget("/")
 
 print(top_dir.path)
 print(top_dir.url())

@@ -14,7 +14,7 @@ action() {
     echo
 
     # make python 3 the default
-    ( cd /usr/local/bin && ln -s python3 python && ln -s pip3 pip )
+    ( cd /usr/local/bin && ln -s python3 python &> /dev/null && ln -s pip3 pip )
 
     # change directory and source the setup script when existing
     cd "$example_dir"

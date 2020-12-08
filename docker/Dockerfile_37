@@ -40,14 +40,14 @@ RUN yum install -y epel-release; yum clean all
 
 # basic software
 RUN yum -y groupinstall development; yum clean all
-RUN yum -y install libffi-devel openssl-devel bzip2-devel json-c-devel curl-devel gcc-c++ which \
-    wget nano screen git cmake cmake3; yum clean all
+RUN yum -y install libffi-devel openssl-devel libsqlite3x-devel bzip2-devel ncurses-devel \
+    json-c-devel curl-devel gcc-c++ which wget nano screen git cmake cmake3; yum clean all
 
 # python software
 RUN wget -nv https://www.python.org/ftp/python/${LAW_IMAGE_PYTHON}/Python-${LAW_IMAGE_PYTHON}.tgz && \
     tar -xzf Python-${LAW_IMAGE_PYTHON}.tgz && \
     cd Python-${LAW_IMAGE_PYTHON} && \
-    ./configure --enable-optimizations --enable-shared && \
+    ./configure --enable-loadable-sqlite-extensions --enable-optimizations --enable-shared && \
     make altinstall && \
     cd .. && \
     rm -rf Python-${LAW_IMAGE_PYTHON} && \
@@ -101,6 +101,7 @@ RUN cd /usr/bin; curl https://getmic.ro | bash
 # python packages
 RUN pip3 install --no-cache-dir --upgrade pip
 RUN pip3 install --no-cache-dir --upgrade setuptools
+RUN pip3 install --no-cache-dir readline
 RUN pip3 install --no-cache-dir slackclient
 RUN pip3 install --no-cache-dir python-telegram-bot
 RUN pip3 install --no-cache-dir flake8
