@@ -238,19 +238,6 @@ class WorkflowRegister(Register):
         # this flag will define the classes in the mro to consider for instantiating the proxy
         cls._defined_workflow_proxy = "workflow_proxy_cls" in classdict
 
-    def __call__(cls, *args, **kwargs):
-        # complain when an abstract workflow method is not implemented
-        missing_methods = []
-        for attr in getattr(cls, "abstract_workflow_methods", set()):
-            full_attr = "{}_{}".format(cls.workflow_proxy_cls.workflow_type, attr)
-            if getattr(cls, full_attr, no_value) is no_value:
-                missing_methods.append(full_attr)
-        if missing_methods:
-            raise TypeError("cannot create instance of workflow task class '{}' with missing "
-                "method(s) {}".format(cls.__name__, ", ".join(missing_methods)))
-
-        return super(WorkflowRegister, cls).__call__(*args, **kwargs)
-
 
 @six.add_metaclass(WorkflowRegister)
 class BaseWorkflow(Task):
@@ -305,13 +292,6 @@ class BaseWorkflow(Task):
        type: None, callable
 
        Custom completion check that is used by the workflow's proxy when callable.
-
-    .. py:classattribute:: abstract_workflow_methods
-       type: set
-
-       Names of methods that have to be implemented by inheriting workflow classes, as checked by
-       the :py:class:`WorkflowRegister` meta class. The names of methods to implement must start
-       with the workflow type followed by an underscore.
 
     .. py:classattribute:: output_collection_cls
        type: TargetCollection
@@ -399,7 +379,6 @@ class BaseWorkflow(Task):
     reset_branch_map_before_run = False
     workflow_run_decorators = None
     workflow_complete = None
-    abstract_workflow_methods = set()
 
     # accessible properties
     workflow_property = None
