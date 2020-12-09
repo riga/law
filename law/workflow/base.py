@@ -460,9 +460,14 @@ class BaseWorkflow(Task):
     def _repr_params(self, *args, **kwargs):
         params = super(BaseWorkflow, self)._repr_params(*args, **kwargs)
 
-        # when this is a workflow, add the workflow type
-        if self.is_workflow() and "workflow" not in params:
-            params["workflow"] = self.workflow
+        if self.is_workflow():
+            # when this is a workflow, add the workflow type
+            if "workflow" not in params:
+                params["workflow"] = self.workflow
+        else:
+            # when this is a branch, remove workflow parameters
+            for param in self.exclude_params_branch:
+                params.pop(param, None)
 
         return params
 
@@ -508,12 +513,6 @@ class BaseWorkflow(Task):
                 self._workflow_task = self.req(self, branch=-1,
                     _exclude=self.exclude_params_workflow)
             return self._workflow_task
-
-    def inst_exclude_params_repr(self):
-        params = super(BaseWorkflow, self).inst_exclude_params_repr()
-        if self.is_branch():
-            params.update(self.exclude_params_branch)
-        return params
 
     @abstractmethod
     def create_branch_map(self):

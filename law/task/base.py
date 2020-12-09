@@ -454,7 +454,6 @@ class Task(BaseTask):
         exclude = set()
         if not all_params:
             exclude |= self.exclude_params_repr
-            exclude |= self.inst_exclude_params_repr()
             exclude |= set(self.interactive_params)
 
         # build a map "name -> value" for all significant parameters
@@ -467,9 +466,6 @@ class Task(BaseTask):
 
     def _repr_flags(self):
         return []
-
-    def inst_exclude_params_repr(self):
-        return set()
 
     @classmethod
     def _repr_family(cls, family, color=False, **kwargs):

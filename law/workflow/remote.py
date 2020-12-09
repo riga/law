@@ -1106,11 +1106,6 @@ class BaseRemoteWorkflow(BaseWorkflow):
         "workflow_requires", "output_directory", "output_postfix",
     }
 
-    def inst_exclude_params_repr(self):
-        params = super(BaseRemoteWorkflow, self).inst_exclude_params_repr()
-        params.update({"cancel_jobs", "cleanup_jobs"})
-        return params
-
     def is_controlling_remote_jobs(self):
         """
         Returns *True* if the remote workflow is only controlling remote jobs instead of handling
