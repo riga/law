@@ -39,8 +39,9 @@ RUN yum install -y epel-release; yum clean all
 
 # basic software
 RUN yum -y groupinstall development; yum clean all
-RUN yum -y install libffi-devel openssl-devel libsqlite3x-devel bzip2-devel ncurses-devel \
-    json-c-devel curl-devel gcc-c++ which wget nano screen git cmake cmake3; yum clean all
+RUN yum -y install libffi-devel openssl-devel glib2-devel libattr-devel openldap-devel zlib-devel \
+    libsqlite3x-devel bzip2-devel ncurses-devel json-c-devel curl-devel gcc-c++ which wget nano \
+    screen git cmake cmake3; yum clean all
 
 # python software
 RUN yum -y install python-devel python-setuptools python-docutils; yum clean all
