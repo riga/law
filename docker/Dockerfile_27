@@ -42,6 +42,7 @@ RUN yum -y groupinstall development; yum clean all
 RUN yum -y install libffi-devel openssl-devel glib2-devel libattr-devel openldap-devel zlib-devel \
     libsqlite3x-devel bzip2-devel ncurses-devel json-c-devel curl-devel gcc-c++ which wget nano \
     screen git cmake cmake3; yum clean all
+RUN cd /usr/bin; curl https://getmic.ro | bash
 
 # python software
 RUN yum -y install python-devel python-setuptools python-docutils; yum clean all
@@ -64,9 +65,6 @@ RUN git clone https://github.com/cern-it-sdc-id/gfal2-dropbox.git && \
     make install && \
     cd ../.. && \
     rm -rf gfal2-dropbox
-
-# micro editor
-RUN cd /usr/bin; curl https://getmic.ro | bash
 
 # python packages
 # use luigi 2.7.6, as 2.7.7 dropped support for python version < 2.7.9 (centos 7 comes with 2.7.5)
