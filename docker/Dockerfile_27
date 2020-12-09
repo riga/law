@@ -1,7 +1,7 @@
 FROM centos:7
 
 # labels
-LABEL law.version="0.1.1"
+LABEL law.version="0.1.2"
 LABEL law.image_name="riga/law"
 LABEL law.image_tag="py27"
 LABEL law.image_dir="law-py27"
