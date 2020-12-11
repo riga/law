@@ -136,7 +136,7 @@ class DurationParameter(luigi.Parameter):
 
 class CSVParameter(luigi.Parameter):
     """ __init__(*args, cls=luigi.Parameter, unique=False, min_len=None, max_len=None, \
-        brace_expand=False, x=y, **kwargs)
+        choices=None, brace_expand=False, **kwargs)
     Parameter that parses a comma-separated value (CSV) and produces a tuple. *cls* can refer to an
     other parameter class that will be used to parse and serialize the particular items.
 
@@ -144,7 +144,8 @@ class CSVParameter(luigi.Parameter):
     unique.
 
     When *min_len* (*max_len*) is set to an integer, an error is raised in case the number of
-    elements to serialize or parse is deceeds (exceeds) that value.
+    elements to serialize or parse is deceeds (exceeds) that value. Just like done in luigi's
+    *ChoiceParamater*, *choices* can be a sequence of accepted values.
 
     When *brace_expand* is *True*, brace expansion is applied, potentially extending the list of
     values.
@@ -165,6 +166,10 @@ class CSVParameter(luigi.Parameter):
 
         p = CSVParameter(cls=luigi.IntParameter, max_len=2)
         p.parse("4,5,6")
+        # => ValueError
+
+        p = CSVParameter(cls=luigi.IntParameter, choices=(1, 2))
+        p.parse("2,3")
         # => ValueError
 
         p = CSVParameter(cls=luigi.IntParameter, brace_expand=True)
@@ -199,6 +204,7 @@ class CSVParameter(luigi.Parameter):
         self._unique = kwargs.pop("unique", False)
         self._min_len = kwargs.pop("min_len", None)
         self._max_len = kwargs.pop("max_len", None)
+        self._choices = kwargs.pop("choices", None)
         self._brace_expand = kwargs.pop("brace_expand", False)
 
         # ensure that the default value is a tuple
@@ -220,6 +226,21 @@ class CSVParameter(luigi.Parameter):
         if self._max_len is not None and len(value) > self._max_len:
             raise ValueError("'{}' contains {} value(s), a maximum of {} is required".format(
                 str_repr(), len(value), self._max_len))
+
+    def _check_choices(self, value):
+        if not self._choices:
+            return
+
+        unknown = []
+        for v in value:
+            if v not in self._choices:
+                unknown.append(v)
+
+        if unknown:
+            str_repr = lambda value: ",".join(str(v) for v in value)
+            raise ValueError("invalid parameter value(s) '{}', valid choices are '{}'".format(
+                str_repr(make_unique(unknown)), str_repr(self._choices)))
+
 
     def parse(self, inp):
         """"""
@@ -243,6 +264,9 @@ class CSVParameter(luigi.Parameter):
         # check min_len and max_len
         self._check_len(ret)
 
+        # check choices
+        self._check_choices(ret)
+
         return ret
 
     def serialize(self, value):
@@ -256,6 +280,9 @@ class CSVParameter(luigi.Parameter):
 
             # check min_len and max_len
             self._check_len(value)
+
+            # check choices
+            self._check_choices(value)
 
             return self.CSV_SEP.join(str(self._inst.serialize(elem)) for elem in value)
 
