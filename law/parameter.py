@@ -135,17 +135,18 @@ class DurationParameter(luigi.Parameter):
 
 
 class CSVParameter(luigi.Parameter):
-    """ __init__(*args, cls=luigi.Parameter, unique=False, min_len=None, max_len=None, \
+    """ __init__(*args, cls=luigi.Parameter, unique=False, sort=False, min_len=None, max_len=None, \
         choices=None, brace_expand=False, **kwargs)
     Parameter that parses a comma-separated value (CSV) and produces a tuple. *cls* can refer to an
     other parameter class that will be used to parse and serialize the particular items.
 
     When *unique* is *True*, both parsing and serialization methods make sure that values are
-    unique.
+    unique. *sort* can be a boolean or a function for sorting parameter values.
 
     When *min_len* (*max_len*) is set to an integer, an error is raised in case the number of
-    elements to serialize or parse is deceeds (exceeds) that value. Just like done in luigi's
-    *ChoiceParamater*, *choices* can be a sequence of accepted values.
+    elements to serialize or parse (evaluated after potentially ensuring uniqueness) deceeds
+    (exceeds) that value. Just like done in luigi's *ChoiceParamater*, *choices* can be a sequence
+    of accepted values.
 
     When *brace_expand* is *True*, brace expansion is applied, potentially extending the list of
     values.
@@ -202,6 +203,7 @@ class CSVParameter(luigi.Parameter):
     def __init__(self, *args, **kwargs):
         self._cls = kwargs.pop("cls", luigi.Parameter)
         self._unique = kwargs.pop("unique", False)
+        self._sort = kwargs.pop("sort", False)
         self._min_len = kwargs.pop("min_len", None)
         self._max_len = kwargs.pop("max_len", None)
         self._choices = kwargs.pop("choices", None)
@@ -214,6 +216,21 @@ class CSVParameter(luigi.Parameter):
         super(CSVParameter, self).__init__(*args, **kwargs)
 
         self._inst = self._cls()
+
+    def _check_unique(self, value):
+        if not self._unique:
+            return value
+
+        return make_unique(value)
+
+    def _check_sort(self, value):
+        if not self._sort:
+            return value
+
+        key = self._sort if callable(self._sort) else None
+        value = sorted(value, key=key)
+
+        return tuple(value)
 
     def _check_len(self, value):
         str_repr = lambda: self.CSV_SEP.join(str(v) for v in value)
@@ -241,7 +258,6 @@ class CSVParameter(luigi.Parameter):
             raise ValueError("invalid parameter value(s) '{}', valid choices are '{}'".format(
                 str_repr(make_unique(unknown)), str_repr(self._choices)))
 
-
     def parse(self, inp):
         """"""
         if inp in (None, "", NO_STR):
@@ -257,14 +273,10 @@ class CSVParameter(luigi.Parameter):
         else:
             ret = (ret,)
 
-        # ensure uniqueness
-        if self._unique:
-            ret = make_unique(ret)
-
-        # check min_len and max_len
+        # apply uniqueness, sort, length and choices checks
+        ret = self._check_unique(ret)
+        ret = self._check_sort(ret)
         self._check_len(ret)
-
-        # check choices
         self._check_choices(ret)
 
         return ret
@@ -274,32 +286,25 @@ class CSVParameter(luigi.Parameter):
         if not value:
             return ""
         else:
-            # ensure uniqueness
-            if self._unique:
-                value = make_unique(value)
-
-            # check min_len and max_len
+            # apply uniqueness, sort, length and choices checks
+            value = self._check_unique(value)
+            value = self._check_sort(value)
             self._check_len(value)
-
-            # check choices
             self._check_choices(value)
 
             return self.CSV_SEP.join(str(self._inst.serialize(elem)) for elem in value)
 
 
 class MultiCSVParameter(CSVParameter):
-    """ __init__(*args, cls=luigi.Parameter, unique=False, min_len=None, max_len=None, \
-        brace_expand=False, **kwargs)
+    """ __init__(*args, cls=luigi.Parameter, unique=False, sort=False, min_len=None, max_len=None, \
+        choices=None, brace_expand=False, **kwargs)
     Parameter that parses several comma-separated values (CSV), separated by colons, and produces a
     nested tuple. *cls* can refer to an other parameter class that will be used to parse and
     serialize the particular items.
 
     Except for the additional support for multuple CSV sequences, the implementation is based on
-    :py:class:`CSVParameter`, which also handles the features controlled by *unique*, *max_len* and
-    *min_len*.
-
-    When *brace_expand* is *True*, brace expansion is applied, potentially extending the lists of
-    values.
+    :py:class:`CSVParameter`, which also handles the features controlled by *unique*, *sort*,
+    *max_len*, *min_len*, *choices* and *brace_expand* per sequence of values.
 
     Example:
 
@@ -317,6 +322,10 @@ class MultiCSVParameter(CSVParameter):
 
         p = MultiCSVParameter(cls=luigi.IntParameter, max_len=2)
         p.parse("4,5:6,7,8")
+        # => ValueError
+
+        p = MultiCSVParameter(cls=luigi.IntParameter, choices=(1, 2))
+        p.parse("1,2:2,3")
         # => ValueError
 
         p = MultiCSVParameter(cls=luigi.IntParameter, brace_expand=True)
