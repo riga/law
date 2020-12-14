@@ -32,7 +32,7 @@ ind = "  "
 
 # helper to create a list of 3-tuples (target, depth, prefix) of an arbitrarily structured output
 def _flatten_output(output, depth):
-    if isinstance(output, (list, tuple)) or is_lazy_iterable(output):
+    if isinstance(output, (list, tuple, set)) or is_lazy_iterable(output):
         return [(outp, depth, "{}: ".format(i)) for i, outp in enumerate(output)]
     elif isinstance(output, dict):
         return [(outp, depth, "{}: ".format(k)) for k, outp in six.iteritems(output)]
@@ -50,11 +50,16 @@ def _iter_output(output, offset):
             yield output, odepth, oprefix, ooffset, lookup
 
         else:
-            # print the key of the current structure
-            print("{} {}".format(ooffset, oprefix))
+            # before updating the lookup list, but check if the output changes by this
+            _lookup = _flatten_output(output, odepth + 1)
+            if len(_lookup) > 0 and _lookup[0][0] == output:
+                print("{} {}{}".format(ooffset, oprefix, colored("not a target", color="red")))
+            else:
+                # print the key of the current structure
+                print("{} {}".format(ooffset, oprefix))
 
-            # update the lookup list
-            lookup[:0] = _flatten_output(output, odepth + 1)
+                # update the lookup list
+                lookup[:0] = _lookup
 
 
 def print_task_deps(task, max_depth=1):
