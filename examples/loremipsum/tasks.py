@@ -95,12 +95,12 @@ class CountChars(LoremIpsumBase):
             content = f.read()
 
         # again, there is a faster alternative: target formatters
-        # formatters are called when either load() or dump() are called on targets
+        # they are invoked when either load() or dump() is called on targets
         #
-        #    content = self.input().load(formatter="txt")
+        #    content = self.input().load(formatter="text")
         #
-        # you can also omit the "txt" parameter, in which case law will determine a formatter based
-        # on the file extension (current formatters: txt, json, zip, tgz, root, numpy, uproot)
+        # you can also omit the "text" parameter, in which case law will determine a formatter based
+        # on the file extension
 
         # determine the character frequencies
         content = content.lower()
@@ -158,7 +158,7 @@ class ShowFrequencies(LoremIpsumBase, law.tasks.RunOnceTask):
     def run(self):
         counts = self.input().load()
 
-        # normalize, convert to frequency in %, and sort descending
+        # normalize, convert to frequency in %, and sort by descending frequency
         count_sum = sum(counts.values())
         freqs = {c: 100. * count / count_sum for c, count in counts.items()}
         freqs = sorted(list(freqs.items()), key=lambda tpl: -tpl[1])
@@ -172,7 +172,7 @@ class ShowFrequencies(LoremIpsumBase, law.tasks.RunOnceTask):
         # prints the frequences but also sends them as a message to the scheduler (if any)
         self.publish_message(text)
 
-        # mark this task as complete, so luigi would consider it done without checking for output
+        # mark this task as complete, so luigi would consider it done without checking for outputs
         # (this is a feature of the RunOnceTask)
         self.mark_complete()
 
