@@ -129,7 +129,7 @@ def print_task_output(task, max_depth=0):
                 print(uri)
 
 
-def remove_task_output(task, max_depth=0, mode=None, include_external=False):
+def remove_task_output(task, max_depth=0, mode=None, run_task=False):
     from law.task.base import ExternalTask
     from law.workflow.base import BaseWorkflow
 
@@ -137,9 +137,9 @@ def remove_task_output(task, max_depth=0, mode=None, include_external=False):
 
     print("remove task output with max_depth {}".format(max_depth))
 
-    include_external = flag_to_bool(include_external)
-    if include_external:
-        print("include external tasks")
+    run_task = flag_to_bool(run_task)
+    if run_task:
+        print("task will run after output removal")
 
     # determine the mode, i.e., interactive, dry, all
     modes = ["i", "d", "a"]
@@ -163,7 +163,7 @@ def remove_task_output(task, max_depth=0, mode=None, include_external=False):
         print("{}> {}".format(offset, dep.repr(color=True)))
         offset += "|" + ind
 
-        if not include_external and isinstance(dep, ExternalTask):
+        if isinstance(dep, ExternalTask):
             print(offset + colored(" task is external", "yellow"))
             continue
 
@@ -205,6 +205,8 @@ def remove_task_output(task, max_depth=0, mode=None, include_external=False):
 
             output.remove()
             print(ooffset + ind + colored(" removed", "red", style="bright"))
+
+    return run_task
 
 
 def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_external=False):

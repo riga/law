@@ -139,6 +139,7 @@ action() {
             local rest="$( expr 100 - 4 - $length )"
             echo "$( _law_job_line 2 ) $title $( _law_job_line $rest )"
         fi
+        echo
     }
 
     _law_job_subsection() {
@@ -366,12 +367,10 @@ action() {
     _law_job_section "environment"
 
     if type hostnamectl &> /dev/null; then
-        echo
         _law_job_subsection "host infos:"
         hostnamectl status
     fi
 
-    echo
     _law_job_subsection "job infos"
     echo "shell    : $SHELL"
     echo "hostname : $( hostname )"
@@ -395,7 +394,7 @@ action() {
 
     echo
     _law_job_subsection "file infos:"
-    echo "ls -la"
+    echo "pwd: $( pwd )"
     ls -la
 
 

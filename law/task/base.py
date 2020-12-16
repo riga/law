@@ -299,10 +299,10 @@ class Task(BaseTask):
         "output targets but do not run any task; this CSV parameter accepts a single integer value "
         "which sets the task recursion depth (0 means non-recursive)")
     remove_output = CSVParameter(default=(), significant=False, description="remove task outputs "
-        "but do not run any task; this CSV parameter accepts up to three values: 1. the task "
-        "recursion depth (0 means non-recursive), 2. one of the modes 'i' (interactive), 'a' "
-        "(all), 'd' (dry run) (default: 'i'), 3. a flag that decides whether outputs of external "
-        "tasks should be removed (default: False)")
+        "but do not run any task by default; this CSV parameter accepts up to three values: 1. the "
+        "task recursion depth (0 means non-recursive), 2. one of the modes 'i' (interactive), 'a' "
+        "(all), 'd' (dry run) (default: 'i'), 3. a boolean flag that decides whether the task is "
+        "run after outputs were removed (default: False)")
     fetch_output = CSVParameter(default=(), significant=False, description="copy all task outputs "
         "into a local directory but do not run any task; this CSV parameter accepts up to four "
         "values: 1. the task recursion depth (0 means non-recursive), 2. one of the modes 'i' "
