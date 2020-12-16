@@ -223,19 +223,20 @@ def str_to_int(s):
 def flag_to_bool(s, silent=False):
     """
     Takes a string flag *s* and returns whether it evaluates to *True* (values ``"1"``, ``"true"``
-    ``"yes"``, ``"on"``, case-insensitive) or *False* (values ``"0"``, ``"false"``, `"no"``,
-    ``"off"``, case-insensitive). When *s* is already a boolean, it is returned unchanged. An error
-    is thrown when *s* is neither of the allowed values and *silent* is *False*. Otherwise, *None*
-    is returned.
+    ``"yes"``, ``"y"``, ``"on"``, case-insensitive) or *False* (values ``"0"``, ``"false"``,
+    `"no"``, ``"n"``, ``"off"``, case-insensitive). When *s* is already a boolean, it is returned
+    unchanged. An error is thrown when *s* is neither of the allowed values and *silent* is *False*.
+    Otherwise, *None* is returned.
     """
     if isinstance(s, bool):
         return s
     elif isinstance(s, six.string_types):
-        if s.lower() in ("true", "1", "yes", "on"):
+        if s.lower() in ("true", "1", "yes", "y", "on"):
             return True
-        elif s.lower() in ("false", "0", "no", "off"):
+        elif s.lower() in ("false", "0", "no", "n", "off"):
             return False
-    elif silent:
+
+    if silent:
         return None
     else:
         raise ValueError("cannot convert to bool: {}".format(s))
