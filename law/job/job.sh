@@ -367,8 +367,9 @@ action() {
     _law_job_section "environment"
 
     if type hostnamectl &> /dev/null; then
-        _law_job_subsection "host infos:"
+        _law_job_subsection "host infos"
         hostnamectl status
+        echo
     fi
 
     _law_job_subsection "job infos"
