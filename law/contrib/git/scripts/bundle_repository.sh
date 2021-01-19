@@ -75,7 +75,7 @@ action() {
             git commit -m \"$commit_msg\" &> /dev/null; \
             for elem in \$( git ls-files ); do echo \"\$path/\$elem\" >> \"$tmp_list\"; done" && \
         mkdir -p "$( dirname "$dst_path" )" && \
-        tar -czf "$dst_path" -T "$tmp_list"
+        tar -czf "$dst_path" -T <( for l in $( cat "$tmp_list" ); do [ -e "$l" ] && echo "$l"; done )
     )
     local ret="$?"
 
