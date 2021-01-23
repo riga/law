@@ -299,7 +299,7 @@ class Task(BaseTask):
     print_output = CSVParameter(default=(), significant=False, description="print a flat list of "
         "output targets but do not run any task; this CSV parameter accepts up to two values: 1. "
         "the task recursion depth (0 means non-recursive), 2. a boolean flag that decides whether "
-        "printed paths should contain file system schemes (default: False)")
+        "paths of file targets should contain file system schemes (default: False)")
     remove_output = CSVParameter(default=(), significant=False, description="remove task outputs "
         "but do not run any task by default; this CSV parameter accepts up to three values: 1. the "
         "task recursion depth (0 means non-recursive), 2. one of the modes 'i' (interactive), 'a' "

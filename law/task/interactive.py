@@ -127,9 +127,10 @@ def print_task_output(task, max_depth=0, scheme=False):
         done.append(dep)
 
         for outp in flatten(dep.output()):
-            if not isinstance(outp, (FileSystemTarget, FileCollection)):
-                continue
-            for uri in make_list(outp.uri(scheme=scheme)):
+            kwargs = {}
+            if isinstance(outp, (FileSystemTarget, FileCollection)):
+                kwargs = {"scheme": scheme}
+            for uri in make_list(outp.uri(**kwargs)):
                 print(uri)
 
 

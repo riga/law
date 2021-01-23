@@ -92,6 +92,9 @@ class TargetCollection(Target):
         else:  # dict
             return list(self._flat_targets.keys())
 
+    def uri(self, *args, **kwargs):
+        return flatten(t.uri(*args, **kwargs) for t in self._flat_target_list)
+
     @property
     def hash(self):
         target_hashes = "".join(target.hash for target in self._flat_target_list)
@@ -220,9 +223,6 @@ class FileCollection(TargetCollection):
             if not isinstance(target, (FileSystemTarget, FileCollection)):
                 raise TypeError("FileCollection's only wrap FileSystemTarget's and other "
                     "FileCollection's, got {}".format(target.__class__))
-
-    def uri(self, *args, **kwargs):
-        return flatten(t.uri(*args, **kwargs) for t in self._flat_target_list)
 
     @contextmanager
     def localize(self, *args, **kwargs):

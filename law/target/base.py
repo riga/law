@@ -102,5 +102,5 @@ class Target(luigi.target.Target):
         return
 
     @abstractmethod
-    def uri(self, *args, **kwargs):
+    def uri(self):
         return
