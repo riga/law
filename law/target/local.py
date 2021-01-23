@@ -299,8 +299,11 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
             flags.append("temporary")
         return flags
 
-    def uri(self, *args, **kwargs):
-        return add_scheme(self.fs.abspath(self.path), "file")
+    def uri(self, scheme=True, **kwargs):
+        uri = self.fs.abspath(self.path)
+        if scheme:
+            uri = add_scheme(uri, "file")
+        return uri
 
 
 class LocalFileTarget(LocalTarget, FileSystemFileTarget):

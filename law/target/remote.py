@@ -191,17 +191,18 @@ class GFALInterface(object):
             if self.atomic_contexts and pid in self._transfer_parameters:
                 del self._transfer_parameters[pid]
 
-    def uri(self, path, *args, **kwargs):
-        """ uri(path, base=None, *args, **kwargs)
-        """
+    def uri(self, path, base=None, scheme=True, **kwargs):
         # get the base
-        base = kwargs.pop("base", None)
         if not base:
             kwargs["return_index"] = False
-            base = self.get_base(*args, **kwargs)
+            base = self.get_base(**kwargs)
 
-        # helper to join the path to a base b
-        uri = lambda b: os.path.join(b, self.gfal_str(path).lstrip("/")).rstrip("/")
+        # helper to join the path to a base b and remove the scheme if requested
+        def uri(b):
+            uri = os.path.join(b, self.gfal_str(path).lstrip("/")).rstrip("/")
+            if not scheme:
+                uri = remove_scheme(uri)
+            return uri
 
         if isinstance(base, (list, tuple)) or is_lazy_iterable(base):
             return [uri(b) for b in base]
@@ -1153,15 +1154,8 @@ class RemoteTarget(FileSystemTarget):
 
         self._path = self.fs.abspath(path)
 
-    def uri(self, *args, **kwargs):
-        return self.fs.gfal.uri(self.path, *args, **kwargs)
-
-    def url(self, *args, **kwargs):
-        # deprecation warning until v0.1
-        logger.warning("the use of {0}.url() is deprecated, please use {0}.uri() instead".format(
-            self.__class__.__name__))
-
-        return self.uri(*args, **kwargs)
+    def uri(self, **kwargs):
+        return self.fs.gfal.uri(self.path, **kwargs)
 
 
 class RemoteFileTarget(RemoteTarget, FileSystemFileTarget):

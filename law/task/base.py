@@ -297,8 +297,9 @@ class Task(BaseTask):
         "collections (default: 0), 3. a flag that is passed to the status text creation (default: "
         "'')")
     print_output = CSVParameter(default=(), significant=False, description="print a flat list of "
-        "output targets but do not run any task; this CSV parameter accepts a single integer value "
-        "which sets the task recursion depth (0 means non-recursive)")
+        "output targets but do not run any task; this CSV parameter accepts up to two values: 1. "
+        "the task recursion depth (0 means non-recursive), 2. a boolean flag that decides whether "
+        "printed paths should contain file system schemes (default: False)")
     remove_output = CSVParameter(default=(), significant=False, description="remove task outputs "
         "but do not run any task by default; this CSV parameter accepts up to three values: 1. the "
         "task recursion depth (0 means non-recursive), 2. one of the modes 'i' (interactive), 'a' "
@@ -308,7 +309,7 @@ class Task(BaseTask):
         "into a local directory but do not run any task; this CSV parameter accepts up to four "
         "values: 1. the task recursion depth (0 means non-recursive), 2. one of the modes 'i' "
         "(interactive), 'a' (all), 'd' (dry run) (default: 'i'), 3. the target directory (default: "
-        "'.'), 4. a flag that decides whether outputs of external tasks should be fetched "
+        "'.'), 4. a boolean flag that decides whether outputs of external tasks should be fetched "
         "(default: False)")
 
     interactive_params = [

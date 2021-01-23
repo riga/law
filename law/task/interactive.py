@@ -17,7 +17,8 @@ import logging
 import six
 
 from law.target.base import Target
-from law.target.collection import TargetCollection
+from law.target.file import FileSystemTarget
+from law.target.collection import TargetCollection, FileCollection
 from law.util import (
     colored, flatten, flag_to_bool, query_choice, human_bytes, is_lazy_iterable, make_list,
 )
@@ -115,8 +116,9 @@ def print_task_status(task, max_depth=0, target_depth=0, flags=None):
             print("{}{} {}".format(ooffset, ind, status_text))
 
 
-def print_task_output(task, max_depth=0):
+def print_task_output(task, max_depth=0, scheme=False):
     max_depth = int(max_depth)
+    scheme = flag_to_bool(scheme)
 
     print("print task output with max_depth {}\n".format(max_depth))
 
@@ -125,7 +127,9 @@ def print_task_output(task, max_depth=0):
         done.append(dep)
 
         for outp in flatten(dep.output()):
-            for uri in make_list(outp.uri()):
+            if not isinstance(outp, (FileSystemTarget, FileCollection)):
+                continue
+            for uri in make_list(outp.uri(scheme=scheme)):
                 print(uri)
 
 
