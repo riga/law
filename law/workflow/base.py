@@ -135,7 +135,7 @@ class BaseWorkflowProxy(ProxyTask):
         branch map. For performance purposes, you can set this value, *n*, directly.
         """
         if n is None:
-            n = len(self.task.branch_map())
+            n = len(self.task.get_branch_map())
 
         acceptance = self.task.acceptance
         return (acceptance * n) if acceptance <= 1 else acceptance
@@ -523,7 +523,7 @@ class BaseWorkflow(Task):
         if self.is_branch():
             raise Exception("calls to _reduce_branch_map are forbidden for branch tasks")
 
-        # when given, reduce by branches, otherwise by start/end branch
+        # when given, reduce by branches, otherwise by start/end branch when already reset
         if self.branches:
             # create a set of branches to remove
             remove_branches = set(branch_map.keys())
@@ -533,7 +533,7 @@ class BaseWorkflow(Task):
             # actual removal
             for b in remove_branches:
                 del branch_map[b]
-        else:
+        elif 0 <= self.start_branch <= self.end_branch:
             for b in list(branch_map.keys()):
                 if not (self.start_branch <= b < self.end_branch):
                     del branch_map[b]
