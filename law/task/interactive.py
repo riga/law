@@ -180,7 +180,7 @@ def remove_task_output(task, max_depth=0, mode=None, run_task=False):
         done.append(dep)
 
         # skip when mode is "all" and task is configured to skip
-        if mode == "a" and getattr(tasl, "skip_output_removal", False):
+        if mode == "a" and getattr(dep, "skip_output_removal", False):
             print(offset + colored(" configured to skip", "yellow"))
             continue
 
