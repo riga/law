@@ -168,30 +168,40 @@ def remove_task_output(task, max_depth=0, mode=None, run_task=False):
         print("{}> {}".format(offset, dep.repr(color=True)))
         offset += "|" + ind
 
+        # always skip external tasks
         if isinstance(dep, ExternalTask):
             print(offset + colored(" task is external", "yellow"))
             continue
 
+        # skip when this task was already handled
         if dep in done:
-            print(offset + colored(" already removed", "yellow"))
+            print(offset + colored(" already handled", "yellow"))
+            continue
+        done.append(dep)
+
+        # skip when mode is "all" and task is configured to skip
+        if mode == "a" and getattr(tasl, "skip_output_removal", False):
+            print(offset + colored(" configured to skip", "yellow"))
             continue
 
+        # query for a decision per task when mode is "interactive"
+        task_mode = None
         if mode == "i":
             task_mode = query_choice(offset + " remove outputs?", ["y", "n", "a"], default="y",
                 descriptions=["yes", "no", "all"])
             if task_mode == "n":
                 continue
 
-        done.append(dep)
-
         # start the traversing through output structure
         for output, odepth, oprefix, ooffset, lookup in _iter_output(dep.output(), offset):
             print("{} {}{}".format(ooffset, oprefix, output.repr(color=True)))
 
+            # print and stop here when the mode is "dry"
             if mode == "d":
                 print(ooffset + ind + colored(" dry removed", "yellow"))
                 continue
 
+            # when the mode is "interactive" and the task decision is not "all", query per output
             if mode == "i" and task_mode != "a":
                 if isinstance(output, TargetCollection):
                     coll_choice = query_choice(ooffset + ind + " remove?", ("y", "n", "i"),
@@ -208,6 +218,7 @@ def remove_task_output(task, max_depth=0, mode=None, run_task=False):
                     print(ooffset + ind + colored(" skipped", "yellow"))
                     continue
 
+            # finally remove
             output.remove()
             print(ooffset + ind + colored(" removed", "red", style="bright"))
 

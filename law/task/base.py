@@ -316,7 +316,11 @@ class Task(BaseTask):
         "print_deps", "print_status", "print_output", "remove_output", "fetch_output",
     ]
 
+    # cache size for published messages
     message_cache_size = 10
+
+    # force skipping this task when remove_output is set to "all" mode
+    skip_output_removal = False
 
     exclude_index = True
     exclude_params_req = set()
