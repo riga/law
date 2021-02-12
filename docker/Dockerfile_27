@@ -46,7 +46,6 @@ RUN cd /usr/bin; curl https://getmic.ro | bash
 
 # python software
 RUN yum -y install python-devel python-setuptools python-docutils; yum clean all
-RUN easy_install pip
 
 # WLCG software
 RUN rpm -Uvh https://repo.opensciencegrid.org/osg/3.5/osg-3.5-el7-release-latest.rpm
@@ -67,8 +66,7 @@ RUN git clone https://github.com/cern-it-sdc-id/gfal2-dropbox.git && \
     rm -rf gfal2-dropbox
 
 # python packages
-# use luigi 2.7.6, as 2.7.7 dropped support for python version < 2.7.9 (centos 7 comes with 2.7.5)
-RUN pip install --no-cache-dir --upgrade pip
+RUN easy_install-2.7 pip==20.3.4
 RUN pip install --no-cache-dir --upgrade setuptools
 RUN pip install --no-cache-dir readline
 RUN pip install --no-cache-dir slackclient
