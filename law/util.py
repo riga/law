@@ -12,10 +12,11 @@ __all__ = [
     "is_pattern", "brace_expand", "range_expand", "range_join", "multi_match", "is_iterable",
     "is_lazy_iterable", "make_list", "make_tuple", "make_unique", "flatten", "merge_dicts", "which",
     "map_verbose", "map_struct", "mask_struct", "tmp_file", "interruptable_popen", "readable_popen",
-    "create_hash", "copy_no_perm", "makedirs_perm", "user_owns_file", "iter_chunks", "human_bytes",
-    "parse_bytes", "human_duration", "human_time_diff", "parse_duration", "is_file_exists_error",
-    "send_mail", "DotDict", "ShorthandDict", "open_compat", "patch_object", "join_generators",
-    "quote_cmd", "classproperty", "BaseStream", "TeeStream", "FilteredStream",
+    "create_hash", "create_random_string", "copy_no_perm", "makedirs_perm", "user_owns_file",
+    "iter_chunks", "human_bytes", "parse_bytes", "human_duration", "human_time_diff",
+    "parse_duration", "is_file_exists_error", "send_mail", "DotDict", "ShorthandDict",
+    "open_compat", "patch_object", "join_generators", "quote_cmd", "classproperty", "BaseStream",
+    "TeeStream", "FilteredStream",
 ]
 
 
@@ -30,6 +31,7 @@ import tempfile
 import subprocess
 import signal
 import hashlib
+import uuid
 import shutil
 import copy
 import collections
@@ -1078,6 +1080,20 @@ def create_hash(inp, l=10, algo="sha256"):
     string representation of *inp* is used.
     """
     return getattr(hashlib, algo)(six.b(str(inp))).hexdigest()[:l]
+
+
+def create_random_string(prefix="", l=10):
+    """
+    Creates and returns a random string consisting of *l* characters using a uuid4 hash. When
+    *prefix* is given, the string will have the format ``<prefix>_<random_string>``.
+    """
+    s = ""
+    while len(s) < l:
+        s += uuid.uuid4().hex
+    s = s[:l]
+    if prefix:
+        s = "{}_{}".format(prefix, s)
+    return s
 
 
 def copy_no_perm(src, dst):

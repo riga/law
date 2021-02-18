@@ -14,6 +14,7 @@ __all__ = [
 
 import os
 import sys
+import re
 from abc import abstractmethod, abstractproperty
 from contextlib import contextmanager
 
@@ -23,7 +24,7 @@ import luigi.task
 
 from law.config import Config
 from law.target.base import Target
-from law.util import create_hash, make_list, map_struct
+from law.util import create_hash, make_list, map_struct, create_random_string
 
 
 class FileSystem(luigi.target.FileSystem):
@@ -306,12 +307,16 @@ class FileSystemDirectoryTarget(FileSystemTarget):
     def _child_args(self):
         return (), {}
 
-    def child(self, path, type=None, **kwargs):
+    def child(self, path, type=None, mktemp_pattern=False, **kwargs):
         if type not in (None, "f", "d"):
             raise ValueError("invalid child type, use 'f' or 'd'")
 
-        path = os.path.join(self.path, get_path(path))
+        # apply mktemp's feature to replace at least three consecutive 'X' with random characters
+        if mktemp_pattern and "XXX" in path:
+            repl = lambda m: create_random_string(l=len(m.group(1)))
+            path = re.sub("(X{3,})", repl, path)
 
+        path = os.path.join(self.path, get_path(path))
         if type == "f":
             cls = self.file_class
         elif type == "d":
