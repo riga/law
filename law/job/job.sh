@@ -395,7 +395,10 @@ action() {
 
     echo
     _law_job_subsection "file infos:"
-    echo "pwd: $( pwd )"
+    echo "> pwd"
+    pwd
+    echo
+    echo "> ls -la"
     ls -la
 
 

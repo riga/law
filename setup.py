@@ -39,15 +39,21 @@ classifiers = [
 ]
 
 
+# helper to read non-empty, stripped lines from an opened file
+def readlines(f):
+    for line in f.readlines():
+        if line.strip():
+            yield line.strip()
+
+
 # read the readme file
 with open(os.path.join(this_dir, "README.rst"), "r") as f:
     long_description = f.read()
 
 
 # load installation requirements
-readlines = lambda f: [line.strip() for line in f.readlines() if line.strip()]
 with open(os.path.join(this_dir, "requirements.txt"), "r") as f:
-    install_requires = readlines(f)
+    install_requires = list(readlines(f))
 
 
 # load docs requirements
