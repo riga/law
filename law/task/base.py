@@ -74,8 +74,7 @@ class BaseRegister(luigi.task_register.Register):
         return cls
 
 
-@six.add_metaclass(BaseRegister)
-class BaseTask(luigi.Task):
+class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
 
     exclude_index = True
     exclude_params_index = set()
@@ -283,8 +282,7 @@ class Register(BaseRegister):
         return inst
 
 
-@six.add_metaclass(Register)
-class Task(BaseTask):
+class Task(six.with_metaclass(Register, BaseTask)):
 
     log_file = luigi.Parameter(default=NO_STR, significant=False, description="a custom log file; "
         "default: <task.default_log_file>")

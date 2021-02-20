@@ -312,11 +312,12 @@ class FileSystemDirectoryTarget(FileSystemTarget):
             raise ValueError("invalid child type, use 'f' or 'd'")
 
         # apply mktemp's feature to replace at least three consecutive 'X' with random characters
+        path = get_path(path)
         if mktemp_pattern and "XXX" in path:
             repl = lambda m: create_random_string(l=len(m.group(1)))
             path = re.sub("(X{3,})", repl, path)
 
-        path = os.path.join(self.path, get_path(path))
+        path = os.path.join(self.path, path)
         if type == "f":
             cls = self.file_class
         elif type == "d":

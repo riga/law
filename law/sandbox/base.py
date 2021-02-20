@@ -81,8 +81,7 @@ class StageInfo(object):
         return str(self)
 
 
-@six.add_metaclass(ABCMeta)
-class Sandbox(object):
+class Sandbox(six.with_metaclass(ABCMeta, object)):
 
     delimiter = "::"
 

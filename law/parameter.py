@@ -286,6 +286,8 @@ class CSVParameter(luigi.Parameter):
         if not value:
             return ""
         else:
+            value = make_tuple(value)
+
             # apply uniqueness, sort, length and choices checks
             value = self._check_unique(value)
             value = self._check_sort(value)

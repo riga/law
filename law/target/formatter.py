@@ -85,8 +85,7 @@ def find_formatter(path, mode, name=AUTO_FORMATTER):
         return get_formatter(name, silent=False)
 
 
-@six.add_metaclass(FormatterRegister)
-class Formatter(object):
+class Formatter(six.with_metaclass(FormatterRegister, object)):
 
     name = "_base"
 

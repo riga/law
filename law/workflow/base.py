@@ -240,8 +240,7 @@ class WorkflowRegister(Register):
         cls._defined_workflow_proxy = "workflow_proxy_cls" in classdict
 
 
-@six.add_metaclass(WorkflowRegister)
-class BaseWorkflow(Task):
+class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
     """
     Base class of all workflows.
 
