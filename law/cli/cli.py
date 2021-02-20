@@ -14,9 +14,6 @@ import law
 
 progs = ["run", "index", "config", "software", "completion", "location"]
 
-# temporary command to show renaming note until v0.1
-progs.append("db")
-
 
 def run(argv=None):
     """
