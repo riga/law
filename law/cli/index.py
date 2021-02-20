@@ -108,12 +108,6 @@ def execute(args):
         cls = lookup.pop(0)
         lookup.extend(cls.__subclasses__())
 
-        # skip already seen task families
-        task_family = cls.get_task_family()
-        if task_family in seen_families:
-            continue
-        seen_families.append(task_family)
-
         # skip tasks in __main__ module in interactive sessions
         if cls.__module__ == "__main__":
             continue
@@ -136,6 +130,7 @@ def execute(args):
         # show an error when there is a "-" in the task family as the luigi command line parser will
         # automatically map it to "_", i.e., it will fail to lookup the actual task class
         # skip the task
+        task_family = cls.get_task_family()
         if "-" in task_family:
             logger.critical("skipping task '{}' as its family '{}' contains a '-' which cannot be "
                 "interpreted by luigi's command line parser, please use '_' or alike".format(
@@ -151,6 +146,18 @@ def execute(args):
                 "definition which would lead to ambiguities between task families and task-level "
                 "parameters in the law shell autocompletion".format(cls, task_family))
             continue
+
+        # skip already seen task families and warn when the class is not added yet in the classes to
+        # index as this is usually a sign of multiple definitions of the same task, e.g. through
+        # imports of the same physical file via different module ids
+        if task_family in seen_families:
+            if cls not in task_classes:
+                logger.error("skipping task '{}' as a task with the same family '{}' but a "
+                    "different address was already seen; this is likely due to multiple imports of "
+                    "the same physical file through different module ids and since it is no longer "
+                    "unique, luigi's task lookup will probably fail".format(cls, task_family))
+            continue
+        seen_families.append(task_family)
 
         task_classes.append(cls)
 
