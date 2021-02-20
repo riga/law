@@ -21,8 +21,10 @@ def setup_parser(sub_parsers):
             _cfg.config_file))
 
     parser.add_argument("name", nargs="?", help="the name of the config in the format "
-        "<section>[.<option>]")
-    parser.add_argument("value", nargs="?", help="the value to set")
+        "<section>[.<option>]; when empty, all section names are printed; when no option is given, "
+        "all section options are printed")
+    parser.add_argument("value", nargs="?", help="the value to set; when empty, the current value "
+        "is printed")
     parser.add_argument("--remove", "-r", action="store_true", help="remove the config")
     parser.add_argument("--expand", "-e", action="store_true", help="expand variables when getting "
         "a value")
@@ -34,15 +36,23 @@ def execute(args):
     """
     Executes the *config* subprogram with parsed commandline *args*.
     """
+    cfg = Config.instance()
+
     # just print the file location?
     if args.location:
-        cfg = Config.instance()
         print(cfg.config_file)
         return
 
-    # every option below requires the name to be set
+    # print sections when none is given
     if not args.name:
-        abort("please give the name of the config in the format <section>[.<option>]")
+        print("\n".join(cfg.sections()))
+        return
+
+    # print section options when none is given
+    section, option = args.name.split(".", 1) if "." in args.name else (args.name, None)
+    if not option:
+        print("\n".join(cfg.options(section)))
+        return
 
     # removal
     if args.remove:
@@ -53,22 +63,4 @@ def execute(args):
         abort("config setting not yet implemented")
 
     # getting
-    print(get_config(args.name, expand=args.expand))
-
-
-def get_config(name, expand=True, dereference=True):
-    """
-    Returns the config value that corresponds to *name*, which must have the format
-    ``<section>[.<option>]``. When an option is given and *expand* is *True*, variables are expanded
-    in the returned value.
-    """
-    cfg = Config.instance()
-    only_section = "." not in name
-
-    # when only the section is given, print all keys
-    if only_section:
-        return "\n".join(cfg.options(name))
-    else:
-        section, option = name.split(".", 1)
-        return cfg.get_default(section, option, expand_vars=expand, expand_user=expand,
-            dereference=dereference)
+    print(cfg.get_default(section, option, expand_vars=args.expand, expand_user=args.expand))
