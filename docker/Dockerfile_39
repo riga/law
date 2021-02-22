@@ -7,8 +7,8 @@ LABEL law.image_tag="py39"
 LABEL law.image_dir="law-py39"
 LABEL law.image_python_major="3"
 LABEL law.image_python_minor="9"
-LABEL law.image_python_patch="1"
-LABEL law.image_python="3.9.1"
+LABEL law.image_python_patch="2"
+LABEL law.image_python="3.9.2"
 LABEL law.image_python_mm="3.9"
 
 # law specific environment variables
@@ -17,7 +17,7 @@ ENV LAW_IMAGE_NAME law-py39
 ENV LAW_IMAGE_TAG py39
 ENV LAW_IMAGE_PYTHON_MAJOR 3
 ENV LAW_IMAGE_PYTHON_MINOR 9
-ENV LAW_IMAGE_PYTHON_PATCH 1
+ENV LAW_IMAGE_PYTHON_PATCH 2
 ENV LAW_IMAGE_PYTHON $LAW_IMAGE_PYTHON_MAJOR.$LAW_IMAGE_PYTHON_MINOR.$LAW_IMAGE_PYTHON_PATCH
 ENV LAW_IMAGE_PYTHON_MM $LAW_IMAGE_PYTHON_MAJOR.$LAW_IMAGE_PYTHON_MINOR
 ENV LAW_IMAGE_SOURCE_DIR /root/law
@@ -63,19 +63,19 @@ RUN wget -nv https://www.python.org/ftp/python/${LAW_IMAGE_PYTHON}/Python-${LAW_
 RUN yum -y install boost-devel boost-python; yum clean all
 
 # boost for custom python
-RUN wget -nv https://dl.bintray.com/boostorg/release/1.74.0/source/boost_1_74_0.tar.gz && \
-    tar -xzf boost_1_74_0.tar.gz && \
-    cd boost_1_74_0 && \
+RUN wget -nv https://dl.bintray.com/boostorg/release/1.75.0/source/boost_1_75_0.tar.gz && \
+    tar -xzf boost_1_75_0.tar.gz && \
+    cd boost_1_75_0 && \
     ./bootstrap.sh --with-libraries=system,thread,python --with-python="$( which python3 )" && \
     perl -pi -e 's!(\Qincludes ?= $(prefix)/include/python$(version)\E)!\1m!' tools/build/src/tools/python.jam && \
     ./b2 install --prefix=/usr && \
     ldconfig && \
     cd .. && \
-    rm -rf boost_1_74_0 && \
-    rm boost_1_74_0.tar.gz
+    rm -rf boost_1_75_0 && \
+    rm boost_1_75_0.tar.gz
 
 # WLCG software
-RUN rpm -Uvh https://repo.opensciencegrid.org/osg/3.5/osg-3.5-el7-release-latest.rpm
+RUN rpm -Uvh https://repo.opensciencegrid.org/osg/3.6/osg-3.6-el7-release-latest.rpm
 RUN yum-config-manager --add-repo http://linuxsoft.cern.ch/cern/centos/7/cern/x86_64
 RUN yum -y update; yum clean all
 RUN yum -y install CERN-CA-certs osg-ca-certs osg-voms voms-clients; yum clean all
