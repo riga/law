@@ -172,8 +172,6 @@ action() {
     }
 
     _law_job_bootstrap() {
-        _law_job_section "bootstrapping"
-
         run_bootstrap_file() {
             local bootstrap_file="{{bootstrap_file}}"
 
@@ -223,7 +221,7 @@ action() {
     }
 
     _law_job_detect_law() {
-        _law_job_section "detect law"
+        _law_job_subsection "detect law"
 
         export LAW_SRC_PATH="$( law location )"
 
@@ -237,7 +235,7 @@ action() {
     }
 
     _law_job_setup_dashboard() {
-        _law_job_section "setup dashboard"
+        _law_job_subsection "setup dashboard"
 
         load_dashboard_file() {
             local dashboard_file="{{dashboard_file}}"
@@ -259,6 +257,17 @@ action() {
         fi
 
         return "0"
+    }
+
+    _law_job_print_vars() {
+        _law_job_subsection "environment variables"
+
+        echo "PATH           : $PATH"
+        echo "PYTHONPATH     : $PYTHONPATH"
+        echo "PYTHON27PATH   : $PYTHON27PATH"
+        echo "PYTHON3PATH    : $PYTHON3PATH"
+        echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
+        echo "CPATH          : $CPATH"
     }
 
     _law_job_finalize() {
@@ -391,7 +400,7 @@ action() {
     echo "dashboard data: $LAW_JOB_DASHBOARD_DATA"
 
     echo
-    _law_job_subsection "file infos:"
+    _law_job_subsection "file infos"
     echo "> pwd"
     pwd
     echo "> ls -la"
@@ -402,9 +411,15 @@ action() {
     # setup
     #
 
+    _law_job_section "setup"
+
     _law_job_bootstrap || return "$?"
+    echo
     _law_job_detect_law || return "$?"
+    echo
     _law_job_setup_dashboard || return "$?"
+    echo
+    _law_job_print_vars || return "$?"
 
     # mark the job as running
     _law_job_call_hook law_hook_job_running
