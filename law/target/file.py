@@ -304,7 +304,7 @@ class FileSystemDirectoryTarget(FileSystemTarget):
 
     open = None
 
-    def _child_args(self):
+    def _child_args(self, path):
         return (), {}
 
     def child(self, path, type=None, mktemp_pattern=False, **kwargs):
@@ -329,8 +329,9 @@ class FileSystemDirectoryTarget(FileSystemTarget):
         else:
             cls = self.file_class
 
-        args, _kwargs = self._child_args()
+        args, _kwargs = self._child_args(path)
         _kwargs.update(kwargs)
+
         return cls(path, *args, **_kwargs)
 
     def listdir(self, pattern=None, type=None, **kwargs):

@@ -1212,8 +1212,8 @@ class RemoteFileTarget(RemoteTarget, FileSystemFileTarget):
 
 class RemoteDirectoryTarget(RemoteTarget, FileSystemDirectoryTarget):
 
-    def _child_args(self):
-        args, kwargs = FileSystemDirectoryTarget._child_args(self)
+    def _child_args(self, path):
+        args, kwargs = FileSystemDirectoryTarget._child_args(self, path)
         args += (self.fs,)
         return args, kwargs
 
