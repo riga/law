@@ -615,14 +615,20 @@ def is_iterable(obj):
     return True
 
 
+lazy_iter_types = (
+    types.GeneratorType,
+    six.moves.collections_abc.MappingView,
+    six.moves.range,
+    six.moves.map,
+    enumerate,
+)
+
+
 def is_lazy_iterable(obj):
     """
     Returns whether *obj* is iterable lazily, such as generators, range objects, maps, etc.
     """
-    iter_types = (
-        types.GeneratorType, collections.MappingView, six.moves.range, six.moves.map, enumerate,
-    )
-    return isinstance(obj, iter_types)
+    return isinstance(obj, lazy_iter_types)
 
 
 def make_list(obj, cast=True):
