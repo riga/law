@@ -1,4 +1,4 @@
-six>=1.10
+six>=1.13
 luigi>=2.8.2,<3;python_version<="2.7"
 luigi>=2.8.2;python_version>="3.0"
 
