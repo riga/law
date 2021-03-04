@@ -7,9 +7,14 @@ on:
         description: Build only? (true|false)
         required: false
         default: 'false'
+      specific_job:
+        description: Run a specific job? (py27|py37|py38|py39|example)
+        required: false
+        default: ''
 
 jobs:
   py27:
+    if: ${{ contains(['', 'py27'], github.event.inputs.specific_job) }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -29,6 +34,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
   py37:
+    if: ${{ contains(['', 'py37'], github.event.inputs.specific_job) }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -48,6 +54,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
   py38:
+    if: ${{ contains(['', 'py38'], github.event.inputs.specific_job) }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -67,6 +74,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
   py39:
+    if: ${{ contains(['', 'py39'], github.event.inputs.specific_job) }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -86,8 +94,8 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
   example:
+    if: ${{ contains(['', 'example'], github.event.inputs.specific_job) && github.event.inputs.build_only != 'true' }}
     needs: py38
-    if: ${{ github.event.inputs.build_only != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
