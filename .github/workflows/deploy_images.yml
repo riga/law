@@ -14,7 +14,7 @@ on:
 
 jobs:
   py27:
-    if: ${{ contains(['', 'py27'], github.event.inputs.specific_job) }}
+    if: ${{ github.event.inputs.specific_job == '' || github.event.inputs.specific_job == 'py27' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -34,7 +34,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
   py37:
-    if: ${{ contains(['', 'py37'], github.event.inputs.specific_job) }}
+    if: ${{ github.event.inputs.specific_job == '' || github.event.inputs.specific_job == 'py37' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -54,7 +54,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
   py38:
-    if: ${{ contains(['', 'py38'], github.event.inputs.specific_job) }}
+    if: ${{ github.event.inputs.specific_job == '' || github.event.inputs.specific_job == 'py38' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -74,7 +74,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
   py39:
-    if: ${{ contains(['', 'py39'], github.event.inputs.specific_job) }}
+    if: ${{ github.event.inputs.specific_job == '' || github.event.inputs.specific_job == 'py39' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -94,7 +94,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
   example:
-    if: ${{ contains(['', 'example'], github.event.inputs.specific_job) && github.event.inputs.build_only != 'true' }}
+    if: ${{ github.event.inputs.build_only != 'true' && (github.event.inputs.specific_job == '' || github.event.inputs.specific_job == 'example') }}
     needs: py38
     runs-on: ubuntu-latest
     steps:
