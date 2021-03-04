@@ -18,17 +18,20 @@ ENV LAW_IMAGE_TAG py38
 ENV LAW_IMAGE_PYTHON_MAJOR 3
 ENV LAW_IMAGE_PYTHON_MINOR 8
 ENV LAW_IMAGE_PYTHON_PATCH 8
-ENV LAW_IMAGE_PYTHON $LAW_IMAGE_PYTHON_MAJOR.$LAW_IMAGE_PYTHON_MINOR.$LAW_IMAGE_PYTHON_PATCH
-ENV LAW_IMAGE_PYTHON_MM $LAW_IMAGE_PYTHON_MAJOR.$LAW_IMAGE_PYTHON_MINOR
+ENV LAW_IMAGE_PYTHON ${LAW_IMAGE_PYTHON_MAJOR}.${LAW_IMAGE_PYTHON_MINOR}.${LAW_IMAGE_PYTHON_PATCH}
+ENV LAW_IMAGE_PYTHON_MM ${LAW_IMAGE_PYTHON_MAJOR}.${LAW_IMAGE_PYTHON_MINOR}
 ENV LAW_IMAGE_SOURCE_DIR /root/law
 
 # basic environment variables
-ENV CPATH /usr/local/include:/usr/local/include/python${LAW_IMAGE_PYTHON_MM}:/usr/local/include/python${LAW_IMAGE_PYTHON_MM}m:/usr/local/include/gfal2:$CPATH
-ENV LD_LIBRARY_PATH /usr/local/lib:/usr/local/lib64:$LD_LIBRARY_PATH
-ENV GFAL_PLUGIN_DIR /usr/local/lib64/gfal2-plugins
+ENV CPATH /usr/local/include:/usr/include:${CPATH}
+ENV LD_LIBRARY_PATH /usr/local/lib:/usr/local/lib64:/usr/lib:/usr/lib64:${LD_LIBRARY_PATH}
 
-# expose ports
+# exposed ports
 EXPOSE 8082
+
+# bash files
+COPY bash_profile /root/.bash_profile
+COPY bashrc /root/.bashrc
 
 # installation workdir
 WORKDIR /root/install
@@ -40,35 +43,35 @@ RUN yum install -y epel-release; yum clean all
 
 # basic software
 RUN yum -y groupinstall development; yum clean all
-RUN yum -y install libffi-devel openssl-devel glib2-devel libattr-devel openldap-devel zlib-devel \
-    libsqlite3x-devel bzip2-devel ncurses-devel json-c-devel curl-devel gcc-c++ which wget nano \
-    screen git cmake cmake3; yum clean all
+RUN yum -y install gcc gcc-c++ libffi-devel openssl-devel glib2-devel libattr-devel openldap-devel \
+    zlib-devel bzip2 bzip2-devel json-c-devel ncurses-devel curl-devel readline-devel tk-devel \
+    sqlite sqlite-devel libsqlite3x-devel which wget nano screen git git-lfs cmake cmake3; \
+    yum clean all
 RUN cd /usr/bin; curl https://getmic.ro | bash
 
-# python software
-RUN wget -nv https://www.python.org/ftp/python/${LAW_IMAGE_PYTHON}/Python-${LAW_IMAGE_PYTHON}.tgz && \
-    tar -xzf Python-${LAW_IMAGE_PYTHON}.tgz && \
-    cd Python-${LAW_IMAGE_PYTHON} && \
-    ./configure --enable-loadable-sqlite-extensions --enable-optimizations --enable-shared && \
-    make altinstall && \
-    cd .. && \
-    rm -rf Python-${LAW_IMAGE_PYTHON} && \
-    rm Python-${LAW_IMAGE_PYTHON}.tgz && \
-    ln -s -f "$( which python${LAW_IMAGE_PYTHON_MM} )" "$( dirname "$( which python${LAW_IMAGE_PYTHON_MM} )" )/python3" && \
-    python3 --version && \
-    ln -s -f "$( which pip${LAW_IMAGE_PYTHON_MM} )" "$( dirname "$( which pip${LAW_IMAGE_PYTHON_MM} )" )/pip3" && \
-    pip3 --version
+# python via pyenv
+ENV PYENV_ROOT /root/.pyenv
+ENV PYENV_VERSION ${LAW_IMAGE_PYTHON}
+ENV PYENV_VERSION_MM ${LAW_IMAGE_PYTHON_MM}
+ENV PYENV_PREFIX ${PYENV_ROOT}/versions/${PYENV_VERSION}
+ENV PYENV_INCLUDE_DIR ${PYENV_PREFIX}/include/python${PYENV_VERSION_MM}
+ENV PYENV_LIB_DIR ${PYENV_PREFIX}/lib
+ENV PATH ${PYENV_ROOT}/bin:${PYENV_ROOT}/shims:${PATH}
+ENV CPATH ${PYENV_INCLUDE_DIR}:${CPATH}
+RUN curl https://pyenv.run | bash
+RUN pyenv install ${PYENV_VERSION}
+RUN echo $'\n\
+eval "$( pyenv init - )"\n\
+eval "$( pyenv virtualenv-init - )"' >> /root/.bashrc
 
-# boost for system python 2.7
-RUN yum -y install boost-devel boost-python; yum clean all
-
-# boost for custom python
+# boost
+ENV BOOST_ROOT /usr/local
 RUN wget -nv https://dl.bintray.com/boostorg/release/1.75.0/source/boost_1_75_0.tar.gz && \
     tar -xzf boost_1_75_0.tar.gz && \
     cd boost_1_75_0 && \
-    ./bootstrap.sh --with-libraries=system,thread,python --with-python="$( which python3 )" && \
+    ./bootstrap.sh --with-libraries=system,thread,python --with-python="$( pyenv which python )" && \
     perl -pi -e 's!(\Qincludes ?= $(prefix)/include/python$(version)\E)!\1m!' tools/build/src/tools/python.jam && \
-    ./b2 install --prefix=/usr && \
+    ./b2 install --prefix=${BOOST_ROOT} && \
     ldconfig && \
     cd .. && \
     rm -rf boost_1_75_0 && \
@@ -81,6 +84,8 @@ RUN yum -y update; yum clean all
 RUN yum -y install CERN-CA-certs osg-ca-certs osg-voms voms-clients; yum clean all
 
 # gfal2
+ENV CPATH /usr/local/include/gfal2:${CPATH}
+ENV GFAL_PLUGIN_DIR /usr/local/lib64/gfal2-plugins
 RUN yum -y install lfc-devel dpm-devel srm-ifce-devel dcap-devel globus-gass-copy-devel \
     davix-devel xrootd-client-devel libssh2-devel gtest-devel libuuid-devel; yum clean all
 RUN git clone https://gitlab.cern.ch/dmc/gfal2.git && \
@@ -88,7 +93,10 @@ RUN git clone https://gitlab.cern.ch/dmc/gfal2.git && \
     git checkout tags/v2.19.0 && \
     mkdir build && \
     cd build && \
-    cmake .. -DMAIN_DOC=FALSE -DSKIP_TESTS=TRUE && \
+    cmake .. \
+        -DCMAKE_INSTALL_PREFIX=/usr/local \
+        -DMAIN_DOC=FALSE \
+        -DSKIP_TESTS=TRUE && \
     make && \
     make install && \
     cd ../.. && \
@@ -98,7 +106,15 @@ RUN git clone https://gitlab.cern.ch/dmc/gfal2-bindings.git && \
     git checkout tags/v1.10.0 && \
     mkdir build && \
     cd build && \
-    cmake .. -DGFAL2_INCLUDE_DIRS=/usr/local/include/gfal2 -DPYTHON_EXECUTABLE_3="$( which python3 )" -DSKIP_DOC=TRUE -DSKIP_TESTS=TRUE && \
+    cmake .. \
+        -DGFAL2_INCLUDE_DIRS=/usr/local/include/gfal2 \
+        -DPYTHON_EXECUTABLE= \
+        -DPYTHON_EXECUTABLE_3="$( pyenv which python )" \
+        -DPYTHON_EXECUTABLE_${LAW_IMAGE_PYTHON_MM}="$( pyenv which python )" \
+        -DPYTHON_LIBRARIES="${PYENV_LIB_DIR}" \
+        -DPYTHON_LIBRARIES_${LAW_IMAGE_PYTHON_MM}="${PYENV_LIB_DIR}" \
+        -DSKIP_DOC=TRUE \
+        -DSKIP_TESTS=TRUE && \
     make && \
     make install && \
     cd ../.. && \
@@ -107,29 +123,31 @@ RUN git clone https://github.com/cern-it-sdc-id/gfal2-dropbox.git && \
     cd gfal2-dropbox && \
     mkdir build && \
     cd build && \
-    cmake .. -DGFAL2_INCLUDE_DIRS=/usr/local/include/gfal2 -DCMAKE_INSTALL_PREFIX=/usr && \
+    cmake .. \
+        -DCMAKE_INSTALL_PREFIX=/usr/local \
+        -DGFAL2_INCLUDE_DIRS=/usr/local/include/gfal2 && \
     make && \
     make install && \
     cd ../.. && \
     rm -rf gfal2-dropbox
 
 # python packages
-RUN pip3 install --no-cache-dir --upgrade pip
-RUN pip3 install --no-cache-dir --upgrade setuptools
-RUN pip3 install --no-cache-dir readline
-RUN pip3 install --no-cache-dir slackclient
-RUN pip3 install --no-cache-dir python-telegram-bot
-RUN pip3 install --no-cache-dir flake8
+RUN pip install --no-cache-dir --upgrade pip
+RUN pip install --no-cache-dir --upgrade setuptools
+RUN pip install --no-cache-dir readline
+RUN pip install --no-cache-dir slackclient
+RUN pip install --no-cache-dir python-telegram-bot
+RUN pip install --no-cache-dir flake8
 
 # cleanup installation workdir
 WORKDIR /root
 RUN rm -rf install
 
 # install law master
-RUN git clone https://github.com/riga/law "$LAW_IMAGE_SOURCE_DIR" && \
-    cd "$LAW_IMAGE_SOURCE_DIR" && \
-    pip3 install --no-cache-dir .
-WORKDIR $LAW_IMAGE_SOURCE_DIR
+RUN git clone https://github.com/riga/law "${LAW_IMAGE_SOURCE_DIR}" && \
+    cd "${LAW_IMAGE_SOURCE_DIR}" && \
+    pip install --no-cache-dir .
+WORKDIR ${LAW_IMAGE_SOURCE_DIR}
 
 # shell initialization
 RUN echo 'source "$( law completion )" ""' >> /root/.bash_profile

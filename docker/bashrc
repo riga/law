@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+[ -f "/etc/bashrc" ] && source "/etc/bashrc" ""
