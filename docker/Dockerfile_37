@@ -54,12 +54,12 @@ ENV PYENV_ROOT /root/.pyenv
 ENV PYENV_VERSION ${LAW_IMAGE_PYTHON}
 ENV PYENV_VERSION_MM ${LAW_IMAGE_PYTHON_MM}
 ENV PYENV_PREFIX ${PYENV_ROOT}/versions/${PYENV_VERSION}
-ENV PYENV_INCLUDE_DIR ${PYENV_PREFIX}/include/python${PYENV_VERSION_MM}
+ENV PYENV_INCLUDE_DIR ${PYENV_PREFIX}/include/python${PYENV_VERSION_MM}m
 ENV PYENV_LIB_DIR ${PYENV_PREFIX}/lib
 ENV PATH ${PYENV_ROOT}/bin:${PYENV_ROOT}/shims:${PATH}
 ENV CPATH ${PYENV_INCLUDE_DIR}:${CPATH}
 RUN curl https://pyenv.run | bash
-RUN pyenv install ${PYENV_VERSION}
+RUN PYTHON_CONFIGURE_OPTS="--enable-shared" pyenv install ${PYENV_VERSION}
 RUN echo $'\n\
 eval "$( pyenv init - )"\n\
 eval "$( pyenv virtualenv-init - )"' >> /root/.bashrc
