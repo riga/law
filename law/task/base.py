@@ -141,7 +141,8 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
         return cls(**cls.req_params(*args, **kwargs))
 
     @classmethod
-    def req_params(cls, inst, _exclude=None, _prefer_cli=None, **kwargs):
+    def req_params(cls, inst, _exclude=None, _prefer_cli=None, _skip_task_excludes=False,
+            _skip_task_excludes_get=None, _skip_task_excludes_set=None, **kwargs):
         # common/intersection params
         params = common_task_params(inst, cls)
 
@@ -150,8 +151,16 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
 
         # also use this class' req and req_get sets
         # and the req and req_set sets of the instance's class
-        _exclude.update(cls.exclude_params_req, cls.exclude_params_req_get)
-        _exclude.update(inst.exclude_params_req, inst.exclude_params_req_set)
+        # unless explicitly skipped
+        if _skip_task_excludes_get is None:
+            _skip_task_excludes_get = _skip_task_excludes
+        if not _skip_task_excludes_get:
+            _exclude.update(cls.exclude_params_req, cls.exclude_params_req_get)
+
+        if _skip_task_excludes_set is None:
+            _skip_task_excludes_set = _skip_task_excludes
+        if not _skip_task_excludes_set:
+            _exclude.update(inst.exclude_params_req, inst.exclude_params_req_set)
 
         # remove excluded parameters
         for name in list(params.keys()):
