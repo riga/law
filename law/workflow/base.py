@@ -472,15 +472,25 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         """
         return not self.is_branch()
 
-    def as_branch(self, branch=0):
+    def as_branch(self, branch=None):
         """
-        When this task refers to the workflow, a re-instantiated task with a certain *branch* and
-        identical parameters is returned. Otherwise, the branch task itself is returned.
+        When this task refers to the workflow, a re-instantiated task with identical parameters and
+        a certain *branch* value, defaulting to 0, is returned. When this task is already a branch
+        task, the task itself is returned when *branch* is *None* or matches this task's branch
+        value. Otherwise, a new branch task with that value and identical parameters is created and
+        returned.
         """
-        if self.is_branch():
-            return self
+        if branch == -1:
+            raise ValueError("branch must not be -1 when selecting a branch task")
 
-        return self.req(self, branch=branch, _exclude=self.exclude_params_branch)
+        if self.is_branch():
+            if branch is None or branch == self.branch:
+                return self
+            else:
+                return self.req(self, branch=branch, _skip_task_excludes=True)
+
+        return self.req(self, branch=branch or 0, _exclude=self.exclude_params_branch,
+            _skip_task_excludes=True)
 
     def as_workflow(self):
         """
@@ -491,8 +501,8 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
             return self
 
         if self._workflow_task is None:
-            self._workflow_task = self.req(self, branch=-1,
-                _exclude=self.exclude_params_workflow)
+            self._workflow_task = self.req(self, branch=-1, _exclude=self.exclude_params_workflow,
+                _skip_task_excludes=True)
 
         return self._workflow_task
 
@@ -611,7 +621,7 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
             # get all branch tasks according to the map
             branch_tasks = OrderedDict()
             for b in self.get_branch_map():
-                branch_tasks[b] = self.req(self, branch=b, _exclude=self.exclude_params_branch)
+                branch_tasks[b] = self.as_branch(branch=b)
 
             # return the task when we are not going to cache it
             if not self._cache_branches:
@@ -667,9 +677,10 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
             return self.as_workflow().get_all_branch_chunks(chunk_size, **kwargs)
 
         # create a new instance
-        _exclude = make_list(kwargs.get("_exclude", []))
-        _exclude.extend(["start_branch", "end_branch", "branches"])
+        _exclude = set(kwargs.get("_exclude", set()))
+        _exclude |= {"start_branch", "end_branch", "branches"}
         kwargs["_exclude"] = _exclude
+        kwargs["_skip_task_excludes"] = True
         inst = self.req(self, **kwargs)
 
         # return its branch chunks

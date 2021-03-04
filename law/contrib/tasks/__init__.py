@@ -140,8 +140,6 @@ class ForestMerge(LocalWorkflow):
 
     exclude_index = True
 
-    exclude_params_req_set = {"start_branch", "end_branch", "branches"}
-
     @classmethod
     def modify_param_values(cls, params):
         # when tree_index is negative which refers to the merge forest, make sure this is branch 0
@@ -151,9 +149,22 @@ class ForestMerge(LocalWorkflow):
         return params
 
     @classmethod
-    def _req_set_n_leaves(cls, inst, *args, **kwargs):
+    def _req_tree(cls, inst, *args, **kwargs):
+        # amend workflow branch parameters to exclude
+        _exclude = set(kwargs.pop("_exclude", set()))
+        _exclude |= {"start_branch", "end_branch", "branches"}
+        kwargs["_exclude"] = _exclude
+
+        # just as for all workflows that requie branches of themselves (or vice versa,
+        # skip task level excludes
+        kwargs["_skip_task_excludes"] = True
+
+        # create the required instance
         new_inst = super(ForestMerge, cls).req(inst, *args, **kwargs)
+
+        # forward the _n_leaves attribute
         new_inst._n_leaves = inst._n_leaves
+
         return new_inst
 
     def __init__(self, *args, **kwargs):
@@ -164,16 +175,16 @@ class ForestMerge(LocalWorkflow):
 
         # the merge factor should not be 1
         if self.merge_factor == 1:
-            raise ValueError("the merge factor must not be 1")
+            raise ValueError("merge factor must not be 1")
 
         # modify_param_values prevents the forest from being a workflow, but still check
         if self.is_forest() and self.is_workflow():
-            raise Exception("the merge forest must not be a workflow, ForestMerge misconfigured")
+            raise Exception("merge forest must not be a workflow, {!r} misconfigured".format(self))
 
         # since the forest counts as a branch, as_workflow should point the tree_index 0
         # which is only used to compute the overall merge tree
         if self.is_forest():
-            self._workflow_task = self.req(self, branch=-1, tree_index=0,
+            self._workflow_task = self._req_tree(self, branch=-1, tree_index=0,
                 _exclude=self.exclude_params_workflow)
 
     def is_forest(self):
@@ -346,7 +357,7 @@ class ForestMerge(LocalWorkflow):
 
         else:
             # intermediate node, just require the next tree depth
-            reqs["forest_merge"] = self._req_set_n_leaves(self, tree_depth=self.tree_depth + 1)
+            reqs["forest_merge"] = self._req_tree(self, tree_depth=self.tree_depth + 1)
 
         return reqs
 
@@ -356,7 +367,8 @@ class ForestMerge(LocalWorkflow):
         if self.is_forest():
             n_trees = len(self.merge_forest)
             reqs["forest_merge"] = {
-                i: self._req_set_n_leaves(self, branch=-1, tree_index=i)
+                i: self._req_tree(self, branch=-1, tree_index=i,
+                    _exclude=self.exclude_params_workflow)
                 for i in range(n_trees)
             }
 
@@ -382,7 +394,7 @@ class ForestMerge(LocalWorkflow):
 
             # add to requirements
             reqs["forest_merge"] = {
-                b: self._req_set_n_leaves(self, branch=b, tree_depth=self.tree_depth + 1)
+                b: self._req_tree(self, branch=b, tree_depth=self.tree_depth + 1)
                 for b in branches
             }
 
