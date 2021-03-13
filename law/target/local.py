@@ -21,10 +21,9 @@ import six
 from law.config import Config
 from law.target.file import (
     FileSystem, FileSystemTarget, FileSystemFileTarget, FileSystemDirectoryTarget, get_path,
-    get_scheme, add_scheme, remove_scheme, split_transfer_kwargs,
+    get_scheme, add_scheme, remove_scheme,
 )
 from law.target.formatter import find_formatter
-from law.util import is_file_exists_error
 
 
 logger = logging.getLogger(__name__)
@@ -76,44 +75,53 @@ class LocalFileSystem(FileSystem):
         return os.path.isfile(self._unscheme(path))
 
     def chmod(self, path, perm, silent=True, **kwargs):
-        if self.has_perms and perm is not None and (not silent or self.exists(path)):
-            os.chmod(self._unscheme(path), perm)
+        if not self.has_permissions or perm is None:
+            return True
+
+        if silent and not self.exists(path):
+            return False
+
+        os.chmod(self._unscheme(path), perm)
+
+        return True
 
     def remove(self, path, recursive=True, silent=True, **kwargs):
-        if not silent or self.exists(path):
-            path = self._unscheme(path)
-            if self.isdir(path):
-                if recursive:
-                    shutil.rmtree(path)
-                else:
-                    os.rmdir(path)
+        path = self._unscheme(path)
+
+        if silent and not self.exists(path):
+            return False
+
+        if self.isdir(path):
+            if recursive:
+                shutil.rmtree(path)
             else:
-                os.remove(path)
+                os.rmdir(path)
+        else:
+            os.remove(path)
+
+        return True
 
     def mkdir(self, path, perm=None, recursive=True, silent=True, **kwargs):
-        if self.exists(path):
-            return
+        if silent and self.exists(path):
+            return False
 
         if perm is None:
             perm = self.default_dir_perm
 
+        # prepare arguments passed to makedirs or mkdir
+        args = (self._unscheme(path),)
+        if perm is not None:
+            args += (perm,)
+
         # the mode passed to os.mkdir or os.makedirs is ignored on some systems, so the strategy
         # here is to disable the process' current umask, create the directories and use chmod again
-        if perm is not None:
-            orig = os.umask(0)
-
+        orig = os.umask(0) if perm is not None else None
         try:
-            args = (self._unscheme(path),)
-            if perm is not None:
-                args += (perm,)
-            try:
-                (os.makedirs if recursive else os.mkdir)(*args)
-            except Exception as e:
-                if not silent and not is_file_exists_error(e):
-                    raise
+            (os.makedirs if recursive else os.mkdir)(*args)
             self.chmod(path, perm)
+            return True
         finally:
-            if perm is not None:
+            if orig is not None:
                 os.umask(orig)
 
     def listdir(self, path, pattern=None, type=None, **kwargs):
@@ -172,16 +180,16 @@ class LocalFileSystem(FileSystem):
 
         return elems
 
-    def _prepare_dst_dir(self, dst, src=None, perm=None):
+    def _prepare_dst_dir(self, dst, src=None, perm=None, **kwargs):
         """
-        Prepares the directory of a target located at *dst* and returns its full location as
-        specified below. *src* can be the location of a source file target, which is (e.g.) used by
-        a file copy or move operation. When *dst* is already a directory, calling this method has no
-        effect and the *dst* path is returned, optionally joined with the basename of *src*. When
-        *dst* is a file, the absolute *dst* path is returned. Otherwise, when *dst* does not exist
-        yet, it is interpreted as a file path and missing directories are created when
-        :py:attr:`create_file_dir` is *True*, using *perm* to set the directory permission. *dst* is
-        returned.
+        Prepares the directory of a target located at *dst* for copying and returns its full
+        location as specified below. *src* can be the location of a source file target, which is
+        (e.g.) used by a file copy or move operation. When *dst* is already a directory, calling
+        this method has no effect and the *dst* path is returned, optionally joined with the
+        basename of *src*. When *dst* is a file, the absolute *dst* path is returned. Otherwise,
+        when *dst* does not exist yet, it is interpreted as a file path and missing directories are
+        created when :py:attr:`create_file_dir` is *True*, using *perm* to set the directory
+        permission. The absolute path to *dst* is returned.
         """
         dst = self._unscheme(dst)
 
@@ -197,7 +205,7 @@ class LocalFileSystem(FileSystem):
         else:
             # interpret dst as a file name, create missing dirs
             dst_dir = self.dirname(dst)
-            if dst_dir and not self.isdir(dst_dir) and self.create_file_dir:
+            if dst_dir and self.create_file_dir and not self.isdir(dst_dir):
                 self.mkdir(dst_dir, perm=perm, recursive=True)
             full_dst = dst
 
@@ -231,18 +239,45 @@ class LocalFileSystem(FileSystem):
 
         return dst
 
-    def open(self, path, mode, **kwargs):
-        return open(self._prepare_dst_dir(path), mode)
+    def open(self, path, mode, perm=None, dir_perm=None, **kwargs):
+        # check if the file is only read
+        read_mode = mode.startswith("r")
+
+        if read_mode:
+            return open(path, mode)
+
+        else:  # write or update
+            # prepare the destination directory
+            self._prepare_dst_dir(path, perm=dir_perm)
+
+            if perm is None:
+                perm = self.default_file_perm
+
+            # when setting permissions, ensure the file exists first
+            if perm is not None and self.has_permissions:
+                open(path, mode).close()
+                self.chmod(path, perm)
+
+            return open(path, mode)
 
     def load(self, path, formatter, *args, **kwargs):
-        _, kwargs = split_transfer_kwargs(kwargs)
-        path = self._unscheme(path)
-        return find_formatter(path, "load", formatter).load(path, *args, **kwargs)
+        # remove kwargs that might be designated for remote files
+        kwargs = RemoteFileSystem.split_remote_kwargs(kwargs)[1]
+
+        return find_formatter(path, "load", formatter).load(self._unscheme(path), *args, **kwargs)
 
     def dump(self, path, formatter, *args, **kwargs):
-        _, kwargs = split_transfer_kwargs(kwargs)
-        path = self._prepare_dst_dir(path)
-        return find_formatter(path, "dump", formatter).dump(path, *args, **kwargs)
+        # remove kwargs that might be designated for remote files
+        kwargs = RemoteFileSystem.split_remote_kwargs(kwargs)[1]
+
+        # also remove permission settings
+        perm = kwargs.pop("perm", None)
+        dir_perm = kwargs.pop("dir_perm", None)
+
+        # use open() to handle parent directory writing and permissisions
+        self.open(path, "w", perm=perm, dir_perm=dir_perm).close()
+
+        return find_formatter(path, "dump", formatter).dump(self._unscheme(path), *args, **kwargs)
 
 
 LocalFileSystem.default_instance = LocalFileSystem()
@@ -321,9 +356,7 @@ class LocalFileTarget(LocalTarget, FileSystemFileTarget):
 
     @contextmanager
     def localize(self, mode="r", perm=None, dir_perm=None, tmp_dir=None, **kwargs):
-        """ localize(mode="r", perm=None, dir_perm=None, tmp_dir=None, is_tmp=None, **kwargs)
-        """
-        if mode not in ("r", "w", "a"):
+        if mode not in ["r", "w", "a"]:
             raise Exception("unknown mode '{}', use 'r', 'w' or 'a'".format(mode))
 
         logger.debug("localizing file target {!r} with mode '{}'".format(self, mode))
@@ -343,7 +376,7 @@ class LocalFileTarget(LocalTarget, FileSystemFileTarget):
                 try:
                     yield tmp
                 finally:
-                    tmp.remove()
+                    tmp.remove(silent=True)
             else:
                 # simply yield
                 yield self
@@ -376,8 +409,7 @@ class LocalFileTarget(LocalTarget, FileSystemFileTarget):
                 # simply yield
                 yield self
 
-                if self.exists():
-                    self.chmod(perm)
+                self.chmod(perm, silent=True)
 
 
 class LocalDirectoryTarget(LocalTarget, FileSystemDirectoryTarget):
@@ -387,3 +419,7 @@ class LocalDirectoryTarget(LocalTarget, FileSystemDirectoryTarget):
 
 LocalTarget.file_class = LocalFileTarget
 LocalTarget.directory_class = LocalDirectoryTarget
+
+
+# trailing imports
+from law.target.remote.base import RemoteFileSystem

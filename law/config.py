@@ -90,16 +90,19 @@ class Config(ConfigParser):
             "default_dropbox_fs": "dropbox_fs",
         },
         "local_fs": {
-            "has_perms": True,
+            # defined by FileSystem
+            "has_permissions": True,
             "default_file_perm": None,
             "default_dir_perm": None,
             "create_file_dir": True,
         },
         "wlcg_fs": {
-            "has_perms": False,
+            # defined by FileSystem
+            "has_permissions": False,
             "default_file_perm": None,
             "default_dir_perm": None,
-            "create_file_dir": True,
+            "create_file_dir": False,  # requires gfal_transfer_create_parent to be True
+            # defined by RemoteFileInterface
             "base": None,
             "base_stat": None,
             "base_exists": None,
@@ -107,16 +110,15 @@ class Config(ConfigParser):
             "base_unlink": None,
             "base_rmdir": None,
             "base_mkdir": None,
-            "base_mkdir_rec": None,
             "base_listdir": None,
             "base_filecopy": None,
-            "atomic_contexts": True,
             "retries": 1,
             "retry_delay": "5s",
             "random_base": True,
+            # defined by RemoteFileSystem
             "validate_copy": False,
-            "recursive_remove": True,
             "use_cache": False,
+            # define by RemoteCache
             "cache_root": None,
             "cache_cleanup": None,
             "cache_max_size": "0MB",
@@ -125,14 +127,24 @@ class Config(ConfigParser):
             "cache_wait_delay": "5s",
             "cache_max_waits": 120,
             "cache_global_lock": False,
+            # defined by GFALFileInterface
+            "gfal_atomic_contexts": False,
+            "gfal_transfer_timeout": 3600,
+            "gfal_transfer_checksum_check": False,
+            "gfal_transfer_nbstreams": 1,
+            "gfal_transfer_overwrite": True,
+            "gfal_transfer_create_parent": True,
+            "gfal_transfer_strict_copy": False,
+            # defined by WLCGFileSystem
+            # no dedicated configs
         },
         "dropbox_fs": {
-            "app_key": None,
-            "app_secret": None,
-            "access_token": None,
-            "has_perms": False,
+            # defined by FileSystem
+            "has_permissions": False,
             "default_file_perm": None,
             "default_dir_perm": None,
+            "create_file_dir": False,  # requires gfal_transfer_create_parent to be True
+            # defined by RemoteFileInterface
             "base": None,
             "base_stat": None,
             "base_exists": None,
@@ -140,16 +152,15 @@ class Config(ConfigParser):
             "base_unlink": None,
             "base_rmdir": None,
             "base_mkdir": None,
-            "base_mkdir_rec": None,
             "base_listdir": None,
             "base_filecopy": None,
-            "atomic_contexts": False,
             "retries": 1,
             "retry_delay": "5s",
             "random_base": True,
+            # defined by RemoteFileSystem
             "validate_copy": False,
-            "recursive_remove": False,
             "use_cache": False,
+            # define by RemoteCache
             "cache_root": None,
             "cache_cleanup": None,
             "cache_max_size": "0MB",
@@ -158,6 +169,18 @@ class Config(ConfigParser):
             "cache_wait_delay": "5s",
             "cache_max_waits": 120,
             "cache_global_lock": False,
+            # defined by GFALFileInterface
+            "gfal_atomic_contexts": False,
+            "gfal_transfer_timeout": 3600,
+            "gfal_transfer_checksum_check": False,
+            "gfal_transfer_nbstreams": 1,
+            "gfal_transfer_overwrite": True,
+            "gfal_transfer_create_parent": True,
+            "gfal_transfer_strict_copy": False,
+            # defined by DropboxFileSystem
+            "dropbox_app_key": None,
+            "dropbox_app_secret": None,
+            "dropbox_access_token": None,
         },
         "job": {
             "job_file_dir": os.getenv("LAW_JOB_FILE_DIR") or tempfile.gettempdir(),
@@ -381,12 +404,14 @@ class Config(ConfigParser):
             overwrite_options = overwrite
 
         for section, _data in six.iteritems(data):
+            # add the section when it does not exist, and continue when it does but not overwriting
             if not self.has_section(section):
                 self.add_section(section)
             elif not overwrite_sections:
                 continue
 
             for option, value in six.iteritems(_data):
+                # set the option when overwriting anyway, or when it does not exist
                 if overwrite_options or not self.has_option(section, option):
                     self.set(section, option, str(value))
 

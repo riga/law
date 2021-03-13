@@ -6,8 +6,7 @@ Custom luigi file system and target objects.
 
 __all__ = [
     "FileSystem", "FileSystemTarget", "FileSystemFileTarget", "FileSystemDirectoryTarget",
-    "get_path", "get_scheme", "has_scheme", "add_scheme", "remove_scheme", "split_transfer_kwargs",
-    "localize_file_targets",
+    "get_path", "get_scheme", "has_scheme", "add_scheme", "remove_scheme", "localize_file_targets",
 ]
 
 
@@ -23,7 +22,7 @@ import luigi.task
 
 from law.config import Config
 from law.target.base import Target
-from law.util import create_hash, make_list, map_struct, create_random_string
+from law.util import create_hash, map_struct, create_random_string
 
 
 class FileSystem(luigi.target.FileSystem):
@@ -41,19 +40,19 @@ class FileSystem(luigi.target.FileSystem):
             if option not in config or overwrite:
                 config[option] = func(section, option)
 
-        # permissions
-        add("has_perms", cfg.get_expanded_boolean)
+        # read configs
+        add("has_permissions", cfg.get_expanded_boolean)
         add("default_file_perm", cfg.get_expanded_int)
         add("default_dir_perm", cfg.get_expanded_int)
         add("create_file_dir", cfg.get_expanded_boolean)
 
         return config
 
-    def __init__(self, has_perms=True, default_file_perm=None, default_dir_perm=None,
+    def __init__(self, has_permissions=True, default_file_perm=None, default_dir_perm=None,
             create_file_dir=True, **kwargs):
         luigi.target.FileSystem.__init__(self)
 
-        self.has_perms = has_perms
+        self.has_permissions = has_permissions
         self.default_file_perm = default_file_perm
         self.default_dir_perm = default_dir_perm
         self.create_file_dir = create_file_dir
@@ -145,7 +144,7 @@ class FileSystem(luigi.target.FileSystem):
 
     @abstractmethod
     @contextmanager
-    def open(self, path, mode, **kwargs):
+    def open(self, path, mode, perm=None, dir_perm=None, **kwargs):
         return
 
     @abstractmethod
@@ -196,7 +195,7 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
     def sibling(self, *args, **kwargs):
         parent = self.parent
         if not parent:
-            raise Exception("cannot determine file parent")
+            raise Exception("cannot determine parent of {!r}".format(self))
 
         return parent.child(*args, **kwargs)
 
@@ -227,7 +226,7 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
         return
 
     @abstractmethod
-    def touch(self):
+    def touch(self, perm=None, dir_perm=None):
         return
 
 
@@ -238,19 +237,10 @@ class FileSystemFileTarget(FileSystemTarget):
     def ext(self, n=1):
         return self.fs.ext(self.path, n=n)
 
-    def touch(self, content="", perm=None, dir_perm=None, **kwargs):
-        # create the parent
-        parent = self.parent
-        if parent is not None:
-            parent.touch(perm=dir_perm, **kwargs)
-
-        # create the file via open and write content
+    def touch(self, **kwargs):
+        # create the file via open without content
         with self.open("w", **kwargs) as f:
-            f.write(content)
-
-        if perm is None:
-            perm = self.fs.default_file_perm
-        self.chmod(perm, **kwargs)
+            f.write("")
 
     def open(self, mode, **kwargs):
         return self.fs.open(self.path, mode, **kwargs)
@@ -333,8 +323,8 @@ class FileSystemDirectoryTarget(FileSystemTarget):
 
         return cls(path, *args, **_kwargs)
 
-    def listdir(self, pattern=None, type=None, **kwargs):
-        return self.fs.listdir(self.path, pattern=pattern, type=type, **kwargs)
+    def listdir(self, **kwargs):
+        return self.fs.listdir(self.path, **kwargs)
 
     def glob(self, pattern, **kwargs):
         return self.fs.glob(pattern, cwd=self.path, **kwargs)
@@ -342,8 +332,9 @@ class FileSystemDirectoryTarget(FileSystemTarget):
     def walk(self, **kwargs):
         return self.fs.walk(self.path, **kwargs)
 
-    def touch(self, perm=None, recursive=True, **kwargs):
-        self.fs.mkdir(self.path, perm=perm, recursive=recursive, silent=True, **kwargs)
+    def touch(self, **kwargs):
+        kwargs.setdefault("silent", True)
+        self.fs.mkdir(self.path, **kwargs)
 
 
 FileSystemTarget.file_class = FileSystemFileTarget
@@ -373,23 +364,6 @@ def remove_scheme(uri):
     # ftp://path/to/file -> /path/to/file
     # /path/to/file -> /path/to/file
     return six.moves.urllib_parse.urlparse(uri).path or None
-
-
-def split_transfer_kwargs(kwargs, skip=None):
-    """
-    Takes keyword arguments *kwargs*, splits them into two separate dictionaries depending on their
-    content, and returns them in a tuple. The first one will contain arguments related to potential
-    file transfer operations (e.g. ``"cache"`` or ``"retries"``), while the second one will contain
-    all remaining arguments. This function is used internally to decide which arguments to pass to
-    target formatters. *skip* can be a list of argument keys that are ignored.
-    """
-    skip = make_list(skip) if skip else []
-    transfer_kwargs = {
-        name: kwargs.pop(name)
-        for name in ["cache", "prefer_cache", "retries", "retry_delay"]
-        if name in kwargs and name not in skip
-    }
-    return transfer_kwargs, kwargs
 
 
 @contextmanager
