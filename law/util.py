@@ -711,11 +711,26 @@ def flatten(*structs, **kwargs):
 
 
 def merge_dicts(*dicts, **kwargs):
-    """ merge_dicts(*dicts, cls=None)
+    """ merge_dicts(*dicts, cls=None, deep=False)
     Takes multiple *dicts* and returns a single merged dict. The merging takes place in order of the
     passed dicts and therefore, values of rear objects have precedence in case of field collisions.
     The class of the returned merged dict is configurable via *cls*. If it is *None*, the class is
     inferred from the first dict object in *dicts*.
+
+    When *deep* is *True*, dictionary types within the dictionaries to merge are updated recursively
+    such that their fields are merged. This is only possible when input dictionaries have a similar
+    structure. Example:
+
+    .. code-block:: python
+
+        merge_dicts({"foo": 1, "bar": {"a": 1, "b": 2}}, {"bar": {"c": 3}})
+        # -> {"foo": 1, "bar": {"c": 3}}  # fully replaced "bar"
+
+        merge_dicts({"foo": 1, "bar": {"a": 1, "b": 2}}, {"bar": {"c": 3}}, deep=True)
+        # -> {"foo": 1, "bar": {"a": 1, "b": 2, "c": 3}}  # inserted entry bar.c
+
+        merge_dicts({"foo": 1, "bar": {"a": 1, "b": 2}}, {"bar": 2}, deep=True)
+        # -> {"foo": 1, "bar": 2}  # "bar" has a different type, so this just uses the rear value
     """
     # get or infer the class
     cls = kwargs.get("cls", None)
@@ -728,9 +743,22 @@ def merge_dicts(*dicts, **kwargs):
             raise TypeError("cannot infer cls as none of the passed objects is of type dict")
 
     # start merging
+    deep = kwargs.get("deep", False)
     merged_dict = cls()
     for d in dicts:
-        if isinstance(d, dict):
+        if not isinstance(d, dict):
+            continue
+
+        if deep:
+            for k, v in d.items():
+                # just take the value as is when it is not a dict, or the field is either not
+                # existing yet or not a dict in the merged dict
+                if not isinstance(v, dict) or not isinstance(merged_dict.get(k), dict):
+                    merged_dict[k] = v
+                else:
+                    # merge by recursion
+                    merged_dict[k] = merge_dicts(merged_dict[k], v, cls=cls, deep=deep)
+        else:
             merged_dict.update(d)
 
     return merged_dict
