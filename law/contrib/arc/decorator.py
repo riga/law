@@ -4,7 +4,6 @@
 Decorators for task methods for convenient working with ARC.
 """
 
-
 __all__ = ["ensure_arc_proxy"]
 
 

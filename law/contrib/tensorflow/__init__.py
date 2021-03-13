@@ -5,7 +5,6 @@
 TensorFlow contrib functionality.
 """
 
-
 __all__ = ["TFGraphFormatter", "TFKerasModelFormatter", "TFKerasWeightsFormatter"]
 
 

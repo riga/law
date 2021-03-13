@@ -4,7 +4,6 @@
 Tasks with IPython features.
 """
 
-
 __all__ = ["Task"]
 
 

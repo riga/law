@@ -4,7 +4,6 @@
 Local target implementations.
 """
 
-
 __all__ = ["LocalFileSystem", "LocalTarget", "LocalFileTarget", "LocalDirectoryTarget"]
 
 

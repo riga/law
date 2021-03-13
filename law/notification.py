@@ -4,7 +4,6 @@
 Notification functions.
 """
 
-
 __all__ = ["notify_mail"]
 
 

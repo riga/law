@@ -4,7 +4,6 @@
 Helpers for working with the WLCG.
 """
 
-
 __all__ = [
     "get_voms_proxy_file", "get_voms_proxy_user", "get_voms_proxy_lifetime", "get_voms_proxy_vo",
     "check_voms_proxy_validity", "renew_voms_proxy", "delegate_voms_proxy_glite", "get_ce_endpoint",

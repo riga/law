@@ -5,7 +5,6 @@ Collection of minor patches for luigi. These patches are only intended to suppor
 law, rather than changing default luigi behavior.
 """
 
-
 __all__ = ["before_run", "patch_all"]
 
 

@@ -4,7 +4,6 @@
 Collections that wrap multiple targets.
 """
 
-
 __all__ = ["TargetCollection", "FileCollection", "SiblingFileCollection"]
 
 

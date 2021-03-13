@@ -5,7 +5,6 @@
 Contrib functionality for profiling tasks.
 """
 
-
 __all__ = ["profile_by_line"]
 
 

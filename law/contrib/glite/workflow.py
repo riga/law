@@ -5,7 +5,6 @@ gLite remote workflow implementation. See
 https://wiki.italiangrid.it/twiki/bin/view/CREAM/UserGuide.
 """
 
-
 __all__ = ["GLiteWorkflow"]
 
 

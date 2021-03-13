@@ -4,7 +4,6 @@
 CMS-related job helpers.
 """
 
-
 __all__ = ["CMSJobDashboard"]
 
 

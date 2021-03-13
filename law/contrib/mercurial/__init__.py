@@ -4,7 +4,6 @@
 Mercurial-related tasks.
 """
 
-
 __all__ = ["BundleMercurialRepository"]
 
 

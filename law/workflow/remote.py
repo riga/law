@@ -4,7 +4,6 @@
 Base definition of remote workflows based on job submission and status polling.
 """
 
-
 __all__ = ["SubmissionData", "StatusData", "BaseRemoteWorkflowProxy", "BaseRemoteWorkflow"]
 
 

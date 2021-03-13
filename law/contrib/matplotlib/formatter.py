@@ -4,7 +4,6 @@
 Matplotlib target formatter.
 """
 
-
 __all__ = ["MatplotlibFormatter"]
 
 

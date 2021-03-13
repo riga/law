@@ -4,7 +4,6 @@
 Simple gLite job manager. See https://wiki.italiangrid.it/twiki/bin/view/CREAM/UserGuide.
 """
 
-
 __all__ = ["GLiteJobManager", "GLiteJobFileFactory"]
 
 

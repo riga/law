@@ -4,7 +4,6 @@
 Keras target formatters.
 """
 
-
 __all__ = ["KerasModelFormatter", "KerasWeightsFormatter", "TFKerasModelFormatter"]
 
 

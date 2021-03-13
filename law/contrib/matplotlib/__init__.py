@@ -5,7 +5,6 @@
 Matplotlib contrib functionality.
 """
 
-
 __all__ = ["MatplotlibFormatter"]
 
 

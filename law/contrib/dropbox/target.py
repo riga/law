@@ -1,9 +1,8 @@
 # coding: utf-8
 
 """
-Dropbox file system and targets.
+Dropbox file system and targets based on the GFAL file interface.
 """
-
 
 __all__ = ["DropboxFileSystem", "DropboxTarget", "DropboxFileTarget", "DropboxDirectoryTarget"]
 

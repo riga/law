@@ -4,7 +4,6 @@
 Functions that are invoked by interactive task methods.
 """
 
-
 __all__ = [
     "print_task_deps", "print_task_status", "print_task_output", "remove_task_output",
     "fetch_task_output",

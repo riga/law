@@ -54,7 +54,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
   py38:
-    if: ${{ github.event.inputs.specific_job == '' || github.event.inputs.specific_job == 'py38' }}
+    if: ${{ github.event.inputs.specific_job == '' || github.event.inputs.specific_job == 'py38' || github.event.inputs.specific_job == 'example' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️

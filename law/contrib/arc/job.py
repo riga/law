@@ -5,7 +5,6 @@ Simple ARC job manager. See http://www.nordugrid.org/arc and
 http://www.nordugrid.org/documents/xrsl.pdf.
 """
 
-
 __all__ = ["ARCJobManager", "ARCJobFileFactory"]
 
 

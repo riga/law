@@ -4,7 +4,6 @@
 Custom base target definition.
 """
 
-
 __all__ = ["Target"]
 
 

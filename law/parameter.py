@@ -4,7 +4,6 @@
 Custom luigi parameters.
 """
 
-
 __all__ = [
     "NO_STR", "NO_INT", "NO_FLOAT", "is_no_param", "get_param", "TaskInstanceParameter",
     "DurationParameter", "CSVParameter", "MultiCSVParameter", "NotifyParameter",

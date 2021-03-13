@@ -4,7 +4,6 @@
 Profiling decorators.
 """
 
-
 __all__ = ["profile_by_line"]
 
 

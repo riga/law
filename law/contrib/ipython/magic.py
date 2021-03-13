@@ -4,7 +4,6 @@
 IPython magics for law.
 """
 
-
 __all__ = ["register_magics"]
 
 

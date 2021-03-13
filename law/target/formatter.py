@@ -4,7 +4,6 @@
 Formatter classes for file targets.
 """
 
-
 __all__ = ["AUTO_FORMATTER", "Formatter", "get_formatter", "find_formatters", "find_formatter"]
 
 

@@ -4,7 +4,6 @@
 ARC remote workflow implementation. See http://www.nordugrid.org/arc/ce.
 """
 
-
 __all__ = ["ARCWorkflow"]
 
 

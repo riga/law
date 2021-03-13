@@ -4,7 +4,6 @@
 Slack-related parameters.
 """
 
-
 __all__ = ["NotifySlackParameter"]
 
 

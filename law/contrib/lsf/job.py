@@ -4,7 +4,6 @@
 LSF job manager. See https://www.ibm.com/support/knowledgecenter/en/SSETD4_9.1.3.
 """
 
-
 __all__ = ["LSFJobManager", "LSFJobFileFactory"]
 
 

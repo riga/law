@@ -4,7 +4,6 @@
 Main law command line interface.
 """
 
-
 __all__ = ["run"]
 
 

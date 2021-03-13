@@ -4,7 +4,6 @@
 Custom luigi file system and target objects.
 """
 
-
 __all__ = [
     "FileSystem", "FileSystemTarget", "FileSystemFileTarget", "FileSystemDirectoryTarget",
     "get_path", "get_scheme", "has_scheme", "add_scheme", "remove_scheme", "split_transfer_kwargs",

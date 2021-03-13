@@ -4,7 +4,6 @@
 CMS-related contrib package. https://home.cern/about/experiments/cms
 """
 
-
 __all__ = ["CMSJobDashboard", "BundleCMSSW", "Site", "lfn_to_pfn"]
 
 

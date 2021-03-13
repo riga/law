@@ -4,7 +4,6 @@
 Custom luigi base task definitions.
 """
 
-
 __all__ = ["Task", "WrapperTask", "ExternalTask"]
 
 

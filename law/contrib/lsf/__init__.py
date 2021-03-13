@@ -5,7 +5,6 @@
 LSF contrib functionality.
 """
 
-
 __all__ = ["LSFJobManager", "LSFJobFileFactory", "LSFWorkflow"]
 
 

@@ -4,7 +4,6 @@
 Bash sandbox implementation.
 """
 
-
 __all__ = ["BashSandbox"]
 
 

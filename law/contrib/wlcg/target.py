@@ -4,7 +4,6 @@
 WLCG remote file system and targets.
 """
 
-
 __all__ = ["WLCGFileSystem", "WLCGTarget", "WLCGFileTarget", "WLCGDirectoryTarget"]
 
 

@@ -4,7 +4,6 @@
 Git-related tasks.
 """
 
-
 __all__ = ["BundleGitRepository"]
 
 

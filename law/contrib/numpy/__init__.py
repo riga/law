@@ -5,7 +5,6 @@
 NumPy contrib functionality.
 """
 
-
 __all__ = ["NumpyFormatter"]
 
 

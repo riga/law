@@ -5,7 +5,6 @@
 Targets providing functionality to access files on Dropbox.
 """
 
-
 __all__ = ["DropboxFileSystem", "DropboxTarget", "DropboxFileTarget", "DropboxDirectoryTarget"]
 
 

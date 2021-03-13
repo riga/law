@@ -4,7 +4,6 @@
 Helpful utility functions.
 """
 
-
 __all__ = [
     "default_lock", "io_lock", "console_lock", "no_value", "rel_path", "law_src_path",
     "law_home_path", "law_run", "print_err", "abort", "is_number", "try_int", "round_discrete",
@@ -669,7 +668,7 @@ def make_unique(obj):
     raised.
     """
     if not isinstance(obj, (list, tuple)):
-        if is_iterable(obj):
+        if is_iterable(obj) or is_lazy_iterable(obj):
             obj = list(obj)
         else:
             raise TypeError("object is neither list, tuple, nor generic iterable")

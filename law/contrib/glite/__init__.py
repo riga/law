@@ -5,7 +5,6 @@
 gLite contrib functionality.
 """
 
-
 __all__ = ["GLiteJobManager", "GLiteJobFileFactory", "GLiteWorkflow"]
 
 

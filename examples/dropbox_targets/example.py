@@ -10,7 +10,7 @@ law.contrib.load("dropbox")
 top_dir = law.dropbox.DropboxDirectoryTarget("/")
 
 print(top_dir.path)
-print(top_dir.url())
+print(top_dir.uri())
 top_dir.listdir()
 
 

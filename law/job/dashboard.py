@@ -4,7 +4,6 @@
 Definition of the job dashboard interface.
 """
 
-
 __all__ = ["BaseJobDashboard", "NoJobDashboard", "cache_by_status"]
 
 

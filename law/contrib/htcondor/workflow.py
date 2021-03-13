@@ -4,7 +4,6 @@
 HTCondor workflow implementation. See https://research.cs.wisc.edu/htcondor.
 """
 
-
 __all__ = ["HTCondorWorkflow"]
 
 

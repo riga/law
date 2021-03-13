@@ -4,7 +4,6 @@
 TensorFlow target formatters.
 """
 
-
 __all__ = ["TFGraphFormatter", "TFKerasModelFormatter", "TFKerasWeightsFormatter"]
 
 
