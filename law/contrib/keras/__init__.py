@@ -5,7 +5,6 @@
 Keras contrib functionality.
 """
 
-
 __all__ = ["KerasModelFormatter", "KerasWeightsFormatter", "TFKerasModelFormatter"]
 
 

@@ -4,7 +4,6 @@
 Law logging setup.
 """
 
-
 __all__ = [
     "console_handler", "setup_logging", "setup_logger", "is_tty_handler", "get_tty_handlers",
     "LogFormatter",

@@ -5,7 +5,6 @@
 HDF5 contrib functionality.
 """
 
-
 __all__ = ["H5pyFormatter"]
 
 

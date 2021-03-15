@@ -34,15 +34,15 @@ Class ``RemoteDirectoryTarget``
    :members:
 
 
+Class ``RemoteFileInterface``
+-----------------------------
+
+.. autoclass:: RemoteFileInterface
+   :members:
+
+
 Class ``RemoteCache``
 ---------------------
 
 .. autoclass:: RemoteCache
-   :members:
-
-
-Class ``GFALInterface``
------------------------
-
-.. autoclass:: GFALInterface
    :members:

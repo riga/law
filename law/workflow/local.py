@@ -4,7 +4,6 @@
 Local workflow implementation.
 """
 
-
 __all__ = ["LocalWorkflow"]
 
 

@@ -4,7 +4,6 @@
 NumPy target formatters.
 """
 
-
 __all__ = ["NumpyFormatter"]
 
 

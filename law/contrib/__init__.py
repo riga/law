@@ -1,13 +1,10 @@
 # coding: utf-8
 
-
 __all__ = ["available_packages", "loaded_packages", "load", "load_all"]
 
 
 import os
 import logging
-import types
-import uuid
 import glob
 
 import law
@@ -57,43 +54,6 @@ def load(*packages):
         loaded_packages.append(pkg)
 
         logger.debug("loaded contrib package '{}'".format(pkg))
-
-        # the contrib mechanism used to add all members of the module to the main law namespace
-        # but given the growing number of contrib packages, the chance of collisions is not
-        # negligible any longer, so for the moment add dummy objects only for callables to the law
-        # module that, when used, raise verbose exceptions
-        # (to be removed for v0.1)
-        def dummy_factory(pkg, attr, member):
-            def _raise():
-                raise AttributeError("due to a change in 'law.contrib.load()', the attribute '{0}' "
-                    "is no longer accessible on the global 'law' namespace, please use "
-                    "'law.{1}.{0}' instead".format(attr, pkg))
-
-            if isinstance(member, types.FunctionType):
-                def dummy(*args, **kwargs):
-                    """
-                    Dummy function throwing an *AttributeError* when called.
-                    """
-                    _raise()
-            else:
-                class dummy(member):
-                    """
-                    Dummy class throwing an *AttributeError* when instantiated.
-                    """
-                    exclude_index = True
-                    name = str(uuid.uuid4())
-                    def __new__(cls, *args, **kwargs):
-                        _raise()
-
-            return dummy
-
-        for attr in mod.__all__:
-            member = getattr(mod, attr)
-            if callable(member):
-                setattr(law, attr, dummy_factory(pkg, attr, member))
-            else:
-                logger.debug("skip creating dummy object for attribute {} of package {}".format(
-                    attr, pkg))
 
 
 def load_all():

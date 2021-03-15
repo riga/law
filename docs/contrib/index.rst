@@ -31,6 +31,7 @@ The following example shows how a package (e.g. the :py:mod:`~law.docker` packag
    coffea
    docker
    dropbox
+   gfal
    git
    glite
    hdf5

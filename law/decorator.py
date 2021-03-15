@@ -19,7 +19,6 @@ invocation (``@log()``), for law to distuinguish between the two cases **always*
 arguments when configuring decorators. Default arguments are applied in either case.
 """
 
-
 __all__ = [
     "factory", "log", "safe_output", "delay", "notify", "timeit", "localize", "require_sandbox",
 ]

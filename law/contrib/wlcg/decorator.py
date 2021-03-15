@@ -4,7 +4,6 @@
 Decorators for task methods for convenient working with the WLCG.
 """
 
-
 __all__ = ["ensure_voms_proxy"]
 
 

@@ -5,7 +5,6 @@
 ROOT contrib functionality.
 """
 
-
 __all__ = [
     "import_ROOT", "hadd_task",
     "ROOTFormatter", "ROOTNumpyFormatter", "ROOTPandasFormatter", "UprootFormatter", "GuardedTFile",

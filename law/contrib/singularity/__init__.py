@@ -5,7 +5,6 @@
 Singularity functionality and sandbox implementation.
 """
 
-
 __all__ = ["SingularitySandbox"]
 
 

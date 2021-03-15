@@ -5,7 +5,6 @@ CMS-related tasks.
 https://home.cern/about/experiments/cms
 """
 
-
 __all__ = ["BundleCMSSW"]
 
 

@@ -1,9 +1,8 @@
 # coding: utf-8
 
 """
-Dropbox file system and targets.
+Dropbox file system and targets based on the GFAL file interface.
 """
-
 
 __all__ = ["DropboxFileSystem", "DropboxTarget", "DropboxFileTarget", "DropboxDirectoryTarget"]
 
@@ -12,29 +11,33 @@ import logging
 
 import six
 
+import law
 from law.config import Config
 from law.target.remote import (
     RemoteFileSystem, RemoteTarget, RemoteFileTarget, RemoteDirectoryTarget,
 )
 
 
+law.contrib.load("gfal")
+
 logger = logging.getLogger(__name__)
 
 
 class DropboxFileSystem(RemoteFileSystem):
 
-    default_instance = None
+    file_interface_cls = law.gfal.GFALFileInterface
 
     @classmethod
-    def parse_config(cls, section, config=None):
-        config = super(DropboxFileSystem, cls).parse_config(section, config=config)
+    def parse_config(cls, section, config=None, overwrite=False):
+        config = super(DropboxFileSystem, cls).parse_config(section, config=config,
+            overwrite=overwrite)
 
         cfg = Config.instance()
 
         # helper to add a config value if it exists, extracted with a config parser method
-        def add(option, func):
-            if option not in config:
-                config[option] = func(section, option)
+        def add(option, func, prefix="dropbox_"):
+            if option not in config or overwrite:
+                config[option] = func(section, prefix + option)
 
         # app key
         add("app_key", cfg.get_expanded)
@@ -47,47 +50,50 @@ class DropboxFileSystem(RemoteFileSystem):
 
         return config
 
-    def __init__(self, section=None, **kwargs):
-        # default gfal transfer config
-        kwargs.setdefault("transfer_config", {})
-        kwargs["transfer_config"].setdefault("checksum_check", False)
+    def __init__(self, section=None, app_key=None, app_secret=None, access_token=None, **kwargs):
+        # read configs from section and combine them with kwargs to get the file system and
+        # file interface configs
+        section, fs_config, fi_config = self._init_configs(section, "default_dropbox_fs",
+            "dropbox_fs", kwargs)
 
-        # if present, read options from the section in the law config
-        self.config_section = None
-        cfg = Config.instance()
-        if not section:
-            section = cfg.get_expanded("target", "default_dropbox_fs")
-        if isinstance(section, six.string_types):
-            if cfg.has_section(section):
-                # extend options of sections other than "dropbox_fs" with its defaults
-                if section != "dropbox_fs":
-                    data = dict(cfg.items("dropbox_fs", expand_vars=False, expand_user=False))
-                    cfg.update({section: data}, overwrite_sections=True, overwrite_options=False)
-                kwargs = self.parse_config(section, kwargs)
-                self.config_section = section
-            else:
-                raise Exception("law config has no section '{}' to read {} options".format(
-                    section, self.__class__.__name__))
+        # store the config section
+        self.config_section = section
+
+        # overwrite dropbox credentials with passed values
+        if app_key:
+            fs_config["app_key"] = app_key
+        if app_secret:
+            fs_config["app_secret"] = app_secret
+        if access_token:
+            fs_config["access_token"] = access_token
 
         # base path, app key, app secret and access token are mandatory
-        for attr in ["base", "app_key", "app_secret", "access_token"]:
-            if not kwargs.get(attr):
-                raise Exception("{0}.{1} is missing, set either 'section', '{1}', or change the "
-                    "target.default_dropbox_fs option in your law config".format(
-                        self.__class__.__name__, attr))
+        msg = ("attribute '{{0}}' must not be empty, set it either directly in the {} constructor, "
+            "or add the option '{{0}}' to your config section '{}'".format(
+                self.__class__.__name__, self.config_section))
+        if not fi_config.get("base"):
+            raise Exception(msg.format("base"))
+        for attr in ["app_key", "app_secret", "access_token"]:
+            if not fs_config.get(attr):
+                raise Exception(msg.format(attr))
 
-        # pass dropbox options to gfal options
-        gfal_options = {
-            "integer": [("DROPBOX", "OAUTH", 2)],
-            "string": [
-                ("DROPBOX", "APP_KEY", str(kwargs.pop("app_key"))),
-                ("DROPBOX", "APP_SECRET", str(kwargs.pop("app_secret"))),
-                ("DROPBOX", "ACCESS_TOKEN", str(kwargs.pop("access_token"))),
-            ],
-        }
+        # enforce some configs
+        fs_config["has_permissions"] = False
 
-        base = kwargs.pop("base")
-        RemoteFileSystem.__init__(self, base, gfal_options=gfal_options, **kwargs)
+        # pass dropbox credentials via gfal options
+        gfal_options = fi_config.setdefault("gfal_options", {})
+        gfal_options.setdefault("integer", []).append(("DROPBOX", "OAUTH", 2))
+        gfal_options.setdefault("string", []).extend([
+            ("DROPBOX", "APP_KEY", str(fs_config.pop("app_key"))),
+            ("DROPBOX", "APP_SECRET", str(fs_config.pop("app_secret"))),
+            ("DROPBOX", "ACCESS_TOKEN", str(fs_config.pop("access_token"))),
+        ])
+
+        # create the file interface
+        file_interface = self.file_interface_cls(**fi_config)
+
+        # initialize the file system itself
+        super(DropboxFileSystem, self).__init__(file_interface, **fs_config)
 
 
 # try to set the default fs instance

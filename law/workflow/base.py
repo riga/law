@@ -4,7 +4,6 @@
 Workflow and workflow proxy base class definitions.
 """
 
-
 __all__ = ["BaseWorkflow", "workflow_property", "cached_workflow_property"]
 
 

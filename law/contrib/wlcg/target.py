@@ -4,64 +4,51 @@
 WLCG remote file system and targets.
 """
 
-
 __all__ = ["WLCGFileSystem", "WLCGTarget", "WLCGFileTarget", "WLCGDirectoryTarget"]
 
 
-import stat
 import logging
 
 import six
 
-from law.config import Config
+import law
 from law.target.remote import (
     RemoteFileSystem, RemoteTarget, RemoteFileTarget, RemoteDirectoryTarget,
 )
 
+
+law.contrib.load("gfal")
 
 logger = logging.getLogger(__name__)
 
 
 class WLCGFileSystem(RemoteFileSystem):
 
-    default_instance = None
+    file_interface_cls = law.gfal.GFALFileInterface
 
     def __init__(self, section=None, **kwargs):
-        # default gfal transfer config
-        kwargs.setdefault("transfer_config", {})
-        kwargs["transfer_config"].setdefault("checksum_check", False)
+        # read configs from section and combine them with kwargs to get the file system and
+        # file interface configs
+        section, fs_config, fi_config = self._init_configs(section, "default_wlcg_fs", "wlcg_fs",
+            kwargs)
 
-        # if present, read options from the section in the law config
-        self.config_section = None
-        cfg = Config.instance()
-        if not section:
-            section = cfg.get_expanded("target", "default_wlcg_fs")
-        if isinstance(section, six.string_types):
-            if cfg.has_section(section):
-                # extend options of sections other than "wlcg_fs" with its defaults
-                if section != "wlcg_fs":
-                    data = dict(cfg.items("wlcg_fs", expand_vars=False, expand_user=False))
-                    cfg.update({section: data}, overwrite_sections=True, overwrite_options=False)
-                kwargs = self.parse_config(section, kwargs)
-                self.config_section = section
-            else:
-                raise Exception("law config has no section '{}' to read {} options".format(
-                    section, self.__class__.__name__))
+        # store the config section
+        self.config_section = section
 
         # base path is mandatory
-        if not kwargs.get("base"):
-            raise Exception("{}.base is missing, set either 'section', 'base', or change the "
-                "target.default_wlcg_fs option in your law config".format(self.__class__.__name__))
+        if not fi_config.get("base"):
+            raise Exception("attribute 'base' must not be empty, set it either directly in the {} "
+                "constructor, or add the option 'base' to your config section '{}'".format(
+                    self.__class__.__name__, self.config_section))
 
-        base = kwargs.pop("base")
-        RemoteFileSystem.__init__(self, base, **kwargs)
+        # enforce some configs
+        fs_config["has_permissions"] = False
 
-    def _s_isdir(self, st_mode):
-        # some WLCG file protocols do not return standard st_mode values in stat requests,
-        # e.g. srm returns file type bits 0o50000 for directories instead of 0o40000,
-        # these differences are rather distinct and can be taken into account here,
-        # see http://man7.org/linux/man-pages/man7/inode.7.html for info on st_mode values
-        return stat.S_ISDIR(st_mode) or stat.S_IFMT(st_mode) == 0o50000
+        # create the file interface
+        file_interface = self.file_interface_cls(**fi_config)
+
+        # initialize the file system itself
+        super(WLCGFileSystem, self).__init__(file_interface, **fs_config)
 
 
 # try to set the default fs instance

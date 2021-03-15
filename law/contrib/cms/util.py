@@ -4,7 +4,6 @@
 CMS-related utilities.
 """
 
-
 __all__ = ["Site", "lfn_to_pfn"]
 
 

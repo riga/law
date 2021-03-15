@@ -18,3 +18,4 @@ local_tests
 .ipynb_checkpoints
 MANIFEST.in
 law_test.cfg
+*_dev.py

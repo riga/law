@@ -4,7 +4,6 @@
 Helpers to extract useful information from the luigi command line parser.
 """
 
-
 __all__ = []
 
 

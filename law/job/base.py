@@ -4,7 +4,6 @@
 Base classes for implementing remote job management and job file creation.
 """
 
-
 __all__ = ["BaseJobManager", "BaseJobFileFactory", "JobArguments"]
 
 

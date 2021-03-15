@@ -5,7 +5,6 @@
 ARC contrib functionality.
 """
 
-
 __all__ = [
     "get_arc_proxy_file", "get_arc_proxy_user", "get_arc_proxy_lifetime", "get_arc_proxy_vo",
     "check_arc_proxy_validity", "renew_arc_proxy",

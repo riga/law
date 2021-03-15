@@ -4,7 +4,6 @@
 Telegram-related parameters.
 """
 
-
 __all__ = ["NotifyTelegramParameter"]
 
 

@@ -4,7 +4,6 @@
 Proxy task definition and helpers.
 """
 
-
 __all__ = ["ProxyTask", "ProxyCommand", "get_proxy_attribute"]
 
 

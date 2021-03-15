@@ -5,7 +5,6 @@
 HTCondor contrib functionality.
 """
 
-
 __all__ = ["HTCondorJobManager", "HTCondorJobFileFactory", "HTCondorWorkflow"]
 
 

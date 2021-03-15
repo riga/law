@@ -5,7 +5,6 @@
 Rich contrib functionality.
 """
 
-
 __all__ = ["replace_console_handlers"]
 
 

@@ -5,7 +5,6 @@
 Slack contrib functionality.
 """
 
-
 __all__ = ["notify_slack", "NotifySlackParameter"]
 
 

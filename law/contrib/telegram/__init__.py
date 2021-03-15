@@ -5,7 +5,6 @@
 Telegram contrib functionality.
 """
 
-
 __all__ = ["notify_telegram", "NotifyTelegramParameter"]
 
 

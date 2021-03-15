@@ -4,7 +4,6 @@
 ROOT-related utilities.
 """
 
-
 __all__ = ["import_ROOT", "hadd_task"]
 
 

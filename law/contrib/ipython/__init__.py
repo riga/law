@@ -5,7 +5,6 @@
 IPython related law functionality.
 """
 
-
 __all__ = ["Task", "register_magics"]
 
 

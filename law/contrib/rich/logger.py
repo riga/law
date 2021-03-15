@@ -4,7 +4,6 @@
 Logging optimization using rich.
 """
 
-
 __all__ = ["replace_console_handlers"]
 
 

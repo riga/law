@@ -4,7 +4,6 @@
 Coffea target formatters.
 """
 
-
 __all__ = ["CoffeaFormatter"]
 
 

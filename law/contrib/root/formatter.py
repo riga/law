@@ -4,7 +4,6 @@
 ROOT target formatters.
 """
 
-
 __all__ = [
     "GuardedTFile", "ROOTFormatter", "ROOTNumpyFormatter", "ROOTPandasFormatter", "UprootFormatter",
 ]

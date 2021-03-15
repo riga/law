@@ -5,7 +5,6 @@
 Coffea contrib functionality.
 """
 
-
 __all__ = ["CoffeaFormatter"]
 
 

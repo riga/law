@@ -218,7 +218,7 @@
 
 ; --- Options defined by "law.target.file.FileSystem"
 
-; has_perms
+; has_permissions
 ; Description: A boolean flag that signifies whether the file system should handle permissions,
 ; i.e., whether "chmod" operations should be evaluated. When "False", the current umask is used.
 ; Type: boolean
@@ -226,13 +226,15 @@
 
 ; default_file_perm
 ; Description: The default permission of newly created files. When "None" or empty, or when
-; "has_perms" is "False", the current umask is used. The value can be expressed by an octal number.
+; "has_permissions" is "False", the current umask is used. The value can be expressed by an octal
+; number.
 ; Type: integer
 ; Default: None
 
 ; default_dir_perm
 ; Description: The default permission of newly created directories. When "None" or empty, or when
-; "has_perms" is "False", the current umask is used. The value can be expressed by an octal number.
+; "has_permissions" is "False", the current umask is used. The value can be expressed by an octal
+; number.
 ; Type: integer
 ; Default: None
 
@@ -247,35 +249,41 @@
 
 [wlcg_fs]
 
+; Note:
+; Remote file operations are handled by GFAL2. For more info, see https://github.com/cern-fts/gfal2.
+
 
 ; --- Options defined by "law.target.file.FileSystem"
 
-; has_perms
+; has_permissions
 ; Description: A boolean flag that signifies whether the file system should handle permissions,
-; i.e., whether "chmod" operations should be evaluated.
+; i.e., whether "chmod" operations should be evaluated. When "False", the current umask is used.
 ; Type: boolean
-; Default: False
+; Default: True
 
 ; default_file_perm
 ; Description: The default permission of newly created files. When "None" or empty, or when
-; "has_perms" is "False", the current umask is used. The value can be expressed by an octal number.
+; "has_permissions" is "False", the current umask is used. The value can be expressed by an octal
+; number.
 ; Type: integer
 ; Default: None
 
 ; default_dir_perm
 ; Description: The default permission of newly created directories. When "None" or empty, or when
-; "has_perms" is "False", the current umask is used. The value can be expressed by an octal number.
+; "has_permissions" is "False", the current umask is used. The value can be expressed by an octal
+; number.
 ; Type: integer
 ; Default: None
 
 ; create_file_dir
 ; Description: A boolean flag that signifies whether directories should be created when a file is
-; created via open, copy, move or dump operations.
+; created via open, copy, move or dump operations. When "False", the "gfal_transfer_create_parent"
+; options should be set to "True" to ensure that intermediate directories are created.
 ; Type: boolean
-; Default: True
+; Default: False
 
 
-; --- Options defined by "law.target.remote.RemoteFileSystem"
+; --- Options defined by "law.target.remote.RemoteFileInterface"
 
 ; base
 ; Description: The base path for accessing files on a WLCG storage element. It should with a
@@ -290,7 +298,6 @@
 ; base_unlink
 ; base_rmdir
 ; base_mkdir
-; base_mkdir_rec
 ; base_listdir
 ; base_filecopy
 ; Description: Different base paths for certain file or directory operations. When empty, the value
@@ -300,14 +307,6 @@
 ; list of paths is applied.
 ; Type: string, list of strings
 ; Default: None
-
-; atomic_contexts
-; Description: A boolean flag that decides whether each operation of the gfal2 interface should be
-; placed in its own gfal2 context. For the "law.wlcg.WLCGFileSystem" it is highly recommended to set
-; this option to "True" to enfore that FTP connections are closed as soon as possible and remote
-; resources are freed properly.
-; Type: boolean
-; Default: True
 
 ; retries
 ; Description: The default number of retries to perform when a file operation fails. The value can
@@ -329,17 +328,14 @@
 ; Type: boolean
 ; Default: True
 
+
+; --- Options defined by "law.target.remote.RemoteFileSystem"
+
 ; validate_copy
 ; Description: A boolean flag that decides whether, by default, a validation should be performed
 ; after each file copy (or move) operation. The exact behavior can also be set per operation.
 ; Type: boolean
 ; Default: False
-
-; recursive_remove
-; Description: A boolean flag that decides whether, by default, the removal of a directory triggers
-; the recursive removal of all its content first. The exact behavior can also be set per operation.
-; Type: boolean
-; Default: True
 
 ; use_cache
 ; Description: A boolean flag that decides whether, by default, certain operations (copy, move,
@@ -403,11 +399,57 @@
 ; Default: False
 
 
+; --- Options defined by "law.gfal.GFAlFileInterface"
+
+; gfal_atomic_contexts
+; Description: A boolean flag that decides whether each operation of the gfal2 interface should be
+; placed in its own gfal2 context. For the "law.wlcg.WLCGFileSystem" it is highly recommended to set
+; this option to "True" to enfore that FTP connections are closed as soon as possible and remote
+; resources are freed properly.
+; Type: boolean
+; Default: True
+
+; gfal_transfer_timeout
+; Description: The number of seconds after which file operations should be considered timed out.
+; Type: integer
+; Default: 3600
+
+; gfal_transfer_checksum_check
+; Description: A boolean flag that decides whether checksums should be checked after operations that
+; create new files.
+; Type: boolean
+; Default: False
+
+; gfal_transfer_nbstreams
+; Description: The number of parallel streams for copying files.
+; Type: integer
+; Default: 1
+
+; gfal_transfer_overwrite
+; Description: A boolean flag that decides whether existing files should by overwritten by
+; operations that would recreate them.
+; Type: boolean
+; Default: overwrite
+
+; gfal_transfer_create_parent
+; Description: A boolean flag that decides whether intermediate, missing directories should be
+; created automatically in certan file operations.
+; Type: boolean
+; Default: True
+
+; gfal_transfer_strict_copy
+; Description: A boolean flag that decides whether file copying should be done without source and
+; destination checks.
+; Type: boolean
+; Default: False
+
+
 ; --- dropbox_fs section ---------------------------------------------------------------------------
 
 [dropbox_fs]
 
 ; Note:
+; Remote file operations are handled by GFAL2. For more info, see https://github.com/cern-fts/gfal2.
 ; To access files on your Dropbox, you to have to register an application to obtain credentials.
 ; Visit https://www.dropbox.com/developers for more information.
 
@@ -435,27 +477,35 @@
 
 ; --- Options defined by "law.target.file.FileSystem"
 
-; has_perms
+; has_permissions
 ; Description: A boolean flag that signifies whether the file system should handle permissions,
-; i.e., whether "chmod" operations should be evaluated. For the "law.dropbox.DropboxFileSystem",
-; this value should usually be "False".
+; i.e., whether "chmod" operations should be evaluated. When "False", the current umask is used.
 ; Type: boolean
-; Default: False
+; Default: True
 
 ; default_file_perm
 ; Description: The default permission of newly created files. When "None" or empty, or when
-; "has_perms" is "False", the current umask is used. The value can be expressed by an octal number.
+; "has_permissions" is "False", the current umask is used. The value can be expressed by an octal
+; number.
 ; Type: integer
 ; Default: None
 
 ; default_dir_perm
 ; Description: The default permission of newly created directories. When "None" or empty, or when
-; "has_perm" is "False", the current umask is used. The value can be expressed by an octal number.
+; "has_permissions" is "False", the current umask is used. The value can be expressed by an octal
+; number.
 ; Type: integer
 ; Default: None
 
+; create_file_dir
+; Description: A boolean flag that signifies whether directories should be created when a file is
+; created via open, copy, move or dump operations. When "False", the "gfal_transfer_create_parent"
+; options should be set to "True" to ensure that intermediate directories are created.
+; Type: boolean
+; Default: False
 
-; --- Options defined by "law.target.remote.RemoteFileSystem"
+
+; --- Options defined by "law.target.remote.RemoteFileInterface"
 
 ; base
 ; Description: The base path for accessing files on your Dropbox. Normally, it should with
@@ -480,12 +530,6 @@
 ; Type: string, list of strings
 ; Default: None
 
-; atomic_contexts
-; Description: A boolean flag that decides whether each operation of the gfal2 interface should be
-; placed in its own gfal2 context.
-; Type: boolean
-; Default: False
-
 ; retries
 ; Description: The default number of retries to perform when a file operation fails. The value can
 ; also be set per operation.
@@ -506,15 +550,12 @@
 ; Type: boolean
 ; Default: True
 
+
+; --- Options defined by "law.target.remote.RemoteFileSystem"
+
 ; validate_copy
 ; Description: A boolean flag that decides whether, by default, a validation should be performed
 ; after each file copy (or move) operation. The exact behavior can also be set per operation.
-; Type: boolean
-; Default: False
-
-; recursive_remove
-; Description: A boolean flag that decides whether, by default, the removal of a directory triggers
-; the recursive removal of all its content first. The exact behavior can also be set per operation.
 ; Type: boolean
 ; Default: False
 
@@ -576,6 +617,49 @@
 ; cache_global_lock
 ; Description: A boolean flag that decides whether each cache operation is locked by a global
 ; locking mechanism that prevents simultaneous cache access.
+; Type: boolean
+; Default: False
+
+
+; --- Options defined by "law.gfal.GFAlFileInterface"
+
+; gfal_atomic_contexts
+; Description: A boolean flag that decides whether each operation of the gfal2 interface should be
+; placed in its own gfal2 context.
+; Type: boolean
+; Default: True
+
+; gfal_transfer_timeout
+; Description: The number of seconds after which file operations should be considered timed out.
+; Type: integer
+; Default: 3600
+
+; gfal_transfer_checksum_check
+; Description: A boolean flag that decides whether checksums should be checked after operations that
+; create new files.
+; Type: boolean
+; Default: False
+
+; gfal_transfer_nbstreams
+; Description: The number of parallel streams for copying files.
+; Type: integer
+; Default: 1
+
+; gfal_transfer_overwrite
+; Description: A boolean flag that decides whether existing files should by overwritten by
+; operations that would recreate them.
+; Type: boolean
+; Default: overwrite
+
+; gfal_transfer_create_parent
+; Description: A boolean flag that decides whether intermediate, missing directories should be
+; created automatically in certan file operations.
+; Type: boolean
+; Default: True
+
+; gfal_transfer_strict_copy
+; Description: A boolean flag that decides whether file copying should be done without source and
+; destination checks.
 ; Type: boolean
 ; Default: False
 

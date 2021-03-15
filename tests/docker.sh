@@ -14,12 +14,20 @@ action() {
     local image="${1:-riga/law}"
     local cmd="${2:-./tests/run.sh}"
 
-    echo "running docker image $image"
+    # tty options
+    local tty_opts="$( [ -t 0 ] && echo "-ti" || echo "-t" )"
 
+    # build the bash command
+    local bash_cmd
     if [ "$cmd" = "i" ] || [ "$cmd" = "interactive" ]; then
-        docker run --rm -ti -v "$repo_dir":/root/law "$image" bash
+        bash_cmd="bash"
     else
-        docker run --rm -t -v "$repo_dir":/root/law "$image" bash -c "$cmd"
+        bash_cmd="bash -c '$cmd'"
     fi
+
+    # build the full command and run it
+    local cmd="docker run --rm $tty_opts -v '$repo_dir':/root/law $image $bash_cmd"
+    echo "cmd: $cmd"
+    eval "$cmd"
 }
 action "$@"
