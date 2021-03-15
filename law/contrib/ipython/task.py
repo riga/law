@@ -31,8 +31,9 @@ class Task(_Task):
 
     @classmethod
     def _repr_family(cls, family, color=False, html=False):
-        if color and html:
-            return "<span style='color: green;'>{}</span>".format(family)
+        if html:
+            style = " style='color: green;'" if color else ""
+            return "<span{}>{}</span>".format(style, family)
         else:
             return super(Task, cls)._repr_family(family, color=color)
 
@@ -43,14 +44,16 @@ class Task(_Task):
             if param != no_value:
                 value = param.serialize(value)
 
-        if color and html:
-            return "<span style='color: blue;'>{}</span>={}".format(name, value)
+        if html:
+            style = " style='color: blue;'" if color else ""
+            return "<span{}>{}</span>={}".format(style, name, value)
         else:
             return super(Task, cls)._repr_param(name, value, color=color, serialize=False)
 
     @classmethod
     def _repr_flag(cls, name, color=False, html=False):
-        if color and html:
-            return "<span style='color: magenta;'>{}</span>".format(name)
+        if html:
+            style = " style='color: magenta;'" if color else ""
+            return "<span{}>{}</span>".format(style, name)
         else:
             return super(Task, cls)._repr_flag(name, color=color)
