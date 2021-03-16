@@ -119,15 +119,15 @@ class LocalFileSystem(FileSystem):
         orig = os.umask(0) if perm is not None else None
         func = os.makedirs if recursive else os.mkdir
         try:
-            func(*args)
-        except Exception as e:
-            if not silent or not is_file_exists_error(e):
-                raise
+            try:
+                func(*args)
+            except Exception as e:
+                if not silent or not is_file_exists_error(e):
+                    raise
+            self.chmod(path, perm)
         finally:
             if orig is not None:
                 os.umask(orig)
-
-        self.chmod(path, perm)
 
         return True
 
