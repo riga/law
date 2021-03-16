@@ -24,6 +24,7 @@ from law.target.file import (
     get_scheme, add_scheme, remove_scheme,
 )
 from law.target.formatter import find_formatter
+from law.util import is_file_exists_error
 
 
 logger = logging.getLogger(__name__)
@@ -116,13 +117,19 @@ class LocalFileSystem(FileSystem):
         # the mode passed to os.mkdir or os.makedirs is ignored on some systems, so the strategy
         # here is to disable the process' current umask, create the directories and use chmod again
         orig = os.umask(0) if perm is not None else None
+        func = os.makedirs if recursive else os.mkdir
         try:
-            (os.makedirs if recursive else os.mkdir)(*args)
-            self.chmod(path, perm)
-            return True
+            func(*args)
+        except Exception as e:
+            if not silent or not is_file_exists_error(e):
+                raise
         finally:
             if orig is not None:
                 os.umask(orig)
+
+        self.chmod(path, perm)
+
+        return True
 
     def listdir(self, path, pattern=None, type=None, **kwargs):
         path = self._unscheme(path)
