@@ -41,13 +41,19 @@ def setup_parser(sub_parsers):
         "file and exit")
     parser.add_argument("--location", "-l", action="store_true", help="print the location of the "
         "index file and exit")
-    parser.add_argument("--verbose", "-v", action="store_true", help="verbose output")
+    parser.add_argument("--quiet", "-q", action="store_true", help="quiet mode without output")
+    parser.add_argument("--verbose", "-v", action="store_true", help="verbose output, disables the "
+        "quiet mode when set")
 
 
 def execute(args):
     """
     Executes the *index* subprogram with parsed commandline *args*.
     """
+    # update args
+    if args.verbose:
+        args.quiet = False
+
     cfg = Config.instance()
     index_file = cfg.get_expanded("core", "index_file")
 
@@ -77,7 +83,8 @@ def execute(args):
     if args.modules:
         lookup += args.modules
 
-    print("indexing tasks in {} module(s)".format(len(lookup)))
+    if not args.quiet:
+        print("indexing tasks in {} module(s)".format(len(lookup)))
 
     # loop through modules, import everything to load tasks
     for modid in lookup:
@@ -201,7 +208,8 @@ def execute(args):
                 print("    - {}".format(colored(task_family, "green")))
         print("")
 
-    print("written {} task(s) to index file '{}'".format(len(task_classes), index_file))
+    if not args.quiet:
+        print("written {} task(s) to index file '{}'".format(len(task_classes), index_file))
 
 
 def get_global_parameters(config_names=("core", "scheduler", "worker", "retcode")):

@@ -136,7 +136,7 @@ _law_complete() {
 
     # complete the "index" subcommand
     elif [ "$sub_cmd" = "index" ]; then
-        local words="modules no-externals remove show location verbose help"
+        local words="modules no-externals remove show location quiet verbose help"
         local inp="${cur##-}"
         inp="${inp##-}"
         COMPREPLY=( $( compgen -W "$( echo $words )" -P "--" -- "$inp" ) )
