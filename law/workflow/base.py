@@ -368,8 +368,9 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         "value means first; default: empty")
     end_branch = luigi.IntParameter(default=NO_INT, description="the branch to end at; empty value "
         "means last; default: empty")
-    branches = CSVParameter(cls=luigi.IntParameter, default=(), unique=True, description="list of "
-        "branches to select; has precedence over startBranch and endBranch when set; default: empty")
+    branches = CSVParameter(default=(), description="list of branches to select; each value can "
+        "have the format 'start-stop' (inclusive) to support range syntax; has precedence over "
+        "--startBranch and --endBranch when set; default: empty")
 
     # configuration members
     workflow_proxy_cls = BaseWorkflowProxy
@@ -454,6 +455,7 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
     @classmethod
     def _repr_param(cls, name, value, **kwargs):
         if name == "branches":
+            # TODO: some range strings might have an open edge which will fail
             value = range_join(value, to_str=True)
             kwargs["serialize"] = False
 
@@ -535,12 +537,17 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         if self.branches:
             # create a set of branches to remove
             remove_branches = set(branch_map.keys())
-            remove_branches -= set(range_expand(self.branches, min_value=min(remove_branches),
-                max_value=max(remove_branches)))
+            requested_branches = range_expand(self.branches, min_value=min(remove_branches),
+                max_value=max(remove_branches))
+            remove_branches -= set(requested_branches)
+
+            # store the joined request branches with proper start and end points
+            self.branches = range_join(requested_branches, to_str=True).split(",")
 
             # actual removal
             for b in remove_branches:
                 del branch_map[b]
+
         elif 0 <= self.start_branch <= self.end_branch:
             for b in list(branch_map.keys()):
                 if not (self.start_branch <= b < self.end_branch):

@@ -546,11 +546,14 @@ def range_expand(s, min_value=None, max_value=None):
     return numbers
 
 
-def range_join(numbers, to_str=False):
+def range_join(numbers, to_str=False, min_value=None, max_value=None):
     """
-    Takes a sequence of positive integer numbers and returns a sequence 1- and 2-tuples, denoting
-    either single numbers or inclusive start and stop values of possible ranges. When *to_str* is
-    *True*, a string is returned in a format consistent to :py:func:`range_expand`. Example:
+    Takes a sequence of positive integer numbers given either as integer or string types, or a range
+    string interpretable by :py:func:`range_expand` and returns a sequence 1- and 2-tuples, denoting
+    either single numbers or inclusive start and stop values of possible ranges. Range strings are
+    converted to integer sequences using :py:func:`range_expand`, forwarding *min_value* and
+    *max_value*. When *to_str* is *True*, a string is returned in a format consistent to
+    :py:func:`range_expand`. Example:
 
     .. code-block:: python
 
@@ -562,15 +565,23 @@ def range_join(numbers, to_str=False):
 
         range_join([1, 2, 3, 5, 7, 8, 9], to_str=True)
         # -> "1-3,5,7-9"
+
+        range_join(["1-2", 3, 5])
+        # -> [(1, 3), (5,)]
     """
     if not numbers:
         return "" if to_str else []
 
-    # type check and sort
+    # check type, convert, make unique and sort
+    _numbers = []
     for n in numbers:
-        if not isinstance(n, six.integer_types):
+        if isinstance(n, six.string_types):
+            _numbers.extend(range_expand(n, min_value=min_value, max_value=max_value))
+        elif isinstance(n, six.integer_types):
+            _numbers.append(n)
+        else:
             raise TypeError("cannot handle non-integer value '{}' in numbers to join".format(n))
-    numbers = sorted(numbers)
+    numbers = sorted(set(_numbers))
 
     # iterate through numbers, keep track of last starts and stops and fill a list of range tuples
     ranges = []
