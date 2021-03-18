@@ -55,8 +55,8 @@ class LoremIpsumBase(law.Task):
         parts = (os.getenv("LOREMIPSUM_DATA_PATH"),) + path
         return os.path.join(*(str(p) for p in parts))
 
-    def local_target(self, *path):
-        return law.LocalFileTarget(self.local_path(*path))
+    def local_target(self, *path, **kwargs):
+        return law.LocalFileTarget(self.local_path(*path), **kwargs)
 
 
 class FetchLoremIpsum(LoremIpsumBase):

@@ -23,6 +23,7 @@ class Target(luigi.target.Target):
 
     def __init__(self, *args, **kwargs):
         self.optional = kwargs.pop("optional", False)
+        self.external = kwargs.pop("external", False)
 
         luigi.target.Target.__init__(self, *args, **kwargs)
 
@@ -54,7 +55,9 @@ class Target(luigi.target.Target):
     def _repr_flags(self):
         flags = []
         if self.optional:
-            flags.append(self.optional_text())
+            flags.append("optional")
+        if self.external:
+            flags.append("external")
         return flags
 
     @classmethod
@@ -70,7 +73,7 @@ class Target(luigi.target.Target):
         return colored(name, color="magenta") if color else name
 
     def _copy_kwargs(self):
-        return {"optional": self.optional}
+        return {"optional": self.optional, "external": self.external}
 
     def status_text(self, max_depth=0, flags=None, color=False, exists=None):
         if exists is None:
@@ -81,12 +84,9 @@ class Target(luigi.target.Target):
             _color = "green"
         else:
             text = "absent"
-            _color = "red" if not self.optional else "grey"
+            _color = "grey" if self.optional else "red"
 
         return colored(text, _color, style="bright") if color else text
-
-    def optional_text(self):
-        return "optional" if self.optional else "non-optional"
 
     @abstractmethod
     def exists(self):

@@ -195,7 +195,12 @@ def remove_task_output(task, max_depth=0, mode=None, run_task=False):
         for output, odepth, oprefix, ooffset, lookup in _iter_output(dep.output(), offset):
             print("{} {}{}".format(ooffset, oprefix, output.repr(color=True)))
 
-            # print and stop here when the mode is "dry"
+            # skip external targets
+            if getattr(output, "external", False):
+                print(ooffset + ind + colored(" external output", "yellow"))
+                continue
+
+            # stop here when in dry mode
             if mode == "d":
                 print(ooffset + ind + colored(" dry removed", "yellow"))
                 continue
@@ -290,26 +295,35 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
             except:
                 stat = None
 
+            # print the target repr
             target_line = "{} {}{}".format(ooffset, oprefix, output.repr(color=True))
             if stat:
                 target_line += " ({:.2f} {})".format(*human_bytes(stat.st_size))
             print(target_line)
 
+            # skip external targets
+            if not include_external and getattr(output, "external", False):
+                print(ooffset + ind + colored(" external output, skip", "yellow"))
+                continue
+
+            # skip missing targets
             if not isinstance(output, TargetCollection) and stat is None:
                 print(ooffset + ind + colored(" not existing, skip", "yellow"))
                 continue
 
+            # skip targets without a copy_to_local method
             is_copyable = callable(getattr(output, "copy_to_local", None))
             if not isinstance(output, TargetCollection) and not is_copyable:
                 print(ooffset + ind + colored(" not a file target, skip", "yellow"))
                 continue
 
+            # stop here when in dry mode
             if mode == "d":
                 print(ooffset + ind + colored(" dry fetched", "yellow"))
                 continue
 
+            # collect actual outputs to fetch
             to_fetch = [output]
-
             if mode == "i" and task_mode != "a":
                 if isinstance(output, TargetCollection):
                     coll_choice = query_choice(ooffset + ind + "fetch?", ("y", "n", "i"),
@@ -327,6 +341,7 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
                     print(ooffset + ind + colored(" skipped", "yellow"))
                     continue
 
+            # actual copy
             for outp in to_fetch:
                 if not callable(getattr(outp, "copy_to_local", None)):
                     continue

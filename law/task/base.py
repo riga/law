@@ -315,8 +315,8 @@ class Task(six.with_metaclass(Register, BaseTask)):
         "into a local directory but do not run any task; this CSV parameter accepts up to four "
         "values: 1. the task recursion depth (0 means non-recursive), 2. one of the modes 'i' "
         "(interactive), 'a' (all), 'd' (dry run) (default: 'i'), 3. the target directory (default: "
-        "'.'), 4. a boolean flag that decides whether outputs of external tasks should be fetched "
-        "(default: False)")
+        "'.'), 4. a boolean flag that decides whether external outputs and outputs of external "
+        "tasks should be fetched (default: False)")
 
     interactive_params = [
         "print_deps", "print_status", "print_output", "remove_output", "fetch_output",
