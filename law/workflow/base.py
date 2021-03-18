@@ -20,7 +20,7 @@ import six
 from law.task.base import Task, Register
 from law.task.proxy import ProxyTask, get_proxy_attribute
 from law.target.collection import TargetCollection
-from law.parameter import NO_STR, NO_INT, CSVParameter
+from law.parameter import NO_STR, NO_INT, MultiRangeParameter
 from law.util import (
     no_value, make_list, iter_chunks, range_expand, range_join, create_hash, DotDict,
 )
@@ -278,7 +278,7 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
        First branch that is *not* processed (pythonic). Defaults to *-1*.
 
     .. py:classattribute:: branches
-       type: law.CSVParameter
+       type: law.MultiRangeParameter
 
        Explicit list of branches to process. Empty default value.
 
@@ -368,8 +368,9 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         "value means first; default: empty")
     end_branch = luigi.IntParameter(default=NO_INT, description="the branch to end at; empty value "
         "means last; default: empty")
-    branches = CSVParameter(default=(), description="list of branches to select; each value can "
-        "have the format 'start-stop' (inclusive) to support range syntax; has precedence over "
+    branches = MultiRangeParameter(default=(), require_start=False, require_end=False,
+        single_value=True, description="comma-separated list of branches to select; each value can "
+        "have the format 'start:stop' (inclusive) to support range syntax; has precedence over "
         "--startBranch and --endBranch when set; default: empty")
 
     # configuration members
@@ -405,7 +406,7 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         # store original branch boundaries
         self._initial_start_branch = self.start_branch
         self._initial_end_branch = self.end_branch
-        self._initial_branches = self.branches
+        self._initial_branches = tuple(self.branches)
 
         # determine workflow proxy class to instantiate
         if self.is_workflow():
@@ -451,15 +452,6 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
                 params.pop(param, None)
 
         return params
-
-    @classmethod
-    def _repr_param(cls, name, value, **kwargs):
-        if name == "branches":
-            # TODO: some range strings might have an open edge which will fail
-            value = range_join(value, to_str=True)
-            kwargs["serialize"] = False
-
-        return super(BaseWorkflow, cls)._repr_param(name, value, **kwargs)
 
     def is_branch(self):
         """
@@ -540,9 +532,6 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
             requested_branches = range_expand(self.branches, min_value=min(remove_branches),
                 max_value=max(remove_branches))
             remove_branches -= set(requested_branches)
-
-            # store the joined request branches with proper start and end points
-            self.branches = range_join(requested_branches, to_str=True).split(",")
 
             # actual removal
             for b in remove_branches:
@@ -699,9 +688,9 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         via the *branches* parameter, and there are more than *max_ranges* identified ranges, the
         string will contain a unique hash describing those ranges.
         """
-        self.get_branch_map()
+        branch_map = self.get_branch_map()
         if self.branches:
-            ranges = range_join(self.branches)
+            ranges = range_join(list(branch_map.keys()))
             if len(ranges) > max_ranges:
                 return "{}_ranges_{}".format(len(ranges), create_hash(ranges))
             else:

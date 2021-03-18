@@ -476,19 +476,26 @@ def brace_expand(s, split_csv=False):
     return res
 
 
-def range_expand(s, min_value=None, max_value=None):
+def range_expand(s, include_end=True, min_value=None, max_value=None, sep=":"):
     """
-    Takes a string or sequence of strings denoting single positive numbers or ranges of positive
-    numbers such as ``"1-3"`` and returns a list of all selected values, inclusive at both edges.
-    One sided range expressions such as ``"-4"`` or ``"4-"`` are also expanded but they require
-    *min_value* and *max_value* to be set (an exception is raised otherwise). Also, when a
-    *min_value* (*max_value*) is given, no value in the returned list of numbers can be smaller
-    (larger). Example:
+    Takes a string, or a sequence of strings in the format ``"1:3"``, or a tuple or a sequence of
+    tuples containing start and stop values of a range and returns a list of all intermediate
+    values. When *include_end* is *True*, the end value is included. One sided range expressions
+    such as ``":4"`` or ``"4:"`` for strings and ``(None, 4)`` or ``(4, None)`` for tuples are also
+    expanded but they require *min_value* and *max_value* to be set (an exception is raised
+    otherwise). Also, when a *min_value* (*max_value*) is given, no value in the returned list of
+    numbers can be smaller (larger). Example:
 
     .. code-block:: python
 
-        range_expand("5-8")
+        range_expand("5:8")
         # -> [5, 6, 7, 8]
+
+        range_expand((6, 9))
+        # -> [6, 7, 8, 9]
+
+        range_expand("5:8", include_end=False)
+        # -> [5, 6, 7]
 
         range_expand(["5-8", "10"])
         # -> [5, 6, 7, 8, 10]
@@ -507,16 +514,42 @@ def range_expand(s, min_value=None, max_value=None):
 
     numbers = []
     for s in make_list(s):
-        s = str(s)
-        if "-" in s:
-            # split into start and stop value and handle empty values
-            start, stop = s.split("-", 1)
-            if not start:
+        start, stop, value = None, None, None
+        single_value = False
+
+        if isinstance(s, (tuple, list)):
+            # parse tuple
+            if len(s) == 1:
+                value = s[0]
+                single_value = True
+            elif len(s) == 2:
+                start, stop = s
+            else:
+                raise ValueError("invalid range tuple length: {}".format(s))
+
+        else:
+            # parse as string
+            s = str(s)
+            if sep in s:
+                parts = s.split(sep, 1)
+                start = parts[0] or None
+                stop = parts[1] or None
+            else:
+                value = s
+                single_value = True
+
+        if single_value:
+            # add a single value
+            numbers.append(to_int(value))
+
+        else:
+            # build the range
+            if start is None:
                 if min_value is None:
                     raise Exception("range '{}' with missing start value requires min_value to be "
                         "set".format(s))
                 start = min_value
-            if not stop:
+            if stop is None:
                 if max_value is None:
                     raise Exception("range '{}' with missing stop value requires max_value to be "
                         "set".format(s))
@@ -529,10 +562,7 @@ def range_expand(s, min_value=None, max_value=None):
                 start, stop = stop, start
 
             # add numbers
-            numbers.extend(range(start, stop + 1))
-        else:
-            # no "-" in s, assume it to be a number
-            numbers.append(to_int(s))
+            numbers.extend(range(start, stop + int(bool(include_end))))
 
     # apply min and max cuts when given
     if min_value is not None:
@@ -546,14 +576,13 @@ def range_expand(s, min_value=None, max_value=None):
     return numbers
 
 
-def range_join(numbers, to_str=False, min_value=None, max_value=None):
+def range_join(numbers, to_str=False, sep=",", range_sep=":"):
     """
-    Takes a sequence of positive integer numbers given either as integer or string types, or a range
-    string interpretable by :py:func:`range_expand` and returns a sequence 1- and 2-tuples, denoting
-    either single numbers or inclusive start and stop values of possible ranges. Range strings are
-    converted to integer sequences using :py:func:`range_expand`, forwarding *min_value* and
-    *max_value*. When *to_str* is *True*, a string is returned in a format consistent to
-    :py:func:`range_expand`. Example:
+    Takes a sequence of positive integer numbers given either as integer or string types, and
+    returns a sequence 1- and 2-tuples, denoting either single numbers or inclusive start and stop
+    values of possible ranges. When *to_str* is *True*, a string is returned in a format consistent
+    to :py:func:`range_expand` with ranges constructed by *range_sep* and merged with *sep*.
+    Example:
 
     .. code-block:: python
 
@@ -564,10 +593,7 @@ def range_join(numbers, to_str=False, min_value=None, max_value=None):
         # -> [(1, 3), (5,), (7, 9)]
 
         range_join([1, 2, 3, 5, 7, 8, 9], to_str=True)
-        # -> "1-3,5,7-9"
-
-        range_join(["1-2", 3, 5])
-        # -> [(1, 3), (5,)]
+        # -> "1:3,5,7:9"
     """
     if not numbers:
         return "" if to_str else []
@@ -576,8 +602,11 @@ def range_join(numbers, to_str=False, min_value=None, max_value=None):
     _numbers = []
     for n in numbers:
         if isinstance(n, six.string_types):
-            _numbers.extend(range_expand(n, min_value=min_value, max_value=max_value))
-        elif isinstance(n, six.integer_types):
+            try:
+                n = int(n)
+            except ValueError:
+                raise ValueError("invalid number format '{}'".format(n))
+        if isinstance(n, six.integer_types):
             _numbers.append(n)
         else:
             raise TypeError("cannot handle non-integer value '{}' in numbers to join".format(n))
@@ -596,7 +625,10 @@ def range_join(numbers, to_str=False, min_value=None, max_value=None):
 
     # convert to string representation
     if to_str:
-        ranges = ",".join(("{}" if len(r) == 1 else "{}-{}").format(*r) for r in ranges)
+        ranges = sep.join(
+            (str(r[0]) if len(r) == 1 else "{1}{0}{2}".format(range_sep, *r))
+            for r in ranges
+        )
 
     return ranges
 

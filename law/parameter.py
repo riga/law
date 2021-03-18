@@ -428,13 +428,13 @@ class RangeParameter(luigi.Parameter):
         values. Defaults to ``":"``.
 
     .. py:classattribute:: OPEN
-       type: string
+       type: None
 
         Value denoting open edges in parsed ranges.
     """
 
     RANGE_SEP = ":"
-    OPEN = "open"
+    OPEN = None
 
     def __init__(self, *args, **kwargs):
         self._require_start = kwargs.pop("require_start", True)
