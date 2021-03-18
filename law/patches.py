@@ -288,6 +288,7 @@ def patch_interface_logging():
         "FAILED": {"color": "red"},
     }
     sched_task_style = {"style": "bright"}
+    sched_done_style = {"color": "green", "style": "bright"}
     worker_action_colors = {
         "running": {"color": "cyan"},
         "done": {"color": "green"},
@@ -299,12 +300,21 @@ def patch_interface_logging():
     # precompiled expressions
     cre_sched_action = r"^(Informed scheduler that task\s+)([^\s]+)(\s+has\sstatus\s+)({})(.*)$"
     cre_sched_action = re.compile(cre_sched_action.format("|".join(sched_action_colors.keys())))
+    cre_sched_done = re.compile("^(Done scheduling tasks)$")
     cre_worker_action = r"^(\[pid \d+\] Worker Worker\(.+\)\s+)({})(\s+)([^\(]+)(\(.+)$"
     cre_worker_action = re.compile(cre_worker_action.format("|".join(worker_action_colors.keys())))
 
     # log message formatter to partially colorize some luigi logs
     def colorize_luigi_logs(record):
         msg = record.getMessage()
+
+        # worker task messages
+        m = cre_worker_action.match(msg)
+        if m:
+            s1, action, s2, task, s3 = m.groups()
+            task = law.util.colored(task, **worker_task_style)
+            action = law.util.colored(action, **worker_action_colors[action])
+            return s1 + action + s2 + task + s3
 
         # scheduler task registration messages
         m = cre_sched_action.match(msg)
@@ -314,13 +324,11 @@ def patch_interface_logging():
             action = law.util.colored(action, **sched_action_colors[action])
             return s1 + task + s2 + action + s3
 
-        # worker task messages
-        m = cre_worker_action.match(msg)
+        # scheduler done building tree
+        m = cre_sched_done.match(msg)
         if m:
-            s1, action, s2, task, s3 = m.groups()
-            task = law.util.colored(task, **worker_task_style)
-            action = law.util.colored(action, **worker_action_colors[action])
-            return s1 + action + s2 + task + s3
+            msg = law.util.colored(m.group(1), **sched_done_style)
+            return msg
 
         return msg
 
