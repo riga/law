@@ -281,38 +281,46 @@ def patch_interface_logging():
     """
     _default_orig = luigi.setup_logging.InterfaceLogging._default
 
-    # predefined colors for luigi log messages
-    scheduler_register_colors = {
-        "PENDING": "cyan",
-        "DONE": "green",
-        "FAILED": "red",
+    # predefined styles for luigi log messages
+    sched_action_colors = {
+        "PENDING": {"color": "cyan"},
+        "DONE": {"color": "green"},
+        "FAILED": {"color": "red"},
     }
+    sched_task_style = {"style": "bright"}
     worker_action_colors = {
-        "running": "cyan",
-        "done": "green",
-        "failed": "red",
+        "running": {"color": "cyan"},
+        "done": {"color": "green"},
+        "failed": {"color": "red"},
+        "new requirements": {"color": "magenta"},
     }
+    worker_task_style = sched_task_style
+
+    # precompiled expressions
+    cre_sched_action = r"^(Informed scheduler that task\s+)([^\s]+)(\s+has\sstatus\s+)({})(.*)$"
+    cre_sched_action = re.compile(cre_sched_action.format("|".join(sched_action_colors.keys())))
+    cre_worker_action = r"^(\[pid \d+\] Worker Worker\(.+\)\s+)({})(\s+)([^\(]+)(\(.+)$"
+    cre_worker_action = re.compile(cre_worker_action.format("|".join(worker_action_colors.keys())))
 
     # log message formatter to partially colorize some luigi logs
     def colorize_luigi_logs(record):
         msg = record.getMessage()
 
         # scheduler task registration messages
-        # Informed scheduler that task   CountChars_1_False_50b924af96   has status   PENDING
-        m = re.match(r"^(Informed\sscheduler\sthat\stask\s+.+\s+has\sstatus\s+)([^\s]+)$", msg)
+        m = cre_sched_action.match(msg)
         if m:
-            start, action = m.groups()
-            if action in scheduler_register_colors:
-                action = law.util.colored(action, scheduler_register_colors[action])
-            return start + action
+            s1, task, s2, action, s3 = m.groups()
+            task = law.util.colored(task, **sched_task_style)
+            action = law.util.colored(action, **sched_action_colors[action])
+            return s1 + task + s2 + action + s3
 
         # worker task messages
-        m = re.match(r"^(\[pid\s\d+\]\sWorker\sWorker\(.+\)\s)([^\s]+)(\s+.+)$", msg)
+        m = cre_worker_action.match(msg)
         if m:
-            start, action, end = m.groups()
-            if action in worker_action_colors:
-                action = law.util.colored(action, worker_action_colors[action])
-            return start + action + end
+            s1, action, s2, task, s3 = m.groups()
+            task = law.util.colored(task, **worker_task_style)
+            action = law.util.colored(action, **worker_action_colors[action])
+            return s1 + action + s2 + task + s3
 
         return msg
 
