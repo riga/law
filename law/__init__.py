@@ -10,8 +10,8 @@ __all__ = [
     "TargetCollection", "FileCollection", "SiblingFileCollection",
     "Sandbox", "BashSandbox",
     "NO_STR", "NO_INT", "NO_FLOAT", "is_no_param", "get_param", "TaskInstanceParameter",
-    "DurationParameter", "CSVParameter", "MultiCSVParameter", "NotifyParameter",
-    "NotifyMultiParameter", "NotifyMailParameter",
+    "DurationParameter", "CSVParameter", "MultiCSVParameter", "RangeParameter",
+    "MultiRangeParameter", "NotifyParameter", "NotifyMultiParameter", "NotifyMailParameter",
     "Config",
     "run", "no_value",
     "notify_mail",
@@ -47,7 +47,8 @@ from law.config import Config
 from law.notification import notify_mail
 from law.parameter import (
     NO_STR, NO_INT, NO_FLOAT, is_no_param, get_param, TaskInstanceParameter, DurationParameter,
-    CSVParameter, MultiCSVParameter, NotifyParameter, NotifyMultiParameter, NotifyMailParameter,
+    CSVParameter, MultiCSVParameter, RangeParameter, MultiRangeParameter, NotifyParameter,
+    NotifyMultiParameter, NotifyMailParameter,
 )
 from law.target.file import (
     FileSystemTarget, FileSystemFileTarget, FileSystemDirectoryTarget, localize_file_targets,

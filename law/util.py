@@ -9,13 +9,13 @@ __all__ = [
     "law_home_path", "law_run", "print_err", "abort", "is_number", "try_int", "round_discrete",
     "str_to_int", "flag_to_bool", "common_task_params", "colored", "uncolored", "query_choice",
     "is_pattern", "brace_expand", "range_expand", "range_join", "multi_match", "is_iterable",
-    "is_lazy_iterable", "make_list", "make_tuple", "make_unique", "flatten", "merge_dicts", "which",
-    "map_verbose", "map_struct", "mask_struct", "tmp_file", "interruptable_popen", "readable_popen",
-    "create_hash", "create_random_string", "copy_no_perm", "makedirs_perm", "user_owns_file",
-    "iter_chunks", "human_bytes", "parse_bytes", "human_duration", "human_time_diff",
-    "parse_duration", "is_file_exists_error", "send_mail", "DotDict", "ShorthandDict",
-    "open_compat", "patch_object", "join_generators", "quote_cmd", "classproperty", "BaseStream",
-    "TeeStream", "FilteredStream",
+    "is_lazy_iterable", "make_list", "make_tuple", "make_unique", "is_nested", "flatten",
+    "merge_dicts", "which", "map_verbose", "map_struct", "mask_struct", "tmp_file",
+    "interruptable_popen", "readable_popen", "create_hash", "create_random_string", "copy_no_perm",
+    "makedirs_perm", "user_owns_file", "iter_chunks", "human_bytes", "parse_bytes",
+    "human_duration", "human_time_diff", "parse_duration", "is_file_exists_error", "send_mail",
+    "DotDict", "ShorthandDict", "open_compat", "patch_object", "join_generators", "quote_cmd",
+    "classproperty", "BaseStream", "TeeStream", "FilteredStream",
 ]
 
 
@@ -687,6 +687,13 @@ def make_unique(obj):
     ret = sorted(obj.__class__(set(obj)), key=lambda elem: obj.index(elem))
 
     return obj.__class__(ret) if isinstance(obj, tuple) else ret
+
+
+def is_nested(obj):
+    """
+    Takes a list or tuple *obj* and checks whether it only contains items of types list and tuple.
+    """
+    return isinstance(obj, (list, tuple)) and all(isinstance(item, (list, tuple)) for item in obj)
 
 
 def flatten(*structs, **kwargs):

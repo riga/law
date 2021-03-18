@@ -683,8 +683,9 @@
 
 ; job_file_dir_cleanup
 ; Description: A boolean flag that decides whether a job file factory should remove its file
-; diretory once it is destructed. Set this option to "False" in case you want to debug the job files
-; that are created for submission.
+; diretory once it is destructed. Set this option to "False" when the job submission system requires
+; all jobs files to be present as long as jobs are running, or in case you want to debug the files
+; later on.
 ; Type: boolean
 ; Default: True
 
