@@ -5,7 +5,7 @@ Law logging setup.
 """
 
 __all__ = [
-    "console_handler", "setup_logging", "setup_logger", "is_tty_handler", "get_tty_handlers",
+    "setup_logging", "setup_logger", "create_stream_handler", "is_tty_handler", "get_tty_handlers",
     "LogFormatter",
 ]
 
@@ -15,32 +15,27 @@ import logging
 import six
 
 from law.config import Config
-from law.util import colored, ipykernel
+from law.util import no_value, colored, ipykernel
 
 
-#: Instance of a ``logging.StreamHandler`` that is used by logs in law. Its formatting is done by
-#: :py:class:`LogFormatter`.
-console_handler = None
+_logging_setup = False
 
 
 def setup_logging():
     """
-    Sets up the internal logging mechanism, i.e., it creates the :py:attr:`console_handler`, sets
-    its formatting, and adds it to the main logger which propagates settings to lower level loggers.
-    In addition, all other loggers listed in the ``"logging"`` config section as (*name*, *level*)
-    pairs are set up. This includes loggers that do not use the ``"law.*"`` namespace which can be
-    seen as a convenient feature to set up custom loggers.
+    Sets up the internal law loggers as well as all other loggers listed in the ``"logging"`` config
+    section as (*name*, *level*) pairs. This includes loggers that do not use the ``"law.*"``
+    namespace which can be seen as a convenient feature to set up custom loggers.
     """
-    global console_handler
+    global _logging_setup
 
     # make sure logging is setup only once
-    if console_handler:
+    if _logging_setup:
         return
+    _logging_setup = True
 
     # set the handler of the law root logger which propagates it to lower level loggers
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(LogFormatter())
-    logging.getLogger("law").addHandler(console_handler)
+    logging.getLogger("law").addHandler(create_stream_handler())
 
     # set levels for all loggers and add the console handler for all non-law loggers
     cfg = Config.instance()
@@ -75,11 +70,30 @@ def setup_logger(name, level=None, add_console_handler=True, clear=False):
     # set the level
     logger.setLevel(level)
 
-    # add the global console handler
-    if console_handler and add_console_handler:
-        logger.addHandler(console_handler)
+    # add a console handler
+    if add_console_handler:
+        logger.addHandler(create_stream_handler())
 
     return logger
+
+
+def create_stream_handler(handler_kwargs=None, formatter_kwargs=None, formatter_cls=no_value):
+    """ create_stream_handler(handler_kwargs=None, formatter_kwargs=None, formatter_cls=LogFormatter)
+    Creates a new StreamHandler instance, passing all *handler_kwargs* to its constructor, and
+    returns it. When not *None*, an instance of *formatter_cls* is created using *formatter_kwargs*
+    and added to the handler instance.
+    """
+    # create the handler
+    handler = logging.StreamHandler(**(handler_kwargs or {}))
+
+    # add a formatter
+    if formatter_cls == no_value:
+        formatter_cls = LogFormatter
+    if formatter_cls is not None:
+        formatter = formatter_cls(**(formatter_kwargs or {}))
+        handler.setFormatter(formatter)
+
+    return handler
 
 
 def is_tty_handler(handler):
@@ -134,12 +148,14 @@ class LogFormatter(logging.Formatter):
         "CRITICAL": {"color": "red", "style": "bright"},
     }
 
+    format_msg = None
+
     def format(self, record):
         """"""
         data = dict(
             level=colored(record.levelname, **self.level_styles.get(record.levelname, {})),
             name=record.name,
-            msg=record.getMessage(),
+            msg=self.format_msg(record) if callable(self.format_msg) else record.getMessage(),
         )
         tmpl = self.tmpl
 

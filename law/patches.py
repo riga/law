@@ -8,6 +8,7 @@ law, rather than changing default luigi behavior.
 __all__ = ["before_run", "patch_all"]
 
 
+import re
 import functools
 import logging
 
@@ -275,8 +276,45 @@ def patch_interface_logging():
     """
     Patches ``luigi.setup_logging.InterfaceLogging._default`` to avoid adding multiple tty stream
     handlers to the logger named "luigi-interface" and to preserve any previously set log level.
+    Also, the formatters of its stream handlers are amended in order to colorize parts of luigi log
+    messages.
     """
     _default_orig = luigi.setup_logging.InterfaceLogging._default
+
+    # predefined colors for luigi log messages
+    scheduler_register_colors = {
+        "PENDING": "cyan",
+        "DONE": "green",
+        "FAILED": "red",
+    }
+    worker_action_colors = {
+        "running": "cyan",
+        "done": "green",
+        "failed": "red",
+    }
+
+    # log message formatter to partially colorize some luigi logs
+    def colorize_luigi_logs(record):
+        msg = record.getMessage()
+
+        # scheduler task registration messages
+        # Informed scheduler that task   CountChars_1_False_50b924af96   has status   PENDING
+        m = re.match(r"^(Informed\sscheduler\sthat\stask\s+.+\s+has\sstatus\s+)([^\s]+)$", msg)
+        if m:
+            start, action = m.groups()
+            if action in scheduler_register_colors:
+                action = law.util.colored(action, scheduler_register_colors[action])
+            return start + action
+
+        # worker task messages
+        m = re.match(r"^(\[pid\s\d+\]\sWorker\sWorker\(.+\)\s)([^\s]+)(\s+.+)$", msg)
+        if m:
+            start, action, end = m.groups()
+            if action in worker_action_colors:
+                action = law.util.colored(action, worker_action_colors[action])
+            return start + action + end
+
+        return msg
 
     @functools.wraps(_default_orig)
     def _default(cls, opts):
@@ -296,6 +334,11 @@ def patch_interface_logging():
         if tty_handlers_before:
             for handler in tty_handlers_after[len(tty_handlers_before):]:
                 _logger.removeHandler(handler)
+
+        # update formatters to colorize messages
+        for handler in _logger.handlers:
+            if isinstance(handler.formatter, law.logger.LogFormatter):
+                handler.formatter.format_msg = colorize_luigi_logs
 
         return ret
 
