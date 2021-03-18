@@ -119,18 +119,18 @@ class DurationParameter(luigi.Parameter):
 
     def parse(self, inp):
         """"""
-        if not inp:
-            return 0.
-        else:
-            return parse_duration(inp, input_unit=self.unit, unit=self.unit)
+        if not inp or inp == NO_STR:
+            inp = "0"
+
+        return parse_duration(inp, input_unit=self.unit, unit=self.unit)
 
     def serialize(self, value):
         """"""
         if not value:
-            return "0"
-        else:
-            value_seconds = parse_duration(value, input_unit=self.unit, unit="s")
-            return human_duration(seconds=value_seconds, colon_format=True)
+            value = 0
+
+        value_seconds = parse_duration(value, input_unit=self.unit, unit="s")
+        return human_duration(seconds=value_seconds, colon_format=True)
 
 
 class CSVParameter(luigi.Parameter):
@@ -259,7 +259,7 @@ class CSVParameter(luigi.Parameter):
 
     def parse(self, inp):
         """"""
-        if inp in (None, "", NO_STR):
+        if not inp or inp == NO_STR:
             value = tuple()
         elif isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
             value = make_tuple(inp)
@@ -283,17 +283,17 @@ class CSVParameter(luigi.Parameter):
     def serialize(self, value):
         """"""
         if not value:
-            return ""
-        else:
-            value = make_tuple(value)
+            value = tuple()
 
-            # apply uniqueness, sort, length and choices checks
-            value = self._check_unique(value)
-            value = self._check_sort(value)
-            self._check_len(value)
-            self._check_choices(value)
+        value = make_tuple(value)
 
-            return self.CSV_SEP.join(str(self._inst.serialize(elem)) for elem in value)
+        # apply uniqueness, sort, length and choices checks
+        value = self._check_unique(value)
+        value = self._check_sort(value)
+        self._check_len(value)
+        self._check_choices(value)
+
+        return self.CSV_SEP.join(str(self._inst.serialize(elem)) for elem in value)
 
 
 class MultiCSVParameter(CSVParameter):
@@ -358,7 +358,9 @@ class MultiCSVParameter(CSVParameter):
 
     def parse(self, inp):
         """"""
-        if isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
+        if not inp or inp == NO_STR:
+            value = tuple()
+        elif isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
             value = tuple(super(MultiCSVParameter, self).parse(v) for v in inp)
         elif isinstance(inp, six.string_types):
             elems = inp.split(self.MULTI_CSV_SEP)
@@ -372,11 +374,11 @@ class MultiCSVParameter(CSVParameter):
         """"""
         if not value:
             return ""
-        else:
-            if not is_nested(value):
-                value = (value,)
-            return self.MULTI_CSV_SEP.join(
-                super(MultiCSVParameter, self).serialize(v) for v in value)
+
+        if not is_nested(value):
+            value = (value,)
+        return self.MULTI_CSV_SEP.join(
+            super(MultiCSVParameter, self).serialize(v) for v in value)
 
 
 class RangeParameter(luigi.Parameter):
@@ -456,11 +458,7 @@ class RangeParameter(luigi.Parameter):
             if not isinstance(v, six.integer_types):
                 raise TypeError("invalid type of single value in range {}".format(value))
 
-        elif not len(value) == 2:
-            raise ValueError("cannot interpret {} with {} elements as {}".format(
-                value, len(value), self.__class__.__name__))
-
-        else:
+        elif len(value) == 2:
             start, end = value
             if start == self.OPEN:
                 if self._require_start:
@@ -473,9 +471,15 @@ class RangeParameter(luigi.Parameter):
             elif not isinstance(end, six.integer_types):
                 raise TypeError("invalid type of end value in range {}".format(value))
 
+        elif value:
+            raise ValueError("cannot interpret {} with {} elements as {}".format(
+                value, len(value), self.__class__.__name__))
+
     def parse(self, inp):
         """"""
-        if isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
+        if not inp or inp == NO_STR:
+            value = tuple()
+        elif isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
             value = make_tuple(inp)
         elif isinstance(inp, six.string_types):
             parts = inp.split(self.RANGE_SEP)
@@ -487,14 +491,15 @@ class RangeParameter(luigi.Parameter):
         else:
             raise TypeError("cannot parse '{}' as {}".format(inp, self.__class__.__name__))
 
-        # check size and types
         self._check(value)
 
         return value
 
     def serialize(self, value):
         """"""
-        # check size and types
+        if not value:
+            value = tuple()
+
         self._check(value)
 
         value = [("" if v == self.OPEN else str(v)) for v in value]
@@ -530,7 +535,9 @@ class MultiRangeParameter(RangeParameter):
 
     def parse(self, inp):
         """"""
-        if isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
+        if not inp or inp == NO_STR:
+            value = tuple()
+        elif isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
             value = tuple(super(MultiRangeParameter, self).parse(v) for v in inp)
         elif isinstance(inp, six.string_types):
             elems = inp.split(self.MULTI_RANGE_SEP)
@@ -542,6 +549,9 @@ class MultiRangeParameter(RangeParameter):
 
     def serialize(self, value):
         """"""
+        if not value:
+            return ""
+
         if not is_nested(value):
             value = (value,)
         return self.MULTI_RANGE_SEP.join(
