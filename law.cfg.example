@@ -162,7 +162,13 @@
 [task]
 
 ; colored_repr
-; Description: A boolean flag that decides whether the output of "task.repr()" is colorized by
+; Description: A boolean flag that decides whether the output of "task.repr()" and "repr(task)" is
+; colorized by default.
+; Type: boolean
+; Default: False
+
+; colored_str
+; Description: A boolean flag that decides whether the output of "str(task)" is colorized by
 ; default.
 ; Type: boolean
 ; Default: True

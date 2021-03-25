@@ -435,12 +435,16 @@ class Task(six.with_metaclass(Register, BaseTask)):
         return super(Task, self).cli_args(exclude=exclude, replace=replace)
 
     def __repr__(self):
-        return self.repr(color=False)
+        color = Config.instance().get_expanded_boolean("task", "colored_repr")
+        return self.repr(color=color)
+
+    def __str__(self):
+        color = Config.instance().get_expanded_boolean("task", "colored_str")
+        return self.repr(color=color)
 
     def repr(self, all_params=False, color=None, **kwargs):
         if color is None:
-            cfg = Config.instance()
-            color = cfg.get_expanded_boolean("task", "colored_repr")
+            color = Config.instance().get_expanded_boolean("task", "colored_repr")
 
         family = self._repr_family(self.get_task_family(), color=color, **kwargs)
 
@@ -453,13 +457,6 @@ class Task(six.with_metaclass(Register, BaseTask)):
         ]
 
         return "{}({})".format(family, ", ".join(parts))
-
-    def colored_repr(self, all_params=False):
-        # deprecation warning until v0.1
-        logger.warning("the use of {0}.colored_repr() is deprecated, please use "
-            "{0}.repr(color=True) instead".format(self.__class__.__name__))
-
-        return self.repr(all_params=all_params, color=True)
 
     def _repr_params(self, all_params=False):
         # determine parameters to exclude

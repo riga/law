@@ -78,7 +78,8 @@ class Config(ConfigParser):
         },
         "modules": {},
         "task": {
-            "colored_repr": True,
+            "colored_repr": False,
+            "colored_str": True,
         },
         "target": {
             "colored_repr": True,
