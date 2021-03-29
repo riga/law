@@ -28,18 +28,16 @@ class Task(_Task):
         return "<span style='font-family: monospace;'>{}</span>".format(
             self.repr(all_params=all_params, color=color, html=True))
 
-    @classmethod
-    def _repr_family(cls, family, color=False, html=False):
+    def _repr_family(self, family, color=False, html=False):
         if html:
             style = " style='color: green;'" if color else ""
             return "<span{}>{}</span>".format(style, family)
         else:
-            return super(Task, cls)._repr_family(family, color=color)
+            return super(Task, self)._repr_family(family, color=color)
 
-    @classmethod
-    def _repr_param(cls, name, value, color=False, serialize=True, html=False):
+    def _repr_param(self, name, value, color=False, serialize=True, html=False):
         if serialize:
-            param = getattr(cls, name, no_value)
+            param = getattr(self.__class__, name, no_value)
             if param != no_value:
                 value = param.serialize(value)
 
@@ -47,12 +45,11 @@ class Task(_Task):
             style = " style='color: blue;'" if color else ""
             return "<span{}>{}</span>={}".format(style, name, value)
         else:
-            return super(Task, cls)._repr_param(name, value, color=color, serialize=False)
+            return super(Task, self)._repr_param(name, value, color=color, serialize=False)
 
-    @classmethod
-    def _repr_flag(cls, name, color=False, html=False):
+    def _repr_flag(self, name, color=False, html=False):
         if html:
             style = " style='color: magenta;'" if color else ""
             return "<span{}>{}</span>".format(style, name)
         else:
-            return super(Task, cls)._repr_flag(name, color=color)
+            return super(Task, self)._repr_flag(name, color=color)

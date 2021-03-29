@@ -60,16 +60,13 @@ class Target(luigi.target.Target):
             flags.append("external")
         return flags
 
-    @classmethod
-    def _repr_class_name(cls, name, color=False):
+    def _repr_class_name(self, name, color=False):
         return colored(name, "cyan") if color else name
 
-    @classmethod
-    def _repr_pair(cls, key, value, color=False):
+    def _repr_pair(self, key, value, color=False):
         return "{}={}".format(colored(key, color="blue", style="bright") if color else key, value)
 
-    @classmethod
-    def _repr_flag(cls, name, color=False):
+    def _repr_flag(self, name, color=False):
         return colored(name, color="magenta") if color else name
 
     def _copy_kwargs(self):

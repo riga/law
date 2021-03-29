@@ -476,22 +476,19 @@ class Task(six.with_metaclass(Register, BaseTask)):
     def _repr_flags(self):
         return []
 
-    @classmethod
-    def _repr_family(cls, family, color=False, **kwargs):
+    def _repr_family(self, family, color=False, **kwargs):
         return colored(family, "green") if color else family
 
-    @classmethod
-    def _repr_param(cls, name, value, color=False, serialize=True, **kwargs):
+    def _repr_param(self, name, value, color=False, serialize=True, **kwargs):
         # try to serialize first unless explicitly disabled
         if serialize:
-            param = getattr(cls, name, no_value)
+            param = getattr(self.__class__, name, no_value)
             if param != no_value:
                 value = param.serialize(value)
 
         return "{}={}".format(colored(name, color="blue", style="bright") if color else name, value)
 
-    @classmethod
-    def _repr_flag(cls, name, color=False, **kwargs):
+    def _repr_flag(self, name, color=False, **kwargs):
         return colored(name, color="magenta") if color else name
 
     def _print_deps(self, args):
