@@ -13,6 +13,7 @@ import logging
 import six
 
 from law.config import Config
+from law.util import uncolored
 
 
 logger = logging.getLogger(__name__)
@@ -54,12 +55,14 @@ def notify_telegram(title, content, token=None, chat=None, mention_user=None, **
 
     # standard or attachment content?
     if isinstance(content, six.string_types):
-        request["text"] = "{}{}\n\n{}".format(title, mention_text, content)
+        request["text"] = "{}{}\n\n{}".format(title, mention_text, uncolored(content))
     else:
         # content is a dict, add some formatting
         request["text"] = "{}{}\n\n".format(title, mention_text)
 
         for key, value in content.items():
+            if isinstance(value, six.string_types):
+                value = uncolored(value)
             request["text"] += "_{}_: {}\n".format(key, value)
 
     # extend by arbitrary kwargs

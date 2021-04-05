@@ -13,6 +13,7 @@ import logging
 import six
 
 from law.config import Config
+from law.util import uncolored
 
 
 logger = logging.getLogger(__name__)
@@ -60,7 +61,7 @@ def notify_slack(title, content, attachment_color="#4bb543", short_threshold=40,
 
     # standard or attachment content?
     if isinstance(content, six.string_types):
-        request["text"] = "{}{}\n\n{}".format(title, mention_text, content)
+        request["text"] = "{}{}\n\n{}".format(title, mention_text, uncolored(content))
     else:
         # content is a dict, send its data as an attachment
         request["text"] = "{} {}".format(title, mention_text)
@@ -72,6 +73,8 @@ def notify_slack(title, content, attachment_color="#4bb543", short_threshold=40,
 
         # fill the attachment fields and extend the fallback
         for key, value in content.items():
+            if isinstance(value, six.string_types):
+                value = uncolored(value)
             at["fields"].append({
                 "title": key,
                 "value": value,
