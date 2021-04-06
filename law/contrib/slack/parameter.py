@@ -9,7 +9,10 @@ __all__ = ["NotifySlackParameter"]
 
 import collections
 
+import six
+
 from law.parameter import NotifyParameter
+from law.util import escape_markdown
 from law.contrib.slack.notification import notify_slack
 
 
@@ -24,6 +27,12 @@ class NotifySlackParameter(NotifyParameter):
 
     @staticmethod
     def notify(success, title, content, **kwargs):
+        # escape the full content
+        content = content.__class__(
+            (k, escape_markdown(v) if isinstance(v, six.string_types) else v)
+            for k, v in content.items()
+        )
+
         # overwrite title with slack markdown markup
         title = "*Notification from* `{}`".format(content["Task"])
         del content["Task"]
@@ -49,4 +58,5 @@ class NotifySlackParameter(NotifyParameter):
         return {
             "func": self.notify,
             "raw": True,
+            "colored": False,
         }

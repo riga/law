@@ -9,7 +9,10 @@ __all__ = ["NotifyTelegramParameter"]
 
 import collections
 
+import six
+
 from law.parameter import NotifyParameter
+from law.util import escape_markdown
 from law.contrib.telegram.notification import notify_telegram
 
 
@@ -24,6 +27,12 @@ class NotifyTelegramParameter(NotifyParameter):
 
     @staticmethod
     def notify(success, title, content, **kwargs):
+        # escape the full content
+        content = content.__class__(
+            (k, escape_markdown(v) if isinstance(v, six.string_types) else v)
+            for k, v in content.items()
+        )
+
         # overwrite title with telegram markdown markup
         title = "*Notification from* `{}`".format(content["Task"])
         del content["Task"]
@@ -46,4 +55,5 @@ class NotifyTelegramParameter(NotifyParameter):
         return {
             "func": self.notify,
             "raw": True,
+            "colored": False,
         }

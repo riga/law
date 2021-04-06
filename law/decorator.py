@@ -36,6 +36,7 @@ import uuid
 import logging
 
 import luigi
+import six
 
 from law.task.proxy import ProxyTask
 from law.sandbox.base import SandboxTask
@@ -43,7 +44,8 @@ from law.parameter import get_param, NotifyParameter
 from law.target.file import localize_file_targets
 from law.target.local import LocalFileTarget
 from law.util import (
-    no_value, make_list, multi_match, human_duration, open_compat, join_generators, TeeStream,
+    no_value, uncolored, make_list, multi_match, human_duration, open_compat, join_generators,
+    TeeStream,
 )
 
 
@@ -408,8 +410,25 @@ def notify(fn, opts, task, *args, **kwargs):
         for transport in transports:
             fn = transport["func"]
             raw = transport.get("raw", False)
+            colored = transport.get("colored", False)
+
+            # remove color commands if necessary
+            if not colored:
+                _title = uncolored(title)
+                if raw:
+                    _content = {
+                        k: (uncolored(v) if isinstance(v, six.string_types) else v)
+                        for k, v in parts.items()
+                    }
+                else:
+                    _content = uncolored(message)
+            else:
+                _title = title
+                _content = parts.copy() if raw else message
+
+            # invoke the function
             try:
-                fn(success, title, parts.copy() if raw else message, **opts)
+                fn(success, _title, _content, **opts)
             except Exception as e:
                 t = traceback.format_exc()
                 logger.warning("notification via transport '{}' failed: {}\n{}".format(fn, e, t))

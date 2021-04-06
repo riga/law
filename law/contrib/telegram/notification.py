@@ -7,13 +7,14 @@ Telegram notifications.
 __all__ = ["notify_telegram"]
 
 
+import re
 import threading
 import logging
 
 import six
 
 from law.config import Config
-from law.util import uncolored
+from law.util import escape_markdown
 
 
 logger = logging.getLogger(__name__)
@@ -46,23 +47,19 @@ def notify_telegram(title, content, token=None, chat=None, mention_user=None, **
     if mention_user is None:
         mention_user = cfg.get_expanded("notifications", "telegram_mention_user")
     if mention_user:
-        mention_text = " (@{})".format(mention_user)
+        mention_text = " (@{})".format(escape_markdown(mention_user))
 
     # request data for the API call
-    request = {
-        "parse_mode": "Markdown",
-    }
+    request = {"parse_mode": "MarkdownV2"}
 
     # standard or attachment content?
     if isinstance(content, six.string_types):
-        request["text"] = "{}{}\n\n{}".format(title, mention_text, uncolored(content))
+        request["text"] = "{}{}\n\n{}".format(title, mention_text, content)
     else:
         # content is a dict, add some formatting
         request["text"] = "{}{}\n\n".format(title, mention_text)
 
         for key, value in content.items():
-            if isinstance(value, six.string_types):
-                value = uncolored(value)
             request["text"] += "_{}_: {}\n".format(key, value)
 
     # extend by arbitrary kwargs

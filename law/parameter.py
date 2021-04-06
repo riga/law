@@ -636,4 +636,5 @@ class NotifyMailParameter(NotifyParameter):
         return {
             "func": self.notify,
             "raw": False,
+            "colored": False,
         }

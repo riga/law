@@ -15,7 +15,7 @@ __all__ = [
     "makedirs_perm", "user_owns_file", "iter_chunks", "human_bytes", "parse_bytes",
     "human_duration", "human_time_diff", "parse_duration", "is_file_exists_error", "send_mail",
     "DotDict", "ShorthandDict", "open_compat", "patch_object", "join_generators", "quote_cmd",
-    "classproperty", "BaseStream", "TeeStream", "FilteredStream",
+    "escape_markdown", "classproperty", "BaseStream", "TeeStream", "FilteredStream",
 ]
 
 
@@ -1864,6 +1864,14 @@ def quote_cmd(cmd):
 
     # quote all parts and join
     return " ".join(six.moves.shlex_quote(part) for part in cmd)
+
+
+def escape_markdown(s):
+    """
+    Escapes all characters in a string *s* that coupld be confused for markdown formatting strings
+    and returns it.
+    """
+    return re.sub(r"([^\\]?)(\(|\)|=|\.|_|-)", r"\1\\\2", s)
 
 
 class ClassPropertyDescriptor(object):
