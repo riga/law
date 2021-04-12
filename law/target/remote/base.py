@@ -36,7 +36,7 @@ class RemoteFileSystem(FileSystem):
     default_instance = None
     file_interface_cls = None
     local_fs = _local_fs
-    _update_sections = set()
+    _updated_sections = set()
 
     @classmethod
     def parse_config(cls, section, config=None, overwrite=False):
