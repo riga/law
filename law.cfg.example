@@ -179,7 +179,13 @@
 [target]
 
 ; colored_repr
-; Description: A boolean flag that decides whether the output of "target.repr()" is colorized by
+; Description: A boolean flag that decides whether the output of "target.repr()" and "repr(target)"
+; is colorized by default.
+; Type: boolean
+; Default: False
+
+; colored_str
+; Description: A boolean flag that decides whether the output of "str(target)" is colorized by
 ; default.
 ; Type: boolean
 ; Default: True

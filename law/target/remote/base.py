@@ -127,9 +127,6 @@ class RemoteFileSystem(FileSystem):
         return "{}({}, base={}, {})".format(self.__class__.__name__,
             self.file_interface.__class__.__name__, self.base[0], hex(id(self)))
 
-    def __eq__(self, other):
-        return self is other
-
     def _init_configs(self, section, default_fs_option, default_section, init_kwargs):
         cfg = Config.instance()
 

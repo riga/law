@@ -27,13 +27,20 @@ class Target(luigi.target.Target):
 
         luigi.target.Target.__init__(self, *args, **kwargs)
 
+    def __eq__(self, other):
+        return self is other
+
     def __repr__(self):
-        return self.repr(color=False)
+        color = Config.instance().get_expanded_boolean("target", "colored_repr")
+        return self.repr(color=color)
+
+    def __str__(self):
+        color = Config.instance().get_expanded_boolean("target", "colored_str")
+        return self.repr(color=color)
 
     def repr(self, color=None):
         if color is None:
-            cfg = Config.instance()
-            color = cfg.get_expanded_boolean("target", "colored_repr")
+            color = Config.instance().get_expanded_boolean("target", "colored_repr")
 
         class_name = self._repr_class_name(self.__class__.__name__, color=color)
 

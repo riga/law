@@ -985,7 +985,7 @@ def mask_struct(mask, struct, replace=no_value):
         mask_struct({"a": [False, True], "b": False}, struct)
         # => {"a": [2]}
 
-        # omitting mask information results in keeping values
+        # omitting mask information results in kept values
         mask_struct({"a": [False, True]}, struct)
         # => {"a": [2], "b": [3, ["foo", "bar"]]}
     """

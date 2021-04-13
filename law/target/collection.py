@@ -53,6 +53,8 @@ class TargetCollection(Target):
         return self.targets[key]
 
     def __iter__(self):
+        # explicitly disable iterability enabled by __getitem__ as per PEP234
+        # to (e.g.) prevent that flatten() applies to collections
         raise TypeError("'{}' object is not iterable".format(self.__class__.__name__))
 
     def _copy_kwargs(self):
@@ -60,7 +62,7 @@ class TargetCollection(Target):
         kwargs["threshold"] = self.threshold
         return kwargs
 
-    def _repr_pairs(self, color=False):
+    def _repr_pairs(self):
         return Target._repr_pairs(self) + [("len", len(self)), ("threshold", self.threshold)]
 
     def _iter_flat(self, keys=False):
@@ -240,9 +242,10 @@ class FileCollection(TargetCollection):
 
 class SiblingFileCollection(FileCollection):
     """
-    Collection of targets that represent files which are all located in the same directory. This is
-    especially beneficial for large collections of remote files. It is the user's responsibility to
-    ensure that all targets are really located in the same directory.
+    Collection of targets that represent files which are all located in the same directory.
+    Specifically, the performance of :py:meth:`exists` and :py:meth:`count` can greatly improve with
+    respect to the standard :py:class:`FileCollection` as the directory listing is used internally.
+    This is especially useful for large collections of remote files.
     """
 
     @classmethod
@@ -274,7 +277,22 @@ class SiblingFileCollection(FileCollection):
             raise Exception("{} requires at least one file target".format(self.__class__.__name__))
         self.dir = self.first_target.parent
 
-    def _repr_pairs(self, color=False):
+        # check that targets are in fact located in the same directory
+        lookup = list(self._flat_target_list)
+        while lookup:
+            target = lookup.pop(0)
+            if isinstance(target, FileSystemTarget):
+                if target.dirname != self.dir.path:
+                    raise Exception("{} {} is not located in common directory {}".format(
+                        target.__class__.__name__, target, self.dir))
+            elif isinstance(target, SiblingFileCollection):
+                if target.dir.path != self.dir.path:
+                    raise Exception("directory of {} {} differs from common directory {}".format(
+                        target.__class__.__name__, target, self.dir))
+            else:  # FileCollection
+                lookup.extend(target._flat_target_list)
+
+    def _repr_pairs(self):
         return TargetCollection._repr_pairs(self) + [("dir", self.dir.path)]
 
     def exists(self, count=None, basenames=None):
@@ -303,16 +321,21 @@ class SiblingFileCollection(FileCollection):
                 if isinstance(target, FileSystemTarget):
                     if target.basename not in basenames:
                         break
-                else:  # SiblingFileCollection
+                elif isinstance(target, SiblingFileCollection):
                     if not target.exists(basenames=basenames):
+                        break
+                else:  # FileCollection
+                    if not target.exists():
                         break
             else:
                 n += 1
 
-            # we might be done here
+            # early success
             if n >= threshold:
                 return True
-            elif n + (len(self) - i - 1) < threshold:
+
+            # early fail
+            if n + (len(self) - i - 1) < threshold:
                 return False
 
         return False
@@ -337,7 +360,7 @@ class SiblingFileCollection(FileCollection):
                 if isinstance(target, FileSystemTarget):
                     if target.basename not in basenames:
                         break
-                else:  # SiblingFileCollection
+                elif isinstance(target, SiblingFileCollection):
                     if not target.exists(basenames=basenames):
                         break
             else:

@@ -82,7 +82,8 @@ class Config(ConfigParser):
             "colored_str": True,
         },
         "target": {
-            "colored_repr": True,
+            "colored_repr": False,
+            "colored_str": True,
             "default_local_fs": "local_fs",
             "tmp_dir": os.getenv("LAW_TARGET_TMP_DIR") or tempfile.gettempdir(),
             "tmp_dir_perm": 0o0770,

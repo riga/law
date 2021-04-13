@@ -82,9 +82,8 @@ class FileSystem(luigi.target.FileSystem):
         else:
             return ".".join(parts[1:][min(-n, 0):])
 
-    @abstractmethod
     def __eq__(self, other):
-        return
+        return self is other
 
     @abstractproperty
     def default_instance(self):
