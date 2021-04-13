@@ -11,6 +11,7 @@ __all__ = [
 
 import types
 import random
+import logging
 from contextlib import contextmanager
 
 import six
@@ -19,6 +20,9 @@ from law.target.base import Target
 from law.target.file import FileSystemTarget, FileSystemDirectoryTarget, localize_file_targets
 from law.target.local import LocalDirectoryTarget
 from law.util import colored, flatten, create_hash
+
+
+logger = logging.getLogger(__name__)
 
 
 class TargetCollection(Target):
@@ -40,9 +44,9 @@ class TargetCollection(Target):
 
         # store flat targets per element in the input structure of targets
         if isinstance(targets, (list, tuple)):
-            gen = (flatten(v) for v in targets)
+            gen = (flatten(t) for t in targets)
         else:  # dict
-            gen = ((k, flatten(v)) for k, v in six.iteritems(targets))
+            gen = ((k, flatten(t)) for k, t in six.iteritems(targets))
         self._flat_targets = targets.__class__(gen)
 
         # also store an entirely flat list of targets for simplified iterations
@@ -67,25 +71,39 @@ class TargetCollection(Target):
     def _repr_pairs(self):
         return Target._repr_pairs(self) + [("len", len(self)), ("threshold", self.threshold)]
 
-    def _iter_flat(self, keys=False):
-        if isinstance(self._flat_targets, (list, tuple)):
-            if keys:
-                return enumerate(self._flat_targets)
-            else:
-                return self._flat_targets
-        else:  # dict
-            if keys:
-                return six.iteritems(self._flat_targets)
-            else:
-                return six.itervalues(self._flat_targets)
+    def _iter_flat(self, keys=False, flatten_collections=False):
+        # helper for flattening a list of targets including collections
+        if flatten_collections:
+            def flatten_collections(targets):
+                lookup = list(targets)
+                targets = []
+                while lookup:
+                    t = lookup.pop(0)
+                    if isinstance(t, TargetCollection):
+                        lookup[:0] = t._flat_target_list
+                    else:
+                        targets.append(t)
+                return targets
 
-    def iter_existing(self):
-        for targets in self._iter_flat():
+        # prepare the generator for looping
+        if isinstance(self._flat_targets, (list, tuple)):
+            gen = enumerate(self._flat_targets)
+        else:  # dict
+            gen = six.iteritems(self._flat_targets)
+
+        # loop and yield
+        for key, targets in gen:
+            if flatten_collections:
+                targets = flatten_collections(targets)
+            yield (key, targets) if keys else targets
+
+    def iter_existing(self, flatten_collections=False):
+        for targets in self._iter_flat(flatten_collections=flatten_collections):
             if all(t.exists() for t in targets):
                 yield targets
 
-    def iter_missing(self):
-        for targets in self._iter_flat():
+    def iter_missing(self, flatten_collections=False):
+        for targets in self._iter_flat(flatten_collections=flatten_collections):
             if any(not t.exists() for t in targets):
                 yield targets
 
@@ -100,7 +118,7 @@ class TargetCollection(Target):
 
     @property
     def hash(self):
-        target_hashes = "".join(target.hash for target in self._flat_target_list)
+        target_hashes = "".join(t.hash for t in self._flat_target_list)
         return create_hash(self.__class__.__name__ + target_hashes)
 
     @property
@@ -108,16 +126,13 @@ class TargetCollection(Target):
         if not self._flat_target_list:
             return None
 
-        target = self._flat_target_list[0]
+        t = self._flat_target_list[0]
 
-        if isinstance(target, TargetCollection):
-            return target.first_target
-        else:
-            return target
+        return t.first_target if isinstance(t, TargetCollection) else t
 
     def remove(self, silent=True):
-        for target in self._flat_target_list:
-            target.remove(silent=silent)
+        for t in self._flat_target_list:
+            t.remove(silent=silent)
 
     def _abs_threshold(self):
         if self.threshold < 0:
@@ -222,10 +237,10 @@ class FileCollection(TargetCollection):
         TargetCollection.__init__(self, *args, **kwargs)
 
         # check if all targets are either FileSystemTarget's or FileCollection's
-        for target in self._flat_target_list:
-            if not isinstance(target, (FileSystemTarget, FileCollection)):
+        for t in self._flat_target_list:
+            if not isinstance(t, (FileSystemTarget, FileCollection)):
                 raise TypeError("FileCollection's only wrap FileSystemTarget's and other "
-                    "FileCollection's, got {}".format(target.__class__))
+                    "FileCollection's, got {}".format(t.__class__))
 
     @contextmanager
     def localize(self, *args, **kwargs):
@@ -260,7 +275,7 @@ class SiblingFileCollection(FileCollection):
             d = directory
         else:
             raise TypeError("directory must either be a string or a FileSystemDirectoryTarget "
-                "object, got {}".format(directory))
+                "object, got '{}'".format(directory))
 
         # find all files, pass kwargs which may filter the result further
         kwargs["type"] = "f"
@@ -282,20 +297,32 @@ class SiblingFileCollection(FileCollection):
         # check that targets are in fact located in the same directory
         lookup = list(self._flat_target_list)
         while lookup:
-            target = lookup.pop(0)
-            if isinstance(target, FileSystemTarget):
-                if target.dirname != self.dir.path:
+            t = lookup.pop(0)
+            if isinstance(t, FileSystemTarget):
+                if t.dirname != self.dir.path:
                     raise Exception("{} {} is not located in common directory {}".format(
-                        target.__class__.__name__, target, self.dir))
-            elif isinstance(target, SiblingFileCollection):
-                if target.dir.path != self.dir.path:
+                        t.__class__.__name__, t, self.dir))
+            elif isinstance(t, SiblingFileCollection):
+                if t.dir.path != self.dir.path:
                     raise Exception("directory of {} {} differs from common directory {}".format(
-                        target.__class__.__name__, target, self.dir))
+                        t.__class__.__name__, t, self.dir))
             else:  # FileCollection
-                lookup.extend(target._flat_target_list)
+                lookup[:0] = t._flat_target_list
 
     def _repr_pairs(self):
         return TargetCollection._repr_pairs(self) + [("dir", self.dir.path)]
+
+    def iter_existing(self):
+        basenames = self.dir.listdir()
+        for targets in self._iter_flat(flatten_collections=True):
+            if all(t.basename in basenames for t in targets):
+                yield targets
+
+    def iter_missing(self):
+        basenames = self.dir.listdir()
+        for targets in self._iter_flat(flatten_collections=True):
+            if any(t.basename not in basenames for t in targets):
+                yield targets
 
     def exists(self, count=None, basenames=None):
         threshold = self._abs_threshold()
@@ -319,15 +346,15 @@ class SiblingFileCollection(FileCollection):
         # simple counting with early stopping criteria for both success and fail
         n = 0
         for i, targets in enumerate(self._iter_flat()):
-            for target in targets:
-                if isinstance(target, FileSystemTarget):
-                    if target.basename not in basenames:
+            for t in targets:
+                if isinstance(t, FileSystemTarget):
+                    if t.basename not in basenames:
                         break
-                elif isinstance(target, SiblingFileCollection):
-                    if not target.exists(basenames=basenames):
+                elif isinstance(t, SiblingFileCollection):
+                    if not t.exists(basenames=basenames):
                         break
                 else:  # FileCollection
-                    if not target.exists():
+                    if not t.exists():
                         break
             else:
                 n += 1
@@ -358,15 +385,15 @@ class SiblingFileCollection(FileCollection):
         n = 0
         existing_keys = []
         for key, targets in self._iter_flat(keys=True):
-            for target in targets:
-                if isinstance(target, FileSystemTarget):
-                    if target.basename not in basenames:
+            for t in targets:
+                if isinstance(t, FileSystemTarget):
+                    if t.basename not in basenames:
                         break
-                elif isinstance(target, SiblingFileCollection):
-                    if not target.exists(basenames=basenames):
+                elif isinstance(t, SiblingFileCollection):
+                    if not t.exists(basenames=basenames):
                         break
                 else:  # FileCollection
-                    if not target.exists():
+                    if not t.exists():
                         break
             else:
                 n += 1
@@ -401,11 +428,11 @@ class NestedSiblingFileCollection(FileCollection):
         self.collections = []
         self._flat_target_collections = {}
         targets = {}
-        for target in self._flat_target_list:
-            if not isinstance(target, FileSystemTarget):
+        for t in self._flat_target_list:
+            if not isinstance(t, FileSystemTarget):
                 raise Exception("{} does not support non FileSystemTarget's, got {}".format(
-                    self.__class__.__name__, target))
-            targets.setdefault(target.fs, {}).setdefault(target.dirname, []).append(target)
+                    self.__class__.__name__, t))
+            targets.setdefault(t.fs, {}).setdefault(t.dirname, []).append(t)
 
         for fs_targets in targets.values():
             for dir_targets in fs_targets.values():
@@ -413,11 +440,32 @@ class NestedSiblingFileCollection(FileCollection):
                 collection = SiblingFileCollection(dir_targets)
                 self.collections.append(collection)
                 # remember the collection per target
-                for target in dir_targets:
-                    self._flat_target_collections[target] = collection
+                for t in dir_targets:
+                    self._flat_target_collections[t] = collection
 
     def _repr_pairs(self):
         return FileCollection._repr_pairs(self) + [("collections", len(self.collections))]
+
+    def iter_existing(self):
+        # fetch basenames of all collections once
+        basenames = {collection: collection.dir.listdir() for collection in self.collections}
+
+        for targets in self._iter_flat():
+            for t in targets:
+                if t.basename not in basenames[self._flat_target_collections[t]]:
+                    break
+            else:
+                yield targets
+
+    def iter_missing(self):
+        # fetch basenames of all collections once
+        basenames = {collection: collection.dir.listdir() for collection in self.collections}
+
+        for targets in self._iter_flat():
+            for t in targets:
+                if t.basename not in basenames[self._flat_target_collections[t]]:
+                    yield targets
+                    break
 
     def exists(self, count=None):
         threshold = self._abs_threshold()
@@ -436,8 +484,8 @@ class NestedSiblingFileCollection(FileCollection):
         # simple counting with early stopping criteria for both success and fail
         n = 0
         for i, targets in enumerate(self._iter_flat()):
-            for target in targets:
-                if target.basename not in basenames[self._flat_target_collections[target]]:
+            for t in targets:
+                if t.basename not in basenames[self._flat_target_collections[t]]:
                     break
             else:
                 n += 1
@@ -460,8 +508,8 @@ class NestedSiblingFileCollection(FileCollection):
         n = 0
         existing_keys = []
         for key, targets in self._iter_flat(keys=True):
-            for target in targets:
-                if target.basename not in basenames[self._flat_target_collections[target]]:
+            for t in targets:
+                if t.basename not in basenames[self._flat_target_collections[t]]:
                     break
             else:
                 n += 1
