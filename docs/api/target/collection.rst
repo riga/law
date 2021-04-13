@@ -18,3 +18,10 @@ Class ``SiblingFileCollection``
 
 .. autoclass:: SiblingFileCollection
    :members:
+
+
+Class ``NestedSiblingFileCollection``
+-------------------------------------
+
+.. autoclass:: NestedSiblingFileCollection
+   :members:

@@ -4,7 +4,9 @@
 Collections that wrap multiple targets.
 """
 
-__all__ = ["TargetCollection", "FileCollection", "SiblingFileCollection"]
+__all__ = [
+    "TargetCollection", "FileCollection", "SiblingFileCollection", "NestedSiblingFileCollection",
+]
 
 
 import types
@@ -363,6 +365,104 @@ class SiblingFileCollection(FileCollection):
                 elif isinstance(target, SiblingFileCollection):
                     if not target.exists(basenames=basenames):
                         break
+                else:  # FileCollection
+                    if not target.exists():
+                        break
+            else:
+                n += 1
+                existing_keys.append(key)
+
+        if existing:
+            return n if not keys else (n, existing_keys)
+        else:
+            n = len(self) - n
+            missing_keys = [key for key in self.keys() if key not in existing_keys]
+            return n if not keys else (n, missing_keys)
+
+
+class NestedSiblingFileCollection(FileCollection):
+    """
+    Collection of targets that represent files which are located across several directories, with
+    files in the same directory being wrapped by a :py:class:`SiblingFileCollection` to exploit its
+    benefit over the standard :py:class:`FileCollection` (see description above). This is especially
+    useful for large collections of remote files that are located in different (sub) directories.
+
+    The constructor identifies targets located in the same directory (of the same file system),
+    creates one collection for each of them, and stores them in the *collections* attribute. Key
+    access, iteration, etc., is identical to the standard :py:class:`FileCollection`.
+    """
+
+    def __init__(self, *args, **kwargs):
+        FileCollection.__init__(self, *args, **kwargs)
+
+        # as per FileCollection's init, targets are already stored in both the _flat_targets and
+        # _flat_target_list attributes, but store them again in sibling file collections to speed up
+        # some methods by dividing them into targets with same file system and in same directories
+        self.collections = []
+        self._flat_target_collections = {}
+        targets = {}
+        for target in self._flat_target_list:
+            if not isinstance(target, FileSystemTarget):
+                raise Exception("{} does not support non FileSystemTarget's, got {}".format(
+                    self.__class__.__name__, target))
+            targets.setdefault(target.fs, {}).setdefault(target.dirname, []).append(target)
+
+        for fs_targets in targets.values():
+            for dir_targets in fs_targets.values():
+                # create and store the collection
+                collection = SiblingFileCollection(dir_targets)
+                self.collections.append(collection)
+                # remember the collection per target
+                for target in dir_targets:
+                    self._flat_target_collections[target] = collection
+
+    def _repr_pairs(self):
+        return FileCollection._repr_pairs(self) + [("collections", len(self.collections))]
+
+    def exists(self, count=None):
+        threshold = self._abs_threshold()
+
+        # trivial case
+        if threshold == 0:
+            return True
+
+        # when a count was passed, simple compare with the threshold
+        if count is not None:
+            return count >= threshold
+
+        # fetch basenames of all collections once
+        basenames = {collection: collection.dir.listdir() for collection in self.collections}
+
+        # simple counting with early stopping criteria for both success and fail
+        n = 0
+        for i, targets in enumerate(self._iter_flat()):
+            for target in targets:
+                if target.basename not in basenames[self._flat_target_collections[target]]:
+                    break
+            else:
+                n += 1
+
+            # early success
+            if n >= threshold:
+                return True
+
+            # early fail
+            if n + (len(self) - i - 1) < threshold:
+                return False
+
+        return False
+
+    def count(self, existing=True, keys=False):
+        # fetch basenames of all collections once
+        basenames = {collection: collection.dir.listdir() for collection in self.collections}
+
+        # simple counting
+        n = 0
+        existing_keys = []
+        for key, targets in self._iter_flat(keys=True):
+            for target in targets:
+                if target.basename not in basenames[self._flat_target_collections[target]]:
+                    break
             else:
                 n += 1
                 existing_keys.append(key)

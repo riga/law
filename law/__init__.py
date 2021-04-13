@@ -7,7 +7,7 @@ __all__ = [
     "BaseWorkflow", "LocalWorkflow", "workflow_property", "cached_workflow_property",
     "FileSystemTarget", "FileSystemFileTarget", "FileSystemDirectoryTarget",
     "LocalFileSystem", "LocalTarget", "LocalFileTarget, LocalDirectoryTarget",
-    "TargetCollection", "FileCollection", "SiblingFileCollection",
+    "TargetCollection", "FileCollection", "SiblingFileCollection", "NestedSiblingFileCollection",
     "Sandbox", "BashSandbox",
     "NO_STR", "NO_INT", "NO_FLOAT", "is_no_param", "get_param", "TaskInstanceParameter",
     "DurationParameter", "CSVParameter", "MultiCSVParameter", "RangeParameter",
@@ -54,7 +54,9 @@ from law.target.file import (
     FileSystemTarget, FileSystemFileTarget, FileSystemDirectoryTarget, localize_file_targets,
 )
 from law.target.local import LocalFileSystem, LocalTarget, LocalFileTarget, LocalDirectoryTarget
-from law.target.collection import TargetCollection, FileCollection, SiblingFileCollection
+from law.target.collection import (
+    TargetCollection, FileCollection, SiblingFileCollection, NestedSiblingFileCollection,
+)
 import law.decorator
 from law.task.base import Task, WrapperTask, ExternalTask
 from law.workflow.base import BaseWorkflow, workflow_property, cached_workflow_property
