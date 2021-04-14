@@ -17,7 +17,7 @@ import six
 from law.notification import notify_mail
 from law.util import (
     human_duration, parse_duration, time_units, time_unit_aliases, is_lazy_iterable, make_tuple,
-    make_unique, brace_expand, is_nested,
+    make_unique, brace_expand,
 )
 
 
@@ -375,15 +375,16 @@ class MultiCSVParameter(CSVParameter):
         if not value:
             return ""
 
-        if not is_nested(value):
-            value = (value,)
+        # ensure that value is a nested tuple
+        value = tuple(map(make_tuple, make_tuple(value)))
+
         return self.MULTI_CSV_SEP.join(
             super(MultiCSVParameter, self).serialize(v) for v in value)
 
 
 class RangeParameter(luigi.Parameter):
     """ __init__(*args, require_start=True, require_end=True, single_value=False, **kwargs)
-    Parameter that parse a range in the format ``start:stop`` and returns a tuple with two integer
+    Parameter that parses a range in the format ``start:stop`` and returns a tuple with two integer
     elements.
 
     When *require_start* or *require_stop* are *False*, the formats ``:stop`` and ``start:``,
@@ -450,12 +451,11 @@ class RangeParameter(luigi.Parameter):
         super(RangeParameter, self).__init__(*args, **kwargs)
 
     def _check(self, value):
-        if not isinstance(value, (tuple, list)):
-            raise TypeError("invalid type of range '{}'".format(value))
+        if not isinstance(value, tuple):
+            raise TypeError("invalid type of range {}, must be a tuple".format(value))
 
         elif len(value) == 1 and self._single_value:
-            v = value[0]
-            if not isinstance(v, six.integer_types):
+            if not isinstance(value[0], six.integer_types):
                 raise TypeError("invalid type of single value in range {}".format(value))
 
         elif len(value) == 2:
@@ -481,15 +481,17 @@ class RangeParameter(luigi.Parameter):
             value = tuple()
         elif isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
             value = make_tuple(inp)
+        elif isinstance(inp, six.integer_types):
+            value = (inp,)
         elif isinstance(inp, six.string_types):
             parts = inp.split(self.RANGE_SEP)
             # convert integers
             try:
                 value = tuple((int(p) if p else self.OPEN) for p in parts)
             except ValueError:
-                raise ValueError("range {} contains non-integer elements".format(tuple(parts)))
+                raise ValueError("range '{}'' contains non-integer elements".format(inp))
         else:
-            raise TypeError("cannot parse '{}' as {}".format(inp, self.__class__.__name__))
+            value = (inp,)
 
         self._check(value)
 
@@ -552,8 +554,9 @@ class MultiRangeParameter(RangeParameter):
         if not value:
             return ""
 
-        if not is_nested(value):
-            value = (value,)
+        # ensure that value is a nested tuple
+        value = tuple(map(make_tuple, make_tuple(value)))
+
         return self.MULTI_RANGE_SEP.join(
             super(MultiRangeParameter, self).serialize(v) for v in value)
 
