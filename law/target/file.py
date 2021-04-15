@@ -22,7 +22,7 @@ import luigi.task
 
 from law.config import Config
 from law.target.base import Target
-from law.util import create_hash, map_struct, create_random_string
+from law.util import map_struct, create_random_string
 
 
 class FileSystem(luigi.target.FileSystem):
@@ -60,17 +60,11 @@ class FileSystem(luigi.target.FileSystem):
     def __repr__(self):
         return "{}({})".format(self.__class__.__name__, hex(id(self)))
 
-    def hash(self, path, l=10):
-        return create_hash(self.__class__.__name__ + self.abspath(path))
-
     def dirname(self, path):
         return os.path.dirname(self.abspath(path)) if path != "/" else None
 
     def basename(self, path):
         return os.path.basename(path) if path != "/" else "/"
-
-    def unique_basename(self, path, l=10):
-        return self.hash(path, l=l) + "_" + self.basename(path)
 
     def ext(self, path, n=1):
         # split the path
@@ -81,9 +75,6 @@ class FileSystem(luigi.target.FileSystem):
             return ""
         else:
             return ".".join(parts[1:][min(-n, 0):])
-
-    def __eq__(self, other):
-        return self is other
 
     @abstractproperty
     def default_instance(self):
@@ -167,23 +158,11 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
         Target.__init__(self, **kwargs)
         luigi.target.FileSystemTarget.__init__(self, path)
 
-    def __eq__(self, other):
-        return self.__class__ == other.__class__ and \
-            self.fs == other.fs and \
-            self.fs.abspath(self.path) == other.fs.abspath(other.path)
-
     def _repr_pairs(self, color=True):
         return Target._repr_pairs(self) + [("path", self.path)]
 
     def _parent_args(self):
         return (), {}
-
-    @property
-    def hash(self):
-        return self.fs.hash(self.path)
-
-    def exists(self):
-        return self.fs.exists(self.path)
 
     @property
     def parent(self):
@@ -197,6 +176,9 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
             raise Exception("cannot determine parent of {!r}".format(self))
 
         return parent.child(*args, **kwargs)
+
+    def exists(self):
+        return self.fs.exists(self.path)
 
     @property
     def stat(self):
@@ -212,7 +194,7 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
 
     @property
     def unique_basename(self):
-        return self.fs.unique_basename(self.path)
+        return "{}_{}".format(hex(self.hash)[2:], self.basename)
 
     def remove(self, silent=True, **kwargs):
         self.fs.remove(self.path, silent=silent, **kwargs)

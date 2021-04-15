@@ -1156,13 +1156,15 @@ def readable_popen(*args, **kwargs):
     return p, line_gen()
 
 
-def create_hash(inp, l=10, algo="sha256"):
+def create_hash(inp, l=10, algo="sha256", to_int=False):
     """
-    Takes an input *inp* and creates a hash based on an algorithm *algo*. For valid algorithms, see
-    python's hashlib. *l* corresponds to the maximum length of the returned hash. Internally, the
-    string representation of *inp* is used.
+    Takes an arbitrary input *inp* and creates a hexadecimal string hash based on an algorithm
+    *algo*. For valid algorithms, see python's hashlib. *l* corresponds to the maximum length of the
+    returned hash and is limited by the length of the hexadecimal representation produced by the
+    hashing algorithm. When *to_int* is *True*, the decimal integer representation is returned.
     """
-    return getattr(hashlib, algo)(six.b(str(inp))).hexdigest()[:l]
+    h = getattr(hashlib, algo)(six.b(str(inp))).hexdigest()[:l]
+    return int(h, 16) if to_int else h
 
 
 def create_random_string(prefix="", l=10):

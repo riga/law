@@ -163,9 +163,6 @@ class RemoteFileSystem(FileSystem):
     def is_local(self, path):
         return get_scheme(path) == "file"
 
-    def hash(self, path, l=8):
-        return str(abs(hash(self.__class__.__name__ + self.base[0] + self.abspath(path))))[-l:]
-
     def abspath(self, path):
         # due to the dynamic definition of remote bases, path is supposed to be already absolute,
         # so just handle leading and trailing slashes when there is no scheme scheme

@@ -13,7 +13,7 @@ from abc import abstractmethod, abstractproperty
 import luigi
 
 from law.config import Config
-from law.util import colored
+from law.util import colored, create_hash
 
 
 logger = logging.getLogger(__name__)
@@ -27,9 +27,6 @@ class Target(luigi.target.Target):
 
         luigi.target.Target.__init__(self, *args, **kwargs)
 
-    def __eq__(self, other):
-        return self is other
-
     def __repr__(self):
         color = Config.instance().get_expanded_boolean("target", "colored_repr")
         return self.repr(color=color)
@@ -37,6 +34,13 @@ class Target(luigi.target.Target):
     def __str__(self):
         color = Config.instance().get_expanded_boolean("target", "colored_str")
         return self.repr(color=color)
+
+    def __hash__(self):
+        return self.hash
+
+    @property
+    def hash(self):
+        return create_hash(self.uri(), to_int=True)
 
     def repr(self, color=None):
         if color is None:
@@ -98,10 +102,6 @@ class Target(luigi.target.Target):
 
     @abstractmethod
     def remove(self, silent=True):
-        return
-
-    @abstractproperty
-    def hash(self):
         return
 
     @abstractmethod
