@@ -358,8 +358,8 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         "task for; -1 means this task is the workflow; default: -1")
     start_branch = luigi.IntParameter(default=NO_INT, description="the branch to start at; empty "
         "value means first; default: empty")
-    end_branch = luigi.IntParameter(default=NO_INT, description="the branch to end at; empty value "
-        "means last; default: empty")
+    end_branch = luigi.IntParameter(default=NO_INT, description="the branch to end at; the end "
+        "itself is not included; empty value means last; default: empty")
     branches = MultiRangeParameter(default=(), require_start=False, require_end=False,
         single_value=True, description="comma-separated list of branches to select; each value can "
         "have the format 'start:stop' (inclusive) to support range syntax; has precedence over "
@@ -513,26 +513,34 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         self.end_branch = sys.maxsize if self._initial_end_branch < 0 else self._initial_end_branch
         self.end_branch = max(self.start_branch, min(max_branch + 1, self.end_branch))
 
+        # rejoin branch ranges when given
+        if self.branches:
+            branches = range_expand(self.branches, min_value=min_branch, max_value=max_branch)
+            self.branches = tuple(range_join(branches))
+
     def _reduce_branch_map(self, branch_map):
         if self.is_branch():
             raise Exception("calls to _reduce_branch_map are forbidden for branch tasks")
 
-        # when given, reduce by branches, otherwise by start/end branch when already reset
+        # create a set of branches to remove
+        branches = set(branch_map.keys())
+        min_branch = min(branches)
+        max_branch = max(branches)
+        remove_branches = set()
+
+        # apply branch ranges
         if self.branches:
-            # create a set of branches to remove
-            remove_branches = set(branch_map.keys())
-            requested_branches = range_expand(self.branches, min_value=min(remove_branches),
-                max_value=max(remove_branches))
-            remove_branches -= set(requested_branches)
+            requested = set(range_expand(self.branches, min_value=min_branch, max_value=max_branch))
+            remove_branches |= branches - requested
 
-            # actual removal
-            for b in remove_branches:
-                del branch_map[b]
+        # apply {start,end}_branch
+        if 0 <= self.start_branch <= self.end_branch:
+            remove_branches |= set(range(min_branch, self.start_branch))
+            remove_branches |= set(range(self.end_branch, max_branch + 1))
 
-        elif 0 <= self.start_branch <= self.end_branch:
-            for b in list(branch_map.keys()):
-                if not (self.start_branch <= b < self.end_branch):
-                    del branch_map[b]
+        # remove from branch map
+        for b in remove_branches:
+            del branch_map[b]
 
     def get_branch_map(self, reset_boundaries=True, reduce_branches=True):
         """
