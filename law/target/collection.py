@@ -19,7 +19,7 @@ import six
 from law.target.base import Target
 from law.target.file import FileSystemTarget, FileSystemDirectoryTarget, localize_file_targets
 from law.target.local import LocalDirectoryTarget
-from law.util import colored, flatten, create_hash
+from law.util import colored, flatten
 
 
 logger = logging.getLogger(__name__)

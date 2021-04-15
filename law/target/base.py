@@ -8,7 +8,7 @@ __all__ = ["Target"]
 
 
 import logging
-from abc import abstractmethod, abstractproperty
+from abc import abstractmethod
 
 import luigi
 
