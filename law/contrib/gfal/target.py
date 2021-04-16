@@ -372,14 +372,24 @@ class GFALError_chmod(GFALOperationError):
 
     @classmethod
     def _get_reason(cls, msg, uri, scheme):
+        lmsg = msg.lower()
         if scheme == "root":
-            if msg.endswith("(No such file or directory)"):
+            if "no such file or directory" in lmsg:
                 return cls.NOT_FOUND
-        elif scheme == "dropbox":
-            if msg.startswith("Protocol not supported"):
+
+        elif scheme == "srm":
+            if "no such file or directory" in lmsg:
+                return cls.NOT_FOUND
+            elif "operation not supported" in lmsg:
                 return cls.NOT_SUPPORTED
+
+        elif scheme == "dropbox":
+            if "protocol not supported" in lmsg:
+                return cls.NOT_SUPPORTED
+
         else:
-            logger.debug("scheme '{}' not known to {}".format(scheme, cls.__name__))
+            logger.warning("scheme '{}' not known to {}, cannot parse '{}'".format(
+                scheme, cls.__name__, msg))
 
         return cls.UNKNOWN
 
@@ -391,16 +401,26 @@ class GFALError_unlink(GFALOperationError):
 
     @classmethod
     def _get_reason(cls, msg, uri, scheme):
+        lmsg = msg.lower()
         if scheme == "root":
-            if msg.endswith("(No such file or directory)"):
+            if "no such file or directory" in lmsg:
                 return cls.NOT_FOUND
-            elif msg.endswith("(Is a directory)"):
+            elif "is a directory" in lmsg:
                 return cls.IS_DIRECTORY
-        elif scheme == "dropbox":
-            if msg == "not_found":
+
+        elif scheme == "srm":
+            if "no such file" in lmsg:
                 return cls.NOT_FOUND
+            elif "not a file" in lmsg:
+                return cls.IS_DIRECTORY
+
+        elif scheme == "dropbox":
+            if "not_found" in lmsg:
+                return cls.NOT_FOUND
+
         else:
-            logger.debug("scheme '{}' not known to {}".format(scheme, cls.__name__))
+            logger.warning("scheme '{}' not known to {}, cannot parse '{}'".format(
+                scheme, cls.__name__, msg))
 
         return cls.UNKNOWN
 
@@ -413,19 +433,31 @@ class GFALError_rmdir(GFALOperationError):
 
     @classmethod
     def _get_reason(cls, msg, uri, scheme):
+        lmsg = msg.lower()
         if scheme == "root":
-            if msg.endswith("(No such file or directory)"):
+            if "no such file or directory" in lmsg:
                 return cls.NOT_FOUND
-            elif msg.endswith("(Not a directory)"):
+            elif "not a directory" in lmsg:
                 return cls.IS_FILE
-            elif msg.endswith("(No such device)"):
+            elif "no such device" in lmsg:
                 # cryptic message for non-empty directory
                 return cls.NOT_EMPTY
-        elif scheme == "dropbox":
-            if msg == "not_found":
+
+        elif scheme == "srm":
+            if "no such file or directory" in lmsg:
                 return cls.NOT_FOUND
+            elif "this file is not a directory" in lmsg:
+                return cls.IS_FILE
+            elif "directory not empty" in lmsg:
+                return cls.NOT_EMPTY
+
+        elif scheme == "dropbox":
+            if "not_found" in lmsg:
+                return cls.NOT_FOUND
+
         else:
-            logger.debug("scheme '{}' not known to {}".format(scheme, cls.__name__))
+            logger.warning("scheme '{}' not known to {}, cannot parse '{}'".format(
+                scheme, cls.__name__, msg))
 
         return cls.UNKNOWN
 
@@ -436,14 +468,22 @@ class GFALError_mkdir(GFALOperationError):
 
     @classmethod
     def _get_reason(cls, msg, uri, scheme):
+        lmsg = msg.lower()
         if scheme == "root":
-            if msg.endswith("(File exists)"):
+            if "file exists" in lmsg:
                 return cls.EXISTS
+
+        elif scheme == "srm":
+            if "directory already exist" in lmsg:
+                return cls.EXISTS
+
         elif scheme == "dropbox":
-            if msg == "The directory already exists":
+            if "the directory already exists" in lmsg:
                 return cls.EXISTS
+
         else:
-            logger.debug("scheme '{}' not known to {}".format(scheme, cls.__name__))
+            logger.warning("scheme '{}' not known to {}, cannot parse '{}'".format(
+                scheme, cls.__name__, msg))
 
         return cls.UNKNOWN
 
@@ -475,50 +515,81 @@ class GFALError_filecopy(GFALOperationError):
     def _get_reason(cls, msg, src_uri, dst_uri, src_scheme, dst_scheme):
         # in gfal, error messages on missing source files or existing target files depend on both
         # source and destination protocols, so all cases need to be handled separately
-        if src_scheme == "file" and dst_scheme == "file":
-            if msg.startswith("Could not open source"):
+        lmsg = msg.lower()
+        if (src_scheme, dst_scheme) == ("file", "file"):
+            if "could not open source" in lmsg:
                 return cls.SRC_NOT_FOUND
-            elif msg.startswith("The file exists"):
+            elif "the file exists" in lmsg:
                 return cls.DST_EXISTS
 
-        elif src_scheme == "file" and dst_scheme == "root":
-            if msg.endswith("no such file or directory (source)"):
+        elif (src_scheme, dst_scheme) == ("file", "root"):
+            if "no such file or directory (source)" in lmsg:
                 return cls.SRC_NOT_FOUND
-            elif msg.endswith("File exists"):
+            elif "file exists (destination)" in lmsg:
                 return cls.DST_EXISTS
 
-        elif src_scheme == "file" and dst_scheme == "dropbox":
-            if msg.startswith("Could not open source"):
+        elif (src_scheme, dst_scheme) == ("file", "srm"):
+            if "local system call no such file or directory" in lmsg:
                 return cls.SRC_NOT_FOUND
-            elif msg.startswith("The file exists"):
+            elif "file exists" in lmsg:
                 return cls.DST_EXISTS
 
-        elif src_scheme == "root" and dst_scheme == "file":
-            if msg.endswith("No such file or directory"):
+        elif (src_scheme, dst_scheme) == ("file", "dropbox"):
+            if "could not open source" in lmsg:
                 return cls.SRC_NOT_FOUND
-            elif msg.endswith("file exists (destination)"):
+            elif "the file exists" in lmsg:
                 return cls.DST_EXISTS
 
-        elif src_scheme == "root" and dst_scheme == "root":
-            if msg.endswith("Destination does not support delegation."):
+        if (src_scheme, dst_scheme) == ("srm", "file"):
+            if "no such file" in lmsg:
                 return cls.SRC_NOT_FOUND
-            elif msg.endswith("File exists"):
+            elif "the file exists" in lmsg:
                 return cls.DST_EXISTS
 
-        elif src_scheme == "dropbox" and dst_scheme == "file":
-            if msg.startswith("Could not open source"):
+        elif (src_scheme, dst_scheme) == ("srm", "root"):
+            if "no such file" in lmsg:
                 return cls.SRC_NOT_FOUND
-            elif msg.startswith("The file exists"):
+            elif "the file exists" in lmsg:
                 return cls.DST_EXISTS
 
-        elif src_scheme == "dropbox" and dst_scheme == "dropbox":
-            if msg.startswith("Could not open source"):
+        elif (src_scheme, dst_scheme) == ("srm", "srm"):
+            if "no such file" in lmsg:
                 return cls.SRC_NOT_FOUND
-            elif msg.startswith("The file exists"):
+            elif "file exists" in lmsg:
+                return cls.DST_EXISTS
+
+        elif (src_scheme, dst_scheme) == ("root", "file"):
+            if "no such file or directory" in lmsg:
+                return cls.SRC_NOT_FOUND
+            elif "file exists (destination)" in lmsg:
+                return cls.DST_EXISTS
+
+        elif (src_scheme, dst_scheme) == ("root", "srm"):
+            if "no such file or directory" in lmsg:
+                return cls.SRC_NOT_FOUND
+            elif "file exists" in lmsg:
+                return cls.DST_EXISTS
+
+        elif (src_scheme, dst_scheme) == ("root", "root"):
+            if "destination does not support delegation." in lmsg:
+                return cls.SRC_NOT_FOUND
+            elif "file exists" in lmsg:
+                return cls.DST_EXISTS
+
+        elif (src_scheme, dst_scheme) == ("dropbox", "file"):
+            if "could not open source" in lmsg:
+                return cls.SRC_NOT_FOUND
+            elif "the file exists" in lmsg:
+                return cls.DST_EXISTS
+
+        elif (src_scheme, dst_scheme) == ("dropbox", "dropbox"):
+            if "could not open source" in lmsg:
+                return cls.SRC_NOT_FOUND
+            elif "the file exists" in lmsg:
                 return cls.DST_EXISTS
 
         else:
-            logger.debug("combination of source scheme '{}' and target scheme '{}' not known to "
-                "{}".format(src_scheme, dst_scheme, cls.__name__))
+            logger.warning("combination of source scheme '{}' and target scheme '{}' not known to "
+                "{}, cannot parse '{}'".format(src_scheme, dst_scheme, cls.__name__, msg))
 
         return cls.UNKNOWN
