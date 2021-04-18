@@ -25,8 +25,8 @@ from law.target.file import localize_file_targets
 from law.parser import root_task, global_cmdline_values
 from law.logger import setup_logger
 from law.util import (
-    no_value, abort, common_task_params, colored, uncolored, make_list, multi_match, flatten,
-    BaseStream, human_duration, patch_object, round_discrete, classproperty,
+    no_value, abort, law_run, common_task_params, colored, uncolored, make_list, multi_match,
+    flatten, BaseStream, human_duration, patch_object, round_discrete, classproperty,
 )
 
 
@@ -96,11 +96,11 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
         """
         # always compare task families
         if task_cls is None:
-            task_family = cls.task_family
+            task_family = cls.get_task_family()
         elif isinstance(task_cls, six.string_types):
             task_family = task_cls
         else:
-            task_family = task_cls.task_family
+            task_family = task_cls.get_task_family()
 
         success = False
 
@@ -112,7 +112,7 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
                 break
             registered_cls = Register._reg[i]
 
-            if multi_match(registered_cls.task_family, task_family, mode=any):
+            if multi_match(registered_cls.get_task_family(), task_family, mode=any):
                 Register._reg.pop(i)
                 i -= 1
                 success = True
@@ -505,6 +505,37 @@ class Task(six.with_metaclass(Register, BaseTask)):
 
     def _fetch_output(self, args):
         return fetch_task_output(self, *args)
+
+    @classmethod
+    def _law_run_inst(cls, inst, _exclude=None, _replace=None, _global=None, _run_kwargs=None):
+        # get the cli arguments
+        args = inst.cli_args(exclude=_exclude, replace=_replace)
+        args = sum((make_list(tpl) for tpl in args.items()), [])
+
+        # add global parameters when given
+        if _global:
+            args.extend([str(arg) for arg in make_list(_global)])
+
+        # build the full command
+        cmd = [cls.get_task_family()] + args
+
+        # run it
+        return law_run(cmd, **(_run_kwargs or {}))
+
+    @classmethod
+    def law_run_inst(cls, _exclude=None, _replace=None, _global=None, _run_kwargs=None, **kwargs):
+        # create a new instance
+        inst = cls(**kwargs)
+
+        return cls._law_run_inst(inst, _exclude=_exclude, _replace=_replace, _global=_global,
+            _run_kwargs=_run_kwargs)
+
+    def law_run(self, _exclude=None, _replace=None, _global=None, _run_kwargs=None, **kwargs):
+        # when kwargs are given, create a new instance
+        inst = self.req(self, **kwargs) if kwargs else self
+
+        return self._law_run_inst(inst, _exclude=_exclude, _replace=_replace, _global=_global,
+            _run_kwargs=_run_kwargs)
 
     def localize_input(self, *args, **kwargs):
         return localize_file_targets(self.input(), *args, **kwargs)

@@ -110,11 +110,11 @@ def law_home_path(*paths):
     return law_home_path(*paths)
 
 
-def law_run(argv):
+def law_run(argv, **kwargs):
     """
     Runs a task with certain parameters as defined in *argv*, which can be a string or a list of
     strings. It must start with the family of the task to run, followed by the desired parameters.
-    Example:
+    All *kwargs* are forwarded to :py:func:`luigi.interface.run`. Example:
 
     .. code-block:: python
 
@@ -129,10 +129,10 @@ def law_run(argv):
     else:
         argv = [str(arg) for arg in argv]
 
-    # luigis pid locking must be disabled
+    # luigi's pid locking must be disabled
     argv.append("--no-lock")
 
-    return luigi_run(argv)
+    return luigi_run(argv, **kwargs)
 
 
 def print_err(*args, **kwargs):
