@@ -404,11 +404,12 @@ def is_pattern(s):
     return "*" in s or "?" in s
 
 
-def brace_expand(s, split_csv=False):
+def brace_expand(s, split_csv=False, escape_csv_sep=True):
     """
     Expands brace statements in a string *s* and returns a list containing all possible string
-    combinations. When *split_csv* is *True*, the input string is split by all ``","`` characters
-    located outside braces and the expansion is performed sequentially on all elements. Example:
+    combinations. When *split_csv* is *True*, the input string is split by all comma characters
+    located outside braces, except for escaped ones when *escape_csv_sep* is *True*, and the
+    expansion is performed sequentially on all elements. Example:
 
     .. code-block:: python
 
@@ -440,14 +441,22 @@ def brace_expand(s, split_csv=False):
 
     # take into account csv splitting
     if split_csv:
-        # replace commas in brace statements to avoid splitting
-        br_comma = "__law_brace_comma__"
-        _s = cre.sub(lambda m: m.group(0).replace(",", br_comma), s)
-        # split by real csv commas and start recursion when a comma was found, otherwise continue
+        # replace csv separators in brace statements to avoid splitting
+        br_sep = "__law_brace_csv_sep__"
+        _s = cre.sub(lambda m: m.group(0).replace(",", br_sep), s)
+        # replace escaped commas
+        if escape_csv_sep:
+            escaped_sep = "__law_escaped_csv_sep__"
+            _s = _s.replace(r"\,", escaped_sep)
+        # split by real csv separators except escaped ones when requested,
         parts = _s.split(",")
+        # add back normal commas
+        if escape_csv_sep:
+            parts = [part.replace(escaped_sep, ",") for part in parts]
+        # start recursion when a comma was found, otherwise continue
         if len(parts) > 1:
-            # replace commas in braces again and recurse
-            parts = [part.replace(br_comma, ",") for part in parts]
+            # replace csv separators in braces again and recurse
+            parts = [part.replace(br_sep, ",") for part in parts]
             return sum((brace_expand(part, split_csv=False) for part in parts), [])
 
     # split the string into n sequences with values to expand and n+1 fixed entities

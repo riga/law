@@ -11,6 +11,8 @@ __all__ = [
 ]
 
 
+import logging
+
 import luigi
 import six
 
@@ -20,6 +22,8 @@ from law.util import (
     make_unique, brace_expand,
 )
 
+
+logger = logging.getLogger(__name__)
 
 # make luigi's BoolParameter parsing explicit globally, https://github.com/spotify/luigi/pull/2427
 luigi.BoolParameter.parsing = getattr(luigi.BoolParameter, "EXPLICIT_PARSING", "explicit")
@@ -135,7 +139,7 @@ class DurationParameter(luigi.Parameter):
 
 class CSVParameter(luigi.Parameter):
     """ __init__(*args, cls=luigi.Parameter, unique=False, sort=False, min_len=None, max_len=None, \
-        choices=None, brace_expand=False, **kwargs)
+        choices=None, brace_expand=False, escape_sep=True, **kwargs)
     Parameter that parses a comma-separated value (CSV) and produces a tuple. *cls* can refer to an
     other parameter class that will be used to parse and serialize the particular items.
 
@@ -148,7 +152,8 @@ class CSVParameter(luigi.Parameter):
     of accepted values.
 
     When *brace_expand* is *True*, brace expansion is applied, potentially extending the list of
-    values.
+    values. Unless *escape_sep* is *False*, escaped separators (comma) are not split when parsing
+    strings and, likewise, separators contained in values to serialze are escaped.
 
     Example:
 
@@ -207,6 +212,7 @@ class CSVParameter(luigi.Parameter):
         self._max_len = kwargs.pop("max_len", None)
         self._choices = kwargs.pop("choices", None)
         self._brace_expand = kwargs.pop("brace_expand", False)
+        self._escape_sep = kwargs.pop("escape_sep", True)
 
         # ensure that the default value is a tuple
         if "default" in kwargs:
@@ -215,6 +221,12 @@ class CSVParameter(luigi.Parameter):
         super(CSVParameter, self).__init__(*args, **kwargs)
 
         self._inst = self._cls()
+
+        # brace expansion is only supported when CSV_SEP is ","
+        if self._brace_expand and self.CSV_SEP != ",":
+            logger.warning("{!r} does not support brace expansion when CSV_SEP is not a ','".format(
+                self))
+            self._brace_expand = False
 
     def _check_unique(self, value):
         if not self._unique:
@@ -265,9 +277,17 @@ class CSVParameter(luigi.Parameter):
             value = make_tuple(inp)
         elif isinstance(inp, six.string_types):
             if self._brace_expand:
-                elems = brace_expand(inp, split_csv=True)
+                elems = brace_expand(inp, split_csv=True, escape_csv_sep=self._escape_sep)
             else:
+                # replace escaped separators
+                if self._escape_sep:
+                    escaped_sep = "__law_escaped_csv_sep__"
+                    inp = inp.replace("\\" + self.CSV_SEP, escaped_sep)
+                # split
                 elems = inp.split(self.CSV_SEP)
+                # add back escaped separators per element
+                if self._escape_sep:
+                    elems = [elem.replace(escaped_sep, self.CSV_SEP) for elem in elems]
             value = tuple(map(self._inst.parse, elems))
         else:
             value = (inp,)
@@ -298,14 +318,18 @@ class CSVParameter(luigi.Parameter):
 
 class MultiCSVParameter(CSVParameter):
     """ __init__(*args, cls=luigi.Parameter, unique=False, sort=False, min_len=None, max_len=None, \
-        choices=None, brace_expand=False, **kwargs)
+        choices=None, brace_expand=False, escape_sep=True, **kwargs)
     Parameter that parses several comma-separated values (CSV), separated by colons, and produces a
     nested tuple. *cls* can refer to an other parameter class that will be used to parse and
     serialize the particular items.
 
     Except for the additional support for multiple CSV sequences, the parsing and serialization
     implementation is based on :py:class:`CSVParameter`, which also handles the features controlled
-    by *unique*, *sort*, *max_len*, *min_len*, *choices* and *brace_expand* per sequence of values.
+    by *unique*, *sort*, *max_len*, *min_len*, *choices*, *brace_expand* and *escape_sep* per
+    sequence of values.
+
+    Unless *escape_sep* is *False*, escaped separators (colon) are not split when parsing strings
+    and, likewise, separators contained in values to serialze are escaped.
 
     Example:
 
@@ -363,7 +387,15 @@ class MultiCSVParameter(CSVParameter):
         elif isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
             value = tuple(super(MultiCSVParameter, self).parse(v) for v in inp)
         elif isinstance(inp, six.string_types):
+            # replace escaped separators
+            if self._escape_sep:
+                escaped_sep = "__law_escaped_multi_csv_sep__"
+                inp = inp.replace("\\" + self.MULTI_CSV_SEP, escaped_sep)
+            # split
             elems = inp.split(self.MULTI_CSV_SEP)
+            # add back escaped separators per element
+            if self._escape_sep:
+                elems = [elem.replace(escaped_sep, self.MULTI_CSV_SEP) for elem in elems]
             value = tuple(super(MultiCSVParameter, self).parse(e) for e in elems)
         else:
             value = (super(MultiCSVParameter, self).parse(inp),)
