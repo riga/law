@@ -328,7 +328,7 @@ def get_path(target):
 def get_scheme(uri):
     # ftp://path/to/file -> ftp
     # /path/to/file -> None
-    m = re.match(r"^(\w+\:\/\/).*$", uri)
+    m = re.match(r"^(\w+)\:\/\/.*$", uri)
     return m.group(1) if m else None
 
 
