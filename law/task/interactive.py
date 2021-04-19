@@ -91,7 +91,8 @@ def print_task_status(task, max_depth=0, target_depth=0, flags=None):
         offset = depth * ("|" + ind)
         print(offset)
 
-        # when the dep is a workflow, preload its branch map which updates branch parameters
+        # when the dep is a workflow, independent of its create_branch_map_before_repr setting,
+        # preload its branch map which updates branch parameters
         if isinstance(dep, BaseWorkflow):
             dep.get_branch_map()
 
@@ -161,7 +162,8 @@ def remove_task_output(task, max_depth=0, mode=None, run_task=False):
         offset = depth * ("|" + ind)
         print(offset)
 
-        # when the dep is a workflow, preload its branch map which updates branch parameters
+        # when the dep is a workflow, independent of its create_branch_map_before_repr setting,
+        # preload its branch map which updates branch parameters
         if isinstance(dep, BaseWorkflow):
             dep.get_branch_map()
 
@@ -265,7 +267,8 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
         offset = depth * ("|" + ind)
         print(offset)
 
-        # when the dep is a workflow, preload its branch map which updates branch parameters
+        # when the dep is a workflow, independent of its create_branch_map_before_repr setting,
+        # preload its branch map which updates branch parameters
         if isinstance(dep, BaseWorkflow):
             dep.get_branch_map()
 

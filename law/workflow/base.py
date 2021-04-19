@@ -303,6 +303,12 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
        Flag that denotes whether the branch map should be recreated from scratch before the run
        method of the underlying workflow proxy is called.
 
+    .. py:classattribute:: create_branch_map_before_repr
+       type: bool
+
+       Flag that denotes whether the branch map should be created (if not already done) before the
+       task representation is created via :py:meth:`repr`.
+
     .. py:classattribute:: workflow_property
        type: function
 
@@ -370,6 +376,7 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
     output_collection_cls = None
     force_contiguous_branches = False
     reset_branch_map_before_run = False
+    create_branch_map_before_repr = True
     workflow_run_decorators = None
     workflow_complete = None
 
@@ -420,6 +427,12 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
 
     def __getattribute__(self, attr, proxy=True):
         return get_proxy_attribute(self, attr, proxy=proxy, super_cls=Task)
+
+    def repr(self, *args, **kwargs):
+        if self.create_branch_map_before_repr:
+            self.get_branch_map()
+
+        return super(BaseWorkflow, self).repr(*args, **kwargs)
 
     def cli_args(self, exclude=None, replace=None):
         exclude = set() if exclude is None else set(make_list(exclude))
