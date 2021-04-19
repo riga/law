@@ -115,11 +115,12 @@ def print_task_status(task, max_depth=0, target_depth=0, flags=None):
             print("{}{} {}".format(ooffset, ind, status_text))
 
 
-def print_task_output(task, max_depth=0, scheme=False):
+def print_task_output(task, max_depth=0, scheme=True):
     max_depth = int(max_depth)
     scheme = flag_to_bool(scheme)
 
-    print("print task output with max_depth {}\n".format(max_depth))
+    print("print task output with max_depth {}, {} schemes\n".format(
+        max_depth, "showing" if scheme else "hiding"))
 
     done = []
     for dep, _, depth in task.walk_deps(max_depth=max_depth, order="pre"):
