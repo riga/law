@@ -152,7 +152,8 @@ class RemoteCache(object):
         logger.debug("cleanup RemoteCache at '{}'".format(self.base))
 
     def cache_path(self, rpath):
-        return os.path.join(self.base, self.fs.unique_basename(rpath))
+        basename = "{}_{}".format(create_hash(rpath), os.path.basename(rpath))
+        return os.path.join(self.base, basename)
 
     def _lock_path(self, cpath):
         return cpath + self.lock_postfix
