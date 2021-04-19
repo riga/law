@@ -16,7 +16,6 @@ import re
 from abc import abstractmethod, abstractproperty
 from contextlib import contextmanager
 
-import six
 import luigi
 import luigi.task
 
@@ -329,7 +328,8 @@ def get_path(target):
 def get_scheme(uri):
     # ftp://path/to/file -> ftp
     # /path/to/file -> None
-    return six.moves.urllib_parse.urlparse(uri).scheme or None
+    m = re.match(r"^(\w+\:\/\/).*$", uri)
+    return m.group(1) if m else None
 
 
 def has_scheme(uri):
@@ -344,7 +344,7 @@ def add_scheme(path, scheme):
 def remove_scheme(uri):
     # ftp://path/to/file -> /path/to/file
     # /path/to/file -> /path/to/file
-    return six.moves.urllib_parse.urlparse(uri).path or None
+    return re.sub(r"^(\w+\:\/\/)", "", uri)
 
 
 @contextmanager
