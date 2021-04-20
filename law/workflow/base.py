@@ -376,7 +376,7 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
     output_collection_cls = None
     force_contiguous_branches = False
     reset_branch_map_before_run = False
-    create_branch_map_before_repr = True
+    create_branch_map_before_repr = False
     workflow_run_decorators = None
     workflow_complete = None
 
