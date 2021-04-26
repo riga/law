@@ -474,7 +474,8 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                     )
                     self.submit()
 
-                    # sleep once to give the job interface time to register the jobs
+                # sleep once to give the job interface time to register the jobs
+                if not submitted and not task.no_poll:
                     post_submit_delay = self._get_task_attribute("post_submit_delay", True)()
                     if post_submit_delay > 0:
                         logger.debug("sleep for {} second(s) due to post_submit_delay".format(
