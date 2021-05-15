@@ -41,7 +41,7 @@ _law_complete() {
     # complete the "run" subcommand
     if [ "$sub_cmd" = "run" ]; then
         # common task run parameters
-        local common_run_params="workers local-scheduler log-level help"
+        local common_run_params="workers local-scheduler scheduler-host scheduler-port log-level help"
 
         # no completion when no index file is found
         if [ ! -f "$index_file" ]; then
