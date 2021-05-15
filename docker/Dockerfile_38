@@ -7,8 +7,8 @@ LABEL law.image_tag="py38"
 LABEL law.image_dir="law-py38"
 LABEL law.image_python_major="3"
 LABEL law.image_python_minor="8"
-LABEL law.image_python_patch="8"
-LABEL law.image_python="3.8.8"
+LABEL law.image_python_patch="10"
+LABEL law.image_python="3.8.10"
 LABEL law.image_python_mm="3.8"
 
 # law specific environment variables
@@ -17,7 +17,7 @@ ENV LAW_IMAGE_NAME law-py38
 ENV LAW_IMAGE_TAG py38
 ENV LAW_IMAGE_PYTHON_MAJOR 3
 ENV LAW_IMAGE_PYTHON_MINOR 8
-ENV LAW_IMAGE_PYTHON_PATCH 8
+ENV LAW_IMAGE_PYTHON_PATCH 10
 ENV LAW_IMAGE_PYTHON ${LAW_IMAGE_PYTHON_MAJOR}.${LAW_IMAGE_PYTHON_MINOR}.${LAW_IMAGE_PYTHON_PATCH}
 ENV LAW_IMAGE_PYTHON_MM ${LAW_IMAGE_PYTHON_MAJOR}.${LAW_IMAGE_PYTHON_MINOR}
 ENV LAW_IMAGE_SOURCE_DIR /root/law
