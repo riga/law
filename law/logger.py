@@ -47,10 +47,14 @@ def setup_logging():
 def setup_logger(name, level=None, add_console_handler=True, clear=False):
     """
     Sets up a logger given by its *name*, configures it to have a certain *level* and adds a
-    preconfigured console handler when *add_console_handler* is *True*. The *name* can either be an
-    integer or the name of a level present in the *logging* module. When no *level* is given, the
-    level of the ``"law"`` base logger is used as a default. When the logger already existed and
-    *clear* is *True*, all handlers and filters are removed first. The logger object is returned.
+    preconfigured console handler when *add_console_handler* is *True*. When *add_console_handler*
+    is a dictionary, it items are forwarded as keyword arguments to the
+    :py:func:`create_stream_handler` which handles the handler setup internally.
+
+    *name* can either be an integer or the name of a level present in the *logging* module. When no
+    *level* is  given, the level of the ``"law"`` base logger is used as a default. When the logger
+    already existed and *clear* is *True*, all handlers and filters are removed first. The logger
+    object is returned.
     """
     # sanitize the level
     if isinstance(level, six.string_types):
@@ -71,8 +75,9 @@ def setup_logger(name, level=None, add_console_handler=True, clear=False):
     logger.setLevel(level)
 
     # add a console handler
-    if add_console_handler:
-        logger.addHandler(create_stream_handler())
+    if add_console_handler or isinstance(add_console_handler, dict):
+        kwargs = add_console_handler if isinstance(add_console_handler, dict) else {}
+        logger.addHandler(create_stream_handler(**kwargs))
 
     return logger
 

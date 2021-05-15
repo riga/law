@@ -1924,9 +1924,15 @@ class BaseStream(object):
 
     FLUSH_AFTER_WRITE = True
 
-    def __init__(self):
+    def __init__(self, flush_after_write=None):
         super(BaseStream, self).__init__()
+
         self.closed = False
+        self.flush_after_write = flush_after_write
+
+    @property
+    def _flush_after_write(self):
+        return self.FLUSH_AFTER_WRITE if self.flush_after_write is None else self.flush_after_write
 
     def __del__(self):
         self.close()
@@ -1940,6 +1946,7 @@ class BaseStream(object):
     def close(self):
         if not self.closed:
             self.flush()
+
             self._close()
             self.closed = True
 
@@ -1950,7 +1957,8 @@ class BaseStream(object):
     def write(self, *args, **kwargs):
         if not self.closed:
             self._write(*args, **kwargs)
-            if self.FLUSH_AFTER_WRITE:
+
+            if self._flush_after_write:
                 self.flush()
 
     def _close(self):
@@ -1964,10 +1972,13 @@ class BaseStream(object):
 
 
 class TeeStream(BaseStream):
-    """ __init__(*consumers, mode="w")
+    """ __init__(*consumers, mode="w", **kwargs)
     Multi-stream object that forwards calls to :py:meth:`write` and :py:meth:`flush` to all
     registered *consumer* streams. When a *consumer* is a string, it is interpreted as a file which
-    is opened for writing (similar to *tee* in bash). Example:
+    is opened for writing (similar to *tee* in bash). All *kwargs* are forwarded to the
+    :py:class:`BaseStream` constructor.
+
+    Example:
 
     .. code-block:: python
 
@@ -1976,9 +1987,9 @@ class TeeStream(BaseStream):
     """
 
     def __init__(self, *consumers, **kwargs):
-        super(TeeStream, self).__init__()
+        mode = kwargs.pop("mode", "w")
 
-        mode = kwargs.get("mode", "w")
+        super(TeeStream, self).__init__(**kwargs)
 
         self.consumers = []
         self.open_files = []
@@ -2017,11 +2028,11 @@ class FilteredStream(BaseStream):
     """
     Stream object that accepts in input *stream* and a function *filter_fn* which is called upon
     every call to :py:meth:`write`. The payload is written when the returned value evaluates to
-    *True*.
+    *True*. All *kwargs* are forwarded to the :py:class:`BaseStream` constructor.
     """
 
-    def __init__(self, stream, filter_fn):
-        super(FilteredStream, self).__init__()
+    def __init__(self, stream, filter_fn, **kwargs):
+        super(FilteredStream, self).__init__(**kwargs)
         self.stream = stream
         self.filter_fn = filter_fn
 

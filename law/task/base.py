@@ -26,7 +26,7 @@ from law.parser import root_task, global_cmdline_values
 from law.logger import setup_logger
 from law.util import (
     no_value, abort, law_run, common_task_params, colored, uncolored, make_list, multi_match,
-    flatten, BaseStream, human_duration, patch_object, round_discrete, classproperty,
+    flatten, BaseStream, human_duration, patch_object, round_discrete,
 )
 
 
@@ -183,15 +183,11 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
 
         return params
 
-    @classmethod
-    def get_logger_name(cls):
-        return "{}.{}".format(cls.__module__, cls.__name__)
+    def __init__(self, *args, **kwargs):
+        super(BaseTask, self).__init__(*args, **kwargs)
 
-    @classproperty
-    def logger(cls):
-        name = cls.get_logger_name()
-        is_configured = name in logging.root.manager.loggerDict
-        return logging.getLogger(name) if is_configured else setup_logger(name)
+        # task level logger, created lazily
+        self._task_logger = None
 
     def complete(self):
         outputs = [t for t in flatten(self.output()) if not t.optional]
@@ -202,6 +198,25 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
             return False
 
         return all(t.exists() for t in outputs)
+
+    @abstractmethod
+    def run(self):
+        return
+
+    def get_logger_name(self):
+        return self.task_id
+
+    def _create_logger(self, name, level=None):
+        return setup_logger(name, level=level)
+
+    @property
+    def logger(self):
+        if not self._task_logger:
+            name = self.get_logger_name()
+            existing = name in logging.root.manager.loggerDict
+            self._task_logger = logging.getLogger(name) if existing else self._create_logger(name)
+
+        return self._task_logger
 
     @property
     def live_task_id(self):
@@ -259,10 +274,6 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
             args["--" + name.replace("_", "-")] = str(val)
 
         return args
-
-    @abstractmethod
-    def run(self):
-        return
 
 
 class Register(BaseRegister):
@@ -358,26 +369,32 @@ class Task(six.with_metaclass(Register, BaseTask)):
     def is_root_task(self):
         return root_task() == self
 
-    def publish_message(self, msg, scheduler=True):
+    def publish_message(self, msg, stdout=sys.stdout, scheduler=True, flush_cache=False):
         msg = str(msg)
 
-        sys.stdout.write(msg + "\n")
-        sys.stdout.flush()
+        # write to stdout
+        if stdout:
+            stdout.write(msg + "\n")
+            stdout.flush()
 
+        # publish to the scheduler
         if scheduler:
-            self._publish_message(msg)
+            self._publish_message(msg, flush_cache=flush_cache)
 
-    def _publish_message(self, msg):
-        msg = str(msg)
+    def _publish_message(self, msg, flush_cache=False):
+        msg = uncolored(str(msg))
+
+        # flush the message cache?
+        if flush_cache:
+            del self._message_cache[:]
 
         # add to message cache and handle overflow
-        msg = uncolored(msg)
         self._message_cache.append(msg)
         if self.message_cache_size >= 0:
             end = max(len(self._message_cache) - self.message_cache_size, 0)
             del self._message_cache[:end]
 
-        # set status message using the current message cache
+        # set status message based on the full, current message cache
         if callable(getattr(self, "set_status_message", None)):
             self.set_status_message("\n".join(self._message_cache))
         else:
@@ -386,10 +403,15 @@ class Task(six.with_metaclass(Register, BaseTask)):
     def create_message_stream(self, *args, **kwargs):
         return TaskMessageStream(self, *args, **kwargs)
 
+    def _create_logger(self, name, level=None, **kwargs):
+        return setup_logger(name, level=level, add_console_handler={
+            "handler_kwargs": {"stream": self.create_message_stream(**kwargs)},
+        })
+
     @contextmanager
     def publish_step(self, msg, success_message="done", fail_message="failed", runtime=True,
-            scheduler=True):
-        self.publish_message(msg, scheduler=scheduler)
+            scheduler=True, flush_cache=False):
+        self.publish_message(msg, scheduler=scheduler, flush_cache=flush_cache)
         success = False
         t0 = time.time()
         try:
@@ -400,7 +422,7 @@ class Task(six.with_metaclass(Register, BaseTask)):
             if runtime:
                 diff = time.time() - t0
                 msg = "{} (took {})".format(msg, human_duration(seconds=diff))
-            self.publish_message(msg, scheduler=scheduler)
+            self.publish_message(msg, scheduler=scheduler, flush_cache=flush_cache)
 
     def publish_progress(self, percentage, precision=1):
         percentage = int(round_discrete(percentage, precision, "floor"))
@@ -574,17 +596,18 @@ class ExternalTask(Task):
 
 class TaskMessageStream(BaseStream):
 
-    def __init__(self, task, stdout=True, scheduler=True):
-        super(TaskMessageStream, self).__init__()
+    def __init__(self, task, stdout=sys.stdout, scheduler=True, flush_cache=False, **kwargs):
+        super(TaskMessageStream, self).__init__(**kwargs)
+
         self.task = task
         self.stdout = stdout
         self.scheduler = scheduler
+        self.flush_cache = flush_cache
 
     def _write(self, msg):
-        if self.stdout:
-            self.task.publish_message(msg, scheduler=self.scheduler)
-        elif self.scheduler:
-            self.task._publish_message(msg)
+        # foward to publish_message
+        self.task.publish_message(msg.rstrip("\n"), stdout=self.stdout, scheduler=self.scheduler,
+            flush_cache=self.flush_cache)
 
 
 # trailing imports
