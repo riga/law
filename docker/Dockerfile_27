@@ -72,7 +72,9 @@ RUN git clone https://github.com/cern-it-sdc-id/gfal2-dropbox.git && \
     rm -rf gfal2-dropbox
 
 # python packages
-RUN easy_install-2.7 pip==20.3.4
+RUN curl https://bootstrap.pypa.io/pip/2.7/get-pip.py -o get-pip.py && \
+    python get-pip.py --no-setuptools --no-wheel pip==20.3.4 && \
+    rm -f get-pip.py
 RUN pip install --no-cache-dir --upgrade setuptools
 RUN pip install --no-cache-dir readline
 RUN pip install --no-cache-dir slackclient
