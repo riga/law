@@ -219,7 +219,7 @@ class HTCondorJobManager(BaseJobManager):
                         "\n{}".format(job_id, code, err))
 
             # parse the output and update query data
-            query_data.update(self.parse_long_output(out, job_ids=missing_ids))
+            query_data.update(self.parse_long_output(out))
 
         # compare to the requested job ids and perform some checks
         for _job_id in job_ids:
@@ -237,7 +237,7 @@ class HTCondorJobManager(BaseJobManager):
         return query_data if chunking else query_data[job_id]
 
     @classmethod
-    def parse_long_output(cls, out, job_ids=None):
+    def parse_long_output(cls, out):
         # retrieve information per block mapped to the job id
         query_data = {}
         for block in out.strip().split("\n\n"):
