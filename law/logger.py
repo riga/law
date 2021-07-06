@@ -127,46 +127,112 @@ def get_tty_handlers(logger):
 
 
 class LogFormatter(logging.Formatter):
-    """
-    Law log formatter class using timestamps and colored log levels.
+    """ __init__(*args, log_template=None, err_template=None, level_styles=None, name_styles=None, \
+        msg_styles=None, format_level=None, format_name=None, format_msg=None, **kwargs)
+    Configurable formatter class for colored logs. When set, *log_template*, *err_template*,
+    *level_styles*, *name_styles*, *msg_styles*, *format_level*, *format_name* and *format_msg*
+    control the log formats and styles on instance level. When *None*, they default to the upper
+    case class level attributes described below. All *args* and *kwargs* are forwarded to
+    :py:class:`logging.Formatter`.
 
-    .. py:classattribute:: tmpl
+    .. py:classattribute:: LOG_TEMPLATE
        type: string
 
-       Template for log messages.
+       Template for log messages without stack traces.
 
-    .. py:classattribute:: level_styles
+    .. py:classattribute:: ERR_TEMPLATE
+       type: string
+
+       Template for log messages including stack traces.
+
+    .. py:classattribute:: LEVEL_STYLES
        type: dict
 
-       Style attributes per log level for coloring and highlighting via :py:func:`law.util.colored`.
+       Style attributes forwarded to :py:func:`law.util.colored` per log level for styling level
+       names in logs
+
+    .. py:classattribute:: NAME_STYLES
+       type: dict
+
+       Style attributes forwarded to :py:func:`law.util.colored` per log level for styling logger
+       names in logs.
+
+    .. py:classattribute:: MSG_STYLES
+       type: dict
+
+       Style attributes forwarded to :py:func:`law.util.colored` per log level for styling messages
+       in logs.
+
+    .. py:classattribute:: FORMAT_LEVEL
+       type: callable or None
+
+       Custom callback to format the log level using the full record.
+
+    .. py:classattribute:: FORMAT_NAME
+       type: callable or None
+
+       Custom callback to format the loger name using the full record.
+
+    .. py:classattribute:: FORMAT_MSG
+       type: callable or None
+
+       Custom callback to format the log message using the full record.
     """
 
-    tmpl = "{level}: {name} - {msg}"
-    tmpl_error = "{level}: {name} - {msg}\n{traceback}"
+    LOG_TEMPLATE = "{level}: {name} - {msg}"
+    ERR_TEMPLATE = "{level}: {name} - {msg}\n{traceback}"
 
-    level_styles = {
-        "NOTSET": {},
+    LEVEL_STYLES = {
         "DEBUG": {"color": "cyan"},
         "INFO": {"color": "green"},
         "WARNING": {"color": "yellow"},
         "ERROR": {"color": "red"},
         "CRITICAL": {"color": "red", "style": "bright"},
     }
+    NAME_STYLES = {}
+    MSG_STYLES = {
+        "WARNING": {"color": "yellow"},
+        "ERROR": {"color": "red"},
+        "CRITICAL": {"color": "red", "style": "bright"},
+    }
 
-    format_msg = None
+    FORMAT_LEVEL = None
+    FORMAT_NAME = None
+    FORMAT_MSG = None
+
+    def __init__(self, *args, **kwargs):
+        self.log_template = kwargs.pop("log_template", self.LOG_TEMPLATE)
+        self.err_template = kwargs.pop("err_template", self.ERR_TEMPLATE)
+        self.level_styles = kwargs.pop("level_styles", self.LEVEL_STYLES)
+        self.name_styles = kwargs.pop("name_styles", self.NAME_STYLES)
+        self.msg_styles = kwargs.pop("msg_styles", self.MSG_STYLES)
+        self.format_level = kwargs.pop("format_level", self.FORMAT_LEVEL)
+        self.format_name = kwargs.pop("format_name", self.FORMAT_NAME)
+        self.format_msg = kwargs.pop("format_msg", self.FORMAT_MSG)
+
+        super(LogFormatter, self).__init__(*args, **kwargs)
 
     def format(self, record):
         """"""
-        data = dict(
-            level=colored(record.levelname, **self.level_styles.get(record.levelname, {})),
-            name=record.name,
-            msg=self.format_msg(record) if callable(self.format_msg) else record.getMessage(),
-        )
-        tmpl = self.tmpl
+        # get and style the level
+        level = self.format_level(record) if callable(self.format_level) else record.levelname
+        level = colored(level, **self.level_styles.get(record.levelname, {}))
+
+        # get and style the name
+        name = self.format_name(record) if callable(self.format_name) else record.name
+        name = colored(name, **self.name_styles.get(record.levelname, {}))
+
+        # get and style the message
+        msg = self.format_msg(record) if callable(self.format_msg) else record.getMessage()
+        msg = colored(msg, **self.msg_styles.get(record.levelname, {}))
+
+        # build template data
+        tmpl = self.log_template
+        data = dict(level=level, name=name, msg=msg)
 
         # add traceback and change the template when the record contains exception info
         if record.exc_info:
+            tmpl = self.err_template
             data["traceback"] = self.formatException(record.exc_info)
-            tmpl = self.tmpl_error
 
         return tmpl.format(**data)

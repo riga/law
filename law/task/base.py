@@ -369,7 +369,7 @@ class Task(six.with_metaclass(Register, BaseTask)):
     def is_root_task(self):
         return root_task() == self
 
-    def publish_message(self, msg, stdout=sys.stdout, scheduler=True, flush_cache=False):
+    def publish_message(self, msg, stdout=sys.stdout, scheduler=True, **kwargs):
         msg = str(msg)
 
         # write to stdout
@@ -379,9 +379,9 @@ class Task(six.with_metaclass(Register, BaseTask)):
 
         # publish to the scheduler
         if scheduler:
-            self._publish_message(msg, flush_cache=flush_cache)
+            self._publish_message(msg, **kwargs)
 
-    def _publish_message(self, msg, flush_cache=False):
+    def _publish_message(self, msg, flush_cache=False, silent=False):
         msg = uncolored(str(msg))
 
         # flush the message cache?
@@ -397,7 +397,7 @@ class Task(six.with_metaclass(Register, BaseTask)):
         # set status message based on the full, current message cache
         if callable(getattr(self, "set_status_message", None)):
             self.set_status_message("\n".join(self._message_cache))
-        else:
+        elif not silent:
             logger.warning("set_status_message not set, cannot send task message to scheduler")
 
     def create_message_stream(self, *args, **kwargs):
@@ -607,7 +607,7 @@ class TaskMessageStream(BaseStream):
     def _write(self, msg):
         # foward to publish_message
         self.task.publish_message(msg.rstrip("\n"), stdout=self.stdout, scheduler=self.scheduler,
-            flush_cache=self.flush_cache)
+            flush_cache=self.flush_cache, silent=True)
 
 
 # trailing imports
