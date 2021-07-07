@@ -290,6 +290,10 @@ class Register(BaseRegister):
                     logger.debug("evaluating interactive parameter '{}' with value {}".format(
                         param, value))
                     skip_abort = getattr(inst, "_" + param)(value)
+
+                    # reset the interactive parameter
+                    setattr(inst, param, ())
+
                 except KeyboardInterrupt:
                     print("\naborted")
 
