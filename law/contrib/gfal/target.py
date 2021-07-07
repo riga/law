@@ -301,8 +301,25 @@ class GFALFileInterface(RemoteFileInterface):
                         return False
                 e.reraise()
 
-    def mkdir_rec(self, *args, **kwargs):
-        return self.mkdir(*args, **kwargs)
+    @RemoteFileInterface.retry(uri_cmd=["mkdir_rec", "mkdir"])
+    def mkdir_rec(self, path, perm, base=None, silent=True, **kwargs):
+        uri = self.uri(path, cmd="mkdir", base=base)
+        with self.context() as ctx:
+            try:
+                logger.debug("invoking gfal2 mkdir_rec({}, {})".format(uri, perm))
+                ctx.mkdir_rec(uri, perm)
+                return True
+
+            except gfal2.GError:
+                e = GFALError_mkdir(uri)
+                # check if the operation should be retried, can fail silently, or raised immediately
+                if e.reason == e.UNKNOWN:
+                    raise e
+                elif e.reason == e.EXISTS and silent:
+                    # fail silently only when uri is really a dictionary
+                    if self.isdir(path, base=base):
+                        return False
+                e.reraise()
 
     @RemoteFileInterface.retry(uri_cmd="listdir")
     def listdir(self, path, base=None, **kwargs):
