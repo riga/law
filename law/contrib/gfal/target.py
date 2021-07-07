@@ -30,12 +30,6 @@ try:
 
     HAS_GFAL2 = True
 
-    # configure gfal2 logging
-    if not getattr(gfal2, "_law_configured_logging", False):
-        gfal2._law_configured_logging = True
-        gfal2_logger = logging.getLogger("gfal2")
-        gfal2_logger.addHandler(logging.StreamHandler())
-
 except ImportError:
     HAS_GFAL2 = False
 

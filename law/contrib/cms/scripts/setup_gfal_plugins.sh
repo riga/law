@@ -4,7 +4,7 @@
 # In fact, all plugins seem to work out of the box except for the xrootd plugin.
 # Therefore, all other plugins are symlinked into a specified directory, and a precompiled xrootd
 # plugin is copied from eos through a CERNBox link.
-# Tested with SCRAM_ARCH's slc{6,7}_amd64_gcc{630,700} and CMSSW 9 and 10.
+# Tested with SCRAM_ARCH's slc{6,7}_amd64_gcc{630,700,820} and CMSSW {9,10}.
 
 # Arguments:
 # 1. the absolute path to the new gfal plugin directory
