@@ -394,6 +394,10 @@ class GFALError_chmod(GFALOperationError):
             if "no such file or directory" in lmsg:
                 return cls.NOT_FOUND
 
+        elif scheme == "gsiftp":
+            if "no such file or directory" in lmsg:
+                return cls.NOT_FOUND
+
         elif scheme == "srm":
             if "no such file or directory" in lmsg:
                 return cls.NOT_FOUND
@@ -423,6 +427,12 @@ class GFALError_unlink(GFALOperationError):
             if "no such file or directory" in lmsg:
                 return cls.NOT_FOUND
             elif "is a directory" in lmsg:
+                return cls.IS_DIRECTORY
+
+        elif scheme == "gsiftp":
+            if "no such file or directory" in lmsg:
+                return cls.NOT_FOUND
+            elif "not a file" in lmsg:
                 return cls.IS_DIRECTORY
 
         elif scheme == "srm":
@@ -460,6 +470,14 @@ class GFALError_rmdir(GFALOperationError):
                 # cryptic message for non-empty directory
                 return cls.NOT_EMPTY
 
+        elif scheme == "gsiftp":
+            if "no such file or directory" in lmsg:
+                return cls.NOT_FOUND
+            elif "not a directory" in lmsg:
+                return cls.IS_FILE
+            elif "directory is not empty" in lmsg:
+                return cls.NOT_EMPTY
+
         elif scheme == "srm":
             if "no such file or directory" in lmsg:
                 return cls.NOT_FOUND
@@ -488,6 +506,10 @@ class GFALError_mkdir(GFALOperationError):
         lmsg = msg.lower()
         if scheme == "root":
             if "file exists" in lmsg:
+                return cls.EXISTS
+
+        elif scheme == "gsiftp":
+            if "directory already exists" in lmsg:
                 return cls.EXISTS
 
         elif scheme == "srm":
@@ -545,6 +567,12 @@ class GFALError_filecopy(GFALOperationError):
             elif "file exists (destination)" in lmsg:
                 return cls.DST_EXISTS
 
+        elif (src_scheme, dst_scheme) == ("file", "gsiftp"):
+            if "local system call no such file or directory" in lmsg:
+                return cls.SRC_NOT_FOUND
+            elif "file exists" in lmsg:
+                return cls.DST_EXISTS
+
         elif (src_scheme, dst_scheme) == ("file", "srm"):
             if "local system call no such file or directory" in lmsg:
                 return cls.SRC_NOT_FOUND
@@ -557,7 +585,19 @@ class GFALError_filecopy(GFALOperationError):
             elif "the file exists" in lmsg:
                 return cls.DST_EXISTS
 
-        if (src_scheme, dst_scheme) == ("srm", "file"):
+        elif (src_scheme, dst_scheme) == ("gsiftp", "file"):
+            if "no such file or directory on url" in lmsg:
+                return cls.SRC_NOT_FOUND
+            elif "the file exists" in lmsg:
+                return cls.DST_EXISTS
+
+        elif (src_scheme, dst_scheme) == ("gsiftp", "gsiftp"):
+            if "file not found" in lmsg:
+                return cls.SRC_NOT_FOUND
+            elif "destination already exist" in lmsg:
+                return cls.DST_EXISTS
+
+        elif (src_scheme, dst_scheme) == ("srm", "file"):
             if "no such file" in lmsg:
                 return cls.SRC_NOT_FOUND
             elif "the file exists" in lmsg:
