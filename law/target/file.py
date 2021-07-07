@@ -84,11 +84,11 @@ class FileSystem(luigi.target.FileSystem):
         return
 
     @abstractmethod
-    def stat(self, path):
+    def stat(self, path, **kwargs):
         return
 
     @abstractmethod
-    def exists(self, path):
+    def exists(self, path, **kwargs):
         return
 
     @abstractmethod
@@ -164,6 +164,18 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
         return (), {}
 
     @property
+    def dirname(self):
+        return self.fs.dirname(self.path)
+
+    @property
+    def basename(self):
+        return self.fs.basename(self.path)
+
+    @property
+    def unique_basename(self):
+        return "{}_{}".format(hex(self.hash)[2:], self.basename)
+
+    @property
     def parent(self):
         dirname = self.dirname
         args, kwargs = self._parent_args()
@@ -176,24 +188,11 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
 
         return parent.child(*args, **kwargs)
 
-    def exists(self):
-        return self.fs.exists(self.path)
+    def exists(self, **kwargs):
+        return self.fs.exists(self.path, **kwargs)
 
-    @property
-    def stat(self):
-        return self.fs.stat(self.path)
-
-    @property
-    def dirname(self):
-        return self.fs.dirname(self.path)
-
-    @property
-    def basename(self):
-        return self.fs.basename(self.path)
-
-    @property
-    def unique_basename(self):
-        return "{}_{}".format(hex(self.hash)[2:], self.basename)
+    def stat(self, **kwargs):
+        return self.fs.stat(self.path, **kwargs)
 
     def remove(self, silent=True, **kwargs):
         self.fs.remove(self.path, silent=silent, **kwargs)
