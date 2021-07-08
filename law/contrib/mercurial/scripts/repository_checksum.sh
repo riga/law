@@ -19,12 +19,12 @@ action() {
     # handle arguments
     local repo_path="$1"
     if [ -z "$repo_path" ]; then
-        2>&1 echo "please provide the path to the repository to bundle"
+        >&2 echo "please provide the path to the repository to bundle"
         return "1"
     fi
 
     if [ ! -d "$repo_path" ]; then
-        2>&1 echo "the provided path '$repo_path' is not a directory or does not exist"
+        >&2 echo "the provided path '$repo_path' is not a directory or does not exist"
         return "2"
     fi
 

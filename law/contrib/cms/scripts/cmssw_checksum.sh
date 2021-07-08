@@ -10,12 +10,12 @@
 action() {
     local cmssw_base="$1"
     if [ -z "$cmssw_base" ]; then
-        2>&1 echo "please provide the path to the CMSSW checkout to bundle"
+        >&2 echo "please provide the path to the CMSSW checkout to bundle"
         return "1"
     fi
 
     if [ ! -d "$cmssw_base" ]; then
-        2>&1 echo "the provided path '$cmssw_base' is not a directory or does not exist"
+        >&2 echo "the provided path '$cmssw_base' is not a directory or does not exist"
         return "2"
     fi
 

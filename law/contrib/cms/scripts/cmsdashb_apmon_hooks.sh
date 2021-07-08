@@ -26,7 +26,7 @@ law_cms_apmon() {
     if [ ! -z "$job_id" ]; then
         python "$LAW_SRC_PATH/contrib/cms/bin/apmon" job_id="$job_id" $LAW_JOB_DASHBOARD_DATA "$@"
     else
-        2>&1 echo "skip apmon interaction as job id is empty"
+        >&2 echo "skip apmon interaction as job id is empty"
     fi
 }
 

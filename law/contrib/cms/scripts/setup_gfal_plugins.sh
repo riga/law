@@ -14,7 +14,7 @@
 action() {
     local dst_dir="$1"
     if [ -z "$dst_dir" ]; then
-        2>&1 echo "please provide the path to the new GFAL_PLUGIN_DIR"
+        >&2 echo "please provide the path to the new GFAL_PLUGIN_DIR"
         return "1"
     fi
 
@@ -27,7 +27,7 @@ action() {
         else
             src_dir="$( _law_gfal2_default_plugin_dir )"
             if [ -z "$src_dir" ]; then
-                2>&1 echo "could not detect the default gfal2 plugin directory"
+                >&2 echo "could not detect the default gfal2 plugin directory"
                 return "1"
             fi
             echo "detected the default gfal2 plugin directory ($src_dir)"
@@ -36,14 +36,14 @@ action() {
 
     # check of the src_dir exists
     if [ ! -d "$src_dir" ]; then
-        2>&1 echo "source directory '$src_dir' does not exist"
+        >&2 echo "source directory '$src_dir' does not exist"
         return "1"
     fi
 
     # create the dst_dir if required
     mkdir -p "$dst_dir"
     if [ "$?" != "0" ]; then
-        2>&1 echo "destination directory '$dst_dir' could not be created"
+        >&2 echo "destination directory '$dst_dir' could not be created"
         return "1"
     fi
 
@@ -68,7 +68,7 @@ action() {
             mv download libgfal_plugin_xrootd.so
         )
     else
-        2>&1 echo "could not download xrootd plugin, neither wget nor curl installed"
+        >&2 echo "could not download xrootd plugin, neither wget nor curl installed"
         return "1"
     fi
 

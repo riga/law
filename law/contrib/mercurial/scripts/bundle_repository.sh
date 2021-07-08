@@ -14,23 +14,23 @@ action() {
     # handle arguments
     local repo_path="$1"
     if [ -z "$repo_path" ]; then
-        2>&1 echo "please provide the path to the repository to bundle"
+        >&2 echo "please provide the path to the repository to bundle"
         return "1"
     fi
 
     if [ ! -d "$repo_path" ]; then
-        2>&1 echo "the provided path '$repo_path' is not a directory or does not exist"
+        >&2 echo "the provided path '$repo_path' is not a directory or does not exist"
         return "2"
     fi
 
     if [[ "$repo_path" != /* ]]; then
-        2>&1 echo "the provided path '$repo_path' must be absolute"
+        >&2 echo "the provided path '$repo_path' must be absolute"
         return "3"
     fi
 
     local dst_path="$2"
     if [ -z "$dst_path" ]; then
-        2>&1 echo "please provide the path where the bundle should be stored"
+        >&2 echo "please provide the path where the bundle should be stored"
         return "4"
     fi
 

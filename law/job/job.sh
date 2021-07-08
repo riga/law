@@ -152,7 +152,7 @@ action() {
         local args="${@:2}"
 
         if [ -z "$name" ]; then
-            2>&1 echo "function name must not be empty"
+            >&2 echo "function name must not be empty"
             return "1"
         fi
 
@@ -160,7 +160,7 @@ action() {
         if command -v "$name" &> /dev/null; then
             eval "$name" "$@"
         else
-            2>&1 echo "function '$name' does not exist, skip"
+            >&2 echo "function '$name' does not exist, skip"
             return "2"
         fi
     }
@@ -193,7 +193,7 @@ action() {
         local stageout_ret="$?"
 
         if [ "$stageout_ret" != "0" ]; then
-            2>&1 echo "stageout file failed with code $stageout_ret, stop job"
+            >&2 echo "stageout file failed with code $stageout_ret, stop job"
             _law_job_call_hook law_hook_job_failed "70" "$stageout_ret"
             return "70"
         fi
@@ -216,7 +216,7 @@ action() {
         stageout_ret="$?"
 
         if [ "$stageout_ret" != "0" ]; then
-            2>&1 echo "stageout command failed with code $stageout_ret, stop job"
+            >&2 echo "stageout command failed with code $stageout_ret, stop job"
             _law_job_call_hook law_hook_job_failed "80" "$stageout_ret"
             return "80"
         fi
@@ -282,7 +282,7 @@ action() {
         local bootstrap_ret="$?"
 
         if [ "$bootstrap_ret" != "0" ]; then
-            2>&1 echo "bootstrap file failed with code $bootstrap_ret, stop job"
+            >&2 echo "bootstrap file failed with code $bootstrap_ret, stop job"
             _law_job_finalize "20"
             return "$?"
         fi
@@ -305,7 +305,7 @@ action() {
         bootstrap_ret="$?"
 
         if [ "$bootstrap_ret" != "0" ]; then
-            2>&1 echo "bootstrap command failed with code $bootstrap_ret, stop job"
+            >&2 echo "bootstrap command failed with code $bootstrap_ret, stop job"
             _law_job_finalize "30"
             return "$?"
         fi
@@ -320,7 +320,7 @@ action() {
         local law_ret="$?"
 
         if [ "$law_ret" != "0" ] || [ -z "$LAW_SRC_PATH" ] || [ ! -d "$LAW_SRC_PATH" ]; then
-            2>&1 echo "law not found with code $law_ret, should be made available in bootstrap file, stop job"
+            >&2 echo "law not found with code $law_ret, should be made available in bootstrap file, stop job"
             _law_job_finalize "40"
             return "$?"
         fi
@@ -345,7 +345,7 @@ action() {
         local dashboard_ret="$?"
 
         if [ "$dashboard_ret" != "0" ]; then
-            2>&1 echo "dashboard file failed with code $dashboard_ret stop job"
+            >&2 echo "dashboard file failed with code $dashboard_ret stop job"
             _law_job_finalize "10"
             return "$?"
         fi
@@ -439,7 +439,7 @@ action() {
         eval "LAW_LOG_LEVEL=debug $cmd --print-deps 2"
         local law_ret="$?"
         if [ "$law_ret" != "0" ]; then
-            2>&1 echo "dependency tree for branch $branch failed with code $law_ret, stop job"
+            >&2 echo "dependency tree for branch $branch failed with code $law_ret, stop job"
             _law_job_call_hook law_hook_job_failed "50" "$law_ret"
             _law_job_finalize "50" "$law_ret"
             return "$?"
@@ -460,7 +460,7 @@ action() {
         fi
 
         if [ "$law_ret" != "0" ]; then
-            2>&1 echo "branch $branch failed with code $law_ret, stop job"
+            >&2 echo "branch $branch failed with code $law_ret, stop job"
             _law_job_call_hook law_hook_job_failed "60" "$law_ret"
             _law_job_finalize "60" "$law_ret"
             return "$?"
