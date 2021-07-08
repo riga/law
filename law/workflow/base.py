@@ -169,13 +169,13 @@ def workflow_property(func):
                 return self._common_data
     """
     @functools.wraps(func)
-    def wrapper(self):
+    def getter(self):
         return func(self.as_workflow())
 
-    return property(wrapper)
+    return property(getter)
 
 
-def cached_workflow_property(func=None, empty_value=no_value, attr=None, setter=True):
+def cached_workflow_property(func=None, attr=None, setter=True, empty_value=no_value):
     """
     Decorator to declare an attribute that is stored only on a workflow and also cached for
     subsequent calls. Therefore, the decorated method is expected to (lazily) provide the value to
@@ -191,15 +191,15 @@ def cached_workflow_property(func=None, empty_value=no_value, attr=None, setter=
 
             @cached_workflow_property
             def common_data(self):
-                # this method is always called with *self* is the *workflow*
+                # this method is always called with *self* being the *workflow*
                 return some_demanding_computation()
 
             @cached_workflow_property(attr="my_own_property", setter=False)
             def common_data2(self):
                 return some_other_computation()
     """
-    def wrapper(func):
-        _attr = attr or "_workflow_cached_" + func.__name__
+    def decorator(func):
+        _attr = attr or ("_workflow_cached_" + func.__name__)
 
         @functools.wraps(func)
         def getter(self):
@@ -218,7 +218,7 @@ def cached_workflow_property(func=None, empty_value=no_value, attr=None, setter=
 
         return property(fget=getter, fset=_setter)
 
-    return wrapper if not func else wrapper(func)
+    return decorator if not func else decorator(func)
 
 
 class WorkflowRegister(Register):
