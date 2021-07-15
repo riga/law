@@ -334,7 +334,7 @@ class Task(six.with_metaclass(Register, BaseTask)):
         "tasks should be fetched (default: False)")
 
     interactive_params = [
-        "print_deps", "print_status", "print_output", "remove_output", "fetch_output",
+        "print_deps", "print_status", "print_output", "fetch_output", "remove_output",
     ]
 
     # cache size for published messages
