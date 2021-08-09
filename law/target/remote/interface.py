@@ -197,11 +197,11 @@ class RemoteFileInterface(six.with_metaclass(abc.ABCMeta, object)):
 
         return base if not return_index else (base, all_bases.index(base))
 
-    def uri(self, path, base=None, scheme=True, **kwargs):
+    def uri(self, path, base=None, return_all=False, scheme=True, **kwargs):
         # get a base path when not given
         if not base:
             kwargs["return_index"] = False
-            base = self.get_base(**kwargs)
+            base = self.get_base(return_all=return_all, **kwargs)
 
         # helper to join the path to a base b and remove the scheme if requested
         def uri(b):
@@ -212,6 +212,8 @@ class RemoteFileInterface(six.with_metaclass(abc.ABCMeta, object)):
 
         if isinstance(base, (list, tuple)) or is_lazy_iterable(base):
             return [uri(b) for b in base]
+        elif return_all:
+            return [uri(base)]
         else:
             return uri(base)
 
