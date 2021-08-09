@@ -36,7 +36,7 @@ law_wlcg_check_executable() {
 
 
 law_wlcg_get_file() {
-    # Fetches a file from a local resources or remote storage element to a specified location. It
+    # Fetches a file from a local resource or remote storage element to a specified location. It
     # supports automatic retries, round-robin over multiple URIs, and automatic random replica
     # selection. Required executables are "gfal-ls" and "gfal-copy" for remote operations, and
     # "grep" and "shuf" in both cases.
@@ -74,7 +74,7 @@ law_wlcg_get_file() {
     local dst_path="$3"
     local attempts="${4:-1}"
     if [ "$attempts" -lt "1" ]; then
-        >&2 echo "number of attempts is $attempts, but should be 1 or larger, so setting to 1"
+        >&2 echo "number of attempts is '$attempts', but should be 1 or larger, so setting to 1"
         attempts="1"
     fi
 
@@ -107,7 +107,7 @@ law_wlcg_get_file() {
     if [[ "$src_dir" == *"://"* ]]; then
         local proto="${src_dir%%://*}"
         if [ -z "$proto" ] || [ -z "$( echo "$proto" | grep -E "^[a-zA-Z0-9_-]+$" )" ]; then
-            >&2 echo "malformed src_dir $src_dir"
+            >&2 echo "malformed source directory '$src_dir'"
             return "4"
         fi
         src_is_remote="true"
@@ -130,7 +130,7 @@ law_wlcg_get_file() {
             random_src_name="$( ls "$src_dir" | grep -Po "$src_name" | shuf -n 1 )"
         fi
         if [ -z "$random_src_name" ]; then
-            >&2 echo "could not determine file to load from $src_dir with file name $src_name"
+            >&2 echo "could not determine file to load from '$src_dir' with file name '$src_name'"
             ret="1"
             continue
         fi
@@ -146,7 +146,7 @@ law_wlcg_get_file() {
             cp "$src_dir/$random_src_name" "$dst_path"
         fi
         if [ "$?" != "0" ]; then
-            >&2 echo "could not fetch $random_src_name from $src_dir"
+            >&2 echo "could not fetch '$random_src_name' from '$src_dir'"
             ret="2"
             continue
         fi
@@ -193,13 +193,13 @@ law_wlcg_put_file() {
     local dst_name="$3"
     local attempts="${4:-1}"
     if [ "$attempts" -lt "1" ]; then
-        >&2 echo "number of attempts is $attempts, but should be 1 or larger, so setting to 1"
+        >&2 echo "number of attempts is '$attempts', but should be 1 or larger, so setting to 1"
         attempts="1"
     fi
 
     # check if the src file exists
     if [ ! -f "$src_path" ]; then
-        >&2 echo "cannot put non-existing file $src_path"
+        >&2 echo "cannot put non-existing file '$src_path'"
         return "1"
     fi
 
@@ -231,7 +231,7 @@ law_wlcg_put_file() {
     if [[ "$dst_dir" == *"://"* ]]; then
         local proto="${dst_dir%%://*}"
         if [ -z "$proto" ] || [ -z "$( echo "$proto" | grep -E "^[a-zA-Z0-9_-]+$" )" ]; then
-            >&2 echo "malformed dst_dir $dst_dir"
+            >&2 echo "malformed destination directory '$dst_dir'"
             return "4"
         fi
         dst_is_remote="true"
@@ -252,7 +252,7 @@ law_wlcg_put_file() {
             mkdir -p "$dst_dir" && rm -rf "$dst_dir/$dst_name" && cp "$src_path" "$dst_dir/$dst_name"
         fi
         if [ "$?" != "0" ]; then
-            >&2 echo "could not copy $src_path to $dst_dir/$dst_name"
+            >&2 echo "could not copy '$src_path' to '$dst_dir/$dst_name'"
             ret="2"
             continue
         fi
