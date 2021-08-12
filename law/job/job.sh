@@ -447,16 +447,20 @@ action() {
 
         echo
         _law_job_subsection "execute attempt 1"
+        date +"%d/%m/%Y %T.%N (%Z)"
         eval "$cmd"
         law_ret="$?"
         echo "task exit code: $law_ret"
+        date +"%d/%m/%Y %T.%N (%Z)"
 
         if [ "$law_ret" != "0" ] && [ "$LAW_JOB_AUTO_RETRY" = "yes" ]; then
             echo
             _law_job_subsection "execute attempt 2"
+            date +"%d/%m/%Y %T.%N (%Z)"
             eval "$cmd"
             law_ret="$?"
             echo "task exit code: $law_ret"
+            date +"%d/%m/%Y %T.%N (%Z)"
         fi
 
         if [ "$law_ret" != "0" ]; then
