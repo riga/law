@@ -25,6 +25,11 @@ from law.__version__ import (
 )
 
 
+# setup logging
+import law.logger
+law.logger.setup_logging()
+
+
 # use cached software
 from law.cli.software import use_software_cache
 use_software_cache(reload_deps=True)
@@ -33,11 +38,6 @@ use_software_cache(reload_deps=True)
 # luigi patches
 import law.patches
 law.patches.patch_all()
-
-
-# setup logging
-import law.logger
-law.logger.setup_logging()
 
 
 # provisioning imports

@@ -7,13 +7,12 @@ Tasks with IPython features.
 __all__ = ["Task"]
 
 
-import logging
-
 from law.task.base import Task as _Task
 from law.util import no_value
+from law.logger import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class Task(_Task):

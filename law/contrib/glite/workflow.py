@@ -10,7 +10,6 @@ __all__ = ["GLiteWorkflow"]
 
 import os
 import sys
-import logging
 from abc import abstractmethod
 from collections import OrderedDict
 
@@ -21,11 +20,12 @@ from law.target.file import get_path
 from law.parameter import CSVParameter
 from law.util import law_src_path, merge_dicts, DotDict
 from law.contrib.wlcg import delegate_voms_proxy_glite, get_ce_endpoint
+from law.logger import get_logger
 
 from law.contrib.glite.job import GLiteJobManager, GLiteJobFileFactory
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):

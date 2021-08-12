@@ -10,7 +10,6 @@ __all__ = ["RemoteFileSystem", "RemoteTarget", "RemoteFileTarget", "RemoteDirect
 import os
 import time
 import fnmatch
-import logging
 from contextlib import contextmanager
 
 import six
@@ -24,9 +23,10 @@ from law.target.local import LocalFileSystem, LocalFileTarget
 from law.target.remote.cache import RemoteCache
 from law.target.formatter import find_formatter
 from law.util import make_list, merge_dicts
+from law.logger import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 _local_fs = LocalFileSystem.default_instance
 

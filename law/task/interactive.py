@@ -11,7 +11,6 @@ __all__ = [
 
 
 import os
-import logging
 
 import six
 
@@ -21,9 +20,10 @@ from law.target.collection import TargetCollection, FileCollection
 from law.util import (
     colored, flatten, flag_to_bool, query_choice, human_bytes, is_lazy_iterable, make_list,
 )
+from law.logger import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # indentation spaces

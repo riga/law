@@ -7,8 +7,6 @@ Dropbox file system and targets based on the GFAL file interface.
 __all__ = ["DropboxFileSystem", "DropboxTarget", "DropboxFileTarget", "DropboxDirectoryTarget"]
 
 
-import logging
-
 import six
 
 import law
@@ -16,11 +14,12 @@ from law.config import Config
 from law.target.remote import (
     RemoteFileSystem, RemoteTarget, RemoteFileTarget, RemoteDirectoryTarget,
 )
+from law.logger import get_logger
 
+
+logger = get_logger(__name__)
 
 law.contrib.load("gfal")
-
-logger = logging.getLogger(__name__)
 
 
 class DropboxFileSystem(RemoteFileSystem):

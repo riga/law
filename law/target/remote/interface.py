@@ -13,16 +13,16 @@ import time
 import abc
 import functools
 import random as _random
-import logging
 
 import six
 
 from law.config import Config
 from law.target.file import remove_scheme
 from law.util import make_list, is_lazy_iterable, brace_expand, parse_duration
+from law.logger import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class RetryException(Exception):

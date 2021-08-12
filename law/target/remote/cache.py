@@ -13,16 +13,16 @@ import time
 import tempfile
 import weakref
 import atexit
-import logging
 from contextlib import contextmanager
 
 from law.config import Config
 from law.util import (
     makedirs_perm, human_bytes, parse_bytes, parse_duration, create_hash, user_owns_file, io_lock,
 )
+from law.logger import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class RemoteCache(object):

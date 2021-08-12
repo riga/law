@@ -15,16 +15,16 @@ import re
 import subprocess
 import uuid
 import json
-import logging
 
 import six
 
 from law.util import (
     interruptable_popen, tmp_file, create_hash, human_duration, parse_duration, quote_cmd,
 )
+from law.logger import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def get_voms_proxy_file():

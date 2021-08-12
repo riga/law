@@ -15,16 +15,16 @@ __all__ = [
 import os
 import re
 import tempfile
-import logging
 
 import luigi
 import six
 from six.moves.configparser import ConfigParser
 
 from law.util import no_value, flag_to_bool, brace_expand, str_to_int
+from law.logger import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def law_home_path(*paths):

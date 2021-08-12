@@ -7,13 +7,12 @@ Notification functions.
 __all__ = ["notify_mail"]
 
 
-import logging
-
 from law.config import Config
 from law.util import send_mail, uncolored
+from law.logger import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def notify_mail(title, message, recipient=None, sender=None, smtp_host=None, smtp_port=None,

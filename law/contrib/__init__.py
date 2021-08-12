@@ -4,16 +4,17 @@ __all__ = ["available_packages", "loaded_packages", "load", "load_all"]
 
 
 import os
-import logging
 import glob
 
 import law
 from law.util import law_src_path, flatten
+from law.logger import get_logger
 
+
+logger = get_logger(__name__)
 
 thisdir = os.path.dirname(os.path.abspath(__file__))
 
-logger = logging.getLogger(__name__)
 
 #: List of names of available contrib packages.
 available_packages = [

@@ -33,7 +33,6 @@ import random
 import socket
 import collections
 import uuid
-import logging
 
 import luigi
 import six
@@ -47,9 +46,10 @@ from law.util import (
     no_value, uncolored, make_list, multi_match, human_duration, open_compat, join_generators,
     TeeStream,
 )
+from law.logger import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class _CompleteTask(luigi.Task):

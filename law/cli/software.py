@@ -8,17 +8,16 @@
 import os
 import sys
 import shutil
-import logging
 
 import six
 import luigi
 
 import law
 from law.config import Config
+from law.logger import get_logger
 
 
-logger = logging.getLogger(__name__)
-
+logger = get_logger(__name__)
 
 deps = [six, luigi, law]
 

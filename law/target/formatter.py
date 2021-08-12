@@ -11,15 +11,15 @@ import os
 import json
 import zipfile
 import tarfile
-import logging
 from collections import OrderedDict
 
 import six
 
 from law.util import make_list
+from law.logger import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 AUTO_FORMATTER = "auto"

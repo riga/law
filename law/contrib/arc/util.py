@@ -13,12 +13,12 @@ __all__ = [
 import os
 import re
 import subprocess
-import logging
 
 from law.util import interruptable_popen, tmp_file, parse_duration, quote_cmd
+from law.logger import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def get_arc_proxy_file():

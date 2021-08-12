@@ -12,7 +12,6 @@ import time
 import re
 import random
 import threading
-import logging
 from collections import OrderedDict, defaultdict
 from abc import abstractmethod
 
@@ -23,9 +22,10 @@ from law.workflow.base import BaseWorkflow, BaseWorkflowProxy
 from law.job.dashboard import NoJobDashboard
 from law.parameter import NO_FLOAT, NO_INT, get_param, DurationParameter
 from law.util import is_number, iter_chunks, merge_dicts, human_duration, DotDict, ShorthandDict
+from law.logger import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SubmissionData(ShorthandDict):

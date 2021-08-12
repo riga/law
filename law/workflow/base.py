@@ -10,7 +10,6 @@ __all__ = ["BaseWorkflow", "workflow_property", "cached_workflow_property"]
 import sys
 import re
 import functools
-import logging
 from collections import OrderedDict
 from abc import abstractmethod
 
@@ -24,9 +23,10 @@ from law.parameter import NO_STR, NO_INT, MultiRangeParameter
 from law.util import (
     no_value, make_list, iter_chunks, range_expand, range_join, create_hash, DotDict,
 )
+from law.logger import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class BaseWorkflowProxy(ProxyTask):

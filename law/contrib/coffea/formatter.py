@@ -7,13 +7,12 @@ Coffea target formatters.
 __all__ = ["CoffeaFormatter"]
 
 
-import logging
-
 from law.target.formatter import Formatter
 from law.target.file import get_path
+from law.logger import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class CoffeaFormatter(Formatter):

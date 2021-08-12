@@ -28,9 +28,10 @@ from law.util import (
     no_value, abort, law_run, common_task_params, colored, uncolored, make_list, multi_match,
     flatten, BaseStream, human_duration, patch_object, round_discrete,
 )
+from law.logger import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class BaseRegister(luigi.task_register.Register):

@@ -14,9 +14,10 @@ import logging
 
 import luigi
 import law
+from law.logger import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 _patched = False
 

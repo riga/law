@@ -14,9 +14,10 @@ import six
 
 import law.cli
 from law.util import law_run, quote_cmd
+from law.logger import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def create_magics(init_cmd=None, init_fn=None, line_cmd=None, line_fn=None, log_level=None):

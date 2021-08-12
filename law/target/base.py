@@ -7,16 +7,16 @@ Custom base target definition.
 __all__ = ["Target"]
 
 
-import logging
 from abc import abstractmethod
 
 import luigi
 
 from law.config import Config
 from law.util import colored, create_hash
+from law.logger import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class Target(luigi.target.Target):

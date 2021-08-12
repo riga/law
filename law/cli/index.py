@@ -8,7 +8,6 @@
 import os
 import sys
 import traceback
-import logging
 from importlib import import_module
 from collections import OrderedDict
 
@@ -18,9 +17,10 @@ import six
 from law.config import Config
 from law.task.base import Task, ExternalTask
 from law.util import multi_match, colored, abort
+from law.logger import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 _cfg = Config.instance()
 

@@ -8,7 +8,6 @@ __all__ = ["ARCWorkflow"]
 
 
 import os
-import logging
 from abc import abstractmethod
 from collections import OrderedDict
 
@@ -18,11 +17,12 @@ from law.task.proxy import ProxyCommand
 from law.target.file import get_path
 from law.parameter import CSVParameter
 from law.util import law_src_path, merge_dicts, DotDict
+from law.logger import get_logger
 
 from law.contrib.arc.job import ARCJobManager, ARCJobFileFactory
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ARCWorkflowProxy(BaseRemoteWorkflowProxy):

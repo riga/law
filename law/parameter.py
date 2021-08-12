@@ -11,8 +11,6 @@ __all__ = [
 ]
 
 
-import logging
-
 import luigi
 import six
 
@@ -21,9 +19,10 @@ from law.util import (
     human_duration, parse_duration, time_units, time_unit_aliases, is_lazy_iterable, make_tuple,
     make_unique, brace_expand,
 )
+from law.logger import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # make luigi's BoolParameter parsing explicit globally, https://github.com/spotify/luigi/pull/2427
 luigi.BoolParameter.parsing = getattr(luigi.BoolParameter, "EXPLICIT_PARSING", "explicit")

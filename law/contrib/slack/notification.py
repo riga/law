@@ -8,15 +8,15 @@ __all__ = ["notify_slack"]
 
 
 import threading
-import logging
 
 import six
 
 from law.config import Config
 from law.util import escape_markdown
+from law.logger import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def notify_slack(title, content, attachment_color="#4bb543", short_threshold=40, token=None,

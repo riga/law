@@ -8,7 +8,6 @@ __all__ = ["HTCondorWorkflow"]
 
 
 import os
-import logging
 from abc import abstractmethod
 from collections import OrderedDict
 
@@ -21,11 +20,12 @@ from law.target.file import get_path
 from law.target.local import LocalDirectoryTarget
 from law.parameter import NO_STR
 from law.util import law_src_path, merge_dicts, DotDict
+from law.logger import get_logger
 
 from law.contrib.htcondor.job import HTCondorJobManager, HTCondorJobFileFactory
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):

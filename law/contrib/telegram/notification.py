@@ -8,15 +8,15 @@ __all__ = ["notify_telegram"]
 
 
 import threading
-import logging
 
 import six
 
 from law.config import Config
 from law.util import escape_markdown
+from law.logger import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def notify_telegram(title, content, token=None, chat=None, mention_user=None, **kwargs):

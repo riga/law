@@ -12,7 +12,6 @@ import fnmatch
 import shutil
 import glob
 import random
-import logging
 from contextlib import contextmanager
 
 import luigi
@@ -25,9 +24,10 @@ from law.target.file import (
 )
 from law.target.formatter import find_formatter
 from law.util import is_file_exists_error
+from law.logger import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class LocalFileSystem(FileSystem):

@@ -7,19 +7,18 @@ WLCG remote file system and targets.
 __all__ = ["WLCGFileSystem", "WLCGTarget", "WLCGFileTarget", "WLCGDirectoryTarget"]
 
 
-import logging
-
 import six
 
 import law
 from law.target.remote import (
     RemoteFileSystem, RemoteTarget, RemoteFileTarget, RemoteDirectoryTarget,
 )
+from law.logger import get_logger
 
+
+logger = get_logger(__name__)
 
 law.contrib.load("gfal")
-
-logger = logging.getLogger(__name__)
 
 
 class WLCGFileSystem(RemoteFileSystem):

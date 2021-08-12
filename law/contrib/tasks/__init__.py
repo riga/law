@@ -9,7 +9,6 @@ __all__ = ["RunOnceTask", "TransferLocalFile", "ForestMerge"]
 
 import os
 from abc import abstractmethod
-import logging
 
 import luigi
 import six
@@ -23,9 +22,10 @@ from law.target.collection import TargetCollection, SiblingFileCollection
 from law.parameter import NO_STR
 from law.decorator import factory
 from law.util import iter_chunks, DotDict
+from law.logger import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class RunOnceTask(Task):

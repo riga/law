@@ -11,7 +11,6 @@ __all__ = [
 
 import types
 import random
-import logging
 from contextlib import contextmanager
 
 import six
@@ -21,9 +20,10 @@ from law.target.base import Target
 from law.target.file import FileSystemTarget, FileSystemDirectoryTarget, localize_file_targets
 from law.target.local import LocalDirectoryTarget
 from law.util import colored, flatten
+from law.logger import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class TargetCollection(Target):

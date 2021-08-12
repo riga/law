@@ -7,16 +7,16 @@
 
 import os
 import sys
-import logging
 
 from luigi.cmdline import luigi_run
 
 from law.config import Config
 from law.task.base import Task
 from law.util import abort
+from law.logger import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def setup_parser(sub_parsers):

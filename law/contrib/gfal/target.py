@@ -11,7 +11,6 @@ import os
 import sys
 import gc
 import contextlib
-import logging
 import stat as _stat
 
 import six
@@ -19,9 +18,10 @@ import six
 from law.config import Config
 from law.target.file import has_scheme, get_scheme
 from law.target.remote.interface import RemoteFileInterface, RetryException
+from law.logger import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # try to import gfal2

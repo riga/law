@@ -14,7 +14,6 @@ import time
 import re
 import random
 import subprocess
-import logging
 
 import six
 
@@ -22,9 +21,10 @@ from law.config import Config
 from law.job.base import BaseJobManager, BaseJobFileFactory
 from law.target.file import get_scheme
 from law.util import interruptable_popen, make_list, make_unique, quote_cmd
+from law.logger import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 _cfg = Config.instance()
 

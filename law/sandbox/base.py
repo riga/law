@@ -9,7 +9,6 @@ __all__ = ["Sandbox", "SandboxTask"]
 
 import os
 import sys
-import logging
 from abc import ABCMeta, abstractmethod, abstractproperty
 from contextlib import contextmanager
 from fnmatch import fnmatch
@@ -29,9 +28,10 @@ from law.util import (
     colored, is_pattern, multi_match, mask_struct, map_struct, interruptable_popen, patch_object,
     flatten,
 )
+from law.logger import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 _current_sandbox = os.getenv("LAW_SANDBOX", "").split(",")
 

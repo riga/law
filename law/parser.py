@@ -7,14 +7,15 @@ Helpers to extract useful information from the luigi command line parser.
 __all__ = []
 
 
-import logging
 from collections import OrderedDict
 from argparse import ArgumentParser
 
 import luigi
 
+from law.logger import get_logger
 
-logger = logging.getLogger(__name__)
+
+logger = get_logger(__name__)
 
 
 # cached objects
