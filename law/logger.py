@@ -5,20 +5,33 @@ Law logging setup.
 """
 
 __all__ = [
-    "setup_logging", "setup_logger", "create_stream_handler", "is_tty_handler", "get_tty_handlers",
-    "LogFormatter",
+    "get_logger", "setup_logging", "setup_logger", "create_stream_handler", "is_tty_handler",
+    "get_tty_handlers", "Logger", "LogFormatter",
 ]
 
 
+from collections import defaultdict
 import logging
 
 import six
 
-from law.config import Config
 from law.util import no_value, colored, ipykernel
 
 
 _logging_setup = False
+
+
+def get_logger(*args, **kwargs):
+    """
+    Replacement for *logging.getLogger* that makes sure that the custom :py:class:`Logger` class is
+    used when new loggers are created.
+    """
+    orig_cls = logging.getLoggerClass()
+    logging.setLoggerClass(Logger)
+    try:
+        return logging.getLogger(*args, **kwargs)
+    finally:
+        logging.setLoggerClass(orig_cls)
 
 
 def setup_logging():
@@ -35,7 +48,7 @@ def setup_logging():
     _logging_setup = True
 
     # set the handler of the law root logger which propagates it to lower level loggers
-    logging.getLogger("law").addHandler(create_stream_handler())
+    get_logger("law").addHandler(create_stream_handler())
 
     # set levels for all loggers and add the console handler for all non-law loggers
     cfg = Config.instance()
@@ -60,11 +73,11 @@ def setup_logger(name, level=None, add_console_handler=True, clear=False):
     if isinstance(level, six.string_types):
         level = getattr(logging, level.upper(), None)
     if level is None:
-        level = logging.getLogger("law").level
+        level = get_logger("law").level
 
     # clear handlers and filters
     is_existing = name in logging.root.manager.loggerDict
-    logger = logging.getLogger(name)
+    logger = get_logger(name)
     if is_existing and clear:
         for h in list(logger.handlers):
             logger.removeHandler(h)
@@ -122,8 +135,52 @@ def get_tty_handlers(logger):
     Returns a list of all handlers of a *logger* that log to a tty.
     """
     if isinstance(logger, six.string_types):
-        logger = logging.getLogger(logger)
+        logger = get_logger(logger)
     return [handler for handler in getattr(logger, "handlers", []) if is_tty_handler(handler)]
+
+
+class Logger(logging.Logger):
+    """
+    Custom logger class that adds an additional set of log methods, i.e., :py:meth:`debug_once`,
+    :py:meth:`info_once`, :py:meth:`warning_once`, :py:meth:`error_once`, :py:meth:`critical_once`
+    and :py:meth:`fatal_once`, that log certain messages only once depending on a string identifier.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super(Logger, self).__init__(*args, **kwargs)
+
+        # names of logs per level that are issued only once
+        self._once_logs = defaultdict(set)
+
+    def debug_once(self, log_id, *args, **kwargs):
+        if log_id not in self._once_logs["debug"]:
+            self._once_logs["debug"].add(log_id)
+            self.debug(*args, **kwargs)
+
+    def info_once(self, log_id, *args, **kwargs):
+        if log_id not in self._once_logs["info"]:
+            self._once_logs["info"].add(log_id)
+            self.info(*args, **kwargs)
+
+    def warning_once(self, log_id, *args, **kwargs):
+        if log_id not in self._once_logs["warning"]:
+            self._once_logs["warning"].add(log_id)
+            self.warning(*args, **kwargs)
+
+    def error_once(self, log_id, *args, **kwargs):
+        if log_id not in self._once_logs["error"]:
+            self._once_logs["error"].add(log_id)
+            self.error(*args, **kwargs)
+
+    def critical_once(self, log_id, *args, **kwargs):
+        if log_id not in self._once_logs["critical"]:
+            self._once_logs["critical"].add(log_id)
+            self.critical(*args, **kwargs)
+
+    def fatal_once(self, log_id, *args, **kwargs):
+        if log_id not in self._once_logs["fatal"]:
+            self._once_logs["fatal"].add(log_id)
+            self.fatal(*args, **kwargs)
 
 
 class LogFormatter(logging.Formatter):
@@ -188,12 +245,14 @@ class LogFormatter(logging.Formatter):
         "WARNING": {"color": "yellow"},
         "ERROR": {"color": "red"},
         "CRITICAL": {"color": "red", "style": "bright"},
+        "FATAL": {"color": "red", "style": "bright"},
     }
     NAME_STYLES = {}
     MSG_STYLES = {
         "WARNING": {"color": "yellow"},
         "ERROR": {"color": "red"},
         "CRITICAL": {"color": "red", "style": "bright"},
+        "FATAL": {"color": "red", "style": "bright"},
     }
 
     FORMAT_LEVEL = None
@@ -236,3 +295,7 @@ class LogFormatter(logging.Formatter):
             data["traceback"] = self.formatException(record.exc_info)
 
         return tmpl.format(**data)
+
+
+# trailing imports
+from law.config import Config
