@@ -532,7 +532,6 @@ class RemoteTarget(FileSystemTarget):
             raise TypeError("fs must be a {} instance, is {}".format(RemoteFileSystem, fs))
 
         self.fs = fs
-        self._path = None
 
         FileSystemTarget.__init__(self, path, **kwargs)
 
@@ -550,7 +549,8 @@ class RemoteTarget(FileSystemTarget):
         if os.path.normpath(path).startswith(".."):
             raise ValueError("path {} forbidden, surpasses file system root".format(path))
 
-        self._path = self.fs.abspath(path)
+        path = self.fs.abspath(path)
+        FileSystemTarget.path.fset(path)
 
     def uri(self, **kwargs):
         return self.fs.uri(self.path, **kwargs)

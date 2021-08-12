@@ -324,12 +324,14 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
                     is_tmp = "." + is_tmp
                 path += is_tmp
         else:
-            # ensure path is not a target and does not contain, then normalize
+            # ensure path is not a target and does not contain a scheme
             path = fs._unscheme(get_path(path))
-            path = fs.abspath(os.path.expandvars(os.path.expanduser(path)))
+            # make absolute when not starting with a variable
+            if not path.startswith("$"):
+                path = os.path.abspath(path)
 
         luigi.LocalTarget.__init__(self, path=path, is_tmp=is_tmp)
-        FileSystemTarget.__init__(self, self.path, fs=fs, **kwargs)
+        FileSystemTarget.__init__(self, self.unexpanded_path, fs=fs, **kwargs)
 
     def _repr_flags(self):
         flags = FileSystemTarget._repr_flags(self)

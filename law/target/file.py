@@ -60,7 +60,7 @@ class FileSystem(luigi.target.FileSystem):
         return "{}({})".format(self.__class__.__name__, hex(id(self)))
 
     def dirname(self, path):
-        return os.path.dirname(self.abspath(path)) if path != "/" else None
+        return os.path.dirname(path) if path != "/" else None
 
     def basename(self, path):
         return os.path.basename(path) if path != "/" else "/"
@@ -154,14 +154,31 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
         if fs:
             self.fs = fs
 
+        self._path = None
+        self._unexpanded_path = None
+
         Target.__init__(self, **kwargs)
         luigi.target.FileSystemTarget.__init__(self, path)
 
     def _repr_pairs(self, color=True):
-        return Target._repr_pairs(self) + [("path", self.path)]
+        expand = Config.instance().get_expanded_boolean("target", "expand_path_repr")
+        return Target._repr_pairs(self) + [("path", self.path if expand else self.unexpanded_path)]
 
     def _parent_args(self):
         return (), {}
+
+    @property
+    def unexpanded_path(self):
+        return self._unexpanded_path
+
+    @property
+    def path(self):
+        return self._path
+
+    @path.setter
+    def path(self, path):
+        self._unexpanded_path = str(path)
+        self._path = os.path.abspath(os.path.expandvars(os.path.expanduser(self.unexpanded_path)))
 
     @property
     def dirname(self):
@@ -177,7 +194,13 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
 
     @property
     def parent(self):
+        # get the dirname, but favor the unexpanded one to propagate variables
         dirname = self.dirname
+        unexpanded_dirname = self.fs.dirname(self.unexpanded_path)
+        expanded_dirname = os.path.expandvars(os.path.expanduser(unexpanded_dirname))
+        if unexpanded_dirname and dirname == os.path.abspath(expanded_dirname):
+            dirname = unexpanded_dirname
+
         args, kwargs = self._parent_args()
         return self.directory_class(dirname, *args, **kwargs) if dirname is not None else None
 
@@ -285,6 +308,7 @@ class FileSystemDirectoryTarget(FileSystemTarget):
             repl = lambda m: create_random_string(l=len(m.group(1)))
             path = re.sub("(X{3,})", repl, path)
 
+        unexpanded_path = os.path.join(self.unexpanded_path, path)
         path = os.path.join(self.path, path)
         if type == "f":
             cls = self.file_class
@@ -300,7 +324,7 @@ class FileSystemDirectoryTarget(FileSystemTarget):
         args, _kwargs = self._child_args(path)
         _kwargs.update(kwargs)
 
-        return cls(path, *args, **_kwargs)
+        return cls(unexpanded_path, *args, **_kwargs)
 
     def listdir(self, **kwargs):
         return self.fs.listdir(self.path, **kwargs)

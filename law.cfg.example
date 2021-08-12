@@ -190,6 +190,12 @@
 ; Type: boolean
 ; Default: True
 
+; expand_path_repr
+; Description: A boolean flag that decides whether environment variables in paths of file targets
+; are expanded in "repr(target)" and "str(target)".
+; Type: boolean
+; Default: False
+
 ; default_local_fs
 ; Description: The name of the section to lookup for getting the configuration of a
 ; "law.target.local.LocalFileSystem".
