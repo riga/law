@@ -52,7 +52,7 @@ class HTCondorJobManager(BaseJobManager):
     @classmethod
     def get_htcondor_version(cls):
         code, out, _ = interruptable_popen("condor_version", shell=True, executable="/bin/bash",
-            stdout=subprocess.PIPE)
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if code == 0:
             m = re.match(r"^\$CondorVersion: (\d+)\.(\d+)\.(\d+) .+$", out.split("\n")[0].strip())
             if m:

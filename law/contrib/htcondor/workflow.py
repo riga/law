@@ -189,14 +189,20 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
     def htcondor_output_postfix(self):
         return "_" + self.get_branches_repr()
 
+    def htcondor_job_manager_cls(self):
+        return HTCondorJobManager
+
     def htcondor_create_job_manager(self, **kwargs):
         kwargs = merge_dicts(self.htcondor_job_manager_defaults, kwargs)
-        return HTCondorJobManager(**kwargs)
+        return self.htcondor_job_manager_cls()(**kwargs)
+
+    def htcondor_job_file_factory_cls(self):
+        return HTCondorJobFileFactory
 
     def htcondor_create_job_file_factory(self, **kwargs):
         # job file fectory config priority: kwargs > class defaults
         kwargs = merge_dicts({}, self.htcondor_job_file_factory_defaults, kwargs)
-        return HTCondorJobFileFactory(**kwargs)
+        return self.htcondor_job_file_factory_cls()(**kwargs)
 
     def htcondor_job_config(self, config, job_num, branches):
         return config

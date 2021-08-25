@@ -206,14 +206,20 @@ class GLiteWorkflow(BaseRemoteWorkflow):
         return delegate_voms_proxy_glite(endpoint, stdout=sys.stdout, stderr=sys.stderr,
             cache=True)
 
+    def glite_job_manager_cls(self):
+        return GLiteJobManager
+
     def glite_create_job_manager(self, **kwargs):
         kwargs = merge_dicts(self.glite_job_manager_defaults, kwargs)
-        return GLiteJobManager(**kwargs)
+        return self.glite_job_manager_cls()(**kwargs)
+
+    def glite_job_file_factory_cls(self):
+        return GLiteJobFileFactory
 
     def glite_create_job_file_factory(self, **kwargs):
         # job file fectory config priority: kwargs > class defaults
         kwargs = merge_dicts({}, self.glite_job_file_factory_defaults, kwargs)
-        return GLiteJobFileFactory(**kwargs)
+        return self.glite_job_file_factory_cls()(**kwargs)
 
     def glite_job_config(self, config, job_num, branches):
         return config

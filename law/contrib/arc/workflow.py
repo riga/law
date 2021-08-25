@@ -186,14 +186,20 @@ class ARCWorkflow(BaseRemoteWorkflow):
     def arc_output_uri(self):
         return self.arc_output_directory().url()
 
+    def arc_job_manager_cls(self):
+        return ARCJobManager
+
     def arc_create_job_manager(self, **kwargs):
         kwargs = merge_dicts(self.arc_job_manager_defaults, kwargs)
-        return ARCJobManager(**kwargs)
+        return self.arc_job_manager_cls()(**kwargs)
+
+    def arc_job_file_factory_cls(self):
+        return ARCJobFileFactory
 
     def arc_create_job_file_factory(self, **kwargs):
         # job file fectory config priority: kwargs > class defaults
         kwargs = merge_dicts({}, self.arc_job_file_factory_defaults, kwargs)
-        return ARCJobFileFactory(**kwargs)
+        return self.arc_job_file_factory_cls()(**kwargs)
 
     def arc_job_config(self, config, job_num, branches):
         return config
