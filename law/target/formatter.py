@@ -179,7 +179,7 @@ class YAMLFormatter(Formatter):
         import yaml
 
         with open(get_path(path), "r") as f:
-            return yaml.load(f, *args, **kwargs)
+            return yaml.safe_load(f, *args, **kwargs)
 
     @classmethod
     def dump(cls, path, obj, *args, **kwargs):
