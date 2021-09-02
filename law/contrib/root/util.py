@@ -10,7 +10,7 @@ __all__ = ["import_ROOT", "hadd_task"]
 import six
 
 from law.target.local import LocalFileTarget, LocalDirectoryTarget
-from law.util import map_verbose, interruptable_popen, human_bytes, quote_cmd
+from law.util import map_verbose, make_list, interruptable_popen, human_bytes, quote_cmd
 
 
 _ROOT = None
@@ -41,7 +41,7 @@ def import_ROOT(batch=True, ignore_cli=True, reset=False):
     return _ROOT
 
 
-def hadd_task(task, inputs, output, cwd=None, local=False, force=True):
+def hadd_task(task, inputs, output, cwd=None, local=False, force=True, hadd_args=None):
     """
     This method is intended to be used by tasks that are supposed to merge root files, e.g. when
     inheriting from :py:class:`law.contrib.tasks.MergeCascade`. *inputs* should be a sequence of
@@ -52,10 +52,8 @@ def hadd_task(task, inputs, output, cwd=None, local=False, force=True):
 
     When *local* is *True*, the input and output targets are assumed to be local and the merging is
     based on their local paths. Otherwise, the targets are fetched first and the output target is
-    localized.
-
-    When *force* is *True*, any existing output file is overwritten (by adding the ``-f`` flag to
-    ``hadd``).
+    localized. When *force* is *True*, any existing output file is overwritten. *hadd_args* can be a
+    sequence of additional arguments that are added to the hadd command.
     """
     # ensure inputs are targets
     inputs = [
@@ -77,9 +75,9 @@ def hadd_task(task, inputs, output, cwd=None, local=False, force=True):
     # helper to create the hadd cmd
     def hadd_cmd(input_paths, output_path):
         cmd = ["hadd", "-n", "0"]
-        if force:
-            cmd.append("-f")
         cmd.extend(["-d", cwd.path])
+        if hadd_args:
+            cmd.extend(make_list(hadd_args))
         cmd.append(output_path)
         cmd.extend(input_paths)
         return quote_cmd(cmd)
@@ -89,6 +87,10 @@ def hadd_task(task, inputs, output, cwd=None, local=False, force=True):
         input_paths = [inp.path for inp in inputs]
 
         with task.publish_step("merging ...", runtime=True):
+            # clear the output if necessary
+            if output.exists() and force:
+                output.remove()
+
             if len(inputs) == 1:
                 output.copy_from_local(inputs[0])
             else:
