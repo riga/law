@@ -442,12 +442,11 @@ def notify(fn, opts, task, *args, **kwargs):
     return before_call, call, after_call, on_error
 
 
-@factory(publish_message=False, accept_generator=True)
+@factory(accept_generator=True)
 def timeit(fn, opts, task, *args, **kwargs):
-    """ timeit(publish_message=False)
-    Wraps a bound method of a task and logs its execution time in a human readable format. Logs in
-    info mode. When *publish_message* is *True*, the duration is also published as a task message to
-    the scheduler. Accepts generator functions.
+    """ timeit()
+    Wraps a bound method of a task and logs its execution time in a human readable format using the
+    task's logger instance in info mode. Accepts generator functions.
     """
     def before_call():
         t0 = time.time()
@@ -458,14 +457,7 @@ def timeit(fn, opts, task, *args, **kwargs):
 
     def log_duration(t0):
         duration = human_duration(seconds=round(time.time() - t0, 1))
-
-        # log
-        timeit_logger = logger.getChild("timeit")
-        timeit_logger.info("runtime of {}: {}".format(task.task_id, duration))
-
-        # optionally publish a task message to the scheduler
-        if opts["publish_message"] and callable(getattr(task, "publish_message", None)):
-            task.publish_message("runtime: {}".format(duration))
+        task.logger.info("runtime: {}".format(duration))
 
     def after_call(t0):
         log_duration(t0)

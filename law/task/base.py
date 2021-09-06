@@ -421,12 +421,12 @@ class Task(six.with_metaclass(Register, BaseTask)):
         elif not silent:
             logger.warning("set_status_message not set, cannot send task message to scheduler")
 
-    def create_message_stream(self, *args, **kwargs):
+    def _create_message_stream(self, *args, **kwargs):
         return TaskMessageStream(self, *args, **kwargs)
 
     def _create_logger(self, name, level=None, **kwargs):
         return setup_logger(name, level=level, add_console_handler={
-            "handler_kwargs": {"stream": self.create_message_stream(**kwargs)},
+            "handler_kwargs": {"stream": self._create_message_stream(**kwargs)},
         })
 
     @contextmanager
