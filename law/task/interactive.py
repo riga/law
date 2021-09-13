@@ -295,7 +295,7 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
         # start the traversing through output structure with a lookup pattern
         for output, odepth, oprefix, ooffset, lookup in _iter_output(dep.output(), offset):
             try:
-                stat = output.stat
+                stat = output.stat()
             except:
                 stat = None
 
