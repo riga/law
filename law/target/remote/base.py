@@ -550,7 +550,7 @@ class RemoteTarget(FileSystemTarget):
             raise ValueError("path {} forbidden, surpasses file system root".format(path))
 
         path = self.fs.abspath(path)
-        FileSystemTarget.path.fset(path)
+        FileSystemTarget.path.fset(self, path)
 
     def uri(self, **kwargs):
         return self.fs.uri(self.path, **kwargs)
