@@ -20,7 +20,7 @@ from abc import ABCMeta, abstractmethod
 import six
 
 from law.config import Config
-from law.util import colored, make_list, iter_chunks, flatten
+from law.util import colored, make_list, iter_chunks, flatten, makedirs
 
 
 def get_async_result_silent(result, timeout=None):
@@ -589,8 +589,7 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
         self.dir = dir or cfg.get_expanded("job", "job_file_dir")
 
         # create the directory
-        if not os.path.exists(self.dir):
-            os.makedirs(self.dir)
+        makedirs(self.dir)
 
         # check if it should be extended by a temporary dir
         if mkdtemp:

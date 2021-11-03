@@ -19,6 +19,7 @@ from law.target.file import FileSystemTarget
 from law.target.collection import TargetCollection, FileCollection
 from law.util import (
     colored, flatten, flag_to_bool, query_choice, human_bytes, is_lazy_iterable, make_list,
+    makedirs,
 )
 from law.logger import get_logger
 
@@ -241,8 +242,7 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
 
     target_dir = os.path.normpath(os.path.abspath(target_dir))
     print("target directory is {}".format(target_dir))
-    if not os.path.exists(target_dir):
-        os.makedirs(target_dir)
+    makedirs(target_dir)
 
     include_external = flag_to_bool(include_external)
     if include_external:

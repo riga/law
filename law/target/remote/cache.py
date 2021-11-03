@@ -17,7 +17,7 @@ from contextlib import contextmanager
 
 from law.config import Config
 from law.util import (
-    makedirs_perm, human_bytes, parse_bytes, parse_duration, create_hash, user_owns_file, io_lock,
+    makedirs, human_bytes, parse_bytes, parse_duration, create_hash, user_owns_file, io_lock,
 )
 from law.logger import get_logger
 
@@ -102,7 +102,7 @@ class RemoteCache(object):
             cleanup = True
         else:
             base = os.path.join(root, name)
-            makedirs_perm(base, dir_perm)
+            makedirs(base, dir_perm)
 
         # save attributes and configs
         self.root = root

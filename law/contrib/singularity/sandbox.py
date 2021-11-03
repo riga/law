@@ -17,7 +17,7 @@ from law.config import Config
 from law.sandbox.base import Sandbox
 from law.target.local import LocalDirectoryTarget
 from law.cli.software import deps as law_deps
-from law.util import make_list, interruptable_popen, quote_cmd, flatten, law_src_path
+from law.util import make_list, interruptable_popen, quote_cmd, flatten, law_src_path, makedirs
 
 
 class SingularitySandbox(Sandbox):
@@ -129,8 +129,8 @@ class SingularitySandbox(Sandbox):
             volume_srcs.append(src)
 
             # ensure that source directories exist
-            if not os.path.isfile(src) and not os.path.exists(src):
-                os.makedirs(src)
+            if not os.path.isfile(src):
+                makedirs(src)
 
             # store the mount point
             args.extend(["-B", ":".join(vol)])

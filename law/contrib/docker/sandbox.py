@@ -20,7 +20,7 @@ from law.config import Config
 from law.sandbox.base import Sandbox
 from law.target.local import LocalFileTarget
 from law.cli.software import deps as law_deps
-from law.util import make_list, interruptable_popen, quote_cmd, flatten
+from law.util import make_list, interruptable_popen, quote_cmd, flatten, makedirs
 
 
 class DockerSandbox(Sandbox):
@@ -142,8 +142,8 @@ class DockerSandbox(Sandbox):
             volume_srcs.append(src)
 
             # ensure that source directories exist
-            if not os.path.isfile(src) and not os.path.exists(src):
-                os.makedirs(src)
+            if not os.path.isfile(src):
+                makedirs(src)
 
             # store the mount point
             args.extend(["-v", ":".join(vol)])

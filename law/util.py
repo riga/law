@@ -12,9 +12,9 @@ __all__ = [
     "is_lazy_iterable", "make_list", "make_tuple", "make_unique", "is_nested", "flatten",
     "merge_dicts", "which", "map_verbose", "map_struct", "mask_struct", "tmp_file",
     "interruptable_popen", "readable_popen", "create_hash", "create_random_string", "copy_no_perm",
-    "makedirs_perm", "user_owns_file", "iter_chunks", "human_bytes", "parse_bytes",
-    "human_duration", "human_time_diff", "parse_duration", "is_file_exists_error", "send_mail",
-    "DotDict", "ShorthandDict", "open_compat", "patch_object", "join_generators", "quote_cmd",
+    "makedirs", "user_owns_file", "iter_chunks", "human_bytes", "parse_bytes", "human_duration",
+    "human_time_diff", "parse_duration", "is_file_exists_error", "send_mail", "DotDict",
+    "ShorthandDict", "open_compat", "patch_object", "join_generators", "quote_cmd",
     "escape_markdown", "classproperty", "BaseStream", "TeeStream", "FilteredStream",
 ]
 
@@ -1200,20 +1200,36 @@ def copy_no_perm(src, dst):
     os.chmod(dst, perm)
 
 
-def makedirs_perm(path, perm=None):
+def makedirs(path, perm=None):
     """
-    Recursively creates directory up to *path*. If *perm* is set, the permissions of all newly
-    created directories are set to its value.
+    Recursively creates directories up to *path*. No exception is raised if *path* refers to an
+    existing directory. If *perm* is set, the permissions of all newly created directories are set
+    to this value.
     """
-    if not os.path.exists(path):
-        if perm is None:
-            os.makedirs(path)
-        else:
-            umask = os.umask(0)
-            try:
+    # nothing to do when the directory already exists
+    if os.path.isdir(path):
+        return
+
+    # helper to silently create the directory, catching exceptions if it exists by now
+    # (when dropping py2, just use the exist_ok flag of os.makedirs)
+    def makedirs_safe(path, perm=None):
+        try:
+            if perm is None:
+                os.makedirs(path)
+            else:
                 os.makedirs(path, perm)
-            finally:
-                os.umask(umask)
+        except Exception as e:
+            if not is_file_exists_error(e):
+                raise
+
+    if perm is None:
+        makedirs_safe(path)
+    else:
+        umask = os.umask(0)
+        try:
+            makedirs_safe(path, perm)
+        finally:
+            os.umask(umask)
 
 
 def user_owns_file(path, uid=None):

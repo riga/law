@@ -16,7 +16,7 @@ import six
 
 from law.config import Config
 from law.task.base import Task, ExternalTask
-from law.util import multi_match, colored, abort
+from law.util import multi_match, colored, abort, makedirs
 from law.logger import get_logger
 
 
@@ -185,8 +185,7 @@ def execute(args):
     stats = OrderedDict()
 
     # write the index file
-    if not os.path.exists(os.path.dirname(index_file)):
-        os.makedirs(os.path.dirname(index_file))
+    makedirs(os.path.dirname(index_file))
 
     with open(index_file, "w") as f:
         for cls in task_classes:
