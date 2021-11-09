@@ -788,10 +788,10 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         if attr:
             if isinstance(value, Exception):
                 msg.respond("cannot set {}: {}".format(attr, value))
-                logger.info("cannot set {} of task {}: {}".format(attr, self, value))
+                logger.warning("cannot set {} of task {}: {}".format(attr, self.live_task_id, value))
             else:
                 msg.respond("{} set to {}".format(attr, value))
-                logger.info("{} of task {} set to {}".format(attr, self, value))
+                logger.info("{} of task {} set to {}".format(attr, self.live_task_id, value))
             return True
         else:
             msg.respond("task cannot handle scheduler message: {}".format(msg))
