@@ -11,6 +11,7 @@ import logging
 
 import six
 
+from law.config import Config
 from law.logger import is_tty_handler
 from law.util import make_list, multi_match
 
@@ -77,5 +78,9 @@ def replace_console_handlers(loggers=("luigi", "luigi.*", "luigi-*", "law", "law
         # add the removed handlers to the returned list
         if removed_handlers:
             ret.append((logger, removed_handlers))
+        
+    # set law.cfg colored_* task settings for rich to False _always_
+    Config.instance().set("task", "colored_repr", "False")
+    Config.instance().set("task", "colored_str", "False")
 
     return ret
