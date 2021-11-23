@@ -217,6 +217,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         # cached output() return value, set in run()
         self._outputs = None
 
+        # flag that denotes whether a submission was done befire, set in run()
+        self._submitted = False
+
         # initially existing keys of the "collection" output (= complete branch tasks), set in run()
         self._initially_existing_branches = []
 
@@ -427,8 +430,8 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         self.dashboard = task.create_job_dashboard() or NoJobDashboard()
 
         # read submission data and reset some values
-        submitted = not task.ignore_submission and self._outputs["submission"].exists()
-        if submitted:
+        self._submitted = not task.ignore_submission and self._outputs["submission"].exists()
+        if self._submitted:
             self.submission_data.update(self._outputs["submission"].load(formatter="json"))
             task.tasks_per_job = self.submission_data.tasks_per_job
             self.dashboard.apply_config(self.submission_data.dashboard_config)
@@ -441,13 +444,13 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
         # cancel jobs?
         if self._cancel_jobs:
-            if submitted:
+            if self._submitted:
                 self.cancel()
             self._controlled_jobs = True
 
         # cleanup jobs?
         elif self._cleanup_jobs:
-            if submitted:
+            if self._submitted:
                 self.cleanup()
             self._controlled_jobs = True
 
@@ -459,7 +462,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 task.set_tracking_url(tracking_url)
 
             # ensure the output directory exists
-            if not submitted:
+            if not self._submitted:
                 self._outputs["submission"].parent.touch()
 
             # at this point, when the status file exists, it is considered outdated
@@ -471,7 +474,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 self.job_file_factory = self.create_job_file_factory()
 
                 # submit
-                if not submitted:
+                if not self._submitted:
                     # set the initial list of unsubmitted jobs
                     branches = sorted(task.branch_map.keys())
                     branch_chunks = list(iter_chunks(branches, task.tasks_per_job))
@@ -481,7 +484,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                     self.submit()
 
                 # sleep once to give the job interface time to register the jobs
-                if not submitted and not task.no_poll:
+                if not self._submitted and not task.no_poll:
                     post_submit_delay = self._get_task_attribute("post_submit_delay", True)()
                     if post_submit_delay > 0:
                         logger.debug("sleep for {} second(s) due to post_submit_delay".format(
@@ -490,7 +493,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
                 # start status polling when a) no_poll is not set, or b) the jobs were already
                 # submitted so that failed jobs are resubmitted after a single polling iteration
-                if not task.no_poll or submitted:
+                if not task.no_poll or self._submitted:
                     self.poll()
 
             finally:
@@ -841,11 +844,11 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 job_id = data["job_id"]
                 states_by_num[job_num] = self.status_data_cls.job_data(**states_by_id[job_id])
 
-                # in the first polling interation, it might happen that a job is finished, but
-                # outputs of its tasks are not existing, e.g. when they were removed externaly and
-                # the job id is still known to the batch system; in this case, mark it as unknown
-                # and to be retried
-                if i == 0:
+                # when the task picked up an existing submission file, then in the first polling
+                # iteration, it might happen that a job is finished, but outputs of its tasks are
+                # not existing, e.g. when they were removed externaly and the job id is still known
+                # to the batch system; in this case, mark it as unknown and to be retried
+                if self._submitted and i == 0:
                     is_finished = states_by_num[job_num]["status"] == self.job_manager.FINISHED
                     if is_finished and not self._can_skip_job(job_num, data["branches"]):
                         states_by_num[job_num] = self.status_data_cls.job_data(
