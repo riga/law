@@ -8,7 +8,7 @@ on:
         required: false
         default: 'false'
       specific_job:
-        description: Run a specific job? (py27|py37|py38|py39|example)
+        description: Run a specific job? (py27|py37|py38|py39|py310|example)
         required: false
         default: ''
 

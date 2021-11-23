@@ -39,7 +39,11 @@ WORKDIR /root/install
 # prepare yum
 RUN yum -y update; yum clean all
 RUN yum -y install yum-plugin-priorities yum-utils; yum clean all
-RUN yum install -y epel-release; yum clean all
+RUN yum -y install epel-release; yum clean all
+
+# update locales
+RUN sed -i -r 's/^(override_install_langs=.+)/#\1/' /etc/yum.conf
+RUN yum -y reinstall glibc-common
 
 # basic software
 RUN yum -y groupinstall development; yum clean all

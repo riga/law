@@ -39,7 +39,11 @@ WORKDIR /root/install
 # prepare yum
 RUN yum -y update; yum clean all
 RUN yum -y install yum-plugin-priorities yum-utils; yum clean all
-RUN yum install -y epel-release; yum clean all
+RUN yum -y install epel-release; yum clean all
+
+# update locales
+RUN sed -i -r 's/^(override_install_langs=.+)/#\1/' /etc/yum.conf
+RUN yum -y reinstall glibc-common
 
 # basic software
 RUN yum -y groupinstall development; yum clean all
@@ -48,6 +52,17 @@ RUN yum -y install gcc gcc-c++ libffi-devel openssl-devel glib2-devel libattr-de
     sqlite sqlite-devel libsqlite3x-devel which wget nano screen git git-lfs cmake cmake3; \
     yum clean all
 RUN cd /usr/bin; curl https://getmic.ro | bash
+
+# custom openssl 1.1.1 for python 3.10
+RUN wget https://www.openssl.org/source/openssl-1.1.1l.tar.gz && \
+    tar -xzf openssl-1.1.1l.tar.gz && \
+    cd openssl-1.1.1l && \
+    ./config --prefix=/usr/local/openssl-1.1.1 --openssldir=/etc/ssl && \
+    make && \
+    make install && \
+    cd .. && \
+    rm -rf openssl-1.1.1l && \
+    rm openssl-1.1.1l.tar.gz
 
 # python via pyenv
 ENV PYENV_ROOT /root/.pyenv
@@ -59,7 +74,7 @@ ENV PYENV_LIB_DIR ${PYENV_PREFIX}/lib
 ENV PATH ${PYENV_ROOT}/bin:${PYENV_ROOT}/shims:${PATH}
 ENV CPATH ${PYENV_INCLUDE_DIR}:${CPATH}
 RUN curl https://pyenv.run | bash
-RUN PYTHON_CONFIGURE_OPTS="--enable-shared" pyenv install ${PYENV_VERSION}
+RUN PYTHON_CONFIGURE_OPTS="--enable-shared --with-openssl=/usr/local/openssl-1.1.1 --with-openssl-rpath=auto" pyenv install ${PYENV_VERSION}
 RUN echo $'\n\
 eval "$( pyenv init - )"\n\
 eval "$( pyenv virtualenv-init - )"' >> /root/.bashrc
