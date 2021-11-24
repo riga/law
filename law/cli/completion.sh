@@ -67,7 +67,7 @@ _law_complete() {
         # when no root task parameters were found, try to complete task-level parameters,
         # but only when the current input starts with two "-"
         if [ "${cur:0:2}" = "--" ]; then
-            # luigi has a tiny consistency in the treatment of "_" in task families and task-level
+            # luigi has a tiny inconsistency in the treatment of "_" in task families and task-level
             # parameters: while they are preserved for task families and thus, for the lookup of the
             # task to execute, they are replaced by "-" for task-level parameters, so since we are
             # dealing with task-level parameters here, revert the replacement manually and keep

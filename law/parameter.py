@@ -75,7 +75,7 @@ class DurationParameter(luigi.Parameter):
     """ __init__(unit="s", *args, **kwargs)
     Parameter that interprets a string (or float) value as a duration, represented by a float
     number with a configurable unit. *unit* is forwarded as both the *unit* and *input_unit*
-    argument to :py:func:`law.util.parse_duration` which is used for the conversion. For best
+    argument to :py:func:`law.util.parse_duration` which is used for the conversion. For optimal
     precision, value serialization uses :py:func:`law.util.human_duration` with *colon_format*.
     Example:
 
@@ -87,7 +87,7 @@ class DurationParameter(luigi.Parameter):
         p.parse("5m")                     # -> 300.
         p.parse("05:10")                  # -> 310.
         p.parse("5 minutes, 15 seconds")  # -> 310.
-        p.serialize(310)                  # -> 05:15
+        p.serialize(310)                  # -> "05:15"
 
         p = DurationParameter(unit="m")
         p.parse("5")                      # -> 5. (using the unit implicitly)
@@ -95,7 +95,7 @@ class DurationParameter(luigi.Parameter):
         p.parse("5m")                     # -> 5.
         p.parse("05:10")                  # -> 5.167
         p.parse("5 minutes, 15 seconds")  # -> 5.25
-        p.serialize(310)                  # -> 05:15
+        p.serialize(310)                  # -> "05:15:00"
 
     For more info, see :py:func:`law.util.parse_duration` and :py:func:`law.util.human_duration`.
     """
@@ -147,8 +147,8 @@ class CSVParameter(luigi.Parameter):
 
     When *min_len* (*max_len*) is set to an integer, an error is raised in case the number of
     elements to serialize or parse (evaluated after potentially ensuring uniqueness) deceeds
-    (exceeds) that value. Just like done in luigi's *ChoiceParamater*, *choices* can be a sequence
-    of accepted values.
+    (exceeds) that value. Just like in luigi's *ChoiceParamater*, *choices* can be a sequence of
+    accepted values.
 
     When *brace_expand* is *True*, brace expansion is applied, potentially extending the list of
     values. Unless *escape_sep* is *False*, escaped separators (comma) are not split when parsing
@@ -184,9 +184,10 @@ class CSVParameter(luigi.Parameter):
 
         Due to the way `instance caching
         <https://luigi.readthedocs.io/en/stable/parameters.html#parameter-instance-caching>`__
-        is implemented in luigi, parameters should always have hashable values. Therefore, this
-        parameter produces a tuple and, in particular, not a list. To avoid undesired side effects,
-        the *default* value given to the constructor is also converted to a tuple.
+        is implemented in luigi, parameters should always have hashable, immutable values.
+        Therefore, this parameter produces a tuple and, in particular, not a list. To avoid
+        undesired side effects, the *default* value given to the constructor is also converted to a
+        tuple.
 
     .. py:classattribute:: CSV_SEP
        type: string

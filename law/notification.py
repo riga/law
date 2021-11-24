@@ -18,8 +18,10 @@ logger = get_logger(__name__)
 def notify_mail(title, message, recipient=None, sender=None, smtp_host=None, smtp_port=None,
         **kwargs):
     """
-    Mail notification method taking a *title* and a string *message*. *recipient*, *sender*,
+    Sends a notification mail with a *title* and a string *message*. *recipient*, *sender*,
     *smtp_host* and *smtp_port* default to the configuration values in the [notifications] section.
+    When *recipient* or *sender* are not set, a warning is issued and *False* is returned.
+    Otherwise, the result of :py:meth:`util.send_mail` is returned.
     """
     cfg = Config.instance()
 
