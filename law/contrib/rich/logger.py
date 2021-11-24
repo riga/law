@@ -11,6 +11,7 @@ import logging
 
 import six
 
+from law.config import Config
 from law.logger import is_tty_handler
 from law.util import make_list, multi_match
 
@@ -74,6 +75,19 @@ def replace_console_handlers(loggers=("luigi", "luigi.*", "luigi-*", "law", "law
 
             # add the rich handler
             logger.addHandler(rich_logging.RichHandler(level, **handler_kwargs))
+                
+            # emit warning for colored_* settings
+            for sec in ("task", "colored_repr"), ("task", "colored_str"), ("target", "colored_repr"), ("target", "colored_str"):
+                if Config.instance().get_expanded_boolean(*sec):
+                    logger.warning_once("Enabled `colored_repr` and/or `colored_str` for the `task` and/or `target` Config sections "
+                                        "might lead to malformed outputs. Consider disabling the coloring by adding the following to "
+                                        "your `law.cfg`:\n"
+                                        "[task]\n\n"
+                                        "colored_repr: False\n"
+                                        "colored_str: False\n\n"
+                                        "[target]\n\n"
+                                        "colored_repr: False\n"
+                                        "colored_str: False")
 
         # add the removed handlers to the returned list
         if removed_handlers:
