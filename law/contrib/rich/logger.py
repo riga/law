@@ -17,14 +17,14 @@ from law.util import make_list, multi_match
 
 
 def replace_console_handlers(loggers=("luigi", "luigi.*", "luigi-*", "law", "law.*"), level=None,
-        force_add=False, check_fn=None, **handler_kwargs):
+        force_add=False, check_fn=None, **kwargs):
     """
     Removes all tty stream handlers (i.e. those logging to *stdout* or *stderr*) from certain
-    *loggers* and adds a ``rich.logging.RichHandler`` with a specified *level*. Additional options
-    can be passed to the ``rich.logging.RichHandler`` via **handler_kwargs*. *loggers* can either
-    be logger instances or names. In the latter case, the names are used as patterns to identify
-    matching loggers. Unless *force_add* is *True*, no new handler is added when no tty stream
-    handler was previously registered.
+    *loggers* and adds a new ``rich.logging.RichHandler`` instance with a specified *level* and all
+    *kwargs* passed as additional options to its constructor. *loggers* can either be logger
+    instances or names. In the latter case, the names are used as patterns to identify matching
+    loggers. Unless *force_add* is *True*, no new handler is added when no tty stream handler was
+    previously registered.
 
     *check_fn* can be a function with two arguments, a logger instance and a handler instance, that
     should return *True* if that handler should be removed. When *None*, all handlers inheriting
@@ -74,20 +74,20 @@ def replace_console_handlers(loggers=("luigi", "luigi.*", "luigi-*", "law", "law
                 level = logging.INFO
 
             # add the rich handler
-            logger.addHandler(rich_logging.RichHandler(level, **handler_kwargs))
-                
-            # emit warning for colored_* settings
-            for sec in ("task", "colored_repr"), ("task", "colored_str"), ("target", "colored_repr"), ("target", "colored_str"):
-                if Config.instance().get_expanded_boolean(*sec):
-                    logger.warning_once("Enabled `colored_repr` and/or `colored_str` for the `task` and/or `target` Config sections "
-                                        "might lead to malformed outputs. Consider disabling the coloring by adding the following to "
-                                        "your `law.cfg`:\n"
-                                        "[task]\n\n"
-                                        "colored_repr: False\n"
-                                        "colored_str: False\n\n"
-                                        "[target]\n\n"
-                                        "colored_repr: False\n"
-                                        "colored_str: False")
+            logger.addHandler(rich_logging.RichHandler(level, **kwargs))
+
+            # emit warning for colored_* configs
+            cfg = Config.instance()
+            opts = [(s, o) for s in ["task", "target"] for o in ["colored_str", "colored_repr"]]
+            if any(cfg.get_expanded_boolean(*opt) for opt in opts):
+                logger.warning_once(
+                    "interfering_colors_in_rich_handler",
+                    "law is currently configured to colorize string representations of tasks and "
+                    "targets which might lead to malformed logs of the RichHandler; to avoid this, "
+                    "consider updating your law configuration file ({}) to:\n"
+                    "[task]\ncolored_repr: False\ncolored_str: False\n\n"
+                    "[target]\ncolored_repr: False\ncolored_str: False".format(cfg.config_file),
+                )
 
         # add the removed handlers to the returned list
         if removed_handlers:

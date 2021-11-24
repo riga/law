@@ -374,8 +374,7 @@ class NestedSiblingFileCollection(FileCollection):
 
     The constructor identifies targets located in the same physical directory (identified by URI),
     creates one collection for each of them, and stores them in the *collections* attribute. Key
-    access, iteration, etc., is identical to the standard
-    :py:class:`FileCollection`.
+    access, iteration, etc., is identical to the standard :py:class:`FileCollection`.
     """
 
     def __init__(self, *args, **kwargs):
