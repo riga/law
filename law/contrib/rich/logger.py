@@ -17,10 +17,11 @@ from law.util import make_list, multi_match
 
 
 def replace_console_handlers(loggers=("luigi", "luigi.*", "luigi-*", "law", "law.*"), level=None,
-        force_add=False, check_fn=None):
+        force_add=False, check_fn=None, **handler_kwargs):
     """
     Removes all tty stream handlers (i.e. those logging to *stdout* or *stderr*) from certain
-    *loggers* and adds a ``rich.logging.RichHandler`` with a specified *level*. *loggers* can either
+    *loggers* and adds a ``rich.logging.RichHandler`` with a specified *level*. Additional options
+    can be passed to the ``rich.logging.RichHandler`` via **handler_kwargs*. *loggers* can either
     be logger instances or names. In the latter case, the names are used as patterns to identify
     matching loggers. Unless *force_add* is *True*, no new handler is added when no tty stream
     handler was previously registered.
@@ -73,7 +74,7 @@ def replace_console_handlers(loggers=("luigi", "luigi.*", "luigi-*", "law", "law
                 level = logging.INFO
 
             # add the rich handler
-            logger.addHandler(rich_logging.RichHandler(level))
+            logger.addHandler(rich_logging.RichHandler(level, **handler_kwargs))
                 
             # emit warning for colored_* settings
             for sec in ("task", "colored_repr"), ("task", "colored_str"), ("target", "colored_repr"), ("target", "colored_str"):

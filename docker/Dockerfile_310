@@ -3,21 +3,21 @@ FROM centos:7
 # labels
 LABEL law.version="0.1.6"
 LABEL law.image_name="riga/law"
-LABEL law.image_tag="py37"
-LABEL law.image_dir="law-py37"
+LABEL law.image_tag="py310"
+LABEL law.image_dir="law-py310"
 LABEL law.image_python_major="3"
-LABEL law.image_python_minor="7"
-LABEL law.image_python_patch="12"
-LABEL law.image_python="3.7.12"
-LABEL law.image_python_mm="3.7"
+LABEL law.image_python_minor="10"
+LABEL law.image_python_patch="0"
+LABEL law.image_python="3.10.0"
+LABEL law.image_python_mm="3.10"
 
 # law specific environment variables
-ENV LAW_SANDBOX docker::riga/law:py37
-ENV LAW_IMAGE_NAME law-py37
-ENV LAW_IMAGE_TAG py37
+ENV LAW_SANDBOX docker::riga/law:py310
+ENV LAW_IMAGE_NAME law-py310
+ENV LAW_IMAGE_TAG py310
 ENV LAW_IMAGE_PYTHON_MAJOR 3
-ENV LAW_IMAGE_PYTHON_MINOR 7
-ENV LAW_IMAGE_PYTHON_PATCH 12
+ENV LAW_IMAGE_PYTHON_MINOR 10
+ENV LAW_IMAGE_PYTHON_PATCH 0
 ENV LAW_IMAGE_PYTHON ${LAW_IMAGE_PYTHON_MAJOR}.${LAW_IMAGE_PYTHON_MINOR}.${LAW_IMAGE_PYTHON_PATCH}
 ENV LAW_IMAGE_PYTHON_MM ${LAW_IMAGE_PYTHON_MAJOR}.${LAW_IMAGE_PYTHON_MINOR}
 ENV LAW_IMAGE_SOURCE_DIR /root/law
@@ -53,17 +53,28 @@ RUN yum -y install gcc gcc-c++ libffi-devel openssl-devel glib2-devel libattr-de
     yum clean all
 RUN cd /usr/bin; curl https://getmic.ro | bash
 
+# custom openssl 1.1.1 for python 3.10
+RUN wget https://www.openssl.org/source/openssl-1.1.1l.tar.gz && \
+    tar -xzf openssl-1.1.1l.tar.gz && \
+    cd openssl-1.1.1l && \
+    ./config --prefix=/usr/local/openssl-1.1.1 --openssldir=/etc/ssl && \
+    make && \
+    make install && \
+    cd .. && \
+    rm -rf openssl-1.1.1l && \
+    rm openssl-1.1.1l.tar.gz
+
 # python via pyenv
 ENV PYENV_ROOT /root/.pyenv
 ENV PYENV_VERSION ${LAW_IMAGE_PYTHON}
 ENV PYENV_VERSION_MM ${LAW_IMAGE_PYTHON_MM}
 ENV PYENV_PREFIX ${PYENV_ROOT}/versions/${PYENV_VERSION}
-ENV PYENV_INCLUDE_DIR ${PYENV_PREFIX}/include/python${PYENV_VERSION_MM}m
+ENV PYENV_INCLUDE_DIR ${PYENV_PREFIX}/include/python${PYENV_VERSION_MM}
 ENV PYENV_LIB_DIR ${PYENV_PREFIX}/lib
 ENV PATH ${PYENV_ROOT}/bin:${PYENV_ROOT}/shims:${PATH}
 ENV CPATH ${PYENV_INCLUDE_DIR}:${CPATH}
 RUN curl https://pyenv.run | bash
-RUN PYTHON_CONFIGURE_OPTS="--enable-shared" pyenv install ${PYENV_VERSION}
+RUN PYTHON_CONFIGURE_OPTS="--enable-shared --with-openssl=/usr/local/openssl-1.1.1 --with-openssl-rpath=auto" pyenv install ${PYENV_VERSION}
 RUN echo $'\n\
 eval "$( pyenv init - )"\n\
 eval "$( pyenv virtualenv-init - )"' >> /root/.bashrc

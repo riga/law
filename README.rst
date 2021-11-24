@@ -28,7 +28,7 @@
    :alt: DOI
 
 
-**Note**: This project is currently under development. Version 1.0.0 will be the first, fully documented beta release, targetted for 2021.
+**Note**: This project is currently under development. Version 1.0.0 will be the first, fully documented beta release, targetted for late 2021.
 
 Use law to build complex and large-scale task workflows. It is build on top of `luigi <https://github.com/spotify/luigi>`__ and adds abstractions for **run locations**, **storage locations** and **software environments**. Law strictly disentangles these building blocks and ensures they remain interchangeable and resource-opportunistic.
 
@@ -60,13 +60,13 @@ Install via `pip <https://pypi.python.org/pypi/law>`__:
 
 This command also installs `luigi <https://pypi.python.org/pypi/luigi>`__ and `six <https://pypi.python.org/pypi/six>`__.
 
-Remote targets also require `gfal2 <http://dmc.web.cern.ch/projects/gfal-2/home>`__ and `gfal2-python <https://pypi.python.org/pypi/gfal2-python>`__ (optional, also via pip) to be installed.
+The (default) remote target implementation also requires `gfal2 <http://dmc.web.cern.ch/projects/gfal-2/home>`__ and `gfal2-python <https://pypi.python.org/pypi/gfal2-python>`__ (optional, also via pip) to be installed.
 
 
 Docker Images
 -------------
 
-To run and test law, there are three docker images available on the `DockerHub <https://cloud.docker.com/u/riga/repository/docker/riga/law>`__, corresponding to Python versions 2.7, 3.7 and 3.8. They are based on CentOS 7 and ship with the dependencies listed above, including gfal2.
+To run and test law, there are three docker images available on the `DockerHub <https://cloud.docker.com/u/riga/repository/docker/riga/law>`__, corresponding to Python versions 2.7, and 3.7 to 3.10. They are based on CentOS 7 and ship with the dependencies listed above, including gfal2.
 
 .. code-block:: bash
 
@@ -75,7 +75,9 @@ To run and test law, there are three docker images available on the `DockerHub <
 
 Tags:
 
-- ``latest``, ``py3``, ``py38``: Latest Python 3.8
+- ``py310``: Latest Python 3.10
+- ``latest``, ``py3``, ``py39``: Latest Python 3.9
+- ``py38``: Latest Python 3.8
 - ``py37``: Latest Python 3.7
 - ``py2``, ``py27``: Python 2.7.5
 - ``example``: Example runner, based on ``latest`` (see `below <#examples>`__)

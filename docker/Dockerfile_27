@@ -1,7 +1,7 @@
 FROM centos:7
 
 # labels
-LABEL law.version="0.1.5"
+LABEL law.version="0.1.6"
 LABEL law.image_name="riga/law"
 LABEL law.image_tag="py27"
 LABEL law.image_dir="law-py27"
@@ -39,7 +39,11 @@ WORKDIR /root/install
 # prepare yum
 RUN yum -y update; yum clean all
 RUN yum -y install yum-plugin-priorities yum-utils; yum clean all
-RUN yum install -y epel-release; yum clean all
+RUN yum -y install epel-release; yum clean all
+
+# update locales
+RUN sed -i -r 's/^(override_install_langs=.+)/#\1/' /etc/yum.conf
+RUN yum -y reinstall glibc-common
 
 # basic software
 RUN yum -y groupinstall development; yum clean all
