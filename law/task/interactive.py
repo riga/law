@@ -258,7 +258,7 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
     else:
         mode = mode[0].lower()
     if mode not in modes:
-        raise Exception("unknown removal mode '{}'".format(mode))
+        raise Exception("unknown fetch mode '{}'".format(mode))
     mode_name = mode_names[modes.index(mode)]
     print("selected " + colored(mode_name + " mode", "blue", style="bright"))
 
