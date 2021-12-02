@@ -203,19 +203,18 @@ class RemoteFileInterface(six.with_metaclass(abc.ABCMeta, object)):
             kwargs["return_index"] = False
             base = self.get_base(return_all=return_all, **kwargs)
 
-        # helper to join the path to a base b and remove the scheme if requested
+        # helper to join the path to some base b and remove the scheme if requested
         def uri(b):
             uri = os.path.join(b, self.sanitize_path(path).lstrip("/")).rstrip("/")
-            if not scheme:
-                uri = remove_scheme(uri)
-            return uri
+            return uri if scheme else remove_scheme(uri)
 
         if isinstance(base, (list, tuple)) or is_lazy_iterable(base):
             return [uri(b) for b in base]
-        elif return_all:
+
+        if return_all:
             return [uri(base)]
-        else:
-            return uri(base)
+
+        return uri(base)
 
     @abc.abstractmethod
     def exists(self, path, base=None, stat=False, **kwargs):

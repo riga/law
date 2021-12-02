@@ -1,7 +1,7 @@
 # coding: utf-8
 
 """
-Remote filesystem and targets, based on gfal2 bindings.
+Remote filesystem and targets, using a configurable remote file interface for atomic operations.
 """
 
 __all__ = ["RemoteFileSystem", "RemoteTarget", "RemoteFileTarget", "RemoteDirectoryTarget"]

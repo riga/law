@@ -117,13 +117,13 @@ class RemoteCache(object):
         self.max_waits = max_waits
         self.global_lock = global_lock
 
-        # path to the global lock file which should guard global actions such as allocations
+        # path to the global lock file which should guard global actions such as cache allocations
         self._global_lock_path = self._lock_path(os.path.join(base, "global"))
 
         # currently locked cache paths, only used to clean up broken files during cleanup
         self._locked_cpaths = set()
 
-        logger.debug("created RemoteCache at '{}'".format(self.base))
+        logger.debug("created {} at '{}'".format(self.__class__.__name__, self.base))
 
     def __del__(self):
         self._cleanup()

@@ -43,9 +43,9 @@ def load(*packages):
         if pkg in loaded_packages:
             logger.debug("skip contrib package '{}', already loaded".format(pkg))
             continue
-        elif not os.path.exists(law_src_path("contrib", pkg, "__init__.py")):
+        if not os.path.exists(law_src_path("contrib", pkg, "__init__.py")):
             raise Exception("contrib package '{}' does not exist".format(pkg))
-        elif getattr(law, pkg, None):
+        if getattr(law, pkg, None):
             raise Exception("cannot load contrib package '{}', attribute with that name already "
                 "exists in the law module".format(pkg))
 

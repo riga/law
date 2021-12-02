@@ -185,7 +185,7 @@ class GFALFileInterface(RemoteFileInterface):
                 # check if the operation should be retried, can fail silently, or raised immediately
                 if e.reason == e.UNKNOWN:
                     raise e
-                elif e.reason in (e.NOT_FOUND, e.NOT_SUPPORTED) and silent:
+                if e.reason in (e.NOT_FOUND, e.NOT_SUPPORTED) and silent:
                     return False
                 e.reraise()
 
@@ -203,7 +203,7 @@ class GFALFileInterface(RemoteFileInterface):
                 # check if the operation should be retried, can fail silently, or raised immediately
                 if e.reason == e.UNKNOWN:
                     raise e
-                elif e.reason == e.NOT_FOUND and silent:
+                if e.reason == e.NOT_FOUND and silent:
                     return False
                 e.reraise()
 
@@ -221,7 +221,7 @@ class GFALFileInterface(RemoteFileInterface):
                 # check if the operation should be retried, can fail silently, or raised immediately
                 if e.reason == e.UNKNOWN:
                     raise e
-                elif e.reason == e.NOT_FOUND and silent:
+                if e.reason == e.NOT_FOUND and silent:
                     return False
                 e.reraise()
 
@@ -246,7 +246,7 @@ class GFALFileInterface(RemoteFileInterface):
                 if e.reason != e.IS_DIRECTORY:
                     if e.reason == e.UNKNOWN:
                         raise e
-                    elif e.reason == e.NOT_FOUND and silent:
+                    if e.reason == e.NOT_FOUND and silent:
                         return False
                     e.reraise()
 
@@ -264,7 +264,7 @@ class GFALFileInterface(RemoteFileInterface):
                 if e.reason != e.NOT_EMPTY:
                     if e.reason == e.UNKNOWN:
                         raise e
-                    elif e.reason == e.NOT_FOUND and silent:
+                    if e.reason == e.NOT_FOUND and silent:
                         return False
                     e.reraise()
 
@@ -289,7 +289,7 @@ class GFALFileInterface(RemoteFileInterface):
                 # check if the operation should be retried, can fail silently, or raised immediately
                 if e.reason == e.UNKNOWN:
                     raise e
-                elif e.reason == e.EXISTS and silent:
+                if e.reason == e.EXISTS and silent:
                     # fail silently only when uri is really a dictionary
                     if self.isdir(path, base=base):
                         return False
@@ -309,7 +309,7 @@ class GFALFileInterface(RemoteFileInterface):
                 # check if the operation should be retried, can fail silently, or raised immediately
                 if e.reason == e.UNKNOWN:
                     raise e
-                elif e.reason == e.EXISTS and silent:
+                if e.reason == e.EXISTS and silent:
                     # fail silently only when uri is really a dictionary
                     if self.isdir(path, base=base):
                         return False
@@ -395,7 +395,7 @@ class GFALError_chmod(GFALOperationError):
         elif scheme == "srm":
             if "no such file or directory" in lmsg:
                 return cls.NOT_FOUND
-            elif "operation not supported" in lmsg:
+            if "operation not supported" in lmsg:
                 return cls.NOT_SUPPORTED
 
         elif scheme == "dropbox":
@@ -420,19 +420,19 @@ class GFALError_unlink(GFALOperationError):
         if scheme == "root":
             if "no such file or directory" in lmsg:
                 return cls.NOT_FOUND
-            elif "is a directory" in lmsg:
+            if "is a directory" in lmsg:
                 return cls.IS_DIRECTORY
 
         elif scheme == "gsiftp":
             if "no such file or directory" in lmsg:
                 return cls.NOT_FOUND
-            elif "not a file" in lmsg:
+            if "not a file" in lmsg:
                 return cls.IS_DIRECTORY
 
         elif scheme == "srm":
             if "no such file" in lmsg:
                 return cls.NOT_FOUND
-            elif "not a file" in lmsg:
+            if "not a file" in lmsg:
                 return cls.IS_DIRECTORY
 
         elif scheme == "dropbox":
@@ -458,26 +458,26 @@ class GFALError_rmdir(GFALOperationError):
         if scheme == "root":
             if "no such file or directory" in lmsg:
                 return cls.NOT_FOUND
-            elif "not a directory" in lmsg:
+            if "not a directory" in lmsg:
                 return cls.IS_FILE
-            elif "no such device" in lmsg:
+            if "no such device" in lmsg:
                 # cryptic message for non-empty directory
                 return cls.NOT_EMPTY
 
         elif scheme == "gsiftp":
             if "no such file or directory" in lmsg:
                 return cls.NOT_FOUND
-            elif "not a directory" in lmsg:
+            if "not a directory" in lmsg:
                 return cls.IS_FILE
-            elif "directory is not empty" in lmsg:
+            if "directory is not empty" in lmsg:
                 return cls.NOT_EMPTY
 
         elif scheme == "srm":
             if "no such file or directory" in lmsg:
                 return cls.NOT_FOUND
-            elif "this file is not a directory" in lmsg:
+            if "this file is not a directory" in lmsg:
                 return cls.IS_FILE
-            elif "directory not empty" in lmsg:
+            if "directory not empty" in lmsg:
                 return cls.NOT_EMPTY
 
         elif scheme == "dropbox":
@@ -552,91 +552,91 @@ class GFALError_filecopy(GFALOperationError):
         if (src_scheme, dst_scheme) == ("file", "file"):
             if "could not open source" in lmsg:
                 return cls.SRC_NOT_FOUND
-            elif "the file exists" in lmsg:
+            if "the file exists" in lmsg:
                 return cls.DST_EXISTS
 
         elif (src_scheme, dst_scheme) == ("file", "root"):
             if "no such file or directory (source)" in lmsg:
                 return cls.SRC_NOT_FOUND
-            elif "file exists (destination)" in lmsg:
+            if "file exists (destination)" in lmsg:
                 return cls.DST_EXISTS
 
         elif (src_scheme, dst_scheme) == ("file", "gsiftp"):
             if "local system call no such file or directory" in lmsg:
                 return cls.SRC_NOT_FOUND
-            elif "file exists" in lmsg:
+            if "file exists" in lmsg:
                 return cls.DST_EXISTS
 
         elif (src_scheme, dst_scheme) == ("file", "srm"):
             if "local system call no such file or directory" in lmsg:
                 return cls.SRC_NOT_FOUND
-            elif "file exists" in lmsg:
+            if "file exists" in lmsg:
                 return cls.DST_EXISTS
 
         elif (src_scheme, dst_scheme) == ("file", "dropbox"):
             if "could not open source" in lmsg:
                 return cls.SRC_NOT_FOUND
-            elif "the file exists" in lmsg:
+            if "the file exists" in lmsg:
                 return cls.DST_EXISTS
 
         elif (src_scheme, dst_scheme) == ("gsiftp", "file"):
             if "no such file or directory on url" in lmsg:
                 return cls.SRC_NOT_FOUND
-            elif "the file exists" in lmsg:
+            if "the file exists" in lmsg:
                 return cls.DST_EXISTS
 
         elif (src_scheme, dst_scheme) == ("gsiftp", "gsiftp"):
             if "file not found" in lmsg:
                 return cls.SRC_NOT_FOUND
-            elif "destination already exist" in lmsg:
+            if "destination already exist" in lmsg:
                 return cls.DST_EXISTS
 
         elif (src_scheme, dst_scheme) == ("srm", "file"):
             if "no such file" in lmsg:
                 return cls.SRC_NOT_FOUND
-            elif "the file exists" in lmsg:
+            if "the file exists" in lmsg:
                 return cls.DST_EXISTS
 
         elif (src_scheme, dst_scheme) == ("srm", "root"):
             if "no such file" in lmsg:
                 return cls.SRC_NOT_FOUND
-            elif "the file exists" in lmsg:
+            if "the file exists" in lmsg:
                 return cls.DST_EXISTS
 
         elif (src_scheme, dst_scheme) == ("srm", "srm"):
             if "no such file" in lmsg:
                 return cls.SRC_NOT_FOUND
-            elif "file exists" in lmsg:
+            if "file exists" in lmsg:
                 return cls.DST_EXISTS
 
         elif (src_scheme, dst_scheme) == ("root", "file"):
             if "no such file or directory" in lmsg:
                 return cls.SRC_NOT_FOUND
-            elif "file exists (destination)" in lmsg:
+            if "file exists (destination)" in lmsg:
                 return cls.DST_EXISTS
 
         elif (src_scheme, dst_scheme) == ("root", "srm"):
             if "no such file or directory" in lmsg:
                 return cls.SRC_NOT_FOUND
-            elif "file exists" in lmsg:
+            if "file exists" in lmsg:
                 return cls.DST_EXISTS
 
         elif (src_scheme, dst_scheme) == ("root", "root"):
             if "destination does not support delegation." in lmsg:
                 return cls.SRC_NOT_FOUND
-            elif "file exists" in lmsg:
+            if "file exists" in lmsg:
                 return cls.DST_EXISTS
 
         elif (src_scheme, dst_scheme) == ("dropbox", "file"):
             if "could not open source" in lmsg:
                 return cls.SRC_NOT_FOUND
-            elif "the file exists" in lmsg:
+            if "the file exists" in lmsg:
                 return cls.DST_EXISTS
 
         elif (src_scheme, dst_scheme) == ("dropbox", "dropbox"):
             if "could not open source" in lmsg:
                 return cls.SRC_NOT_FOUND
-            elif "the file exists" in lmsg:
+            if "the file exists" in lmsg:
                 return cls.DST_EXISTS
 
         else:
