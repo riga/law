@@ -12,7 +12,7 @@ LABEL law.image_python="3.9.9"
 LABEL law.image_python_mm="3.9"
 
 # law specific environment variables
-ENV LAW_SANDBOX docker::riga/law:py39
+ENV LAW_SANDBOX docker::riga/law:py39,docker::riga/law:py3,docker::riga/law:latest,docker::riga/law
 ENV LAW_IMAGE_NAME law-py39
 ENV LAW_IMAGE_TAG py39
 ENV LAW_IMAGE_PYTHON_MAJOR 3
