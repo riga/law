@@ -21,7 +21,7 @@ import luigi.task
 
 from law.config import Config
 from law.target.base import Target
-from law.util import map_struct, create_random_string
+from law.util import map_struct, create_random_string, human_bytes
 
 
 class FileSystem(luigi.target.FileSystem):
@@ -163,6 +163,12 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
     def _repr_pairs(self, color=True):
         expand = Config.instance().get_expanded_boolean("target", "expand_path_repr")
         return Target._repr_pairs(self) + [("path", self.path if expand else self.unexpanded_path)]
+
+    def _repr_flags(self):
+        flags = Target._repr_flags(self)
+        if Config.instance().get_expanded_boolean("target", "filesize_repr"):
+            flags.append(human_bytes(self.stat().st_size, fmt=True))
+        return flags
 
     def _parent_args(self):
         return (), {}
