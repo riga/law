@@ -54,7 +54,6 @@ action() {
     ( \
         eval rsync $rsync_args "$repo_path" "$tmp_dir/" && \
         cd "$tmp_dir/$( basename "$repo_path" )" && \
-        rm -rf $ignore_files && \
         hg add &> /dev/null && \
         hg add $include_files &> /dev/null; \
         hg commit -m "$commit_msg" > /dev/null; \

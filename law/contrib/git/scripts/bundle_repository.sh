@@ -65,7 +65,6 @@ action() {
     (
         eval rsync $rsync_args "$repo_path" "$tmp_dir/" && \
         cd "$tmp_dir/$repo_name" && \
-        rm -rf $ignore_files && \
         sgit add -A . &> /dev/null && \
         [ ! -z "$$include_files" ] && sgit add -f $include_files &> /dev/null
         sgit commit -m "$commit_msg" &> /dev/null
