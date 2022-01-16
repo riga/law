@@ -1379,13 +1379,16 @@ def parse_bytes(s, input_unit="bytes", unit="bytes"):
 
 
 time_units = collections.OrderedDict([
-    ("day", 86400),
-    ("hour", 3600),
+    ("week", 7 * 24 * 60 * 60),
+    ("day", 24 * 60 * 60),
+    ("hour", 60 * 60),
     ("minute", 60),
     ("second", 1),
 ])
 
 time_unit_aliases = {
+    "w": "week",
+    "weeks": "week",
     "d": "day",
     "days": "day",
     "h": "hour",
@@ -1617,8 +1620,7 @@ def parse_duration(s, input_unit="s", unit="s"):
                 raise ValueError("cannot parse duration string '{}', too many ':'".format(s))
 
             # convert each part, starting from the back to match unit_order
-            for i, part in enumerate(parts[::-1]):
-                u = unit_order[i]
+            for part, u in zip(parts[::-1], unit_order):
                 try:
                     d = float(part.strip())
                 except ValueError as e:
