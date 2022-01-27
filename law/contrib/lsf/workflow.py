@@ -80,6 +80,7 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
 
         # input files
         config.input_files = [wrapper_file, law_src_path("job", "job.sh")]
+        config.render_variables["job_file"] = pf("job.sh")
 
         # add the bootstrap file
         bootstrap_file = task.lsf_bootstrap_file()
