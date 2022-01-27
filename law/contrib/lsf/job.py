@@ -41,6 +41,22 @@ class LSFJobManager(BaseJobManager):
         self.emails = emails
         self.threads = threads
 
+        # determine the LSF version once
+        self.lsf_version = self.get_lsf_version()
+
+        # flags for versions with some important changes
+        self.lsf_v912 = self.lsf_version and self.lsf_version >= (9, 1, 2)
+
+    @classmethod
+    def get_lsf_version(cls):
+        code, out, _ = interruptable_popen("bjobs -V", shell=True, executable="/bin/bash",
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        if code == 0:
+            m = re.match(r"^Platform LSF (\d+)\.(\d+)\.(\d+).+$", out.split("\n")[0].strip())
+            if m:
+                return tuple(map(int, m.groups()))
+        return None
+
     def cleanup(self, *args, **kwargs):
         raise NotImplementedError("LSFJobManager.cleanup is not implemented")
 
@@ -125,7 +141,9 @@ class LSFJobManager(BaseJobManager):
         job_ids = make_list(job_id)
 
         # build the command
-        cmd = ["bjobs", "-noheader"]
+        cmd = ["bjobs"]
+        if self.lsf_v912:
+            cmd.append("-noheader")
         if queue:
             cmd += ["-q", queue]
         cmd += job_ids
