@@ -6,7 +6,7 @@ Custom luigi parameters.
 
 __all__ = [
     "NO_STR", "NO_INT", "NO_FLOAT", "is_no_param", "get_param", "TaskInstanceParameter",
-    "DurationParameter", "CSVParameter", "MultiCSVParameter", "RangeParameter",
+    "DurationParameter", "BytesParameter", "CSVParameter", "MultiCSVParameter", "RangeParameter",
     "MultiRangeParameter", "NotifyParameter", "NotifyMultiParameter", "NotifyMailParameter",
 ]
 
@@ -16,8 +16,8 @@ import six
 
 from law.notification import notify_mail
 from law.util import (
-    human_duration, parse_duration, time_units, time_unit_aliases, is_lazy_iterable, make_tuple,
-    make_unique, brace_expand,
+    human_duration, parse_duration, time_units, time_unit_aliases, human_bytes, parse_bytes,
+    byte_units, is_lazy_iterable, make_tuple, make_unique, brace_expand, try_int,
 )
 from law.logger import get_logger
 
@@ -75,24 +75,24 @@ class DurationParameter(luigi.Parameter):
     """ __init__(unit="s", *args, **kwargs)
     Parameter that interprets a string (or float) value as a duration, represented by a float
     number with a configurable unit. *unit* is forwarded as both the *unit* and *input_unit*
-    argument to :py:func:`law.util.parse_duration` which is used for the conversion. For optimal
+    argument of :py:func:`law.util.parse_duration` which is used for the conversion. For optimal
     precision, value serialization uses :py:func:`law.util.human_duration` with *colon_format*.
     Example:
 
     .. code-block:: python
 
         p = DurationParameter(unit="s")
-        p.parse("5")                      # -> 5. (using the unit implicitly)
-        p.parse("5s")                     # -> 5.
-        p.parse("5m")                     # -> 300.
-        p.parse("05:10")                  # -> 310.
-        p.parse("5 minutes, 15 seconds")  # -> 310.
+        p.parse("5")                      # -> 5.0 (using the unit implicitly)
+        p.parse("5s")                     # -> 5.0
+        p.parse("5m")                     # -> 300.0
+        p.parse("05:10")                  # -> 310.0
+        p.parse("5 minutes, 15 seconds")  # -> 310.0
         p.serialize(310)                  # -> "05:15"
 
         p = DurationParameter(unit="m")
-        p.parse("5")                      # -> 5. (using the unit implicitly)
+        p.parse("5")                      # -> 5.0 (using the unit implicitly)
         p.parse("5s")                     # -> 0.083
-        p.parse("5m")                     # -> 5.
+        p.parse("5m")                     # -> 5.0
         p.parse("05:10")                  # -> 5.167
         p.parse("5 minutes, 15 seconds")  # -> 5.25
         p.serialize(310)                  # -> "05:15:00"
@@ -134,6 +134,66 @@ class DurationParameter(luigi.Parameter):
 
         value_seconds = parse_duration(value, input_unit=self.unit, unit="s")
         return human_duration(seconds=value_seconds, colon_format=True)
+
+
+class BytesParameter(luigi.Parameter):
+    """ __init__(unit="MB", *args, **kwargs)
+    Parameter that interprets a string (or float) value as a number of bytes, represented by a float
+    number with a configurable unit. *unit* is forwarded as both the *unit* and *input_unit*
+    argument of :py:func:`law.util.parse_bytes` which is used for the conversion.
+    Example:
+
+    .. code-block:: python
+
+        p = BytesParameter(unit="MB")
+        p.parse("5")                      # -> 5.0 (using the unit implicitly)
+        p.parse("5 MB")                   # -> 5.0
+        p.parse(5)                        # -> 5.0
+        p.parse("1 GB")                   # -> 1024.0
+        p.serialize(310)                  # -> "310MB"
+
+        p = BytesParameter(unit="GB")
+        p.parse("5")                      # -> 5.0 (using the unit implicitly)
+        p.parse("1024 MB")                # -> 1.0
+        p.serialize("2048 MB")            # -> "2GB"
+
+    For more info, see :py:func:`law.util.parse_bytes` and :py:func:`law.util.human_bytes`.
+    """
+
+    def __init__(self, *args, **kwargs):
+        # validate and set the unit
+        self._unit = None
+        self.unit = kwargs.pop("unit", "MB")
+
+        super(BytesParameter, self).__init__(*args, **kwargs)
+
+    @property
+    def unit(self):
+        return self._unit
+
+    @unit.setter
+    def unit(self, unit):
+        if unit not in byte_units:
+            raise ValueError("unknown unit '{}', valid values are {}".format(unit, byte_units))
+
+        self._unit = unit
+
+    def parse(self, inp):
+        """"""
+        if not inp or inp == NO_STR:
+            inp = "0"
+
+        return parse_bytes(inp, input_unit=self.unit, unit=self.unit)
+
+    def serialize(self, value):
+        """"""
+        if not value:
+            value = 0
+
+        value_bytes = parse_bytes(value, input_unit=self.unit, unit="bytes")
+        v, u = human_bytes(value_bytes, unit=self.unit)
+
+        return "{}{}".format(try_int(v), u)
 
 
 class CSVParameter(luigi.Parameter):
