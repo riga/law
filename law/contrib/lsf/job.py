@@ -19,6 +19,8 @@ from law.job.base import BaseJobManager, BaseJobFileFactory
 from law.util import interruptable_popen, make_list, make_unique, quote_cmd
 from law.logger import get_logger
 
+from law.contrib.lsf.util import get_lsf_version
+
 
 logger = get_logger(__name__)
 
@@ -42,20 +44,10 @@ class LSFJobManager(BaseJobManager):
         self.threads = threads
 
         # determine the LSF version once
-        self.lsf_version = self.get_lsf_version()
+        self.lsf_version = get_lsf_version()
 
         # flags for versions with some important changes
         self.lsf_v912 = self.lsf_version and self.lsf_version >= (9, 1, 2)
-
-    @classmethod
-    def get_lsf_version(cls):
-        code, out, _ = interruptable_popen("bjobs -V", shell=True, executable="/bin/bash",
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        if code == 0:
-            m = re.match(r"^Platform LSF (\d+)\.(\d+)\.(\d+).+$", out.split("\n")[0].strip())
-            if m:
-                return tuple(map(int, m.groups()))
-        return None
 
     def cleanup(self, *args, **kwargs):
         raise NotImplementedError("LSFJobManager.cleanup is not implemented")

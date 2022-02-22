@@ -18,6 +18,8 @@ from law.job.base import BaseJobManager, BaseJobFileFactory
 from law.util import interruptable_popen, make_list, make_unique, quote_cmd
 from law.logger import get_logger
 
+from law.contrib.htcondor.util import get_htcondor_version
+
 
 logger = get_logger(__name__)
 
@@ -43,21 +45,11 @@ class HTCondorJobManager(BaseJobManager):
         self.threads = threads
 
         # determine the htcondor version once
-        self.htcondor_version = self.get_htcondor_version()
+        self.htcondor_version = get_htcondor_version()
 
         # flags for versions with some important changes
         self.htcondor_v833 = self.htcondor_version and self.htcondor_version >= (8, 3, 3)
         self.htcondor_v856 = self.htcondor_version and self.htcondor_version >= (8, 5, 6)
-
-    @classmethod
-    def get_htcondor_version(cls):
-        code, out, _ = interruptable_popen("condor_version", shell=True, executable="/bin/bash",
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        if code == 0:
-            m = re.match(r"^\$CondorVersion: (\d+)\.(\d+)\.(\d+) .+$", out.split("\n")[0].strip())
-            if m:
-                return tuple(map(int, m.groups()))
-        return None
 
     def cleanup(self, *args, **kwargs):
         raise NotImplementedError("HTCondorJobManager.cleanup is not implemented")
