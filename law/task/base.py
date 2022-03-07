@@ -81,6 +81,7 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
     exclude_params_req = set()
     exclude_params_req_set = set()
     exclude_params_req_get = set()
+    prefer_params_cli = set()
 
     @staticmethod
     def resource_name(name, host=None):
@@ -187,14 +188,15 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
         params.update(kwargs)
 
         # remove params that are preferably set via cli class arguments
-        if _prefer_cli:
+        prefer_cli = set(self.prefer_params_cli or ()) if _prefer_cli is None else set(_prefer_cli)
+        if prefer_cli:
             cls_args = []
             prefix = cls.get_task_family() + "_"
             if luigi.cmdline_parser.CmdlineParser.get_instance():
                 for key in global_cmdline_values().keys():
                     if key.startswith(prefix):
                         cls_args.append(key[len(prefix):])
-            for name in make_list(_prefer_cli):
+            for name in make_list(prefer_cli):
                 if name in params and name in cls_args:
                     del params[name]
 
