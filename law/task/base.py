@@ -188,7 +188,7 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
         params.update(kwargs)
 
         # remove params that are preferably set via cli class arguments
-        prefer_cli = set(self.prefer_params_cli or ()) if _prefer_cli is None else set(_prefer_cli)
+        prefer_cli = set(cls.prefer_params_cli or ()) if _prefer_cli is None else set(_prefer_cli)
         if prefer_cli:
             cls_args = []
             prefix = cls.get_task_family() + "_"
