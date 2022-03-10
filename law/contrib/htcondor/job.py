@@ -85,10 +85,12 @@ class HTCondorJobManager(BaseJobManager):
 
             # get the job id(s)
             if code == 0:
-                last_line = out.strip().split("\n")[-1].strip()
-                m = self.submission_job_id_cre.match(last_line)
-                if m:
-                    job_ids = ["{}.{}".format(m.group(2), i) for i in range(int(m.group(1)))]
+                # loop through all lines and try to match the expected pattern
+                for line in out.strip().split("\n")[::-1]:
+                    m = self.submission_job_id_cre.match(line.strip())
+                    if m:
+                        job_ids = ["{}.{}".format(m.group(2), i) for i in range(int(m.group(1)))]
+                        break
                 else:
                     code = 1
                     err = "cannot parse htcondor job id(s) from output:\n{}".format(out)
