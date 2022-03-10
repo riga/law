@@ -156,7 +156,7 @@ def remove_task_output(task, max_depth=0, mode=None, run_task=False):
     if not mode:
         mode = query_choice("removal mode?", modes, default="i", descriptions=mode_names)
     mode_name = mode_names[modes.index(mode)]
-    print("selected " + colored(mode_name + " mode", "blue", style="bright"))
+    print("selected {} mode".format(colored(mode_name + " mode", "blue", style="bright")))
 
     done = []
     for dep, _, depth in task.walk_deps(max_depth=max_depth, order="pre"):
@@ -260,7 +260,7 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
     if mode not in modes:
         raise Exception("unknown fetch mode '{}'".format(mode))
     mode_name = mode_names[modes.index(mode)]
-    print("selected " + colored(mode_name + " mode", "blue", style="bright"))
+    print("selected {} mode".format(colored(mode_name + " mode", "blue", style="bright")))
 
     done = []
     for dep, _, depth in task.walk_deps(max_depth=max_depth, order="pre"):
