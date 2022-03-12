@@ -196,6 +196,12 @@
 ; Type: boolean
 ; Default: False
 
+; filesize_repr
+; Description: A boolean flag that decides whether the file size is part of the representation for
+; targets inheriting from "law.FileSystemTarget".
+; Type: boolean
+; Default: False
+
 ; default_local_fs
 ; Description: The name of the section to lookup for getting the configuration of a
 ; "law.target.local.LocalFileSystem".

@@ -63,8 +63,9 @@ class LocalFileSystem(FileSystem):
     def stat(self, path, **kwargs):
         return os.stat(self._unscheme(path))
 
-    def exists(self, path):
-        return os.path.exists(self._unscheme(path))
+    def exists(self, path, stat=False, **kwargs):
+        exists = os.path.exists(self._unscheme(path))
+        return (self.stat(path, **kwargs) if exists else None) if stat else exists
 
     def isdir(self, path, **kwargs):
         return os.path.isdir(self._unscheme(path))

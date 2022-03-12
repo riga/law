@@ -21,7 +21,7 @@ import luigi.task
 
 from law.config import Config
 from law.target.base import Target
-from law.util import map_struct, create_random_string
+from law.util import map_struct, create_random_string, human_bytes
 
 
 class FileSystem(luigi.target.FileSystem):
@@ -88,7 +88,7 @@ class FileSystem(luigi.target.FileSystem):
         return
 
     @abstractmethod
-    def exists(self, path, **kwargs):
+    def exists(self, path, stat=False, **kwargs):
         return
 
     @abstractmethod
@@ -161,8 +161,18 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
         luigi.target.FileSystemTarget.__init__(self, path)
 
     def _repr_pairs(self, color=True):
+        pairs = Target._repr_pairs(self)
+
+        # add the path
         expand = Config.instance().get_expanded_boolean("target", "expand_path_repr")
-        return Target._repr_pairs(self) + [("path", self.path if expand else self.unexpanded_path)]
+        pairs.append(("path", self.path if expand else self.unexpanded_path))
+
+        # optionally add the file size
+        if Config.instance().get_expanded_boolean("target", "filesize_repr"):
+            stat = self.exists(stat=True)
+            pairs.append(("size", human_bytes(stat.st_size, fmt="{:.1f}{}") if stat else "-"))
+
+        return pairs
 
     def _parent_args(self):
         return (), {}
@@ -211,11 +221,11 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
 
         return parent.child(*args, **kwargs)
 
-    def exists(self, **kwargs):
-        return self.fs.exists(self.path, **kwargs)
-
     def stat(self, **kwargs):
         return self.fs.stat(self.path, **kwargs)
+
+    def exists(self, **kwargs):
+        return self.fs.exists(self.path, **kwargs)
 
     def remove(self, silent=True, **kwargs):
         self.fs.remove(self.path, silent=silent, **kwargs)
