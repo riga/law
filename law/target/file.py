@@ -88,7 +88,7 @@ class FileSystem(luigi.target.FileSystem):
         return
 
     @abstractmethod
-    def exists(self, path, **kwargs):
+    def exists(self, path, stat=False, **kwargs):
         return
 
     @abstractmethod
@@ -161,14 +161,18 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
         luigi.target.FileSystemTarget.__init__(self, path)
 
     def _repr_pairs(self, color=True):
-        expand = Config.instance().get_expanded_boolean("target", "expand_path_repr")
-        return Target._repr_pairs(self) + [("path", self.path if expand else self.unexpanded_path)]
+        pairs = Target._repr_pairs(self)
 
-    def _repr_flags(self):
-        flags = Target._repr_flags(self)
+        # add the path
+        expand = Config.instance().get_expanded_boolean("target", "expand_path_repr")
+        pairs.append(("path", self.path if expand else self.unexpanded_path))
+
+        # optionally add the file size
         if Config.instance().get_expanded_boolean("target", "filesize_repr"):
-            flags.append(human_bytes(self.stat().st_size, fmt=True))
-        return flags
+            stat = self.exists(stat=True)
+            pairs.append(("size", human_bytes(stat.st_size, fmt="{:.1f}{}") if stat else "-"))
+
+        return pairs
 
     def _parent_args(self):
         return (), {}
@@ -217,11 +221,11 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
 
         return parent.child(*args, **kwargs)
 
-    def exists(self, **kwargs):
-        return self.fs.exists(self.path, **kwargs)
-
     def stat(self, **kwargs):
         return self.fs.stat(self.path, **kwargs)
+
+    def exists(self, **kwargs):
+        return self.fs.exists(self.path, **kwargs)
 
     def remove(self, silent=True, **kwargs):
         self.fs.remove(self.path, silent=silent, **kwargs)
