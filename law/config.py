@@ -214,6 +214,11 @@ class Config(ConfigParser):
             "lsf_job_file_dir_cleanup": False,
             "lsf_chunk_size_cancel": 20,
             "lsf_chunk_size_query": 20,
+            "slurm_job_file_dir": None,
+            "slurm_job_file_dir_mkdtemp": None,
+            "slurm_job_file_dir_cleanup": False,
+            "slurm_chunk_size_cancel": 20,
+            "slurm_chunk_size_query": 20,
         },
         "notifications": {
             "mail_recipient": None,

@@ -811,6 +811,25 @@
 ; Type: integer
 ; Default: 20
 
+; slurm_job_file_dir
+; slurm_job_file_dir_mkdtemp
+; slurm_job_file_dir_cleanup
+; Description: These three options are identical to the ones above without the "slurm" prefix, but
+; only apply to the "law.slurm.SlurmJobFileFactory". When "None" or not existing, the values above
+; are used. The only exception is "slurm_job_file_dir_cleanup" whose default value is False.
+
+; slurm_chunk_size_cancel
+; Description: Number of jobs that can be cancelled in parallel inside a single call to
+; "law.slurm.SlurmJobManager.cancel", i.e., in a single "scancel" command.
+; Type: integer
+; Default: 20
+
+; slurm_chunk_size_query
+; Description: Number of jobs whose status can be queried in parallel inside a single call to
+; "law.slurm.SlurmJobManager.query", i.e., in a single "squeue" or "sacct" command.
+; Type: integer
+; Default: 20
+
 
 ; --- notifications section ------------------------------------------------------------------------
 
