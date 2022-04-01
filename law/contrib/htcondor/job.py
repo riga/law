@@ -409,7 +409,7 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
         if c.input_files or c.output_files:
             content.append(("should_transfer_files", "YES"))
         if c.input_files:
-            content.append(("transfer_input_files", make_unique(c.input_files)))
+            content.append(("transfer_input_files", make_unique(c.input_files.values())))
         if c.output_files:
             content.append(("transfer_output_files", make_unique(c.output_files)))
             content.append(("when_to_transfer_output", "ON_EXIT"))

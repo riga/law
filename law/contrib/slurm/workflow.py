@@ -7,6 +7,7 @@ Slurm workflow implementation. See https://slurm.schedmd.com.
 __all__ = ["SlurmWorkflow"]
 
 
+import os
 from abc import abstractmethod
 from collections import OrderedDict
 
@@ -121,7 +122,7 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
         # get the location of the custom local log file if any
         abs_log_file = None
         if output_dir_is_local and c.custom_log_file:
-            abs_log_file = output_dir.child(c.custom_log_file, type="f").path
+            abs_log_file = os.path.join(output_dir.path, c.custom_log_file)
 
         # return job and log files
         return {"job": job_file, "log": abs_log_file}
