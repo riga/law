@@ -82,8 +82,8 @@ class ARCWorkflowProxy(BaseRemoteWorkflowProxy):
         config.render_variables = {}
 
         # input files
-        config.input_files = [wrapper_file, law_src_path("job", "job.sh")]
-        config.render_variables["job_file"] = pf("job.sh")
+        config.input_files = [wrapper_file, law_src_path("job", "law_job.sh")]
+        config.render_variables["job_file"] = pf("law_job.sh")
 
         # add the bootstrap file
         bootstrap_file = task.arc_bootstrap_file()

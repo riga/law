@@ -285,15 +285,15 @@ class HTCondorJobManager(BaseJobManager):
 class HTCondorJobFileFactory(BaseJobFileFactory):
 
     config_attrs = BaseJobFileFactory.config_attrs + [
-        "file_name", "universe", "executable", "arguments", "input_files", "output_files",
-        "postfix_output_files", "log", "stdout", "stderr", "notification", "custom_content",
+        "file_name", "command", "executable", "arguments", "input_files", "output_files", "log",
+        "stdout", "stderr", "postfix_output_files", "universe", "notification", "custom_content",
         "absolute_paths",
     ]
 
-    def __init__(self, file_name="job.jdl", universe="vanilla", executable=None, arguments=None,
-            input_files=None, output_files=None, postfix_output_files=True, log="log.txt",
-            stdout="stdout.txt", stderr="stderr.txt", notification="Never", custom_content=None,
-            absolute_paths=False, **kwargs):
+    def __init__(self, file_name="job.jdl", command=None, executable=None, arguments=None,
+            input_files=None, output_files=None, log="log.txt", stdout="stdout.txt",
+            stderr="stderr.txt", postfix_output_files=True, universe="vanilla",
+            notification="Never", custom_content=None, absolute_paths=False, **kwargs):
         # get some default kwargs from the config
         cfg = Config.instance()
         if kwargs.get("dir") is None:
@@ -309,83 +309,97 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
         super(HTCondorJobFileFactory, self).__init__(**kwargs)
 
         self.file_name = file_name
-        self.universe = universe
+        self.command = command
         self.executable = executable
         self.arguments = arguments
-        self.input_files = input_files or []
+        self.input_files = input_files or {}
         self.output_files = output_files or []
-        self.postfix_output_files = postfix_output_files
         self.log = log
         self.stdout = stdout
         self.stderr = stderr
+        self.postfix_output_files = postfix_output_files
+        self.universe = universe
         self.notification = notification
         self.custom_content = custom_content
         self.absolute_paths = absolute_paths
 
-    def create(self, postfix=None, render_variables=None, **kwargs):
+    def create(self, postfix=None, **kwargs):
         # merge kwargs and instance attributes
         c = self.get_config(kwargs)
 
         # some sanity checks
         if not c.file_name:
             raise ValueError("file_name must not be empty")
-        elif not c.universe:
+        if not c.command and not c.executable:
+            raise ValueError("either command or executable must not be empty")
+        if not c.universe:
             raise ValueError("universe must not be empty")
-        elif not c.executable:
-            raise ValueError("executable must not be empty")
 
-        # default render variables
-        if not render_variables:
-            render_variables = {}
+        # ensure that the custom log file is an output file
+        if c.custom_log_file and c.custom_log_file not in c.output_files:
+            c.output_files.append(c.custom_log_file)
 
-        # add postfix to render variables
-        if postfix and "file_postfix" not in render_variables:
-            render_variables["file_postfix"] = postfix
+        # postfix certain output files
+        if c.postfix_output_files:
+            c.output_files = [
+                path if path.startswith("/dev/") else self.postfix_output_file(path, postfix)
+                for path in c.output_files
+            ]
+            for attr in ["log", "stdout", "stderr", "custom_log_file"]:
+                if c[attr] and not c[attr].startswith("/dev/"):
+                    c[attr] = self.postfix_output_file(c[attr], postfix)
+
+        # add the custom log file to render variables
+        if c.custom_log_file:
+            c.render_variables["log_file"] = c.custom_log_file
+
+        # add the file postfix to render variables
+        if postfix and "file_postfix" not in c.render_variables:
+            c.render_variables["file_postfix"] = postfix
+
+        # ensure that the executable is an input file
+        if c.executable and c.executable not in c.input_files.values():
+            c.input_files["executable_file"] = c.executable
+
+        # add postfixed input files to render variables
+        postfixed_input_files = {
+            name: os.path.basename(self.postfix_input_file(path, postfix))
+            for name, path in c.input_files.items()
+        }
+        c.render_variables.update(postfixed_input_files)
+
+        # add all input files to render variables
+        c.render_variables["input_files"] = " ".join(postfixed_input_files.values())
 
         # linearize render variables
-        render_variables = self.linearize_render_variables(render_variables)
+        render_variables = self.linearize_render_variables(c.render_variables)
 
-        # prepare the job file and the executable
-        job_file = self.postfix_file(os.path.join(c.dir, c.file_name), postfix)
-        executable_is_file = c.executable in map(os.path.basename, c.input_files)
-        if executable_is_file:
-            c.executable = self.postfix_file(os.path.basename(c.executable), postfix)
+        # prepare the job file
+        job_file = self.postfix_input_file(os.path.join(c.dir, c.file_name), postfix)
 
         # prepare input files
         def prepare_input(path):
             path = self.provide_input(os.path.abspath(path), postfix, c.dir, render_variables)
-            path = path if c.absolute_paths else os.path.basename(path)
-            return path
+            return path if c.absolute_paths else os.path.basename(path)
 
-        c.input_files = list(map(prepare_input, c.input_files))
+        c.input_files = {name: prepare_input(path) for name, path in c.input_files.items()}
 
-        # make the executable file executable for the user
-        if executable_is_file:
-            for input_file in c.input_files:
-                if os.path.basename(input_file) == c.executable:
-                    if not c.absolute_paths:
-                        input_file = os.path.join(c.dir, input_file)
-                    if not os.path.exists(input_file):
-                        raise IOError("could not find input file '{}'".format(input_file))
-                    os.chmod(input_file, os.stat(input_file).st_mode | stat.S_IXUSR)
-                    break
-
-        # output files
-        if c.postfix_output_files:
-            c.output_files = [self.postfix_file(path, postfix) for path in c.output_files]
-            c.log = c.log and self.postfix_file(c.log, postfix)
-            c.stdout = c.stdout and self.postfix_file(c.stdout, postfix)
-            c.stderr = c.stdout and self.postfix_file(c.stderr, postfix)
-
-        # custom log file
-        if c.custom_log_file:
-            c.custom_log_file = self.postfix_file(c.custom_log_file, postfix)
-            c.output_files.append(c.custom_log_file)
+        # prepare the executable when given
+        if c.executable:
+            c.executable = os.path.basename(self.postfix_input_file(c.executable, postfix))
+            # make the file executable for the user
+            path = os.path.join(c.dir, c.executable)
+            if os.path.exists(path):
+                os.chmod(path, os.stat(path).st_mode | stat.S_IXUSR)
 
         # job file content
         content = []
         content.append(("universe", c.universe))
-        content.append(("executable", c.executable))
+        if c.command:
+            cmd = quote_cmd(c.command) if isinstance(c.command, (list, tuple)) else c.command
+            content.append(("executable", cmd))
+        elif c.executable:
+            content.append(("executable", c.executable))
         if c.log:
             content.append(("log", c.log))
         if c.stdout:

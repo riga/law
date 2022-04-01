@@ -50,7 +50,7 @@
 #   i.e., the job exit code and, if the error results from the task itself, the task exit code.
 #
 # Job exit codes:
-# 0: The job succeeded.
+#  0: The job succeeded.
 # 10: The loading of the dashboard file failed.
 # 20: The bootstrap file failed.
 # 30: The bootstrap command failed.
@@ -108,8 +108,11 @@ action() {
 
     local input_files="{{input_files}}"
     if [ ! -z "$input_files" ]; then
+        # symlink relative input files into the job home directory
         for input_file in $input_files; do
-            ln -s "$LAW_JOB_INIT_DIR/$input_file" .
+            if [ "${input_file:0:1}" != "/" ] && [ -f "$LAW_JOB_INIT_DIR/$input_file" ]; then
+                ln -s "$LAW_JOB_INIT_DIR/$input_file" .
+            fi
         done
     fi
 
@@ -473,7 +476,7 @@ action() {
 
 
     #
-    # le fin
+    # finalize the job
     #
 
     _law_job_call_hook law_hook_job_finished
@@ -485,6 +488,9 @@ action() {
 log_file="{{log_file}}"
 if [ -z "$log_file" ]; then
     action "$@"
+elif command -v tee &> /dev/null; then
+    set -o pipefail
+    action "$@" 2>&1 | tee -a "$log_file"
 else
     action "$@" &>> "$log_file"
 fi

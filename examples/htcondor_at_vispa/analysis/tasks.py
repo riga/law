@@ -83,7 +83,7 @@ class CreateAlphabet(Task):
             alphabet += inp.load()["char"]
 
         # again, dump the alphabet string into the output file
-        output.parent.touch()
+        output = self.output()
         output.dump(alphabet + "\n")
 
         # some status message

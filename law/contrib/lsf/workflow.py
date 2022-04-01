@@ -79,8 +79,8 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
         config.render_variables = {}
 
         # input files
-        config.input_files = [wrapper_file, law_src_path("job", "job.sh")]
-        config.render_variables["job_file"] = pf("job.sh")
+        config.input_files = [wrapper_file, law_src_path("job", "law_job.sh")]
+        config.render_variables["job_file"] = pf("law_job.sh")
 
         # add the bootstrap file
         bootstrap_file = task.lsf_bootstrap_file()
@@ -108,7 +108,7 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
 
         # logging
         # we do not use lsf's logging mechanism since it requires that the submission directory
-        # is present when it retrieves logs, and therefore we rely on the job.sh script
+        # is present when it retrieves logs, and therefore we rely on the law_job.sh script
         config.stdout = None
         config.stderr = None
         if task.transfer_logs:

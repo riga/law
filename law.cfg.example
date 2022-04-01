@@ -788,8 +788,7 @@
 
 ; htcondor_chunk_size_query
 ; Description: Number of jobs whose status can be queried in parallel inside a single call to
-; "law.htcondor.HTCondorJobManager.query", i.e., in a single "condor_q" or "condor_history"
-; command.
+; "law.htcondor.HTCondorJobManager.query", i.e., in a single "condor_q" or "condor_history" command.
 ; Type: integer
 ; Default: 20
 

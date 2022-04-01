@@ -292,7 +292,7 @@ class LSFJobFileFactory(BaseJobFileFactory):
         if c.postfix_output_files:
             c.output_files = [self.postfix_file(path, postfix) for path in c.output_files]
             c.stdout = c.stdout and self.postfix_file(c.stdout, postfix)
-            c.stderr = c.stdout and self.postfix_file(c.stderr, postfix)
+            c.stderr = c.stderr and self.postfix_file(c.stderr, postfix)
 
         # custom log file
         if c.custom_log_file:

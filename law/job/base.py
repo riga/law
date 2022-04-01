@@ -13,6 +13,7 @@ import shutil
 import tempfile
 import fnmatch
 import base64
+import copy
 import re
 from multiprocessing.pool import ThreadPool
 from abc import ABCMeta, abstractmethod
@@ -20,7 +21,7 @@ from abc import ABCMeta, abstractmethod
 import six
 
 from law.config import Config
-from law.util import colored, make_list, iter_chunks, flatten, makedirs
+from law.util import colored, make_list, iter_chunks, flatten, makedirs, create_hash
 
 
 def get_async_result_silent(result, timeout=None):
@@ -543,7 +544,7 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
        is *None*.
     """
 
-    config_attrs = ["dir", "custom_log_file"]
+    config_attrs = ["dir", "render_variables", "custom_log_file"]
 
     render_key_cre = re.compile(r"\{\{(\w+)\}\}")
 
@@ -567,7 +568,8 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
         def __contains__(self, attr):
             return attr in self.__dict__
 
-    def __init__(self, dir=None, custom_log_file=None, mkdtemp=None, cleanup=None):
+    def __init__(self, dir=None, render_variables=None, custom_log_file=None, mkdtemp=None,
+            cleanup=None):
         super(BaseJobFileFactory, self).__init__()
 
         cfg = Config.instance()
@@ -595,7 +597,8 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
         if mkdtemp:
             self.dir = tempfile.mkdtemp(dir=self.dir)
 
-        # store the custom log file
+        # store attributes
+        self.render_variables = render_variables or {}
         self.custom_log_file = custom_log_file
 
     def __del__(self):
@@ -611,42 +614,67 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
         return
 
     @classmethod
-    def postfix_file(cls, path, postfix):
+    def postfix_file(cls, path, postfix, add_hash=False):
         """
         Adds a *postfix* to a file *path*, right before the first file extension in the base name.
+        When *add_hash* is *True*, a hash based on the full source path is added before the postfix.
         Example:
 
         .. code-block:: python
 
-            postfix_file("/path/to/file.txt", "_1")
-            # -> "/path/to/file_1.txt"
-
             postfix_file("/path/to/file.tar.gz", "_1")
             # -> "/path/to/file_1.tar.gz"
+
+            postfix_file("/path/to/file.txt", "_1", add_hash=True)
+            # -> "/path/to/file_dacc4374d3_1.txt"
 
         *postfix* might also be a dictionary that maps patterns to actual postfix strings. When a
         pattern matches the base name of the file, the associated postfix is applied and the path is
         returned. You might want to use an ordered dictionary to control the first match.
         """
-        if postfix:
-            dirname, basename = os.path.split(path)
-            if isinstance(postfix, six.string_types):
-                _postfix = postfix
+        dirname, basename = os.path.split(path)
+
+        # get the actual postfix
+        if isinstance(postfix, six.string_types):
+            _postfix = postfix
+        elif isinstance(postfix, dict):
+            for pattern, _postfix in six.iteritems(postfix):
+                if fnmatch.fnmatch(basename, pattern):
+                    break
             else:
-                for pattern, _postfix in six.iteritems(postfix):
-                    if fnmatch.fnmatch(basename, pattern):
-                        break
-                else:
-                    _postfix = ""
+                _postfix = ""
+
+        # optionally add a hash of the full path
+        if add_hash:
+            full_path = os.path.realpath(os.path.expandvars(os.path.expanduser(path)))
+            _postfix = "_" + create_hash(full_path) + (_postfix or "")
+
+        # add the postfix
+        if _postfix:
             parts = basename.split(".", 1)
             parts[0] += _postfix
             path = os.path.join(dirname, ".".join(parts))
+
         return path
+
+    @classmethod
+    def postfix_input_file(cls, path, postfix, add_hash=True):
+        """
+        Shorthand for :py:meth:`postfix_file` with *add_hash* set to *True*.
+        """
+        return cls.postfix_file(path, postfix, add_hash=add_hash)
+
+    @classmethod
+    def postfix_output_file(cls, path, postfix, add_hash=False):
+        """
+        Shorthand for :py:meth:`postfix_file` with *add_hash* set to *False*.
+        """
+        return cls.postfix_file(path, postfix, add_hash=add_hash)
 
     @classmethod
     def render_string(cls, s, key, value):
         """
-        Renders a string *s* by replacing ``{{key}}`` with *value*. Returns the rendered string.
+        Renders a string *s* by replacing ``{{key}}`` with *value* and returns it.
         """
         return s.replace("{{" + key + "}}", value)
 
@@ -675,7 +703,7 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
             # }
         """
         linearized = {}
-        for key, value in six.iteritems(render_variables):
+        for key, value in render_variables.items():
             while True:
                 m = cls.render_key_cre.search(value)
                 if not m:
@@ -705,7 +733,7 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
             content = f.read()
 
         def postfix_fn(m):
-            return cls.postfix_file(m.group(1), postfix)
+            return cls.postfix_input_file(m.group(1), postfix)
 
         for key, value in six.iteritems(render_variables):
             # value might contain paths to be postfixed, denoted by "__law_job_postfix__:..."
@@ -726,12 +754,16 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
         which is optionally postfixed with *postfix*. Essentially, this method calls
         :py:meth:`render_file` when *render_variables* is set, or simply ``shutil.copy2`` otherwise.
         """
-        basename = os.path.basename(src)
-        dst = os.path.join(dir or self.dir, self.postfix_file(basename, postfix))
+        # create the destination path
+        postfixed_src = self.postfix_input_file(src, postfix)
+        dst = os.path.join(dir or self.dir, os.path.basename(postfixed_src))
+
+        # provide the file
         if render_variables:
-            self.render_file(src, dst, render_variables, postfix)
+            self.render_file(src, dst, render_variables, postfix=postfix)
         else:
             shutil.copy2(src, dst)
+
         return dst
 
     def get_config(self, kwargs):
@@ -768,7 +800,7 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
         """
         cfg = self.Config()
         for attr in self.config_attrs:
-            cfg[attr] = kwargs.get(attr, getattr(self, attr))
+            cfg[attr] = copy.deepcopy(kwargs.get(attr, getattr(self, attr)))
         return cfg
 
     def cleanup_dir(self, force=True):
@@ -782,10 +814,10 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
             shutil.rmtree(self.dir)
 
     @abstractmethod
-    def create(self, postfix=None, render_variables=None, **kwargs):
+    def create(self, postfix=None, **kwargs):
         """
         Abstract job file creation method that must be implemented by inheriting classes. *postfix*
-        and *render_variables* may be passed to :py:meth:`provide_input`.
+        may be passed to :py:meth:`provide_input`.
         """
         return
 
