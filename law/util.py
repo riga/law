@@ -13,9 +13,9 @@ __all__ = [
     "merge_dicts", "which", "map_verbose", "map_struct", "mask_struct", "tmp_file",
     "interruptable_popen", "readable_popen", "create_hash", "create_random_string", "copy_no_perm",
     "makedirs", "user_owns_file", "iter_chunks", "human_bytes", "parse_bytes", "human_duration",
-    "human_time_diff", "parse_duration", "is_file_exists_error", "send_mail", "DotDict",
-    "ShorthandDict", "open_compat", "patch_object", "join_generators", "quote_cmd",
-    "escape_markdown", "classproperty", "BaseStream", "TeeStream", "FilteredStream",
+    "parse_duration", "is_file_exists_error", "send_mail", "DotDict", "ShorthandDict",
+    "open_compat", "patch_object", "join_generators", "quote_cmd", "escape_markdown",
+    "classproperty", "BaseStream", "TeeStream", "FilteredStream",
 ]
 
 
@@ -1407,7 +1407,7 @@ time_unit_aliases = {
 def human_duration(colon_format=False, plural=True, **kwargs):
     """ human_duration
     Returns a human readable duration. The largest unit is days. When *colon_format* is *True*, the
-    return value has the format ``"[d:][hh:]mm:ss[.ms]"``. *colon_format* can also be a string value
+    return value has the format ``"[d-][hh:]mm:ss[.ms]"``. *colon_format* can also be a string value
     referring to a limiting  unit. In that case, the returned time string has no field above that
     unit, e.g. passing ``"m"`` results in a string ``"mm:ss[.ms]"`` where the minute field is
     potentially larger than 60. Passing ``"s"`` is a special case. Since the colon format always has
@@ -1431,7 +1431,7 @@ def human_duration(colon_format=False, plural=True, **kwargs):
     # -> "-20:33"
 
     human_duration(seconds=90001, colon_format=True)
-    # -> "1:01:00:01"
+    # -> "1-01:00:01"
 
     human_duration(seconds=90001, colon_format="h")
     # -> "25:00:01"
@@ -1451,6 +1451,8 @@ def human_duration(colon_format=False, plural=True, **kwargs):
     human_duration(minutes=-15)
     # -> "minus 15 minutes"
     """
+    _time_units = ["day", "hour", "minute", "second"]
+
     seconds = float(datetime.timedelta(**kwargs).total_seconds())
     sign = 1 if seconds >= 0 else -1
     seconds = abs(seconds)
@@ -1459,13 +1461,15 @@ def human_duration(colon_format=False, plural=True, **kwargs):
     colon_unit_limit = None
     if isinstance(colon_format, six.string_types):
         colon_unit_limit = time_unit_aliases.get(colon_format, colon_format)
-        if colon_unit_limit not in time_units:
+        if colon_unit_limit not in _time_units:
             raise ValueError("unknown colon_format unit '{}', valid values are {}".format(
-                colon_unit_limit, ",".join(time_units)))
-        colon_unit_index = list(time_units.keys()).index(colon_unit_limit)
+                colon_unit_limit, ",".join(_time_units)))
+        colon_unit_index = _time_units.index(colon_unit_limit)
 
-    parts = []
-    for i, (unit, mul) in enumerate(six.iteritems(time_units)):
+    # start building the human readable string
+    # loop through units, remove the fully dividable part and let the next unit handle the rest
+    human_str = ""
+    for i, unit in enumerate(_time_units):
         # skip this iteration when a colon unit limit is set
         if colon_unit_limit and i < colon_unit_index:
             continue
@@ -1476,55 +1480,42 @@ def human_duration(colon_format=False, plural=True, **kwargs):
             value = try_int(round(seconds, 2))
         else:
             # get the integer divider and adjust the remaining number of seconds
+            mul = time_units[unit]
             value = int(seconds // mul)
             seconds -= value * mul
 
-        # skip zeros under certain conditions
-        if not value:
-            leading = not parts
+        # keep zeros under certain conditions
+        if value == 0:
             if colon_format:
-                # skip zeros when leading but not referring to minutes or seconds
-                if leading and unit not in ("minute", "second"):
-                    continue
+                keep_zero = human_str or unit == "second" or colon_unit_limit
             else:
-                # skip zeros always, except when leading and the unit is seconds
-                if not leading or unit != "second":
-                    continue
+                keep_zero = not human_str and unit == "second"
+            if not keep_zero:
+                continue
 
         # build the human readable representation
         if colon_format:
-            if unit == "second" and value < 10:
-                # special case for seconds to format floating points properly
-                fmt = "0{}"
+            if unit == "second":
+                # special case 1: force float formatting with optional leading 0
+                fmt = "0{}" if value < 10 else "{}"
+                # special case 2: when "minutes" are no there yet, prepend "00:"
+                if not human_str:
+                    fmt = "00:" + fmt
             elif unit in ["hour", "minute"]:
-                fmt = "{:02d}"
-            else:
-                fmt = "{}"
-            parts.append(fmt.format(value))
+                fmt = "{:02d}:"
+            else:  # day
+                fmt = "{}-"
+            human_str += fmt.format(value)
         else:
-            plural_postfix = "" if (not plural or value == 1) else "s"
-            parts.append("{} {}{}".format(value, unit, plural_postfix))
+            if human_str:
+                human_str += ", "
+            human_str += "{} {}{}".format(value, unit, "" if (value == 1 or not plural) else "s")
 
-    # special case: the minute field is mandatory for colon_format in any case
-    if colon_format and len(parts) == 1:
-        parts.insert(0, "00")
-
-    # denote negative values
-    sign_prefix = ""
+    # sign
     if sign == -1:
-        sign_prefix = "-" if colon_format else "minus "
+        human_str = ("-" if colon_format else "minus ") + human_str
 
-    return sign_prefix + (":" if colon_format else ", ").join(parts)
-
-
-def human_time_diff(*args, **kwargs):
-    """
-    Deprecated. Use :py:func:`human_duration` instead.
-    """
-    # deprecation warning until v0.1
-    logger.warning("law.util.human_time_diff is deprecated, use law.util.human_duration instead")
-
-    return human_duration(*args, **kwargs)
+    return human_str
 
 
 def parse_duration(s, input_unit="s", unit="s"):
@@ -1538,21 +1529,20 @@ def parse_duration(s, input_unit="s", unit="s"):
 
         # plain number
         parse_duration(100)
-        # -> 100.
+        # -> 100.0
 
         parse_duration(100, unit="min")
         # -> 1.667
 
         parse_duration(100, input_unit="min")
-        # -> 6000.
+        # -> 6000.0
 
         parse_duration(-100, input_unit="min")
-        # -> -6000.
+        # -> -6000.0
 
-        # string separated with ":", interpreted from the back as seconds, minutes, etc.
-        # input_unit is disregarded, unit works as above
+        # strings in the format [d-][h:][m:]s[.ms] are interpreted with input_unit disregarded
         parse_duration("2:1")
-        # -> 121.
+        # -> 121.0
 
         parse_duration("04:02:01.1")
         # -> 14521.1
@@ -1560,7 +1550,10 @@ def parse_duration(s, input_unit="s", unit="s"):
         parse_duration("04:02:01.1", unit="min")
         # -> 242.0183
 
-        # human-readable string, optionally multiple of them
+        parse_duration("0-4:2:1.1")
+        # -> 14521.1
+
+        # human-readable string, optionally multiple of them separated by comma
         # missing units are interpreted as input_unit, unit works as above
         parse_duration("10 mins")
         # -> 600.0
@@ -1596,7 +1589,7 @@ def parse_duration(s, input_unit="s", unit="s"):
             unit, ",".join(time_units)))
 
     sign = 1
-    duration_seconds = 0.
+    duration_seconds = 0.0
 
     # number or string?
     if isinstance(s, six.integer_types + (float,)):
@@ -1604,29 +1597,25 @@ def parse_duration(s, input_unit="s", unit="s"):
     else:
         s = s.strip()
 
-        # check the format
-        if "," not in s and ":" in s:
-            # colon format, "[d:][h:][m:]s"
-            unit_order = ["second", "minute", "hour", "day"]
+        # identify the format "[d-][h:][m:]s[.ms]" first
+        m = re.match(r"^([+-])?((((((\d+)-)?(\d+)):)?(\d+)):)?(\d+)(\.(\d*))?$", s)
+        if m:
+            sgn, d, h, m, s, ms = [m.group(i) for i in [1, 7, 8, 9, 10, 11]]
 
             # interpret leading "-" or "+" as the sign of the duration
-            if s[0] in "+-":
-                sign = 1 if s[0] == "+" else -1
-                s = s[1:]
+            if sgn == "-":
+                sign = -1
 
-            # split and check the number of parts
-            parts = s.split(":")
-            if len(parts) > len(unit_order):
-                raise ValueError("cannot parse duration string '{}', too many ':'".format(s))
-
-            # convert each part, starting from the back to match unit_order
-            for part, u in zip(parts[::-1], unit_order):
-                try:
-                    d = float(part.strip())
-                except ValueError as e:
-                    raise ValueError("cannot parse duration string '{}', {}".format(s, e))
-
-                duration_seconds += d * time_units[u]
+            # add to seconds
+            if d:
+                duration_seconds += float(d) * time_units["day"]
+            if h:
+                duration_seconds += float(h) * time_units["hour"]
+            if m:
+                duration_seconds += float(m) * time_units["minute"]
+            duration_seconds += float(s)
+            if ms:
+                duration_seconds += float(ms)
 
         else:
             # human readable format
