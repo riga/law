@@ -327,14 +327,6 @@ class SlurmJobFileFactory(BaseJobFileFactory):
                 if c[attr] and not c[attr].startswith("/dev/"):
                     c[attr] = self.postfix_output_file(c[attr], postfix)
 
-        # add the custom log file to render variables
-        if c.custom_log_file:
-            c.render_variables["log_file"] = c.custom_log_file
-
-        # add the file postfix to render variables
-        if postfix and "file_postfix" not in c.render_variables:
-            c.render_variables["file_postfix"] = postfix
-
         # add postfixed input files to render variables
         postfixed_input_files = {
             name: os.path.join(c.dir, path) if c.absolute_paths else path
@@ -347,6 +339,14 @@ class SlurmJobFileFactory(BaseJobFileFactory):
 
         # add all input files to render variables
         c.render_variables["input_files"] = " ".join(postfixed_input_files.values())
+
+        # add the custom log file to render variables
+        if c.custom_log_file:
+            c.render_variables["log_file"] = c.custom_log_file
+
+        # add the file postfix to render variables
+        if postfix and "file_postfix" not in c.render_variables:
+            c.render_variables["file_postfix"] = postfix
 
         # linearize render variables
         render_variables = self.linearize_render_variables(c.render_variables)

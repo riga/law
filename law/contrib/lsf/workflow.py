@@ -51,9 +51,6 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
         c.render_variables = {}
         c.custom_content = []
 
-        # job name
-        c.job_name = "{}{}".format(task.live_task_id, postfix)
-
         # get the actual wrapper file that will be executed by the remote job
         c.executable = get_path(task.lsf_wrapper_file())
         c.input_files["executable_file"] = c.executable
@@ -110,6 +107,9 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
         if output_dir_is_local:
             c.absolute_paths = True
             c.cwd = output_dir.path
+
+        # job name
+        c.job_name = "{}{}".format(task.live_task_id, postfix)
 
         # task hook
         c = task.lsf_job_config(c, job_num, branches)

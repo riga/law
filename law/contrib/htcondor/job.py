@@ -353,14 +353,6 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
         if c.executable and c.executable not in c.input_files.values():
             c.input_files["executable_file"] = c.executable
 
-        # add the custom log file to render variables
-        if c.custom_log_file:
-            c.render_variables["log_file"] = c.custom_log_file
-
-        # add the file postfix to render variables
-        if postfix and "file_postfix" not in c.render_variables:
-            c.render_variables["file_postfix"] = postfix
-
         # add postfixed input files to render variables
         postfixed_input_files = {
             name: os.path.basename(self.postfix_input_file(path, postfix))
@@ -370,6 +362,14 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
 
         # add all input files to render variables
         c.render_variables["input_files"] = " ".join(postfixed_input_files.values())
+
+        # add the custom log file to render variables
+        if c.custom_log_file:
+            c.render_variables["log_file"] = c.custom_log_file
+
+        # add the file postfix to render variables
+        if postfix and "file_postfix" not in c.render_variables:
+            c.render_variables["file_postfix"] = postfix
 
         # linearize render variables
         render_variables = self.linearize_render_variables(c.render_variables)

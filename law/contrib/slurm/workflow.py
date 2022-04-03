@@ -50,9 +50,6 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
         c.render_variables = {}
         c.custom_content = []
 
-        # job name
-        c.job_name = "{}{}".format(task.live_task_id, postfix)
-
         # get the actual wrapper file that will be executed by the remote job
         c.executable = get_path(task.slurm_wrapper_file())
         law_job_file = law_src_path("job", "law_job.sh")
@@ -108,6 +105,9 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
         if output_dir_is_local:
             c.absolute_paths = True
             c.custom_content.append(("chdir", output_dir.path))
+
+        # job name
+        c.job_name = "{}{}".format(task.live_task_id, postfix)
 
         # task arguments
         if task.slurm_partition and task.slurm_partition != NO_STR:

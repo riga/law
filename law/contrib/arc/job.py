@@ -9,6 +9,7 @@ __all__ = ["ARCJobManager", "ARCJobFileFactory"]
 
 
 import os
+import stat
 import sys
 import time
 import re
@@ -285,13 +286,13 @@ class ARCJobManager(BaseJobManager):
 class ARCJobFileFactory(BaseJobFileFactory):
 
     config_attrs = BaseJobFileFactory.config_attrs + [
-        "file_name", "executable", "arguments", "input_files", "output_files",
+        "file_name", "command", "executable", "arguments", "input_files", "output_files",
         "postfix_output_files", "output_uri", "overwrite_output_files", "job_name", "log", "stdout",
         "stderr", "custom_content", "absolute_paths",
     ]
 
-    def __init__(self, file_name="job.xrsl", executable=None, arguments=None, input_files=None,
-            output_files=None, postfix_output_files=True, output_uri=None,
+    def __init__(self, file_name="job.xrsl", command=None, executable=None, arguments=None,
+            input_files=None, output_files=None, postfix_output_files=True, output_uri=None,
             overwrite_output_files=True, job_name=None, log="log.txt", stdout="stdout.txt",
             stderr="stderr.txt", custom_content=None, absolute_paths=True, **kwargs):
         # get some default kwargs from the config
@@ -309,9 +310,10 @@ class ARCJobFileFactory(BaseJobFileFactory):
         super(ARCJobFileFactory, self).__init__(**kwargs)
 
         self.file_name = file_name
+        self.command = command
         self.executable = executable
         self.arguments = arguments
-        self.input_files = input_files or []
+        self.input_files = input_files or {}
         self.output_files = output_files or []
         self.postfix_output_files = postfix_output_files
         self.output_uri = output_uri
@@ -323,97 +325,101 @@ class ARCJobFileFactory(BaseJobFileFactory):
         self.absolute_paths = absolute_paths
         self.custom_content = custom_content
 
-    def create(self, postfix=None, render_variables=None, **kwargs):
+    def create(self, postfix=None, **kwargs):
         # merge kwargs and instance attributes
         c = self.get_config(kwargs)
 
         # some sanity checks
         if not c.file_name:
             raise ValueError("file_name must not be empty")
-        elif not c.executable:
-            raise ValueError("executable must not be empty")
+        if not c.command and not c.executable:
+            raise ValueError("either command or executable must not be empty")
 
-        # default render variables
-        if not render_variables:
-            render_variables = {}
+        # ensure that all log files are output files
+        for attr in ["log", "stdout", "stderr", "custom_log_file"]:
+            if c[attr] and c[attr] not in c.output_files:
+                c.output_files.append(c[attr])
 
-        # add postfix to render variables
-        if postfix and "file_postfix" not in render_variables:
-            render_variables["file_postfix"] = postfix
+        # postfix certain output files
+        if c.postfix_output_files:
+            c.output_files = [self.postfix_output_file(path, postfix) for path in c.output_files]
+            for attr in ["log", "stdout", "stderr", "custom_log_file"]:
+                if c[attr]:
+                    c[attr] = self.postfix_output_file(c[attr], postfix)
+
+        # ensure that the executable is an input file
+        if c.executable and c.executable not in c.input_files.values():
+            c.input_files["executable_file"] = c.executable
+
+        # add postfixed input files to render variables
+        postfixed_input_files = {
+            name: os.path.basename(self.postfix_input_file(path, postfix))
+            for name, path in c.input_files.items()
+        }
+        c.render_variables.update(postfixed_input_files)
+
+        # add all input files to render variables
+        c.render_variables["input_files"] = " ".join(postfixed_input_files.values())
+
+        # add the custom log file to render variables
+        if c.custom_log_file:
+            c.render_variables["log_file"] = c.custom_log_file
+
+        # add the file postfix to render variables
+        if postfix and "file_postfix" not in c.render_variables:
+            c.render_variables["file_postfix"] = postfix
 
         # add output_uri to render variables
-        if c.output_uri and "output_uri" not in render_variables:
-            render_variables["output_uri"] = c.output_uri
+        if c.output_uri and "output_uri" not in c.render_variables:
+            c.render_variables["output_uri"] = c.output_uri
 
         # linearize render variables
-        render_variables = self.linearize_render_variables(render_variables)
+        render_variables = self.linearize_render_variables(c.render_variables)
 
         # prepare the job file
-        job_file = self.postfix_file(os.path.join(c.dir, c.file_name), postfix)
+        job_file = self.postfix_input_file(os.path.join(c.dir, c.file_name), postfix)
 
         # prepare input files
-        def prepare_input(tpl):
+        def prepare_input(path):
             # consider strings to be the base filename and use an identical source with no options
-            if isinstance(tpl, six.string_types):
-                tpl = (os.path.basename(tpl), tpl, "")
-            path, src, opts = (tpl + ("", ""))[:3]
-            path = self.postfix_file(path, postfix)
-            if src and get_scheme(src) in ("file", None):
-                src = self.provide_input(os.path.abspath(src), postfix, c.dir, render_variables)
+            basename = os.path.basename(self.postfix_input_file(path, postfix))
+            if path and get_scheme(path) in ("file", None):
+                path = self.provide_input(os.path.abspath(path), postfix, c.dir, render_variables)
                 if not c.absolute_paths:
-                    src = os.path.basename(src)
-                    if src == path:
-                        src = ""
-            return (path, src, opts) if opts else (path, src)
+                    path = os.path.basename(path)
+                    if path == basename:
+                        path = ""
+            return (basename, path)
 
-        c.input_files = list(map(prepare_input, c.input_files))
+        c.input_files = {name: prepare_input(path) for name, path in c.input_files.items()}
 
-        # postfix the executable
-        pf_executable = self.postfix_file(os.path.basename(c.executable), postfix)
-        executable_is_file = pf_executable in [os.path.basename(tpl[0]) for tpl in c.input_files]
-        if executable_is_file:
-            c.executable = pf_executable
-
-        # ensure that log files are contained in the output files
-        if c.log and c.log not in c.output_files:
-            c.output_files.append(c.log)
-        if c.stdout and c.stdout not in c.output_files:
-            c.output_files.append(c.stdout)
-        if c.stderr and c.stderr not in c.output_files:
-            c.output_files.append(c.stderr)
+        # prepare the executable when given
+        if c.executable:
+            c.executable = os.path.basename(self.postfix_input_file(c.executable, postfix))
+            # make the file executable for the user
+            path = os.path.join(c.dir, c.executable)
+            if os.path.exists(path):
+                os.chmod(path, os.stat(path).st_mode | stat.S_IXUSR)
 
         # ensure a correct format of output files
-        def prepare_output(tpl):
+        def prepare_output(path):
             # consider strings to be the filename and when output_uri is set, use it
             # as the URL, otherwise it's also empty
-            if isinstance(tpl, six.string_types):
-                dst = os.path.join(c.output_uri, os.path.basename(tpl)) if c.output_uri else ""
-                tpl = (tpl, dst)
-            path, dst, opts = (tpl + ("", ""))[:3]
             if c.postfix_output_files:
-                path = self.postfix_file(path, postfix)
-                if dst:
-                    dst = self.postfix_file(dst, postfix)
-            if c.overwrite_output_files and "overwrite" not in opts:
-                opts += (";" if opts else "") + "overwrite=yes"
+                path = self.postfix_output_file(path, postfix)
+            dst = os.path.join(c.output_uri, os.path.basename(path)) if c.output_uri else ""
+            opts = "overwrite=yes" if c.overwrite_output_files else None
             return (path, dst, opts) if opts else (path, dst)
 
         c.output_files = map(prepare_output, c.output_files)
 
-        # also postfix log files
-        if c.postfix_output_files:
-            c.log = c.log and self.postfix_file(c.log, postfix)
-            c.stdout = c.stdout and self.postfix_file(c.stdout, postfix)
-            c.stderr = c.stderr and self.postfix_file(c.stderr, postfix)
-
-        # custom log file
-        if c.custom_log_file:
-            c.output_files.append(prepare_output(c.custom_log_file))
-            c.custom_log_file = self.postfix_file(c.custom_log_file, postfix)
-
         # job file content
         content = []
-        content.append(("executable", c.executable))
+        if c.command:
+            cmd = quote_cmd(c.command) if isinstance(c.command, (list, tuple)) else c.command
+            content.append(("executable", cmd))
+        elif c.executable:
+            content.append(("executable", c.executable))
         if c.arguments:
             content.append(("arguments", c.arguments))
         if c.job_name:
