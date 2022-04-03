@@ -49,16 +49,23 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
 
     def create_job_file(self, job_num, branches):
         task = self.task
-        config = self.job_file_factory.Config()
 
         # the file postfix is pythonic range made from branches, e.g. [0, 1, 2, 4] -> "_0To5"
         postfix = "_{}To{}".format(branches[0], branches[-1] + 1)
-        config.postfix = postfix
-        pf = lambda s: "__law_job_postfix__:{}".format(s)
+
+        # create the config
+        c = self.job_file_factory.Config()
+        c.input_files = {}
+        c.output_files = []
+        c.render_variables = {}
+        c.custom_content = []
 
         # get the actual wrapper file that will be executed by the remote job
-        wrapper_file = get_path(task.glite_wrapper_file())
-        config.executable = os.path.basename(wrapper_file)
+        c.executable = get_path(task.glite_wrapper_file())
+        c.input_files["executable_file"] = c.executable
+        law_job_file = law_src_path("job", "law_job.sh")
+        if c.executable != law_job_file:
+            c.input_files["job_file"] = law_job_file
 
         # collect task parameters
         proxy_cmd = ProxyCommand(task.as_branch(branches[0]), exclude_task_args={"branch"},
@@ -77,66 +84,45 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
             dashboard_data=self.dashboard.remote_hook_data(
                 job_num, self.submission_data.attempts.get(job_num, 0)),
         )
-        config.arguments = job_args.join()
-
-        # meta infos
-        config.output_uri = task.glite_output_uri()
-
-        # prepare render variables
-        config.render_variables = {}
-
-        # input files
-        config.input_files = [wrapper_file, law_src_path("job", "law_job.sh")]
-        config.render_variables["job_file"] = pf("law_job.sh")
+        c.arguments = job_args.join()
 
         # add the bootstrap file
         bootstrap_file = task.glite_bootstrap_file()
-        config.input_files.append(bootstrap_file)
-        config.render_variables["bootstrap_file"] = pf(os.path.basename(bootstrap_file))
+        if bootstrap_file:
+            c.input_files["bootstrap_file"] = bootstrap_file
 
         # add the stageout file
         stageout_file = task.glite_stageout_file()
         if stageout_file:
-            config.input_files.append(stageout_file)
-            config.render_variables["stageout_file"] = pf(os.path.basename(stageout_file))
+            c.input_files["stageout_file"] = stageout_file
 
         # does the dashboard have a hook file?
         dashboard_file = self.dashboard.remote_hook_file()
         if dashboard_file:
-            config.input_files.append(dashboard_file)
-            config.render_variables["dashboard_file"] = pf(os.path.basename(dashboard_file))
-
-        # output files
-        config.output_files = []
-
-        # custom content
-        config.custom_content = []
+            c.input_files["dashboard_file"] = dashboard_file
 
         # log file
+        c.stdout = None
+        c.stderr = None
         if task.transfer_logs:
             log_file = "stdall.txt"
-            config.stdout = log_file
-            config.stderr = log_file
-            config.custom_log_file = log_file
-            config.render_variables["log_file"] = pf(log_file)
-        else:
-            config.stdout = None
-            config.stderr = None
+            c.stdout = log_file
+            c.stderr = log_file
+            c.custom_log_file = log_file
+
+        # meta infos
+        c.output_uri = task.glite_output_uri()
 
         # task hook
-        config = task.glite_job_config(config, job_num, branches)
-
-        # determine basenames of input files and add that list to the render data
-        input_basenames = [pf(os.path.basename(path)) for path in config.input_files]
-        config.render_variables["input_files"] = " ".join(input_basenames)
+        c = task.glite_job_config(c, job_num, branches)
 
         # build the job file and get the sanitized config
-        job_file, config = self.job_file_factory(**config.__dict__)
+        job_file, c = self.job_file_factory(postfix=postfix, **c.__dict__)
 
         # determine the custom log file uri if set
         abs_log_file = None
-        if config.custom_log_file:
-            abs_log_file = os.path.join(config.output_uri, config.custom_log_file)
+        if c.custom_log_file:
+            abs_log_file = os.path.join(c.output_uri, c.custom_log_file)
 
         # return job and log files
         return {"job": job_file, "log": abs_log_file}
@@ -166,8 +152,11 @@ class GLiteWorkflow(BaseRemoteWorkflow):
     glite_job_manager_defaults = None
     glite_job_file_factory_defaults = None
 
-    glite_ce = CSVParameter(default=(), significant=False, description="target glite computing "
-        "element(s); default: empty")
+    glite_ce = CSVParameter(
+        default=(),
+        significant=False,
+        description="target glite computing element(s); default: empty",
+    )
 
     glite_job_kwargs = []
     glite_job_kwargs_submit = ["glite_ce"]

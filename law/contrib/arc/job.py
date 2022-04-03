@@ -421,11 +421,12 @@ class ARCJobFileFactory(BaseJobFileFactory):
         elif c.executable:
             content.append(("executable", c.executable))
         if c.arguments:
-            content.append(("arguments", c.arguments))
+            args = quote_cmd(c.arguments) if isinstance(c.arguments, (list, tuple)) else c.arguments
+            content.append(("arguments", args))
         if c.job_name:
             content.append(("jobName", c.job_name))
         if c.input_files:
-            content.append(("inputFiles", make_unique(c.input_files)))
+            content.append(("inputFiles", make_unique(c.input_files.values())))
         if c.output_files:
             content.append(("outputFiles", make_unique(c.output_files)))
         if c.log:

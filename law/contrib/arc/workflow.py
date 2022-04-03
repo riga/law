@@ -114,7 +114,7 @@ class ARCWorkflowProxy(BaseRemoteWorkflowProxy):
         c = task.arc_job_config(c, job_num, branches)
 
         # build the job file and get the sanitized config
-        job_file, config = self.job_file_factory(**c.__dict__)
+        job_file, config = self.job_file_factory(postfix=postfix, **c.__dict__)
 
         # determine the custom log file uri if set
         abs_log_file = None
@@ -136,8 +136,11 @@ class ARCWorkflow(BaseRemoteWorkflow):
     arc_job_manager_defaults = None
     arc_job_file_factory_defaults = None
 
-    arc_ce = CSVParameter(default=(), significant=False, description="target arc computing "
-        "element(s); default: empty")
+    arc_ce = CSVParameter(
+        default=(),
+        significant=False,
+        description="target arc computing element(s); default: empty",
+    )
 
     arc_job_kwargs = []
     arc_job_kwargs_submit = ["arc_ce"]

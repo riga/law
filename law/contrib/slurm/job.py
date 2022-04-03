@@ -394,18 +394,20 @@ class SlurmJobFileFactory(BaseJobFileFactory):
                 line = self.create_line(obj)
                 f.write(line + "\n")
 
+            # prepare arguments
+            args = c.arguments or ""
+            if args:
+                args = " " + (quote_cmd(args) if isinstance(args, (list, tuple)) else args)
+
             # add the command
             if c.command:
                 cmd = quote_cmd(c.command) if isinstance(c.command, (list, tuple)) else c.command
-                f.write("\n{}\n".format(cmd.strip()))
+                f.write("\n{}{}\n".format(cmd.strip(), args))
 
             # add the executable
             if c.executable:
                 cmd = c.executable
-                args = c.arguments
-                if args:
-                    cmd += " " + (quote_cmd(args) if isinstance(args, (list, tuple)) else args)
-                f.write("\n{}\n".format(cmd))
+                f.write("\n{}{}\n".format(cmd, args))
 
         logger.debug("created slurm job file at '{}'".format(job_file))
 

@@ -119,7 +119,7 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
             del c.output_files[:]
 
         # build the job file and get the sanitized config
-        job_file, c = self.job_file_factory(**c.__dict__)
+        job_file, c = self.job_file_factory(postfix=postfix, **c.__dict__)
 
         # get the location of the custom local log file if any
         abs_log_file = None

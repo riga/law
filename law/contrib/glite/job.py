@@ -252,9 +252,10 @@ class GLiteJobFileFactory(BaseJobFileFactory):
         "absolute_paths",
     ]
 
-    def __init__(self, file_name="job.jdl", executable=None, arguments=None, input_files=None,
-            output_files=None, postfix_output_files=True, output_uri=None, stdout="stdout.txt",
-            stderr="stderr.txt", vo=None, custom_content=None, absolute_paths=False, **kwargs):
+    def __init__(self, file_name="job.jdl", command=None, executable=None, arguments=None,
+            input_files=None, output_files=None, postfix_output_files=True, output_uri=None,
+            stdout="stdout.txt", stderr="stderr.txt", vo=None, custom_content=None,
+            absolute_paths=False, **kwargs):
         # get some default kwargs from the config
         cfg = Config.instance()
         if kwargs.get("dir") is None:
@@ -270,9 +271,10 @@ class GLiteJobFileFactory(BaseJobFileFactory):
         super(GLiteJobFileFactory, self).__init__(**kwargs)
 
         self.file_name = file_name
+        self.command = command
         self.executable = executable
         self.arguments = arguments
-        self.input_files = input_files or []
+        self.input_files = input_files or {}
         self.output_files = output_files or []
         self.postfix_output_files = postfix_output_files
         self.output_uri = output_uri
@@ -289,62 +291,75 @@ class GLiteJobFileFactory(BaseJobFileFactory):
         # some sanity checks
         if not c.file_name:
             raise ValueError("file_name must not be empty")
-        elif not c.executable:
-            raise ValueError("executable must not be empty")
+        if not c.command and not c.executable:
+            raise ValueError("either command or executable must not be empty")
 
-        # default render variables
-        if not render_variables:
-            render_variables = {}
+        # ensure that all log files are output files
+        for attr in ["stdout", "stderr", "custom_log_file"]:
+            if c[attr] and c[attr] not in c.output_files:
+                c.output_files.append(c[attr])
 
-        # add postfix to render variables
-        if postfix and "file_postfix" not in render_variables:
-            render_variables["file_postfix"] = postfix
+        # postfix certain output files
+        if c.postfix_output_files:
+            c.output_files = [
+                self.postfix_output_file(path, postfix)
+                for path in c.output_files
+            ]
+            for attr in ["stdout", "stderr", "custom_log_file"]:
+                if c[attr]:
+                    c[attr] = self.postfix_output_file(c[attr], postfix)
+
+        # ensure that the executable is an input file
+        if c.executable and c.executable not in c.input_files.values():
+            c.input_files["executable_file"] = c.executable
+
+        # add postfixed input files to render variables
+        postfixed_input_files = {
+            name: os.path.basename(self.postfix_input_file(path, postfix))
+            for name, path in c.input_files.items()
+        }
+        c.render_variables.update(postfixed_input_files)
+
+        # add all input files to render variables
+        c.render_variables["input_files"] = " ".join(postfixed_input_files.values())
+
+        # add the custom log file to render variables
+        if c.custom_log_file:
+            c.render_variables["log_file"] = c.custom_log_file
+
+        # add the file postfix to render variables
+        if postfix and "file_postfix" not in c.render_variables:
+            c.render_variables["file_postfix"] = postfix
 
         # add output_uri to render variables
-        if c.output_uri and "output_uri" not in render_variables:
-            render_variables["output_uri"] = c.output_uri
+        if c.output_uri and "output_uri" not in c.render_variables:
+            c.render_variables["output_uri"] = c.output_uri
 
         # linearize render variables
-        render_variables = self.linearize_render_variables(render_variables)
+        render_variables = self.linearize_render_variables(c.render_variables)
 
-        # prepare the job file and the executable
-        job_file = self.postfix_file(os.path.join(c.dir, c.file_name), postfix)
-        executable_is_file = c.executable in map(os.path.basename, c.input_files)
-        if executable_is_file:
-            c.executable = self.postfix_file(c.executable, postfix)
+        # prepare the job file
+        job_file = self.postfix_input_file(os.path.join(c.dir, c.file_name), postfix)
 
         # prepare input files
         def prepare_input(path):
             path = self.provide_input(os.path.abspath(path), postfix, c.dir, render_variables)
-            path = add_scheme(path, "file") if c.absolute_paths else os.path.basename(path)
-            return path
+            return add_scheme(path, "file") if c.absolute_paths else os.path.basename(path)
 
-        c.input_files = list(map(prepare_input, c.input_files))
-
-        # ensure that log files are contained in the output files
-        if c.stdout and c.stdout not in c.output_files:
-            c.output_files.append(c.stdout)
-        if c.stderr and c.stderr not in c.output_files:
-            c.output_files.append(c.stderr)
-
-        # postfix output files
-        if c.postfix_output_files:
-            c.output_files = [self.postfix_file(path, postfix) for path in c.output_files]
-            c.stdout = c.stdout and self.postfix_file(c.stdout, postfix)
-            c.stderr = c.stderr and self.postfix_file(c.stderr, postfix)
-
-        # custom log file
-        if c.custom_log_file:
-            c.custom_log_file = self.postfix_file(c.custom_log_file, postfix)
-            c.output_files.append(c.custom_log_file)
+        c.input_files = {name: prepare_input(path) for name, path in c.input_files.items()}
 
         # job file content
         content = []
-        content.append(("Executable", c.executable))
+        if c.command:
+            cmd = quote_cmd(c.command) if isinstance(c.command, (list, tuple)) else c.command
+            content.append(("Executable", cmd))
+        elif c.executable:
+            content.append(("Executable", c.executable))
         if c.arguments:
-            content.append(("Arguments", c.arguments))
+            args = quote_cmd(c.arguments) if isinstance(c.arguments, (list, tuple)) else c.arguments
+            content.append(("Arguments", args))
         if c.input_files:
-            content.append(("InputSandbox", make_unique(c.input_files)))
+            content.append(("InputSandbox", make_unique(c.input_files.values())))
         if c.output_files:
             content.append(("OutputSandbox", make_unique(c.output_files)))
         if c.output_uri:
