@@ -64,10 +64,16 @@ def get_voms_proxy_user(proxy_file=None):
     queried without a custom proxy file.
     """
     out = _voms_proxy_info(args=["--identity"], proxy_file=proxy_file)[1].strip()
-    try:
-        return re.match(r".*\/CN\=([^\/]+).*", out.strip()).group(1)
-    except:
+
+    cns = re.findall(r"/CN=[a-z]+", out.replace(" ", ""))
+    if not cns:
         raise Exception("no valid identity found in voms proxy: {}".format(out))
+
+    # extract actual names
+    names = [cn[4:] for cn in cns]
+
+    # return the shortest name
+    return sorted(names, key=len)[0]
 
 
 def get_voms_proxy_lifetime(proxy_file=None):

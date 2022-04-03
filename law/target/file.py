@@ -164,11 +164,12 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
         pairs = Target._repr_pairs(self)
 
         # add the path
-        expand = Config.instance().get_expanded_boolean("target", "expand_path_repr")
+        cfg = Config.instance()
+        expand = cfg.get_expanded_boolean("target", "expand_path_repr")
         pairs.append(("path", self.path if expand else self.unexpanded_path))
 
         # optionally add the file size
-        if Config.instance().get_expanded_boolean("target", "filesize_repr"):
+        if cfg.get_expanded_boolean("target", "filesize_repr"):
             stat = self.exists(stat=True)
             pairs.append(("size", human_bytes(stat.st_size, fmt="{:.1f}{}") if stat else "-"))
 
