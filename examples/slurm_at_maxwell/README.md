@@ -12,7 +12,9 @@ Resources: [luigi](http://luigi.readthedocs.io/en/stable), [law](http://law.read
 #### 0. At Maxwell: copy this example to your user space
 
 ```shell
-cp -R /afs/desy.de/user/r/riegerma/public/law_sw/law/examples/slurm_at_maxwell/* /examplepath
+mkdir -p /examplepath
+cd /examplepath
+cp -r /afs/desy.de/user/r/riegerma/public/law_sw/law/examples/slurm_at_maxwell/* .
 ```
 
 

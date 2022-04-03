@@ -10,7 +10,9 @@ Resources: [luigi](http://luigi.readthedocs.io/en/stable), [law](http://law.read
 #### 0. At CERN: copy this example to your user space
 
 ```shell
-cp -R /afs/cern.ch/user/m/mrieger/public/law_sw/law/examples/lsf_at_cern/* /examplepath
+mkdir -p /examplepath
+cd /examplepath
+cp -r /afs/cern.ch/user/m/mrieger/public/law_sw/law/examples/lsf_at_cern/* .
 ```
 
 

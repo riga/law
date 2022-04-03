@@ -129,9 +129,9 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
 
     def destination_info(self):
         info = []
-        if self.task.htcondor_pool != NO_STR:
+        if self.task.htcondor_pool and self.task.htcondor_pool != NO_STR:
             info.append("pool: {}".format(self.task.htcondor_pool))
-        if self.task.htcondor_scheduler != NO_STR:
+        if self.task.htcondor_scheduler and self.task.htcondor_scheduler != NO_STR:
             info.append("scheduler: {}".format(self.task.htcondor_scheduler))
         return ", ".join(info)
 
@@ -144,10 +144,16 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
     htcondor_job_manager_defaults = None
     htcondor_job_file_factory_defaults = None
 
-    htcondor_pool = luigi.Parameter(default=NO_STR, significant=False, description="target "
-        "htcondor pool; default: empty")
-    htcondor_scheduler = luigi.Parameter(default=NO_STR, significant=False, description="target "
-        "htcondor scheduler; default: empty")
+    htcondor_pool = luigi.Parameter(
+        default=NO_STR,
+        significant=False,
+        description="target htcondor pool; default: empty",
+    )
+    htcondor_scheduler = luigi.Parameter(
+        default=NO_STR,
+        significant=False,
+        description="target htcondor scheduler; default: empty",
+    )
 
     htcondor_job_kwargs = ["htcondor_pool", "htcondor_scheduler"]
     htcondor_job_kwargs_submit = None

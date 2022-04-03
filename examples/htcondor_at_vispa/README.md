@@ -10,7 +10,9 @@ Resources: [luigi](http://luigi.readthedocs.io/en/stable), [law](http://law.read
 #### 0. At VISPA: copy this example to your user space
 
 ```shell
-cp -R /home/Marcel/public/law_sw/law/examples/htcondor_at_vispa/* /examplepath
+mkdir -p /examplepath
+cd /examplepath
+cp -r /home/Marcel/public/law_sw/law/examples/htcondor_at_vispa/* .
 ```
 
 
