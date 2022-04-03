@@ -54,6 +54,12 @@ class SlurmWorkflow(law.slurm.SlurmWorkflow):
         significant=False,
         description="target queue partition; default: cms-uhh",
     )
+    max_runtime = law.DurationParameter(
+        default=1.0,
+        unit="h",
+        significant=False,
+        description="the maximum job runtime; default unit is hours; default: 1h",
+    )
 
     def slurm_output_directory(self):
         # the directory where submission meta data should be stored
@@ -69,10 +75,11 @@ class SlurmWorkflow(law.slurm.SlurmWorkflow):
         config.render_variables["analysis_path"] = os.getenv("ANALYSIS_PATH")
 
         # useful defaults
-        config.custom_content.append(("time", "00:10:00"))
+        job_time = law.util.human_duration(
+            seconds=law.util.parse_duration(self.max_runtime, input_unit="h") - 1,
+            colon_format=True,
+        )
+        config.custom_content.append(("time", job_time))
         config.custom_content.append(("nodes", 1))
-
-        # # copy the entire environment
-        # config.custom_content.append(("export", "ALL"))
 
         return config
