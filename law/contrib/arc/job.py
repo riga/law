@@ -16,8 +16,6 @@ import re
 import random
 import subprocess
 
-import six
-
 from law.config import Config
 from law.job.base import BaseJobManager, BaseJobFileFactory
 from law.target.file import get_scheme
