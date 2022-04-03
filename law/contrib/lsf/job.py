@@ -8,6 +8,7 @@ __all__ = ["LSFJobManager", "LSFJobFileFactory"]
 
 
 import os
+import stat
 import time
 import re
 import subprocess
@@ -214,15 +215,16 @@ class LSFJobManager(BaseJobManager):
 class LSFJobFileFactory(BaseJobFileFactory):
 
     config_attrs = BaseJobFileFactory.config_attrs + [
-        "file_name", "command", "queue", "cwd", "input_files", "output_files",
-        "postfix_output_files", "manual_stagein", "manual_stageout", "job_name", "stdout", "stderr",
-        "shell", "emails", "custom_content", "absolute_paths",
+        "file_name", "command", "executable", "arguments", "queue", "cwd", "input_files",
+        "output_files", "postfix_output_files", "manual_stagein", "manual_stageout", "job_name",
+        "stdout", "stderr", "shell", "emails", "custom_content", "absolute_paths",
     ]
 
-    def __init__(self, file_name="job.job", command=None, queue=None, cwd=None, input_files=None,
-            output_files=None, postfix_output_files=True, manual_stagein=False,
-            manual_stageout=False, job_name=None, stdout="stdout.txt", stderr="stderr.txt",
-            shell="bash", emails=False, custom_content=None, absolute_paths=False, **kwargs):
+    def __init__(self, file_name="job.job", command=None, executable=None, arguments=None,
+            queue=None, cwd=None, input_files=None, output_files=None, postfix_output_files=True,
+            manual_stagein=False, manual_stageout=False, job_name=None, stdout="stdout.txt",
+            stderr="stderr.txt", shell="bash", emails=False, custom_content=None,
+            absolute_paths=False, **kwargs):
         # get some default kwargs from the config
         cfg = Config.instance()
         if kwargs.get("dir") is None:
@@ -239,9 +241,11 @@ class LSFJobFileFactory(BaseJobFileFactory):
 
         self.file_name = file_name
         self.command = command
+        self.executable = executable
+        self.arguments = arguments
         self.queue = queue
         self.cwd = cwd
-        self.input_files = input_files or []
+        self.input_files = input_files or {}
         self.output_files = output_files or []
         self.postfix_output_files = postfix_output_files
         self.manual_stagein = manual_stagein
@@ -254,50 +258,74 @@ class LSFJobFileFactory(BaseJobFileFactory):
         self.custom_content = custom_content
         self.absolute_paths = absolute_paths
 
-    def create(self, postfix=None, render_variables=None, **kwargs):
+    def create(self, postfix=None, **kwargs):
         # merge kwargs and instance attributes
         c = self.get_config(kwargs)
 
         # some sanity checks
         if not c.file_name:
             raise ValueError("file_name must not be empty")
-        elif not c.command:
-            raise ValueError("command must not be empty")
-        elif not c.shell:
+        if not c.command and not c.executable:
+            raise ValueError("either command or executable must not be empty")
+        if not c.shell:
             raise ValueError("shell must not be empty")
 
-        # default render variables
-        if not render_variables:
-            render_variables = {}
+        # ensure that the custom log file is an output file
+        if c.custom_log_file and c.custom_log_file not in c.output_files:
+            c.output_files.append(c.custom_log_file)
 
-        # add postfix to render variables
-        if postfix and "file_postfix" not in render_variables:
-            render_variables["file_postfix"] = postfix
+        # postfix certain output files
+        if c.postfix_output_files:
+            c.output_files = [
+                path if path.startswith("/dev/") else self.postfix_output_file(path, postfix)
+                for path in c.output_files
+            ]
+            for attr in ["stdout", "stderr", "custom_log_file"]:
+                if c[attr] and not c[attr].startswith("/dev/"):
+                    c[attr] = self.postfix_output_file(c[attr], postfix)
+
+        # ensure that the executable is an input file
+        if c.executable and c.executable not in c.input_files.values():
+            c.input_files["executable_file"] = c.executable
+
+        # add the custom log file to render variables
+        if c.custom_log_file:
+            c.render_variables["log_file"] = c.custom_log_file
+
+        # add the file postfix to render variables
+        if postfix and "file_postfix" not in c.render_variables:
+            c.render_variables["file_postfix"] = postfix
+
+        # add postfixed input files to render variables
+        postfixed_input_files = {
+            name: os.path.basename(self.postfix_input_file(path, postfix))
+            for name, path in c.input_files.items()
+        }
+        c.render_variables.update(postfixed_input_files)
+
+        # add all input files to render variables
+        c.render_variables["input_files"] = " ".join(postfixed_input_files.values())
 
         # linearize render variables
-        render_variables = self.linearize_render_variables(render_variables)
+        render_variables = self.linearize_render_variables(c.render_variables)
 
-        # prepare paths
-        job_file = self.postfix_file(os.path.join(c.dir, c.file_name), postfix)
+        # prepare the job file
+        job_file = self.postfix_input_file(os.path.join(c.dir, c.file_name), postfix)
 
         # prepare input files
         def prepare_input(path):
             path = self.provide_input(os.path.abspath(path), postfix, c.dir, render_variables)
-            path = path if c.absolute_paths else os.path.basename(path)
-            return path
+            return path if c.absolute_paths else os.path.basename(path)
 
-        c.input_files = list(map(prepare_input, c.input_files))
+        c.input_files = {name: prepare_input(path) for name, path in c.input_files.items()}
 
-        # output files
-        if c.postfix_output_files:
-            c.output_files = [self.postfix_file(path, postfix) for path in c.output_files]
-            c.stdout = c.stdout and self.postfix_file(c.stdout, postfix)
-            c.stderr = c.stderr and self.postfix_file(c.stderr, postfix)
-
-        # custom log file
-        if c.custom_log_file:
-            c.custom_log_file = self.postfix_file(c.custom_log_file, postfix)
-            c.output_files.append(c.custom_log_file)
+        # prepare the executable when given
+        if c.executable:
+            c.executable = os.path.basename(self.postfix_input_file(c.executable, postfix))
+            # make the file executable for the user
+            path = os.path.join(c.dir, c.executable)
+            if os.path.exists(path):
+                os.chmod(path, os.stat(path).st_mode | stat.S_IXUSR)
 
         # job file content
         content = []
@@ -319,7 +347,7 @@ class LSFJobFileFactory(BaseJobFileFactory):
             content += c.custom_content
 
         if not c.manual_stagein:
-            for input_file in make_unique(c.input_files):
+            for input_file in make_unique(c.input_files.values()):
                 content.append(("-f", "\"{} > {}\"".format(
                     input_file, os.path.basename(input_file))))
 
@@ -330,10 +358,16 @@ class LSFJobFileFactory(BaseJobFileFactory):
 
         if c.manual_stagein:
             tmpl = "cp " + ("{}" if c.absolute_paths else "$LS_EXECCWD/{}") + " $( pwd )/{}"
-            for input_file in make_unique(c.input_files):
+            for input_file in make_unique(c.input_files.values()):
                 content.append(tmpl.format(input_file, os.path.basename(input_file)))
 
-        content.append(c.command)
+        if c.command:
+            content.append(c.command)
+        elif c.executable:
+            content.append(c.executable)
+        if c.arguments:
+            args = quote_cmd(c.arguments) if isinstance(c.arguments, (list, tuple)) else c.arguments
+            content[-1] += " {}".format(args)
 
         if c.manual_stageout:
             tmpl = "cp $( pwd )/{} $LS_EXECCWD/{}"

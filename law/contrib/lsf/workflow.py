@@ -40,13 +40,26 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
 
     def create_job_file(self, job_num, branches):
         task = self.task
-        config = self.job_file_factory.Config()
 
         # the file postfix is pythonic range made from branches, e.g. [0, 1, 2, 4] -> "_0To5"
         postfix = "_{}To{}".format(branches[0], branches[-1] + 1)
-        config.postfix = postfix
-        _postfix = lambda path: self.job_file_factory.postfix_file(path, postfix)
-        pf = lambda s: "__law_job_postfix__:{}".format(s)
+
+        # create the config
+        c = self.job_file_factory.Config()
+        c.input_files = {}
+        c.output_files = []
+        c.render_variables = {}
+        c.custom_content = []
+
+        # job name
+        c.job_name = "{}{}".format(task.live_task_id, postfix)
+
+        # get the actual wrapper file that will be executed by the remote job
+        c.executable = get_path(task.lsf_wrapper_file())
+        c.input_files["executable_file"] = c.executable
+        law_job_file = law_src_path("job", "law_job.sh")
+        if c.executable != law_job_file:
+            c.input_files["job_file"] = law_job_file
 
         # collect task parameters
         proxy_cmd = ProxyCommand(task.as_branch(branches[0]), exclude_task_args={"branch"},
@@ -65,80 +78,53 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
             dashboard_data=self.dashboard.remote_hook_data(
                 job_num, self.submission_data.attempts.get(job_num, 0)),
         )
-
-        # get the actual wrapper file that will be executed by the remote job
-        wrapper_file = get_path(task.lsf_wrapper_file())
-        config.command = "bash {} {}".format(
-            _postfix(os.path.basename(wrapper_file)), job_args.join())
-
-        # meta infos
-        config.job_name = task.task_id
-        config.emails = True
-
-        # prepare render variables
-        config.render_variables = {}
-
-        # input files
-        config.input_files = [wrapper_file, law_src_path("job", "law_job.sh")]
-        config.render_variables["job_file"] = pf("law_job.sh")
+        c.arguments = job_args.join()
 
         # add the bootstrap file
-        bootstrap_file = task.lsf_bootstrap_file()
+        bootstrap_file = task.slurm_bootstrap_file()
         if bootstrap_file:
-            config.input_files.append(bootstrap_file)
-            config.render_variables["bootstrap_file"] = pf(os.path.basename(bootstrap_file))
+            c.input_files["bootstrap_file"] = bootstrap_file
 
         # add the stageout file
-        stageout_file = task.lsf_stageout_file()
+        stageout_file = task.slurm_stageout_file()
         if stageout_file:
-            config.input_files.append(stageout_file)
-            config.render_variables["stageout_file"] = pf(os.path.basename(stageout_file))
+            c.input_files["stageout_file"] = stageout_file
 
         # does the dashboard have a hook file?
         dashboard_file = self.dashboard.remote_hook_file()
         if dashboard_file:
-            config.input_files.append(dashboard_file)
-            config.render_variables["dashboard_file"] = pf(os.path.basename(dashboard_file))
-
-        # output files
-        config.output_files = []
-
-        # custom content
-        config.custom_content = []
+            c.input_files["dashboard_file"] = dashboard_file
 
         # logging
-        # we do not use lsf's logging mechanism since it requires that the submission directory
-        # is present when it retrieves logs, and therefore we rely on the law_job.sh script
-        config.stdout = None
-        config.stderr = None
+        # we do not use lsf's logging mechanism since it might require that the submission
+        # directory is present when it retrieves logs, and therefore we use a custom log file
+        c.stdout = None
+        c.stderr = None
         if task.transfer_logs:
-            log_file = "stdall.txt"
-            config.custom_log_file = log_file
-            config.render_variables["log_file"] = pf(log_file)
+            c.custom_log_file = "stdall.txt"
 
         # we can use lsf's file stageout only when the output directory is local
         # otherwise, one should use the stageout_file and stageout manually
         output_dir = task.lsf_output_directory()
-        if isinstance(output_dir, LocalDirectoryTarget):
-            config.absolute_paths = True
-            config.cwd = output_dir.path
-        else:
-            del config.output_files[:]
+        output_dir_is_local = isinstance(output_dir, LocalDirectoryTarget)
+        if output_dir_is_local:
+            c.absolute_paths = True
+            c.cwd = output_dir.path
 
         # task hook
-        config = task.lsf_job_config(config, job_num, branches)
+        c = task.lsf_job_config(c, job_num, branches)
 
-        # determine basenames of input files and add that list to the render data
-        input_basenames = [pf(os.path.basename(path)) for path in config.input_files]
-        config.render_variables["input_files"] = " ".join(input_basenames)
+        # when the output dir is not local, direct output files are not possible
+        if not output_dir_is_local:
+            del c.output_files[:]
 
         # build the job file and get the sanitized config
-        job_file, config = self.job_file_factory(**config.__dict__)
+        job_file, c = self.job_file_factory(**c.__dict__)
 
-        # determine the absolute custom log file if set
+        # get the location of the custom local log file if any
         abs_log_file = None
-        if config.custom_log_file and isinstance(output_dir, LocalDirectoryTarget):
-            abs_log_file = output_dir.child(config.custom_log_file, type="f").path
+        if output_dir_is_local and c.custom_log_file:
+            abs_log_file = os.path.join(output_dir.path, c.custom_log_file)
 
         # return job and log files
         return {"job": job_file, "log": abs_log_file}
@@ -155,8 +141,11 @@ class LSFWorkflow(BaseRemoteWorkflow):
     lsf_job_manager_defaults = None
     lsf_job_file_factory_defaults = None
 
-    lsf_queue = luigi.Parameter(default=NO_STR, significant=False, description="target lsf queue; "
-        "default: empty")
+    lsf_queue = luigi.Parameter(
+        default=NO_STR,
+        significant=False,
+        description="target lsf queue; default: empty",
+    )
 
     lsf_job_kwargs = ["lsf_queue"]
     lsf_job_kwargs_submit = None

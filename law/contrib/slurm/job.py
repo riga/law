@@ -278,7 +278,7 @@ class SlurmJobFileFactory(BaseJobFileFactory):
     ]
 
     def __init__(self, file_name="slurm.sh", command=None, executable=None, arguments=None,
-            shell="/bin/bash", input_files=None, job_name=None, partition=None, stdout="stdout.txt",
+            shell="bash", input_files=None, job_name=None, partition=None, stdout="stdout.txt",
             stderr="stderr.txt", postfix_output_files=True, custom_content=None,
             absolute_paths=False, **kwargs):
         # get some default kwargs from the config
@@ -372,7 +372,7 @@ class SlurmJobFileFactory(BaseJobFileFactory):
 
         # job file content
         content = []
-        content.append("#!{}".format(c.shell))
+        content.append("#!/usr/bin/env {}".format(c.shell))
         content.append("")
 
         if c.job_name:

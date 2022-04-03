@@ -349,6 +349,10 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
                 if c[attr] and not c[attr].startswith("/dev/"):
                     c[attr] = self.postfix_output_file(c[attr], postfix)
 
+        # ensure that the executable is an input file
+        if c.executable and c.executable not in c.input_files.values():
+            c.input_files["executable_file"] = c.executable
+
         # add the custom log file to render variables
         if c.custom_log_file:
             c.render_variables["log_file"] = c.custom_log_file
@@ -356,10 +360,6 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
         # add the file postfix to render variables
         if postfix and "file_postfix" not in c.render_variables:
             c.render_variables["file_postfix"] = postfix
-
-        # ensure that the executable is an input file
-        if c.executable and c.executable not in c.input_files.values():
-            c.input_files["executable_file"] = c.executable
 
         # add postfixed input files to render variables
         postfixed_input_files = {
