@@ -658,18 +658,18 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
         return path
 
     @classmethod
-    def postfix_input_file(cls, path, postfix, add_hash=True):
+    def postfix_input_file(cls, path, postfix):
         """
         Shorthand for :py:meth:`postfix_file` with *add_hash* set to *True*.
         """
-        return cls.postfix_file(path, postfix, add_hash=add_hash)
+        return cls.postfix_file(path, postfix, add_hash=True)
 
     @classmethod
-    def postfix_output_file(cls, path, postfix, add_hash=False):
+    def postfix_output_file(cls, path, postfix):
         """
         Shorthand for :py:meth:`postfix_file` with *add_hash* set to *False*.
         """
-        return cls.postfix_file(path, postfix, add_hash=add_hash)
+        return cls.postfix_file(path, postfix, add_hash=False)
 
     @classmethod
     def render_string(cls, s, key, value):
