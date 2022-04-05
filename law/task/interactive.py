@@ -317,7 +317,7 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
 
             # skip targets without a copy_to_local method
             is_copyable = callable(getattr(output, "copy_to_local", None))
-            if not isinstance(output, TargetCollection) and not is_copyable:
+            if not is_copyable and not isinstance(output, TargetCollection):
                 print(ooffset + ind + colored(" not a file target, skip", "yellow"))
                 continue
 
@@ -344,6 +344,9 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
                 if target_choice == "n":
                     print(ooffset + ind + colored(" skipped", "yellow"))
                     continue
+            else:
+                if isinstance(output, TargetCollection):
+                    to_fetch = list(output._flat_target_list)
 
             # actual copy
             for outp in to_fetch:
