@@ -70,8 +70,9 @@ class BashSandbox(Sandbox):
                     raise Exception("bash sandbox env loading failed")
 
                 # load the environment from the tmp file
+                pickle_kwargs = {"encoding": "utf-8"} if six.PY3 else {}
                 with open(tmp_path, "rb") as f:
-                    env = collections.OrderedDict(six.moves.cPickle.load(f))
+                    env = collections.OrderedDict(six.moves.cPickle.load(f, **pickle_kwargs))
 
             # cache it
             self._envs[script] = env
