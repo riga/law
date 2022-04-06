@@ -614,7 +614,7 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
         return
 
     @classmethod
-    def postfix_file(cls, path, postfix, add_hash=False):
+    def postfix_file(cls, path, postfix=None, add_hash=False):
         """
         Adds a *postfix* to a file *path*, right before the first file extension in the base name.
         When *add_hash* is *True*, a hash based on the full source path is added before the postfix.
@@ -635,9 +635,8 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
         dirname, basename = os.path.split(path)
 
         # get the actual postfix
-        if isinstance(postfix, six.string_types):
-            _postfix = postfix
-        elif isinstance(postfix, dict):
+        _postfix = postfix
+        if isinstance(postfix, dict):
             for pattern, _postfix in six.iteritems(postfix):
                 if fnmatch.fnmatch(basename, pattern):
                     break
@@ -658,18 +657,18 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
         return path
 
     @classmethod
-    def postfix_input_file(cls, path, postfix):
+    def postfix_input_file(cls, path, postfix=None):
         """
         Shorthand for :py:meth:`postfix_file` with *add_hash* set to *True*.
         """
-        return cls.postfix_file(path, postfix, add_hash=True)
+        return cls.postfix_file(path, postfix=postfix, add_hash=True)
 
     @classmethod
-    def postfix_output_file(cls, path, postfix):
+    def postfix_output_file(cls, path, postfix=None):
         """
         Shorthand for :py:meth:`postfix_file` with *add_hash* set to *False*.
         """
-        return cls.postfix_file(path, postfix, add_hash=False)
+        return cls.postfix_file(path, postfix=postfix, add_hash=False)
 
     @classmethod
     def render_string(cls, s, key, value):
@@ -733,7 +732,7 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
             content = f.read()
 
         def postfix_fn(m):
-            return cls.postfix_input_file(m.group(1), postfix)
+            return cls.postfix_input_file(m.group(1), postfix=postfix)
 
         for key, value in six.iteritems(render_variables):
             # value might contain paths to be postfixed, denoted by "__law_job_postfix__:..."
@@ -755,7 +754,7 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
         :py:meth:`render_file` when *render_variables* is set, or simply ``shutil.copy2`` otherwise.
         """
         # create the destination path
-        postfixed_src = self.postfix_input_file(src, postfix)
+        postfixed_src = self.postfix_input_file(src, postfix=postfix)
         dst = os.path.join(dir or self.dir, os.path.basename(postfixed_src))
 
         # provide the file
