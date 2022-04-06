@@ -384,6 +384,7 @@ action() {
     echo "shell    : $SHELL"
     echo "hostname : $( hostname )"
     echo "python   : $( 2>&1 python --version ), $( which python )"
+    echo "python3  : $( 2>&1 python3 --version ), $( which python3 )"
     echo "init dir : $LAW_JOB_INIT_DIR"
     echo "job home : $LAW_JOB_HOME"
     echo "tmp dir  : $( python -c "from tempfile import gettempdir; print(gettempdir())" )"

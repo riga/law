@@ -434,12 +434,14 @@ class SandboxProxy(ProxyTask):
         # log the command
         if cmd:
             print("sandbox command:\n{}\n".format(cmd))
+        sys.stdout.flush()
 
         try:
             yield
         finally:
             # end banner
             print_banner("leaving sandbox", "cyan")
+            sys.stdout.flush()
 
 
 class SandboxTask(Task):
