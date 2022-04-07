@@ -17,7 +17,7 @@ import random
 import subprocess
 
 from law.config import Config
-from law.job.base import BaseJobManager, BaseJobFileFactory
+from law.job.base import BaseJobManager, BaseJobFileFactory, DeprecatedInputFiles
 from law.target.file import get_scheme
 from law.util import interruptable_popen, make_list, make_unique, quote_cmd
 from law.logger import get_logger
@@ -311,7 +311,7 @@ class ARCJobFileFactory(BaseJobFileFactory):
         self.command = command
         self.executable = executable
         self.arguments = arguments
-        self.input_files = input_files or {}
+        self.input_files = DeprecatedInputFiles(input_files or {})
         self.output_files = output_files or []
         self.postfix_output_files = postfix_output_files
         self.output_uri = output_uri

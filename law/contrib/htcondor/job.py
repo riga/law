@@ -14,7 +14,7 @@ import re
 import subprocess
 
 from law.config import Config
-from law.job.base import BaseJobManager, BaseJobFileFactory
+from law.job.base import BaseJobManager, BaseJobFileFactory, DeprecatedInputFiles
 from law.util import interruptable_popen, make_list, make_unique, quote_cmd
 from law.logger import get_logger
 
@@ -312,7 +312,7 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
         self.command = command
         self.executable = executable
         self.arguments = arguments
-        self.input_files = input_files or {}
+        self.input_files = DeprecatedInputFiles(input_files or {})
         self.output_files = output_files or []
         self.log = log
         self.stdout = stdout

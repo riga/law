@@ -22,6 +22,10 @@ import six
 
 from law.config import Config
 from law.util import colored, make_list, iter_chunks, flatten, makedirs, create_hash
+from law.logger import get_logger
+
+
+logger = get_logger(__name__)
 
 
 def get_async_result_silent(result, timeout=None):
@@ -907,3 +911,58 @@ class JobArguments(object):
         using a single space character.
         """
         return " ".join(str(item) for item in self.get_args())
+
+
+class DeprecatedInputFiles(dict):
+    """
+    Class to keep track of input files for condor jobs that is only used to show a deprecation
+    warning for users still relying on lists. Therefore, this class emulates the most used list
+    methods and internally fills input files using dict methoids. To be removed in version 0.1.
+    """
+
+    @classmethod
+    def _log_warning(cls, method):
+        logger.warning("the use of input_files.{} is deprecated, please consider updating "
+            "your code towards using dictionaries instead, e.g., 'input_files[key] = path'; by "
+            "doing so, law automatically adds a render variable 'key' that will refer to the "
+            "postfixed path of the input file for immediate use in remote jobs".format(method))
+
+    def __init__(self, *args, **kwargs):
+        paths = None
+        if not kwargs and len(args) == 1 and isinstance(args[0], list):
+            paths = args[0]
+            args = ()
+
+        super(DeprecatedInputFiles, self).__init__(*args, **kwargs)
+
+        if paths:
+            self.extend(paths)
+
+    def _append(self, path):
+        # generate a key by taking the basename of the path and strip the file extension
+        key = os.path.basename(path).split(".", 1)[0]
+        while key in self:
+            key += "_"
+
+        self[key] = path
+
+    def append(self, path):
+        # deprecation warning until v0.1
+        self._log_warning("append(path)")
+        self._append(path)
+
+    def extend(self, paths):
+        # deprecation warning until v0.1
+        self._log_warning("extend([path, ...])")
+        for path in paths:
+            self._append(path)
+
+    def __add__(self, paths):
+        # type-preserving shallow copy
+        self_ = self.__class__(self)
+        self_.extend(paths)
+        return self_
+
+    def __iadd__(self, paths):
+        self.extend(paths)
+        return self

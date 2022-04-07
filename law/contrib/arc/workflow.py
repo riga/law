@@ -12,7 +12,7 @@ from abc import abstractmethod
 from collections import OrderedDict
 
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
-from law.job.base import JobArguments
+from law.job.base import JobArguments, DeprecatedInputFiles
 from law.task.proxy import ProxyCommand
 from law.target.file import get_path
 from law.parameter import CSVParameter
@@ -50,7 +50,7 @@ class ARCWorkflowProxy(BaseRemoteWorkflowProxy):
 
         # create the config
         c = self.job_file_factory.Config()
-        c.input_files = {}
+        c.input_files = DeprecatedInputFiles()
         c.output_files = []
         c.render_variables = {}
         c.custom_content = []
