@@ -8,3 +8,4 @@ law.sandbox
 
    base
    bash
+   venv

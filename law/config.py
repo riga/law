@@ -239,6 +239,11 @@ class Config(ConfigParser):
             "login": False,
         },
         "bash_sandbox_env": {},
+        "venv_sandbox": {
+            "stagein_dir_name": "stagein",
+            "stageout_dir_name": "stageout",
+        },
+        "venv_sandbox_env": {},
         "docker_sandbox": {
             "stagein_dir_name": "stagein",
             "stageout_dir_name": "stageout",

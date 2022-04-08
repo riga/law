@@ -1,10 +1,10 @@
 # coding: utf-8
 
 """
-Bash sandbox implementation.
+Virtualenv / venv sandbox implementation.
 """
 
-__all__ = ["BashSandbox"]
+__all__ = ["VenvSandbox"]
 
 
 import os
@@ -12,44 +12,35 @@ import collections
 
 import six
 
-from law.config import Config
 from law.sandbox.base import Sandbox
-from law.util import tmp_file, interruptable_popen, quote_cmd, flatten
+from law.util import tmp_file, interruptable_popen, quote_cmd
 
 
-class BashSandbox(Sandbox):
+class VenvSandbox(Sandbox):
 
-    sandbox_type = "bash"
+    sandbox_type = "venv"
 
     # env cache per init script
     _envs = {}
 
     @property
-    def script(self):
+    def venv_dir(self):
         return os.path.expandvars(os.path.expanduser(self.name))
 
-    def _bash_cmd(self):
-        cmd = ["bash"]
-
-        # login flag
-        cfg = Config.instance()
-        cfg_section = self.get_config_section()
-        if cfg.get_expanded_boolean(cfg_section, "login"):
-            cmd.extend(["-l"])
-
-        return cmd
+    def _venv_cmd(self):
+        return ["source", os.path.join(self.venv_dir, "bin", "activate"), ""]
 
     @property
     def env(self):
         # strategy: create a tempfile, let python dump its full env in a subprocess and load the
         # env file again afterwards
-        script = self.script
-        if script not in self._envs:
+        venv_dir = self.venv_dir
+        if venv_dir not in self._envs:
             with tmp_file() as tmp:
                 tmp_path = os.path.realpath(tmp[1])
 
-                # get the bash command
-                bash_cmd = self._bash_cmd()
+                # get the activation command
+                venv_cmd = self._venv_cmd()
 
                 # build commands to setup the environment
                 setup_cmds = self._build_setup_cmds(self._get_env())
@@ -59,15 +50,16 @@ class BashSandbox(Sandbox):
                     + "pickle.dump(dict(os.environ),open('{}','wb'),protocol=2)".format(tmp_path)
 
                 # build the full command
-                cmd = quote_cmd(bash_cmd + ["-c", "; ".join(
-                    flatten("source \"{}\" \"\"".format(self.script), setup_cmds,
-                        quote_cmd(["python", "-c", py_cmd])))
-                ])
+                cmd = "; ".join(
+                    [quote_cmd(venv_cmd)] + \
+                    setup_cmds + \
+                    [quote_cmd(["python", "-c", py_cmd])]
+                )
 
                 # run it
                 returncode = interruptable_popen(cmd, shell=True, executable="/bin/bash")[0]
                 if returncode != 0:
-                    raise Exception("bash sandbox env loading failed")
+                    raise Exception("venv sandbox env loading failed")
 
                 # load the environment from the tmp file
                 pickle_kwargs = {"encoding": "utf-8"} if six.PY3 else {}
@@ -75,9 +67,9 @@ class BashSandbox(Sandbox):
                     env = collections.OrderedDict(six.moves.cPickle.load(f, **pickle_kwargs))
 
             # cache it
-            self._envs[script] = env
+            self._envs[venv_dir] = env
 
-        return self._envs[script]
+        return self._envs[venv_dir]
 
     def cmd(self, proxy_cmd):
         # environment variables to set
@@ -89,8 +81,8 @@ class BashSandbox(Sandbox):
         if self.stageout_info:
             env["LAW_SANDBOX_STAGEOUT_DIR"] = self.stageout_info.stage_dir.path
 
-        # get the bash command
-        bash_cmd = self._bash_cmd()
+        # get the activation command
+        venv_cmd = self._venv_cmd()
 
         # build commands to setup the environment
         setup_cmds = self._build_setup_cmds(env)
@@ -99,9 +91,11 @@ class BashSandbox(Sandbox):
         if self.force_local_scheduler():
             proxy_cmd.add_arg("--local-scheduler", "True", overwrite=True)
 
-        # build the final command
-        cmd = quote_cmd(bash_cmd + ["-c", "; ".join(
-            flatten("source \"{}\" \"\"".format(self.script), setup_cmds, proxy_cmd.build()))
-        ])
+        # build the full command
+        cmd = "; ".join(
+            [quote_cmd(venv_cmd)] + \
+            setup_cmds + \
+            [proxy_cmd.build()]
+        )
 
         return cmd
