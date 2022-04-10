@@ -1785,6 +1785,72 @@ class ShorthandDict(collections.OrderedDict):
             super(ShorthandDict, self).__setattr__(attr, value)
 
 
+class InsertableDict(collections.OrderedDict):
+    """
+    Subclass of *OrderedDict* that supports inserting elements before or after certain keys.
+    Example:
+
+    .. code-block:: python
+
+        d = InsertableDict(foo=123, bar=456)
+
+        d.insert_before("bar", "test", 999)
+        print(d)  # -> InsertableDict([('foo', 123), ('test', 999), ('bar', 456)])
+
+        d.insert_after("test", "foo", "new_value")
+        print(d)  # -> InsertableDict([('test', 999), ('foo', 'new_value'), ('bar', 456)])
+    """
+
+    def _insert(self, search_key, key, value, offset):
+        # when key is a list or dict and value is None, assume key refers to key-value pairs
+        if isinstance(key, (list, dict)) and value is None:
+            new_items = key.items() if isinstance(key, dict) else key
+            new_keys = [k for k, v in new_items]
+        else:
+            new_items = [(key, value)]
+            new_keys = [key]
+
+        # if the search key is not present, insert the new pairs and finish
+        if search_key not in self:
+            self.update(new_items)
+            return
+
+        # create a copy if the index
+        items = list(self.items())
+
+        # find the position where to insert
+        pos = items.index((search_key, self[search_key])) + offset
+
+        # construct the new items without duplicates
+        items = [
+            (k, v) for k, v in items[:pos]
+            if k not in new_keys
+        ] + new_items + [
+            (k, v) for k, v in items[pos:]
+            if k not in new_keys
+        ]
+
+        # rebuild the index
+        self.clear()
+        self.update(items)
+
+    def insert_before(self, before_key, key, value=None):
+        """
+        Inserts a *key* - *value* pair before the key *before_key*. When this key does not exist,
+        the new pair is added to the end. When *key* is list or dictionary and value is *None*,
+        multiple new values are inserted.
+        """
+        self._insert(before_key, key, value, 0)
+
+    def insert_after(self, after_key, key, value=None):
+        """
+        Inserts a *key* - *value* pair after the key *after_key*. When this key does not exist, the
+        new pair is added to the end. When *key* is list or dictionary and value is *None*,
+        multiple new values are inserted.
+        """
+        self._insert(after_key, key, value, 1)
+
+
 def open_compat(*args, **kwargs):
     """
     Polyfill for python's ``open`` factory, returning the plain ``open`` in python 3, and
