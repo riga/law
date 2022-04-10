@@ -26,7 +26,7 @@ from law.parser import root_task, global_cmdline_values
 from law.logger import setup_logger
 from law.util import (
     no_value, abort, law_run, common_task_params, colored, uncolored, make_list, multi_match,
-    flatten, BaseStream, human_duration, patch_object, round_discrete,
+    flatten, BaseStream, human_duration, patch_object, round_discrete, empty_context,
 )
 from law.logger import get_logger
 
@@ -470,6 +470,19 @@ class Task(six.with_metaclass(Register, BaseTask)):
             return n_total.__class__(make_callback(n, *r) for n, r in zip(n_total, reaches))
         else:
             return make_callback(n_total, *reach)
+
+    def iter_progress(self, iterable, n_total, reach=(0, 100), precision=1, msg=None):
+        # create a progress callback with all arguments
+        progress_callback = self.create_progress_callback(n_total, reach=(0, 100), precision=1)
+
+        # when msg is set, place the iteration in an outer context
+        context = (lambda: self.publish_step(msg)) if msg else empty_context
+
+        # iterate and invoke the callback
+        with context():
+            for i, val in enumerate(iterable):
+                yield val
+                progress_callback(i)
 
     def cli_args(self, exclude=None, replace=None):
         exclude = set() if exclude is None else set(make_list(exclude))

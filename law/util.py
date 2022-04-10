@@ -7,10 +7,10 @@ Helpful utility functions.
 __all__ = [
     "default_lock", "io_lock", "console_lock", "no_value", "rel_path", "law_src_path",
     "law_home_path", "law_run", "print_err", "abort", "is_number", "try_int", "round_discrete",
-    "str_to_int", "flag_to_bool", "common_task_params", "colored", "uncolored", "query_choice",
-    "is_pattern", "brace_expand", "range_expand", "range_join", "multi_match", "is_iterable",
-    "is_lazy_iterable", "make_list", "make_tuple", "make_unique", "is_nested", "flatten",
-    "merge_dicts", "which", "map_verbose", "map_struct", "mask_struct", "tmp_file",
+    "str_to_int", "flag_to_bool", "empty_context", "common_task_params", "colored", "uncolored",
+    "query_choice", "is_pattern", "brace_expand", "range_expand", "range_join", "multi_match",
+    "is_iterable", "is_lazy_iterable", "make_list", "make_tuple", "make_unique", "is_nested",
+    "flatten", "merge_dicts", "which", "map_verbose", "map_struct", "mask_struct", "tmp_file",
     "interruptable_popen", "readable_popen", "create_hash", "create_random_string", "copy_no_perm",
     "makedirs", "user_owns_file", "iter_chunks", "human_bytes", "parse_bytes", "human_duration",
     "parse_duration", "is_file_exists_error", "send_mail", "DotDict", "ShorthandDict",
@@ -241,6 +241,15 @@ def flag_to_bool(s, silent=False):
         return None
     else:
         raise ValueError("cannot convert to bool: {}".format(s))
+
+
+@contextlib.contextmanager
+def empty_context():
+    """
+    Yields an empty context that can be used in case of dynamically choosing context managers while
+    maintaining code structure.
+    """
+    yield
 
 
 def common_task_params(task_instance, task_cls):
