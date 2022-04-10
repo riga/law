@@ -64,9 +64,12 @@ class HTCondorWorkflow(law.htcondor.HTCondorWorkflow):
     def htcondor_job_config(self, config, job_num, branches):
         # render_variables are rendered into all files sent with a job
         config.render_variables["analysis_path"] = os.getenv("ANALYSIS_PATH")
+
         # copy the entire environment
         config.custom_content.append(("getenv", "true"))
+
         # tell the job config if GPUs are requested
         if not law.is_no_param(self.htcondor_gpus):
             config.custom_content.append(("request_gpus", self.htcondor_gpus))
+
         return config

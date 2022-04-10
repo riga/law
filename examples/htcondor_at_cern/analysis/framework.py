@@ -65,13 +65,18 @@ class HTCondorWorkflow(law.htcondor.HTCondorWorkflow):
     def htcondor_job_config(self, config, job_num, branches):
         # render_variables are rendered into all files sent with a job
         config.render_variables["analysis_path"] = os.getenv("ANALYSIS_PATH")
+
         # force to run on CC7, http://batchdocs.web.cern.ch/batchdocs/local/submit.html#os-choice
         config.custom_content.append(("requirements", "(OpSysAndVer =?= \"CentOS7\")"))
+
         # maximum runtime
         config.custom_content.append(("+MaxRuntime", int(math.floor(self.max_runtime * 3600)) - 1))
+
         # copy the entire environment
         config.custom_content.append(("getenv", "true"))
+
         # the CERN htcondor setup requires a "log" config, but we can safely set it to /dev/null
         # if you are interested in the logs of the batch system itself, set a meaningful value here
         config.custom_content.append(("log", "/dev/null"))
+
         return config

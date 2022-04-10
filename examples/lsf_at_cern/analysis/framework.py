@@ -68,4 +68,5 @@ class LSFWorkflow(law.lsf.LSFWorkflow):
     def lsf_job_config(self, config, job_num, branches):
         # render_variables is rendered into all files sent with a job
         config.render_variables["analysis_path"] = os.getenv("ANALYSIS_PATH")
+
         return config
