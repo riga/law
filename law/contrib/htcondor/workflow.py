@@ -133,7 +133,8 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
             info.append("pool: {}".format(self.task.htcondor_pool))
         if self.task.htcondor_scheduler and self.task.htcondor_scheduler != NO_STR:
             info.append("scheduler: {}".format(self.task.htcondor_scheduler))
-        return ", ".join(info)
+        info = self.task.htcondor_destination_info(info)
+        return ", ".join(map(str, info))
 
 
 class HTCondorWorkflow(BaseRemoteWorkflow):
@@ -206,3 +207,6 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
 
     def htcondor_cmdline_args(self):
         return {}
+
+    def htcondor_destination_info(self, info):
+        return info

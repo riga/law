@@ -275,6 +275,17 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         """
         return ""
 
+    def _destination_info_postfix(self):
+        """
+        Returns the destination info ready to be appended to a string.
+        """
+        dst_info = self.destination_info()
+        if isinstance(dst_info, (list, tuple)):
+            dst_info = ", ".join(map(str, dst_info))
+        if dst_info != "":
+            dst_info = ", {}".format(dst_info)
+        return dst_info
+
     @property
     def _cancel_jobs(self):
         """
@@ -650,8 +661,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             job_files[job_num] = self.create_job_file(job_num, branches)
 
         # log some stats
-        dst_info = self.destination_info() or ""
-        dst_info = dst_info and (", " + dst_info)
+        dst_info = self._destination_info_postfix()
         task.publish_message("going to submit {} {} job(s){}".format(
             len(submit_jobs), self.workflow_type, dst_info))
 
@@ -917,6 +927,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 counts = (n_unsubmitted,) + counts
             status_line = self.job_manager.status_line(counts, last_counts=True, sum_counts=n_jobs,
                 color=True, align=task.align_polling_status_line)
+            status_line += self._destination_info_postfix()
             status_line = task.modify_polling_status_line(status_line)
             task.publish_message(status_line)
             self.last_status_counts = counts

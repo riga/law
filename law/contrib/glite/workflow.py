@@ -127,9 +127,6 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
         # return job and log files
         return {"job": job_file, "log": abs_log_file}
 
-    def destination_info(self):
-        return "ce: {}".format(",".join(self.task.glite_ce))
-
     def _submit(self, *args, **kwargs):
         task = self.task
 
@@ -142,6 +139,11 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
         kwargs["delegation_id"] = self.delegation_ids
 
         return super(GLiteWorkflowProxy, self)._submit(*args, **kwargs)
+
+    def destination_info(self):
+        info = ["ce: {}".format(",".join(self.task.glite_ce))]
+        info = self.task.glite_destination_info(info)
+        return ", ".join(map(str, info))
 
 
 class GLiteWorkflow(BaseRemoteWorkflow):
@@ -218,3 +220,6 @@ class GLiteWorkflow(BaseRemoteWorkflow):
 
     def glite_cmdline_args(self):
         return {}
+
+    def glite_destination_info(self, info):
+        return info

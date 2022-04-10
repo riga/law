@@ -130,7 +130,11 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
         return {"job": job_file, "log": abs_log_file}
 
     def destination_info(self):
-        return "queue: {}".format(self.task.lsf_queue) if self.task.lsf_queue != NO_STR else ""
+        info = []
+        if self.task.lsf_queue != NO_STR:
+            info.append("queue: {}".format(self.task.lsf_queue))
+        info = self.task.lsf_destination_info(info)
+        return ", ".join(map(str, info))
 
 
 class LSFWorkflow(BaseRemoteWorkflow):
@@ -198,3 +202,6 @@ class LSFWorkflow(BaseRemoteWorkflow):
 
     def lsf_cmdline_args(self):
         return {}
+
+    def lsf_destination_info(self, info):
+        return info
