@@ -9,6 +9,7 @@ __all__ = [
     "LocalFileSystem", "LocalTarget", "LocalFileTarget, LocalDirectoryTarget",
     "TargetCollection", "FileCollection", "SiblingFileCollection", "NestedSiblingFileCollection",
     "Sandbox", "BashSandbox", "VenvSandbox",
+    "BaseJobManager", "BaseJobFileFactory", "JobArguments",
     "NO_STR", "NO_INT", "NO_FLOAT", "is_no_param", "get_param", "TaskInstanceParameter",
     "DurationParameter", "BytesParameter", "CSVParameter", "MultiCSVParameter", "RangeParameter",
     "MultiRangeParameter", "NotifyParameter", "NotifyMultiParameter", "NotifyMailParameter",
@@ -64,7 +65,7 @@ from law.workflow.local import LocalWorkflow
 from law.sandbox.base import Sandbox, SandboxTask
 from law.sandbox.bash import BashSandbox
 from law.sandbox.venv import VenvSandbox
-import law.job.base
+from law.job.base import BaseJobManager, BaseJobFileFactory, JobArguments
 import law.job.dashboard
 import law.workflow.remote
 import law.contrib
