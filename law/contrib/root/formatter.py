@@ -9,6 +9,10 @@ __all__ = [
 ]
 
 
+from contextlib import contextmanager
+
+import six
+
 from law.target.formatter import Formatter
 from law.target.file import get_path
 
@@ -131,3 +135,24 @@ class UprootFormatter(Formatter):
         import uproot
 
         return uproot.open(get_path(path), *args, **kwargs)
+
+    @classmethod
+    @contextmanager
+    def dump(cls, path, mode="recreate", **kwargs):
+        import uproot
+
+        # check the mode and get the saving function
+        allowed_modes = ["create", "recreate", "update"]
+        if not isinstance(mode, six.string_types) or mode.lower() not in allowed_modes:
+            raise ValueError("unknown uproot writing mode: {}".format(mode))
+        fn = getattr(uproot, mode.lower())
+
+        # create the file object and yield it
+        f = fn(get_path(path), **kwargs)
+        try:
+            yield f
+        finally:
+            try:
+                f.file.close()
+            except:
+                pass
