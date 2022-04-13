@@ -51,8 +51,8 @@ class VenvSandbox(Sandbox):
 
                 # build the full command
                 cmd = "; ".join(
-                    [quote_cmd(venv_cmd)] + \
-                    setup_cmds + \
+                    [quote_cmd(venv_cmd)] +
+                    setup_cmds +
                     [quote_cmd(["python", "-c", py_cmd])]
                 )
 
@@ -93,8 +93,8 @@ class VenvSandbox(Sandbox):
 
         # build the full command
         cmd = "; ".join(
-            [quote_cmd(venv_cmd)] + \
-            setup_cmds + \
+            [quote_cmd(venv_cmd)] +
+            setup_cmds +
             [proxy_cmd.build()]
         )
 
