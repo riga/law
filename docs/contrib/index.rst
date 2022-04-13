@@ -27,6 +27,7 @@ The following example shows how a package (e.g. the :py:mod:`~law.docker` packag
    :maxdepth: 1
 
    arc
+   awkward
    cms
    coffea
    docker
