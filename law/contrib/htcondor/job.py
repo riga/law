@@ -387,10 +387,10 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
         # prepare the executable when given
         if c.executable:
             c.executable = os.path.basename(self.postfix_input_file(c.executable, postfix))
-            # make the file executable for the user
+            # make the file executable for the user and group
             path = os.path.join(c.dir, c.executable)
             if os.path.exists(path):
-                os.chmod(path, os.stat(path).st_mode | stat.S_IXUSR)
+                os.chmod(path, os.stat(path).st_mode | stat.S_IXUSR | stat.S_IXGRP)
 
         # job file content
         content = []

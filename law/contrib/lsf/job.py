@@ -322,10 +322,10 @@ class LSFJobFileFactory(BaseJobFileFactory):
         # prepare the executable when given
         if c.executable:
             c.executable = os.path.basename(self.postfix_input_file(c.executable, postfix))
-            # make the file executable for the user
+            # make the file executable for the user or group
             path = os.path.join(c.dir, c.executable)
             if os.path.exists(path):
-                os.chmod(path, os.stat(path).st_mode | stat.S_IXUSR)
+                os.chmod(path, os.stat(path).st_mode | stat.S_IXUSR | stat.S_IXGRP)
 
         # job file content
         content = []
@@ -357,20 +357,20 @@ class LSFJobFileFactory(BaseJobFileFactory):
                     output_file, os.path.basename(output_file))))
 
         if c.manual_stagein:
-            tmpl = "cp " + ("{}" if c.absolute_paths else "$LS_EXECCWD/{}") + " $( pwd )/{}"
+            tmpl = "cp " + ("{}" if c.absolute_paths else "$LS_EXECCWD/{}") + " $PWD/{}"
             for input_file in make_unique(c.input_files.values()):
                 content.append(tmpl.format(input_file, os.path.basename(input_file)))
 
         if c.command:
             content.append(c.command)
-        elif c.executable:
-            content.append(c.executable)
+        else:
+            content.append("." + ("" if c.executable.startswith("/") else "/") + c.executable)
         if c.arguments:
             args = quote_cmd(c.arguments) if isinstance(c.arguments, (list, tuple)) else c.arguments
             content[-1] += " {}".format(args)
 
         if c.manual_stageout:
-            tmpl = "cp $( pwd )/{} $LS_EXECCWD/{}"
+            tmpl = "cp $PWD/{} $LS_EXECCWD/{}"
             for output_file in c.output_files:
                 content.append(tmpl.format(output_file, output_file))
 
