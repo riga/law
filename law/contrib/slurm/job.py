@@ -406,7 +406,7 @@ class SlurmJobFileFactory(BaseJobFileFactory):
 
             # add the executable
             if c.executable:
-                cmd = c.executable
+                cmd = "." + ("" if c.executable.startswith("/") else "/") + c.executable
                 f.write("\n{}{}\n".format(cmd, args))
 
         logger.debug("created slurm job file at '{}'".format(job_file))
