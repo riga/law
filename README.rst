@@ -43,7 +43,7 @@ Key features:
 - Automatic submission to batch systems from within tasks
    - HTCondor, LSF, gLite, ARC, Slurm
 - Environment sandboxing, configurable on task level
-   - Docker, Singularity, Sub-Shells
+   - Docker, Singularity, Sub-Shells, Python-venv
 
 
 .. marker-after-header
@@ -80,7 +80,7 @@ They are based on CentOS 7 and ship with the dependencies listed above, includin
 Tags:
 
 - ``py310``: Latest Python 3.10
-- ``latest``, ``py3``, ``py39``: Latest Python 3.9
+- ``py39``, ``py3``, ``latest``: Latest Python 3.9
 - ``py38``: Latest Python 3.8
 - ``py37``: Latest Python 3.7
 - ``py2``, ``py27``: Python 2.7
