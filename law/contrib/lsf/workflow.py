@@ -78,12 +78,12 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
         c.arguments = job_args.join()
 
         # add the bootstrap file
-        bootstrap_file = task.slurm_bootstrap_file()
+        bootstrap_file = task.lsf_bootstrap_file()
         if bootstrap_file:
             c.input_files["bootstrap_file"] = bootstrap_file
 
         # add the stageout file
-        stageout_file = task.slurm_stageout_file()
+        stageout_file = task.lsf_stageout_file()
         if stageout_file:
             c.input_files["stageout_file"] = stageout_file
 
