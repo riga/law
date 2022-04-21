@@ -7,8 +7,8 @@ LABEL law.image_tag="py310"
 LABEL law.image_dir="law-py310"
 LABEL law.image_python_major="3"
 LABEL law.image_python_minor="10"
-LABEL law.image_python_patch="2"
-LABEL law.image_python="3.10.2"
+LABEL law.image_python_patch="4"
+LABEL law.image_python="3.10.4"
 LABEL law.image_python_mm="3.10"
 
 # law specific environment variables
@@ -17,7 +17,7 @@ ENV LAW_IMAGE_NAME law-py310
 ENV LAW_IMAGE_TAG py310
 ENV LAW_IMAGE_PYTHON_MAJOR 3
 ENV LAW_IMAGE_PYTHON_MINOR 10
-ENV LAW_IMAGE_PYTHON_PATCH 2
+ENV LAW_IMAGE_PYTHON_PATCH 4
 ENV LAW_IMAGE_PYTHON ${LAW_IMAGE_PYTHON_MAJOR}.${LAW_IMAGE_PYTHON_MINOR}.${LAW_IMAGE_PYTHON_PATCH}
 ENV LAW_IMAGE_PYTHON_MM ${LAW_IMAGE_PYTHON_MAJOR}.${LAW_IMAGE_PYTHON_MINOR}
 ENV LAW_IMAGE_SOURCE_DIR /root/law
@@ -81,16 +81,16 @@ eval "$( pyenv virtualenv-init - )"' >> /root/.bashrc
 
 # boost
 ENV BOOST_ROOT /usr/local
-RUN wget -nv https://boostorg.jfrog.io/artifactory/main/release/1.78.0/source/boost_1_78_0.tar.gz && \
-    tar -xzf boost_1_78_0.tar.gz && \
-    cd boost_1_78_0 && \
+RUN wget -nv https://boostorg.jfrog.io/artifactory/main/release/1.79.0/source/boost_1_79_0.tar.gz && \
+    tar -xzf boost_1_79_0.tar.gz && \
+    cd boost_1_79_0 && \
     ./bootstrap.sh --with-libraries=system,thread,python --with-python="$( pyenv which python )" && \
     perl -pi -e 's!(\Qincludes ?= $(prefix)/include/python$(version)\E)!\1m!' tools/build/src/tools/python.jam && \
     ./b2 install --prefix=${BOOST_ROOT} && \
     ldconfig && \
     cd .. && \
-    rm -rf boost_1_78_0 && \
-    rm boost_1_78_0.tar.gz
+    rm -rf boost_1_79_0 && \
+    rm boost_1_79_0.tar.gz
 
 # WLCG software
 RUN rpm -Uvh https://repo.opensciencegrid.org/osg/3.6/osg-3.6-el7-release-latest.rpm
