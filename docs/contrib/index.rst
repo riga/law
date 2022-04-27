@@ -44,6 +44,7 @@ The following example shows how a package (e.g. the :py:mod:`~law.docker` packag
    mercurial
    numpy
    profiling
+   pyarrow
    rich
    root
    singularity
