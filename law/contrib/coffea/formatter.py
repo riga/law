@@ -21,13 +21,22 @@ class CoffeaFormatter(Formatter):
 
     @classmethod
     def accepts(cls, path, mode):
-        return get_path(path).endswith(".coffea")
+        return get_path(path).endswith((".coffea", ".root", ".parquet"))
 
     @classmethod
     def load(cls, path, *args, **kwargs):
-        from coffea.util import load
-
         path = get_path(path)
+
+        if path.endswith(".root"):
+            from coffea.nanoevents import NanoEventsFactory
+            return NanoEventsFactory.from_root(path, *args, **kwargs)
+
+        if path.endswith(".parquet"):
+            from coffea.nanoevents import NanoEventsFactory
+            return NanoEventsFactory.from_parquet(path, *args, **kwargs)
+
+        # .coffea
+        from coffea.util import load
         return load(path, *args, **kwargs)
 
     @classmethod
