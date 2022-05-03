@@ -4,7 +4,7 @@
 PyArrow target formatters.
 """
 
-__all__ = ["ParquetFormatter"]
+__all__ = ["ParquetFormatter", "ParquetTableFormatter"]
 
 
 from law.target.formatter import Formatter
@@ -18,6 +18,22 @@ logger = get_logger(__name__)
 class ParquetFormatter(Formatter):
 
     name = "parquet"
+
+    @classmethod
+    def accepts(cls, path, mode):
+        return get_path(path).endswith(".parquet")
+
+    @classmethod
+    def load(cls, path, *args, **kwargs):
+        import pyarrow.parquet as pq
+
+        path = get_path(path)
+        return pq.ParquetFile(path, *args, **kwargs)
+
+
+class ParquetTableFormatter(Formatter):
+
+    name = "parquet_table"
 
     @classmethod
     def accepts(cls, path, mode):

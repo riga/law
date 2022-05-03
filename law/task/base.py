@@ -473,7 +473,7 @@ class Task(six.with_metaclass(Register, BaseTask)):
 
     def iter_progress(self, iterable, n_total, reach=(0, 100), precision=1, msg=None):
         # create a progress callback with all arguments
-        progress_callback = self.create_progress_callback(n_total, reach=(0, 100), precision=1)
+        progress_callback = self.create_progress_callback(n_total, reach=reach, precision=precision)
 
         # when msg is set, place the iteration in an outer context
         context = (lambda: self.publish_step(msg)) if msg else empty_context

@@ -63,17 +63,20 @@ def merge_parquet_files(src_paths, dst_path, force=True, callback=None, writer_o
             raise Exception("destination path existing while force is False: {}".format(dst_path))
         os.remove(dst_path)
 
-    # open files and read all tables
-    tables = []
-    for path in src_paths:
-        path = os.path.expandvars(os.path.expanduser(path))
-        tables.append(pq.read_table(path))
+    # read the first table to extract the schema
+    table = pq.read_table(os.path.expandvars(os.path.expanduser(src_paths[0])))
 
     # write the file
-    with pq.ParquetWriter(dst_path, tables[0].schema, **_writer_opts) as writer:
-        for i, t in enumerate(tables):
-            writer.write_table(t)
-            callback(i)
+    with pq.ParquetWriter(dst_path, table.schema, **_writer_opts) as writer:
+        # write the first table
+        writer.write_table(table)
+        callback(0)
+
+        # write the remaining ones
+        for i, path in enumerate(src_paths[1:]):
+            table = pq.read_table(os.path.expandvars(os.path.expanduser(path)))
+            writer.write_table(table)
+            callback(i + 1)
 
     return dst_path
 

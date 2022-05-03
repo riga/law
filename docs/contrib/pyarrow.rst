@@ -13,6 +13,13 @@ Class ``ParquetFormatter``
    :members:
 
 
+Class ``ParquetTableFormatter``
+-------------------------------
+
+.. autoclass:: ParquetTableFormatter
+   :members:
+
+
 Functions
 ---------
 
