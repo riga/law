@@ -8,6 +8,7 @@ __all__ = ["merge_parquet_files", "merge_parquet_task"]
 
 
 import os
+import shutil
 
 import six
 
@@ -63,6 +64,12 @@ def merge_parquet_files(src_paths, dst_path, force=True, callback=None, writer_o
             raise Exception("destination path existing while force is False: {}".format(dst_path))
         os.remove(dst_path)
 
+    # trivial case
+    if len(src_paths) == 1:
+        shutil.copy(src_paths[0], dst_path)
+        callback(0)
+        return dst_path
+
     # read the first table to extract the schema
     table = pq.read_table(os.path.expandvars(os.path.expanduser(src_paths[0])))
 
@@ -73,10 +80,10 @@ def merge_parquet_files(src_paths, dst_path, force=True, callback=None, writer_o
         callback(0)
 
         # write the remaining ones
-        for i, path in enumerate(src_paths[1:]):
+        for i, path in enumerate(src_paths[1:], 1):
             table = pq.read_table(os.path.expandvars(os.path.expanduser(path)))
             writer.write_table(table)
-            callback(i + 1)
+            callback(i)
 
     return dst_path
 
