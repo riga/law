@@ -40,7 +40,7 @@ def merge_parquet_files(src_paths, dst_path, force=True, callback=None, writer_o
 
     # default writer options
     _writer_opts = dict(
-        version="2.0",
+        version="2.4",
         compression="gzip",
         use_dictionary=True,
         data_page_size=2097152,
