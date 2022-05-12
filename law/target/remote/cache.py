@@ -52,6 +52,8 @@ class RemoteCache(object):
 
     @classmethod
     def parse_config(cls, section, config=None, overwrite=False):
+        from law.sandbox.base import _sandbox_switched
+
         # reads a law config section and returns parsed file system configs
         cfg = Config.instance()
 
@@ -75,13 +77,17 @@ class RemoteCache(object):
             return parse_duration(value, input_unit="s", unit="s")
 
         add("root", cfg.get_expanded)
-        add("cleaup", cfg.get_expanded_boolean)
+        add("cleanup", cfg.get_expanded_boolean)
         add("max_size", get_size)
         add("file_perm", cfg.get_expanded_int)
         add("dir_perm", cfg.get_expanded_int)
         add("wait_delay", get_time)
         add("max_waits", cfg.get_expanded_int)
         add("global_lock", cfg.get_expanded_boolean)
+
+        # inside sandboxes, never cleanup since the outer process will do that if needed
+        if _sandbox_switched:
+            config["cleanup"] = False
 
         return config
 
