@@ -55,7 +55,7 @@ class Target(luigi.target.Target):
 
     def colored_repr(self):
         # deprecation warning until v0.1
-        logger.warning("the use of {0}.colored_repr() is deprecated, please use "
+        logger.warning_once("the use of {0}.colored_repr() is deprecated, please use "
             "{0}.repr(color=True) instead".format(self.__class__.__name__))
 
         return self.repr(color=True)

@@ -167,9 +167,7 @@ class ForestMerge(LocalWorkflow):
     @classmethod
     def _req_tree(cls, inst, *args, **kwargs):
         # amend workflow branch parameters to exclude
-        _exclude = set(kwargs.pop("_exclude", set()))
-        _exclude |= {"start_branch", "end_branch", "branches"}
-        kwargs["_exclude"] = _exclude
+        kwargs["_exclude"] = set(kwargs.pop("_exclude", set())) | {"branches"}
 
         # just as for all workflows that requie branches of themselves (or vice versa,
         # skip task level excludes

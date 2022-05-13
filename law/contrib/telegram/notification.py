@@ -36,7 +36,7 @@ def notify_telegram(title, content, token=None, chat=None, mention_user=None, **
         chat = cfg.get_expanded("notifications", "telegram_chat")
 
     if not token or not chat:
-        logger.warning("cannot send Telegram notification, token ({}) or chat ({}) empty".format(
+        logger.warning("cannot send telegram notification, token ({}) or chat ({}) empty".format(
             token, chat))
         return False
 
@@ -88,4 +88,4 @@ def _notify_telegram(token, chat, request):
         return bot.send_message(chat, **request)
     except Exception as e:
         t = traceback.format_exc()
-        logger.warning("could not send Telegram notification: {}\n{}".format(e, t))
+        logger.warning("could not send telegram notification: {}\n{}".format(e, t))

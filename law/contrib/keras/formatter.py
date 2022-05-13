@@ -82,7 +82,7 @@ class TFKerasModelFormatter(Formatter):
     @classmethod
     def dump(cls, path, model, *args, **kwargs):
         # deprecation warning until v0.1
-        logger.warning("law.contrib.keras.TFKerasModelFormatter is deprecated, please use "
+        logger.warning_once("law.contrib.keras.TFKerasModelFormatter is deprecated, please use "
             "law.contrib.tensorflow.TFKerasModelFormatter (named 'tf_keras_model') instead")
 
         model.save(get_path(path), *args, **kwargs)
@@ -90,7 +90,7 @@ class TFKerasModelFormatter(Formatter):
     @classmethod
     def load(cls, path, *args, **kwargs):
         # deprecation warning until v0.1
-        logger.warning("law.contrib.keras.TFKerasModelFormatter is deprecated, please use "
+        logger.warning_once("law.contrib.keras.TFKerasModelFormatter is deprecated, please use "
             "law.contrib.tensorflow.TFKerasModelFormatter (named 'tf_keras_model') instead")
 
         import tensorflow as tf

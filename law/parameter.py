@@ -581,7 +581,7 @@ class RangeParameter(luigi.Parameter):
             try:
                 value = tuple((int(p) if p else self.OPEN) for p in parts)
             except ValueError:
-                raise ValueError("range '{}'' contains non-integer elements".format(inp))
+                raise ValueError("range '{}' contains non-integer elements".format(inp))
         else:
             value = (inp,)
 

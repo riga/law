@@ -60,7 +60,7 @@ No tasks ran so far, so no output target should exist yet. You will see this out
 ```shell
 print task status with max_depth -1 and target_depth 0
 
-> check status of OptimizerPlot(branch=-1, start_branch=-1, end_branch=-1, iterations=10, n_parallel=4, n_initial_points=10, plot_objective=True)
+> check status of OptimizerPlot(branch=-1, iterations=10, n_parallel=4, n_initial_points=10, plot_objective=True)
 |   - check TargetCollection(len=10, threshold=1.0)
 |     -> absent (0/10)
 ```
@@ -91,7 +91,7 @@ When the optimization succeeded, all output targets should exist:
 ```shell
 print task status with max_depth -1 and target_depth 0
 
-> check status of OptimizerPlot(branch=-1, start_branch=-1, end_branch=-1, iterations=10, n_parallel=4, n_initial_points=10, plot_objective=True)
+> check status of OptimizerPlot(branch=-1, iterations=10, n_parallel=4, n_initial_points=10, plot_objective=True)
 |   - check TargetCollection(len=10, threshold=1.0)
 |     -> existent (10/10)
 ```

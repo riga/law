@@ -7,7 +7,6 @@ Workflow and workflow proxy base class definitions.
 __all__ = ["BaseWorkflow", "workflow_property", "cached_workflow_property"]
 
 
-import sys
 import re
 import functools
 from collections import OrderedDict
@@ -141,8 +140,6 @@ class BaseWorkflowProxy(ProxyTask):
             # reset cached branch map, branch tasks and boundaries
             self.task._branch_map = None
             self.task._branch_tasks = None
-            self.task.start_branch = self.task._initial_start_branch
-            self.task.end_branch = self.task._initial_end_branch
             self.task.branches = self.task._initial_branches
 
 
@@ -259,20 +256,10 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
        The branch number to run this task for. *-1* means that this task is the actual *workflow*,
        rather than a *branch* task. Defaults to *-1*.
 
-    .. py:classattribute:: start_branch
-       type: luigi.IntParameter
-
-       First branch to process. Defaults to *0*.
-
-    .. py:classattribute:: end_branch
-       type: luigi.IntParameter
-
-       First branch that is *not* processed (pythonic). Defaults to *-1*.
-
     .. py:classattribute:: branches
        type: law.MultiRangeParameter
 
-       Explicit list of branches to process. Empty default value.
+       Explicit list of branches or branch ranges to process. Empty default value.
 
     .. py:classattribute:: workflow_proxy_cls
        type: BaseWorkflowProxy
@@ -378,23 +365,23 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         description="the branch number/index to run this task for; -1 means this task is the "
         "workflow; default: -1",
     )
-    start_branch = luigi.IntParameter(
-        default=NO_INT,
-        description="the branch to start at; empty value means first; default: empty",
-    )
-    end_branch = luigi.IntParameter(
-        default=NO_INT,
-        description="the branch to end at; the end itself is not included; empty value means last; "
-        "default: empty",
-    )
     branches = MultiRangeParameter(
         default=(),
         require_start=False,
         require_end=False,
         single_value=True,
         description="comma-separated list of branches to select; each value can have the format "
-        "'start:stop' (inclusive) to support range syntax; has precedence over --startBranch and "
-        "--endBranch when set; default: empty",
+        "'start:end' (end not included as per Python) to support range syntax; default: empty",
+    )
+    start_branch = luigi.IntParameter(
+        default=NO_INT,
+        description="DEPRECATED and will be removed in a future release; please use "
+        "'--branches start_branch:' instead",
+    )
+    end_branch = luigi.IntParameter(
+        default=NO_INT,
+        description="DEPRECATED and will be removed in a future release; please use "
+        "'--branches :end_branch' instead",
     )
 
     # configuration members
@@ -413,7 +400,7 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
     exclude_index = True
 
     exclude_params_branch = {
-        "workflow", "acceptance", "tolerance", "pilot", "start_branch", "end_branch", "branches",
+        "workflow", "acceptance", "tolerance", "pilot", "branches",
     }
     exclude_params_workflow = {"branch"}
 
@@ -428,9 +415,18 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         # cached attributes for branches
         self._workflow_task = None
 
-        # store original branch boundaries
-        self._initial_start_branch = self.start_branch
-        self._initial_end_branch = self.end_branch
+        # temporary backwards compatibility for start/end_branch
+        if self.start_branch != NO_INT or self.end_branch != NO_INT:
+            logger.warning_once(
+                "deprecated_workflow_branch_ranges",
+                "--start-branch and --end-branch are deprecated and support will be removed in "
+                "a future release; please use '--branches start:end' instead",
+            )
+            start = self.start_branch if self.start_branch != NO_INT else None
+            end = self.end_branch if self.end_branch != NO_INT else None
+            self.branches += ((start, end),)
+
+        # store originally selected branches
         self._initial_branches = tuple(self.branches)
 
         # determine workflow proxy class to instantiate
@@ -541,20 +537,13 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         if self.is_branch():
             raise Exception("calls to _reset_branch_boundaries are forbidden for branch tasks")
 
-        # get minimum and maximum branches
-        min_branch = min(branch_map.keys())
-        max_branch = max(branch_map.keys())
-
-        # reset start_branch, starting from the initial value
-        self.start_branch = max(min_branch, min(max_branch, self._initial_start_branch))
-
-        # reset end_branch, starting from the initial value
-        self.end_branch = sys.maxsize if self._initial_end_branch < 0 else self._initial_end_branch
-        self.end_branch = max(self.start_branch, min(max_branch + 1, self.end_branch))
-
         # rejoin branch ranges when given
         if self.branches:
-            branches = range_expand(self.branches, min_value=min_branch, max_value=max_branch)
+            # get minimum and maximum branches
+            min_branch = min(branch_map.keys())
+            max_branch = max(branch_map.keys())
+
+            branches = range_expand(self.branches, min_value=min_branch, max_value=max_branch + 1)
             self.branches = tuple(range_join(branches))
 
     def _reduce_branch_map(self, branch_map):
@@ -562,20 +551,17 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
             raise Exception("calls to _reduce_branch_map are forbidden for branch tasks")
 
         # create a set of branches to remove
-        branches = set(branch_map.keys())
-        min_branch = min(branches)
-        max_branch = max(branches)
         remove_branches = set()
 
         # apply branch ranges
         if self.branches:
-            requested = set(range_expand(self.branches, min_value=min_branch, max_value=max_branch))
-            remove_branches |= branches - requested
+            branches = set(branch_map.keys())
+            min_branch = min(branches)
+            max_branch = max(branches)
 
-        # apply {start,end}_branch
-        if 0 <= self.start_branch <= self.end_branch:
-            remove_branches |= set(range(min_branch, self.start_branch))
-            remove_branches |= set(range(self.end_branch, max_branch + 1))
+            requested = range_expand(self.branches, min_value=min_branch, max_value=max_branch + 1,
+                include_end=False)
+            remove_branches |= branches - set(requested)
 
         # remove from branch map
         for b in remove_branches:
@@ -584,10 +570,9 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
     def get_branch_map(self, reset_boundaries=True, reduce_branches=True):
         """
         Creates and returns the branch map defined in :py:meth:`create_branch_map`. If
-        *reset_boundaries* is *True*, the *start_branch* and *end_branch* attributes are rearranged
-        to not exceed the actual branch map length. If *reduce_branches* is *True* and an explicit
-        list of branch numbers was set, the branch map is filtered accordingly. The branch map is
-        cached.
+        *reset_boundaries* is *True*, the branch numbers and ranges defined in :py:attr:`branches`
+        are rearranged to not exceed the actual branch map length. If *reduce_branches* is *True*,
+        the branch map is additionally filtered accordingly. The branch map is cached internally.
         """
         if self.is_branch():
             return self.as_workflow().get_branch_map(reset_boundaries=reset_boundaries,
@@ -677,7 +662,7 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
             print(wf.get_branch_chunks(3))
             # -> [[0, 1, 2], [3, 4, 5], [6, 7]]
 
-            wf2 = SomeWorkflowTask(end_branch=5)  # has 5 branches
+            wf2 = SomeWorkflowTask(branches=[(0, 5)])  # has 5 branches
             print(wf2.get_branch_chunks(3))
             # -> [[0, 1, 2], [3, 4]]
         """
@@ -692,10 +677,10 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
     def get_all_branch_chunks(self, chunk_size, **kwargs):
         """
         Returns a list of chunks of all branch numbers of this workflow (i.e. without
-        *start_branch*, *end_branch* and *branches* parameters applied) with a certain *chunk_size*.
-        Internally, a new instance of this workflow is created using :py:meth:`BaseTask.req`,
-        forwarding all *kwargs*. Its *_exclude* list will contain ``["start_branch", "end_branch",
-        "branches"]`` in order to use all possible branch values. Example:
+        *branches* parameters applied) with a certain *chunk_size*. Internally, a new instance of
+        this workflow is created using :py:meth:`BaseTask.req`, forwarding all *kwargs*, with
+        *_exclude* parameters extended by ``{"branches"}`` in order to use all possible branch
+        values. Example:
 
         .. code-block:: python
 
@@ -703,7 +688,7 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
             print(wf.get_all_branch_chunks(3))
             # -> [[0, 1, 2], [3, 4, 5], [6, 7]]
 
-            wf2 = SomeWorkflowTask(end_branch=5)  # has 5 branches
+            wf2 = SomeWorkflowTask(branches=[(0, 5)])  # has 5 branches
             print(wf2.get_all_branch_chunks(3))
             # -> [[0, 1, 2], [3, 4, 5], [6, 7]]
         """
@@ -711,9 +696,7 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
             return self.as_workflow().get_all_branch_chunks(chunk_size, **kwargs)
 
         # create a new instance
-        _exclude = set(kwargs.get("_exclude", set()))
-        _exclude |= {"start_branch", "end_branch", "branches"}
-        kwargs["_exclude"] = _exclude
+        kwargs["_exclude"] = set(kwargs.get("_exclude", set())) | {"branches"}
         kwargs["_skip_task_excludes"] = True
         inst = self.req(self, **kwargs)
 
@@ -728,14 +711,18 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         string will contain a unique hash describing those ranges.
         """
         branch_map = self.get_branch_map()
+
         if self.branches:
             ranges = range_join(list(branch_map.keys()))
             if len(ranges) > max_ranges:
                 return "{}_ranges_{}".format(len(ranges), create_hash(ranges))
             else:
-                return "_".join(("{}" if len(r) == 1 else "{}To{}").format(*r) for r in ranges)
-        else:
-            return "{}To{}".format(self.start_branch, self.end_branch)
+                return "_".join(
+                    str(r) if len(r) == 1 else "{}To{}".format(r[0], r[1] + 1)
+                    for r in ranges
+                )
+
+        return "{}To{}".format(min(branch_map.keys()), max(branch_map.keys()) + 1)
 
     def workflow_requires(self):
         """
