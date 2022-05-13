@@ -132,7 +132,10 @@ class RemoteCache(object):
         logger.debug("created {} at '{}'".format(self.__class__.__name__, self.base))
 
     def __del__(self):
-        self._cleanup()
+        try:
+            self._cleanup()
+        except (OSError, TypeError):
+            pass
 
     def __repr__(self):
         return "<{} '{}' at {}>".format(self.__class__.__name__, self.base, hex(id(self)))
