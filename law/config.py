@@ -339,10 +339,10 @@ class Config(ConfigParser):
         # py2 backport
         if six.PY3:
             return super(Config, self)._convert_to_boolean(value)
-        else:
-            if value.lower() not in self._boolean_states:
-                raise ValueError("Not a boolean: {}".format(value))
-            return self._boolean_states[value.lower()]
+
+        if value.lower() not in self._boolean_states:
+            raise ValueError("Not a boolean: {}".format(value))
+        return self._boolean_states[value.lower()]
 
     def _get_type_converter(self, type, value):
         if type in (str, "str", "s"):
@@ -438,13 +438,15 @@ class Config(ConfigParser):
         self.update(p._sections, *args, **kwargs)
 
     def get_default(self, section, option, default=None, type=None, expand_vars=False,
-            expand_user=False, dereference=True, default_when_none=True, _skip_refs=None):
-        """ get_default(section, option, default=None, type=None, expand_vars=False, expand_user=False, dereference=True, default_when_none=True)
+            expand_user=False, split_csv=False, dereference=True, default_when_none=True,
+            _skip_refs=None):
+        """ get_default(section, option, default=None, type=None, expand_vars=False, expand_user=False, split_csv=False, dereference=True, default_when_none=True)
         Returns the config value defined by *section* and *option*. When either the section or the
         option does not exist, the *default* value is returned instead. When *type* is set, it must
         be either `"str"`, `"int"`, `"float"`, or `"boolean"`. When *expand_vars* is *True*,
         environment variables are expanded. When *expand_user* is *True*, user variables are
-        expanded as well.
+        expanded as well. Sequences of values can be identified, split by comma and returned as a
+        list when *split_csv* is *True*, which will also trigger brace expansion.
 
         Also, options retrieved by this method are allowed to refer to values of other options
         within the config, even to those in other sections. The syntax for config references is
@@ -505,8 +507,14 @@ class Config(ConfigParser):
             elif isinstance(value, six.string_types) and value.lower() == "none":
                 return default
 
-        # return the type-converted value
-        return value if not type else self._get_type_converter(type, value)(value)
+        # helper for optional type conversion
+        cast_type = lambda value: self._get_type_converter(type, value)(value) if type else value
+
+        # do csv splitting if requested
+        if split_csv:
+            return [cast_type(v.strip()) for v in brace_expand(value, split_csv=True)]
+
+        return cast_type(value)
 
     def get_expanded(self, *args, **kwargs):
         """
