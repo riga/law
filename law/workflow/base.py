@@ -349,27 +349,53 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
        Shorthand for ``self.branch_map[self.branch]``.
     """
 
-    workflow = luigi.Parameter(default=NO_STR, significant=False, description="the type of the "
-        "workflow to use; uses the first workflow type in the MRO when empty; default: empty")
-    acceptance = luigi.FloatParameter(default=1.0, significant=False, description="number of "
-        "finished tasks to consider the task successful; relative fraction (<= 1) or absolute "
-        "value (> 1); default: 1.0")
-    tolerance = luigi.FloatParameter(default=0.0, significant=False, description="number of failed "
-        "tasks to still consider the task successful; relative fraction (<= 1) or absolute value "
-        "(> 1); default: 0.0")
-    pilot = luigi.BoolParameter(default=False, significant=False, description="disable "
-        "requirements of the workflow to let branch tasks resolve requirements on their own; "
-        "default: False")
-    branch = luigi.IntParameter(default=-1, description="the branch number/index to run this "
-        "task for; -1 means this task is the workflow; default: -1")
-    start_branch = luigi.IntParameter(default=NO_INT, description="the branch to start at; empty "
-        "value means first; default: empty")
-    end_branch = luigi.IntParameter(default=NO_INT, description="the branch to end at; the end "
-        "itself is not included; empty value means last; default: empty")
-    branches = MultiRangeParameter(default=(), require_start=False, require_end=False,
-        single_value=True, description="comma-separated list of branches to select; each value can "
-        "have the format 'start:stop' (inclusive) to support range syntax; has precedence over "
-        "--startBranch and --endBranch when set; default: empty")
+    workflow = luigi.Parameter(
+        default=NO_STR,
+        significant=False,
+        description="the type of the workflow to use; uses the first workflow type in the MRO when "
+        "empty; default: empty",
+    )
+    acceptance = luigi.FloatParameter(
+        default=1.0,
+        significant=False,
+        description="number of finished tasks to consider the task successful; relative fraction "
+        "(<= 1) or absolute value (> 1); default: 1.0",
+    )
+    tolerance = luigi.FloatParameter(
+        default=0.0,
+        significant=False,
+        description="number of failed tasks to still consider the task successful; relative "
+        "fraction (<= 1) or absolute value (> 1); default: 0.0",
+    )
+    pilot = luigi.BoolParameter(
+        default=False,
+        significant=False,
+        description="disable requirements of the workflow to let branch tasks resolve requirements "
+        "on their own; default: False",
+    )
+    branch = luigi.IntParameter(
+        default=-1,
+        description="the branch number/index to run this task for; -1 means this task is the "
+        "workflow; default: -1",
+    )
+    start_branch = luigi.IntParameter(
+        default=NO_INT,
+        description="the branch to start at; empty value means first; default: empty",
+    )
+    end_branch = luigi.IntParameter(
+        default=NO_INT,
+        description="the branch to end at; the end itself is not included; empty value means last; "
+        "default: empty",
+    )
+    branches = MultiRangeParameter(
+        default=(),
+        require_start=False,
+        require_end=False,
+        single_value=True,
+        description="comma-separated list of branches to select; each value can have the format "
+        "'start:stop' (inclusive) to support range syntax; has precedence over --startBranch and "
+        "--endBranch when set; default: empty",
+    )
 
     # configuration members
     workflow_proxy_cls = BaseWorkflowProxy

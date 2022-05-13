@@ -326,31 +326,50 @@ class Register(BaseRegister):
 
 class Task(six.with_metaclass(Register, BaseTask)):
 
-    log_file = luigi.Parameter(default=NO_STR, significant=False, description="a custom log file; "
-        "default: <task.default_log_file>")
-    print_deps = CSVParameter(default=(), significant=False, description="print task dependencies "
-        "but do not run any task; this CSV parameter accepts a single integer value which sets the "
-        "task recursion depth (0 means non-recursive)")
-    print_status = CSVParameter(default=(), significant=False, description="print the task status "
-        "but do not run any task; this CSV parameter accepts up to three values: 1. the task "
-        "recursion depth (0 means non-recursive), 2. the depth of the status text of target "
-        "collections (default: 0), 3. a flag that is passed to the status text creation (default: "
-        "'')")
-    print_output = CSVParameter(default=(), significant=False, description="print a flat list of "
-        "output targets but do not run any task; this CSV parameter accepts up to two values: 1. "
-        "the task recursion depth (0 means non-recursive), 2. a boolean flag that decides whether "
-        "paths of file targets should contain file system schemes (default: True)")
-    remove_output = CSVParameter(default=(), significant=False, description="remove task outputs "
-        "but do not run any task by default; this CSV parameter accepts up to three values: 1. the "
-        "task recursion depth (0 means non-recursive), 2. one of the modes 'i' (interactive), 'a' "
-        "(all), 'd' (dry run) (default: 'i'), 3. a boolean flag that decides whether the task is "
-        "run after outputs were removed (default: False)")
-    fetch_output = CSVParameter(default=(), significant=False, description="copy all task outputs "
-        "into a local directory but do not run any task; this CSV parameter accepts up to four "
-        "values: 1. the task recursion depth (0 means non-recursive), 2. one of the modes 'i' "
-        "(interactive), 'a' (all), 'd' (dry run) (default: 'i'), 3. the target directory (default: "
-        "'.'), 4. a boolean flag that decides whether external outputs and outputs of external "
-        "tasks should be fetched (default: False)")
+    log_file = luigi.Parameter(
+        default=NO_STR,
+        significant=False,
+        description="a custom log file; default: <task.default_log_file>",
+    )
+    print_deps = CSVParameter(
+        default=(),
+        significant=False,
+        description="print task dependencies but do not run any task; this CSV parameter accepts a "
+        "single integer value which sets the task recursion depth (0 means non-recursive)",
+    )
+    print_status = CSVParameter(
+        default=(),
+        significant=False,
+        description="print the task status but do not run any task; this CSV parameter accepts up "
+        "to three values: 1. the task recursion depth (0 means non-recursive), 2. the depth of the "
+        "status text of target collections (default: 0), 3. a flag that is passed to the status "
+        "text creation (default: '')",
+    )
+    print_output = CSVParameter(
+        default=(),
+        significant=False,
+        description="print a flat list of output targets but do not run any task; this CSV "
+        "parameter accepts up to two values: 1. the task recursion depth (0 means non-recursive), "
+        "2. a boolean flag that decides whether paths of file targets should contain file system "
+        "schemes (default: True)",
+    )
+    remove_output = CSVParameter(
+        default=(),
+        significant=False,
+        description="remove task outputs but do not run any task by default; this CSV parameter "
+        "accepts up to three values: 1. the task recursion depth (0 means non-recursive), 2. one "
+        "of the modes 'i' (interactive), 'a' (all), 'd' (dry run) (default: 'i'), 3. a boolean "
+        "flag that decides whether the task is run after outputs were removed (default: False)",
+    )
+    fetch_output = CSVParameter(
+        default=(),
+        significant=False,
+        description="copy all task outputs into a local directory but do not run any task; this "
+        "CSV parameter accepts up to four values: 1. the task recursion depth (0 means "
+        "non-recursive), 2. one of the modes 'i' (interactive), 'a' (all), 'd' (dry run) (default: "
+        "'i'), 3. the target directory (default: '.'), 4. a boolean flag that decides whether "
+        "external outputs and outputs of external tasks should be fetched (default: False)",
+    )
 
     interactive_params = [
         "print_deps", "print_status", "print_output", "fetch_output", "remove_output",

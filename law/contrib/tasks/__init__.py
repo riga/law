@@ -62,10 +62,16 @@ class RunOnceTask(Task):
 
 class TransferLocalFile(Task):
 
-    source_path = luigi.Parameter(default=NO_STR, description="path to the file to transfer; when "
-        "empty, the task input is used; default: empty")
-    replicas = luigi.IntParameter(default=0, description="number of replicas to generate; when > 0 "
-        "the output will be a file collection instead of a single file; default: 0")
+    source_path = luigi.Parameter(
+        default=NO_STR,
+        description="path to the file to transfer; when empty, the task input is used; default: "
+        "empty",
+    )
+    replicas = luigi.IntParameter(
+        default=0,
+        description="number of replicas to generate; when > 0 the output will be a file collection "
+        "instead of a single file; default: 0",
+    )
 
     exclude_index = True
 
@@ -120,14 +126,25 @@ class TransferLocalFile(Task):
 
 class ForestMerge(LocalWorkflow):
 
-    branch = luigi.IntParameter(default=0, description="the branch number/index to run this "
-        "task for; -1 means this task is the workflow; default: 0")
-    tree_index = luigi.IntParameter(default=-1, description="the index of the merged tree in the "
-        "forest; -1 denotes the forest itself which requires and outputs all trees; default: -1")
-    tree_depth = luigi.IntParameter(default=0, description="the depth of this workflow in the "
-        "merge tree; 0 denotes the root; default: 0")
-    keep_nodes = luigi.BoolParameter(significant=False, description="keep merged results, i.e., "
-        "task outputs from intermediate nodes in the merge tree; default: False")
+    branch = luigi.IntParameter(
+        default=0,
+        description="the branch number/index to run this task for; -1 means this task is the "
+        "workflow; default: 0",
+    )
+    tree_index = luigi.IntParameter(
+        default=-1,
+        description="the index of the merged tree in the forest; -1 denotes the forest itself "
+        "which requires and outputs all trees; default: -1",
+    )
+    tree_depth = luigi.IntParameter(
+        default=0,
+        description="the depth of this workflow in the merge tree; 0 denotes the root; default: 0",
+    )
+    keep_nodes = luigi.BoolParameter(
+        significant=False,
+        description="keep merged results, i.e., task outputs from intermediate nodes in the merge "
+        "tree; default: False",
+    )
 
     # fix some workflow parameters
     acceptance = 1.
@@ -141,7 +158,7 @@ class ForestMerge(LocalWorkflow):
 
     @classmethod
     def modify_param_values(cls, params):
-        # when tree_index is negative which refers to the merge forest, make sure this is branch 0
+        # when tree_index is negative, which refers to the merge forest, make sure this is branch 0
         if "tree_index" in params and "branch" in params and params["tree_index"] < 0:
             params["branch"] = 0
 

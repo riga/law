@@ -446,8 +446,11 @@ class SandboxProxy(ProxyTask):
 
 class SandboxTask(Task):
 
-    sandbox = luigi.Parameter(default=_current_sandbox[0] or NO_STR, description="name of the "
-        "sandbox to run the task in; default: $LAW_SANDBOX when set, otherwise empty")
+    sandbox = luigi.Parameter(
+        default=_current_sandbox[0] or NO_STR,
+        description="name of the sandbox to run the task in; default: $LAW_SANDBOX when set, "
+        "otherwise empty",
+    )
 
     allow_empty_sandbox = False
     valid_sandboxes = ["*"]
