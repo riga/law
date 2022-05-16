@@ -433,7 +433,7 @@ class SandboxProxy(ProxyTask):
 
         # log the command
         if cmd:
-            print("sandbox command:\n{}\n".format(cmd))
+            self.task.logger.info("sandbox command:\n{}".format(cmd))
         sys.stdout.flush()
 
         try:
