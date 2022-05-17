@@ -151,7 +151,7 @@ class ForestMerge(LocalWorkflow):
     tolerance = 0.
     pilot = False
 
-    node_format = "{name}.d{depth}.b{branch}{ext}"
+    node_format = "{name}.t{tree}.d{depth}.b{branch}{ext}"
     merge_factor = 2
 
     exclude_index = True
@@ -193,13 +193,7 @@ class ForestMerge(LocalWorkflow):
 
         # modify_param_values prevents the forest from being a workflow, but still check
         if self.is_forest() and self.is_workflow():
-            raise Exception("merge forest must not be a workflow, {!r} misconfigured".format(self))
-
-        # since the forest counts as a branch, as_workflow should point the tree_index 0
-        # which is only used to compute the overall merge tree
-        if self.is_forest():
-            self._workflow_task = self._req_tree(self, branch=-1, tree_index=0,
-                _exclude=self.exclude_params_workflow)
+            raise Exception("merge forest must not be a workflow, {} misconfigured".format(self))
 
     def is_forest(self):
         return self.tree_index < 0
@@ -209,6 +203,15 @@ class ForestMerge(LocalWorkflow):
 
     def is_leaf(self):
         return not self.is_forest() and self.tree_depth == self.max_depth
+
+    def _create_workflow_task(self):
+        # since the forest counts as a branch, as_workflow should point the tree_index 0
+        # which is only used to compute the overall merge tree
+        if self.is_forest():
+            return self._req_tree(self, branch=-1, tree_index=0,
+                _exclude=self.exclude_params_workflow)
+
+        return super(ForestMerge, self)._create_workflow_task()
 
     @property
     def max_depth(self):
@@ -275,7 +278,7 @@ class ForestMerge(LocalWorkflow):
 
         # infer the number of trees from the merge output
         output = self.merge_output()
-        n_trees = 1 if not isinstance(output, TargetCollection) else len(output)
+        n_trees = len(output) if isinstance(output, (list, tuple, TargetCollection)) else 1
 
         if self._n_leaves < n_trees:
             raise Exception("too few leaves ({}) for number of requested trees ({})".format(
@@ -349,7 +352,7 @@ class ForestMerge(LocalWorkflow):
     @abstractmethod
     def merge_output(self):
         # this should return a single target when the output should be a single tree
-        # or a target collection whose targets are accessible as items via merge tree indices
+        # or a target collection, list or tuple with item access through tree indices
         return
 
     @abstractmethod
@@ -420,7 +423,7 @@ class ForestMerge(LocalWorkflow):
         if self.is_forest():
             return output
 
-        if isinstance(output, TargetCollection):
+        if isinstance(output, (list, tuple, TargetCollection)):
             output = output[self.tree_index]
 
         if self.is_root():
@@ -428,9 +431,9 @@ class ForestMerge(LocalWorkflow):
 
         else:
             name, ext = os.path.splitext(output.basename)
-            basename = self.node_format.format(name=name, ext=ext, branch=self.branch,
-                depth=self.tree_depth)
-            return self._merge_cache_directory().child(basename, "f")
+            basename = self.node_format.format(name=name, ext=ext, tree=self.tree_index,
+                branch=self.branch, depth=self.tree_depth)
+            return self._merge_cache_directory(output).child(basename, type="f")
 
     def run(self):
         # nothing to do for the forest
@@ -456,15 +459,27 @@ class ForestMerge(LocalWorkflow):
                 for inp in inputs:
                     inp.remove()
 
-    def _merge_cache_directory(self):
+    def _merge_cache_directory(self, output=None):
         # by default, use the targets parent directory, also for SinglingFileCollections
         # otherwise, no default decision is implemented
-        output = self.merge_output()
+        if output is None:
+            output = self.merge_output()
+
+        # sibling file collection
+        if isinstance(output, SiblingFileCollection):
+            return output.dir
+
+        # get the first output for other file collections and sequences
+        if isinstance(output, (list, tuple)):
+            output = output[0]
+        elif isinstance(output, TargetCollection):
+            output = list(output.target.values())[0]
+
+        # use the parent directory of file system targets
         if isinstance(output, FileSystemTarget):
             return output.parent
-        elif isinstance(output, SiblingFileCollection):
-            return output.dir
-        else:
-            raise NotImplementedError("{}._merge_cache_directory is not implemented for cases "
-                "the merge output is neither a FileSystemTarget nor a SiblingFileCollection".format(
-                    self.__class__.__name__))
+
+        # at this point we do not guess further but a custom implementation must be provided
+        raise NotImplementedError("{}._merge_cache_directory is not implemented for cases "
+            "the merge output is neither a FileSystemTarget nor a SiblingFileCollection".format(
+                self.__class__.__name__))

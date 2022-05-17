@@ -399,9 +399,9 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
 
     exclude_index = True
 
-    exclude_params_branch = {
-        "workflow", "acceptance", "tolerance", "pilot", "branches",
-    }
+    exclude_params_index = {"start_branch", "end_branch"}
+    exclude_params_repr = {"start_branch", "end_branch"}
+    exclude_params_branch = {"workflow", "acceptance", "tolerance", "pilot", "branches"}
     exclude_params_workflow = {"branch"}
 
     def __init__(self, *args, **kwargs):
@@ -521,10 +521,16 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
             return self
 
         if self._workflow_task is None:
-            self._workflow_task = self.req(self, branch=-1, _exclude=self.exclude_params_workflow,
-                _skip_task_excludes=True)
+            self._workflow_task = self._create_workflow_task()
 
         return self._workflow_task
+
+    def _create_workflow_task(self):
+        """
+        Implements how the workflow task is created as used internally by :py:meth:`as_workflow`.
+        """
+        return self.req(self, branch=-1, _exclude=self.exclude_params_workflow,
+            _skip_task_excludes=True)
 
     @abstractmethod
     def create_branch_map(self):
