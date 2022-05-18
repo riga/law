@@ -52,8 +52,12 @@ def merge_parquet_files(src_paths, dst_path, force=True, callback=None, writer_o
     if not callable(callback):
         callback = lambda i: None
 
+    # prepare paths
+    prepare = lambda p: os.path.abspath(os.path.expandvars(os.path.expanduser(p)))
+    src_paths = list(map(prepare, src_paths))
+    dst_path = prepare(dst_path)
+
     # prepare the dst directory
-    dst_path = os.path.expandvars(os.path.expanduser(dst_path))
     dir_name = os.path.dirname(dst_path)
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
@@ -71,7 +75,7 @@ def merge_parquet_files(src_paths, dst_path, force=True, callback=None, writer_o
         return dst_path
 
     # read the first table to extract the schema
-    table = pq.read_table(os.path.expandvars(os.path.expanduser(src_paths[0])))
+    table = pq.read_table(src_paths[0])
 
     # write the file
     with pq.ParquetWriter(dst_path, table.schema, **_writer_opts) as writer:
@@ -81,7 +85,7 @@ def merge_parquet_files(src_paths, dst_path, force=True, callback=None, writer_o
 
         # write the remaining ones
         for i, path in enumerate(src_paths[1:], 1):
-            table = pq.read_table(os.path.expandvars(os.path.expanduser(path)))
+            table = pq.read_table(path)
             writer.write_table(table)
             callback(i)
 
