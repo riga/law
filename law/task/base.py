@@ -202,6 +202,14 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
 
         return params
 
+    @classmethod
+    def _bind_super_cls_method(cls, super_meth):
+        return super_meth.__func__.__get__(cls)
+
+    @classmethod
+    def _call_super_cls_method(cls, super_meth, *args, **kwargs):
+        return cls._bind_super_cls_method(super_meth)(*args, **kwargs)
+
     def __init__(self, *args, **kwargs):
         super(BaseTask, self).__init__(*args, **kwargs)
 
