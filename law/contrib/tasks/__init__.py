@@ -126,11 +126,6 @@ class TransferLocalFile(Task):
 
 class ForestMerge(LocalWorkflow):
 
-    branch = luigi.IntParameter(
-        default=0,
-        description="the branch number/index to run this task for; -1 means this task is the "
-        "workflow; default: 0",
-    )
     tree_index = luigi.IntParameter(
         default=-1,
         description="the index of the merged tree in the forest; -1 denotes the forest itself "
