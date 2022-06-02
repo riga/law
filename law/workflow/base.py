@@ -549,7 +549,8 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
             min_branch = min(branch_map.keys())
             max_branch = max(branch_map.keys())
 
-            branches = range_expand(self.branches, min_value=min_branch, max_value=max_branch + 1)
+            branches = range_expand(list(self.branches), min_value=min_branch,
+                max_value=max_branch + 1)
             self.branches = tuple(range_join(branches))
 
     def _reduce_branch_map(self, branch_map):
@@ -565,8 +566,8 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
             min_branch = min(branches)
             max_branch = max(branches)
 
-            requested = range_expand(self.branches, min_value=min_branch, max_value=max_branch + 1,
-                include_end=False)
+            requested = range_expand(list(self.branches), min_value=min_branch,
+                max_value=max_branch + 1)
             remove_branches |= branches - set(requested)
 
         # remove from branch map
