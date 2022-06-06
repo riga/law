@@ -123,35 +123,32 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
         return success
 
     @classmethod
+    def modify_param_args(cls, params, args, kwargs):
+        """
+        Hook to modify command line arguments before they are event created within
+        :py:meth:`get_param_values`.
+        """
+        return params, args, kwargs
+
+    @classmethod
+    def modify_param_values(cls, params):
+        """
+        Hook to modify command line arguments before instances of this class are created.
+        """
+        return params
+
+    @classmethod
     def get_param_values(cls, params, args, kwargs):
-        # try to modify the values before values are assigned
-        if callable(cls.modify_param_args):
-            params, args, kwargs = cls.modify_param_args(params, args, kwargs)
+        # call the hook optionally modifying the values before values are assigned
+        params, args, kwargs = cls.modify_param_args(params, args, kwargs)
 
         # assign to actual parameters
         values = super(BaseTask, cls).get_param_values(params, args, kwargs)
 
-        # try to modify the values afterwards
-        if callable(cls.modify_param_values):
-            values = list(cls.modify_param_values(OrderedDict(values)).items())
+        # call the hook optionally modifying the values afterwards
+        values = list(cls.modify_param_values(OrderedDict(values)).items())
 
         return values
-
-    # method that can be implemented to update parameter objects, args and kwargs before before task
-    # instantiation and before parameter values are assined in the super get_param_values
-    # example:
-    # @classmethod
-    # def modify_param_args(cls, params, args, kwargs):
-    #     return params, args, kwargs
-    modify_param_args = None
-
-    # method that can be implemented to update parameters via get_param_values before instantiation
-    # example:
-    # @classmethod
-    # def modify_param_values(cls, values):
-    #     values["some_name"] = "some_value"
-    #     return values
-    modify_param_values = None
 
     @classmethod
     def req(cls, *args, **kwargs):
