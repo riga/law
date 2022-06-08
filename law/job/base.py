@@ -307,7 +307,7 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
         pool.join()
 
         # store errors
-        errors = filter(bool, flatten(get_async_result_silent(res) for res in results))
+        errors = list(filter(bool, flatten(get_async_result_silent(res) for res in results)))
 
         return errors
 
@@ -361,7 +361,7 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
         pool.join()
 
         # store errors
-        errors = filter(bool, flatten(get_async_result_silent(res) for res in results))
+        errors = list(filter(bool, flatten(get_async_result_silent(res) for res in results)))
 
         return errors
 

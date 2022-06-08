@@ -409,7 +409,7 @@ class ARCJobFileFactory(BaseJobFileFactory):
             opts = "overwrite=yes" if c.overwrite_output_files else None
             return (path, dst, opts) if opts else (path, dst)
 
-        c.output_files = map(prepare_output, c.output_files)
+        c.output_files = list(map(prepare_output, c.output_files))
 
         # job file content
         content = []
