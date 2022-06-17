@@ -488,9 +488,6 @@ class SandboxTask(Task):
         if not self.is_sandboxed():
             self.sandbox_inst = Sandbox.new(self.effective_sandbox, self)
             self.sandbox_proxy = SandboxProxy(task=self)
-            if self.live_task_id != self.sandbox_proxy.task.live_task_id:
-                print("mismatch of live task id!!!!")
-                from IPython import embed; embed()
             logger.debug("created sandbox proxy instance of type '{}'".format(
                 self.effective_sandbox))
 
