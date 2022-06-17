@@ -338,7 +338,6 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
 
     workflow = luigi.Parameter(
         default=NO_STR,
-        significant=False,
         description="the type of the workflow to use; uses the first workflow type in the MRO when "
         "empty; default: empty",
     )
@@ -401,8 +400,31 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
 
     exclude_params_index = {"start_branch", "end_branch"}
     exclude_params_repr = {"start_branch", "end_branch"}
-    exclude_params_branch = {"workflow", "acceptance", "tolerance", "pilot", "branches"}
+    exclude_params_branch = {"acceptance", "tolerance", "pilot", "branches"}
     exclude_params_workflow = {"branch"}
+
+    @classmethod
+    def modify_param_values(cls, params):
+        params = super(BaseWorkflow, cls).modify_param_values(params)
+
+        # determine the default workflow type when not set
+        if params.get("workflow") in [None, NO_STR]:
+            params["workflow"] = cls.find_workflow_cls().workflow_proxy_cls.workflow_type
+
+        return params
+
+    @classmethod
+    def find_workflow_cls(cls, name=None):
+        for workflow_cls in cls.mro():
+            if not issubclass(workflow_cls, BaseWorkflow):
+                continue
+            if not workflow_cls._defined_workflow_proxy:
+                continue
+            if name in [workflow_cls.workflow_proxy_cls.workflow_type, None]:
+                return workflow_cls
+
+        msg = " for type '{}'".format(name) if name else ""
+        raise ValueError("cannot determine workflow class{} in task class {}".format(msg, cls))
 
     def __init__(self, *args, **kwargs):
         super(BaseWorkflow, self).__init__(*args, **kwargs)
@@ -430,22 +452,12 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         self._initial_branches = tuple(self.branches)
 
         # determine workflow proxy class to instantiate
+        self.workflow_cls = None
+        self.workflow_proxy = None
         if self.is_workflow():
-            classes = self.__class__.mro()
-            for cls in classes:
-                if not issubclass(cls, BaseWorkflow):
-                    continue
-                if not cls._defined_workflow_proxy:
-                    continue
-                if self.workflow in (NO_STR, cls.workflow_proxy_cls.workflow_type):
-                    self.workflow = cls.workflow_proxy_cls.workflow_type
-                    self.workflow_cls = cls
-                    self.workflow_proxy = cls.workflow_proxy_cls(task=self)
-                    logger.debug("created workflow proxy instance of type '{}'".format(
-                        cls.workflow_proxy_cls.workflow_type))
-                    break
-            else:
-                raise ValueError("unknown workflow type {}".format(self.workflow))
+            self.workflow_cls = self.find_workflow_cls(self.workflow)
+            self.workflow_proxy = self.workflow_proxy_cls(task=self)
+            logger.debug("created workflow proxy instance of type '{}'".format(self.workflow))
 
     def __getattribute__(self, attr, proxy=True):
         return get_proxy_attribute(self, attr, proxy=proxy, super_cls=Task)
