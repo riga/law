@@ -62,12 +62,14 @@ def get_param(value, default=None):
 
 class TaskInstanceParameter(luigi.Parameter):
     """
-    Parameter that can be used pass the instance of a task. This class does not implement parameter
-    value parsing.
+    Parameter that can be used to pass the instance of a task. This class does not implement
+    parameter value parsing.
     """
 
     def serialize(self, x):
         """"""
+        if isinstance(x, Task):
+            return getattr(x, "live_task_id", x.task_id)
         return str(x)
 
 
@@ -733,3 +735,7 @@ class NotifyMailParameter(NotifyParameter):
             "raw": False,
             "colored": False,
         }
+
+
+# trailing imports
+from law.task.base import Task
