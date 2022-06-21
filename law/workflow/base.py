@@ -85,13 +85,15 @@ class BaseWorkflowProxy(ProxyTask):
 
     def complete(self):
         """
-        Custom completion check that invokes the task's *workflow_complete* if it is callable, or
-        just does the default completion check otherwise.
+        Custom completion check that invokes the task's *workflow_complete* method and if it returns
+        anything else than *NotImplemented* returns the value, or just does the default completion
+        check otherwise.
         """
-        if callable(self.task.workflow_complete):
-            return self.task.workflow_complete()
-        else:
-            return super(BaseWorkflowProxy, self).complete()
+        complete = self.task.workflow_complete()
+        if complete is not NotImplemented:
+            return complete
+
+        return super(BaseWorkflowProxy, self).complete()
 
     def requires(self):
         """
@@ -266,11 +268,6 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
 
        Reference to the workflow proxy class associated to this workflow.
 
-    .. py:classattribute:: workflow_complete
-       type: None, callable
-
-       Custom completion check that is used by the workflow's proxy when callable.
-
     .. py:classattribute:: output_collection_cls
        type: TargetCollection
 
@@ -390,7 +387,6 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
     reset_branch_map_before_run = False
     create_branch_map_before_repr = False
     workflow_run_decorators = None
-    workflow_complete = None
 
     # accessible properties
     workflow_property = None
@@ -742,6 +738,12 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
                 )
 
         return "{}To{}".format(min(branch_map.keys()), max(branch_map.keys()) + 1)
+
+    def workflow_complete(self):
+        """
+        Hook to define the completeness status of the workflow.
+        """
+        return NotImplemented
 
     def workflow_requires(self):
         """
