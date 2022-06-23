@@ -416,7 +416,7 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
                 continue
             if not workflow_cls._defined_workflow_proxy:
                 continue
-            if name in [workflow_cls.workflow_proxy_cls.workflow_type, None]:
+            if name in [workflow_cls.workflow_proxy_cls.workflow_type, None, NO_STR]:
                 return workflow_cls
 
         msg = " for type '{}'".format(name) if name else ""
