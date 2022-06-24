@@ -180,6 +180,7 @@ class ForestMerge(LocalWorkflow):
         super(ForestMerge, self).__init__(*args, **kwargs)
 
         self._n_leaves = None
+        self._cache_forest = True
         self._forest_built = False
 
         # the merge factor should not be 1
@@ -306,7 +307,8 @@ class ForestMerge(LocalWorkflow):
         # store values
         self.leaves_per_tree = leaves_per_tree
         self.merge_forest = forest
-        self._forest_built = True
+        if self._cache_forest:
+            self._forest_built = True
 
         # complain when the depth is too large
         if self.tree_depth > self.max_depth:
