@@ -46,6 +46,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         python: ["27", "36", "37", "38", "39", "310"]
     name: test (python ${{ matrix.python }})
