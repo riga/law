@@ -53,7 +53,7 @@ class VenvSandbox(Sandbox):
                 cmd = "; ".join(
                     [quote_cmd(venv_cmd)] +
                     setup_cmds +
-                    [quote_cmd(["python", "-c", py_cmd])]
+                    [quote_cmd(["python", "-c", py_cmd])],
                 )
 
                 # run it
@@ -95,7 +95,7 @@ class VenvSandbox(Sandbox):
         cmd = "; ".join(
             [quote_cmd(venv_cmd)] +
             setup_cmds +
-            [proxy_cmd.build()]
+            [proxy_cmd.build()],
         )
 
         return cmd
