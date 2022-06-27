@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
-# Script to run linting checks.
+# Script to run coverage tests.
 # Arguments:
-#   1. The linting command. Defaults to "flake8 law setup.py docs/_scripts/*".
+#   1. The linting command. Defaults to "pytest --cov=law --cov-report xml:coverage.xml tests".
 
 action() {
     local this_file="$( [ ! -z "$ZSH_VERSION" ] && echo "${(%):-%x}" || echo "${BASH_SOURCE[0]}" )"
@@ -10,7 +10,7 @@ action() {
     local repo_dir="$( dirname "$this_dir" )"
 
     # default test command
-    local cmd="${1:-flake8 law setup.py docs/_scripts/*}"
+    local cmd="${1:-pytest --cov=law --cov-report xml:coverage.xml tests}"
 
     # execute it
     echo "command: $cmd"

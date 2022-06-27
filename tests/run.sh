@@ -8,7 +8,7 @@
 action() {
     local this_file="$( [ ! -z "$ZSH_VERSION" ] && echo "${(%):-%x}" || echo "${BASH_SOURCE[0]}" )"
     local this_dir="$( cd "$( dirname "$this_file" )" && pwd )"
-    local repo_dir="$( cd "$( dirname "$this_dir" )" && pwd )"
+    local repo_dir="$( dirname "$this_dir" )"
 
     # detect python
     local python_exe="python"

@@ -14,4 +14,4 @@ import law
 class TestCase(unittest.TestCase):
 
     def test_test(self):
-        pass
+        self.assertFalse(bool(law.util.no_value))
