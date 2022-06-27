@@ -1,17 +1,16 @@
 # coding: utf-8
+# flake8: noqa
 
 
-import os
-import sys
-import unittest
+__all__ = []
+
 
 # adjust the path to import law
+import os
+import sys
 base = os.path.normpath(os.path.join(os.path.abspath(__file__), "../.."))
 sys.path.append(base)
-import law
+from law import *
 
-
-class TestCase(unittest.TestCase):
-
-    def test_test(self):
-        self.assertFalse(bool(law.util.no_value))
+# import all tests
+from .test_util import *
