@@ -63,7 +63,7 @@ Install via `pip <https://pypi.python.org/pypi/law>`__:
 
 This command also installs `luigi <https://pypi.python.org/pypi/luigi>`__ and `six <https://pypi.python.org/pypi/six>`__.
 
-The (default) remote target implementation also requires `gfal2 <http://dmc.web.cern.ch/projects/gfal-2/home>`__ and `gfal2-python <https://pypi.python.org/pypi/gfal2-python>`__ (optional, also via pip) to be installed.
+The (default) remote target implementation also requires `gfal2 <https://dmc-docs.web.cern.ch/dmc-docs/gfal2/gfal2.html>`__ and `gfal2-python <https://pypi.python.org/pypi/gfal2-python>`__ (optional, also via pip) to be installed.
 
 
 Docker Images
