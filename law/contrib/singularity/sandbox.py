@@ -240,7 +240,7 @@ class SingularitySandbox(Sandbox):
 
         # build the final command
         cmd = quote_cmd(singularity_exec_cmd + [self.image, "bash", "-l", "-c",
-            "; ".join(flatten(setup_cmds, proxy_cmd.build()))
+            "; ".join(flatten(setup_cmds, proxy_cmd.build())),
         ])
 
         return cmd

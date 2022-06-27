@@ -457,7 +457,7 @@ def brace_expand(s, split_csv=False, escape_csv_sep=True):
         if escape_csv_sep:
             escaped_sep = "__law_escaped_csv_sep__"
             _s = _s.replace(r"\,", escaped_sep)
-        # split by real csv separators except escaped ones when requested,
+        # split by real csv separators except escaped ones when requested
         parts = _s.split(",")
         # add back normal commas
         if escape_csv_sep:

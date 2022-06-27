@@ -61,7 +61,7 @@ class BashSandbox(Sandbox):
                 # build the full command
                 cmd = quote_cmd(bash_cmd + ["-c", "; ".join(
                     flatten("source \"{}\" \"\"".format(self.script), setup_cmds,
-                        quote_cmd(["python", "-c", py_cmd])))
+                        quote_cmd(["python", "-c", py_cmd]))),
                 ])
 
                 # run it
@@ -101,7 +101,7 @@ class BashSandbox(Sandbox):
 
         # build the final command
         cmd = quote_cmd(bash_cmd + ["-c", "; ".join(
-            flatten("source \"{}\" \"\"".format(self.script), setup_cmds, proxy_cmd.build()))
+            flatten("source \"{}\" \"\"".format(self.script), setup_cmds, proxy_cmd.build())),
         ])
 
         return cmd

@@ -142,6 +142,9 @@ RUN pip install --no-cache-dir readline
 RUN pip install --no-cache-dir slackclient
 RUN pip install --no-cache-dir python-telegram-bot
 RUN pip install --no-cache-dir flake8
+RUN pip install --no-cache-dir flake8-quotes
+RUN pip install --no-cache-dir flake8-commas
+RUN pip install --no-cache-dir pytest-cov
 
 # cleanup installation workdir
 WORKDIR /root

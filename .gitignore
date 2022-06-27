@@ -19,3 +19,5 @@ local_tests
 MANIFEST.in
 law_test.cfg
 *_dev.py
+.coverage
+coverage*.xml

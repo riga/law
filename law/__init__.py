@@ -6,7 +6,7 @@ __all__ = [
     "SandboxTask",
     "BaseWorkflow", "LocalWorkflow", "workflow_property", "cached_workflow_property",
     "FileSystemTarget", "FileSystemFileTarget", "FileSystemDirectoryTarget",
-    "LocalFileSystem", "LocalTarget", "LocalFileTarget, LocalDirectoryTarget",
+    "LocalFileSystem", "LocalTarget", "LocalFileTarget", "LocalDirectoryTarget",
     "TargetCollection", "FileCollection", "SiblingFileCollection", "NestedSiblingFileCollection",
     "Sandbox", "BashSandbox", "VenvSandbox",
     "BaseJobManager", "BaseJobFileFactory", "JobArguments",
