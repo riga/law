@@ -346,6 +346,13 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
             uri = add_scheme(uri, "file")
         return [uri] if return_all else uri
 
+    def __del__(self):
+        # when this destructor is called during shutdown, os.path or os.path.exists might be unset
+        if getattr(os, "path", None) is None or not callable(os.path.exists):
+            return
+
+        super().__del__()
+
 
 class LocalFileTarget(LocalTarget, FileSystemFileTarget):
 
