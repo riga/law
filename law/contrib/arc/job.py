@@ -18,7 +18,6 @@ import subprocess
 
 from law.config import Config
 from law.job.base import BaseJobManager, BaseJobFileFactory, JobInputFile, DeprecatedInputFiles
-from law.target.file import get_scheme, remove_scheme
 from law.util import interruptable_popen, make_list, make_unique, quote_cmd
 from law.logger import get_logger
 
