@@ -351,7 +351,7 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
         if getattr(os, "path", None) is None or not callable(os.path.exists):
             return
 
-        super().__del__()
+        super(LocalTarget, self).__del__()
 
 
 class LocalFileTarget(LocalTarget, FileSystemFileTarget):
