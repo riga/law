@@ -20,6 +20,13 @@ Class ``BaseJobFileFactory``
    :members:
 
 
+Class ``JobInputFile``
+----------------------
+
+.. autoclass:: JobInputFile
+   :members:
+
+
 Class ``JobArguments``
 ----------------------
 
