@@ -14,7 +14,7 @@ import re
 import subprocess
 
 from law.config import Config
-from law.job.base import BaseJobManager, BaseJobFileFactory, DeprecatedInputFiles
+from law.job.base import BaseJobManager, BaseJobFileFactory, JobInputFile, DeprecatedInputFiles
 from law.util import interruptable_popen, make_list, make_unique, quote_cmd
 from law.logger import get_logger
 
@@ -349,19 +349,25 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
                 if c[attr] and not c[attr].startswith("/dev/"):
                     c[attr] = self.postfix_output_file(c[attr], postfix)
 
+        # ensure that all input files are JobInputFile's
+        c.input_files = {
+            name: JobInputFile.create(f)
+            for name, f in c.input_files.items()
+        }
+
         # ensure that the executable is an input file
         if c.executable and c.executable not in c.input_files.values():
-            c.input_files["executable_file"] = c.executable
+            c.input_files["executable_file"] = JobInputFile.create(c.executable)
 
-        # add postfixed input files to render variables
-        postfixed_input_files = {
-            name: os.path.basename(self.postfix_input_file(path, postfix))
-            for name, path in c.input_files.items()
+        # add potentially postfixed input files to render variables
+        postfixed_input_basenames = {
+            name: os.path.basename(self.postfix_input_file(f.path, postfix) if f.postfix else f.path)
+            for name, f in c.input_files.items()
         }
-        c.render_variables.update(postfixed_input_files)
+        c.render_variables.update(postfixed_input_basenames)
 
         # add all input files to render variables
-        c.render_variables["input_files"] = " ".join(postfixed_input_files.values())
+        c.render_variables["input_files"] = " ".join(postfixed_input_basenames.values())
 
         # add the custom log file to render variables
         if c.custom_log_file:
@@ -378,11 +384,21 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
         job_file = self.postfix_input_file(os.path.join(c.dir, c.file_name), postfix)
 
         # prepare input files
-        def prepare_input(path):
-            path = self.provide_input(os.path.abspath(path), postfix, c.dir, render_variables)
+        def prepare_input(input_file):
+            # when not copied, just return the absolute, original path
+            abs_path = os.path.abspath(input_file.path)
+            if not input_file.copy:
+                return abs_path
+            # copy the file
+            path = self.provide_input(
+                abs_path,
+                postfix if input_file.postfix else None,
+                c.dir,
+                render_variables if input_file.render else None,
+            )
             return path if c.absolute_paths else os.path.basename(path)
 
-        c.input_files = {name: prepare_input(path) for name, path in c.input_files.items()}
+        prepared_input_paths = {name: prepare_input(f) for name, f in c.input_files.items()}
 
         # prepare the executable when given
         if c.executable:
@@ -409,7 +425,7 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
         if c.input_files or c.output_files:
             content.append(("should_transfer_files", "YES"))
         if c.input_files:
-            content.append(("transfer_input_files", make_unique(c.input_files.values())))
+            content.append(("transfer_input_files", make_unique(prepared_input_paths.values())))
         if c.output_files:
             content.append(("transfer_output_files", make_unique(c.output_files)))
             content.append(("when_to_transfer_output", "ON_EXIT"))
