@@ -735,6 +735,9 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
         In case the file content is not readable, the method returns unless *silent* is *False* in
         which case an exception is raised.
         """
+        if not os.path.isfile(src):
+            raise IOError("source file for rendering does not exist: {}".format(src))
+
         with open(src, "r") as f:
             try:
                 content = f.read()
