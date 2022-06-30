@@ -360,14 +360,18 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
             c.input_files["executable_file"] = JobInputFile.create(c.executable)
 
         # add potentially postfixed input files to render variables
-        postfixed_input_basenames = {
-            name: os.path.basename(self.postfix_input_file(f.path, postfix) if f.postfix else f.path)
+        postfixed_input_paths = {
+            name: (
+                os.path.basename(self.postfix_input_file(f.path, postfix if f.postfix else None))
+                if f.copy
+                else f.path
+            )
             for name, f in c.input_files.items()
         }
-        c.render_variables.update(postfixed_input_basenames)
+        c.render_variables.update(postfixed_input_paths)
 
         # add all input files to render variables
-        c.render_variables["input_files"] = " ".join(postfixed_input_basenames.values())
+        c.render_variables["input_files"] = " ".join(postfixed_input_paths.values())
 
         # add the custom log file to render variables
         if c.custom_log_file:
