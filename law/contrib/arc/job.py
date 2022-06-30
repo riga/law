@@ -17,8 +17,8 @@ import random
 import subprocess
 
 from law.config import Config
-from law.job.base import BaseJobManager, BaseJobFileFactory, DeprecatedInputFiles
-from law.target.file import get_scheme
+from law.job.base import BaseJobManager, BaseJobFileFactory, JobInputFile, DeprecatedInputFiles
+from law.target.file import get_scheme, remove_scheme
 from law.util import interruptable_popen, make_list, make_unique, quote_cmd
 from law.logger import get_logger
 
@@ -345,19 +345,34 @@ class ARCJobFileFactory(BaseJobFileFactory):
                 if c[attr]:
                     c[attr] = self.postfix_output_file(c[attr], postfix)
 
-        # ensure that the executable is an input file
-        if c.executable and c.executable not in c.input_files.values():
-            c.input_files["executable_file"] = c.executable
-
-        # add postfixed input files to render variables
-        postfixed_input_files = {
-            name: os.path.basename(self.postfix_input_file(path, postfix))
-            for name, path in c.input_files.items()
+        # ensure that all input files are JobInputFile's
+        c.input_files = {
+            key: JobInputFile(f)
+            for key, f in c.input_files.items()
         }
-        c.render_variables.update(postfixed_input_files)
+
+        # ensure that the executable is an input file, remember to key to access it
+        if c.executable:
+            executable_keys = [k for k, v in c.input_files.items() if v == c.executable]
+            if executable_keys:
+                executable_key = executable_keys[0]
+            else:
+                executable_key = "executable_file"
+                c.input_files[executable_key] = JobInputFile(c.executable)
+
+        # add potentially postfixed input files to render variables
+        postfixed_input_paths = {
+            key: (
+                os.path.basename(self.postfix_input_file(f.path, postfix if f.postfix else None))
+                if f.copy
+                else f.path
+            )
+            for key, f in c.input_files.items()
+        }
+        c.render_variables.update(postfixed_input_paths)
 
         # add all input files to render variables
-        c.render_variables["input_files"] = " ".join(postfixed_input_files.values())
+        c.render_variables["input_files"] = " ".join(postfixed_input_paths.values())
 
         # add the custom log file to render variables
         if c.custom_log_file:
@@ -378,22 +393,31 @@ class ARCJobFileFactory(BaseJobFileFactory):
         job_file = self.postfix_input_file(os.path.join(c.dir, c.file_name), postfix)
 
         # prepare input files
-        def prepare_input(path):
-            # consider strings to be the base filename and use an identical source with no options
-            basename = os.path.basename(self.postfix_input_file(path, postfix))
-            if path and get_scheme(path) in ("file", None):
-                path = self.provide_input(os.path.abspath(path), postfix, c.dir, render_variables)
-                if not c.absolute_paths:
-                    path = os.path.basename(path)
-                    if path == basename:
-                        path = ""
-            return (basename, path)
+        def prepare_input(input_file):
+            # do not handle remote files but just forward information
+            path = input_file.path
+            if get_scheme(path) not in ("file", None):
+                return (os.path.basename(path), path)
+            path = remove_scheme(path)
+            # when not copied, just return the absolute, original path
+            abs_path = os.path.abspath(path)
+            if not input_file.copy:
+                return (os.path.basename(abs_path), abs_path)
+            # copy the file
+            abs_path = self.provide_input(
+                abs_path,
+                postfix if input_file.postfix else None,
+                c.dir,
+                render_variables if input_file.render else None,
+            )
+            basename = os.path.basename(abs_path)
+            return (basename, abs_path if c.absolute_paths else "")
 
-        c.input_files = {name: prepare_input(path) for name, path in c.input_files.items()}
+        prepared_input_paths = {key: prepare_input(f) for key, f in c.input_files.items()}
 
         # prepare the executable when given
         if c.executable:
-            c.executable = os.path.basename(self.postfix_input_file(c.executable, postfix))
+            c.executable = prepared_input_paths[executable_key][0]
             # make the file executable for the user and group
             path = os.path.join(c.dir, c.executable)
             if os.path.exists(path):
@@ -424,7 +448,7 @@ class ARCJobFileFactory(BaseJobFileFactory):
         if c.job_name:
             content.append(("jobName", c.job_name))
         if c.input_files:
-            content.append(("inputFiles", make_unique(c.input_files.values())))
+            content.append(("inputFiles", make_unique(prepared_input_paths.values())))
         if c.output_files:
             content.append(("outputFiles", make_unique(c.output_files)))
         if c.log:

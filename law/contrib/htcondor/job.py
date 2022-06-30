@@ -351,22 +351,27 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
 
         # ensure that all input files are JobInputFile's
         c.input_files = {
-            name: JobInputFile.create(f)
-            for name, f in c.input_files.items()
+            key: JobInputFile(f)
+            for key, f in c.input_files.items()
         }
 
-        # ensure that the executable is an input file
-        if c.executable and c.executable not in c.input_files.values():
-            c.input_files["executable_file"] = JobInputFile.create(c.executable)
+        # ensure that the executable is an input file, remember to key to access it
+        if c.executable:
+            executable_keys = [k for k, v in c.input_files.items() if v == c.executable]
+            if executable_keys:
+                executable_key = executable_keys[0]
+            else:
+                executable_key = "executable_file"
+                c.input_files[executable_key] = JobInputFile(c.executable)
 
         # add potentially postfixed input files to render variables
         postfixed_input_paths = {
-            name: (
+            key: (
                 os.path.basename(self.postfix_input_file(f.path, postfix if f.postfix else None))
                 if f.copy
                 else f.path
             )
-            for name, f in c.input_files.items()
+            for key, f in c.input_files.items()
         }
         c.render_variables.update(postfixed_input_paths)
 
@@ -394,19 +399,19 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
             if not input_file.copy:
                 return abs_path
             # copy the file
-            path = self.provide_input(
+            abs_path = self.provide_input(
                 abs_path,
                 postfix if input_file.postfix else None,
                 c.dir,
                 render_variables if input_file.render else None,
             )
-            return path if c.absolute_paths else os.path.basename(path)
+            return abs_path if c.absolute_paths else os.path.basename(abs_path)
 
-        prepared_input_paths = {name: prepare_input(f) for name, f in c.input_files.items()}
+        prepared_input_paths = {key: prepare_input(f) for key, f in c.input_files.items()}
 
         # prepare the executable when given
         if c.executable:
-            c.executable = os.path.basename(self.postfix_input_file(c.executable, postfix))
+            c.executable = prepared_input_paths[executable_key]
             # make the file executable for the user and group
             path = os.path.join(c.dir, c.executable)
             if os.path.exists(path):

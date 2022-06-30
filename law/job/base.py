@@ -951,12 +951,15 @@ class JobInputFile(object):
        Whether render variables should be resolved when copied.
     """
 
-    @classmethod
-    def create(cls, obj):
-        return obj if isinstance(obj, cls) else cls(obj)
-
     def __init__(self, path, copy=True, postfix=True, render=True):
         super(JobInputFile, self).__init__()
+
+        # when path is a job file instance itself, use its values instead
+        if isinstance(path, JobInputFile):
+            copy = path.copy
+            postfix = path.postfix
+            render = path.render
+            path = path.path
 
         # store attributes
         self.path = path
@@ -966,6 +969,12 @@ class JobInputFile(object):
 
     def __str__(self):
         return self.path
+
+    def __eq__(self, other):
+        # check equality via path comparison
+        if isinstance(other, JobInputFile):
+            return self.path == other.path
+        return self.path == other
 
 
 class DeprecatedInputFiles(dict):

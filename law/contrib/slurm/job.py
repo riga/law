@@ -14,7 +14,7 @@ import stat
 import subprocess
 
 from law.config import Config
-from law.job.base import BaseJobManager, BaseJobFileFactory
+from law.job.base import BaseJobManager, BaseJobFileFactory, JobInputFile
 from law.util import interruptable_popen, make_list, quote_cmd
 from law.logger import get_logger
 
@@ -327,18 +327,34 @@ class SlurmJobFileFactory(BaseJobFileFactory):
                 if c[attr] and not c[attr].startswith("/dev/"):
                     c[attr] = self.postfix_output_file(c[attr], postfix)
 
-        # add postfixed input files to render variables
-        postfixed_input_files = {
-            name: os.path.join(c.dir, path) if c.absolute_paths else path
-            for name, path in (
-                (name, os.path.basename(self.postfix_input_file(path, postfix)))
-                for name, path in c.input_files.items()
-            )
+        # ensure that all input files are JobInputFile's
+        c.input_files = {
+            key: JobInputFile(f)
+            for key, f in c.input_files.items()
         }
-        c.render_variables.update(postfixed_input_files)
+
+        # ensure that the executable is an input file, remember to key to access it
+        if c.executable:
+            executable_keys = [k for k, v in c.input_files.items() if v == c.executable]
+            if executable_keys:
+                executable_key = executable_keys[0]
+            else:
+                executable_key = "executable_file"
+                c.input_files[executable_key] = JobInputFile(c.executable)
+
+        # add potentially postfixed input files to render variables
+        postfixed_input_paths = {
+            key: (
+                os.path.basename(self.postfix_input_file(f.path, postfix if f.postfix else None))
+                if f.copy
+                else f.path
+            )
+            for key, f in c.input_files.items()
+        }
+        c.render_variables.update(postfixed_input_paths)
 
         # add all input files to render variables
-        c.render_variables["input_files"] = " ".join(postfixed_input_files.values())
+        c.render_variables["input_files"] = " ".join(postfixed_input_paths.values())
 
         # add the custom log file to render variables
         if c.custom_log_file:
@@ -355,16 +371,25 @@ class SlurmJobFileFactory(BaseJobFileFactory):
         job_file = self.postfix_input_file(os.path.join(c.dir, c.file_name), postfix)
 
         # prepare input files
-        def prepare_input(path):
-            path = self.provide_input(os.path.abspath(path), postfix, c.dir, render_variables)
-            return path if c.absolute_paths else os.path.basename(path)
+        def prepare_input(input_file):
+            # when not copied, just return the absolute, original path
+            abs_path = os.path.abspath(input_file.path)
+            if not input_file.copy:
+                return abs_path
+            # copy the file
+            abs_path = self.provide_input(
+                abs_path,
+                postfix if input_file.postfix else None,
+                c.dir,
+                render_variables if input_file.render else None,
+            )
+            return abs_path if c.absolute_paths else os.path.basename(abs_path)
 
-        for path in c.input_files.values():
-            prepare_input(path)
+        prepared_input_paths = {key: prepare_input(f) for key, f in c.input_files.items()}
 
         # prepare the executable when given
         if c.executable:
-            c.executable = prepare_input(c.executable)
+            c.executable = prepared_input_paths[executable_key]
             # make the file executable for the user and group
             path = os.path.join(c.dir, c.executable)
             if os.path.exists(path):
@@ -406,7 +431,7 @@ class SlurmJobFileFactory(BaseJobFileFactory):
 
             # add the executable
             if c.executable:
-                cmd = "./" + c.executable.lstrip("/")
+                cmd = c.executable
                 f.write("\n{}{}\n".format(cmd, args))
 
         logger.debug("created slurm job file at '{}'".format(job_file))
