@@ -21,6 +21,7 @@ from abc import ABCMeta, abstractmethod
 import six
 
 from law.config import Config
+from law.target.file import get_scheme
 from law.util import colored, make_list, iter_chunks, flatten, makedirs, create_hash
 from law.logger import get_logger
 
@@ -949,6 +950,12 @@ class JobInputFile(object):
        type: bool
 
        Whether render variables should be resolved when copied.
+
+    .. py:attribute:: is_remote
+       type: bool
+       read-only
+
+       Whether the path has a non-empty protocol referring to a remote resource.
     """
 
     def __init__(self, path, copy=True, postfix=True, render=True):
@@ -975,6 +982,10 @@ class JobInputFile(object):
         if isinstance(other, JobInputFile):
             return self.path == other.path
         return self.path == other
+
+    @property
+    def is_remote(self):
+        return get_scheme(self.path) not in ("file", None)
 
 
 class DeprecatedInputFiles(dict):

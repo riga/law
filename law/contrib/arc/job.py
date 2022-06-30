@@ -351,6 +351,11 @@ class ARCJobFileFactory(BaseJobFileFactory):
             for key, f in c.input_files.items()
         }
 
+        # special case: remote input files must never be copied
+        for f in c.input_files.values:
+            if f.is_remote:
+                f.copy = False
+
         # ensure that the executable is an input file, remember to key to access it
         if c.executable:
             executable_keys = [k for k, v in c.input_files.items() if v == c.executable]
@@ -360,19 +365,29 @@ class ARCJobFileFactory(BaseJobFileFactory):
                 executable_key = "executable_file"
                 c.input_files[executable_key] = JobInputFile(c.executable)
 
-        # add potentially postfixed input files to render variables
-        postfixed_input_paths = {
-            key: (
-                os.path.basename(self.postfix_input_file(f.path, postfix if f.postfix else None))
-                if f.copy
-                else f.path
-            )
-            for key, f in c.input_files.items()
+        # prepare input files
+        def prepare_input(f):
+            if f.is_remote:
+                return f.path
+            # when not copied, just return the absolute, original path
+            abs_path = os.path.abspath(f.path)
+            if not f.copy:
+                return abs_path
+            # copy the file
+            abs_path = self.provide_input(abs_path, postfix if f.postfix else None, c.dir)
+            return abs_path
+
+        abs_input_paths = {key: prepare_input(f) for key, f in c.input_files.items()}
+
+        # convert to definitive basenames
+        rel_input_paths = {
+            key: os.path.basename(abs_path)
+            for key, abs_path in abs_input_paths.items()
         }
-        c.render_variables.update(postfixed_input_paths)
+        c.render_variables.update(rel_input_paths)
 
         # add all input files to render variables
-        c.render_variables["input_files"] = " ".join(postfixed_input_paths.values())
+        c.render_variables["input_files"] = " ".join(rel_input_paths.values())
 
         # add the custom log file to render variables
         if c.custom_log_file:
@@ -392,32 +407,20 @@ class ARCJobFileFactory(BaseJobFileFactory):
         # prepare the job file
         job_file = self.postfix_input_file(os.path.join(c.dir, c.file_name), postfix)
 
-        # prepare input files
-        def prepare_input(input_file):
-            # do not handle remote files but just forward information
-            path = input_file.path
-            if get_scheme(path) not in ("file", None):
-                return (os.path.basename(path), path)
-            path = remove_scheme(path)
-            # when not copied, just return the absolute, original path
-            abs_path = os.path.abspath(path)
-            if not input_file.copy:
-                return (os.path.basename(abs_path), abs_path)
-            # copy the file
-            abs_path = self.provide_input(
-                abs_path,
-                postfix if input_file.postfix else None,
-                c.dir,
-                render_variables if input_file.render else None,
-            )
-            basename = os.path.basename(abs_path)
-            return (basename, abs_path if c.absolute_paths else "")
+        # render copied input files
+        for key, abs_path in abs_input_paths.items():
+            if c.input_files[key].copy and c.input_files[key].render:
+                self.render_file(abs_path, abs_path, render_variables, postfix=postfix)
 
-        prepared_input_paths = {key: prepare_input(f) for key, f in c.input_files.items()}
+        # create arc-style input file pairs
+        input_file_pairs = [
+            (rel_input_paths[key], "" if f.copy else abs_input_paths[key])
+            for key, f in c.input_files.items()
+        ]
 
         # prepare the executable when given
         if c.executable:
-            c.executable = prepared_input_paths[executable_key][0]
+            c.executable = rel_input_paths[executable_key]
             # make the file executable for the user and group
             path = os.path.join(c.dir, c.executable)
             if os.path.exists(path):
@@ -448,7 +451,7 @@ class ARCJobFileFactory(BaseJobFileFactory):
         if c.job_name:
             content.append(("jobName", c.job_name))
         if c.input_files:
-            content.append(("inputFiles", make_unique(prepared_input_paths.values())))
+            content.append(("inputFiles", make_unique(input_file_pairs)))
         if c.output_files:
             content.append(("outputFiles", make_unique(c.output_files)))
         if c.log:

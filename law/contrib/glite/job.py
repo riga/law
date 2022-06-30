@@ -16,7 +16,6 @@ import subprocess
 
 from law.config import Config
 from law.job.base import BaseJobManager, BaseJobFileFactory, JobInputFile, DeprecatedInputFiles
-from law.target.file import add_scheme
 from law.util import interruptable_popen, make_list, make_unique, quote_cmd
 from law.logger import get_logger
 
@@ -324,19 +323,34 @@ class GLiteJobFileFactory(BaseJobFileFactory):
                 executable_key = "executable_file"
                 c.input_files[executable_key] = JobInputFile(c.executable)
 
-        # add potentially postfixed input files to render variables
-        postfixed_input_paths = {
-            key: (
-                os.path.basename(self.postfix_input_file(f.path, postfix if f.postfix else None))
-                if f.copy
-                else f.path
-            )
-            for key, f in c.input_files.items()
+        # prepare input files
+        def prepare_input(f):
+            # when not copied, just return the absolute, original path
+            abs_path = os.path.abspath(f.path)
+            if not f.copy:
+                return abs_path
+            # copy the file
+            abs_path = self.provide_input(abs_path, postfix if f.postfix else None, c.dir)
+            return abs_path
+
+        abs_input_paths = {key: prepare_input(f) for key, f in c.input_files.items()}
+
+        # optionally convert to basenames (for copying later on)
+        maybe_basename = lambda path: path if c.absolute_paths else os.path.basename(path)
+        maybe_rel_input_paths = {
+            key: maybe_basename(abs_path) if c.input_files[key].copy else abs_path
+            for key, abs_path in abs_input_paths.items()
         }
-        c.render_variables.update(postfixed_input_paths)
+
+        # and again to definitive basenames
+        rel_input_paths = {
+            key: os.path.basename(abs_path)
+            for key, abs_path in abs_input_paths.items()
+        }
+        c.render_variables.update(rel_input_paths)
 
         # add all input files to render variables
-        c.render_variables["input_files"] = " ".join(postfixed_input_paths.values())
+        c.render_variables["input_files"] = " ".join(rel_input_paths.values())
 
         # add the custom log file to render variables
         if c.custom_log_file:
@@ -356,22 +370,10 @@ class GLiteJobFileFactory(BaseJobFileFactory):
         # prepare the job file
         job_file = self.postfix_input_file(os.path.join(c.dir, c.file_name), postfix)
 
-        # prepare input files
-        def prepare_input(input_file):
-            # when not copied, just return the absolute, original path
-            abs_path = os.path.abspath(input_file.path)
-            if not input_file.copy:
-                return abs_path
-            # copy the file
-            abs_path = self.provide_input(
-                abs_path,
-                postfix if input_file.postfix else None,
-                c.dir,
-                render_variables if input_file.render else None,
-            )
-            return add_scheme(abs_path, "file") if c.absolute_paths else os.path.basename(abs_path)
-
-        prepared_input_paths = {key: prepare_input(f) for key, f in c.input_files.items()}
+        # render copied input files
+        for key, abs_path in abs_input_paths.items():
+            if c.input_files[key].copy and c.input_files[key].render:
+                self.render_file(abs_path, abs_path, render_variables, postfix=postfix)
 
         # job file content
         content = []
@@ -379,12 +381,12 @@ class GLiteJobFileFactory(BaseJobFileFactory):
             cmd = quote_cmd(c.command) if isinstance(c.command, (list, tuple)) else c.command
             content.append(("Executable", cmd))
         elif c.executable:
-            content.append(("Executable", os.path.basename(prepared_input_paths[executable_key])))
+            content.append(("Executable", rel_input_paths[executable_key]))
         if c.arguments:
             args = quote_cmd(c.arguments) if isinstance(c.arguments, (list, tuple)) else c.arguments
             content.append(("Arguments", args))
         if c.input_files:
-            content.append(("InputSandbox", make_unique(prepared_input_paths.values())))
+            content.append(("InputSandbox", make_unique(maybe_rel_input_paths.values())))
         if c.output_files:
             content.append(("OutputSandbox", make_unique(c.output_files)))
         if c.output_uri:
