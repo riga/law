@@ -783,11 +783,15 @@ def flatten(*structs, **kwargs):
 
 
 def merge_dicts(*dicts, **kwargs):
-    """ merge_dicts(*dicts, cls=None, deep=False)
+    """ merge_dicts(*dicts, inplace=False, cls=None, deep=False)
     Takes multiple *dicts* and returns a single merged dict. The merging takes place in order of the
     passed dicts and therefore, values of rear objects have precedence in case of field collisions.
-    The class of the returned merged dict is configurable via *cls*. If it is *None*, the class is
-    inferred from the first dict object in *dicts*.
+
+    By default, a new dictionary is returned. However, when *inplace* is *True*, all update
+    operations are performed inplace on the first object in *dicts*.
+
+    When not inplace, the class of the returned merged dict is configurable via *cls*. If it is
+    *None*, the class is inferred from the first dict object in *dicts*.
 
     When *deep* is *True*, dictionary types within the dictionaries to merge are updated recursively
     such that their fields are merged. This is only possible when input dictionaries have a similar
@@ -804,20 +808,28 @@ def merge_dicts(*dicts, **kwargs):
         merge_dicts({"foo": 1, "bar": {"a": 1, "b": 2}}, {"bar": 2}, deep=True)
         # -> {"foo": 1, "bar": 2}  # "bar" has a different type, so this just uses the rear value
     """
-    # get or infer the class
-    cls = kwargs.get("cls", None)
-    if cls is None:
-        for d in dicts:
-            if isinstance(d, dict):
-                cls = d.__class__
-                break
-        else:
-            raise TypeError("cannot infer cls as none of the passed objects is of type dict")
+    if not dicts:
+        raise ValueError("cannot merge empty sequence of dictionaries")
+
+    inplace = kwargs.get("inplace", False)
+    if inplace:
+        merged_dict = dicts[0]
+    else:
+        # get or infer the class
+        cls = kwargs.get("cls", None)
+        if cls is None:
+            for d in dicts:
+                if isinstance(d, dict):
+                    cls = d.__class__
+                    break
+            else:
+                raise TypeError("cannot infer cls as none of the passed objects is of type dict")
+        # create a new instance
+        merged_dict = cls()
 
     # start merging
     deep = kwargs.get("deep", False)
-    merged_dict = cls()
-    for d in dicts:
+    for d in dicts[(1 if inplace else 0):]:
         if not isinstance(d, dict):
             continue
 
@@ -829,7 +841,7 @@ def merge_dicts(*dicts, **kwargs):
                     merged_dict[k] = v
                 else:
                     # merge by recursion
-                    merged_dict[k] = merge_dicts(merged_dict[k], v, cls=cls, deep=deep)
+                    merge_dicts(merged_dict[k], v, inplace=True, deep=deep)
         else:
             merged_dict.update(d)
 
