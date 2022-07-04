@@ -333,7 +333,7 @@ class SlurmJobFileFactory(BaseJobFileFactory):
             for key, f in c.input_files.items()
         }
 
-        # ensure that the executable is an input file, remember to key to access it
+        # ensure that the executable is an input file, remember the key to access it
         if c.executable:
             executable_keys = [k for k, v in c.input_files.items() if v == c.executable]
             if executable_keys:
@@ -362,7 +362,7 @@ class SlurmJobFileFactory(BaseJobFileFactory):
         }
 
         # convert to basenames as seen by the job
-        rel_input_paths_job = {
+        rel_input_paths_job = {  # noqa
             key: os.path.basename(abs_path) if c.input_files[key].copy else abs_path
             for key, abs_path in abs_input_paths.items()
         }

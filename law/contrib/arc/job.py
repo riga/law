@@ -355,7 +355,7 @@ class ARCJobFileFactory(BaseJobFileFactory):
             if f.is_remote:
                 f.copy = False
 
-        # ensure that the executable is an input file, remember to key to access it
+        # ensure that the executable is an input file, remember the key to access it
         if c.executable:
             executable_keys = [k for k, v in c.input_files.items() if v == c.executable]
             if executable_keys:
@@ -428,7 +428,7 @@ class ARCJobFileFactory(BaseJobFileFactory):
         if c.executable:
             c.executable = rel_input_paths_job[executable_key]
             # make the file executable for the user and group
-            path = os.path.join(c.dir, c.executable)
+            path = os.path.join(c.dir, os.path.basename(c.executable))
             if os.path.exists(path):
                 os.chmod(path, os.stat(path).st_mode | stat.S_IXUSR | stat.S_IXGRP)
 

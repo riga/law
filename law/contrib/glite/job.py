@@ -8,6 +8,7 @@ __all__ = ["GLiteJobManager", "GLiteJobFileFactory"]
 
 
 import os
+import stat
 import sys
 import time
 import re
@@ -314,7 +315,7 @@ class GLiteJobFileFactory(BaseJobFileFactory):
             for key, f in c.input_files.items()
         }
 
-        # ensure that the executable is an input file, remember to key to access it
+        # ensure that the executable is an input file, remember the key to access it
         if c.executable:
             executable_keys = [k for k, v in c.input_files.items() if v == c.executable]
             if executable_keys:
@@ -375,13 +376,21 @@ class GLiteJobFileFactory(BaseJobFileFactory):
             if c.input_files[key].copy and c.input_files[key].render:
                 self.render_file(abs_path, abs_path, render_variables, postfix=postfix)
 
+        # prepare the executable when given
+        if c.executable:
+            c.executable = rel_input_paths_job[executable_key]
+            # make the file executable for the user and group
+            path = os.path.join(c.dir, os.path.basename(c.executable))
+            if os.path.exists(path):
+                os.chmod(path, os.stat(path).st_mode | stat.S_IXUSR | stat.S_IXGRP)
+
         # job file content
         content = []
         if c.command:
             cmd = quote_cmd(c.command) if isinstance(c.command, (list, tuple)) else c.command
             content.append(("Executable", cmd))
         elif c.executable:
-            content.append(("Executable", rel_input_paths_job[executable_key]))
+            content.append(("Executable", c.executable))
         if c.arguments:
             args = quote_cmd(c.arguments) if isinstance(c.arguments, (list, tuple)) else c.arguments
             content.append(("Arguments", args))
