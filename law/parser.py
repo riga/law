@@ -26,21 +26,25 @@ _global_cmdline_args = None
 _global_cmdline_values = None
 
 
-def root_task():
+def root_task(task=None):
     """
     Returns the instance of the task that was triggered on the command line. The returned instance
-    is cached.
+    is cached. When *task* is define and no root task was cached yet, this methods acts as a setter.
     """
     global _root_task
 
     if not _root_task:
-        luigi_parser = luigi.cmdline_parser.CmdlineParser.get_instance()
-        if not luigi_parser:
-            return None
+        if task:
+            _root_task = task
+            logger.debug("set root task to externally passed instance")
+        else:
+            luigi_parser = luigi.cmdline_parser.CmdlineParser.get_instance()
+            if not luigi_parser:
+                return None
 
-        _root_task = luigi_parser.get_task_obj()
+            _root_task = luigi_parser.get_task_obj()
 
-        logger.debug("built root task instance using luigi argument parser")
+            logger.debug("built root task instance using luigi argument parser")
 
     return _root_task
 
