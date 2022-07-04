@@ -311,6 +311,9 @@ class Register(BaseRegister):
     def __call__(cls, *args, **kwargs):
         inst = super(Register, cls).__call__(*args, **kwargs)
 
+        # manually set the root task once
+        root_task(inst)
+
         # check for interactive parameters
         for param in inst.interactive_params:
             value = getattr(inst, param)
