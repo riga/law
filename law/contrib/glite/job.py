@@ -335,22 +335,22 @@ class GLiteJobFileFactory(BaseJobFileFactory):
 
         abs_input_paths = {key: prepare_input(f) for key, f in c.input_files.items()}
 
-        # optionally convert to basenames (for copying later on)
+        # convert to basenames, relative to the submission or initial dir
         maybe_basename = lambda path: path if c.absolute_paths else os.path.basename(path)
-        maybe_rel_input_paths = {
+        rel_input_paths_sub = {
             key: maybe_basename(abs_path) if c.input_files[key].copy else abs_path
             for key, abs_path in abs_input_paths.items()
         }
 
-        # and again to definitive basenames
-        rel_input_paths = {
-            key: os.path.basename(abs_path)
+        # convert to basenames as seen by the job
+        rel_input_paths_job = {
+            key: os.path.basename(abs_path) if c.input_files[key].copy else abs_path
             for key, abs_path in abs_input_paths.items()
         }
-        c.render_variables.update(rel_input_paths)
 
         # add all input files to render variables
-        c.render_variables["input_files"] = " ".join(rel_input_paths.values())
+        c.render_variables.update(rel_input_paths_job)
+        c.render_variables["input_files"] = " ".join(rel_input_paths_job.values())
 
         # add the custom log file to render variables
         if c.custom_log_file:
@@ -381,12 +381,12 @@ class GLiteJobFileFactory(BaseJobFileFactory):
             cmd = quote_cmd(c.command) if isinstance(c.command, (list, tuple)) else c.command
             content.append(("Executable", cmd))
         elif c.executable:
-            content.append(("Executable", rel_input_paths[executable_key]))
+            content.append(("Executable", rel_input_paths_job[executable_key]))
         if c.arguments:
             args = quote_cmd(c.arguments) if isinstance(c.arguments, (list, tuple)) else c.arguments
             content.append(("Arguments", args))
         if c.input_files:
-            content.append(("InputSandbox", make_unique(maybe_rel_input_paths.values())))
+            content.append(("InputSandbox", make_unique(rel_input_paths_sub.values())))
         if c.output_files:
             content.append(("OutputSandbox", make_unique(c.output_files)))
         if c.output_uri:

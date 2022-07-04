@@ -311,16 +311,22 @@ class LSFJobFileFactory(BaseJobFileFactory):
 
         abs_input_paths = {key: prepare_input(f) for key, f in c.input_files.items()}
 
-        # optionally convert to basenames
+        # convert to basenames, relative to the submission or initial dir
         maybe_basename = lambda path: path if c.absolute_paths else os.path.basename(path)
-        maybe_rel_input_paths = {
+        rel_input_paths_sub = {
             key: maybe_basename(abs_path) if c.input_files[key].copy else abs_path
             for key, abs_path in abs_input_paths.items()
         }
-        c.render_variables.update(maybe_rel_input_paths)
+
+        # convert to basenames as seen by the job
+        rel_input_paths_job = {
+            key: os.path.basename(abs_path) if c.input_files[key].copy else abs_path
+            for key, abs_path in abs_input_paths.items()
+        }
 
         # add all input files to render variables
-        c.render_variables["input_files"] = " ".join(maybe_rel_input_paths.values())
+        c.render_variables.update(rel_input_paths_job)
+        c.render_variables["input_files"] = " ".join(rel_input_paths_job.values())
 
         # add the custom log file to render variables
         if c.custom_log_file:
@@ -343,7 +349,7 @@ class LSFJobFileFactory(BaseJobFileFactory):
 
         # prepare the executable when given
         if c.executable:
-            c.executable = maybe_rel_input_paths[executable_key]
+            c.executable = rel_input_paths_sub[executable_key]
             # make the file executable for the user and group
             path = os.path.join(c.dir, c.executable)
             if os.path.exists(path):
@@ -369,32 +375,30 @@ class LSFJobFileFactory(BaseJobFileFactory):
             content += c.custom_content
 
         if not c.manual_stagein:
-            for input_file in make_unique(maybe_rel_input_paths.values()):
-                content.append(("-f", "\"{} > {}\"".format(
-                    input_file, os.path.basename(input_file))))
+            for path in make_unique(rel_input_paths_sub.values()):
+                content.append(("-f", "\"{} > {}\"".format(path, os.path.basename(path))))
 
         if not c.manual_stageout:
-            for output_file in make_unique(c.output_files):
-                content.append(("-f", "\"{} < {}\"".format(
-                    output_file, os.path.basename(output_file))))
+            for path in make_unique(c.output_files):
+                content.append(("-f", "\"{} < {}\"".format(path, os.path.basename(path))))
 
         if c.manual_stagein:
             tmpl = "cp " + ("{}" if c.absolute_paths else "$LS_EXECCWD/{}") + " $PWD/{}"
-            for input_file in make_unique(maybe_rel_input_paths.values()):
-                content.append(tmpl.format(input_file, os.path.basename(input_file)))
+            for path in make_unique(rel_input_paths_sub.values()):
+                content.append(tmpl.format(path, os.path.basename(path)))
 
         if c.command:
             content.append(c.command)
         else:
-            content.append("./" + os.path.basename(maybe_rel_input_paths[executable_key]))
+            content.append("./" + rel_input_paths_job[executable_key])
         if c.arguments:
             args = quote_cmd(c.arguments) if isinstance(c.arguments, (list, tuple)) else c.arguments
             content[-1] += " {}".format(args)
 
         if c.manual_stageout:
             tmpl = "cp $PWD/{} $LS_EXECCWD/{}"
-            for output_file in c.output_files:
-                content.append(tmpl.format(output_file, output_file))
+            for path in c.output_files:
+                content.append(tmpl.format(path, path))
 
         # write the job file
         with open(job_file, "w") as f:

@@ -354,16 +354,22 @@ class SlurmJobFileFactory(BaseJobFileFactory):
 
         abs_input_paths = {key: prepare_input(f) for key, f in c.input_files.items()}
 
-        # optionally convert to basenames
+        # convert to basenames, relative to the submission or initial dir
         maybe_basename = lambda path: path if c.absolute_paths else os.path.basename(path)
-        maybe_rel_input_paths = {
+        rel_input_paths_sub = {
             key: maybe_basename(abs_path) if c.input_files[key].copy else abs_path
             for key, abs_path in abs_input_paths.items()
         }
-        c.render_variables.update(maybe_rel_input_paths)
+
+        # convert to basenames as seen by the job
+        rel_input_paths_job = {
+            key: os.path.basename(abs_path) if c.input_files[key].copy else abs_path
+            for key, abs_path in abs_input_paths.items()
+        }
 
         # add all input files to render variables
-        c.render_variables["input_files"] = " ".join(maybe_rel_input_paths.values())
+        c.render_variables.update(rel_input_paths_job)
+        c.render_variables["input_files"] = " ".join(rel_input_paths_job.values())
 
         # add the custom log file to render variables
         if c.custom_log_file:
@@ -386,7 +392,7 @@ class SlurmJobFileFactory(BaseJobFileFactory):
 
         # prepare the executable when given
         if c.executable:
-            c.executable = maybe_rel_input_paths[executable_key]
+            c.executable = rel_input_paths_sub[executable_key]
             # make the file executable for the user and group
             path = os.path.join(c.dir, c.executable)
             if os.path.exists(path):
