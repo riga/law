@@ -392,9 +392,9 @@ class SlurmJobFileFactory(BaseJobFileFactory):
 
         # prepare the executable when given
         if c.executable:
-            c.executable = rel_input_paths_job[executable_key]
+            c.executable = rel_input_paths_sub[executable_key]
             # make the file executable for the user and group
-            path = os.path.join(c.dir, c.executable)
+            path = os.path.join(c.dir, os.path.basename(c.executable))
             if os.path.exists(path):
                 os.chmod(path, os.stat(path).st_mode | stat.S_IXUSR | stat.S_IXGRP)
 
