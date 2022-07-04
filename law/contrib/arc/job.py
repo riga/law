@@ -426,7 +426,7 @@ class ARCJobFileFactory(BaseJobFileFactory):
 
         # prepare the executable when given
         if c.executable:
-            c.executable = rel_input_paths_sub[executable_key]
+            c.executable = rel_input_paths_job[executable_key]
             # make the file executable for the user and group
             path = os.path.join(c.dir, c.executable)
             if os.path.exists(path):

@@ -368,8 +368,8 @@ class SlurmJobFileFactory(BaseJobFileFactory):
         }
 
         # add all input files to render variables
-        c.render_variables.update(rel_input_paths_job)
-        c.render_variables["input_files"] = " ".join(rel_input_paths_job.values())
+        c.render_variables.update(rel_input_paths_sub)
+        c.render_variables["input_files"] = " ".join(rel_input_paths_sub.values())
 
         # add the custom log file to render variables
         if c.custom_log_file:
@@ -392,7 +392,7 @@ class SlurmJobFileFactory(BaseJobFileFactory):
 
         # prepare the executable when given
         if c.executable:
-            c.executable = rel_input_paths_sub[executable_key]
+            c.executable = rel_input_paths_job[executable_key]
             # make the file executable for the user and group
             path = os.path.join(c.dir, c.executable)
             if os.path.exists(path):
