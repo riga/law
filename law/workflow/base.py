@@ -452,7 +452,7 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         self.workflow_proxy = None
         if self.is_workflow():
             self.workflow_cls = self.find_workflow_cls(self.workflow)
-            self.workflow_proxy = self.workflow_proxy_cls(task=self)
+            self.workflow_proxy = self.workflow_cls.workflow_proxy_cls(task=self)
             logger.debug("created workflow proxy instance of type '{}'".format(self.workflow))
 
     def __getattribute__(self, attr, proxy=True):
