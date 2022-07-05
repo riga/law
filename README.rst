@@ -66,26 +66,6 @@ This command also installs `luigi <https://pypi.python.org/pypi/luigi>`__ and `s
 The (default) remote target implementation also requires `gfal2 <https://dmc-docs.web.cern.ch/dmc-docs/gfal2/gfal2.html>`__ and `gfal2-python <https://pypi.python.org/pypi/gfal2-python>`__ (optional, also via pip) to be installed.
 
 
-Docker Images
--------------
-
-To run and test law, there are three docker images available on the `DockerHub <https://cloud.docker.com/u/riga/repository/docker/riga/law>`__, corresponding to Python versions 2.7, and 3.7 to 3.10.
-They are based on CentOS 7 and ship with the dependencies listed above, including gfal2.
-
-.. code-block:: bash
-
-   docker run -ti riga/law:latest
-
-
-Tags:
-
-- ``py310``: Latest Python 3.10
-- ``py39``, ``py3``, ``latest``: Latest Python 3.9
-- ``py38``: Latest Python 3.8
-- ``py37``: Latest Python 3.7
-- ``py2``, ``py27``: Python 2.7
-- ``example``: Example runner, based on ``latest`` (see `below <#examples>`__)
-
 
 `Usage at CERN <https://github.com/riga/law/wiki/Usage-at-CERN>`__
 ------------------------------------------------------------------
@@ -93,6 +73,19 @@ Tags:
 
 `Overcomplete example config <https://github.com/riga/law/tree/master/law.cfg.example>`__
 -----------------------------------------------------------------------------------------
+
+
+Projets using law
+=================
+
+- CMS Di-Higgs Inference Tools: `repo <https://gitlab.cern.ch/hh/tools/inference>`__, `docs <https://cms-hh.web.cern.ch/cms-hh/tools/inference/index.html>`__
+- CMS B-Tag SF Measurement: `repo <https://github.com/cms-btv-pog/jet-tagging-sf>`__
+- CMS Tau POG ML Tools: `repo <https://github.com/cms-tau-pog/TauMLTools>`__
+- CMS HLT Config Parser: `repo <https://github.com/riga/cms-hlt-parser>`__
+- UHH-CMS Analysis Framework: `repo <https://github.com/uhh-cms/analysis_playground>`__, `docs <http://analysis_playground.readthedocs.io>`__, `task structure <https://github.com/uhh-cms/analysis_playground/issues/25>`__
+- tba
+
+If your project uses law but is not yet listed here, feel free to open a pull request or mention your project details in a new `issue <https://github.com/riga/law/issues/new?template=register_project.md&title=New%20project%20using%20law>`__ and it will be added.
 
 
 Examples
@@ -123,11 +116,14 @@ For the latter, do
 - `CMS Single Top Analysis <https://github.com/riga/law_example_CMSSingleTopAnalysis>`__: Simple physics analysis using law.
 
 
+Further topics
+==============
+
 Auto completion on the command-line
-===================================
+-----------------------------------
 
 bash
-----
+^^^^
 
 .. code-block:: shell
 
@@ -135,7 +131,7 @@ bash
 
 
 zsh
----
+^^^
 
 zsh is able to load and evaluate bash completion scripts via ``bashcompinit``.
 In order for ``bashcompinit`` to work, you should run ``compinstall`` to enable completion scripts:
@@ -160,6 +156,27 @@ If this is the case, just source the law completion script (which internally ena
 .. code-block:: shell
 
    source "$( law completion )"
+
+
+Tests
+-----
+
+To run and test law, there are three docker images available on the `DockerHub <https://cloud.docker.com/u/riga/repository/docker/riga/law>`__, corresponding to Python versions 2.7, and 3.7 to 3.10.
+They are based on CentOS 7 and ship with the dependencies listed above, including gfal2.
+
+.. code-block:: bash
+
+   docker run -ti riga/law:latest
+
+
+Tags:
+
+- ``py310``: Latest Python 3.10
+- ``py39``, ``py3``, ``latest``: Latest Python 3.9
+- ``py38``: Latest Python 3.8
+- ``py37``: Latest Python 3.7
+- ``py2``, ``py27``: Python 2.7
+- ``example``: Example runner, based on ``latest`` (see `below <#examples>`__)
 
 
 Development
