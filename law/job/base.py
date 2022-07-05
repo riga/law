@@ -4,7 +4,7 @@
 Base classes for implementing remote job management and job file creation.
 """
 
-__all__ = ["BaseJobManager", "BaseJobFileFactory", "JobArguments"]
+__all__ = ["BaseJobManager", "BaseJobFileFactory", "JobInputFile", "JobArguments"]
 
 
 import os
@@ -21,6 +21,7 @@ from abc import ABCMeta, abstractmethod
 import six
 
 from law.config import Config
+from law.target.file import get_scheme
 from law.util import colored, make_list, iter_chunks, flatten, makedirs, create_hash
 from law.logger import get_logger
 
@@ -718,7 +719,7 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
         return linearized
 
     @classmethod
-    def render_file(cls, src, dst, render_variables, postfix=None):
+    def render_file(cls, src, dst, render_variables, postfix=None, silent=True):
         """
         Renders a source file *src* with *render_variables* and copies it to a new location *dst*.
         In some cases, a render variable value might contain a path that should be subject to file
@@ -731,9 +732,20 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
 
             render_file(src, dst, {"my_command": "echo postfix:some/path.txt"}, postfix="_1")
             # replaces "{{my_command}}" in src with "echo some/path_1.txt" in dst
+
+        In case the file content is not readable, the method returns unless *silent* is *False* in
+        which case an exception is raised.
         """
+        if not os.path.isfile(src):
+            raise IOError("source file for rendering does not exist: {}".format(src))
+
         with open(src, "r") as f:
-            content = f.read()
+            try:
+                content = f.read()
+            except UnicodeDecodeError:
+                if silent:
+                    return
+                raise
 
         def postfix_fn(m):
             return cls.postfix_input_file(m.group(1), postfix=postfix)
@@ -911,6 +923,69 @@ class JobArguments(object):
         using a single space character.
         """
         return " ".join(str(item) for item in self.get_args())
+
+
+class JobInputFile(object):
+    """
+    Wrapper around a *path* referring to an input file of a job, accompanied by optional flags that
+    control how the file should be handled during job submission (mostly within
+    :py:meth:`BaseJobFileFactory.provide_input`). See the attributs below for more info.
+
+    .. py:attribute:: path
+       type: str
+
+       The path of the input file.
+
+    .. py:attribute:: copy
+       type: bool
+
+       Whether this file should be copied into the job submission directory or not.
+
+    .. py:attribute:: postfix
+       type: bool
+
+       Whether the file path should be postfixed when copied.
+
+    .. py:attribute:: render
+       type: bool
+
+       Whether render variables should be resolved when copied.
+
+    .. py:attribute:: is_remote
+       type: bool
+       read-only
+
+       Whether the path has a non-empty protocol referring to a remote resource.
+    """
+
+    def __init__(self, path, copy=True, postfix=True, render=True):
+        super(JobInputFile, self).__init__()
+
+        # when path is a job file instance itself, use its values instead
+        if isinstance(path, JobInputFile):
+            copy = path.copy
+            postfix = path.postfix
+            render = path.render
+            path = path.path
+
+        # store attributes
+        self.path = path
+        self.copy = copy
+        self.postfix = postfix
+        self.render = render
+
+    def __str__(self):
+        return self.path
+
+    def __eq__(self, other):
+        # check equality via path comparison
+        if isinstance(other, JobInputFile):
+            return self.path == other.path
+        return self.path == other
+
+    @property
+    def is_remote(self):
+        return get_scheme(self.path) not in ("file", None)
 
 
 class DeprecatedInputFiles(dict):

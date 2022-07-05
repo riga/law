@@ -16,7 +16,7 @@ import subprocess
 import six
 
 from law.config import Config
-from law.job.base import BaseJobManager, BaseJobFileFactory, DeprecatedInputFiles
+from law.job.base import BaseJobManager, BaseJobFileFactory, JobInputFile, DeprecatedInputFiles
 from law.util import interruptable_popen, make_list, make_unique, quote_cmd
 from law.logger import get_logger
 
@@ -284,19 +284,49 @@ class LSFJobFileFactory(BaseJobFileFactory):
                 if c[attr] and not c[attr].startswith("/dev/"):
                     c[attr] = self.postfix_output_file(c[attr], postfix)
 
-        # ensure that the executable is an input file
-        if c.executable and c.executable not in c.input_files.values():
-            c.input_files["executable_file"] = c.executable
-
-        # add postfixed input files to render variables
-        postfixed_input_files = {
-            name: os.path.basename(self.postfix_input_file(path, postfix))
-            for name, path in c.input_files.items()
+        # ensure that all input files are JobInputFile's
+        c.input_files = {
+            key: JobInputFile(f)
+            for key, f in c.input_files.items()
         }
-        c.render_variables.update(postfixed_input_files)
+
+        # ensure that the executable is an input file, remember the key to access it
+        if c.executable:
+            executable_keys = [k for k, v in c.input_files.items() if v == c.executable]
+            if executable_keys:
+                executable_key = executable_keys[0]
+            else:
+                executable_key = "executable_file"
+                c.input_files[executable_key] = JobInputFile(c.executable)
+
+        # prepare input files
+        def prepare_input(f):
+            # when not copied, just return the absolute, original path
+            abs_path = os.path.abspath(f.path)
+            if not f.copy:
+                return abs_path
+            # copy the file
+            abs_path = self.provide_input(abs_path, postfix if f.postfix else None, c.dir)
+            return abs_path
+
+        abs_input_paths = {key: prepare_input(f) for key, f in c.input_files.items()}
+
+        # convert to basenames, relative to the submission or initial dir
+        maybe_basename = lambda path: path if c.absolute_paths else os.path.basename(path)
+        rel_input_paths_sub = {
+            key: maybe_basename(abs_path) if c.input_files[key].copy else abs_path
+            for key, abs_path in abs_input_paths.items()
+        }
+
+        # convert to basenames as seen by the job
+        rel_input_paths_job = {
+            key: os.path.basename(abs_path) if c.input_files[key].copy else abs_path
+            for key, abs_path in abs_input_paths.items()
+        }
 
         # add all input files to render variables
-        c.render_variables["input_files"] = " ".join(postfixed_input_files.values())
+        c.render_variables.update(rel_input_paths_job)
+        c.render_variables["input_files"] = " ".join(rel_input_paths_job.values())
 
         # add the custom log file to render variables
         if c.custom_log_file:
@@ -312,18 +342,16 @@ class LSFJobFileFactory(BaseJobFileFactory):
         # prepare the job file
         job_file = self.postfix_input_file(os.path.join(c.dir, c.file_name), postfix)
 
-        # prepare input files
-        def prepare_input(path):
-            path = self.provide_input(os.path.abspath(path), postfix, c.dir, render_variables)
-            return path if c.absolute_paths else os.path.basename(path)
-
-        c.input_files = {name: prepare_input(path) for name, path in c.input_files.items()}
+        # render copied input files
+        for key, abs_path in abs_input_paths.items():
+            if c.input_files[key].copy and c.input_files[key].render:
+                self.render_file(abs_path, abs_path, render_variables, postfix=postfix)
 
         # prepare the executable when given
         if c.executable:
-            c.executable = os.path.basename(self.postfix_input_file(c.executable, postfix))
+            c.executable = rel_input_paths_job[executable_key]
             # make the file executable for the user and group
-            path = os.path.join(c.dir, c.executable)
+            path = os.path.join(c.dir, os.path.basename(c.executable))
             if os.path.exists(path):
                 os.chmod(path, os.stat(path).st_mode | stat.S_IXUSR | stat.S_IXGRP)
 
@@ -347,32 +375,30 @@ class LSFJobFileFactory(BaseJobFileFactory):
             content += c.custom_content
 
         if not c.manual_stagein:
-            for input_file in make_unique(c.input_files.values()):
-                content.append(("-f", "\"{} > {}\"".format(
-                    input_file, os.path.basename(input_file))))
+            for path in make_unique(rel_input_paths_sub.values()):
+                content.append(("-f", "\"{} > {}\"".format(path, os.path.basename(path))))
 
         if not c.manual_stageout:
-            for output_file in make_unique(c.output_files):
-                content.append(("-f", "\"{} < {}\"".format(
-                    output_file, os.path.basename(output_file))))
+            for path in make_unique(c.output_files):
+                content.append(("-f", "\"{} < {}\"".format(path, os.path.basename(path))))
 
         if c.manual_stagein:
             tmpl = "cp " + ("{}" if c.absolute_paths else "$LS_EXECCWD/{}") + " $PWD/{}"
-            for input_file in make_unique(c.input_files.values()):
-                content.append(tmpl.format(input_file, os.path.basename(input_file)))
+            for path in make_unique(rel_input_paths_sub.values()):
+                content.append(tmpl.format(path, os.path.basename(path)))
 
         if c.command:
             content.append(c.command)
         else:
-            content.append("." + ("" if c.executable.startswith("/") else "/") + c.executable)
+            content.append("./" + rel_input_paths_job[executable_key])
         if c.arguments:
             args = quote_cmd(c.arguments) if isinstance(c.arguments, (list, tuple)) else c.arguments
             content[-1] += " {}".format(args)
 
         if c.manual_stageout:
             tmpl = "cp $PWD/{} $LS_EXECCWD/{}"
-            for output_file in c.output_files:
-                content.append(tmpl.format(output_file, output_file))
+            for path in c.output_files:
+                content.append(tmpl.format(path, path))
 
         # write the job file
         with open(job_file, "w") as f:

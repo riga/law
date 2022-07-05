@@ -14,7 +14,7 @@ import stat
 import subprocess
 
 from law.config import Config
-from law.job.base import BaseJobManager, BaseJobFileFactory
+from law.job.base import BaseJobManager, BaseJobFileFactory, JobInputFile
 from law.util import interruptable_popen, make_list, quote_cmd
 from law.logger import get_logger
 
@@ -327,18 +327,49 @@ class SlurmJobFileFactory(BaseJobFileFactory):
                 if c[attr] and not c[attr].startswith("/dev/"):
                     c[attr] = self.postfix_output_file(c[attr], postfix)
 
-        # add postfixed input files to render variables
-        postfixed_input_files = {
-            name: os.path.join(c.dir, path) if c.absolute_paths else path
-            for name, path in (
-                (name, os.path.basename(self.postfix_input_file(path, postfix)))
-                for name, path in c.input_files.items()
-            )
+        # ensure that all input files are JobInputFile's
+        c.input_files = {
+            key: JobInputFile(f)
+            for key, f in c.input_files.items()
         }
-        c.render_variables.update(postfixed_input_files)
+
+        # ensure that the executable is an input file, remember the key to access it
+        if c.executable:
+            executable_keys = [k for k, v in c.input_files.items() if v == c.executable]
+            if executable_keys:
+                executable_key = executable_keys[0]
+            else:
+                executable_key = "executable_file"
+                c.input_files[executable_key] = JobInputFile(c.executable)
+
+        # prepare input files
+        def prepare_input(f):
+            # when not copied, just return the absolute, original path
+            abs_path = os.path.abspath(f.path)
+            if not f.copy:
+                return abs_path
+            # copy the file
+            abs_path = self.provide_input(abs_path, postfix if f.postfix else None, c.dir)
+            return abs_path
+
+        abs_input_paths = {key: prepare_input(f) for key, f in c.input_files.items()}
+
+        # convert to basenames, relative to the submission or initial dir
+        maybe_basename = lambda path: path if c.absolute_paths else os.path.basename(path)
+        rel_input_paths_sub = {
+            key: maybe_basename(abs_path) if c.input_files[key].copy else abs_path
+            for key, abs_path in abs_input_paths.items()
+        }
+
+        # convert to basenames as seen by the job
+        rel_input_paths_job = {  # noqa
+            key: os.path.basename(abs_path) if c.input_files[key].copy else abs_path
+            for key, abs_path in abs_input_paths.items()
+        }
 
         # add all input files to render variables
-        c.render_variables["input_files"] = " ".join(postfixed_input_files.values())
+        c.render_variables.update(rel_input_paths_sub)
+        c.render_variables["input_files"] = " ".join(rel_input_paths_sub.values())
 
         # add the custom log file to render variables
         if c.custom_log_file:
@@ -354,19 +385,16 @@ class SlurmJobFileFactory(BaseJobFileFactory):
         # prepare the job file
         job_file = self.postfix_input_file(os.path.join(c.dir, c.file_name), postfix)
 
-        # prepare input files
-        def prepare_input(path):
-            path = self.provide_input(os.path.abspath(path), postfix, c.dir, render_variables)
-            return path if c.absolute_paths else os.path.basename(path)
-
-        for path in c.input_files.values():
-            prepare_input(path)
+        # render copied input files
+        for key, abs_path in abs_input_paths.items():
+            if c.input_files[key].copy and c.input_files[key].render:
+                self.render_file(abs_path, abs_path, render_variables, postfix=postfix)
 
         # prepare the executable when given
         if c.executable:
-            c.executable = prepare_input(c.executable)
+            c.executable = rel_input_paths_sub[executable_key]
             # make the file executable for the user and group
-            path = os.path.join(c.dir, c.executable)
+            path = os.path.join(c.dir, os.path.basename(c.executable))
             if os.path.exists(path):
                 os.chmod(path, os.stat(path).st_mode | stat.S_IXUSR | stat.S_IXGRP)
 
@@ -406,7 +434,7 @@ class SlurmJobFileFactory(BaseJobFileFactory):
 
             # add the executable
             if c.executable:
-                cmd = "." + ("" if c.executable.startswith("/") else "/") + c.executable
+                cmd = c.executable
                 f.write("\n{}{}\n".format(cmd, args))
 
         logger.debug("created slurm job file at '{}'".format(job_file))

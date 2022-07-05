@@ -733,7 +733,7 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
                 return "{}_ranges_{}".format(len(ranges), create_hash(ranges))
             else:
                 return "_".join(
-                    str(r) if len(r) == 1 else "{}To{}".format(r[0], r[1] + 1)
+                    str(r[0]) if len(r) == 1 else "{}To{}".format(r[0], r[1] + 1)
                     for r in ranges
                 )
 
