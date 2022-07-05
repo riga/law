@@ -173,10 +173,10 @@ class RemoteFileSystem(FileSystem):
         return self.file_interface.uri(self.abspath(path), **kwargs)
 
     def dirname(self, path):
-        return FileSystem.dirname(self, self.abspath(path))
+        return super(RemoteFileSystem, self).dirname(self.abspath(path))
 
     def basename(self, path):
-        return FileSystem.basename(self, self.abspath(path))
+        return super(RemoteFileSystem, self).basename(self.abspath(path))
 
     def stat(self, path, **kwargs):
         return self.file_interface.stat(self.abspath(path), **kwargs)
@@ -534,10 +534,10 @@ class RemoteTarget(FileSystemTarget):
 
         self.fs = fs
 
-        FileSystemTarget.__init__(self, path, **kwargs)
+        super(RemoteTarget, self).__init__(path, **kwargs)
 
     def _parent_args(self):
-        args, kwargs = FileSystemTarget._parent_args(self)
+        args, kwargs = super(RemoteTarget, self)._parent_args()
         args += (self.fs,)
         return args, kwargs
 
@@ -551,33 +551,33 @@ class RemoteTarget(FileSystemTarget):
             raise ValueError("path {} forbidden, surpasses file system root".format(path))
 
         path = self.fs.abspath(path)
-        FileSystemTarget.path.fset(self, path)
+        super(RemoteTarget, self.__class__).path.fset(self, path)
 
     def uri(self, **kwargs):
         return self.fs.uri(self.path, **kwargs)
 
-
-class RemoteFileTarget(RemoteTarget, FileSystemFileTarget):
-
     def copy_to_local(self, dst=None, **kwargs):
         if dst:
             dst = add_scheme(self.fs.local_fs.abspath(get_path(dst)), "file")
-        dst = FileSystemFileTarget.copy_to(self, dst, **kwargs)
+        dst = self.copy_to(dst, **kwargs)
         return remove_scheme(dst)
 
     def copy_from_local(self, src=None, **kwargs):
         src = add_scheme(self.fs.local_fs.abspath(get_path(src)), "file")
-        return FileSystemFileTarget.copy_from(self, src, **kwargs)
+        return self.copy_from(src, **kwargs)
 
     def move_to_local(self, dst=None, **kwargs):
         if dst:
             dst = add_scheme(self.fs.local_fs.abspath(get_path(dst)), "file")
-        dst = FileSystemFileTarget.move_to(self, dst, **kwargs)
+        dst = self.move_to(dst, **kwargs)
         return remove_scheme(dst)
 
     def move_from_local(self, src=None, **kwargs):
         src = add_scheme(self.fs.local_fs.abspath(get_path(src)), "file")
-        return FileSystemFileTarget.move_from(self, src, **kwargs)
+        return self.move_from(src, **kwargs)
+
+
+class RemoteFileTarget(FileSystemFileTarget, RemoteTarget):
 
     @contextmanager
     def localize(self, mode="r", perm=None, dir_perm=None, tmp_dir=None, **kwargs):
@@ -609,10 +609,10 @@ class RemoteFileTarget(RemoteTarget, FileSystemFileTarget):
                 tmp.remove()
 
 
-class RemoteDirectoryTarget(RemoteTarget, FileSystemDirectoryTarget):
+class RemoteDirectoryTarget(FileSystemDirectoryTarget, RemoteTarget):
 
     def _child_args(self, path):
-        args, kwargs = FileSystemDirectoryTarget._child_args(self, path)
+        args, kwargs = super(RemoteDirectoryTarget, self)._child_args(path)
         args += (self.fs,)
         return args, kwargs
 

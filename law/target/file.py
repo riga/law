@@ -16,15 +16,13 @@ import re
 from abc import abstractmethod, abstractproperty
 from contextlib import contextmanager
 
-import luigi
-import luigi.task
-
 from law.config import Config
+import law.target.luigi_shims as shims
 from law.target.base import Target
 from law.util import map_struct, create_random_string, human_bytes
 
 
-class FileSystem(luigi.target.FileSystem):
+class FileSystem(shims.FileSystem):
 
     @classmethod
     def parse_config(cls, section, config=None, overwrite=False):
@@ -49,7 +47,7 @@ class FileSystem(luigi.target.FileSystem):
 
     def __init__(self, has_permissions=True, default_file_perm=None, default_dir_perm=None,
             create_file_dir=True, **kwargs):
-        luigi.target.FileSystem.__init__(self)
+        super(FileSystem, self).__init__(**kwargs)
 
         self.has_permissions = has_permissions
         self.default_file_perm = default_file_perm
@@ -145,7 +143,7 @@ class FileSystem(luigi.target.FileSystem):
         return
 
 
-class FileSystemTarget(Target, luigi.target.FileSystemTarget):
+class FileSystemTarget(Target, shims.FileSystemTarget):
 
     file_class = None
     directory_class = None
@@ -157,11 +155,10 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
         self._path = None
         self._unexpanded_path = None
 
-        Target.__init__(self, **kwargs)
-        luigi.target.FileSystemTarget.__init__(self, path)
+        super(FileSystemTarget, self).__init__(path=path, **kwargs)
 
     def _repr_pairs(self, color=True):
-        pairs = Target._repr_pairs(self)
+        pairs = super(FileSystemTarget, self)._repr_pairs()
 
         # add the path
         cfg = Config.instance()
@@ -239,7 +236,39 @@ class FileSystemTarget(Target, luigi.target.FileSystemTarget):
         return
 
     @abstractmethod
-    def touch(self, perm=None, dir_perm=None):
+    def touch(self, perm=None, dir_perm=None, **kwargs):
+        return
+
+    @abstractmethod
+    def copy_to(self, dst, perm=None, dir_perm=None, **kwargs):
+        return
+
+    @abstractmethod
+    def copy_from(self, src, perm=None, dir_perm=None, **kwargs):
+        return
+
+    @abstractmethod
+    def move_to(self, dst, perm=None, dir_perm=None, **kwargs):
+        return
+
+    @abstractmethod
+    def move_from(self, src, perm=None, dir_perm=None, **kwargs):
+        return
+
+    @abstractmethod
+    def copy_to_local(self, *args, **kwargs):
+        return
+
+    @abstractmethod
+    def copy_from_local(self, *args, **kwargs):
+        return
+
+    @abstractmethod
+    def move_to_local(self, *args, **kwargs):
+        return
+
+    @abstractmethod
+    def move_from_local(self, *args, **kwargs):
         return
 
 
@@ -267,32 +296,28 @@ class FileSystemFileTarget(FileSystemTarget):
         return self.fs.dump(self.path, formatter, *args, **kwargs)
 
     def copy_to(self, dst, perm=None, dir_perm=None, **kwargs):
+        # TODO: complain when dst not local? forward to copy_from request depending on protocol?
         return self.fs.copy(self.path, get_path(dst), perm=perm, dir_perm=dir_perm, **kwargs)
 
     def copy_from(self, src, perm=None, dir_perm=None, **kwargs):
+        if isinstance(src, FileSystemFileTarget):
+            return src.copy_to(self.path, perm=perm, dir_perm=dir_perm, **kwargs)
+
+        # when src is a plain string, let the fs handle it
+        # TODO: complain when src not local? forward to copy_to request depending on protocol?
         return self.fs.copy(get_path(src), self.path, perm=perm, dir_perm=dir_perm, **kwargs)
 
     def move_to(self, dst, perm=None, dir_perm=None, **kwargs):
+        # TODO: complain when dst not local? forward to copy_from request depending on protocol?
         return self.fs.move(self.path, get_path(dst), perm=perm, dir_perm=dir_perm, **kwargs)
 
     def move_from(self, src, perm=None, dir_perm=None, **kwargs):
+        if isinstance(src, FileSystemFileTarget):
+            return src.move_from(self.path, perm=perm, dir_perm=dir_perm, **kwargs)
+
+        # when src is a plain string, let the fs handle it
+        # TODO: complain when src not local? forward to copy_to request depending on protocol?
         return self.fs.move(get_path(src), self.path, perm=perm, dir_perm=dir_perm, **kwargs)
-
-    @abstractmethod
-    def copy_to_local(self, *args, **kwargs):
-        return
-
-    @abstractmethod
-    def copy_from_local(self, *args, **kwargs):
-        return
-
-    @abstractmethod
-    def move_to_local(self, *args, **kwargs):
-        return
-
-    @abstractmethod
-    def move_from_local(self, *args, **kwargs):
-        return
 
     @abstractmethod
     @contextmanager
@@ -349,6 +374,82 @@ class FileSystemDirectoryTarget(FileSystemTarget):
     def touch(self, **kwargs):
         kwargs.setdefault("silent", True)
         self.fs.mkdir(self.path, **kwargs)
+
+    def copy_to(self, dst, perm=None, dir_perm=None, **kwargs):
+        # create the target dir
+        _dst = get_path(dst)
+        if isinstance(dst, FileSystemDirectoryTarget):
+            dst.touch(perm=dir_perm, **kwargs)
+        else:
+            # TODO: complain when dst not local? forward to copy_from request depending on protocol?
+            self.fs.mkdir(_dst, perm=dir_perm, **kwargs)
+
+        # walk and operate recursively
+        for path, dirs, files, _ in self.walk(max_depth=0, **kwargs):
+            # recurse through directories and files
+            for basenames, type_flag in [(dirs, "d"), [files, "f"]]:
+                for basename in basenames:
+                    t = self.child(basename, type=type_flag)
+                    t.copy_to(os.path.join(_dst, basename), perm=perm, dir_perm=dir_perm, **kwargs)
+
+    def copy_from(self, src, perm=None, dir_perm=None, **kwargs):
+        if isinstance(src, FileSystemDirectoryTarget):
+            return src.copy_to(self.path, perm=perm, dir_perm=dir_perm, **kwargs)
+
+        # create the target dir
+        self.touch(perm=dir_perm, **kwargs)
+
+        # when src is a plain string, let the fs handle it
+        # walk and operate recursively
+        # TODO: complain when src not local? forward to copy_from request depending on protocol?
+        _src = get_path(src)
+        for path, dirs, files, _ in self.fs.walk(_src, max_depth=0, **kwargs):
+            # recurse through directories and files
+            for basenames, type_flag in [(dirs, "d"), [files, "f"]]:
+                for basename in basenames:
+                    t = self.child(basename, type=type_flag)
+                    t.copy_from(os.path.join(_src, basename), perm=perm, dir_perm=dir_perm, **kwargs)
+
+    def move_to(self, dst, perm=None, dir_perm=None, **kwargs):
+        # create the target dir
+        _dst = get_path(dst)
+        if isinstance(dst, FileSystemDirectoryTarget):
+            dst.touch(perm=dir_perm, **kwargs)
+        else:
+            # TODO: complain when dst not local? forward to copy_from request depending on protocol?
+            self.fs.mkdir(_dst, perm=dir_perm, **kwargs)
+
+        # walk and operate recursively
+        for path, dirs, files, _ in self.walk(max_depth=0, **kwargs):
+            # recurse through directories and files
+            for basenames, type_flag in [(dirs, "d"), [files, "f"]]:
+                for basename in basenames:
+                    t = self.child(basename, type=type_flag)
+                    t.move_to(os.path.join(_dst, basename), perm=perm, dir_perm=dir_perm, **kwargs)
+
+        # finally remove
+        self.remove()
+
+    def move_from(self, src, perm=None, dir_perm=None, **kwargs):
+        if isinstance(src, FileSystemDirectoryTarget):
+            return src.move_to(self.path, perm=perm, dir_perm=dir_perm, **kwargs)
+
+        # create the target dir
+        self.touch(perm=dir_perm, **kwargs)
+
+        # when src is a plain string, let the fs handle it
+        # walk and operate recursively
+        # TODO: complain when src not local? forward to copy_from request depending on protocol?
+        _src = get_path(src)
+        for path, dirs, files, _ in self.fs.walk(_src, max_depth=0, **kwargs):
+            # recurse through directories and files
+            for basenames, type_flag in [(dirs, "d"), [files, "f"]]:
+                for basename in basenames:
+                    t = self.child(basename, type=type_flag)
+                    t.copy_from(os.path.join(_src, basename), perm=perm, dir_perm=dir_perm, **kwargs)
+
+        # finally remove
+        self.fs.remove(_src)
 
 
 FileSystemTarget.file_class = FileSystemFileTarget

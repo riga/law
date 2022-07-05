@@ -9,9 +9,8 @@ __all__ = ["Target"]
 
 from abc import abstractmethod
 
-import luigi
-
 from law.config import Config
+import law.target.luigi_shims as shims
 from law.util import colored, create_hash
 from law.logger import get_logger
 
@@ -19,13 +18,13 @@ from law.logger import get_logger
 logger = get_logger(__name__)
 
 
-class Target(luigi.target.Target):
+class Target(shims.Target):
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, **kwargs):
         self.optional = kwargs.pop("optional", False)
         self.external = kwargs.pop("external", False)
 
-        luigi.target.Target.__init__(self, *args, **kwargs)
+        super(Target, self).__init__(**kwargs)
 
     def __repr__(self):
         color = Config.instance().get_expanded_boolean("target", "colored_repr")

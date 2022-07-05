@@ -14,10 +14,10 @@ import glob
 import random
 from contextlib import contextmanager
 
-import luigi
 import six
 
 from law.config import Config
+import law.target.luigi_shims as shims
 from law.target.file import (
     FileSystem, FileSystemTarget, FileSystemFileTarget, FileSystemDirectoryTarget, get_path,
     get_scheme, add_scheme, remove_scheme,
@@ -30,7 +30,7 @@ from law.logger import get_logger
 logger = get_logger(__name__)
 
 
-class LocalFileSystem(FileSystem):
+class LocalFileSystem(FileSystem, shims.LocalFileSystem):
 
     default_instance = None
 
@@ -52,7 +52,7 @@ class LocalFileSystem(FileSystem):
                 raise Exception("law config has no section '{}' to read {} options".format(
                     section, self.__class__.__name__))
 
-        FileSystem.__init__(self, **kwargs)
+        super(LocalFileSystem, self).__init__(**kwargs)
 
     def _unscheme(self, path):
         return remove_scheme(path) if get_scheme(path) == "file" else path
@@ -288,7 +288,7 @@ class LocalFileSystem(FileSystem):
 LocalFileSystem.default_instance = LocalFileSystem()
 
 
-class LocalTarget(FileSystemTarget, luigi.LocalTarget):
+class LocalTarget(FileSystemTarget, shims.LocalTarget):
 
     fs = LocalFileSystem.default_instance
 
@@ -328,14 +328,13 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
             # ensure path is not a target and does not contain a scheme
             path = fs._unscheme(get_path(path))
             # make absolute when not starting with a variable
-            if not path.startswith("$"):
+            if not path.startswith(("$", "~")):
                 path = os.path.abspath(path)
 
-        luigi.LocalTarget.__init__(self, path=path, is_tmp=is_tmp)
-        FileSystemTarget.__init__(self, self.unexpanded_path, fs=fs, **kwargs)
+        super(LocalTarget, self).__init__(path=path, is_tmp=is_tmp, fs=fs, **kwargs)
 
     def _repr_flags(self):
-        flags = FileSystemTarget._repr_flags(self)
+        flags = super(LocalTarget, self)._repr_flags()
         if self.is_tmp:
             flags.append("temporary")
         return flags
@@ -345,16 +344,6 @@ class LocalTarget(FileSystemTarget, luigi.LocalTarget):
         if scheme:
             uri = add_scheme(uri, "file")
         return [uri] if return_all else uri
-
-    def __del__(self):
-        # when this destructor is called during shutdown, os.path or os.path.exists might be unset
-        if getattr(os, "path", None) is None or not callable(os.path.exists):
-            return
-
-        super(LocalTarget, self).__del__()
-
-
-class LocalFileTarget(LocalTarget, FileSystemFileTarget):
 
     def copy_to_local(self, *args, **kwargs):
         return self.fs._unscheme(self.copy_to(*args, **kwargs))
@@ -367,6 +356,16 @@ class LocalFileTarget(LocalTarget, FileSystemFileTarget):
 
     def move_from_local(self, *args, **kwargs):
         return self.fs._unscheme(self.move_from(*args, **kwargs))
+
+    def __del__(self):
+        # when this destructor is called during shutdown, os.path or os.path.exists might be unset
+        if getattr(os, "path", None) is None or not callable(os.path.exists):
+            return
+
+        super(LocalTarget, self).__del__()
+
+
+class LocalFileTarget(FileSystemFileTarget, LocalTarget):
 
     @contextmanager
     def localize(self, mode="r", perm=None, dir_perm=None, tmp_dir=None, **kwargs):
@@ -426,7 +425,7 @@ class LocalFileTarget(LocalTarget, FileSystemFileTarget):
                 self.chmod(perm, silent=True)
 
 
-class LocalDirectoryTarget(LocalTarget, FileSystemDirectoryTarget):
+class LocalDirectoryTarget(FileSystemDirectoryTarget, LocalTarget):
 
     pass
 
