@@ -1,7 +1,9 @@
 ## Project details
 
-- Repo: a link to your repository
-- Docs: a link to a documentation if you have one
+- a link to your repository
+- a link to a documentation if you have one
+- links to further resources
+- contact information if desired
 
 
 ## Project details

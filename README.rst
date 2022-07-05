@@ -85,7 +85,7 @@ Projets using law
 - UHH-CMS Analysis Framework: `repo <https://github.com/uhh-cms/analysis_playground>`__, `docs <http://analysis_playground.readthedocs.io>`__, `task structure <https://github.com/uhh-cms/analysis_playground/issues/25>`__
 - tba
 
-If your project uses law but is not yet listed here, feel free to open a pull request or mention your project details in a new `issue <https://github.com/riga/law/issues/new?template=register_project.md&title=New%20project%20using%20law>`__ and it will be added.
+If your project uses law but is not yet listed here, feel free to open a pull request or mention your project details in a new `issue <https://github.com/riga/law/issues/new?template=register_project.md&title=New%20project%20using%20law&assignee=riga>`__ and it will be added.
 
 
 Examples
