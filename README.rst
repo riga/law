@@ -75,8 +75,8 @@ The (default) remote target implementation also requires `gfal2 <https://dmc-doc
 -----------------------------------------------------------------------------------------
 
 
-Projets using law
-=================
+Projects using law
+==================
 
 - CMS Di-Higgs Inference Tools: `repo <https://gitlab.cern.ch/hh/tools/inference>`__, `docs <https://cms-hh.web.cern.ch/cms-hh/tools/inference/index.html>`__
 - CMS B-Tag SF Measurement: `repo <https://github.com/cms-btv-pog/jet-tagging-sf>`__
