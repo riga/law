@@ -369,16 +369,6 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         description="comma-separated list of branches to select; each value can have the format "
         "'start:end' (end not included as per Python) to support range syntax; default: empty",
     )
-    start_branch = luigi.IntParameter(
-        default=NO_INT,
-        description="DEPRECATED and will be removed in a future release; please use "
-        "'--branches start_branch:' instead",
-    )
-    end_branch = luigi.IntParameter(
-        default=NO_INT,
-        description="DEPRECATED and will be removed in a future release; please use "
-        "'--branches :end_branch' instead",
-    )
 
     # configuration members
     workflow_proxy_cls = BaseWorkflowProxy
@@ -394,8 +384,6 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
 
     exclude_index = True
 
-    exclude_params_index = {"start_branch", "end_branch"}
-    exclude_params_repr = {"start_branch", "end_branch"}
     exclude_params_branch = {"acceptance", "tolerance", "pilot", "branches"}
     exclude_params_workflow = {"branch"}
 
@@ -406,6 +394,13 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         # determine the default workflow type when not set
         if params.get("workflow") in [None, NO_STR]:
             params["workflow"] = cls.find_workflow_cls().workflow_proxy_cls.workflow_type
+
+        # show deprecation error when start or end branch parameters are set
+        if "start_branch" in params or "end_branch" in params:
+            raise DeprecationWarning(
+                "--start-branch and --end-branch are no longer supported; "
+                "please use '--branches start:end' instead",
+            )
 
         return params
 
@@ -432,17 +427,6 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
 
         # cached attributes for branches
         self._workflow_task = None
-
-        # temporary backwards compatibility for start/end_branch
-        if self.start_branch != NO_INT or self.end_branch != NO_INT:
-            logger.warning_once(
-                "deprecated_workflow_branch_ranges",
-                "--start-branch and --end-branch are deprecated and support will be removed in "
-                "a future release; please use '--branches start:end' instead",
-            )
-            start = self.start_branch if self.start_branch != NO_INT else None
-            end = self.end_branch if self.end_branch != NO_INT else None
-            self.branches += ((start, end),)
 
         # store originally selected branches
         self._initial_branches = tuple(self.branches)
