@@ -18,7 +18,7 @@ import six
 from law.task.base import Task, Register
 from law.task.proxy import ProxyTask, get_proxy_attribute
 from law.target.collection import TargetCollection
-from law.parameter import NO_STR, NO_INT, MultiRangeParameter
+from law.parameter import NO_STR, MultiRangeParameter
 from law.util import (
     no_value, make_list, iter_chunks, range_expand, range_join, create_hash, DotDict,
 )
