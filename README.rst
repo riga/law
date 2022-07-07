@@ -78,12 +78,25 @@ The (default) remote target implementation also requires `gfal2 <https://dmc-doc
 Projects using law
 ==================
 
-- CMS Di-Higgs Inference Tools: `repo <https://gitlab.cern.ch/hh/tools/inference>`__, `docs <https://cms-hh.web.cern.ch/cms-hh/tools/inference/index.html>`__
-- CMS B-Tag SF Measurement: `repo <https://github.com/cms-btv-pog/jet-tagging-sf>`__
-- CMS Tau POG ML Tools: `repo <https://github.com/cms-tau-pog/TauMLTools>`__
-- CMS HLT Config Parser: `repo <https://github.com/riga/cms-hlt-parser>`__
-- UHH-CMS Analysis Framework: `repo <https://github.com/uhh-cms/analysis_playground>`__, `docs <http://analysis_playground.readthedocs.io>`__, `task structure <https://github.com/uhh-cms/analysis_playground/issues/25>`__
-- tba
+- CMS Di-Higgs Inference Tools:
+   - Basis for statistical analysis for all Di-Higgs searches in CMS, starting at datacard-level
+   - `repo <https://gitlab.cern.ch/hh/tools/inference>`__, `docs <https://cms-hh.web.cern.ch/cms-hh/tools/inference/index.html>`__
+- CMS B-Tag SF Measurement:
+   - Automated workflow for deriving shape-calibrating b-tag scale factors, starting at MiniAOD-level
+   - `repo <https://github.com/cms-btv-pog/jet-tagging-sf>`__
+- CMS Tau POG ML Tools:
+   - Preprocessing pipeline for ML trainings in the TAU group
+   - `repo <https://github.com/cms-tau-pog/TauMLTools>`__
+- CMS HLT Config Parser:
+   - Collects information from various databases (HLT, bril, etc.) and shows menus, triggers paths, filter names for configurable MC datasets or data runs
+   - `repo <https://github.com/riga/cms-hlt-parser>`__
+- UHH-CMS Analysis Framework:
+   - Python based, fully automated, columnar framework, including job submission, resolution of systematics and ML pipelines, starting at NanoAOD-level with an optimized multi-threaded column reader
+   - `repo <https://github.com/uhh-cms/analysis_playground>`__, `docs <http://analysis_playground.readthedocs.io>`__, `task structure <https://github.com/uhh-cms/analysis_playground/issues/25>`__
+- RWTH-CMS Analysis Framework:
+   - Basis for multiple CMS analyses ranging from Di-Higgs, to single Higgs and b-tag SF measurements, starting at NanoAOD-level and based on coffea processors
+   - `repo <https://git.rwth-aachen.de/3pia/cms_analyses/common/-/tree/master/>`__
+- YOUR REPOSITORY HERE
 
 If your project uses law but is not yet listed here, feel free to open a pull request or mention your project details in a new `issue <https://github.com/riga/law/issues/new?template=register_project.md&title=New%20project%20using%20law&assignee=riga>`__ and it will be added.
 
