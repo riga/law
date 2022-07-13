@@ -14,6 +14,8 @@ from abc import ABCMeta, abstractmethod
 
 import six
 
+from law.util import perf_counter
+
 
 def cache_by_status(func):
     """
@@ -105,7 +107,7 @@ class BaseJobDashboard(six.with_metaclass(ABCMeta, object)):
         now = 0.
 
         if self.max_rate > 0:
-            now = time.time()
+            now = perf_counter()
             diff = self._last_event_time + 1. / self.max_rate - now
             if diff > 0:
                 time.sleep(diff)

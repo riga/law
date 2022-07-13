@@ -44,7 +44,7 @@ from law.target.file import localize_file_targets
 from law.target.local import LocalFileTarget
 from law.util import (
     no_value, uncolored, make_list, multi_match, human_duration, open_compat, join_generators,
-    TeeStream,
+    TeeStream, perf_counter,
 )
 from law.logger import get_logger
 
@@ -378,7 +378,7 @@ def notify(fn, opts, task, *args, **kwargs):
                         param_name, e))
 
         # get a timestamp
-        t0 = time.time()
+        t0 = perf_counter()
 
         return transports, t0
 
@@ -400,7 +400,7 @@ def notify(fn, opts, task, *args, **kwargs):
             return
 
         # prepare message content
-        duration = human_duration(seconds=round(time.time() - t0, 1))
+        duration = human_duration(seconds=round(perf_counter() - t0, 1))
         status_string = "succeeded" if success else "failed"
         title = "Task {} {}!".format(_task.get_task_family(), status_string)
         parts = collections.OrderedDict([
@@ -456,14 +456,14 @@ def timeit(fn, opts, task, *args, **kwargs):
     task's logger instance in info mode. Accepts generator functions.
     """
     def before_call():
-        t0 = time.time()
+        t0 = perf_counter()
         return t0
 
     def call(t0):
         return fn(task, *args, **kwargs)
 
     def log_duration(t0):
-        duration = human_duration(seconds=round(time.time() - t0, 1))
+        duration = human_duration(seconds=round(perf_counter() - t0, 1))
         task.logger.info("runtime: {}".format(duration))
 
     def after_call(t0):

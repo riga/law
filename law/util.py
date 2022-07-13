@@ -11,11 +11,11 @@ __all__ = [
     "query_choice", "is_pattern", "brace_expand", "range_expand", "range_join", "multi_match",
     "is_iterable", "is_lazy_iterable", "make_list", "make_tuple", "make_unique", "is_nested",
     "flatten", "merge_dicts", "which", "map_verbose", "map_struct", "mask_struct", "tmp_file",
-    "interruptable_popen", "readable_popen", "create_hash", "create_random_string", "copy_no_perm",
-    "makedirs", "user_owns_file", "iter_chunks", "human_bytes", "parse_bytes", "human_duration",
-    "parse_duration", "is_file_exists_error", "send_mail", "DotDict", "ShorthandDict",
-    "open_compat", "patch_object", "join_generators", "quote_cmd", "escape_markdown",
-    "classproperty", "BaseStream", "TeeStream", "FilteredStream",
+    "perf_counter", "interruptable_popen", "readable_popen", "create_hash", "create_random_string",
+    "copy_no_perm", "makedirs", "user_owns_file", "iter_chunks", "human_bytes", "parse_bytes",
+    "human_duration", "parse_duration", "is_file_exists_error", "send_mail", "DotDict",
+    "ShorthandDict", "open_compat", "patch_object", "join_generators", "quote_cmd",
+    "escape_markdown", "classproperty", "BaseStream", "TeeStream", "FilteredStream",
 ]
 
 
@@ -1089,6 +1089,13 @@ def tmp_file(*args, **kwargs):
             os.remove(path)
 
 
+def perf_counter():
+    """
+    Returns ``time.perf_counter()`` for python 3 and ``time.time()`` for python 2.
+    """
+    return time.time() if six.PY2 else time.perf_counter()
+
+
 def interruptable_popen(*args, **kwargs):
     """ interruptable_popen(*args, interrupt_callback=None, kill_timeout=None, **kwargs)
     Shorthand to :py:class:`Popen` followed by :py:meth:`Popen.communicate` which can be interrupted
@@ -1128,8 +1135,8 @@ def interruptable_popen(*args, **kwargs):
         # when a kill_timeout is set, and the process is still running after that period,
         # send SIGKILL to force its termination
         if kill_timeout is not None:
-            target_time = time.time() + kill_timeout
-            while target_time > time.time():
+            target_time = perf_counter() + kill_timeout
+            while target_time > perf_counter():
                 time.sleep(0.05)
                 if p.poll() is not None:
                     # the process terminated, exit the loop
