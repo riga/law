@@ -41,7 +41,7 @@ NO_STR = "NO_STR"
 NO_INT = -1
 
 #: Float value denoting an empty parameter.
-NO_FLOAT = -1.
+NO_FLOAT = -1.0
 
 
 def is_no_param(value):

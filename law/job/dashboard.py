@@ -70,7 +70,7 @@ class BaseJobDashboard(six.with_metaclass(ABCMeta, object)):
         self.max_rate = max_rate
 
         # timestamp of last event, used to ensure that max_rate is not exceeded
-        self._last_event_time = 0.
+        self._last_event_time = 0.0
 
         # last dashboard status per job_id, used to prevent subsequent requests for jobs
         # without any status change
@@ -104,11 +104,11 @@ class BaseJobDashboard(six.with_metaclass(ABCMeta, object)):
                 with self.rate_guard():
                     print(i)
         """
-        now = 0.
+        now = 0.0
 
         if self.max_rate > 0:
             now = perf_counter()
-            diff = self._last_event_time + 1. / self.max_rate - now
+            diff = self._last_event_time + 1.0 / self.max_rate - now
             if diff > 0:
                 time.sleep(diff)
 

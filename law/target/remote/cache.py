@@ -92,7 +92,7 @@ class RemoteCache(object):
         return config
 
     def __init__(self, fs, root=TMP, cleanup=False, max_size=0, file_perm=0o0660, dir_perm=0o0770,
-            wait_delay=5., max_waits=120, global_lock=False):
+            wait_delay=5.0, max_waits=120, global_lock=False):
         object.__init__(self)
         # max_size is in MB, wait_delay is in seconds
 

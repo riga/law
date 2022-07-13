@@ -261,4 +261,4 @@ class Apmon(threading.Thread):
                 while not self._queue.empty():
                     args, kwargs = self._queue.get()
                     self._send(*args, **kwargs)
-                    time.sleep(1. / self._max_rate)
+                    time.sleep(1.0 / self._max_rate)

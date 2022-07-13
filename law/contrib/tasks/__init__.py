@@ -142,8 +142,8 @@ class ForestMerge(LocalWorkflow):
     )
 
     # fix some workflow parameters
-    acceptance = 1.
-    tolerance = 0.
+    acceptance = 1.0
+    tolerance = 0.0
     pilot = False
 
     node_format = "{name}.t{tree}.d{depth}.b{branch}{ext}"

@@ -311,9 +311,9 @@ def safe_output(fn, opts, task, *args, **kwargs):
     return before_call, call, after_call, on_error
 
 
-@factory(t=5, stddev=0, pdf="gauss", accept_generator=True)
+@factory(t=5.0, stddev=0.0, pdf="gauss", accept_generator=True)
 def delay(fn, opts, task, *args, **kwargs):
-    """ delay(t=5, stddev=0., pdf="gauss")
+    """ delay(t=5.0, stddev=0.0, pdf="gauss")
     Wraps a bound method of a task and delays its execution by *t* seconds. Accepts generator
     functions.
     """

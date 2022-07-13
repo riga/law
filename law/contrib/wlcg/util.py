@@ -130,7 +130,7 @@ def renew_voms_proxy(password="", vo=None, lifetime="8 days", proxy_file=None):
     result of :py:func:`get_voms_proxy_file`.
     """
     # parse and format the lifetime
-    lifetime_seconds = max(parse_duration(lifetime, input_unit="h", unit="s"), 60.)
+    lifetime_seconds = max(parse_duration(lifetime, input_unit="h", unit="s"), 60.0)
     lifetime = human_duration(seconds=lifetime_seconds, colon_format="h")
     # cut the seconds part
     normalized = ":".join((2 - lifetime.count(":")) * ["00"] + [""]) + lifetime

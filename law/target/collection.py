@@ -119,7 +119,7 @@ class TargetCollection(Target):
         elif self.threshold <= 1:
             return len(self) * self.threshold
         else:
-            return min(len(self), max(self.threshold, 0.))
+            return min(len(self), max(self.threshold, 0.0))
 
     def exists(self, count=None):
         threshold = self._abs_threshold()

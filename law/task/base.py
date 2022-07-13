@@ -497,7 +497,7 @@ class Task(six.with_metaclass(Register, BaseTask)):
             return callback
 
         if isinstance(n_total, (list, tuple)):
-            width = 100. / len(n_total)
+            width = 100.0 / len(n_total)
             reaches = [(width * i, width * (i + 1)) for i in range(len(n_total))]
             return n_total.__class__(make_callback(n, *r) for n, r in zip(n_total, reaches))
         else:

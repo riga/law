@@ -176,7 +176,7 @@ def try_int(n):
     return n_int if n == n_int else n
 
 
-def round_discrete(n, base=1., round_fn=round):
+def round_discrete(n, base=1.0, round_fn=round):
     """ round_discrete(n, base=1.0, round_fn="round")
     Rounds a number *n* to a discrete *base*. *round_fn* can be a function used for rounding and
     defaults to the built-in ``round`` function. It also accepts string values ``"round"``,
@@ -185,7 +185,7 @@ def round_discrete(n, base=1., round_fn=round):
     .. code-block:: python
 
         round_discrete(17, 5)
-        # -> 15.
+        # -> 15.0
 
         round_discrete(17, 2.5)
         # -> 17.5
@@ -1343,7 +1343,7 @@ def human_bytes(n, unit=None, fmt=False):
         idx = min(idx, len(byte_units))
 
     # get the value and the unit name
-    value = n / 1024. ** idx
+    value = n / 1024.0 ** idx
     unit = byte_units[idx]
 
     if fmt:
@@ -1363,22 +1363,22 @@ def parse_bytes(s, input_unit="bytes", unit="bytes"):
     .. code-block:: python
 
         parse_bytes("100")
-        # -> 100.
+        # -> 100.0
 
         parse_bytes("2048", unit="kB")
-        # -> 2.
+        # -> 2.0
 
         parse_bytes("2048 kB", unit="kB")
-        # -> 2048.
+        # -> 2048.0
 
         parse_bytes("2048 kB", unit="MB")
-        # -> 2.
+        # -> 2.0
 
         parse_bytes("2048", "kB", unit="MB")
-        # -> 2.
+        # -> 2.0
 
         parse_bytes(2048, "kB", unit="MB")  # note the float type of the first argument
-        # -> 2.
+        # -> 2.0
     """
     # check if the units exists
     if input_unit not in byte_units:
@@ -1404,7 +1404,7 @@ def parse_bytes(s, input_unit="bytes", unit="bytes"):
 
     # convert the input value to bytes
     idx = byte_units.index(input_unit)
-    size_bytes = input_value * 1024. ** idx
+    size_bytes = input_value * 1024.0 ** idx
 
     # use human_bytes to convert the size
     return human_bytes(size_bytes, unit)[0]

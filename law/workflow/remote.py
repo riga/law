@@ -933,7 +933,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             self.last_status_counts = counts
 
             # inform the scheduler about the progress
-            task.publish_progress(100. * n_finished / n_jobs)
+            task.publish_progress(100.0 * n_finished / n_jobs)
 
             # log newly failed jobs
             if newly_failed_jobs:
