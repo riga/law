@@ -134,7 +134,9 @@ def factory(**default_opts):
     *None*.
 
     A decorator that accepts generator functions can also be used to decorate plain, non-generator
-    functions, but not vice-versa.
+    functions, but not vice-versa. Decorated functions can be called with a keyword argument
+    ``skip_decorators`` set to *True* to directly call the originally wrapped function without the
+    stack of decorators.
     """
     def wrapper(decorator):
         @functools.wraps(decorator)
@@ -163,7 +165,7 @@ def factory(**default_opts):
 
                 # when decorator_run is None, guess the decision based on the name of the wrapped fn
                 if decorate_run is None:
-                    decorate_run = fn.__name__ == "run"
+                    decorate_run = orig_fn.__name__ == "run"
 
                 # define a unique attribute to store the result of before_call() (see below)
                 state_attr = "__law_decorator_{}_{}_before_call_result_{}".format(
@@ -171,6 +173,11 @@ def factory(**default_opts):
 
                 @functools.wraps(fn)
                 def wrapper(*args, **kwargs):
+                    # check if the decorator stack is to be skipped entirey
+                    if kwargs.pop("skip_decorators", False):
+                        # args[0] is the task
+                        return fn(*args, **kwargs)
+
                     if accept_generator:
                         # when generator functions are accepted, the decorator is excepted to return
                         # three callbacks: before_call(), call(state), and after_call(state)
