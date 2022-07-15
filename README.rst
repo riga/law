@@ -52,13 +52,13 @@ Key features:
 Contents
 ========
 
-- :ref:`First steps`
-   - :ref:`Usage at CERN`
-   - :ref:`Overcomplete example config`
-- :ref:`Projects using law`
-- :ref:`Examples`
-- :ref:`Further topics`
-- :ref:`Development`
+- `First steps`_
+   - `Usage at CERN`_
+   - `Overcomplete example config`_
+- `Projects using law`_
+- `Examples`_
+- `Further topics`_
+- `Development`_
 
 
 .. marker-before-body
