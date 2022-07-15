@@ -96,6 +96,8 @@ Projects using law
 - RWTH-CMS Analysis Framework:
    - Basis for multiple CMS analyses ranging from Di-Higgs, to single Higgs and b-tag SF measurements, starting at NanoAOD-level and based on coffea processors
    - `repo <https://git.rwth-aachen.de/3pia/cms_analyses/common/-/tree/master/>`__
+- CIEMAT-CMS Analysis Framework:
+   - Python and RDataFrame based framework starting from NanoAOD and targetting multiple CMS analyses
 - YOUR REPOSITORY HERE
 
 If your project uses law but is not yet listed here, feel free to open a pull request or mention your project details in a new `issue <https://github.com/riga/law/issues/new?template=register_project.md&title=New%20project%20using%20law&assignee=riga>`__ and it will be added.
