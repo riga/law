@@ -49,6 +49,21 @@ Key features:
 .. marker-after-header
 
 
+Contents
+========
+
+- :ref:`First steps`
+   - :ref:`Usage at CERN`
+   - :ref:`Overcomplete example config`
+- :ref:`Projects using law`
+- :ref:`Examples`
+- :ref:`Further topics`
+- :ref:`Development`
+
+
+.. marker-before-body
+
+
 First steps
 ===========
 
@@ -67,12 +82,16 @@ The (default) remote target implementation also requires `gfal2 <https://dmc-doc
 
 
 
-`Usage at CERN <https://github.com/riga/law/wiki/Usage-at-CERN>`__
-------------------------------------------------------------------
+Usage at CERN
+-------------
+
+See the `wiki <https://github.com/riga/law/wiki/Usage-at-CERN>`__.
 
 
-`Overcomplete example config <https://github.com/riga/law/tree/master/law.cfg.example>`__
------------------------------------------------------------------------------------------
+Overcomplete example config
+---------------------------
+
+See `law.cfg.example <https://github.com/riga/law/tree/master/law.cfg.example>`__.
 
 
 Projects using law

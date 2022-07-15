@@ -17,5 +17,5 @@
 
 
 .. include:: ../README.rst
-   :start-after: marker-after-header
+   :start-after: marker-before-body
    :end-before: marker-after-body
