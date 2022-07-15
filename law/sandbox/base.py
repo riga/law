@@ -460,36 +460,61 @@ class SandboxTask(Task):
     def __init__(self, *args, **kwargs):
         super(SandboxTask, self).__init__(*args, **kwargs)
 
+        # store whether sandbox objects have been setup, which is done lazily,
+        # and predefine all attributes that are set by it
+        self._sandbox_initialized = False
+        self._effective_sandbox = None
+        self._sandbox_inst = None
+        self._sandbox_proxy = None
+
+    def _initialize_sandbox(self, force=False):
+        if self._sandbox_initialized and not force:
+            return
+        self._sandbox_initialized = True
+
         # when we are already in a sandbox, this task is placed inside it, i.e., there is no nesting
         if _sandbox_switched:
-            self.effective_sandbox = _current_sandbox[0]
+            self._effective_sandbox = _current_sandbox[0]
 
         # when the sandbox is set via a parameter and not hard-coded,
         # check if the value is among the valid sandboxes, otherwise determine the fallback
         elif isinstance(self.__class__.sandbox, luigi.Parameter):
             if multi_match(self.sandbox, self.valid_sandboxes, mode=any):
-                self.effective_sandbox = self.sandbox
+                self._effective_sandbox = self.sandbox
             else:
-                self.effective_sandbox = self.fallback_sandbox(self.sandbox)
+                self._effective_sandbox = self.fallback_sandbox(self.sandbox)
 
         # just set the effective sandbox
         else:
-            self.effective_sandbox = self.sandbox
+            self._effective_sandbox = self.sandbox
 
         # at this point, the sandbox must be set unless it is explicitely allowed to be empty
-        if self.effective_sandbox in (None, NO_STR):
+        if self._effective_sandbox in (None, NO_STR):
             if not self.allow_empty_sandbox:
                 raise Exception("task {!r} requires the sandbox parameter to be set".format(self))
-            self.effective_sandbox = NO_STR
+            self._effective_sandbox = NO_STR
 
         # create the sandbox proxy when required
-        self.sandbox_inst = None
-        self.sandbox_proxy = None
         if not self.is_sandboxed():
-            self.sandbox_inst = Sandbox.new(self.effective_sandbox, self)
-            self.sandbox_proxy = SandboxProxy(task=self)
+            self._sandbox_inst = Sandbox.new(self._effective_sandbox, self)
+            self._sandbox_proxy = SandboxProxy(task=self)
             logger.debug("created sandbox proxy instance of type '{}'".format(
-                self.effective_sandbox))
+                self._effective_sandbox))
+
+    @property
+    def effective_sandbox(self):
+        self._initialize_sandbox()
+        return self._effective_sandbox
+
+    @property
+    def sandbox_inst(self):
+        self._initialize_sandbox()
+        return self._sandbox_inst
+
+    @property
+    def sandbox_proxy(self):
+        self._initialize_sandbox()
+        return self._sandbox_proxy
 
     def __getattribute__(self, attr, proxy=True):
         return get_proxy_attribute(self, attr, proxy=proxy, super_cls=Task)

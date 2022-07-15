@@ -431,13 +431,31 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         # store originally selected branches
         self._initial_branches = tuple(self.branches)
 
-        # determine workflow proxy class to instantiate
-        self.workflow_cls = None
-        self.workflow_proxy = None
+        # store whether workflow objects have been setup, which is done lazily,
+        # and predefine all attributes that are set by it
+        self._workflow_initialized = False
+        self._workflow_cls = None
+        self._workflow_proxy = None
+
+    def _initialize_workflow(self, force=False):
+        if self._workflow_initialized and not force:
+            return
+        self._workflow_initialized = True
+
         if self.is_workflow():
-            self.workflow_cls = self.find_workflow_cls(self.workflow)
-            self.workflow_proxy = self.workflow_cls.workflow_proxy_cls(task=self)
+            self._workflow_cls = self.find_workflow_cls(self.workflow)
+            self._workflow_proxy = self._workflow_cls.workflow_proxy_cls(task=self)
             logger.debug("created workflow proxy instance of type '{}'".format(self.workflow))
+
+    @property
+    def workflow_cls(self):
+        self._initialize_workflow()
+        return self._workflow_cls
+
+    @property
+    def workflow_proxy(self):
+        self._initialize_workflow()
+        return self._workflow_proxy
 
     def __getattribute__(self, attr, proxy=True):
         return get_proxy_attribute(self, attr, proxy=proxy, super_cls=Task)
