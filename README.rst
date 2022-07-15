@@ -53,12 +53,15 @@ Contents
 ========
 
 - `First steps`_
+   - `Installation and dependencies`_
    - `Usage at CERN`_
    - `Overcomplete example config`_
 - `Projects using law`_
 - `Examples`_
 - `Further topics`_
-- `Development`_
+   - `Auto completion on the command-line`_
+   - `Tests`_
+   - `Development`_
 
 
 .. marker-before-body
@@ -67,7 +70,7 @@ Contents
 First steps
 ===========
 
-Installation and Dependencies
+Installation and dependencies
 -----------------------------
 
 Install via `pip <https://pypi.python.org/pypi/law>`__:
@@ -215,7 +218,7 @@ Tags:
 
 
 Development
-===========
+-----------
 
 - Source hosted at `GitHub <https://github.com/riga/law>`__
 - Report issues, questions, feature requests on `GitHub Issues <https://github.com/riga/law/issues>`__
