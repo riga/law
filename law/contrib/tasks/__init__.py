@@ -21,7 +21,7 @@ from law.target.local import LocalFileTarget
 from law.target.collection import TargetCollection, SiblingFileCollection
 from law.parameter import NO_STR
 from law.decorator import factory
-from law.util import iter_chunks, DotDict
+from law.util import iter_chunks, flatten, map_struct, DotDict
 from law.logger import get_logger
 
 
@@ -426,11 +426,27 @@ class ForestMerge(LocalWorkflow):
         if self.is_root():
             return output
 
+        # get the directory in which intermediate outputs are stored
+        if isinstance(output, SiblingFileCollection):
+            intermediate_dir = output.dir
         else:
-            name, ext = os.path.splitext(output.basename)
+            first_output = flatten(output)[0]
+            if not isinstance(first_output, FileSystemTarget):
+                raise Exception("cannot determine directory for intermediate merged outputs from "
+                    "'{}'".format(output))
+            intermediate_dir = first_output.parent
+
+        # helper to create an intermediate output
+        def get_intermediate_output(leaf_output):
+            name, ext = os.path.splitext(leaf_output.basename)
             basename = self.node_format.format(name=name, ext=ext, tree=self.tree_index,
                 branch=self.branch, depth=self.tree_depth)
-            return self._merge_cache_directory(output).child(basename, type="f")
+            return intermediate_dir.child(basename, type="f")
+
+        # return intermediate outputs in the same structure
+        if isinstance(output, TargetCollection):
+            return output.map(get_intermediate_output)
+        return map_struct(get_intermediate_output, output)
 
     def run(self):
         # nothing to do for the forest
@@ -455,28 +471,3 @@ class ForestMerge(LocalWorkflow):
                     self.branch_data)):
                 for inp in inputs:
                     inp.remove()
-
-    def _merge_cache_directory(self, output=None):
-        # by default, use the targets parent directory, also for SinglingFileCollections
-        # otherwise, no default decision is implemented
-        if output is None:
-            output = self.merge_output()
-
-        # sibling file collection
-        if isinstance(output, SiblingFileCollection):
-            return output.dir
-
-        # get the first output for other file collections and sequences
-        if isinstance(output, (list, tuple)):
-            output = output[0]
-        elif isinstance(output, TargetCollection):
-            output = list(output.target.values())[0]
-
-        # use the parent directory of file system targets
-        if isinstance(output, FileSystemTarget):
-            return output.parent
-
-        # at this point we do not guess further but a custom implementation must be provided
-        raise NotImplementedError("{}._merge_cache_directory is not implemented for cases "
-            "the merge output is neither a FileSystemTarget nor a SiblingFileCollection".format(
-                self.__class__.__name__))

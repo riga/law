@@ -19,7 +19,7 @@ from law.config import Config
 from law.target.base import Target
 from law.target.file import FileSystemTarget, FileSystemDirectoryTarget, localize_file_targets
 from law.target.local import LocalDirectoryTarget
-from law.util import colored, flatten
+from law.util import colored, flatten, map_struct
 from law.logger import get_logger
 
 
@@ -37,7 +37,7 @@ class TargetCollection(Target):
         elif not isinstance(targets, (list, tuple, dict)):
             raise TypeError("invalid targets, must be of type: list, tuple, dict")
 
-        Target.__init__(self, **kwargs)
+        super(TargetCollection, self).__init__(**kwargs)
 
         # store targets and threshold
         self.targets = targets
@@ -65,7 +65,7 @@ class TargetCollection(Target):
         raise TypeError("'{}' object is not iterable".format(self.__class__.__name__))
 
     def _copy_kwargs(self):
-        kwargs = Target._copy_kwargs(self)
+        kwargs = super(TargetCollection, self)._copy_kwargs()
         kwargs["threshold"] = self.threshold
         return kwargs
 
@@ -166,6 +166,12 @@ class TargetCollection(Target):
             return random.choice(self.targets)
         else:  # dict
             return random.choice(list(self.targets.values()))
+
+    def map(self, func):
+        """
+        Returns a copy of this collection with all targets being transformed by *func*.
+        """
+        return self.__class__(map_struct(func, self.targets), **self._copy_kwargs())
 
     def status_text(self, max_depth=0, flags=None, color=False, exists=None):
         count, existing_keys = self.count(keys=True)
@@ -378,7 +384,7 @@ class NestedSiblingFileCollection(FileCollection):
     """
 
     def __init__(self, *args, **kwargs):
-        FileCollection.__init__(self, *args, **kwargs)
+        super(NestedSiblingFileCollection, self).__init__(*args, **kwargs)
 
         # as per FileCollection's init, targets are already stored in both the _flat_targets and
         # _flat_target_list attributes, but store them again in sibling file collections to speed up
