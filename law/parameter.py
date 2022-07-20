@@ -10,6 +10,7 @@ __all__ = [
     "MultiRangeParameter", "NotifyParameter", "NotifyMultiParameter", "NotifyMailParameter",
 ]
 
+import csv
 
 import luigi
 import six
@@ -199,8 +200,8 @@ class BytesParameter(luigi.Parameter):
 
 
 class CSVParameter(luigi.Parameter):
-    """ __init__(*args, cls=luigi.Parameter, unique=False, sort=False, min_len=None, max_len=None, \
-        choices=None, brace_expand=False, escape_sep=True, **kwargs)
+    r""" __init__(*args, cls=luigi.Parameter, unique=False, sort=False, min_len=None, \
+        max_len=None, choices=None, brace_expand=False, escape_sep=True, **kwargs)
     Parameter that parses a comma-separated value (CSV) and produces a tuple. *cls* can refer to an
     other parameter class that will be used to parse and serialize the particular items.
 
@@ -213,7 +214,9 @@ class CSVParameter(luigi.Parameter):
     accepted values.
 
     When *brace_expand* is *True*, brace expansion is applied, potentially extending the list of
-    values. Unless *escape_sep* is *False*, escaped separators (comma) are not split when parsing
+    values. However, note that in this case commas that are not meant to act as a delimiter cannot
+    be quoted in csv-style with double quotes, but they should rather be backslash-escaped instead.
+    Unless *escape_sep* is *False*, escaped separators (comma) are not split when parsing
     strings and, likewise, separators contained in values to serialze are escaped.
 
     Example:
@@ -226,19 +229,32 @@ class CSVParameter(luigi.Parameter):
         p.serialize((7, 8, 9))
         # => "7,8,9"
 
+        # "," that should not be used as delimiter
+        p = CSVParameter()
+        p.parse("a,b,\"c,d\"")
+        # -> ("a", "b", "c,d")
+        # same as
+        p.parse("a,b,c\,d")
+        # -> ("a", "b", "c,d")
+
+        # uniqueness check
         p = CSVParameter(cls=luigi.IntParameter, unique=True)
         p.parse("4,5,6,6")
         # => (4, 5, 6)
 
+        # length check
         p = CSVParameter(cls=luigi.IntParameter, max_len=2)
         p.parse("4,5,6")
         # => ValueError
 
+        # choices
         p = CSVParameter(cls=luigi.IntParameter, choices=(1, 2))
         p.parse("2,3")
         # => ValueError
 
+        # brace expansion
         p = CSVParameter(cls=luigi.IntParameter, brace_expand=True)
+        # (note that with brace_expand enabled, the quoting if "," only works with back slashes)
         p.parse("1{2,3,4}9")
         # => (129, 139, 149)
 
@@ -251,20 +267,12 @@ class CSVParameter(luigi.Parameter):
         undesired side effects, the *default* value given to the constructor is also converted to a
         tuple.
 
-    .. py:classattribute:: CSV_SEP
-       type: string
-
-        Character used as a separator between CSV elements when parsing strings and serializing
-        values. Defaults to ``","``.
-
     .. py:attribute:: _inst
        type: cls
 
         Instance of the luigi parameter class *cls* that is used internally for parameter parsing
         and serialization.
     """
-
-    CSV_SEP = ","
 
     def __init__(self, *args, **kwargs):
         self._cls = kwargs.pop("cls", luigi.Parameter)
@@ -284,12 +292,6 @@ class CSVParameter(luigi.Parameter):
 
         self._inst = self._cls()
 
-        # brace expansion is only supported when CSV_SEP is ","
-        if self._brace_expand and self.CSV_SEP != ",":
-            logger.warning("{!r} does not support brace expansion when CSV_SEP is not a ','".format(
-                self))
-            self._brace_expand = False
-
     def _check_unique(self, value):
         if not self._unique:
             return value
@@ -306,7 +308,7 @@ class CSVParameter(luigi.Parameter):
         return tuple(value)
 
     def _check_len(self, value):
-        str_repr = lambda: self.CSV_SEP.join(str(v) for v in value)
+        str_repr = lambda: ",".join(str(v) for v in value)
 
         if self._min_len is not None and len(value) < self._min_len:
             raise ValueError("'{}' contains {} value(s), a minimum of {} is required".format(
@@ -344,12 +346,12 @@ class CSVParameter(luigi.Parameter):
                 # replace escaped separators
                 if self._escape_sep:
                     escaped_sep = "__law_escaped_csv_sep__"
-                    inp = inp.replace("\\" + self.CSV_SEP, escaped_sep)
-                # split
-                elems = inp.split(self.CSV_SEP)
+                    inp = inp.replace("\\,", escaped_sep)
+                # proper csv split
+                elems = list(csv.reader([inp]))[0]
                 # add back escaped separators per element
                 if self._escape_sep:
-                    elems = [elem.replace(escaped_sep, self.CSV_SEP) for elem in elems]
+                    elems = [elem.replace(escaped_sep, ",") for elem in elems]
             value = tuple(map(self._inst.parse, elems))
         else:
             value = (inp,)
@@ -375,12 +377,12 @@ class CSVParameter(luigi.Parameter):
         self._check_len(value)
         self._check_choices(value)
 
-        return self.CSV_SEP.join(str(self._inst.serialize(elem)) for elem in value)
+        return ",".join(str(self._inst.serialize(elem)) for elem in value)
 
 
 class MultiCSVParameter(CSVParameter):
-    """ __init__(*args, cls=luigi.Parameter, unique=False, sort=False, min_len=None, max_len=None, \
-        choices=None, brace_expand=False, escape_sep=True, **kwargs)
+    r""" __init__(*args, cls=luigi.Parameter, unique=False, sort=False, min_len=None, \
+        max_len=None, choices=None, brace_expand=False, escape_sep=True, **kwargs)
     Parameter that parses several comma-separated values (CSV), separated by colons, and produces a
     nested tuple. *cls* can refer to an other parameter class that will be used to parse and
     serialize the particular items.
@@ -390,6 +392,8 @@ class MultiCSVParameter(CSVParameter):
     by *unique*, *sort*, *max_len*, *min_len*, *choices*, *brace_expand* and *escape_sep* per
     sequence of values.
 
+    However, note that in this case colon characters that are not meant to act as a delimiter cannot
+    be quoted in csv-style with double quotes, but they should rather be backslash-escaped instead.
     Unless *escape_sep* is *False*, escaped separators (colon) are not split when parsing strings
     and, likewise, separators contained in values to serialze are escaped.
 
@@ -403,18 +407,31 @@ class MultiCSVParameter(CSVParameter):
         p.serialize((7, 8, (9,)))
         # => "7,8:9"
 
+        # ":" that should not be used as delimiter
+        p = MultiCSVParameter()
+        p.parse("a,b:\"c:d\"")
+        # -> (("a", "b"), ("c:d",))
+        # same as
+        p.parse("a,b:c\:d")
+        # -> (("a", "b"), ("c:d",))
+
+        # uniqueness check
         p = MultiCSVParameter(cls=luigi.IntParameter, unique=True)
         p.parse("4,5:6,6")
         # => ((4, 5), (6,))
 
+        # length check
         p = MultiCSVParameter(cls=luigi.IntParameter, max_len=2)
         p.parse("4,5:6,7,8")
         # => ValueError
 
+        # choices
         p = MultiCSVParameter(cls=luigi.IntParameter, choices=(1, 2))
         p.parse("1,2:2,3")
         # => ValueError
 
+        # brace expansion
+        # (note that with brace_expand enabled, the quoting if ":" only works with back slashes)
         p = MultiCSVParameter(cls=luigi.IntParameter, brace_expand=True)
         p.parse("4,5:6,7,8{8,9}")
         # => ((4, 5), (6, 7, 88, 89))
@@ -427,12 +444,6 @@ class MultiCSVParameter(CSVParameter):
         parameter produces a (nested) tuple and, in particular, not a list. To avoid undesired side
         effects, the *default* value given to the constructor is also converted to a tuple.
 
-    .. py:classattribute:: MULTI_CSV_SEP
-       type: string
-
-        Character used as a separator between CSV sequences when parsing strings and serializing
-        values. Defaults to ``":"``.
-
     .. py:attribute:: _inst
        type: cls
 
@@ -440,7 +451,11 @@ class MultiCSVParameter(CSVParameter):
         and serialization.
     """
 
-    MULTI_CSV_SEP = ":"
+    # custom csv dialect for splitting by ":" for automatic quoting
+    class _Dialect(csv.excel):
+        delimiter = ":"
+
+    _dialect = _Dialect()
 
     def parse(self, inp):
         """"""
@@ -452,12 +467,12 @@ class MultiCSVParameter(CSVParameter):
             # replace escaped separators
             if self._escape_sep:
                 escaped_sep = "__law_escaped_multi_csv_sep__"
-                inp = inp.replace("\\" + self.MULTI_CSV_SEP, escaped_sep)
+                inp = inp.replace("\\" + ":", escaped_sep)
             # split
-            elems = inp.split(self.MULTI_CSV_SEP)
+            elems = list(csv.reader([inp], dialect=self._dialect))[0]
             # add back escaped separators per element
             if self._escape_sep:
-                elems = [elem.replace(escaped_sep, self.MULTI_CSV_SEP) for elem in elems]
+                elems = [elem.replace(escaped_sep, ":") for elem in elems]
             value = tuple(super(MultiCSVParameter, self).parse(e) for e in elems)
         else:
             value = (super(MultiCSVParameter, self).parse(inp),)
@@ -472,8 +487,7 @@ class MultiCSVParameter(CSVParameter):
         # ensure that value is a nested tuple
         value = tuple(map(make_tuple, make_tuple(value)))
 
-        return self.MULTI_CSV_SEP.join(
-            super(MultiCSVParameter, self).serialize(v) for v in value)
+        return ":".join(super(MultiCSVParameter, self).serialize(v) for v in value)
 
 
 class RangeParameter(luigi.Parameter):
