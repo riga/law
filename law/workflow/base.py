@@ -61,7 +61,7 @@ class BaseWorkflowProxy(ProxyTask):
                     run_func = self.run.__func__
                     for decorator in decorators:
                         run_func = decorator(run_func)
-                    self.run = run_func.__get__(self)
+                    self.run = run_func.__get__(self, self.__class__)
                     break
 
         self._workflow_has_reset_branch_map = False
