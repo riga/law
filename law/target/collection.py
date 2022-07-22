@@ -83,15 +83,15 @@ class TargetCollection(Target):
         for key, targets in gen:
             yield (key, targets) if keys else targets
 
-    def iter_existing(self):
-        for targets in self._iter_flat():
+    def iter_existing(self, keys=False):
+        for key, targets in self._iter_flat(keys=True):
             if all(t.exists() for t in targets):
-                yield targets
+                yield (key, targets) if keys else targets
 
-    def iter_missing(self):
-        for targets in self._iter_flat():
+    def iter_missing(self, keys=False):
+        for key, targets in self._iter_flat(keys=True):
             if any(not t.exists() for t in targets):
-                yield targets
+                yield (key, targets) if keys else targets
 
     def keys(self):
         if isinstance(self._flat_targets, (list, tuple)):
@@ -290,17 +290,17 @@ class SiblingFileCollection(FileCollection):
         dir_path = self.dir.path if expand else self.dir.unexpanded_path
         return TargetCollection._repr_pairs(self) + [("dir", dir_path)]
 
-    def iter_existing(self):
+    def iter_existing(self, keys=False):
         basenames = self.dir.listdir()
-        for targets in self._iter_flat():
+        for key, targets in self._iter_flat(keys=True):
             if all(t.basename in basenames for t in flatten_collections(targets)):
-                yield targets
+                yield (key, targets) if keys else targets
 
-    def iter_missing(self):
+    def iter_missing(self, keys=False):
         basenames = self.dir.listdir()
-        for targets in self._iter_flat():
+        for key, targets in self._iter_flat(keys=True):
             if any(t.basename not in basenames for t in flatten_collections(targets)):
-                yield targets
+                yield (key, targets) if keys else targets
 
     def exists(self, count=None, basenames=None):
         threshold = self._abs_threshold()
@@ -411,21 +411,21 @@ class NestedSiblingFileCollection(FileCollection):
             for collection in self.collections
         }
 
-    def iter_existing(self):
+    def iter_existing(self, keys=False):
         basenames = self._get_basenames()
-        for targets in self._iter_flat():
+        for key, targets in self._iter_flat(keys=True):
             for t in flatten_collections(targets):
                 if t.basename not in basenames[self._flat_target_collections[t]]:
                     break
             else:
-                yield targets
+                yield (key, targets) if keys else targets
 
-    def iter_missing(self):
+    def iter_missing(self, keys=False):
         basenames = self._get_basenames()
-        for targets in self._iter_flat():
+        for key, targets in self._iter_flat(keys=True):
             for t in flatten_collections(targets):
                 if t.basename not in basenames[self._flat_target_collections[t]]:
-                    yield targets
+                    yield (key, targets) if keys else targets
                     break
 
     def exists(self, count=None):
