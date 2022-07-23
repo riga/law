@@ -151,8 +151,6 @@ class ForestMerge(LocalWorkflow):
 
     exclude_index = True
 
-    run_decorators = None
-
     @classmethod
     def modify_param_values(cls, params):
         # when tree_index is negative, which refers to the merge forest, make sure this is branch 0
@@ -192,14 +190,6 @@ class ForestMerge(LocalWorkflow):
         # modify_param_values prevents the forest from being a workflow, but still check
         if self.is_forest() and self.is_workflow():
             raise Exception("merge forest must not be a workflow, {} misconfigured".format(self))
-
-        # apply run decorators
-        if self.run_decorators:
-            # found decorators, so unbind, decorate and re-bind
-            run_func = self.run.__func__
-            for decorator in self.run_decorators:
-                run_func = decorator(run_func)
-            self.run = run_func.__get__(self, self.__class__)
 
     def is_forest(self):
         return self.tree_index < 0
