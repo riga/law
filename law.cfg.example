@@ -729,25 +729,25 @@
 ; Description: Number of jobs that can be submitted in parallel inside a single call to
 ; "law.arc.ARCJobManager.submit", i.e., in a single "arcsub" command.
 ; Type: integer
-; Default: 10
+; Default: 25
 
 ; arc_chunk_size_cancel
 ; Description: Number of jobs that can be cancelled in parallel inside a single call to
 ; "law.arc.ARCJobManager.cancel", i.e., in a single "arckill" command.
 ; Type: integer
-; Default: 20
+; Default: 25
 
 ; arc_chunk_size_cleanup
 ; Description: Number of jobs that can be cancelled in parallel inside a single call to
 ; "law.arc.ARCJobManager.cleanup", i.e., in a single "arcclean" command.
 ; Type: integer
-; Default: 20
+; Default: 25
 
 ; arc_chunk_size_query
 ; Description: Number of jobs whose status can be queried in parallel inside a single call to
 ; "law.arc.ARCJobManager.query", i.e., in a single "arcstat" command.
 ; Type: integer
-; Default: 20
+; Default: 25
 
 ; glite_job_file_dir
 ; glite_job_file_dir_mkdtemp
@@ -760,19 +760,19 @@
 ; Description: Number of jobs that can be cancelled in parallel inside a single call to
 ; "law.glite.GLiteJobManager.cancel", i.e., in a single "glite-ce-job-cancel" command.
 ; Type: integer
-; Default: 20
+; Default: 25
 
 ; glite_chunk_size_cleanup
 ; Description: Number of jobs that can be cancelled in parallel inside a single call to
 ; "law.glite.GLiteJobManager.cleanup", i.e., in a single "glite-ce-job-purge" command.
 ; Type: integer
-; Default: 20
+; Default: 25
 
 ; glite_chunk_size_query
 ; Description: Number of jobs whose status can be queried in parallel inside a single call to
 ; "law.glite.GLiteJobManager.query", i.e., in a single "glite-ce-job-status" command.
 ; Type: integer
-; Default: 20
+; Default: 25
 
 ; htcondor_job_file_dir
 ; htcondor_job_file_dir_mkdtemp
@@ -782,17 +782,23 @@
 ; values above are used. The only exception is "htcondor_job_file_dir_cleanup" whose default value
 ; is False.
 
+; htcondor_chunk_size_submit
+; Description: Number of jobs that can be submitted in parallel inside a single call to
+; "law.htcondor.HTCondorJobManager.submit", i.e., in a single "condor_submit" command.
+; Type: integer
+; Default: 25
+
 ; htcondor_chunk_size_cancel
 ; Description: Number of jobs that can be cancelled in parallel inside a single call to
 ; "law.htcondor.HTCondorJobManager.cancel", i.e., in a single "condor_rm" command.
 ; Type: integer
-; Default: 20
+; Default: 25
 
 ; htcondor_chunk_size_query
 ; Description: Number of jobs whose status can be queried in parallel inside a single call to
 ; "law.htcondor.HTCondorJobManager.query", i.e., in a single "condor_q" or "condor_history" command.
 ; Type: integer
-; Default: 20
+; Default: 25
 
 ; lsf_job_file_dir
 ; lsf_job_file_dir_mkdtemp
@@ -805,13 +811,13 @@
 ; Description: Number of jobs that can be cancelled in parallel inside a single call to
 ; "law.lsf.LSFJobManager.cancel", i.e., in a single "bkill" command.
 ; Type: integer
-; Default: 20
+; Default: 25
 
 ; lsf_chunk_size_query
 ; Description: Number of jobs whose status can be queried in parallel inside a single call to
 ; "law.lsf.LSFJobManager.query", i.e., in a single "bjobs" command.
 ; Type: integer
-; Default: 20
+; Default: 25
 
 ; slurm_job_file_dir
 ; slurm_job_file_dir_mkdtemp
@@ -824,13 +830,13 @@
 ; Description: Number of jobs that can be cancelled in parallel inside a single call to
 ; "law.slurm.SlurmJobManager.cancel", i.e., in a single "scancel" command.
 ; Type: integer
-; Default: 20
+; Default: 25
 
 ; slurm_chunk_size_query
 ; Description: Number of jobs whose status can be queried in parallel inside a single call to
 ; "law.slurm.SlurmJobManager.query", i.e., in a single "squeue" or "sacct" command.
 ; Type: integer
-; Default: 20
+; Default: 25
 
 
 ; --- notifications section ------------------------------------------------------------------------

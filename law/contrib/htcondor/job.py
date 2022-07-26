@@ -11,6 +11,7 @@ import os
 import stat
 import time
 import re
+import tempfile
 import subprocess
 
 from law.config import Config
@@ -29,7 +30,7 @@ _cfg = Config.instance()
 class HTCondorJobManager(BaseJobManager):
 
     # chunking settings
-    chunk_size_submit = 0
+    chunk_size_submit = _cfg.get_expanded_int("job", "htcondor_chunk_size_submit")
     chunk_size_cancel = _cfg.get_expanded_int("job", "htcondor_chunk_size_cancel")
     chunk_size_query = _cfg.get_expanded_int("job", "htcondor_chunk_size_query")
 
@@ -64,8 +65,41 @@ class HTCondorJobManager(BaseJobManager):
         if scheduler is None:
             scheduler = self.scheduler
 
-        # get the job file location as the submission command is run it the same directory
-        job_file_dir, job_file_name = os.path.split(os.path.abspath(job_file))
+        # when job_file is a sequence of files, merge them all into one and submit it
+        # however, this only for job files being located in the same directory or if they have an
+        # "initialdir" defined
+        def has_initialdir(job_file):
+            with open(job_file, "r") as f:
+                for line in f.readlines():
+                    if line.lower().strip().replace(" ", "").startswith("initialdir="):
+                        return True
+            return False
+
+        chunking = isinstance(job_file, (list, tuple))
+        job_files = make_list(job_file)
+        job_file_dir = None
+        for i, job_file in enumerate(job_files):
+            dirname, basename = os.path.split(job_file)
+            if job_file_dir is None:
+                if i == len(job_files) - 1 or not has_initialdir(job_file):
+                    job_file_dir = dirname
+            elif dirname != job_file_dir:
+                if not has_initialdir(job_file):
+                    raise Exception(
+                        "cannot performed chunked submission as job file '{}' is not located in a "
+                        "previously seen directory '{}' and has no initialdir".format(
+                            job_file, job_file_dir,
+                        ),
+                    )
+
+        # define the single, merged job file if necessary
+        _job_file = job_files[0]
+        if len(job_files) > 1:
+            _job_file = tempfile.mkstemp(prefix="merged_job_", suffix=".jdl", dir=job_file_dir)[1]
+            with open(_job_file, "w") as f:
+                for job_file in job_files:
+                    with open(job_file, "r") as _f:
+                        f.write(_f.read() + "\n")
 
         # build the command
         cmd = ["condor_submit"]
@@ -73,7 +107,7 @@ class HTCondorJobManager(BaseJobManager):
             cmd += ["-pool", pool]
         if scheduler:
             cmd += ["-name", scheduler]
-        cmd += [job_file_name]
+        cmd += [os.path.basename(_job_file)]
         cmd = quote_cmd(cmd)
 
         # define the actual submission in a loop to simplify retries
@@ -81,26 +115,29 @@ class HTCondorJobManager(BaseJobManager):
             # run the command
             logger.debug("submit htcondor job with command '{}'".format(cmd))
             code, out, err = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=job_file_dir)
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=os.path.dirname(_job_file))
 
             # get the job id(s)
             if code == 0:
                 # loop through all lines and try to match the expected pattern
+                job_ids = []
                 for line in out.strip().split("\n")[::-1]:
                     m = self.submission_job_id_cre.match(line.strip())
                     if m:
-                        job_ids = ["{}.{}".format(m.group(2), i) for i in range(int(m.group(1)))]
-                        break
-                else:
+                        job_ids.extend([
+                            "{}.{}".format(m.group(2), i)
+                            for i in range(int(m.group(1)))
+                        ])
+                if not job_ids:
                     code = 1
                     err = "cannot parse htcondor job id(s) from output:\n{}".format(out)
 
             # retry or done?
             if code == 0:
-                return job_ids
+                return job_ids if chunking else job_ids[0]
             else:
                 logger.debug("submission of htcondor job '{}' failed with code {}:\n{}".format(
-                    job_file, code, err))
+                    _job_file, code, err))
                 if retries > 0:
                     retries -= 1
                     time.sleep(retry_delay)
@@ -109,7 +146,7 @@ class HTCondorJobManager(BaseJobManager):
                     return None
                 else:
                     raise Exception("submission of htcondor job '{}' failed:\n{}".format(
-                        job_file, err))
+                        _job_file, err))
 
     def cancel(self, job_id, pool=None, scheduler=None, silent=False):
         # default arguments
