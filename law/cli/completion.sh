@@ -184,3 +184,4 @@ else
 fi
 
 complete -o bashdefault -o default -F _law_complete law
+complete -o bashdefault -o default -F _law_complete law3
