@@ -144,8 +144,11 @@ class SlurmJobManager(BaseJobManager):
 
         # handle errors
         if code != 0:
-            if silent:
-                return None
+            if "Invalid job id specified" in err:
+                return {id: self.job_status_dict(job_id=id, status=self.FAILED, error="slurm doesn't know about this job")
+                        for id in job_id}
+            elif silent:
+                return None # FIXME: doing this seems to break BaseRemoteWorkflowProxy.poll
             else:
                 raise Exception("queue query of slurm job(s) '{}' failed with code {}:"
                     "\n{}".format(job_id, code, err))
