@@ -91,7 +91,7 @@ class DockerSandbox(Sandbox):
 
             # build the full command
             cmd = quote_cmd(docker_run_cmd + [self.image, "bash", "-l", "-c",
-                "; ".join(flatten(setup_cmds, quote_cmd(["python", "-c", py_cmd]))),
+                "&& ".join(flatten(setup_cmds, quote_cmd(["python", "-c", py_cmd]))),
             ])
 
             # run it
@@ -219,7 +219,7 @@ class DockerSandbox(Sandbox):
 
         # build the final command
         cmd = quote_cmd(docker_run_cmd + [self.image, "bash", "-l", "-c",
-            "; ".join(flatten(setup_cmds, proxy_cmd.build())),
+            "&& ".join(flatten(setup_cmds, proxy_cmd.build())),
         ])
 
         return cmd
