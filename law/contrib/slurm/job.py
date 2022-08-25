@@ -437,6 +437,9 @@ class SlurmJobFileFactory(BaseJobFileFactory):
                 cmd = c.executable
                 f.write("\n{}{}\n".format(cmd, args))
 
+        # make it executable
+        os.chmod(job_file, os.stat(job_file).st_mode | stat.S_IXUSR | stat.S_IXGRP)
+
         logger.debug("created slurm job file at '{}'".format(job_file))
 
         return job_file, c
