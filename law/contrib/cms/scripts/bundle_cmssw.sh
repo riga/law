@@ -10,18 +10,18 @@
 
 action() {
     local cmssw_base="$1"
-    if [ -z "$cmssw_base" ]; then
+    if [ -z "${cmssw_base}" ]; then
         >&2 echo "please provide the path to the CMSSW checkout to bundle"
         return "1"
     fi
 
-    if [ ! -d "$cmssw_base" ]; then
-        >&2 echo "the provided path '$cmssw_base' is not a directory or does not exist"
+    if [ ! -d "${cmssw_base}" ]; then
+        >&2 echo "the provided path '${cmssw_base}' is not a directory or does not exist"
         return "2"
     fi
 
     local dst_path="$2"
-    if [ -z "$dst_path" ]; then
+    if [ -z "${dst_path}" ]; then
         >&2 echo "please provide the path where the bundle should be stored"
         return "3"
     fi
@@ -30,14 +30,14 @@ action() {
     local exclude="${3:-???}"
 
     (
-        cd "$cmssw_base" && \
+        cd "${cmssw_base}" && \
         find src -maxdepth 3 -type d \
             | grep -e "^src/.*/.*/\(interface\|data\|python\)" \
-            | grep -v -e "$exclude" \
-            | tar -czf "$dst_path" --dereference lib biglib bin cfipython --exclude="*.pyc" --files-from -
+            | grep -v -e "${exclude}" \
+            | tar -czf "${dst_path}" --dereference lib biglib bin cfipython --exclude="*.pyc" --files-from -
     )
     local ret="$?"
 
-    return "$ret"
+    return "${ret}"
 }
 action "$@"

@@ -7,9 +7,10 @@
 #      and exiting. Defaults to "./tests/run.sh".
 
 action() {
-    local this_file="$( [ ! -z "$ZSH_VERSION" ] && echo "${(%):-%x}" || echo "${BASH_SOURCE[0]}" )"
-    local this_dir="$( cd "$( dirname "$this_file" )" && pwd )"
-    local repo_dir="$( cd "$( dirname "$this_dir" )" && pwd )"
+    local shell_is_zsh=$( [ -z "${ZSH_VERSION}" ] && echo "false" || echo "true" )
+    local this_file="$( ${shell_is_zsh} && echo "${(%):-%x}" || echo "${BASH_SOURCE[0]}" )"
+    local this_dir="$( cd "$( dirname "${this_file}" )" && pwd )"
+    local repo_dir="$( cd "$( dirname "${this_dir}" )" && pwd )"
 
     local image="${1:-riga/law}"
     local cmd="${2:-./tests/run.sh}"
@@ -19,15 +20,15 @@ action() {
 
     # build the bash command
     local bash_cmd
-    if [ "$cmd" = "i" ] || [ "$cmd" = "interactive" ]; then
+    if [ "${cmd}" = "i" ] || [ "${cmd}" = "interactive" ]; then
         bash_cmd="bash"
     else
-        bash_cmd="bash -c '$cmd'"
+        bash_cmd="bash -c '${cmd}'"
     fi
 
     # build the full command and run it
-    local cmd="docker run --rm $tty_opts -v '$repo_dir':/root/law $image $bash_cmd"
-    echo "cmd: $cmd"
-    eval "$cmd"
+    local cmd="docker run --rm ${tty_opts} -v '${repo_dir}':/root/law ${image} ${bash_cmd}"
+    echo "cmd: ${cmd}"
+    eval "${cmd}"
 }
 action "$@"

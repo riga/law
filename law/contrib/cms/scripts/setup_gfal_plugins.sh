@@ -13,58 +13,58 @@
 
 action() {
     local dst_dir="$1"
-    if [ -z "$dst_dir" ]; then
+    if [ -z "${dst_dir}" ]; then
         >&2 echo "please provide the path to the new GFAL_PLUGIN_DIR"
         return "1"
     fi
 
     local src_dir="$2"
-    if [ -z "$src_dir" ]; then
+    if [ -z "${src_dir}" ]; then
         echo "no plugin source directory passed"
-        if [ ! -z "$GFAL_PLUGIN_DIR" ]; then
-            echo "using GFAL_PLUGIN_DIR variable ($GFAL_PLUGIN_DIR)"
-            src_dir="$GFAL_PLUGIN_DIR"
+        if [ ! -z "${GFAL_PLUGIN_DIR}" ]; then
+            echo "using GFAL_PLUGIN_DIR variable (${GFAL_PLUGIN_DIR})"
+            src_dir="${GFAL_PLUGIN_DIR}"
         else
             src_dir="$( _law_gfal2_default_plugin_dir )"
-            if [ -z "$src_dir" ]; then
+            if [ -z "${src_dir}" ]; then
                 >&2 echo "could not detect the default gfal2 plugin directory"
                 return "1"
             fi
-            echo "detected the default gfal2 plugin directory ($src_dir)"
+            echo "detected the default gfal2 plugin directory (${src_dir})"
         fi
     fi
 
     # check of the src_dir exists
-    if [ ! -d "$src_dir" ]; then
-        >&2 echo "source directory '$src_dir' does not exist"
+    if [ ! -d "${src_dir}" ]; then
+        >&2 echo "source directory '${src_dir}' does not exist"
         return "1"
     fi
 
     # create the dst_dir if required
-    mkdir -p "$dst_dir"
+    mkdir -p "${dst_dir}"
     if [ "$?" != "0" ]; then
-        >&2 echo "destination directory '$dst_dir' could not be created"
+        >&2 echo "destination directory '${dst_dir}' could not be created"
         return "1"
     fi
 
     # symlink all plugins
     ( \
-        cd "$dst_dir" && \
-        ln -s $src_dir/libgfal_plugin_*.so .
+        cd "${dst_dir}" && \
+        ln -s ${src_dir}/libgfal_plugin_*.so .
     )
 
     # remove the xrootd plugin and download a version that was compiled ontop of CMSSW
-    rm -f "$dst_dir/libgfal_plugin_xrootd.so"
+    rm -f "${dst_dir}/libgfal_plugin_xrootd.so"
     local plugin_url="https://cernbox.cern.ch/index.php/s/qgrogVY4bwcuCXt/download"
     if [ ! -z "$( type curl 2> /dev/null )" ]; then
         ( \
-            cd "$dst_dir" && \
-            curl "$plugin_url" > libgfal_plugin_xrootd.so
+            cd "${dst_dir}" && \
+            curl "${plugin_url}" > libgfal_plugin_xrootd.so
         )
     elif [ ! -z "$( type wget 2> /dev/null )" ]; then
         ( \
-            cd "$dst_dir" && \
-            wget "$plugin_url" && \
+            cd "${dst_dir}" && \
+            wget "${plugin_url}" && \
             mv download libgfal_plugin_xrootd.so
         )
     else
@@ -73,8 +73,8 @@ action() {
     fi
 
     # export the new GFAL_PLUGIN_DIR
-    export GFAL_PLUGIN_DIR="$dst_dir"
-    echo "new GFAL_PLUGIN_DIR is '$GFAL_PLUGIN_DIR'"
+    export GFAL_PLUGIN_DIR="${dst_dir}"
+    echo "new GFAL_PLUGIN_DIR is '${GFAL_PLUGIN_DIR}'"
 }
 
 _law_gfal2_default_plugin_dir() {
@@ -101,6 +101,6 @@ for line in s.getvalue().split('\\\\n'):\n\
     print(plugin_dir)\n\
     break\n\
 "
-    GFAL_PLUGIN_DIR= echo -e "$pycmd" | python
+    GFAL_PLUGIN_DIR= echo -e "${pycmd}" | python
 }
 action "$@"

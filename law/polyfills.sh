@@ -27,7 +27,7 @@ action() {
     _law_grep() {
         ${_law_grep_path} $@
     }
-    [ ! -z "$BASH_VERSION" ] && export -f _law_grep
+    [ ! -z "${BASH_VERSION}" ] && export -f _law_grep
 
 
     #
@@ -43,6 +43,6 @@ action() {
             _law_grep -Po $@
         }
     fi
-    [ ! -z "$BASH_VERSION" ] && export -f _law_grep_Po
+    [ ! -z "${BASH_VERSION}" ] && export -f _law_grep_Po
 }
 action "$@"
