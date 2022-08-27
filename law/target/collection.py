@@ -370,6 +370,11 @@ class SiblingFileCollection(FileCollection):
             missing_keys = [key for key in self.keys() if key not in existing_keys]
             return n if not keys else (n, missing_keys)
 
+    def remove(self, silent=True):
+        for targets in self.iter_existing():
+            for t in targets:
+                t.remove(silent=silent)
+
 
 class NestedSiblingFileCollection(FileCollection):
     """
@@ -478,6 +483,11 @@ class NestedSiblingFileCollection(FileCollection):
             n = len(self) - n
             missing_keys = [key for key in self.keys() if key not in existing_keys]
             return n if not keys else (n, missing_keys)
+
+    def remove(self, silent=True):
+        for targets in self.iter_existing():
+            for t in targets:
+                t.remove(silent=silent)
 
 
 def flatten_collections(*targets):
