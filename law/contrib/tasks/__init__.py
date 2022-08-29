@@ -21,7 +21,7 @@ from law.target.local import LocalFileTarget
 from law.target.collection import TargetCollection, SiblingFileCollection
 from law.parameter import NO_STR
 from law.decorator import factory
-from law.util import iter_chunks, flatten, map_struct, DotDict
+from law.util import iter_chunks, flatten, map_struct, range_expand, DotDict
 from law.logger import get_logger
 
 
@@ -80,8 +80,7 @@ class TransferLocalFile(Task):
         # otherwise assume self.requires() returns a task with a single local target
         if self.source_path not in (NO_STR, None):
             return LocalFileTarget(self.source_path)
-        else:
-            return self.input()
+        return self.input()
 
     @abstractmethod
     def single_output(self):
@@ -90,9 +89,9 @@ class TransferLocalFile(Task):
     def get_replicated_path(self, basename, i=None):
         if i is None:
             return basename
-        else:
-            name, ext = os.path.splitext(basename)
-            return "{name}.{i}{ext}".format(name=name, ext=ext, i=i)
+
+        name, ext = os.path.splitext(basename)
+        return "{name}.{i}{ext}".format(name=name, ext=ext, i=i)
 
     def output(self):
         output = self.single_output()
@@ -164,7 +163,7 @@ class ForestMerge(LocalWorkflow):
         # amend workflow branch parameters to exclude
         kwargs["_exclude"] = set(kwargs.pop("_exclude", set())) | {"branches"}
 
-        # just as for all workflows that requie branches of themselves (or vice versa,
+        # just as for all workflows that require branches of themselves (or vice versa,
         # skip task level excludes
         kwargs["_skip_task_excludes"] = True
 
@@ -175,6 +174,19 @@ class ForestMerge(LocalWorkflow):
         new_inst._n_leaves = inst._n_leaves
 
         return new_inst
+
+    @classmethod
+    def _mark_merge_output_placeholder(cls, target):
+        """
+        Marks a *target*, such as the output of :py:meth:`merge_output` as temporary placeholder.
+        When such a target is received while building the merge forest, no actual merging structure
+        is constructed, but rather deferred to a future call.
+        """
+        target._is_merge_output_placeholder = True
+
+    @classmethod
+    def _check_merge_output_placeholder(cls, target):
+        return bool(getattr(target, "_is_merge_output_placeholder", False))
 
     def __init__(self, *args, **kwargs):
         super(ForestMerge, self).__init__(*args, **kwargs)
@@ -198,7 +210,7 @@ class ForestMerge(LocalWorkflow):
         return not self.is_forest() and self.tree_depth == 0
 
     def is_leaf(self):
-        return not self.is_forest() and self.tree_depth == self.max_depth
+        return not self.is_forest() and self.tree_depth == self.max_tree_depth
 
     def _create_workflow_task(self):
         # since the forest counts as a branch, as_workflow should point the tree_index 0
@@ -210,7 +222,7 @@ class ForestMerge(LocalWorkflow):
         return super(ForestMerge, self)._create_workflow_task()
 
     @property
-    def max_depth(self):
+    def max_tree_depth(self):
         return max(self._get_tree().keys())
 
     @cached_workflow_property
@@ -241,6 +253,7 @@ class ForestMerge(LocalWorkflow):
         # the tree itself is a dict that maps depths to lists of nodes with that depth
         # when multiple trees are used (a forest), each one handles ``n_leaves / n_trees`` leaves
 
+        # when the forest was already built and saved by means of the _cache_forest flag, do nothing
         if self._forest_built:
             return
 
@@ -274,8 +287,10 @@ class ForestMerge(LocalWorkflow):
 
         # infer the number of trees from the merge output
         output = self.merge_output()
-        n_trees = len(output) if isinstance(output, (list, tuple, TargetCollection)) else 1
-
+        is_placeholder = self._check_merge_output_placeholder(output)
+        n_trees = 1
+        if not is_placeholder:
+            n_trees = len(output) if isinstance(output, (list, tuple, TargetCollection)) else 1
         if self._n_leaves < n_trees:
             raise Exception("too few leaves ({}) for number of requested trees ({})".format(
                 self._n_leaves, n_trees))
@@ -284,36 +299,39 @@ class ForestMerge(LocalWorkflow):
         n_min = self._n_leaves // n_trees
         n_trees_overlap = self._n_leaves % n_trees
         leaves_per_tree = n_trees_overlap * [n_min + 1] + (n_trees - n_trees_overlap) * [n_min]
+        merge_factor = self.merge_factor
 
-        # build the trees
+        # when the output is a placeholder, define a one-element tree
+        # otherwise, built the forest the normal way
         forest = []
-        for i, n_leaves in enumerate(leaves_per_tree):
-            # build a nested list of leaf numbers using the merge factor
-            # e.g. 9 leaves with factor 3 -> [[0, 1, 2], [3, 4, 5], [6, 7, 8]]
-            # TODO: this point defines the actual tree structure, which is bottom-up at the moment,
-            # but maybe it's good to have this configurable
-            nested_leaves = list(iter_chunks(n_leaves, self.merge_factor))
-            while len(nested_leaves) > 1:
-                nested_leaves = list(iter_chunks(nested_leaves, self.merge_factor))
+        if is_placeholder:
+            forest.append({0: [(0,)]})
+        else:
+            for i, n_leaves in enumerate(leaves_per_tree):
+                # build a nested list of leaf numbers using the merge factor
+                # e.g. 9 leaves with factor 3 -> [[0, 1, 2], [3, 4, 5], [6, 7, 8]]
+                nested_leaves = list(iter_chunks(n_leaves, merge_factor))
+                while len(nested_leaves) > 1:
+                    nested_leaves = list(iter_chunks(nested_leaves, merge_factor))
 
-            # convert the list of nodes to the tree format described above
-            tree = {}
-            for node in nodify(nested_leaves, root_id=i):
-                depth = len(node) - 1
-                tree.setdefault(depth, []).append(node)
+                # convert the list of nodes to the tree format described above
+                tree = {}
+                for node in nodify(nested_leaves, root_id=i):
+                    depth = len(node) - 1
+                    tree.setdefault(depth, []).append(node)
 
-            forest.append(tree)
+                forest.append(tree)
 
         # store values
         self.leaves_per_tree = leaves_per_tree
         self.merge_forest = forest
-        if self._cache_forest:
+        if not is_placeholder and self._cache_forest:
             self._forest_built = True
 
         # complain when the depth is too large
-        if self.tree_depth > self.max_depth:
+        if self.tree_depth > self.max_tree_depth:
             raise ValueError("tree_depth {} exceeds maximum depth {}".format(
-                self.tree_depth, self.max_depth))
+                self.tree_depth, self.max_tree_depth))
 
     def create_branch_map(self):
         tree = self._get_tree()
@@ -380,10 +398,18 @@ class ForestMerge(LocalWorkflow):
 
         if self.is_forest():
             n_trees = len(self.merge_forest)
+            # interpret branches as tree indices when given
+            indices = range(n_trees)
+            if self.branches:
+                indices = [
+                    i
+                    for i in range_expand(list(self.branches), min_value=0, max_value=n_trees)
+                    if 0 <= i < n_trees
+                ]
             reqs["forest_merge"] = {
                 i: self._req_tree(self, branch=-1, tree_index=i,
                     _exclude=self.exclude_params_workflow)
-                for i in range(n_trees)
+                for i in indices
             }
 
         elif self.is_leaf():
@@ -455,10 +481,7 @@ class ForestMerge(LocalWorkflow):
 
         # trace actual inputs to merge
         inputs = self.input()["forest_merge"]
-        if self.is_leaf():
-            inputs = self.trace_merge_inputs(inputs)
-        else:
-            inputs = inputs.values()
+        inputs = list(self.trace_merge_inputs(inputs) if self.is_leaf() else inputs.values())
 
         # merge
         self.publish_message("start merging {} inputs of node {}".format(
