@@ -21,10 +21,6 @@ import six
 from six.moves.configparser import ConfigParser
 
 from law.util import no_value, flag_to_bool, brace_expand, str_to_int
-from law.logger import get_logger
-
-
-logger = get_logger(__name__)
 
 
 def law_home_path(*paths):
@@ -314,10 +310,7 @@ class Config(ConfigParser):
             if os.path.isfile(cf):
                 self.read(cf)
                 self.config_file = cf
-                logger.debug("config instance created from '{}'".format(cf))
                 break
-        else:
-            logger.debug("config instance created without a file")
 
         # inherit from and/or extend by other configs
         for option, overwrite_options in [("inherit_configs", False), ("extend_configs", True)]:
@@ -642,3 +635,9 @@ for name in __all__[__all__.index("sections"):]:
         return wrapper
 
     locals()[name] = closure(name)
+
+
+# trailing imports
+from law.logger import get_logger
+
+logger = get_logger(__name__)
