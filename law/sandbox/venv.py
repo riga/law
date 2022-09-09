@@ -50,7 +50,7 @@ class VenvSandbox(Sandbox):
                     + "pickle.dump(dict(os.environ),open('{}','wb'),protocol=2)".format(tmp_path)
 
                 # build the full command
-                cmd = "&& ".join(
+                cmd = " && ".join(
                     [quote_cmd(venv_cmd)] +
                     setup_cmds +
                     [quote_cmd(["python", "-c", py_cmd])],
@@ -92,7 +92,7 @@ class VenvSandbox(Sandbox):
             proxy_cmd.add_arg("--local-scheduler", "True", overwrite=True)
 
         # build the full command
-        cmd = "&& ".join(
+        cmd = " && ".join(
             [quote_cmd(venv_cmd)] +
             setup_cmds +
             [proxy_cmd.build()],

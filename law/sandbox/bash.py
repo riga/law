@@ -59,7 +59,7 @@ class BashSandbox(Sandbox):
                     + "pickle.dump(dict(os.environ),open('{}','wb'),protocol=2)".format(tmp_path)
 
                 # build the full command
-                cmd = quote_cmd(bash_cmd + ["-c", "&& ".join(
+                cmd = quote_cmd(bash_cmd + ["-c", " && ".join(
                     flatten("source \"{}\" \"\"".format(self.script), setup_cmds,
                         quote_cmd(["python", "-c", py_cmd]))),
                 ])
@@ -100,7 +100,7 @@ class BashSandbox(Sandbox):
             proxy_cmd.add_arg("--local-scheduler", "True", overwrite=True)
 
         # build the final command
-        cmd = quote_cmd(bash_cmd + ["-c", "&& ".join(
+        cmd = quote_cmd(bash_cmd + ["-c", " && ".join(
             flatten("source \"{}\" \"\"".format(self.script), setup_cmds, proxy_cmd.build())),
         ])
 
