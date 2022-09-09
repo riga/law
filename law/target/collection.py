@@ -291,15 +291,18 @@ class SiblingFileCollection(FileCollection):
         return TargetCollection._repr_pairs(self) + [("dir", dir_path)]
 
     def iter_existing(self, keys=False):
-        basenames = self.dir.listdir()
+        basenames = self.dir.listdir() if self.dir.exists() else None
         for key, targets in self._iter_flat(keys=True):
-            if all(t.basename in basenames for t in flatten_collections(targets)):
+            if basenames and all(t.basename in basenames for t in flatten_collections(targets)):
                 yield (key, targets) if keys else targets
 
     def iter_missing(self, keys=False):
-        basenames = self.dir.listdir()
+        basenames = self.dir.listdir() if self.dir.exists() else None
         for key, targets in self._iter_flat(keys=True):
-            if any(t.basename not in basenames for t in flatten_collections(targets)):
+            if (
+                basenames is None or
+                any(t.basename not in basenames for t in flatten_collections(targets))
+            ):
                 yield (key, targets) if keys else targets
 
     def exists(self, count=None, basenames=None):
