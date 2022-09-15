@@ -98,7 +98,8 @@ class DockerSandbox(Sandbox):
             code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             if code != 0:
-                raise Exception("docker sandbox env loading failed:\n{}".format(out))
+                raise Exception("docker sandbox env loading failed with exit code {}:\n{}".format(
+                    code, out))
 
             # load the environment from the tmp file
             env = tmp.load(formatter="pickle")

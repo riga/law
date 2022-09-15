@@ -67,7 +67,8 @@ class BashSandbox(Sandbox):
                 # run it
                 returncode = interruptable_popen(cmd, shell=True, executable="/bin/bash")[0]
                 if returncode != 0:
-                    raise Exception("bash sandbox env loading failed")
+                    raise Exception("bash sandbox env loading failed with exit code {}".format(
+                        returncode))
 
                 # load the environment from the tmp file
                 pickle_kwargs = {"encoding": "utf-8"} if six.PY3 else {}
