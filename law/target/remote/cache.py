@@ -79,6 +79,7 @@ class RemoteCache(object):
         add("root", cfg.get_expanded)
         add("cleanup", cfg.get_expanded_boolean)
         add("max_size", get_size)
+        add("mtime_patience", cfg.get_expanded_float)
         add("file_perm", cfg.get_expanded_int)
         add("dir_perm", cfg.get_expanded_int)
         add("wait_delay", get_time)
@@ -91,8 +92,8 @@ class RemoteCache(object):
 
         return config
 
-    def __init__(self, fs, root=TMP, cleanup=False, max_size=0, file_perm=0o0660, dir_perm=0o0770,
-            wait_delay=5.0, max_waits=120, global_lock=False):
+    def __init__(self, fs, root=TMP, cleanup=False, max_size=0, mtime_patience=1.0,
+            file_perm=0o0660, dir_perm=0o0770, wait_delay=5.0, max_waits=120, global_lock=False):
         object.__init__(self)
         # max_size is in MB, wait_delay is in seconds
 
@@ -117,6 +118,7 @@ class RemoteCache(object):
         self.name = name
         self.cleanup = cleanup
         self.max_size = max_size
+        self.mtime_patience = mtime_patience
         self.dir_perm = dir_perm
         self.file_perm = file_perm
         self.wait_delay = wait_delay
@@ -337,6 +339,12 @@ class RemoteCache(object):
 
     def mtime(self, rpath):
         return self._mtime(self.cache_path(rpath))
+
+    def check_mtime(self, rpath, rmtime):
+        if self.mtime_patience < 0:
+            return True
+
+        return abs(self.mtime(rpath) - rmtime) > self.mtime_patience
 
     def _remove(self, cpath, lock=True):
         def remove():

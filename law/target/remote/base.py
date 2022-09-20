@@ -387,7 +387,7 @@ class RemoteFileSystem(FileSystem):
                     with self.cache.lock(src):
                         # in cache and outdated?
                         rstat = self.stat(src, **kwargs_no_retries)
-                        if src in self.cache and abs(self.cache.mtime(src) - rstat.st_mtime) > 1:
+                        if src in self.cache and not self.cache.check_mtime(src, rstat.st_mtime):
                             self.cache.remove(src, lock=False)
                         # in cache at all?
                         if src not in self.cache:
