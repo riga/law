@@ -1,7 +1,7 @@
 FROM centos:7
 
 # labels
-LABEL law.version="0.1.7"
+LABEL law.version="0.1.8"
 LABEL law.image_name="riga/law"
 LABEL law.image_tag="py36"
 LABEL law.image_dir="law-py36"
@@ -70,16 +70,16 @@ eval "$( pyenv virtualenv-init - )"' >> /root/.bashrc
 
 # boost
 ENV BOOST_ROOT /usr/local
-RUN wget -nv https://boostorg.jfrog.io/artifactory/main/release/1.79.0/source/boost_1_79_0.tar.gz && \
-    tar -xzf boost_1_79_0.tar.gz && \
-    cd boost_1_79_0 && \
+RUN wget -nv https://boostorg.jfrog.io/artifactory/main/release/1.80.0/source/boost_1_80_0.tar.gz && \
+    tar -xzf boost_1_80_0.tar.gz && \
+    cd boost_1_80_0 && \
     ./bootstrap.sh --with-libraries=system,thread,python --with-python="$( pyenv which python )" && \
     perl -pi -e 's!(\Qincludes ?= $(prefix)/include/python$(version)\E)!\1m!' tools/build/src/tools/python.jam && \
     ./b2 install --prefix=${BOOST_ROOT} && \
     ldconfig && \
     cd .. && \
-    rm -rf boost_1_79_0 && \
-    rm boost_1_79_0.tar.gz
+    rm -rf boost_1_80_0 && \
+    rm boost_1_80_0.tar.gz
 
 # WLCG software
 RUN rpm -Uvh https://repo.opensciencegrid.org/osg/3.6/osg-3.6-el7-release-latest.rpm
@@ -94,7 +94,7 @@ RUN yum -y install lfc-devel dpm-devel srm-ifce-devel dcap-devel globus-gass-cop
     davix-devel xrootd-client-devel libssh2-devel gtest-devel libuuid-devel; yum clean all
 RUN git clone https://gitlab.cern.ch/dmc/gfal2.git && \
     cd gfal2 && \
-    git checkout tags/v2.20.5 && \
+    git checkout tags/v2.21. && \
     mkdir build && \
     cd build && \
     cmake .. \
@@ -107,7 +107,7 @@ RUN git clone https://gitlab.cern.ch/dmc/gfal2.git && \
     rm -rf gfal2
 RUN git clone https://gitlab.cern.ch/dmc/gfal2-bindings.git && \
     cd gfal2-bindings && \
-    git checkout tags/v1.11.1 && \
+    git checkout tags/v1.12.0 && \
     mkdir build && \
     cd build && \
     cmake .. \
