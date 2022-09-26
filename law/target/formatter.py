@@ -10,6 +10,7 @@ __all__ = ["AUTO_FORMATTER", "Formatter", "get_formatter", "find_formatters", "f
 import os
 import json
 import zipfile
+import gzip
 import tarfile
 from collections import OrderedDict
 
@@ -229,6 +230,43 @@ class ZipFormatter(Formatter):
             else:
                 for elem in os.listdir(src):
                     f.write(os.path.join(src, elem), elem)
+
+
+class GZipFormatter(Formatter):
+
+    name = "gzip"
+
+    @classmethod
+    def accepts(cls, path, mode):
+        return get_path(path).endswith(".gz")
+
+    @classmethod
+    def load(cls, path, *args, **kwargs):
+        # assume read mode, but also check args and kwargs
+        mode = "r"
+        if args:
+            mode = args[0]
+            args = args[1:]
+        elif "mode" in kwargs:
+            mode = kwargs.pop("mode")
+
+        # open with gzip and return content
+        with gzip.open(get_path(path), mode, *args, **kwargs) as f:
+            return f.read()
+
+    @classmethod
+    def dump(cls, path, obj, *args, **kwargs):
+        # assume write mode, but also check args and kwargs
+        mode = "w"
+        if args:
+            mode = args[0]
+            args = args[1:]
+        elif "mode" in kwargs:
+            mode = kwargs.pop("mode")
+
+        # write into a new gzip file
+        with gzip.open(get_path(path), mode, *args, **kwargs) as f:
+            return f.write(obj)
 
 
 class TarFormatter(Formatter):
