@@ -186,31 +186,49 @@ class Logger(logging.Logger):
         self._once_logs = defaultdict(set)
 
     def debug_once(self, log_id, *args, **kwargs):
+        # when no log_id is set, but just a message, it is received as log_id
+        if not args:
+            args = (log_id,)
         if log_id not in self._once_logs["debug"]:
             self._once_logs["debug"].add(log_id)
             self.debug(*args, **kwargs)
 
     def info_once(self, log_id, *args, **kwargs):
+        # when no log_id is set, but just a message, it is received as log_id
+        if not args:
+            args = (log_id,)
         if log_id not in self._once_logs["info"]:
             self._once_logs["info"].add(log_id)
             self.info(*args, **kwargs)
 
     def warning_once(self, log_id, *args, **kwargs):
+        # when no log_id is set, but just a message, it is received as log_id
+        if not args:
+            args = (log_id,)
         if log_id not in self._once_logs["warning"]:
             self._once_logs["warning"].add(log_id)
             self.warning(*args, **kwargs)
 
     def error_once(self, log_id, *args, **kwargs):
+        # when no log_id is set, but just a message, it is received as log_id
+        if not args:
+            args = (log_id,)
         if log_id not in self._once_logs["error"]:
             self._once_logs["error"].add(log_id)
             self.error(*args, **kwargs)
 
     def critical_once(self, log_id, *args, **kwargs):
+        # when no log_id is set, but just a message, it is received as log_id
+        if not args:
+            args = (log_id,)
         if log_id not in self._once_logs["critical"]:
             self._once_logs["critical"].add(log_id)
             self.critical(*args, **kwargs)
 
     def fatal_once(self, log_id, *args, **kwargs):
+        # when no log_id is set, but just a message, it is received as log_id
+        if not args:
+            args = (log_id,)
         if log_id not in self._once_logs["fatal"]:
             self._once_logs["fatal"].add(log_id)
             self.fatal(*args, **kwargs)
