@@ -125,8 +125,8 @@ class RemoteFileSystem(FileSystem):
             self.cache = None
 
     def __repr__(self):
-        return "{}({}, base={}, {})".format(self.__class__.__name__,
-            self.file_interface.__class__.__name__, self.base[0], hex(id(self)))
+        return "{}({}, name={}, base={}, {})".format(self.__class__.__name__,
+            self.file_interface.__class__.__name__, self.name, self.base[0], hex(id(self)))
 
     def _init_configs(self, section, default_fs_option, default_section, init_kwargs):
         cfg = Config.instance()

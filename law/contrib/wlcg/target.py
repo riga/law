@@ -33,6 +33,7 @@ class WLCGFileSystem(RemoteFileSystem):
 
         # store the config section
         self.config_section = section
+        fs_config.setdefault("name", self.config_section)
 
         # base path is mandatory
         if not fi_config.get("base"):

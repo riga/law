@@ -45,17 +45,18 @@ class FileSystem(shims.FileSystem):
 
         return config
 
-    def __init__(self, has_permissions=True, default_file_perm=None, default_dir_perm=None,
-            create_file_dir=True, **kwargs):
+    def __init__(self, name=None, has_permissions=True, default_file_perm=None,
+            default_dir_perm=None, create_file_dir=True, **kwargs):
         super(FileSystem, self).__init__(**kwargs)
 
+        self.name = name
         self.has_permissions = has_permissions
         self.default_file_perm = default_file_perm
         self.default_dir_perm = default_dir_perm
         self.create_file_dir = create_file_dir
 
     def __repr__(self):
-        return "{}({})".format(self.__class__.__name__, hex(id(self)))
+        return "{}(name={}, {})".format(self.__class__.__name__, self.name, hex(id(self)))
 
     def dirname(self, path):
         return os.path.dirname(path) if path != "/" else None

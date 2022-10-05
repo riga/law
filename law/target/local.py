@@ -48,6 +48,7 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
                     cfg.update({section: data}, overwrite_sections=True, overwrite_options=False)
                 kwargs = self.parse_config(section, kwargs)
                 self.config_section = section
+                kwargs.setdefault("name", self.config_section)
             else:
                 raise Exception("law config has no section '{}' to read {} options".format(
                     section, self.__class__.__name__))
