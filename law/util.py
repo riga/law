@@ -10,12 +10,12 @@ __all__ = [
     "str_to_int", "flag_to_bool", "empty_context", "common_task_params", "colored", "uncolored",
     "query_choice", "is_pattern", "brace_expand", "range_expand", "range_join", "multi_match",
     "is_iterable", "is_lazy_iterable", "make_list", "make_tuple", "make_unique", "is_nested",
-    "flatten", "merge_dicts", "which", "map_verbose", "map_struct", "mask_struct", "tmp_file",
-    "perf_counter", "interruptable_popen", "readable_popen", "create_hash", "create_random_string",
-    "copy_no_perm", "makedirs", "user_owns_file", "iter_chunks", "human_bytes", "parse_bytes",
-    "human_duration", "parse_duration", "is_file_exists_error", "send_mail", "DotDict",
-    "ShorthandDict", "open_compat", "patch_object", "join_generators", "quote_cmd",
-    "escape_markdown", "classproperty", "BaseStream", "TeeStream", "FilteredStream",
+    "flatten", "merge_dicts", "unzip", "which", "map_verbose", "map_struct", "mask_struct",
+    "tmp_file", "perf_counter", "interruptable_popen", "readable_popen", "create_hash",
+    "create_random_string", "copy_no_perm", "makedirs", "user_owns_file", "iter_chunks",
+    "human_bytes", "parse_bytes", "human_duration", "parse_duration", "is_file_exists_error",
+    "send_mail", "DotDict", "ShorthandDict", "open_compat", "patch_object", "join_generators",
+    "quote_cmd", "escape_markdown", "classproperty", "BaseStream", "TeeStream", "FilteredStream",
 ]
 
 
@@ -846,6 +846,46 @@ def merge_dicts(*dicts, **kwargs):
             merged_dict.update(d)
 
     return merged_dict
+
+
+def unzip(struct, fill_none=False):
+    """
+    Unzips a *struct* consisting of sequences with equal lengths and returns lists with 1st, 2nd,
+    etc elements. This function can be thought of as the opposite of the ``zip`` builtin.
+
+    The number of elements per returned list is determined by the length of the first sequence in
+    *struct*. In case a sequence does contain fewer items an exception is raised. However, if
+    *fill_none* is *True*, *None* is inserted instead.
+
+    .. code-block:: python
+
+        unzip([(1, 2), (3, 4)])
+        # -> ([1, 3], [2, 4])
+
+        unzip([(1, 2), (3,)])
+        # -> ValueError
+
+        unzip([(1, 2), (3,)], fill_none=True)
+        # -> ([1, 3], [2, None])
+    """
+    lists = None
+    for i, obj in enumerate(struct):
+        # determine the number of lists to return
+        if lists is None:
+            lists = tuple([] for _ in range(len(obj)))
+
+        # fill them
+        for j, l in enumerate(lists):
+            if len(obj) > j:
+                l.append(obj[j])
+            elif fill_none:
+                l.append(None)
+            else:
+                raise ValueError(
+                    "insufficient length {} of sequence at index {} to unzip".format(j, len(lists)),
+                )
+
+    return lists
 
 
 def which(prog):
