@@ -30,10 +30,10 @@ class KerasModelFormatter(Formatter):
         # the method for saving the model depends on the file extension
         if path.endswith(".json"):
             with open(path, "w") as f:
-                f.write(model.to_json())
+                f.write(model.to_json(*args, **kwargs))
         elif path.endswith((".yml", ".yaml")):
             with open(path, "w") as f:
-                f.write(model.to_yaml())
+                f.write(model.to_yaml(*args, **kwargs))
         else:  # .hdf5, .h5, bundle
             return model.save(path, *args, **kwargs)
 

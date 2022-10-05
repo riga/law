@@ -117,12 +117,12 @@ class TextFormatter(Formatter):
     @classmethod
     def load(cls, path, *args, **kwargs):
         with open(get_path(path), "r") as f:
-            return f.read()
+            return f.read(*args, **kwargs)
 
     @classmethod
     def dump(cls, path, content, *args, **kwargs):
         with open(get_path(path), "w") as f:
-            f.write(str(content))
+            f.write(str(content), *args, **kwargs)
 
 
 class JSONFormatter(Formatter):
@@ -208,9 +208,12 @@ class ZipFormatter(Formatter):
         elif "mode" in kwargs:
             mode = kwargs.pop("mode")
 
+        # arguments passed to extractall()
+        extractall_kwargs = kwargs.pop("extractall_kwargs", None) or {}
+
         # open zip file and extract to dst
         with zipfile.ZipFile(get_path(path), mode, *args, **kwargs) as f:
-            f.extractall(get_path(dst))
+            f.extractall(get_path(dst), **extractall_kwargs)
 
     @classmethod
     def dump(cls, path, src, *args, **kwargs):
@@ -222,14 +225,17 @@ class ZipFormatter(Formatter):
         elif "mode" in kwargs:
             mode = kwargs.pop("mode")
 
+        # arguments passed to write()
+        write_kwargs = kwargs.pop("write_kwargs", None) or {}
+
         # open a new zip file and add all files in src
         with zipfile.ZipFile(get_path(path), mode, *args, **kwargs) as f:
             src = get_path(src)
             if os.path.isfile(src):
-                f.write(src, os.path.basename(src))
+                f.write(src, os.path.basename(src), **write_kwargs)
             else:
                 for elem in os.listdir(src):
-                    f.write(os.path.join(src, elem), elem)
+                    f.write(os.path.join(src, elem), elem, **write_kwargs)
 
 
 class GZipFormatter(Formatter):
@@ -250,9 +256,12 @@ class GZipFormatter(Formatter):
         elif "mode" in kwargs:
             mode = kwargs.pop("mode")
 
+        # arguments passed to read()
+        read_kwargs = kwargs.pop("read_kwargs", None) or {}
+
         # open with gzip and return content
         with gzip.open(get_path(path), mode, *args, **kwargs) as f:
-            return f.read()
+            return f.read(**read_kwargs)
 
     @classmethod
     def dump(cls, path, obj, *args, **kwargs):
@@ -264,9 +273,12 @@ class GZipFormatter(Formatter):
         elif "mode" in kwargs:
             mode = kwargs.pop("mode")
 
+        # arguments passed to write()
+        write_kwargs = kwargs.pop("write_kwargs", None) or {}
+
         # write into a new gzip file
         with gzip.open(get_path(path), mode, *args, **kwargs) as f:
-            return f.write(obj)
+            return f.write(obj, **write_kwargs)
 
 
 class TarFormatter(Formatter):
@@ -301,9 +313,12 @@ class TarFormatter(Formatter):
             compression = cls.infer_compression(path)
             mode = "r" if not compression else "r:" + compression
 
+        # arguments passed to extractall()
+        extractall_kwargs = kwargs.pop("extractall_kwargs", None) or {}
+
         # open zip file and extract to dst
         with tarfile.open(get_path(path), mode, *args, **kwargs) as f:
-            f.extractall(get_path(dst))
+            f.extractall(get_path(dst), **extractall_kwargs)
 
     @classmethod
     def dump(cls, path, src, *args, **kwargs):
@@ -317,15 +332,26 @@ class TarFormatter(Formatter):
             compression = cls.infer_compression(path)
             mode = "w" if not compression else "w:" + compression
 
-        # get the filter callback that is forwarded to add()
+        # arguments passed to add()
+        add_kwargs = kwargs.pop("add_kwargs", None) or {}
+
+        # backwards compatibility
         _filter = kwargs.pop("filter", None)
+        if _filter is not None:
+            logger.warning_once(
+                "passing filter=callback' to TarFormatter.dump is deprecated and will be removed "
+                "in a future release; please use 'add_kwargs=dict(filter=callback)' instead",
+            )
+            add_kwargs["filter"] = _filter
 
         # open a new zip file and add all files in src
         with tarfile.open(get_path(path), mode, *args, **kwargs) as f:
             srcs = [os.path.abspath(get_path(src)) for src in make_list(src)]
             common_prefix = os.path.commonprefix(srcs)
             for src in srcs:
-                f.add(src, arcname=os.path.relpath(src, common_prefix), filter=_filter)
+                _add_kwargs = {"arcname": os.path.relpath(src, common_prefix)}
+                _add_kwargs.update(add_kwargs)
+                f.add(src, **_add_kwargs)
 
 
 # trailing imports
