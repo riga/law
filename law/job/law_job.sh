@@ -211,7 +211,7 @@ action() {
 
             if [ ! -z "${stageout_command}" ]; then
                 echo "run stageout command '${stageout_command}'"
-                bash -c "${stageout_command}"
+                eval "${stageout_command}"
             else
                 echo "stageout command empty, skip"
             fi
@@ -301,7 +301,7 @@ action() {
 
             if [ ! -z "${bootstrap_command}" ]; then
                 echo "run bootstrap command '${bootstrap_command}'"
-                bash -c "${bootstrap_command}"
+                eval "${bootstrap_command}"
             else
                 echo "bootstrap command empty, skip"
             fi

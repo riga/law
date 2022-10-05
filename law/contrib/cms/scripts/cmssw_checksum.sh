@@ -19,8 +19,8 @@ action() {
         return "2"
     fi
 
-    # choose a default value the the exclusion regex that really should not match any path in src
-    local exclude="${3:-???}"
+    # choose a default value for the exclusion regex that really should not match any path in src
+    local exclude="${3:-__LAW_PATTERN_NOT_EXISTING__}"
 
     (
         cd "${cmssw_base}" && \

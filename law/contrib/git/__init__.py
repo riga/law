@@ -66,7 +66,8 @@ class BundleGitRepository(Task):
     @log
     def run(self):
         with self.output().localize("w") as tmp:
-            self.bundle(tmp.path)
+            with self.publish_step("bundle git repository ..."):
+                self.bundle(tmp.path)
 
     def bundle(self, dst_path):
         cmd = [
