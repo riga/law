@@ -443,7 +443,7 @@ action() {
         echo "cmd: ${cmd}"
         echo
 
-        _law_job_subsection "dependecy tree"
+        _law_job_subsection "dependency tree"
         eval "LAW_LOG_LEVEL=debug ${cmd} --print-deps 2"
         local law_ret="$?"
         if [ "${law_ret}" != "0" ]; then
