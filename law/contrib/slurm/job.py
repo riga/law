@@ -142,19 +142,23 @@ class SlurmJobManager(BaseJobManager):
         code, out, err = interruptable_popen(cmd, shell=True, executable="/bin/bash",
             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-        # handle errors
-        if code != 0:
-            if "Invalid job id specified" in err:
-                return {id: self.job_status_dict(job_id=id, status=self.FAILED, error="slurm doesn't know about this job")
-                        for id in job_id}
-            elif silent:
-                return None # FIXME: doing this seems to break BaseRemoteWorkflowProxy.poll
-            else:
-                raise Exception("queue query of slurm job(s) '{}' failed with code {}:"
-                    "\n{}".format(job_id, code, err))
+        # special case: when the id of a single yet expired job is queried, squeue responds with an
+        # error (exit code != 0), so as a workaround, consider these cases as an empty result
+        if code != 0 and "invalid job id specified" in err.lower():
+            code = 0
+            query_data = {}
 
-        # parse the output and extract the status per job
-        query_data = self.parse_squeue_output(out)
+        else:
+            # handle errors
+            if code != 0:
+                if silent:
+                    return None
+                else:
+                    raise Exception("queue query of slurm job(s) '{}' failed with code {}:"
+                        "\n{}".format(job_id, code, err))
+
+            # parse the output and extract the status per job
+            query_data = self.parse_squeue_output(out)
 
         # some jobs might already be in the accounting history, so query for missing job ids
         missing_ids = [_job_id for _job_id in job_ids if _job_id not in query_data]
