@@ -9,24 +9,24 @@
 
 action() {
     local cmssw_base="$1"
-    if [ -z "$cmssw_base" ]; then
+    if [ -z "${cmssw_base}" ]; then
         >&2 echo "please provide the path to the CMSSW checkout to bundle"
         return "1"
     fi
 
-    if [ ! -d "$cmssw_base" ]; then
-        >&2 echo "the provided path '$cmssw_base' is not a directory or does not exist"
+    if [ ! -d "${cmssw_base}" ]; then
+        >&2 echo "the provided path '${cmssw_base}' is not a directory or does not exist"
         return "2"
     fi
 
-    # choose a default value the the exclusion regex that really should not match any path in src
-    local exclude="${3:-???}"
+    # choose a default value for the exclusion regex that really should not match any path in src
+    local exclude="${3:-__LAW_PATTERN_NOT_EXISTING__}"
 
     (
-        cd "$cmssw_base" && \
+        cd "${cmssw_base}" && \
         find src -type f \
             | grep -e "^src/.*/.*/\(interface\|data\|python\)" \
-            | grep -v -e "$exclude" \
+            | grep -v -e "${exclude}" \
             | xargs cat 2> /dev/null | shasum | cut -d " " -f 1
     )
 }

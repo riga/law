@@ -125,8 +125,8 @@ class RemoteFileSystem(FileSystem):
             self.cache = None
 
     def __repr__(self):
-        return "{}({}, base={}, {})".format(self.__class__.__name__,
-            self.file_interface.__class__.__name__, self.base[0], hex(id(self)))
+        return "{}({}, name={}, base={}, {})".format(self.__class__.__name__,
+            self.file_interface.__class__.__name__, self.name, self.base[0], hex(id(self)))
 
     def _init_configs(self, section, default_fs_option, default_section, init_kwargs):
         cfg = Config.instance()
@@ -387,7 +387,7 @@ class RemoteFileSystem(FileSystem):
                     with self.cache.lock(src):
                         # in cache and outdated?
                         rstat = self.stat(src, **kwargs_no_retries)
-                        if src in self.cache and abs(self.cache.mtime(src) - rstat.st_mtime) > 1:
+                        if src in self.cache and not self.cache.check_mtime(src, rstat.st_mtime):
                             self.cache.remove(src, lock=False)
                         # in cache at all?
                         if src not in self.cache:

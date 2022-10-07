@@ -387,7 +387,7 @@ class ARCJobFileFactory(BaseJobFileFactory):
 
         # convert to basenames as seen by the job
         rel_input_paths_job = {
-            key: os.path.basename(abs_path) if c.input_files[key].copy else abs_path
+            key: os.path.basename(abs_path)
             for key, abs_path in abs_input_paths.items()
         }
 

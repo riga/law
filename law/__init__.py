@@ -16,6 +16,7 @@ __all__ = [
     "Config",
     "run", "no_value",
     "notify_mail",
+    "luigi_version", "luigi_version_info",
 ]
 
 
@@ -23,6 +24,16 @@ __all__ = [
 from law.__version__ import (
     __doc__, __author__, __email__, __copyright__, __credits__, __contact__, __license__,
     __status__, __version__,
+)
+
+# luigi version infos
+import re
+import luigi
+# __version__ was introduced in 2.8.11
+luigi_version = getattr(luigi, "__version__", "2.8.10")
+luigi_version_info = tuple(
+    int(part) if i < 3 else part
+    for i, part in enumerate(re.match(r"^(\d+)\.(\d+)\.(\d+)(.*)$", luigi_version).groups())
 )
 
 

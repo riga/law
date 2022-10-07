@@ -91,14 +91,15 @@ class DockerSandbox(Sandbox):
 
             # build the full command
             cmd = quote_cmd(docker_run_cmd + [self.image, "bash", "-l", "-c",
-                "; ".join(flatten(setup_cmds, quote_cmd(["python", "-c", py_cmd]))),
+                " && ".join(flatten(setup_cmds, quote_cmd(["python", "-c", py_cmd]))),
             ])
 
             # run it
             code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             if code != 0:
-                raise Exception("docker sandbox env loading failed:\n{}".format(out))
+                raise Exception("docker sandbox env loading failed with exit code {}:\n{}".format(
+                    code, out))
 
             # load the environment from the tmp file
             env = tmp.load(formatter="pickle")
@@ -219,7 +220,7 @@ class DockerSandbox(Sandbox):
 
         # build the final command
         cmd = quote_cmd(docker_run_cmd + [self.image, "bash", "-l", "-c",
-            "; ".join(flatten(setup_cmds, proxy_cmd.build())),
+            " && ".join(flatten(setup_cmds, proxy_cmd.build())),
         ])
 
         return cmd

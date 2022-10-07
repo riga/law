@@ -366,7 +366,7 @@ class SlurmJobFileFactory(BaseJobFileFactory):
 
         # convert to basenames as seen by the job
         rel_input_paths_job = {  # noqa
-            key: os.path.basename(abs_path) if c.input_files[key].copy else abs_path
+            key: os.path.basename(abs_path)
             for key, abs_path in abs_input_paths.items()
         }
 
@@ -439,6 +439,9 @@ class SlurmJobFileFactory(BaseJobFileFactory):
             if c.executable:
                 cmd = c.executable
                 f.write("\n{}{}\n".format(cmd, args))
+
+        # make it executable
+        os.chmod(job_file, os.stat(job_file).st_mode | stat.S_IXUSR | stat.S_IXGRP)
 
         logger.debug("created slurm job file at '{}'".format(job_file))
 

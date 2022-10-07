@@ -185,8 +185,8 @@ After following the instructions, these lines should be present in your ~/.zshrc
    # The following lines were added by compinstall
    zstyle :compinstall filename '~/.zshrc'
 
-   autoload -Uz compinit
-   compinit
+   autoload -Uz +X compinit && compinit
+   autoload -Uz +X bashcompinit && bashcompinit
    # End of lines added by compinstall
 
 If this is the case, just source the law completion script (which internally enables ``bashcompinit``) and you're good to go:

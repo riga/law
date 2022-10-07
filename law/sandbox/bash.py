@@ -59,7 +59,7 @@ class BashSandbox(Sandbox):
                     + "pickle.dump(dict(os.environ),open('{}','wb'),protocol=2)".format(tmp_path)
 
                 # build the full command
-                cmd = quote_cmd(bash_cmd + ["-c", "; ".join(
+                cmd = quote_cmd(bash_cmd + ["-c", " && ".join(
                     flatten("source \"{}\" \"\"".format(self.script), setup_cmds,
                         quote_cmd(["python", "-c", py_cmd]))),
                 ])
@@ -67,7 +67,8 @@ class BashSandbox(Sandbox):
                 # run it
                 returncode = interruptable_popen(cmd, shell=True, executable="/bin/bash")[0]
                 if returncode != 0:
-                    raise Exception("bash sandbox env loading failed")
+                    raise Exception("bash sandbox env loading failed with exit code {}".format(
+                        returncode))
 
                 # load the environment from the tmp file
                 pickle_kwargs = {"encoding": "utf-8"} if six.PY3 else {}
@@ -100,7 +101,7 @@ class BashSandbox(Sandbox):
             proxy_cmd.add_arg("--local-scheduler", "True", overwrite=True)
 
         # build the final command
-        cmd = quote_cmd(bash_cmd + ["-c", "; ".join(
+        cmd = quote_cmd(bash_cmd + ["-c", " && ".join(
             flatten("source \"{}\" \"\"".format(self.script), setup_cmds, proxy_cmd.build())),
         ])
 

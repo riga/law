@@ -997,10 +997,12 @@ class DeprecatedInputFiles(dict):
 
     @classmethod
     def _log_warning(cls, method):
-        logger.warning_once("the use of input_files.{} is deprecated, please consider updating "
-            "your code towards using dictionaries instead, e.g., 'input_files[key] = path'; by "
-            "doing so, law automatically adds a render variable 'key' that will refer to the "
-            "postfixed path of the input file for immediate use in remote jobs".format(method))
+        logger.warning_once(
+            "the use of input_files.{} is deprecated, please consider updating your code towards "
+            "using dictionaries instead, e.g., 'input_files[key] = path'; by doing so, law "
+            "automatically adds a render variable 'key' that will refer to the postfixed path of "
+            "the input file for immediate use in remote jobs".format(method),
+        )
 
     def __init__(self, *args, **kwargs):
         paths = None

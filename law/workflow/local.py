@@ -6,7 +6,9 @@ Local workflow implementation.
 
 __all__ = ["LocalWorkflow"]
 
+import luigi
 
+from law import luigi_version_info
 from law.workflow.base import BaseWorkflow, BaseWorkflowProxy
 from law.util import DotDict
 
@@ -46,7 +48,14 @@ class LocalWorkflowProxy(BaseWorkflowProxy):
         if not self.task.local_workflow_require_branches and not self._local_workflow_has_yielded:
             self._local_workflow_has_yielded = True
 
-            yield list(self.task.get_branch_tasks().values())
+            # use branch tasks as requirements
+            reqs = list(self.task.get_branch_tasks().values())
+
+            # wrap into DynamicRequirements when available, otherwise just yield the list
+            if luigi_version_info[:3] >= (3, 1, 2):
+                yield luigi.DynamicRequirements(reqs, lambda complete_fn: complete_fn(self))
+            else:
+                yield reqs
 
 
 class LocalWorkflow(BaseWorkflow):

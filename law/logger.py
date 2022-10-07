@@ -21,19 +21,6 @@ from law.util import no_value, colored, ipykernel
 _logging_setup = False
 
 
-def get_logger(*args, **kwargs):
-    """
-    Replacement for *logging.getLogger* that makes sure that the custom :py:class:`Logger` class is
-    used when new loggers are created.
-    """
-    orig_cls = logging.getLoggerClass()
-    logging.setLoggerClass(Logger)
-    try:
-        return logging.getLogger(*args, **kwargs)
-    finally:
-        logging.setLoggerClass(orig_cls)
-
-
 def setup_logging():
     """
     Sets up the internal law loggers as well as all other loggers listed in the ``"logging"`` config
@@ -47,29 +34,74 @@ def setup_logging():
         return
     _logging_setup = True
 
-    # set the handler of the law root logger which propagates it to lower level loggers
-    get_logger("law").addHandler(create_stream_handler())
+    # setup the main law logger first and set its handler which is propagated to subloggers
+    logger = get_logger("law", skip_setup=True)
+    logger = setup_logger(logger, add_console_handler=False)
+    logger.addHandler(create_stream_handler())
 
     # set levels for all loggers and add the console handler for all non-law loggers
-    cfg = Config.instance()
-    for name, level in cfg.items("logging"):
-        add_console_handler = not name.startswith("law.") and not get_tty_handlers(name)
-        setup_logger(name, level, add_console_handler=add_console_handler, clear=False)
+    from law.config import Config
+    for name, level in Config.instance().items("logging"):
+        setup_logger(name, level)
 
 
-def setup_logger(name, level=None, add_console_handler=True, clear=False):
+def _logger_setup(logger, value=None):
+    attr = "_law_logger_setup"
+    if value is not None:
+        setattr(logger, attr, value)
+    return getattr(logger, attr, False)
+
+
+def get_logger(*args, **kwargs):
+    """ get_logger(*args, skip_setup=False, **kwargs)
+    Replacement for *logging.getLogger* that makes sure that the custom :py:class:`Logger` class is
+    used when new loggers are created and that the logger is properly set up by
+    :py:meth:`setup_logger`.
     """
-    Sets up a logger given by its *name*, configures it to have a certain *level* and adds a
-    preconfigured console handler when *add_console_handler* is *True*. When *add_console_handler*
-    is a dictionary, it items are forwarded as keyword arguments to the
-    :py:func:`create_stream_handler` which handles the handler setup internally.
+    skip_setup = kwargs.pop("skip_setup", False)
+    orig_cls = logging.getLoggerClass()
+    logging.setLoggerClass(Logger)
+    try:
+        logger = logging.getLogger(*args, **kwargs)
 
-    *name* can either be an integer or the name of a level present in the *logging* module. When no
+        # set it up once
+        if not skip_setup:
+            setup_logger(logger)
+
+        return logger
+    finally:
+        logging.setLoggerClass(orig_cls)
+
+
+def setup_logger(logger, level=None, add_console_handler=None, clear=False, force=False):
+    """
+    Sets up a *logger*, optionally given by its name, configures it to have a certain *level* and
+    adds a preconfigured console handler when *add_console_handler* is *True*. When
+    *add_console_handler* is a dictionary, its items are forwarded as keyword arguments to the
+    :py:func:`create_stream_handler` which handles the handler setup internally. When *None*,
+    *add_console_handler* is default to *True* in case the logger is not a "law" sublogger and has
+    no tty handlers registered yet.
+
+    Each logger is setup only once unless *force* is *True.
+
+    *level* can either be an integer or the name of a level present in the *logging* module. When no
     *level* is  given, the level of the ``"law"`` base logger is used as a default. When the logger
     already existed and *clear* is *True*, all handlers and filters are removed first. The logger
     object is returned.
     """
+    # get the logger
+    logger = logger if isinstance(logger, logging.Logger) else get_logger(logger, skip_setup=True)
+    name = logger.name
+
+    # do nothing when the logger was already set up or force is defined
+    if _logger_setup(logger) or force:
+        return logger
+    _logger_setup(logger, True)
+
     # sanitize the level
+    if level is None:
+        from law.config import Config
+        level = Config.instance().get_expanded("logging", name)
     if isinstance(level, six.string_types):
         level = getattr(logging, level.upper(), None)
     if level is None:
@@ -77,7 +109,6 @@ def setup_logger(name, level=None, add_console_handler=True, clear=False):
 
     # clear handlers and filters
     is_existing = name in logging.root.manager.loggerDict
-    logger = get_logger(name)
     if is_existing and clear:
         for h in list(logger.handlers):
             logger.removeHandler(h)
@@ -88,6 +119,8 @@ def setup_logger(name, level=None, add_console_handler=True, clear=False):
     logger.setLevel(level)
 
     # add a console handler
+    if add_console_handler is None:
+        add_console_handler = not name.startswith("law.") and not get_tty_handlers(name)
     if add_console_handler or isinstance(add_console_handler, dict):
         kwargs = add_console_handler if isinstance(add_console_handler, dict) else {}
         logger.addHandler(create_stream_handler(**kwargs))
@@ -153,31 +186,49 @@ class Logger(logging.Logger):
         self._once_logs = defaultdict(set)
 
     def debug_once(self, log_id, *args, **kwargs):
+        # when no log_id is set, but just a message, it is received as log_id
+        if not args:
+            args = (log_id,)
         if log_id not in self._once_logs["debug"]:
             self._once_logs["debug"].add(log_id)
             self.debug(*args, **kwargs)
 
     def info_once(self, log_id, *args, **kwargs):
+        # when no log_id is set, but just a message, it is received as log_id
+        if not args:
+            args = (log_id,)
         if log_id not in self._once_logs["info"]:
             self._once_logs["info"].add(log_id)
             self.info(*args, **kwargs)
 
     def warning_once(self, log_id, *args, **kwargs):
+        # when no log_id is set, but just a message, it is received as log_id
+        if not args:
+            args = (log_id,)
         if log_id not in self._once_logs["warning"]:
             self._once_logs["warning"].add(log_id)
             self.warning(*args, **kwargs)
 
     def error_once(self, log_id, *args, **kwargs):
+        # when no log_id is set, but just a message, it is received as log_id
+        if not args:
+            args = (log_id,)
         if log_id not in self._once_logs["error"]:
             self._once_logs["error"].add(log_id)
             self.error(*args, **kwargs)
 
     def critical_once(self, log_id, *args, **kwargs):
+        # when no log_id is set, but just a message, it is received as log_id
+        if not args:
+            args = (log_id,)
         if log_id not in self._once_logs["critical"]:
             self._once_logs["critical"].add(log_id)
             self.critical(*args, **kwargs)
 
     def fatal_once(self, log_id, *args, **kwargs):
+        # when no log_id is set, but just a message, it is received as log_id
+        if not args:
+            args = (log_id,)
         if log_id not in self._once_logs["fatal"]:
             self._once_logs["fatal"].add(log_id)
             self.fatal(*args, **kwargs)
@@ -295,7 +346,3 @@ class LogFormatter(logging.Formatter):
             data["traceback"] = self.formatException(record.exc_info)
 
         return tmpl.format(**data)
-
-
-# trailing imports
-from law.config import Config

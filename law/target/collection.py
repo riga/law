@@ -288,18 +288,21 @@ class SiblingFileCollection(FileCollection):
     def _repr_pairs(self):
         expand = Config.instance().get_expanded_boolean("target", "expand_path_repr")
         dir_path = self.dir.path if expand else self.dir.unexpanded_path
-        return TargetCollection._repr_pairs(self) + [("dir", dir_path)]
+        return TargetCollection._repr_pairs(self) + [("fs", self.dir.fs.name), ("dir", dir_path)]
 
     def iter_existing(self, keys=False):
-        basenames = self.dir.listdir()
+        basenames = self.dir.listdir() if self.dir.exists() else None
         for key, targets in self._iter_flat(keys=True):
-            if all(t.basename in basenames for t in flatten_collections(targets)):
+            if basenames and all(t.basename in basenames for t in flatten_collections(targets)):
                 yield (key, targets) if keys else targets
 
     def iter_missing(self, keys=False):
-        basenames = self.dir.listdir()
+        basenames = self.dir.listdir() if self.dir.exists() else None
         for key, targets in self._iter_flat(keys=True):
-            if any(t.basename not in basenames for t in flatten_collections(targets)):
+            if (
+                basenames is None or
+                any(t.basename not in basenames for t in flatten_collections(targets))
+            ):
                 yield (key, targets) if keys else targets
 
     def exists(self, count=None, basenames=None):
@@ -369,6 +372,11 @@ class SiblingFileCollection(FileCollection):
             n = len(self) - n
             missing_keys = [key for key in self.keys() if key not in existing_keys]
             return n if not keys else (n, missing_keys)
+
+    def remove(self, silent=True):
+        for targets in self.iter_existing():
+            for t in targets:
+                t.remove(silent=silent)
 
 
 class NestedSiblingFileCollection(FileCollection):
@@ -478,6 +486,11 @@ class NestedSiblingFileCollection(FileCollection):
             n = len(self) - n
             missing_keys = [key for key in self.keys() if key not in existing_keys]
             return n if not keys else (n, missing_keys)
+
+    def remove(self, silent=True):
+        for targets in self.iter_existing():
+            for t in targets:
+                t.remove(silent=silent)
 
 
 def flatten_collections(*targets):

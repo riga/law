@@ -393,6 +393,16 @@
 ; Type: integer, string
 ; Default: "0MB"
 
+; cache_mtime_patience
+; Description: The maximum amount of seconds that the modification time of remote of cached files
+; can differ before considering a file invalid. A negative value means causes all files to be
+; considered valid, independent of modification times. This feature might only be useful for file
+; systems that are accessible via multiple protocols that might respond to stat requests with
+; different timestamps for files that are known to be identical (e.g. large, identical files that
+; are provided simultaneously by multiple central storage sites).
+; Type: float
+; Default: 1.0
+
 ; cache_file_perm
 ; Description: The permission of files in the cache. When "None" or empty, the current umask is
 ; used. The value can be expressed by an octal number.
