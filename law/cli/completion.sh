@@ -7,7 +7,7 @@
 
 # the law cli completion function
 _law_complete() {
-    local shell_is_zsh=$( [ -z "${ZSH_VERSION}" ] && echo "false" || echo "true" )
+    local shell_is_zsh="$( [ -z "${ZSH_VERSION}" ] && echo "false" || echo "true" )"
     local this_file="$( ${shell_is_zsh} && echo "${(%):-%x}" || echo "${BASH_SOURCE[0]}" )"
     local this_dir="$( cd "$( dirname "${this_file}" )" && pwd )"
 
@@ -20,6 +20,10 @@ _law_complete() {
     # determine the LAW_INDEX_FILE
     local index_file="${LAW_INDEX_FILE:-${law_home}/index}"
 
+    # common parameters
+    local common_params="run index config software completion location --help --version"
+    local common_run_params="workers local-scheduler scheduler-host scheduler-port log-level help"
+
     # the current word
     local cur="${COMP_WORDS[COMP_CWORD]}"
 
@@ -27,41 +31,45 @@ _law_complete() {
     COMPREPLY=()
 
     # trivial case
-    if [ "$COMP_CWORD" = "0" ]; then
+    if [ "${COMP_CWORD}" = "0" ]; then
         return "0"
     fi
 
     # complete the subcommand
-    if [ "$COMP_CWORD" = "1" ]; then
-        COMPREPLY=( $( compgen -W "run index config software completion location --help --version" -- "$cur" ) )
+    if [ "${COMP_CWORD}" = "1" ]; then
+        COMPREPLY=( $( compgen -W "${common_params}" -- "${cur}" ) )
         return "0"
     fi
     local sub_cmd="${COMP_WORDS[1]}"
 
     # complete the "run" subcommand
     if [ "${sub_cmd}" = "run" ]; then
-        # common task run parameters
-        local common_run_params="workers local-scheduler scheduler-host scheduler-port log-level help"
-
         # no completion when no index file is found
         if [ ! -f "${index_file}" ]; then
             return "1"
         fi
 
         # complete the task family
-        if [ "$COMP_CWORD" = "2" ]; then
-            COMPREPLY=( $( compgen -W "$( _law_grep_Po "[^\:]+\:\K(.+)(?=\:.+)" "${index_file}" )" -- "$cur" ) )
+        if [ "${COMP_CWORD}" = "2" ]; then
+            COMPREPLY=( $( compgen -W "$( _law_grep_Po "[^\:]+\:\K(.+)(?=\:.+)" "${index_file}" )" -- "${cur}" ) )
             return "0"
         fi
         local task_family="${COMP_WORDS[2]}"
 
-        # complete parameters of the root task
-        # and if parameters were found, stop
+        # complete parameters of the root task and if parameters were found, stop
         local inp="${cur##-}"
         inp="${inp##-}"
         COMPREPLY=( $( compgen -W "$( _law_grep_Po "[^\:]+\:${task_family}\:\K.+" "${index_file}" ) ${common_run_params}" -P "--" -- "${inp}" ) )
         if [ "${#COMPREPLY[@]}" != "0" ]; then
-            return "0"
+            # in some zsh versions, compgen tends to still suggest hits even though they obviously
+            # do not match, so check manually for matches again and only stop when there is one
+            if ${shell_is_zsh}; then
+                for (( i=0; i<${#COMPREPLY[@]}; i++ )); do
+                    [[ "${COMPREPLY[$i]}" = "--${inp}"* ]] && return "0"
+                done
+            else
+                return "0"
+            fi
         fi
 
         # when no root task parameters were found, try to complete task-level parameters,
@@ -178,7 +186,8 @@ _law_complete() {
 
 # run bashcompinit in zsh, export the completion function in bash
 if [ ! -z "${ZSH_VERSION}" ]; then
-    autoload -Uz bashcompinit && bashcompinit
+    autoload -Uz +X compinit && compinit
+    autoload -Uz +X bashcompinit && bashcompinit
 else
     export -f _law_complete
 fi
