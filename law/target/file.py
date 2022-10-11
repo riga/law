@@ -19,7 +19,7 @@ from contextlib import contextmanager
 from law.config import Config
 import law.target.luigi_shims as shims
 from law.target.base import Target
-from law.util import map_struct, create_random_string, human_bytes
+from law.util import map_struct, create_random_string, human_bytes, no_value
 
 
 class FileSystem(shims.FileSystem):
@@ -458,7 +458,9 @@ FileSystemTarget.directory_class = FileSystemDirectoryTarget
 
 
 def get_path(target):
-    return target.path if isinstance(target, FileSystemTarget) else target
+    if isinstance(target, FileSystemTarget) or getattr(target, "path", no_value) != no_value:
+        return target.path
+    return target
 
 
 def get_scheme(uri):

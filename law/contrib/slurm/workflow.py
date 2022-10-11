@@ -14,7 +14,7 @@ from collections import OrderedDict
 import luigi
 
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
-from law.job.base import JobArguments
+from law.job.base import JobArguments, JobInputFile
 from law.task.proxy import ProxyCommand
 from law.target.file import get_path
 from law.target.local import LocalDirectoryTarget
@@ -51,10 +51,14 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
         c.custom_content = []
 
         # get the actual wrapper file that will be executed by the remote job
-        c.executable = get_path(task.slurm_wrapper_file())
-        law_job_file = law_src_path("job", "law_job.sh")
-        if c.executable != law_job_file:
-            c.input_files["job_file"] = law_job_file
+        wrapper_file = task.slurm_wrapper_file()
+        law_job_file = task.slurm_job_file()
+        if wrapper_file and get_path(wrapper_file) != get_path(law_job_file):
+            c.input_files["executable_file"] = wrapper_file
+            c.executable = wrapper_file
+        else:
+            c.executable = law_job_file
+        c.input_files["job_file"] = law_job_file
 
         # collect task parameters
         proxy_cmd = ProxyCommand(task.as_branch(branches[0]), exclude_task_args={"branch"},
@@ -167,7 +171,10 @@ class SlurmWorkflow(BaseRemoteWorkflow):
         return None
 
     def slurm_wrapper_file(self):
-        return law_src_path("job", "law_job.sh")
+        return None
+
+    def slurm_job_file(self):
+        return JobInputFile(law_src_path("job", "law_job.sh"))
 
     def slurm_stageout_file(self):
         return None

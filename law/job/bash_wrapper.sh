@@ -5,4 +5,8 @@
 # Render variables:
 # - job_file: The actual law job file.
 
-bash "{{job_file}}" $@
+law_job() {
+    bash "{{job_file}}" $@
+}
+
+law_job "$@"

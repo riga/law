@@ -167,6 +167,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
     # job error messages for errors defined in the remote job script
     job_error_messages = {
+        5: "input file rendering failed",
         10: "dashboard file failed",
         20: "bootstrap file failed",
         30: "bootstrap command failed",
@@ -975,7 +976,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 break
             elif failed:
                 failed_nums = [job_num for job_num in failed_jobs if job_num not in retry_jobs]
-                raise Exception("tolerance exceeded for jobs {}".format(failed_nums))
+                raise Exception(
+                    "tolerance exceeded for job(s) {}".format(",".join(map(str, failed_nums))),
+                )
             elif unreachable:
                 err = None
                 if reached_end:

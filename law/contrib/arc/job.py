@@ -135,7 +135,7 @@ class ARCJobManager(BaseJobManager):
 
         # check success
         if code != 0 and not silent:
-            # glite prints everything to stdout
+            # arc prints everything to stdout
             raise Exception("cancellation of arc job(s) '{}' failed with code {}:\n{}".format(
                 job_id, code, out))
 
@@ -158,7 +158,7 @@ class ARCJobManager(BaseJobManager):
 
         # check success
         if code != 0 and not silent:
-            # glite prints everything to stdout
+            # arc prints everything to stdout
             raise Exception("cleanup of arc job(s) '{}' failed with code {}:\n{}".format(
                 job_id, code, out))
 
@@ -187,7 +187,7 @@ class ARCJobManager(BaseJobManager):
             if silent:
                 return None
             else:
-                # glite prints everything to stdout
+                # arc prints everything to stdout
                 raise Exception("status query of arc job(s) '{}' failed with code {}:\n{}".format(
                     job_id, code, out))
 
@@ -288,7 +288,7 @@ class ARCJobFileFactory(BaseJobFileFactory):
         "stderr", "custom_content", "absolute_paths",
     ]
 
-    def __init__(self, file_name="job.xrsl", command=None, executable=None, arguments=None,
+    def __init__(self, file_name="arc_job.xrsl", command=None, executable=None, arguments=None,
             input_files=None, output_files=None, postfix_output_files=True, output_uri=None,
             overwrite_output_files=True, job_name=None, log="log.txt", stdout="stdout.txt",
             stderr="stderr.txt", custom_content=None, absolute_paths=True, **kwargs):
@@ -368,32 +368,65 @@ class ARCJobFileFactory(BaseJobFileFactory):
         def prepare_input(f):
             if f.is_remote:
                 return f.path
-            # when not copied, just return the absolute, original path
+            # when not copied or forwarded, just return the absolute, original path
             abs_path = os.path.abspath(f.path)
-            if not f.copy:
+            if not f.copy or f.forward:
                 return abs_path
             # copy the file
-            abs_path = self.provide_input(abs_path, postfix if f.postfix else None, c.dir)
+            abs_path = self.provide_input(
+                src=abs_path,
+                postfix=postfix if f.postfix and not f.share else None,
+                dir=c.dir,
+                skip_existing=f.share,
+            )
             return abs_path
 
-        abs_input_paths = {key: prepare_input(f) for key, f in c.input_files.items()}
+        # absolute input paths
+        for key, f in c.input_files.items():
+            f.path_sub_abs = prepare_input(f)
 
-        # convert to basenames, relative to the submission or initial dir
-        maybe_basename = lambda path: path if c.absolute_paths else os.path.basename(path)
-        rel_input_paths_sub = {
-            key: maybe_basename(abs_path) if c.input_files[key].copy else abs_path
-            for key, abs_path in abs_input_paths.items()
-        }
+        # input paths relative to the submission or initial dir
+        # forwarded files are included but remote ones are skipped
+        for key, f in c.input_files.items():
+            if f.is_remote:
+                continue
+            f.path_sub_rel = (
+                os.path.basename(f.path_sub_abs)
+                if f.copy and not c.absolute_paths else
+                f.path_sub_abs
+            )
 
-        # convert to basenames as seen by the job
-        rel_input_paths_job = {
-            key: os.path.basename(abs_path)
-            for key, abs_path in abs_input_paths.items()
-        }
+        # input paths as seen by the job, before and after potential rendering
+        for key, f in c.input_files.items():
+            f.path_job_pre_render = (
+                f.path_sub_abs
+                if f.is_remote else
+                os.path.basename(f.path_sub_abs)
+            )
+            f.path_job_post_render = (
+                os.path.basename(f.path_sub_abs)
+                if f.render_job else
+                f.path_sub_abs
+            )
 
-        # add all input files to render variables
-        c.render_variables.update(rel_input_paths_job)
-        c.render_variables["input_files"] = " ".join(rel_input_paths_job.values())
+        # update files in render variables with version after potential rendering
+        c.render_variables.update({
+            key: f.path_job_post_render
+            for key, f in c.input_files.items()
+        })
+
+        # add space separated input files before potential rendering to render variables
+        c.render_variables["input_files"] = " ".join(
+            f.path_job_pre_render
+            for f in c.input_files.values()
+        )
+
+        # add space separated list of input files for rendering
+        c.render_variables["input_files_render"] = " ".join(
+            f.path_job_pre_render
+            for f in c.input_files.values()
+            if f.render_job
+        )
 
         # add the custom log file to render variables
         if c.custom_log_file:
@@ -413,20 +446,26 @@ class ARCJobFileFactory(BaseJobFileFactory):
         # prepare the job file
         job_file = self.postfix_input_file(os.path.join(c.dir, c.file_name), postfix)
 
-        # render copied input files
-        for key, abs_path in abs_input_paths.items():
-            if c.input_files[key].copy and c.input_files[key].render:
-                self.render_file(abs_path, abs_path, render_variables, postfix=postfix)
+        # render copied, non-remote input files
+        for key, f in c.input_files.items():
+            if not f.copy or f.is_remote or not f.render_local:
+                continue
+            self.render_file(
+                f.path_sub_abs,
+                f.path_sub_abs,
+                render_variables,
+                postfix=postfix if f.postfix else None,
+            )
 
         # create arc-style input file pairs
         input_file_pairs = [
-            (os.path.basename(rel_input_paths_sub[key]), "" if f.copy else abs_input_paths[key])
+            (os.path.basename(f.path_sub_abs), "" if f.copy else f.path_sub_abs)
             for key, f in c.input_files.items()
         ]
 
         # prepare the executable when given
         if c.executable:
-            c.executable = rel_input_paths_job[executable_key]
+            c.executable = c.input_files[executable_key].path_job_post_render
             # make the file executable for the user and group
             path = os.path.join(c.dir, os.path.basename(c.executable))
             if os.path.exists(path):
@@ -478,7 +517,7 @@ class ARCJobFileFactory(BaseJobFileFactory):
                 line = self.create_line(key, value)
                 f.write(line + "\n")
 
-        logger.debug("created glite job file at '{}'".format(job_file))
+        logger.debug("created arc job file at '{}'".format(job_file))
 
         return job_file, c
 

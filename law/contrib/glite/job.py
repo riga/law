@@ -252,7 +252,7 @@ class GLiteJobFileFactory(BaseJobFileFactory):
         "absolute_paths",
     ]
 
-    def __init__(self, file_name="job.jdl", command=None, executable=None, arguments=None,
+    def __init__(self, file_name="glite_job.jdl", command=None, executable=None, arguments=None,
             input_files=None, output_files=None, postfix_output_files=True, output_uri=None,
             stdout="stdout.txt", stderr="stderr.txt", vo=None, custom_content=None,
             absolute_paths=False, **kwargs):
@@ -326,32 +326,63 @@ class GLiteJobFileFactory(BaseJobFileFactory):
 
         # prepare input files
         def prepare_input(f):
-            # when not copied, just return the absolute, original path
+            # when not copied or forwarded, just return the absolute, original path
             abs_path = os.path.abspath(f.path)
-            if not f.copy:
+            if not f.copy or f.forward:
                 return abs_path
             # copy the file
-            abs_path = self.provide_input(abs_path, postfix if f.postfix else None, c.dir)
+            abs_path = self.provide_input(
+                src=abs_path,
+                postfix=postfix if f.postfix and not f.share else None,
+                dir=c.dir,
+                skip_existing=f.share,
+            )
             return abs_path
 
-        abs_input_paths = {key: prepare_input(f) for key, f in c.input_files.items()}
+        # absolute input paths
+        for key, f in c.input_files.items():
+            f.path_sub_abs = prepare_input(f)
 
-        # convert to basenames, relative to the submission or initial dir
-        maybe_basename = lambda path: path if c.absolute_paths else os.path.basename(path)
-        rel_input_paths_sub = {
-            key: maybe_basename(abs_path) if c.input_files[key].copy else abs_path
-            for key, abs_path in abs_input_paths.items()
-        }
+        # input paths relative to the submission or initial dir
+        # forwarded files are included
+        for key, f in c.input_files.items():
+            f.path_sub_rel = (
+                os.path.basename(f.path_sub_abs)
+                if f.copy and not c.absolute_paths else
+                f.path_sub_abs
+            )
 
-        # convert to basenames as seen by the job
-        rel_input_paths_job = {
-            key: os.path.basename(abs_path)
-            for key, abs_path in abs_input_paths.items()
-        }
+        # input paths as seen by the job, before and after potential rendering
+        for key, f in c.input_files.items():
+            f.path_job_pre_render = (
+                f.path_sub_abs
+                if f.is_remote else
+                os.path.basename(f.path_sub_abs)
+            )
+            f.path_job_post_render = (
+                os.path.basename(f.path_sub_abs)
+                if f.render_job else
+                f.path_sub_abs
+            )
 
-        # add all input files to render variables
-        c.render_variables.update(rel_input_paths_job)
-        c.render_variables["input_files"] = " ".join(rel_input_paths_job.values())
+        # update files in render variables with version after potential rendering
+        c.render_variables.update({
+            key: f.path_job_post_render
+            for key, f in c.input_files.items()
+        })
+
+        # add space separated input files before potential rendering to render variables
+        c.render_variables["input_files"] = " ".join(
+            f.path_job_pre_render
+            for f in c.input_files.values()
+        )
+
+        # add space separated list of input files for rendering
+        c.render_variables["input_files_render"] = " ".join(
+            f.path_job_pre_render
+            for f in c.input_files.values()
+            if f.render_job
+        )
 
         # add the custom log file to render variables
         if c.custom_log_file:
@@ -372,13 +403,19 @@ class GLiteJobFileFactory(BaseJobFileFactory):
         job_file = self.postfix_input_file(os.path.join(c.dir, c.file_name), postfix)
 
         # render copied input files
-        for key, abs_path in abs_input_paths.items():
-            if c.input_files[key].copy and c.input_files[key].render:
-                self.render_file(abs_path, abs_path, render_variables, postfix=postfix)
+        for key, f in c.input_files.items():
+            if not f.copy or not f.render_local:
+                continue
+            self.render_file(
+                f.path_sub_abs,
+                f.path_sub_abs,
+                render_variables,
+                postfix=postfix if f.postfix else None,
+            )
 
         # prepare the executable when given
         if c.executable:
-            c.executable = rel_input_paths_job[executable_key]
+            c.executable = c.input_files[executable_key].path_job_post_render
             # make the file executable for the user and group
             path = os.path.join(c.dir, os.path.basename(c.executable))
             if os.path.exists(path):
@@ -395,7 +432,8 @@ class GLiteJobFileFactory(BaseJobFileFactory):
             args = quote_cmd(c.arguments) if isinstance(c.arguments, (list, tuple)) else c.arguments
             content.append(("Arguments", args))
         if c.input_files:
-            content.append(("InputSandbox", make_unique(rel_input_paths_sub.values())))
+            paths = [f.path_sub_rel for f in c.input_files.values() if f.path_sub_rel]
+            content.append(("InputSandbox", make_unique(paths)))
         if c.output_files:
             content.append(("OutputSandbox", make_unique(c.output_files)))
         if c.output_uri:

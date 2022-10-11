@@ -14,7 +14,7 @@ from abc import abstractmethod
 from collections import OrderedDict
 
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
-from law.job.base import JobArguments, DeprecatedInputFiles
+from law.job.base import JobArguments, JobInputFile, DeprecatedInputFiles
 from law.task.proxy import ProxyCommand
 from law.target.file import get_path
 from law.parameter import CSVParameter
@@ -61,11 +61,14 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
         c.custom_content = []
 
         # get the actual wrapper file that will be executed by the remote job
-        c.executable = get_path(task.glite_wrapper_file())
-        c.input_files["executable_file"] = c.executable
-        law_job_file = law_src_path("job", "law_job.sh")
-        if c.executable != law_job_file:
-            c.input_files["job_file"] = law_job_file
+        wrapper_file = task.glite_wrapper_file()
+        law_job_file = task.glite_job_file()
+        if wrapper_file and get_path(wrapper_file) != get_path(law_job_file):
+            c.input_files["executable_file"] = wrapper_file
+            c.executable = wrapper_file
+        else:
+            c.executable = law_job_file
+        c.input_files["job_file"] = law_job_file
 
         # collect task parameters
         proxy_cmd = ProxyCommand(task.as_branch(branches[0]), exclude_task_args={"branch"},
@@ -179,7 +182,10 @@ class GLiteWorkflow(BaseRemoteWorkflow):
         return None
 
     def glite_wrapper_file(self):
-        return law_src_path("job", "bash_wrapper.sh")
+        return None
+
+    def glite_job_file(self):
+        return JobInputFile(law_src_path("job", "law_job.sh"))
 
     def glite_stageout_file(self):
         return None

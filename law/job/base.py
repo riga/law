@@ -4,7 +4,7 @@
 Base classes for implementing remote job management and job file creation.
 """
 
-__all__ = ["BaseJobManager", "BaseJobFileFactory", "JobInputFile", "JobArguments"]
+__all__ = ["BaseJobManager", "BaseJobFileFactory", "JobArguments", "JobInputFile"]
 
 
 import os
@@ -15,14 +15,17 @@ import fnmatch
 import base64
 import copy
 import re
+import json
+from collections import defaultdict
 from multiprocessing.pool import ThreadPool
+from threading import Lock
 from abc import ABCMeta, abstractmethod
 
 import six
 
 from law.config import Config
 from law.target.file import get_scheme
-from law.util import colored, make_list, iter_chunks, flatten, makedirs, create_hash
+from law.util import colored, make_list, iter_chunks, flatten, makedirs, create_hash, empty_context
 from law.logger import get_logger
 
 
@@ -606,6 +609,9 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
         self.render_variables = render_variables or {}
         self.custom_log_file = custom_log_file
 
+        # locks for thread-safe file operations
+        self.file_locks = defaultdict(Lock)
+
     def __del__(self):
         self.cleanup_dir(force=False)
 
@@ -708,13 +714,23 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
         """
         linearized = {}
         for key, value in render_variables.items():
+            if not isinstance(value, str):
+                raise Exception("render variables must be strings, found '{}' for key '{}'".format(
+                    value, key))
+
             while True:
                 m = cls.render_key_cre.search(value)
                 if not m:
                     break
-                subkey = m.group(1)
-                value = cls.render_string(value, subkey, render_variables.get(subkey, ""))
+                sub_key = m.group(1)
+                value = cls.render_string(value, sub_key, render_variables.get(sub_key, ""))
             linearized[key] = value
+
+        # add base64 encoded render variables themselves
+        vars_str = base64.b64encode(six.b(json.dumps(linearized) or "-"))
+        if six.PY3:
+            vars_str = vars_str.decode("utf-8")
+        linearized["render_variables"] = vars_str
 
         return linearized
 
@@ -762,22 +778,30 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
         with open(dst, "w") as f:
             f.write(content)
 
-    def provide_input(self, src, postfix=None, dir=None, render_variables=None):
+    def provide_input(self, src, postfix=None, dir=None, render_variables=None,
+            skip_existing=False):
         """
         Convenience method that copies an input file to a target directory *dir* which defaults to
         the :py:attr:`dir` attribute of this instance. The provided file has the same basename,
         which is optionally postfixed with *postfix*. Essentially, this method calls
         :py:meth:`render_file` when *render_variables* is set, or simply ``shutil.copy2`` otherwise.
+        If the file to create is already existing, it is overwritten unless *skip_existing* is
+        *True*.
         """
         # create the destination path
         postfixed_src = self.postfix_input_file(src, postfix=postfix)
-        dst = os.path.join(dir or self.dir, os.path.basename(postfixed_src))
+        dst = os.path.join(os.path.realpath(dir or self.dir), os.path.basename(postfixed_src))
 
-        # provide the file
-        if render_variables:
-            self.render_file(src, dst, render_variables, postfix=postfix)
-        else:
-            shutil.copy2(src, dst)
+        # thread-safe check for the existince of the file in a thread-safe
+        context = self.file_locks[dst] if skip_existing else empty_context()
+        with context:
+            # create if not existing or if overwriting
+            if not skip_existing or not os.path.exists(dst):
+                # provide the file
+                if render_variables:
+                    self.render_file(src, dst, render_variables, postfix=postfix)
+                else:
+                    shutil.copy2(src, dst)
 
         return dst
 
@@ -941,15 +965,32 @@ class JobInputFile(object):
 
        Whether this file should be copied into the job submission directory or not.
 
+    .. py:attribute:: share
+       type: bool
+
+       Whether the file can be shared in the job submission directory. A shared file is copied only
+       once into the submission directory and :py:attr:`render_local` must be *False*.
+
+    .. py:attribute:: forward
+       type: bool
+
+       Whether this file should actually not be listed as a normal input file in job description but
+       just passed to the list of inputs for treatment in the law job script itself. Only considered
+       if supported by the submission system (e.g. local ones such as htcondor or slurm).
+
     .. py:attribute:: postfix
        type: bool
 
        Whether the file path should be postfixed when copied.
 
-    .. py:attribute:: render
+    .. py:attribute:: render_local
        type: bool
 
-       Whether render variables should be resolved when copied.
+       Whether render variables should be resolved locally when copied.
+
+    .. py:attribute:: render_job
+
+       Whether render variables should be resolved as part of the job script.
 
     .. py:attribute:: is_remote
        type: bool
@@ -958,24 +999,114 @@ class JobInputFile(object):
        Whether the path has a non-empty protocol referring to a remote resource.
     """
 
-    def __init__(self, path, copy=True, postfix=True, render=True):
+    def __init__(self, path, copy=None, share=None, forward=None, postfix=None, render=None,
+            render_local=None, render_job=None):
         super(JobInputFile, self).__init__()
 
         # when path is a job file instance itself, use its values instead
         if isinstance(path, JobInputFile):
             copy = path.copy
+            share = path.share
+            forward = path.forward
             postfix = path.postfix
-            render = path.render
+            render_local = path.render_local
+            render_job = path.render_job
             path = path.path
 
-        # store attributes
-        self.path = path
-        self.copy = copy
-        self.postfix = postfix
-        self.render = render
+        # convenience
+        if render is not None and render_local is None and render_job is None:
+            render_local = bool(render)
+            render_job = False
+
+        # set some attributes if undefined, based on most common use cases
+        maybe_set = lambda current, default: default if current is None else current
+        if copy is not None and not copy:
+            # share = maybe_set(share, False)
+            share = maybe_set(share, False)
+            postfix = maybe_set(postfix, False)
+            render_local = maybe_set(render_local, False)
+        if share:
+            copy = maybe_set(copy, True)
+            forward = maybe_set(forward, False)
+            render_local = maybe_set(render_local, False)
+            postfix = maybe_set(postfix, False)
+        if forward:
+            copy = maybe_set(copy, False)
+            share = maybe_set(share, False)
+            render_local = maybe_set(render_local, False)
+            postfix = maybe_set(postfix, False)
+        if postfix:
+            copy = maybe_set(copy, True)
+            share = maybe_set(share, False)
+            forward = maybe_set(forward, False)
+        if render_local:
+            copy = maybe_set(copy, True)
+            share = maybe_set(share, False)
+            forward = maybe_set(forward, False)
+            render_job = maybe_set(render_job, False)
+        if render_job:
+            forward = maybe_set(forward, False)
+            render_local = maybe_set(render_local, False)
+
+        # store attributes, apply residual defaults
+        # TODO: move to job rendering by default
+        self.path = str(path)
+        self.copy = True if copy is None else bool(copy)
+        self.share = False if share is None else bool(share)
+        self.forward = False if forward is None else bool(forward)
+        self.postfix = True if postfix is None else bool(postfix)
+        self.render_local = True if render_local is None else bool(render_local)
+        self.render_job = False if render_job is None else bool(render_job)
+
+        # some residual attribute checks
+        if not self.copy and self.postfix:
+            logger.warning(
+                "input file at {} is configured not to be copied into the submission directory, "
+                "but postfixing is enabled which has no effect".format(self.path),
+            )
+        if not self.copy and self.share:
+            logger.warning(
+                "input file at {} is configured not to be copied into the submission directory, "
+                "but sharing is enabled which has no effect".format(self.path),
+            )
+        if self.copy and self.forward:
+            logger.warning(
+                "input file at {} is configured to be copied into the submission directory, but "
+                "but forwarding is enabled which has no effect".format(self.path),
+            )
+        if not self.copy and self.render_local:
+            logger.warning(
+                "input file at {} is configured not to be copied into the submission directory, "
+                "but rendering is enabled which has no effect".format(self.path),
+            )
+        if self.share and self.render_local:
+            logger.warning(
+                "input file at {} is configured to be shared across jobs but local rendering is "
+                "active, potentially resulting in wrong file content".format(self.path),
+            )
+        if self.render_local and self.render_job:
+            logger.warning(
+                "input file at {} is configured to be rendered locally and within the job, which "
+                "is likely unnecessary".format(self.path),
+            )
+
+        # different path variants as seen by jobs
+        self.path_sub_abs = None
+        self.path_sub_rel = None
+        self.path_job_pre_render = None
+        self.path_job_post_render = None
 
     def __str__(self):
         return self.path
+
+    def __repr__(self):
+        return "<{}({}) at {}>".format(
+            self.__class__.__name__,
+            ", ".join("{}={}".format(attr, getattr(self, attr)) for attr in [
+                "path", "copy", "share", "forward", "postfix", "render_local", "render_job",
+            ]),
+            hex(id(self)),
+        )
 
     def __eq__(self, other):
         # check equality via path comparison
@@ -990,9 +1121,9 @@ class JobInputFile(object):
 
 class DeprecatedInputFiles(dict):
     """
-    Class to keep track of input files for condor jobs that is only used to show a deprecation
+    Class to keep track of input files for remote jobs that is only used to show a deprecation
     warning for users still relying on lists. Therefore, this class emulates the most used list
-    methods and internally fills input files using dict methoids. To be removed in version 0.1.
+    methods and internally fills input files using dict methods. To be removed in version 1.0.
     """
 
     @classmethod

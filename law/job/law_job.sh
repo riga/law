@@ -9,18 +9,18 @@
 # 3. LAW_JOB_TASK_PARAMS: The base64 encoded representation of task parameters.
 # 4. LAW_JOB_TASK_BRANCHES: The base64 encoded list of task branches to run.
 # 5. LAW_JOB_AUTO_RETRY: Either "yes" or "no" to control whether failed tasks are rerun once within
-#    the job.
+#      the job.
 # 6. LAW_JOB_DASHBOARD_DATA: The base64 encoded representation of dashboard data used by dashboard
-#    hooks.
+#      hooks.
 #
 # Note that all arguments are exported as environment variables.
 #
-# Additional environment variables:
+# Additional environment variables (set by the script):
 # - LAW_JOB_INIT_DIR: The initial directory in which the job was executed.
 # - LAW_JOB_HOME: The directory in which all law tasks are executed, and which is cleaned up
-#   afterwards. It is randomly named and placed inside LAW_JOB_INIT_DIR for the purpose of
-#   preventing file collisions on batch systems that spawn multiple jobs in the same directory. It
-#   contains symbolic links to all input files.
+#     afterwards. It is randomly named and placed inside LAW_JOB_INIT_DIR for the purpose of
+#     preventing file collisions on batch systems that spawn multiple jobs in the same directory. It
+#     contains symbolic links to all input files.
 # - LAW_JOB_FILE_POSTFIX: The postfix of all input and output files, e.g. "_0To1".
 # - LAW_SRC_PATH: The location of the law package, obtained via "law location".
 # - LAW_JOB_TMP: A directory "tmp" inside LAW_JOB_HOME.
@@ -32,25 +32,32 @@
 # - TEMP: Same as LAW_JOB_TMP.
 # - TMPDIR: Same as LAW_JOB_TMP.
 #
-# Render variables:
+# Render variables (they are all optional and therefore not part of the arguments above):
+# - law_job_base: A custom directory where the job should be executed.
+# - law_job_tmp: A custom temporary directory for the job.
 # - bootstrap_file: A file that is sourced before running tasks.
 # - bootstrap_command: A command that is executed before running tasks.
-# - dashboard_file: A file that can contain dashboard functions to be used in hooks. See
-#   documentation below.
+# - dashboard_file: A file that can contain dashboard functions to be used in hooks. See the
+#     documentation below.
 # - file_postfix: The postfix of all input and output files, e.g. "_0To1".
-# - input_files: The basenames of all input files, separated by spaces.
-# - log_file: A file for logging stdout and stderr simultaneously.
+# - input_files: Absolute or job relative paths of all input files, separated by spaces.
+# - input_files_render: Absolute or job relative paths of input files that should be rendered if
+#     render_variables is set.
+# - render_variables: Base64 encoded json dictionary with render variables to inject into
+#     input_files_render.
 # - stageout_command: A command that is executed after running tasks.
 # - stageout_file: A file that is executed after running tasks.
+# - log_file: A file for logging stdout and stderr simultaneously.
 #
 # Dashboard hooks (called when found in environment):
 # - law_hook_job_running: A function that is called right before the job setup starts. No arguments.
 # - law_hook_job_finished: A function that is called at the very end of the job. No arguments.
 # - law_hook_job_failed: A function that is called in case of an error with one or two arguments,
-#   i.e., the job exit code and, if the error results from the task itself, the task exit code.
+#     i.e., the job exit code and, if the error results from the task itself, the task exit code.
 #
 # Job exit codes:
 #  0: The job succeeded.
+#  5: The rendering of input files failed.
 # 10: The loading of the dashboard file failed.
 # 20: The bootstrap file failed.
 # 30: The bootstrap command failed.
@@ -60,11 +67,14 @@
 # 70: The stageout file failed.
 # 80: The stageout command failed.
 
-action() {
+law_job() {
+    local this_file="$( basename "${BASH_SOURCE[0]}" )"
+    local _law_job_start_time="$( date +"%d/%m/%Y %T.%N (%Z)" )"
+
     echo "law remote job script"
     echo "====================="
-    local _law_job_start_time="$( date +"%d/%m/%Y %T.%N (%Z)" )"
     echo "${_law_job_start_time}"
+
 
 
     #
@@ -80,18 +90,10 @@ action() {
 
 
     #
-    # save variables that might be changed downstream
+    # setup variables
     #
 
-    export LAW_JOB_ORIGINAL_TMP="${TMP}"
-    export LAW_JOB_ORIGINAL_TEMP="${TEMP}"
-    export LAW_JOB_ORIGINAL_TMPDIR="${TMPDIR}"
-
-
-    #
-    # create a job home directory and tmp dirs, change into the job home dir, copy all input files
-    #
-
+    # exports
     export LAW_JOB_INIT_DIR="$( /bin/pwd )"
     export LAW_JOB_BASE="{{law_job_base}}"
     export LAW_JOB_BASE="${LAW_JOB_BASE:-${LAW_JOB_INIT_DIR}}"
@@ -99,25 +101,26 @@ action() {
     export LAW_JOB_TMP="${LAW_JOB_TMP:-{{law_job_tmp}}}"
     export LAW_JOB_TMP="${LAW_JOB_TMP:-${LAW_JOB_HOME}/tmp}"
     export LAW_JOB_FILE_POSTFIX="{{file_postfix}}"
+    export LAW_JOB_ORIGINAL_TMP="${TMP}"
+    export LAW_JOB_ORIGINAL_TEMP="${TEMP}"
+    export LAW_JOB_ORIGINAL_TMPDIR="${TMPDIR}"
     export LAW_TARGET_TMP_DIR="${LAW_JOB_TMP}"
     export TMP="${LAW_JOB_TMP}"
     export TEMP="${LAW_JOB_TMP}"
     export TMPDIR="${LAW_JOB_TMP}"
 
+    # local variables from template rendering
+    local stageout_file="{{stageout_file}}"
+    local stageout_command="{{stageout_command}}"
+    local bootstrap_file="{{bootstrap_file}}"
+    local bootstrap_command="{{bootstrap_command}}"
+    local dashboard_file="{{dashboard_file}}"
+    local input_files="{{input_files}}"
+    local input_files_render=( {{input_files_render}} )
+    local render_variables="{{render_variables}}"
+
     mkdir -p "${LAW_JOB_HOME}"
     mkdir -p "${LAW_JOB_TMP}"
-
-    cd "${LAW_JOB_HOME}"
-
-    local input_files="{{input_files}}"
-    if [ ! -z "${input_files}" ]; then
-        # symlink relative input files into the job home directory
-        for input_file in ${input_files}; do
-            if [ "${input_file:0:1}" != "/" ] && [ -f "${LAW_JOB_INIT_DIR}/${input_file}" ]; then
-                ln -s "${LAW_JOB_INIT_DIR}/${input_file}" .
-            fi
-        done
-    fi
 
 
     #
@@ -183,8 +186,6 @@ action() {
         _law_job_section "stageout"
 
         run_stageout_file() {
-            local stageout_file="{{stageout_file}}"
-
             _law_job_subsection "stageout file"
 
             if [ ! -z "${stageout_file}" ]; then
@@ -205,8 +206,6 @@ action() {
         fi
 
         run_stageout_command() {
-            local stageout_command="{{stageout_command}}"
-
             _law_job_subsection "stageout command"
 
             if [ ! -z "${stageout_command}" ]; then
@@ -273,8 +272,6 @@ action() {
 
     _law_job_bootstrap() {
         run_bootstrap_file() {
-            local bootstrap_file="{{bootstrap_file}}"
-
             _law_job_subsection "bootstrap file"
 
             if [ ! -z "${bootstrap_file}" ]; then
@@ -295,8 +292,6 @@ action() {
         fi
 
         run_bootstrap_command() {
-            local bootstrap_command="{{bootstrap_command}}"
-
             _law_job_subsection "bootstrap command"
 
             if [ ! -z "${bootstrap_command}" ]; then
@@ -339,7 +334,6 @@ action() {
         _law_job_subsection "setup dashboard"
 
         load_dashboard_file() {
-            local dashboard_file="{{dashboard_file}}"
             if [ ! -z "${dashboard_file}" ]; then
                 echo "load dashboard file ${dashboard_file}"
                 source "${dashboard_file}" ""
@@ -384,11 +378,12 @@ action() {
         echo
     fi
 
+    # print some variables
     _law_job_subsection "job infos"
     echo "shell    : ${SHELL}"
     echo "hostname : $( hostname )"
-    echo "python   : $( 2>&1 python --version ), $( which python )"
-    echo "python3  : $( 2>&1 python3 --version ), $( which python3 )"
+    echo "python   : $( 2>&1 python --version ) from $( which python )"
+    echo "python3  : $( 2>&1 python3 --version ) from $( which python3 )"
     echo "init dir : ${LAW_JOB_INIT_DIR}"
     echo "job home : ${LAW_JOB_HOME}"
     echo "tmp dir  : $( python -c "from tempfile import gettempdir; print(gettempdir())" )"
@@ -397,6 +392,7 @@ action() {
     echo "script   : $0"
     echo "args     : $@"
 
+    # print additional task variables
     echo
     _law_job_subsection "task infos"
     echo "task module   : ${LAW_JOB_TASK_MODULE}"
@@ -406,8 +402,75 @@ action() {
     echo "auto retry    : ${LAW_JOB_AUTO_RETRY}"
     echo "dashboard data: ${LAW_JOB_DASHBOARD_DATA}"
 
+    # show files in initial directory
     echo
-    _law_job_subsection "file infos"
+    _law_job_subsection "files in LAW_JOB_INIT_DIR"
+    echo "> pwd"
+    pwd
+    echo "> ls -la"
+    ls -la
+
+    # switch into the actual job directory
+    cd "${LAW_JOB_HOME}"
+
+    # handle input files
+    if [ ! -z "${input_files}" ]; then
+        echo
+        _law_job_subsection "link input files"
+
+        # symlink relative input files into the job home directory
+        for input_file in ${input_files}; do
+            # skip if the file refers to _this_ one
+            local input_file_base="$( basename "${input_file}" )"
+            [ "${input_file_base}" = "${this_file}" ] && continue
+            # resolve the source location relative to LAW_JOB_INIT_DIR
+            [ "${input_file:0:1}" != "/" ] && input_file="${LAW_JOB_INIT_DIR}/${input_file}"
+            # link
+            echo "link ${input_file}"
+            ln -s "${input_file}" .
+        done
+        unset input_file
+    fi
+
+    # handle input file rendering
+    local render_ret
+    render_variables="$( echo "${render_variables}" | base64 --decode )"
+    if [ ! -z "${input_files_render}" ] && [ ! -z "${render_variables}" ] && [ "${render_variables}" != "-" ]; then
+        echo
+        _law_job_subsection "render input files"
+
+        # render files
+        for input_file_render in ${input_files_render}; do
+            # skip if the file refers to _this_ one
+            local input_file_render_base="$( basename "${input_file_render}" )"
+            [ "${input_file_render_base}" = "${this_file}" ] && continue
+            # unlink first when present in the current directory
+            rm -f "${input_file_render_base}"
+            # resolve the source location relative to LAW_JOB_INIT_DIR
+            [ "${input_file_render:0:1}" != "/" ] && input_file_render="${LAW_JOB_INIT_DIR}/${input_file_render}"
+            # render
+            echo "render ${input_file_render}"
+            python -c "\
+import re;\
+repl = ${render_variables};\
+content = open('${input_file_render}', 'r').read();\
+content = re.sub(r'\{\{(\w+)\}\}', lambda m: repl.get(m.group(1), ''), content);\
+open('${input_file_render_base}', 'w').write(content);\
+"
+            render_ret="$?"
+            # handle rendering errors
+            if [ "${render_ret}" != "0" ]; then
+                >&2 echo "input file rendering failed with code ${render_ret}, stop job"
+                _law_job_finalize "5"
+                return "$?"
+            fi
+        done
+        unset input_file_render
+    fi
+
+    # show files in job home after linking
+    echo
+    _law_job_subsection "files in LAW_JOB_HOME"
     echo "> pwd"
     pwd
     echo "> ls -la"
@@ -489,13 +552,30 @@ action() {
     return "$?"
 }
 
-# start and optionally log
-log_file="{{log_file}}"
-if [ -z "${log_file}" ]; then
-    action "$@"
-elif command -v tee &> /dev/null; then
-    set -o pipefail
-    action "$@" 2>&1 | tee -a "${log_file}"
-else
-    action "$@" &>> "${log_file}"
-fi
+start_law_job() {
+    # Invokes the law_job function defined above, making sure it is wrapped by a new bash subshell.
+
+    local log_file="{{log_file}}"
+
+    if [ "${LAW_JOB_WRAPPED_BASH}" != "1" ]; then
+        # not wrapped yet, start a new shell forwarding all arguments
+        local shell_is_zsh="$( [ -z "${ZSH_VERSION}" ] && echo "false" || echo "true" )"
+        local this_file="$( ${shell_is_zsh} && echo "${(%):-%x}" || echo "${BASH_SOURCE[0]}" )"
+        LAW_JOB_WRAPPED_BASH="1" bash "${this_file}" $@
+    else
+        # already wrapped, start and optionally log
+        if [ -z "${log_file}" ]; then
+            law_job "$@"
+        elif command -v tee &> /dev/null; then
+            set -o pipefail
+            echo -e "" > "${log_file}"
+            law_job "$@" 2>&1 | tee -a "${log_file}"
+        else
+            echo -e "" > "${log_file}"
+            law_job "$@" &>> "${log_file}"
+        fi
+    fi
+}
+
+# entry point
+start_law_job "$@"
