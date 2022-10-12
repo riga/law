@@ -16,7 +16,7 @@ from collections import OrderedDict
 
 import six
 
-from law.util import make_list
+from law.util import make_list, import_file
 from law.logger import get_logger
 
 
@@ -352,6 +352,21 @@ class TarFormatter(Formatter):
                 _add_kwargs = {"arcname": os.path.relpath(src, common_prefix)}
                 _add_kwargs.update(add_kwargs)
                 f.add(src, **_add_kwargs)
+
+
+class PythonFormatter(Formatter):
+
+    name = "python"
+
+    @classmethod
+    def accepts(cls, path, mode):
+        path = get_path(path)
+        return path.endswith(".py")
+
+    @classmethod
+    def load(cls, path, *args, **kwargs):
+        path = get_path(path)
+        return import_file(path, *args, **kwargs)
 
 
 # trailing imports

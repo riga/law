@@ -6,16 +6,17 @@ Helpful utility functions.
 
 __all__ = [
     "default_lock", "io_lock", "console_lock", "no_value", "rel_path", "law_src_path",
-    "law_home_path", "law_run", "print_err", "abort", "is_number", "try_int", "round_discrete",
-    "str_to_int", "flag_to_bool", "empty_context", "common_task_params", "colored", "uncolored",
-    "query_choice", "is_pattern", "brace_expand", "range_expand", "range_join", "multi_match",
-    "is_iterable", "is_lazy_iterable", "make_list", "make_tuple", "make_unique", "is_nested",
-    "flatten", "merge_dicts", "unzip", "which", "map_verbose", "map_struct", "mask_struct",
-    "tmp_file", "perf_counter", "interruptable_popen", "readable_popen", "create_hash",
-    "create_random_string", "copy_no_perm", "makedirs", "user_owns_file", "iter_chunks",
-    "human_bytes", "parse_bytes", "human_duration", "parse_duration", "is_file_exists_error",
-    "send_mail", "DotDict", "ShorthandDict", "open_compat", "patch_object", "join_generators",
-    "quote_cmd", "escape_markdown", "classproperty", "BaseStream", "TeeStream", "FilteredStream",
+    "law_home_path", "law_run", "print_err", "abort", "import_file", "is_number", "try_int",
+    "round_discrete", "str_to_int", "flag_to_bool", "empty_context", "common_task_params",
+    "colored", "uncolored", "query_choice", "is_pattern", "brace_expand", "range_expand",
+    "range_join", "multi_match", "is_iterable", "is_lazy_iterable", "make_list", "make_tuple",
+    "make_unique", "is_nested", "flatten", "merge_dicts", "unzip", "which", "map_verbose",
+    "map_struct", "mask_struct", "tmp_file", "perf_counter", "interruptable_popen",
+    "readable_popen", "create_hash", "create_random_string", "copy_no_perm", "makedirs",
+    "user_owns_file", "iter_chunks", "human_bytes", "parse_bytes", "human_duration",
+    "parse_duration", "is_file_exists_error", "send_mail", "DotDict", "ShorthandDict",
+    "open_compat", "patch_object", "join_generators", "quote_cmd", "escape_markdown",
+    "classproperty", "BaseStream", "TeeStream", "FilteredStream",
 ]
 
 
@@ -158,6 +159,30 @@ def abort(msg=None, exitcode=1, color=True):
                 msg = colored(msg, color="red")
             print_err(msg)
     sys.exit(exitcode)
+
+
+def import_file(path, attr=None):
+    """
+    Loads the content of a python file located at *path* and returns its package content as a
+    dictionary. When *attr* is set, only the attribute with that name is returned.
+
+    The file is not required to be importable as its content is loaded directly into the
+    interpreter. While this approach is not necessarily clean, it can be useful in places where
+    custom code must be loaded.
+    """
+    # load the package contents
+    path = os.path.expandvars(os.path.expanduser(path))
+    pkg = DotDict()
+    with open(path, "r") as f:
+        exec(f.read(), pkg)
+
+    # extract a particular attribute
+    if attr:
+        if attr not in pkg:
+            raise AttributeError("no local member '{}' found in file {}".format(attr, path))
+        return pkg[attr]
+
+    return pkg
 
 
 def is_number(n):
