@@ -149,6 +149,7 @@ class ForestMerge(LocalWorkflow):
     merge_factor = 2
 
     exclude_index = True
+    exclude_params_forest_merge = {"tree_index", "tree_depth", "keep_nodes", "branch", "branches"}
 
     @classmethod
     def modify_param_values(cls, params):
@@ -330,8 +331,8 @@ class ForestMerge(LocalWorkflow):
 
         # complain when the depth is too large
         if self.tree_depth > self.max_tree_depth:
-            raise ValueError("tree_depth {} exceeds maximum depth {}".format(
-                self.tree_depth, self.max_tree_depth))
+            raise ValueError("tree_depth {} exceeds maximum depth {} in task {}".format(
+                self.tree_depth, self.max_tree_depth, self))
 
     def create_branch_map(self):
         tree = self._get_tree()
