@@ -11,6 +11,11 @@ _law_complete() {
     local this_file="$( ${shell_is_zsh} && echo "${(%):-%x}" || echo "${BASH_SOURCE[0]}" )"
     local this_dir="$( cd "$( dirname "${this_file}" )" && pwd )"
 
+    # zsh options
+    if ${shell_is_zsh}; then
+        emulate -L bash
+    fi
+
     # load polyfills
     source "${this_dir}/../polyfills.sh" ""
 
@@ -81,6 +86,14 @@ _law_complete() {
             # dealing with task-level parameters here, revert the replacement manually and keep
             # variables for both versions
 
+            # declare arrays for bash/zsh interoperability
+            local matches tasks tasks_repl all_params workds
+            declare -a matches
+            declare -a tasks
+            declare -a tasks_repl
+            declare -a all_params
+            declare -a words
+
             # get the task namespace
             local namespace_raw="$( echo "${inp}" | _law_grep_Po "^.*\.(?=[^\.]*$)" )"
             local namespace="$( echo "${namespace_raw}" | sed "s/-/_/g" )"
@@ -96,9 +109,9 @@ _law_complete() {
             local family_repl="${namespace_repl}${class}"
 
             # find tasks that match the family
-            local matches=( $( _law_grep_Po "[^\:]+\:\K${family}[^\:]*(?=\:.+)" "${index_file}" ) )
-            local tasks=()
-            local tasks_repl=()
+            matches=( $( _law_grep_Po "[^\:]+\:\K${family}[^\:]*(?=\:.+)" "${index_file}" ) )
+            tasks=()
+            tasks_repl=()
             for (( i=0; i<${#matches[@]}; i++ )); do
                 if [ ! -z "${matches[$i]}" ]; then
                     tasks+=( "${matches[$i]}" )
@@ -128,8 +141,8 @@ _law_complete() {
                 fi
 
                 # get all parameters and do a simple comparison
-                local all_params=( $( _law_grep_Po "[^\:]\:${family}\:\K.*" "${index_file}" ) )
-                local words=()
+                all_params=( $( _law_grep_Po "[^\:]\:${family}\:\K.*" "${index_file}" ) )
+                words=()
                 for p in "${all_params[@]}"; do
                     if [ -z "${param}" ] || [ ! -z "$( echo "$p" | _law_grep_Po "^${param}" )" ]; then
                         words+=("${family_repl}-${p}")
