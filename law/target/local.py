@@ -320,7 +320,12 @@ class LocalTarget(FileSystemTarget, shims.LocalTarget):
         # handle tmp paths manually since luigi uses the env tmp dir
         if not path:
             if not is_tmp:
-                raise Exception("either path or is_tmp must be set")
+                raise Exception("when no target path is defined, is_tmp must be set")
+            if fs.base != "/":
+                raise Exception(
+                    "when is_tmp is set, the base of the underlying file system must be root, but "
+                    "found '{}'".format(fs.base),
+                )
 
             # if not set, get the tmp dir from the config and ensure that it exists
             cfg = Config.instance()
@@ -345,11 +350,8 @@ class LocalTarget(FileSystemTarget, shims.LocalTarget):
                     is_tmp = "." + is_tmp
                 path += is_tmp
         else:
-            # ensure path is not a target and does not contain a scheme
-            path = fs._unscheme(get_path(path))
-            # make absolute when not starting with a variable
-            if not path.startswith(("$", "~")):
-                path = os.path.abspath(path)
+            # ensure path is not a target, does not contain a scheme and starts with /
+            path = os.path.join(os.sep, fs._unscheme(get_path(path)))
 
         super(LocalTarget, self).__init__(path=path, is_tmp=is_tmp, fs=fs, **kwargs)
 
@@ -358,6 +360,11 @@ class LocalTarget(FileSystemTarget, shims.LocalTarget):
         if self.is_tmp:
             flags.append("temporary")
         return flags
+
+    def _parent_args(self):
+        args, kwargs = super(LocalTarget, self)._parent_args()
+        kwargs["fs"] = self.fs
+        return args, kwargs
 
     def uri(self, scheme=True, return_all=False, **kwargs):
         uri = self.fs.abspath(self.path)
@@ -447,7 +454,10 @@ class LocalFileTarget(FileSystemFileTarget, LocalTarget):
 
 class LocalDirectoryTarget(FileSystemDirectoryTarget, LocalTarget):
 
-    pass
+    def _child_args(self, path):
+        args, kwargs = super(LocalDirectoryTarget, self)._child_args(path)
+        kwargs["fs"] = self.fs
+        return args, kwargs
 
 
 LocalTarget.file_class = LocalFileTarget
