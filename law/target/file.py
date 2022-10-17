@@ -161,6 +161,10 @@ class FileSystemTarget(Target, shims.FileSystemTarget):
     def _repr_pairs(self, color=True):
         pairs = super(FileSystemTarget, self)._repr_pairs()
 
+        # add the fs name
+        if self.fs:
+            pairs.append(("fs", self.fs.name))
+
         # add the path
         cfg = Config.instance()
         expand = cfg.get_expanded_boolean("target", "expand_path_repr")

@@ -34,7 +34,24 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
 
     default_instance = None
 
-    def __init__(self, section=None, **kwargs):
+    @classmethod
+    def parse_config(cls, section, config=None, overwrite=False):
+        config = super(LocalFileSystem, cls).parse_config(section, config=config,
+            overwrite=overwrite)
+
+        cfg = Config.instance()
+
+        # helper to add a config value if it exists, extracted with a config parser method
+        def add(option, func):
+            if option not in config or overwrite:
+                config[option] = func(section, option)
+
+        # default base path
+        add("base", cfg.get_expanded)
+
+        return config
+
+    def __init__(self, section=None, base=None, **kwargs):
         # if present, read options from the section in the law config
         self.config_section = None
         cfg = Config.instance()
@@ -53,26 +70,30 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
                 raise Exception("law config has no section '{}' to read {} options".format(
                     section, self.__class__.__name__))
 
+        # set the base, giving priority to config values in kwargs
+        self.base = os.path.join(os.sep, kwargs.pop("base", None) or base or "")
+
         super(LocalFileSystem, self).__init__(**kwargs)
 
     def _unscheme(self, path):
         return remove_scheme(path) if get_scheme(path) == "file" else path
 
     def abspath(self, path):
-        return os.path.abspath(self._unscheme(path))
+        path = self._unscheme(path)
+        return os.path.abspath(os.path.join(self.base, path.lstrip(os.sep)))
 
     def stat(self, path, **kwargs):
-        return os.stat(self._unscheme(path))
+        return os.stat(self.abspath(path))
 
     def exists(self, path, stat=False, **kwargs):
-        exists = os.path.exists(self._unscheme(path))
+        exists = os.path.exists(self.abspath(path))
         return (self.stat(path, **kwargs) if exists else None) if stat else exists
 
     def isdir(self, path, **kwargs):
-        return os.path.isdir(self._unscheme(path))
+        return os.path.isdir(self.abspath(path))
 
     def isfile(self, path, **kwargs):
-        return os.path.isfile(self._unscheme(path))
+        return os.path.isfile(self.abspath(path))
 
     def chmod(self, path, perm, silent=True, **kwargs):
         if not self.has_permissions or perm is None:
@@ -81,23 +102,23 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
         if silent and not self.exists(path):
             return False
 
-        os.chmod(self._unscheme(path), perm)
+        os.chmod(self.abspath(path), perm)
 
         return True
 
     def remove(self, path, recursive=True, silent=True, **kwargs):
-        path = self._unscheme(path)
+        abspath = self.abspath(path)
 
         if silent and not self.exists(path):
             return False
 
         if self.isdir(path):
             if recursive:
-                shutil.rmtree(path)
+                shutil.rmtree(abspath)
             else:
-                os.rmdir(path)
+                os.rmdir(abspath)
         else:
-            os.remove(path)
+            os.remove(abspath)
 
         return True
 
@@ -109,7 +130,7 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
             perm = self.default_dir_perm
 
         # prepare arguments passed to makedirs or mkdir
-        args = (self._unscheme(path),)
+        args = (self.abspath(path),)
         if perm is not None:
             args += (perm,)
 
@@ -131,8 +152,8 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
         return True
 
     def listdir(self, path, pattern=None, type=None, **kwargs):
-        path = self._unscheme(path)
-        elems = os.listdir(path)
+        abspath = self.abspath(path)
+        elems = os.listdir(abspath)
 
         # apply pattern filter
         if pattern is not None:
@@ -148,7 +169,7 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
 
     def walk(self, path, max_depth=-1, **kwargs):
         # mimic os.walk with a max_depth and yield the current depth
-        search_dirs = [(self._unscheme(path), 0)]
+        search_dirs = [(path, 0)]
         while search_dirs:
             (search_dir, depth) = search_dirs.pop(0)
 
@@ -166,16 +187,16 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
                     files.append(elem)
 
             # yield everything
-            yield (search_dir, dirs, files, depth)
+            yield (self.abspath(search_dir), dirs, files, depth)
 
             # use dirs to update search dirs
             search_dirs.extend((os.path.join(search_dir, d), depth + 1) for d in dirs)
 
     def glob(self, pattern, cwd=None, **kwargs):
-        pattern = self._unscheme(pattern)
+        pattern = self.abspath(pattern)
 
         if cwd is not None:
-            cwd = self._unscheme(cwd)
+            cwd = self.abspath(cwd)
             pattern = os.path.join(cwd, pattern)
 
         elems = glob.glob(pattern)
@@ -197,8 +218,6 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
         created when :py:attr:`create_file_dir` is *True*, using *perm* to set the directory
         permission. The absolute path to *dst* is returned.
         """
-        dst = self._unscheme(dst)
-
         if self.isdir(dst):
             if src:
                 full_dst = os.path.join(dst, os.path.basename(src))
@@ -218,11 +237,10 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
         return full_dst
 
     def copy(self, src, dst, perm=None, dir_perm=None, **kwargs):
-        src = self._unscheme(src)
         dst = self._prepare_dst_dir(dst, src=src, perm=dir_perm)
 
         # copy the file
-        shutil.copy2(src, dst)
+        shutil.copy2(self.abspath(src), self.abspath(dst))
 
         # set permissions
         if perm is None:
@@ -232,11 +250,10 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
         return dst
 
     def move(self, src, dst, perm=None, dir_perm=None, **kwargs):
-        src = self._unscheme(src)
         dst = self._prepare_dst_dir(dst, src=src, perm=dir_perm)
 
         # move the file
-        shutil.move(src, dst)
+        shutil.move(self.abspath(src), self.abspath(dst))
 
         # set permissions
         if perm is None:
@@ -246,11 +263,13 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
         return dst
 
     def open(self, path, mode, perm=None, dir_perm=None, **kwargs):
+        abspath = self.abspath(path)
+
         # check if the file is only read
         read_mode = mode.startswith("r")
 
         if read_mode:
-            return open(path, mode)
+            return open(abspath, mode)
 
         else:  # write or update
             # prepare the destination directory
@@ -261,16 +280,16 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
 
             # when setting permissions, ensure the file exists first
             if perm is not None and self.has_permissions:
-                open(path, mode).close()
+                open(abspath, mode).close()
                 self.chmod(path, perm)
 
-            return open(path, mode)
+            return open(abspath, mode)
 
     def load(self, path, formatter, *args, **kwargs):
         # remove kwargs that might be designated for remote files
         kwargs = RemoteFileSystem.split_remote_kwargs(kwargs)[1]
 
-        return find_formatter(path, "load", formatter).load(self._unscheme(path), *args, **kwargs)
+        return find_formatter(path, "load", formatter).load(self.abspath(path), *args, **kwargs)
 
     def dump(self, path, formatter, *args, **kwargs):
         # remove kwargs that might be designated for remote files
@@ -283,7 +302,7 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
         # use open() to handle parent directory writing and permissisions
         self.open(path, "w", perm=perm, dir_perm=dir_perm).close()
 
-        return find_formatter(path, "dump", formatter).dump(self._unscheme(path), *args, **kwargs)
+        return find_formatter(path, "dump", formatter).dump(self.abspath(path), *args, **kwargs)
 
 
 LocalFileSystem.default_instance = LocalFileSystem()

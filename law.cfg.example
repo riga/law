@@ -241,6 +241,14 @@
 
 [local_fs]
 
+; base
+; Description: The base path for accessing files on this file system. Its default refers to the root
+; of the file system which should serve most uses cases where local file targets assigned to it
+; define absolute paths on their own. However, setting a different value will prepend it to the
+; paths used in all its operations.
+; Type: str
+; Default: "/"
+
 
 ; --- Options defined by "law.target.file.FileSystem"
 

@@ -90,6 +90,7 @@ class Config(ConfigParser):
             "default_dropbox_fs": "dropbox_fs",
         },
         "local_fs": {
+            "base": "/",
             # defined by FileSystem
             "has_permissions": True,
             "default_file_perm": None,
