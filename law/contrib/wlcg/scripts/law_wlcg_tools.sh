@@ -187,6 +187,12 @@ law_wlcg_put_file() {
     # > base2="gsiftp://dcache-door-cms06.desy.de:2811/pnfs/..."
     # > law_wlcg_put_file "/my/local/file.txt" "$base,$base2" "file.txt" "2"
 
+    # zsh options
+    local shell_is_zsh="$( [ -z "${ZSH_VERSION}" ] && echo "false" || echo "true" )"
+    if ${shell_is_zsh}; then
+        emulate -L bash
+    fi
+
     # get arguments
     local src_path="$1"
     local dst_dir="$2"
@@ -209,11 +215,15 @@ law_wlcg_put_file() {
     # when the remote base contains a comma, consider it as a list of bases to try randomly
     if [[ "${dst_dir}" == *","* ]]; then
         # split into in array and loop over randomly selected bases
-        local dst_dirs=""
+        local dst_dirs
         local random_dir=""
         local ret="0"
 
-        IFS="," read -r -a dst_dirs <<< "${dst_dir}"
+        if ${shell_is_zsh}; then
+            dst_dirs=(${(@s:,:)dst_dir})
+        else
+            IFS="," read -r -a dst_dirs <<< "${dst_dir}"
+        fi
         for i in $( shuf -i "1-${#dst_dirs[@]}" -n "$((attempts))" ); do
             random_dir="${dst_dirs[$((i-1))]}"
             law_wlcg_put_file "${src_path}" "${random_dir}" "${dst_name}" "1"
