@@ -86,6 +86,8 @@ def execute(args):
     if not args.quiet:
         print("indexing tasks in {} module(s)".format(len(lookup)))
 
+    exit_code = 0
+
     # loop through modules, import everything to load tasks
     for modid in lookup:
         if not modid:
@@ -97,6 +99,7 @@ def execute(args):
         try:
             import_module(modid)
         except Exception as e:
+            exit_code += 1
             if not args.verbose:
                 print("error in module '{}': {}".format(colored(modid, "red"), str(e)))
             else:
@@ -209,6 +212,8 @@ def execute(args):
 
     if not args.quiet:
         print("written {} task(s) to index file '{}'".format(len(task_classes), index_file))
+
+    return exit_code
 
 
 def get_global_parameters(config_names=("core", "scheduler", "worker", "retcode")):

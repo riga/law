@@ -52,10 +52,12 @@ def run(argv=None):
 
     # the parser determines the prog, so overwrite it
     prog = args.command
-    if prog:
-        exec_args = (args,)
-        if prog_argv is not None:
-            exec_args += (prog_argv,)
-        mods[prog].execute(*exec_args)
-    else:
+    if not prog:
         parser.print_help()
+        return 0
+
+    exec_args = (args,)
+    if prog_argv is not None:
+        exec_args += (prog_argv,)
+
+    return mods[prog].execute(*exec_args)

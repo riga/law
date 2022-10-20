@@ -3,6 +3,11 @@
 
 
 if __name__ == "__main__":
+    import sys
+
     # load the law cli
     from law.cli import run
-    run()
+    exit_code = run()
+
+    if isinstance(exit_code, int):
+        sys.exit(exit_code)
