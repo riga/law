@@ -191,7 +191,7 @@ class FileSystemTarget(Target, shims.FileSystemTarget):
     @path.setter
     def path(self, path):
         self._unexpanded_path = str(path)
-        self._path = os.path.abspath(os.path.expandvars(os.path.expanduser(self.unexpanded_path)))
+        self._path = self.fs.abspath(self.unexpanded_path)
 
     @property
     def dirname(self):
@@ -211,7 +211,7 @@ class FileSystemTarget(Target, shims.FileSystemTarget):
         dirname = self.dirname
         unexpanded_dirname = self.fs.dirname(self.unexpanded_path)
         expanded_dirname = os.path.expandvars(os.path.expanduser(unexpanded_dirname))
-        if unexpanded_dirname and dirname == os.path.abspath(expanded_dirname):
+        if unexpanded_dirname and self.fs.abspath(dirname) == self.fs.abspath(expanded_dirname):
             dirname = unexpanded_dirname
 
         args, kwargs = self._parent_args()

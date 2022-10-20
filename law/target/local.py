@@ -79,7 +79,7 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
         return remove_scheme(path) if get_scheme(path) == "file" else path
 
     def abspath(self, path):
-        path = self._unscheme(path)
+        path = os.path.expandvars(os.path.expanduser(self._unscheme(path)))
         return os.path.abspath(os.path.join(self.base, path.lstrip(os.sep)))
 
     def stat(self, path, **kwargs):
@@ -350,8 +350,10 @@ class LocalTarget(FileSystemTarget, shims.LocalTarget):
                     is_tmp = "." + is_tmp
                 path += is_tmp
         else:
-            # ensure path is not a target, does not contain a scheme and starts with /
-            path = os.path.join(os.sep, fs._unscheme(get_path(path)))
+            # ensure path is not a target, does not contain a scheme and starts with a /
+            path = fs._unscheme(get_path(path))
+            if not path.startswith(("~", "$")):
+                path = os.path.join(os.sep, path)
 
         super(LocalTarget, self).__init__(path=path, is_tmp=is_tmp, fs=fs, **kwargs)
 
