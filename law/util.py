@@ -1372,6 +1372,7 @@ def iter_chunks(l, size):
 
 
 byte_units = ["bytes", "kB", "MB", "GB", "TB", "PB", "EB"]
+byte_units_lower = [u.lower() for u in byte_units]
 
 
 def human_bytes(n, unit=None, fmt=False):
@@ -1446,10 +1447,10 @@ def parse_bytes(s, input_unit="bytes", unit="bytes"):
         # -> 2.0
     """
     # check if the units exists
-    if input_unit not in byte_units:
+    if input_unit.lower() not in byte_units_lower:
         raise ValueError("unknown input_unit '{}', valid values are {}".format(
             input_unit, byte_units))
-    if unit not in byte_units:
+    if unit.lower() not in byte_units_lower:
         raise ValueError("unknown unit '{}', valid values are {}".format(
             unit, byte_units))
 
@@ -1458,7 +1459,7 @@ def parse_bytes(s, input_unit="bytes", unit="bytes"):
     if isinstance(s, (float, six.integer_types)):
         input_value = float(s)
     else:
-        m = re.match(r"^\s*(-?\d+\.?\d*)\s*(|{})\s*$".format("|".join(byte_units)), s)
+        m = re.match(r"^\s*(-?\d+\.?\d*)\s*(|{})\s*$".format("|".join(byte_units_lower)), s.lower())
         if not m:
             raise ValueError("cannot parse bytes from string '{}'".format(s))
 
@@ -1468,7 +1469,7 @@ def parse_bytes(s, input_unit="bytes", unit="bytes"):
             input_unit = _input_unit
 
     # convert the input value to bytes
-    idx = byte_units.index(input_unit)
+    idx = byte_units_lower.index(input_unit.lower())
     size_bytes = input_value * 1024.0 ** idx
 
     # use human_bytes to convert the size
