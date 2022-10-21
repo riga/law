@@ -175,6 +175,12 @@
 ; Type: boolean
 ; Default: True
 
+; interactive_format
+; Description: The style of interactive task outputs, e.g. when adding "--print-status N" to a
+; command. Possible values: default, fancy.
+; Type: string
+; Default: "fancy"
+
 
 ; --- target section -------------------------------------------------------------------------------
 

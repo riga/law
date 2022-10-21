@@ -269,7 +269,7 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
 
         return task_id
 
-    def walk_deps(self, max_depth=-1, order="level"):
+    def walk_deps(self, max_depth=-1, order="level", yield_last_flag=False):
         # see https://en.wikipedia.org/wiki/Tree_traversal
         if order not in ("level", "pre"):
             raise ValueError("unknown traversal order '{}', use 'level' or 'pre'".format(order))
@@ -277,17 +277,33 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
         tasks = [(self, 0)]
         while len(tasks):
             task, depth = tasks.pop(0)
-            if max_depth >= 0 and depth > max_depth:
-                continue
             deps = flatten(task.requires())
+            next_depth = tasks[0][1] if tasks else None
 
-            yield (task, deps, depth)
+            # define the tuple of objects to yield
+            tpl = (task, deps, depth)
+            if order != "pre" or not yield_last_flag:
+                yield tpl
 
-            deps = ((d, depth + 1) for d in deps)
+            # define the next deps, considering the maximum depth if set
+            deps = (
+                (d, depth + 1)
+                for d in deps
+                if max_depth < 0 or depth < max_depth
+            )
+
+            # add to the tasks run process, depending on the traversal order
             if order == "level":
                 tasks[len(tasks):] = deps
             elif order == "pre":
                 tasks[:0] = deps
+
+            # when an additional flag should be yielded that denotes whether the object is the last
+            # one in its depth, evaluate this decision here and then yield
+            # note: this assumes that the deps were not changed by the using context
+            if yield_last_flag:
+                is_last = next_depth is None or next_depth < depth
+                yield tpl + (is_last,)
 
     def cli_args(self, exclude=None, replace=None):
         exclude = set() if exclude is None else set(make_list(exclude))

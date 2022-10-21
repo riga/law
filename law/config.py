@@ -76,6 +76,7 @@ class Config(ConfigParser):
         "task": {
             "colored_repr": False,
             "colored_str": True,
+            "interactive_format": "fancy",
         },
         "target": {
             "colored_repr": False,
