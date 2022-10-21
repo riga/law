@@ -14,7 +14,6 @@ import luigi
 import six
 
 from law.task.base import Task
-from law.workflow.base import cached_workflow_property
 from law.workflow.local import LocalWorkflow
 from law.target.file import FileSystemTarget
 from law.target.local import LocalFileTarget
@@ -174,6 +173,12 @@ class ForestMerge(LocalWorkflow):
         # forward the _n_leaves attribute
         new_inst._n_leaves = inst._n_leaves
 
+        # when set, also forward the tree itself and caching decisions
+        if inst._merge_forest_built:
+            new_inst._merge_forest_built = True
+            new_inst._merge_forest = inst._merge_forest
+            new_inst._leaves_per_tree = inst._leaves_per_tree
+
         return new_inst
 
     @classmethod
@@ -192,9 +197,12 @@ class ForestMerge(LocalWorkflow):
     def __init__(self, *args, **kwargs):
         super(ForestMerge, self).__init__(*args, **kwargs)
 
+        # set attributes
         self._n_leaves = None
         self._cache_forest = True
-        self._forest_built = False
+        self._merge_forest_built = False
+        self._merge_forest = None
+        self._leaves_per_tree = None
 
         # the merge factor should not be 1
         if self.merge_factor == 1:
@@ -226,15 +234,15 @@ class ForestMerge(LocalWorkflow):
     def max_tree_depth(self):
         return max(self._get_tree().keys())
 
-    @cached_workflow_property
+    @property
     def merge_forest(self):
         self._build_merge_forest()
-        return self.merge_forest
+        return self._merge_forest
 
-    @cached_workflow_property
+    @property
     def leaves_per_tree(self):
         self._build_merge_forest()
-        return self.leaves_per_tree
+        return self._leaves_per_tree
 
     def _get_tree(self):
         if self.is_forest():
@@ -255,7 +263,7 @@ class ForestMerge(LocalWorkflow):
         # when multiple trees are used (a forest), each one handles ``n_leaves / n_trees`` leaves
 
         # when the forest was already built and saved by means of the _cache_forest flag, do nothing
-        if self._forest_built:
+        if self._merge_forest_built and self._merge_forest is not None:
             return
 
         # helper to convert nested lists of leaf number chunks into a list of nodes in the format
@@ -275,15 +283,13 @@ class ForestMerge(LocalWorkflow):
         # first, determine the number of files to merge in total when not already set via params
         if self._n_leaves is None:
             # the following lines build the workflow requirements,
-            # which strictly requires this task to be a workflow (and also not the forest)
-            # for branches, this block is executed anyway via cached workflow properties
-            if self.is_branch():
-                raise Exception("number of files to merge should not be computed for a branch")
+            # which strictly requires this task to be a workflow
+            wf = self.as_workflow()
 
             # get inputs, i.e. outputs of workflow requirements and trace actual inputs to merge
             # an integer number representing the number of inputs is also valid
-            inputs = luigi.task.getpaths(self.merge_workflow_requires())
-            inputs = self.trace_merge_workflow_inputs(inputs)
+            inputs = luigi.task.getpaths(wf.merge_workflow_requires())
+            inputs = wf.trace_merge_workflow_inputs(inputs)
             self._n_leaves = inputs if isinstance(inputs, six.integer_types) else len(inputs)
 
         # infer the number of trees from the merge output
@@ -323,16 +329,18 @@ class ForestMerge(LocalWorkflow):
 
                 forest.append(tree)
 
-        # store values
-        self.leaves_per_tree = leaves_per_tree
-        self.merge_forest = forest
-        if not is_placeholder and self._cache_forest:
-            self._forest_built = True
+        # store values, declare the forest as cached for now so that the check below works
+        self._leaves_per_tree = leaves_per_tree
+        self._merge_forest = forest
+        self._merge_forest_built = True
 
         # complain when the depth is too large
-        if self.tree_depth > self.max_tree_depth:
+        if not self.is_forest() and self.tree_depth > self.max_tree_depth:
             raise ValueError("tree_depth {} exceeds maximum depth {} in task {}".format(
                 self.tree_depth, self.max_tree_depth, self))
+
+        # set the final cache decision
+        self._merge_forest_built = self._cache_forest and not is_placeholder
 
     def create_branch_map(self):
         tree = self._get_tree()
