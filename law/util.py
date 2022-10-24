@@ -1816,6 +1816,22 @@ class DotDict(collections.OrderedDict):
                 raise AttributeError("'{}' object has no attribute '{}'".format(
                     self.__class__.__name__, attr))
 
+    def __setattr__(self, attr, value):
+        self[attr] = value
+
+    def copy(self):
+        """"""
+        return self.__class__(self)
+
+    @classmethod
+    def wrap(cls, *args, **kwargs):
+        """
+        Takes a dictionary *d* and recursively replaces it and all other nested dictionary types
+        with :py:class:`DotDict`'s for deep attribute-style access.
+        """
+        wrap = lambda d: cls((k, wrap(v)) for k, v in d.items()) if isinstance(d, dict) else d
+        return wrap(collections.OrderedDict(*args, **kwargs))
+
 
 class ShorthandDict(collections.OrderedDict):
     """
