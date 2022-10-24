@@ -189,7 +189,7 @@ class TargetCollection(Target):
 
         if flags and "missing" in flags and count != len(self):
             missing_keys = [str(key) for key in self.keys() if key not in existing_keys]
-            text += ", missing: " + ",".join(missing_keys)
+            text += ", missing branches: " + ",".join(missing_keys)
 
         if max_depth > 0:
             if isinstance(self.targets, (list, tuple)):
