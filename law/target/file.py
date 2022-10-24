@@ -74,6 +74,9 @@ class FileSystem(shims.FileSystem):
         else:
             return ".".join(parts[1:][min(-n, 0):])
 
+    def _unscheme(self, path):
+        return remove_scheme(path)
+
     @abstractproperty
     def default_instance(self):
         return
@@ -190,8 +193,9 @@ class FileSystemTarget(Target, shims.FileSystemTarget):
 
     @path.setter
     def path(self, path):
-        self._unexpanded_path = str(path)
-        self._path = self.fs.abspath(self.unexpanded_path)
+        path = self.fs._unscheme(str(path))
+        self._unexpanded_path = path
+        self._path = os.path.expandvars(os.path.expanduser(self._unexpanded_path))
 
     @property
     def dirname(self):
