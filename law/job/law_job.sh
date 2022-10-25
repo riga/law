@@ -372,11 +372,24 @@ law_job() {
 
     _law_job_section "environment"
 
-    if command -v hostnamectl &> /dev/null; then
-        _law_job_subsection "host infos"
-        hostnamectl status
+    _law_job_subsection "host infos"
+    echo "> uname -a"
+    uname -a
+    if command -v lsb_release &> /dev/null; then
         echo
+        echo "> lsb_release -a"
+        lsb_release -a
+    elif [ -f "/etc/lsb-release" ]; then
+        echo
+        echo "> cat /etc/lsb-release"
+        cat /etc/lsb-release
     fi
+    if command -v hostnamectl &> /dev/null; then
+        echo
+        echo "> hostnamectl status"
+        hostnamectl status
+    fi
+    echo
 
     # print some variables
     _law_job_subsection "job infos"
