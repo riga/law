@@ -423,8 +423,8 @@ class SandboxProxy(ProxyTask):
         def print_banner(msg, color):
             print("")
             print(colored(" {} ".format(msg).center(80, "="), color=color))
-            print(colored("sandbox: ", color=color) + colored(self.sandbox_inst.key, style="bright"))
             print(colored("task   : ", color=color) + colored(self.task.task_id, style="bright"))
+            print(colored("sandbox: ", color=color) + colored(self.sandbox_inst.key, style="bright"))
             print(colored(80 * "=", color=color))
             print("")
 
