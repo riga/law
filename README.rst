@@ -121,6 +121,12 @@ Projects using law
 - CIEMAT-CMS Analysis Framework:
    - Python and RDataFrame based framework starting from NanoAOD and targetting multiple CMS analyses
    - `repo <https://gitlab.cern.ch/cms-phys-ciemat/nanoaod_base_analysis/>`__
+- CMS 3D Z+jet 13TeV analysis
+   - Analysis workflow management from NTuple production to final plots and fits
+   - `repo <https://gitlab.etp.kit.edu/cverstege/zjet-analysis>`__
+- NP-correction derivation tool
+   - MC generation with Herwig and analysis of generated events with Rivet
+   - `repo <https://github.com/HerrHorizontal/herwig-run>`__
 - YOUR REPOSITORY HERE
 
 If your project uses law but is not yet listed here, feel free to open a pull request or mention your project details in a new `issue <https://github.com/riga/law/issues/new?template=register_project.md&title=New%20project%20using%20law&assignee=riga>`__ and it will be added.
