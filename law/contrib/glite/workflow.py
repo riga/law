@@ -197,7 +197,7 @@ class GLiteWorkflow(BaseRemoteWorkflow):
         return "_" + self.get_branches_repr()
 
     def glite_output_uri(self):
-        return self.glite_output_directory().url()
+        return self.glite_output_directory().uri()
 
     def glite_delegate_proxy(self, endpoint):
         return delegate_voms_proxy_glite(endpoint, stdout=sys.stdout, stderr=sys.stderr,

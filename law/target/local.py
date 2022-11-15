@@ -52,26 +52,50 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
         return config
 
     def __init__(self, section=None, base=None, **kwargs):
-        # if present, read options from the section in the law config
-        self.config_section = None
-        cfg = Config.instance()
-        if not section:
-            section = cfg.get_expanded("target", "default_local_fs")
-        if isinstance(section, six.string_types):
-            if cfg.has_section(section):
-                # extend options of sections other than "local_fs" with its defaults
-                if section != "local_fs":
-                    data = dict(cfg.items("local_fs", expand_vars=False, expand_user=False))
-                    cfg.update({section: data}, overwrite_sections=True, overwrite_options=False)
-                kwargs = self.parse_config(section, kwargs)
-                self.config_section = section
-                kwargs.setdefault("name", self.config_section)
-            else:
-                raise Exception("law config has no section '{}' to read {} options".format(
-                    section, self.__class__.__name__))
+        # setting both section and base is ambiguous and not allowed
+        if section and base:
+            raise Exception(
+                "setting both 'section' and 'base' as {} arguments is ambiguous and therefore not "
+                "supported, but got {} and {}".format(self.__class__.__name__, section, base),
+            )
 
-        # set the base, giving priority to config values in kwargs
-        self.base = os.path.join(os.sep, kwargs.pop("base", None) or base or "")
+        # determine the configured default local fs section
+        cfg = Config.instance()
+        default_section = cfg.get_expanded("target", "default_local_fs")
+        self.config_section = None
+
+        # when no base is given, evaluate the config section
+        if not base:
+            if not section:
+                # use the default section when none is set
+                section = default_section
+            elif section != default_section:
+                # check if the section exists
+                if not cfg.has_section(section):
+                    raise Exception("law config has no section '{}' to read {} options".format(
+                        section, self.__class__.__name__))
+                # extend non-default sections by options of the default one
+                data = dict(cfg.items(default_section, expand_vars=False, expand_user=False))
+                cfg.update({section: data}, overwrite_sections=True, overwrite_options=False)
+            self.config_section = section
+
+            # parse the config and set fs name and base
+            kwargs = self.parse_config(self.config_section, kwargs)
+            kwargs.setdefault("name", self.config_section)
+            base = kwargs.pop("base", None) or os.sep
+
+            # special case: the default local fs is not allowed to have a base directory other than
+            # "/" to ensure that files and directories wrapped by local targets in law or derived
+            # projects for convenience are interpreted as such and in particular do not resolve them
+            # relative to a base path defined in some config
+            if self.config_section == default_section and base != os.sep:
+                raise Exception(
+                    "the default local fs '{}' must not have a base defined, but got {}".format(
+                        default_section, base),
+                )
+
+        # set the base
+        self.base = os.path.abspath(base)
 
         super(LocalFileSystem, self).__init__(**kwargs)
 
@@ -80,7 +104,12 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
 
     def abspath(self, path):
         path = os.path.expandvars(os.path.expanduser(self._unscheme(path)))
-        return os.path.abspath(os.path.join(self.base, path.lstrip(os.sep)))
+
+        # join with the base path
+        base = os.path.expandvars(os.path.expanduser(self.base))
+        path = os.path.join(base, path)
+
+        return os.path.abspath(path)
 
     def stat(self, path, **kwargs):
         return os.stat(self.abspath(path))
@@ -219,10 +248,7 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
         permission. The absolute path to *dst* is returned.
         """
         if self.isdir(dst):
-            if src:
-                full_dst = os.path.join(dst, os.path.basename(src))
-            else:
-                full_dst = dst
+            full_dst = os.path.join(dst, os.path.basename(src)) if src else dst
 
         elif self.isfile(dst):
             full_dst = dst
@@ -265,13 +291,9 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
     def open(self, path, mode, perm=None, dir_perm=None, **kwargs):
         abspath = self.abspath(path)
 
+        # some preparations in case the file is written or updated
         # check if the file is only read
-        read_mode = mode.startswith("r")
-
-        if read_mode:
-            return open(abspath, mode)
-
-        else:  # write or update
+        if not mode.startswith("r"):
             # prepare the destination directory
             self._prepare_dst_dir(path, perm=dir_perm)
 
@@ -283,7 +305,7 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
                 open(abspath, mode).close()
                 self.chmod(path, perm)
 
-            return open(abspath, mode)
+        return open(abspath, mode)
 
     def load(self, path, formatter, *args, **kwargs):
         # remove kwargs that might be designated for remote files
@@ -323,7 +345,7 @@ class LocalTarget(FileSystemTarget, shims.LocalTarget):
                 raise Exception("when no target path is defined, is_tmp must be set")
             if fs.base != "/":
                 raise Exception(
-                    "when is_tmp is set, the base of the underlying file system must be root, but "
+                    "when is_tmp is set, the base of the underlying file system must be '/', but "
                     "found '{}'".format(fs.base),
                 )
 
@@ -350,10 +372,8 @@ class LocalTarget(FileSystemTarget, shims.LocalTarget):
                     is_tmp = "." + is_tmp
                 path += is_tmp
         else:
-            # ensure path is not a target, does not contain a scheme and starts with a /
+            # ensure path is not a target and has no scheme
             path = fs._unscheme(get_path(path))
-            if not path.startswith(("~", "$")):
-                path = os.path.join(os.sep, path)
 
         super(LocalTarget, self).__init__(path=path, is_tmp=is_tmp, fs=fs, **kwargs)
 
@@ -367,6 +387,10 @@ class LocalTarget(FileSystemTarget, shims.LocalTarget):
         args, kwargs = super(LocalTarget, self)._parent_args()
         kwargs["fs"] = self.fs
         return args, kwargs
+
+    @property
+    def abspath(self):
+        return self.uri(scheme=False)
 
     def uri(self, scheme=True, return_all=False, **kwargs):
         uri = self.fs.abspath(self.path)

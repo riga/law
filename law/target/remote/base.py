@@ -553,6 +553,10 @@ class RemoteTarget(FileSystemTarget):
         path = self.fs.abspath(path)
         super(RemoteTarget, self.__class__).path.fset(self, path)
 
+    @property
+    def abspath(self):
+        return self.uri()
+
     def uri(self, **kwargs):
         return self.fs.uri(self.path, **kwargs)
 

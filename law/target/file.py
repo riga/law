@@ -69,10 +69,7 @@ class FileSystem(shims.FileSystem):
         parts = self.basename(path).lstrip(".").split(".")
 
         # empty extension in the trivial case or use the last n parts except for the first one
-        if len(parts) == 1:
-            return ""
-        else:
-            return ".".join(parts[1:][min(-n, 0):])
+        return "" if len(parts) == 1 else ".".join(parts[1:][min(-n, 0):])
 
     def _unscheme(self, path):
         return remove_scheme(path)
@@ -202,6 +199,10 @@ class FileSystemTarget(Target, shims.FileSystemTarget):
         return self.fs.dirname(self.path)
 
     @property
+    def abs_dirname(self):
+        return self.fs.dirname(self.abspath)
+
+    @property
     def basename(self):
         return self.fs.basename(self.path)
 
@@ -242,6 +243,14 @@ class FileSystemTarget(Target, shims.FileSystemTarget):
 
     @abstractproperty
     def fs(self):
+        return
+
+    @abstractproperty
+    def abspath(self):
+        return
+
+    @abstractmethod
+    def uri(self, return_all=False, scheme=True, **kwargs):
         return
 
     @abstractmethod
@@ -288,13 +297,13 @@ class FileSystemFileTarget(FileSystemTarget):
     def ext(self, n=1):
         return self.fs.ext(self.path, n=n)
 
+    def open(self, mode, **kwargs):
+        return self.fs.open(self.path, mode, **kwargs)
+
     def touch(self, **kwargs):
         # create the file via open without content
         with self.open("w", **kwargs) as f:
             f.write("")
-
-    def open(self, mode, **kwargs):
-        return self.fs.open(self.path, mode, **kwargs)
 
     def load(self, *args, **kwargs):
         formatter = kwargs.pop("_formatter", None) or kwargs.pop("formatter", AUTO_FORMATTER)
@@ -466,8 +475,10 @@ FileSystemTarget.directory_class = FileSystemDirectoryTarget
 
 
 def get_path(target):
-    if isinstance(target, FileSystemTarget) or getattr(target, "path", no_value) != no_value:
-        return target.path
+    if isinstance(target, FileSystemTarget):
+        path = getattr(target, "abspath", no_value)
+        if path != no_value:
+            return path
     return target
 
 

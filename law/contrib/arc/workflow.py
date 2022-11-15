@@ -181,7 +181,7 @@ class ARCWorkflow(BaseRemoteWorkflow):
         return "_" + self.get_branches_repr()
 
     def arc_output_uri(self):
-        return self.arc_output_directory().url()
+        return self.arc_output_directory().uri()
 
     def arc_job_manager_cls(self):
         return ARCJobManager

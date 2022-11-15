@@ -83,9 +83,9 @@ class Config(ConfigParser):
             "colored_str": True,
             "expand_path_repr": False,
             "filesize_repr": False,
-            "default_local_fs": "local_fs",
             "tmp_dir": os.getenv("LAW_TARGET_TMP_DIR") or tempfile.gettempdir(),
             "tmp_dir_perm": 0o0770,
+            "default_local_fs": "local_fs",
             # contrib
             "default_wlcg_fs": "wlcg_fs",
             "default_dropbox_fs": "dropbox_fs",
@@ -407,7 +407,7 @@ class Config(ConfigParser):
         Updates the currently stored configuration with new *data*, given as a dictionary. When
         *overwrite_sections* is *False*, sections in *data* that are already present in the current
         config are skipped. When *overwrite_options* is *False*, existing options are not
-        overwritten.  When *None*, *overwrite_sections* and *overwrite_options* default to
+        overwritten. When *None*, both *overwrite_sections* and *overwrite_options* default to
         *overwrite*.
         """
         if overwrite_sections is None:

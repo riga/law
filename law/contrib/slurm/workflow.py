@@ -12,11 +12,12 @@ from abc import abstractmethod
 from collections import OrderedDict
 
 import luigi
+import six
 
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments, JobInputFile
 from law.task.proxy import ProxyCommand
-from law.target.file import get_path
+from law.target.file import get_path, get_scheme
 from law.target.local import LocalDirectoryTarget
 from law.parameter import NO_STR
 from law.util import law_src_path, merge_dicts, DotDict
@@ -105,10 +106,12 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
         # when the output dir is local, we can run within this directory for easier output file
         # handling and use absolute paths for input files
         output_dir = task.slurm_output_directory()
+        if isinstance(output_dir, six.string_types) and get_scheme(output_dir) in (None, "file"):
+            output_dir = LocalDirectoryTarget(output_dir)
         output_dir_is_local = isinstance(output_dir, LocalDirectoryTarget)
         if output_dir_is_local:
             c.absolute_paths = True
-            c.custom_content.append(("chdir", output_dir.path))
+            c.custom_content.append(("chdir", output_dir.abspath))
 
         # job name
         c.job_name = "{}{}".format(task.live_task_id, postfix)
@@ -126,7 +129,7 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
         # get the location of the custom local log file if any
         abs_log_file = None
         if output_dir_is_local and c.custom_log_file:
-            abs_log_file = os.path.join(output_dir.path, c.custom_log_file)
+            abs_log_file = os.path.join(output_dir.abspath, c.custom_log_file)
 
         # return job and log files
         return {"job": job_file, "log": abs_log_file}
