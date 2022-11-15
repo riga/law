@@ -1806,17 +1806,23 @@ class DotDict(collections.OrderedDict):
        # => AttributeError
     """
 
+    # forward certain attributes to the super class in python 2
+    FORWARD_SUPER = ("_OrderedDict__root", "_OrderedDict__map")
+
     def __getattr__(self, attr):
-        if attr == "_OrderedDict__root":
+        if six.PY2 and attr in self.FORWARD_SUPER:
             return super(DotDict, self).__getattr__(attr)
-        else:
-            try:
-                return self[attr]
-            except KeyError:
-                raise AttributeError("'{}' object has no attribute '{}'".format(
-                    self.__class__.__name__, attr))
+
+        try:
+            return self[attr]
+        except KeyError:
+            raise AttributeError("'{}' object has no attribute '{}'".format(
+                self.__class__.__name__, attr))
 
     def __setattr__(self, attr, value):
+        if six.PY2 and attr in self.FORWARD_SUPER:
+            return super(DotDict, self).__setattr__(attr, value)
+
         self[attr] = value
 
     def copy(self):
