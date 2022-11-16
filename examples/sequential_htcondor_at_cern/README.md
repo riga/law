@@ -4,15 +4,15 @@ This example demonstrates how to create sequential law task workflows that run o
 
 The actual payload of the tasks is rather trivial, however, the way the jobs are eagerly submitted
 in a sequential fashion is a bit more advanced.
-If you haven't done already, go through the [htcondor_at_cern](../htcondor_at_cern) example first for a more streamlined version of the same payload.
+If you haven't done so already, go through the [htcondor_at_cern](../htcondor_at_cern) example first for a more streamlined version of the same payload.
 
-The main idea of task structure below is the following. Oftentimes, a sophisticated workflow might consist of several stages of jobs to process, where the result of jobs *A* is required by some jobs *B*.
-In some cases, it may happen that some jobs in *A* take significantly longer that others, resulting in a potentially unwanted delay while actually, some jobs on *B* could probably already be submitted.
+The main idea of the task structure below is the following. Oftentimes, a sophisticated workflow might consist of several stages of jobs to process, where the result of jobs *A* is required by some jobs *B*.
+In some cases, it may happen that some jobs in *A* take significantly longer than others, resulting in a potentially unwanted delay, whereas some jobs on *B* could probably already be submitted.
 This *eager* job submission scenario can be easily modelled with law workflows as demonstrated below with a trivial payload.
 
 A workflow that submits jobs via HTCondor (*A* in the analogy above) consists of 26 tasks which convert an integer between 97 and 122 (ascii) into a character.
-A second workflow (*B*) collects results of five of the previous tasks (run within remote jobs) and concatenates them into partial alphabet chunks, **again** executed remotely.
-A single, final task collects the partial results in the end and writes all characters into a text file, now consisting the full alphabet.
+A second workflow (*B*) collects results of five of the previous tasks (run within remote jobs) and concatenates them into partial alphabet chunks, **again run in remote jobs**.
+A single, final task collects the partial results in the end and writes all characters into a text file, now consisting of the full alphabet.
 
 The dependency structure is visualized in the following graph.
 
@@ -20,9 +20,9 @@ The dependency structure is visualized in the following graph.
 ```mermaid
 graph TD
     CFA(CreateFullAlphabet)
-    CPA1(CreatePartialAlphabet 1)
-    CPA2(CreatePartialAlphabet 2)
-    CPA6(CreatePartialAlphabet 6)
+    CPA1("CreatePartialAlphabet 1<br />(a-e)")
+    CPA2("CreatePartialAlphabet 2<br />(f-j)")
+    CPA6("CreatePartialAlphabet 6<br />(z)")
     CC1(CreateChars 1)
     CC5(CreateChars 5)
     CC6(CreateChars 6)
@@ -227,7 +227,7 @@ As you can see, there is a total of six tasks required (`ceil(26 / 5)`).
 
 #### 5. Run the `CreateFullAlphabet` task
 
-As we want to see the eager submission structure in action, we pick 6 six parallel processes to run (``--workers 6``) which allows starting the six `CreatePartialAlphabet` tasks (that only perform job status polling on your local machine) with maximum concurrency.
+As we want to see the eager submission structure in action, we pick six six parallel processes to run (``--workers 6``) which allows starting the six `CreatePartialAlphabet` tasks (that only perform job status polling on your local machine) with maximum concurrency.
 
 
 ```shell
@@ -235,6 +235,8 @@ law run CreateFullAlphabet --version v1 --workers 6
 ```
 
 This should take only a few minutes to process, depending on the job queue availability.
+You will notice that as soon as the first `CreateChars` workflow (with five branches each) successfully finishes, a `CreatePartialAlphabet` workflow (with a single branch) is started, that submits a job.
+In the end, the full alphabet should be written to the command line as well as to the output of `CreateFullAlphabet`.
 
 By default, this example uses a local scheduler, which - by definition - offers no visualization tools in the browser.
 If you want to see how the task tree is built and subsequently run, run ``luigid`` in a second terminal.
