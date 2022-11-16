@@ -62,8 +62,9 @@ class LSFWorkflow(law.lsf.LSFWorkflow):
 
     def lsf_bootstrap_file(self):
         # each job can define a bootstrap file that is executed prior to the actual job
-        # in order to setup software and environment variables
-        return law.util.rel_path(__file__, "bootstrap.sh")
+        # configure it to be shared across jobs and rendered as part of the job itself
+        bootstrap_file = law.util.rel_path(__file__, "bootstrap.sh")
+        return law.JobInputFile(bootstrap_file, share=True, render_job=True)
 
     def lsf_job_config(self, config, job_num, branches):
         # render_variables is rendered into all files sent with a job

@@ -49,8 +49,17 @@ class HTCondorWorkflow(law.htcondor.HTCondorWorkflow):
     configuration is required.
     """
 
-    htcondor_gpus = luigi.IntParameter(default=law.NO_INT, significant=False, description="number "
-        "of GPUs to request on the VISPA cluster, leave empty to use only CPUs")
+    max_runtime = law.DurationParameter(
+        default=1.0,
+        unit="h",
+        significant=False,
+        description="maximum runtime; default unit is hours; default: 1",
+    )
+    htcondor_gpus = luigi.IntParameter(
+        default=law.NO_INT,
+        significant=False,
+        description="number of GPUs to request on the VISPA cluster; leave empty to use only CPUs",
+    )
 
     def htcondor_output_directory(self):
         # the directory where submission meta data should be stored
@@ -58,8 +67,9 @@ class HTCondorWorkflow(law.htcondor.HTCondorWorkflow):
 
     def htcondor_bootstrap_file(self):
         # each job can define a bootstrap file that is executed prior to the actual job
-        # in order to setup software and environment variables
-        return law.util.rel_path(__file__, "bootstrap.sh")
+        # configure it to be shared across jobs and rendered as part of the job itself
+        bootstrap_file = law.util.rel_path(__file__, "bootstrap.sh")
+        return law.JobInputFile(bootstrap_file, share=True, render_job=True)
 
     def htcondor_job_config(self, config, job_num, branches):
         # render_variables are rendered into all files sent with a job
