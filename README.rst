@@ -148,6 +148,7 @@ For the latter, do
 - `wlcg_targets <https://github.com/riga/law/tree/master/examples/wlcg_targets>`__: Working with targets that are stored on WLCG storage elements (dCache, EOS, ...). TODO.
 - `htcondor_at_vispa <https://github.com/riga/law/tree/master/examples/htcondor_at_vispa>`__: HTCondor workflows at the `VISPA service <https://vispa.physik.rwth-aachen.de>`__.
 - `htcondor_at_cern <https://github.com/riga/law/tree/master/examples/htcondor_at_cern>`__: HTCondor workflows at the CERN batch infrastructure.
+- `sequential_htcondor_at_cern <https://github.com/riga/law/tree/master/examples/sequential_htcondor_at_cern>`__: Continuation of the `htcondor_at_cern <https://github.com/riga/law/tree/master/examples/htcondor_at_cern>`__ example, showing sequential jobs that eagerly start once jobs running previous requirements succeeded.
 - `htcondor_at_naf <https://github.com/riga/law/tree/master/examples/htcondor_at_naf>`__: HTCondor workflows at German `National Analysis Facility (NAF) <https://confluence.desy.de/display/IS/NAF+-+National+Analysis+Facility>`__.
 - `slurm_at_maxwell <https://github.com/riga/law/tree/master/examples/slurm_at_maxwell>`__: Slurm workflows at the `Desy Maxwell cluster <https://confluence.desy.de/display/MXW/Maxwell+Cluster>`__.
 - `grid_at_cern <https://github.com/riga/law_example_WLCG>`__: Workflows that run jobs and store data on the WLCG.
