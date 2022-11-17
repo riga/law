@@ -398,6 +398,10 @@ class GFALError_chmod(GFALOperationError):
             if "operation not supported" in lmsg:
                 return cls.NOT_SUPPORTED
 
+        elif scheme in ("dav", "davs"):
+            if "protocol not supported" in lmsg:
+                return cls.NOT_SUPPORTED
+
         elif scheme == "dropbox":
             if "protocol not supported" in lmsg:
                 return cls.NOT_SUPPORTED
@@ -433,6 +437,12 @@ class GFALError_unlink(GFALOperationError):
             if "no such file" in lmsg:
                 return cls.NOT_FOUND
             if "not a file" in lmsg:
+                return cls.IS_DIRECTORY
+
+        elif scheme in ("dav", "davs"):
+            if "file not found" in lmsg:
+                return cls.NOT_FOUND
+            if "is a directory" in lmsg:
                 return cls.IS_DIRECTORY
 
         elif scheme == "dropbox":
@@ -479,6 +489,10 @@ class GFALError_rmdir(GFALOperationError):
                 return cls.IS_FILE
             if "directory not empty" in lmsg:
                 return cls.NOT_EMPTY
+
+        elif scheme in ("dav", "davs"):
+            if "file not found" in lmsg:
+                return cls.NOT_FOUND
 
         elif scheme == "dropbox":
             if "not_found" in lmsg:
@@ -573,6 +587,10 @@ class GFALError_filecopy(GFALOperationError):
             if "file exists" in lmsg:
                 return cls.DST_EXISTS
 
+        elif (src_scheme, dst_scheme) in (("file", "dav"), ("file", "davs")):
+            if "local system call no such file or directory" in lmsg:
+                return cls.SRC_NOT_FOUND
+
         elif (src_scheme, dst_scheme) == ("file", "dropbox"):
             if "could not open source" in lmsg:
                 return cls.SRC_NOT_FOUND
@@ -591,6 +609,10 @@ class GFALError_filecopy(GFALOperationError):
             if "destination already exist" in lmsg:
                 return cls.DST_EXISTS
 
+        elif (src_scheme, dst_scheme) in (("gsiftp", "dav"), ("gsiftp", "davs")):
+            if "is a directory" in lmsg:
+                return cls.DST_EXISTS
+
         elif (src_scheme, dst_scheme) == ("srm", "file"):
             if "no such file" in lmsg:
                 return cls.SRC_NOT_FOUND
@@ -604,6 +626,12 @@ class GFALError_filecopy(GFALOperationError):
                 return cls.DST_EXISTS
 
         elif (src_scheme, dst_scheme) == ("srm", "srm"):
+            if "no such file" in lmsg:
+                return cls.SRC_NOT_FOUND
+            if "file exists" in lmsg:
+                return cls.DST_EXISTS
+
+        elif (src_scheme, dst_scheme) in (("srm", "dav"), ("srm", "davs")):
             if "no such file" in lmsg:
                 return cls.SRC_NOT_FOUND
             if "file exists" in lmsg:
@@ -626,6 +654,31 @@ class GFALError_filecopy(GFALOperationError):
                 return cls.SRC_NOT_FOUND
             if "file exists" in lmsg:
                 return cls.DST_EXISTS
+
+        elif (src_scheme, dst_scheme) in (("root", "dav"), ("root", "davs")):
+            if "failed to open file (block device required)" in lmsg:
+                return cls.DST_EXISTS
+
+        elif (src_scheme, dst_scheme) in (("dav", "file"), ("davs", "file")):
+            if "file not found" in lmsg:
+                return cls.SRC_NOT_FOUND
+
+        elif (src_scheme, dst_scheme) in (("dav", "gsiftp"), ("davs", "gsiftp")):
+            if "file not found" in lmsg:
+                return cls.SRC_NOT_FOUND
+            if "not a file" in lmsg:
+                return cls.DST_EXISTS
+
+        elif (src_scheme, dst_scheme) in (("dav", "root"), ("davs", "root")):
+            # it appears that there is a bug in gfal when copying via davix to xrootd in that
+            # the full dst path is repeated, e.g. "root://url.tld:1090/pnfs/.../root://url..."
+            # which causes weird behavior, and until this issue persists, there should be no error
+            # parsing in law
+            pass
+
+        elif (src_scheme, dst_scheme) in (("dav", "srm"), ("davs", "srm")):
+            # same issue as for davix -> xrootd, wait until this is resolved
+            pass
 
         elif (src_scheme, dst_scheme) == ("dropbox", "file"):
             if "could not open source" in lmsg:
