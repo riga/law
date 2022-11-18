@@ -127,6 +127,9 @@ Projects using law
 - NP-correction derivation tool
    - MC generation with Herwig and analysis of generated events with Rivet
    - `repo <https://github.com/HerrHorizontal/herwig-run>`__
+- CMS SUSY Searches at DESY
+	- Analysis framework for CMS SUSY searches going from custom NanoAODs -> NTuple production -> DNN-based inference -> final plots and fits
+	- `repo <https://github.com/frengelk/Susy1LeptonAnalysis>`__
 - YOUR REPOSITORY HERE
 
 If your project uses law but is not yet listed here, feel free to open a pull request or mention your project details in a new `issue <https://github.com/riga/law/issues/new?template=register_project.md&title=New%20project%20using%20law&assignee=riga>`__ and it will be added.
