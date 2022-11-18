@@ -350,7 +350,7 @@ class Config(ConfigParser):
         # load the content of extended configs
         if not skip_includes:
             opt = "extend"
-            if c.has_option("core", "extend_configs") and not c.get_expanded("core", "extend"):
+            if self.has_option("core", "extend_configs") and not self.get_expanded("core", "extend"):
                 # print a warning, not using the logger yet since it's not initialized at this point
                 opt = "extend_configs"
                 print(
