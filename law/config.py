@@ -64,8 +64,8 @@ class Config(ConfigParser):
             "law_home": law_home_path(),
             "index_file": os.getenv("LAW_INDEX_FILE") or law_home_path("index"),
             "software_dir": os.getenv("LAW_SOFTWARE_DIR") or law_home_path("software"),
-            "inherit_configs": None,
-            "extend_configs": None,
+            "inherit": None,
+            "extend": None,
             "sync_luigi_config": flag_to_bool(os.getenv("LAW_SYNC_LUIGI_CONFIG", "True")),
         },
         "logging": {
@@ -293,16 +293,12 @@ class Config(ConfigParser):
             return None
         return (m.group("section") or default_section, m.group("option"))
 
-    def __init__(self, config_file="", skip_defaults=False, skip_fallbacks=False):
+    def __init__(self, config_file="", skip_defaults=False, skip_fallbacks=False,
+            skip_includes=False, skip_luigi_sync=False):
         ConfigParser.__init__(self, allow_no_value=True)
 
+        # lookup to correct config file
         self.config_file = None
-
-        # load defaults
-        if not skip_defaults:
-            self.update(self._default_config)
-
-        # read from files
         config_files = []
         if config_file:
             config_files.append(config_file)
@@ -312,25 +308,59 @@ class Config(ConfigParser):
             cf = os.path.expandvars(os.path.expanduser(cf))
             cf = os.path.normpath(os.path.abspath(cf))
             if os.path.isfile(cf):
-                self.read(cf)
                 self.config_file = cf
                 break
 
-        # inherit from and/or extend by other configs
-        for option, overwrite_options in [("inherit_configs", False), ("extend_configs", True)]:
-            filenames = self.get_expanded("core", option)
-            if not filenames:
-                continue
-            filenames = [f.strip() for f in brace_expand(filenames.strip(), split_csv=True)]
-            for filename in filenames:
+        # helper to include additional configs
+        def include_configs(filenames):
+            if isinstance(filenames, six.string_types):
+                filenames = [f.strip() for f in brace_expand(filenames.strip(), split_csv=True)]
+            for filename in filenames or []:
+                if not filename:
+                    continue
                 # try to resolve filename relative to the main config file
                 if self.config_file:
                     basedir = os.path.dirname(self.config_file)
                     filename = os.path.normpath(os.path.join(basedir, filename))
-                self.include(filename, overwrite_options=overwrite_options)
+                self.include(filename)
+
+        # load defaults
+        if not skip_defaults:
+            self.update(self._default_config)
+
+        # load the content of inherited configs
+        if not skip_includes and self.config_file:
+            # eagerly read the config file to get a glimpse of the files to inherit from
+            c = self.__class__(self.config_file, skip_defaults=True, skip_fallbacks=True,
+                skip_includes=True, skip_luigi_sync=True)
+            opt = "inherit"
+            if c.has_option("core", "inherit_configs") and not c.get_expanded("core", "inherit"):
+                # print a warning, not using the logger yet since it's not initialized at this point
+                opt = "inherit_configs"
+                print(
+                    "INFO: the 'core.inherit_configs' option is deprecated and will be removed in a "
+                    "future release of law; please use 'core.inherit' instead",
+                )
+            include_configs(c.get_expanded("core", opt))
+
+        # load the actual config file if given
+        if self.config_file:
+            self.read(self.config_file)
+
+        # load the content of extended configs
+        if not skip_includes:
+            opt = "extend"
+            if c.has_option("core", "extend_configs") and not c.get_expanded("core", "extend"):
+                # print a warning, not using the logger yet since it's not initialized at this point
+                opt = "extend_configs"
+                print(
+                    "INFO: the 'core.extend_configs' option is deprecated and will be removed in a "
+                    "future release of law; please use 'core.extend' instead",
+                )
+            include_configs(self.get_expanded("core", opt))
 
         # sync with luigi configuration
-        if self.get_expanded_boolean("core", "sync_luigi_config"):
+        if not skip_luigi_sync and self.get_expanded_boolean("core", "sync_luigi_config"):
             self.sync_luigi_config()
 
     def _convert_to_boolean(self, value):
@@ -432,7 +462,7 @@ class Config(ConfigParser):
         Updates the current config by that found in *filename*. All *args* and *kwargs* are
         forwarded to :py:meth:`update`.
         """
-        p = self.__class__(filename, skip_defaults=True, skip_fallbacks=True)
+        p = self.__class__(filename, skip_defaults=True, skip_fallbacks=True, skip_luigi_sync=True)
         self.update(p._sections, *args, **kwargs)
 
     def get_default(self, section, option, default=None, type=None, expand_vars=False,

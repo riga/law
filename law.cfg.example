@@ -51,10 +51,10 @@
 
 ; --- Inheritance and extensions -------------------------------------------------------------------
 ; The law configuration can inherit from or can be extended by additional configuration files. See
-; the options "inherit_configs" and "extend_configs" in the "[core]" section of the law
-; configuration below. The only difference between the two is that options defined in
-; "inherit_configs" do not overwrite those in the actual config, whereas options of "extend_configs"
-; do.
+; the options "inherit" and "extends" in the "[core]" section of the law configuration below. The
+; only difference between the two is that options defined in "inherit" do not overwrite those in the
+; actual config, whereas options of "extend" do (options of extended config files are added _after_
+; those in the actual config).
 
 ; --- Option referencing ---------------------------------------------------------------------------
 ; To avoid that some configurations are copied to other options (which is required in some cases),
@@ -106,14 +106,14 @@
 ; Type: string
 ; Default: "$LAW_SOFTWARE_DIR", "software" in the law home directory
 
-; inherit_configs
+; inherit
 ; Description: A comma-separated list of files that this config is inheriting, i.e., their options
 ; do _not_ overwrite the ones defined in _this_ file. Relative paths are resolved with respect to
 ; _this_ file. Brace expansion, such as "myfile{1,2}.cfg" to "myfile1.cfg, myfile2.cfg" is applied.
 ; Type: string, list of strings
 ; Default: None
 
-; extend_configs
+; extend
 ; Description: A comma-separated list of files that this config is extended by, i.e., their options
 ; _do_ overwrite the ones defined in _this_ file. Relative paths are resolved with respect to _this_
 ; file. Brace expansion, such as "myfile{1,2}.cfg" to "myfile1.cfg, myfile2.cfg" is applied.
