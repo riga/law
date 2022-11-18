@@ -467,7 +467,7 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
                 continue
 
             # skip missing targets
-            if not isinstance(output, TargetCollection) and stat is None:
+            if stat is None and not isinstance(output, TargetCollection):
                 print(ooffset + colored("not existing, skip", "yellow"))
                 continue
 
@@ -500,12 +500,18 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
                 if target_choice == "n":
                     print(ooffset + colored("skipped", "yellow"))
                     continue
-            else:
-                if isinstance(output, TargetCollection):
-                    to_fetch = list(output._flat_target_list)
+
+            # flatten all target collections
+            to_fetch_flat = []
+            while to_fetch:
+                t = to_fetch.pop(0)
+                if isinstance(t, TargetCollection):
+                    to_fetch[:0] = list(t._flat_target_list)
+                else:
+                    to_fetch_flat.append(t)
 
             # actual copy
-            for outp in to_fetch:
+            for outp in to_fetch_flat:
                 if not callable(getattr(outp, "copy_to_local", None)):
                     continue
 
