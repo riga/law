@@ -402,24 +402,33 @@ class ForestMerge(LocalWorkflow):
 
         return reqs
 
+    def _forest_requires(self):
+        if not self.is_forest():
+            raise Exception("_forest_requires can only be determined for the forest, ForestMerge "
+                "misconfigured")
+
+        n_trees = len(self.merge_forest)
+        indices = range(n_trees)
+
+        # interpret branches as tree indices when given
+        if self.branches:
+            indices = [
+                i
+                for i in range_expand(list(self.branches), min_value=0, max_value=n_trees)
+                if 0 <= i < n_trees
+            ]
+
+        return {
+            i: self._req_tree(self, branch=-1, tree_index=i,
+                _exclude=self.exclude_params_workflow)
+            for i in indices
+        }
+
     def requires(self):
         reqs = DotDict()
 
         if self.is_forest():
-            n_trees = len(self.merge_forest)
-            # interpret branches as tree indices when given
-            indices = range(n_trees)
-            if self.branches:
-                indices = [
-                    i
-                    for i in range_expand(list(self.branches), min_value=0, max_value=n_trees)
-                    if 0 <= i < n_trees
-                ]
-            reqs["forest_merge"] = {
-                i: self._req_tree(self, branch=-1, tree_index=i,
-                    _exclude=self.exclude_params_workflow)
-                for i in indices
-            }
+            reqs["forest_merge"] = self._forest_requires()
 
         elif self.is_leaf():
             # this is simply the merge requirement
@@ -486,6 +495,10 @@ class ForestMerge(LocalWorkflow):
     def run(self):
         # nothing to do for the forest
         if self.is_forest():
+            # yield the forest dependencies again if the output is temporary, causing the
+            # dependencies to be reevaluated dynamically if needed
+            if self._check_merge_output_placeholder(self.output()):
+                yield self._forest_requires()
             return
 
         # trace actual inputs to merge
