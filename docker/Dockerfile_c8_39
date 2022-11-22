@@ -1,4 +1,4 @@
-FROM centos:7
+FROM centos:8
 
 # labels
 LABEL law.version="0.1.8"
@@ -82,7 +82,7 @@ RUN wget -nv https://boostorg.jfrog.io/artifactory/main/release/1.80.0/source/bo
     rm boost_1_80_0.tar.gz
 
 # WLCG software
-RUN rpm -Uvh https://repo.opensciencegrid.org/osg/3.6/osg-3.6-el7-release-latest.rpm
+RUN rpm -Uvh https://repo.opensciencegrid.org/osg/3.6/osg-3.6-el8-release-latest.rpm
 RUN yum-config-manager --add-repo http://linuxsoft.cern.ch/cern/centos/7/cern/x86_64
 RUN yum -y update; yum clean all
 RUN yum -y install CERN-CA-certs osg-ca-certs osg-voms voms-clients; yum clean all
