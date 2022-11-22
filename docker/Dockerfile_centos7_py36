@@ -3,21 +3,22 @@ FROM centos:7
 # labels
 LABEL law.version="0.1.8"
 LABEL law.image_name="riga/law"
-LABEL law.image_tag="py39"
-LABEL law.image_dir="law-py39"
+LABEL law.image_tag="py36"
+LABEL law.image_dir="law-py36"
+LABEL law.image_os="centos7"
 LABEL law.image_python_major="3"
-LABEL law.image_python_minor="9"
-LABEL law.image_python_patch="14"
-LABEL law.image_python="3.9.14"
-LABEL law.image_python_mm="3.9"
+LABEL law.image_python_minor="6"
+LABEL law.image_python_patch="15"
+LABEL law.image_python="3.6.15"
+LABEL law.image_python_mm="3.6"
 
 # law specific environment variables
-ENV LAW_SANDBOX docker::riga/law:py39,docker::riga/law:py3,docker::riga/law:latest,docker::riga/law
-ENV LAW_IMAGE_NAME law-py39
-ENV LAW_IMAGE_TAG py39
+ENV LAW_SANDBOX docker::riga/law:py36
+ENV LAW_IMAGE_NAME law-py36
+ENV LAW_IMAGE_TAG py36
 ENV LAW_IMAGE_PYTHON_MAJOR 3
-ENV LAW_IMAGE_PYTHON_MINOR 9
-ENV LAW_IMAGE_PYTHON_PATCH 14
+ENV LAW_IMAGE_PYTHON_MINOR 6
+ENV LAW_IMAGE_PYTHON_PATCH 15
 ENV LAW_IMAGE_PYTHON ${LAW_IMAGE_PYTHON_MAJOR}.${LAW_IMAGE_PYTHON_MINOR}.${LAW_IMAGE_PYTHON_PATCH}
 ENV LAW_IMAGE_PYTHON_MM ${LAW_IMAGE_PYTHON_MAJOR}.${LAW_IMAGE_PYTHON_MINOR}
 ENV LAW_IMAGE_SOURCE_DIR /root/law
@@ -58,7 +59,7 @@ ENV PYENV_ROOT /root/.pyenv
 ENV PYENV_VERSION ${LAW_IMAGE_PYTHON}
 ENV PYENV_VERSION_MM ${LAW_IMAGE_PYTHON_MM}
 ENV PYENV_PREFIX ${PYENV_ROOT}/versions/${PYENV_VERSION}
-ENV PYENV_INCLUDE_DIR ${PYENV_PREFIX}/include/python${PYENV_VERSION_MM}
+ENV PYENV_INCLUDE_DIR ${PYENV_PREFIX}/include/python${PYENV_VERSION_MM}m
 ENV PYENV_LIB_DIR ${PYENV_PREFIX}/lib
 ENV PATH ${PYENV_ROOT}/bin:${PYENV_ROOT}/shims:${PATH}
 ENV CPATH ${PYENV_INCLUDE_DIR}:${CPATH}
@@ -94,7 +95,7 @@ RUN yum -y install lfc-devel dpm-devel srm-ifce-devel dcap-devel globus-gass-cop
     davix-devel xrootd-client-devel libssh2-devel gtest-devel libuuid-devel; yum clean all
 RUN git clone https://gitlab.cern.ch/dmc/gfal2.git && \
     cd gfal2 && \
-    git checkout tags/v2.21.0 && \
+    git checkout tags/v2.21.1 && \
     mkdir build && \
     cd build && \
     cmake .. \
