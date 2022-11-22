@@ -8,7 +8,7 @@ on:
         required: false
         default: 'false'
       specific_job:
-        description: Run a specific job? (py27|py36|py37|py38|py39|py310|example)
+        description: Run a specific job? (py27|py36|py37|py38|py39|py310|py311|example)
         required: false
         default: ''
 
@@ -26,7 +26,7 @@ jobs:
         uses: docker/build-push-action@v1
         with:
           path: docker
-          dockerfile: docker/Dockerfile_27
+          dockerfile: docker/Dockerfile_centos7_py27
           repository: riga/law
           tags: py27,py2
           push: ${{ github.event.inputs.build_only != 'true' }}
@@ -46,7 +46,7 @@ jobs:
         uses: docker/build-push-action@v1
         with:
           path: docker
-          dockerfile: docker/Dockerfile_36
+          dockerfile: docker/Dockerfile_centos7_py36
           repository: riga/law
           tags: py36
           push: ${{ github.event.inputs.build_only != 'true' }}
@@ -66,7 +66,7 @@ jobs:
         uses: docker/build-push-action@v1
         with:
           path: docker
-          dockerfile: docker/Dockerfile_37
+          dockerfile: docker/Dockerfile_centos7_py37
           repository: riga/law
           tags: py37
           push: ${{ github.event.inputs.build_only != 'true' }}
@@ -86,7 +86,7 @@ jobs:
         uses: docker/build-push-action@v1
         with:
           path: docker
-          dockerfile: docker/Dockerfile_38
+          dockerfile: docker/Dockerfile_centos7_py38
           repository: riga/law
           tags: py38
           push: ${{ github.event.inputs.build_only != 'true' }}
@@ -106,7 +106,7 @@ jobs:
         uses: docker/build-push-action@v1
         with:
           path: docker
-          dockerfile: docker/Dockerfile_39
+          dockerfile: docker/Dockerfile_centos7_py39
           repository: riga/law
           tags: py39,py3,latest
           push: ${{ github.event.inputs.build_only != 'true' }}
@@ -126,32 +126,33 @@ jobs:
         uses: docker/build-push-action@v1
         with:
           path: docker
-          dockerfile: docker/Dockerfile_310
+          dockerfile: docker/Dockerfile_centos7_py310
           repository: riga/law
           tags: py310
           push: ${{ github.event.inputs.build_only != 'true' }}
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-  py311:
-    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'py311') }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout 🛎️
-        uses: actions/checkout@v3
-        with:
-          persist-credentials: false
+  # NOTE: disabled for now due to some gfal2-bindings issue
+  # py311:
+  #   if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'py311') }}
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout 🛎️
+  #       uses: actions/checkout@v3
+  #       with:
+  #         persist-credentials: false
 
-      - name: Build and deploy image 🐳
-        uses: docker/build-push-action@v1
-        with:
-          path: docker
-          dockerfile: docker/Dockerfile_311
-          repository: riga/law
-          tags: py311
-          push: ${{ github.event.inputs.build_only != 'true' }}
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+  #     - name: Build and deploy image 🐳
+  #       uses: docker/build-push-action@v1
+  #       with:
+  #         path: docker
+  #         dockerfile: docker/Dockerfile_centos7_py311
+  #         repository: riga/law
+  #         tags: py311
+  #         push: ${{ github.event.inputs.build_only != 'true' }}
+  #         username: ${{ secrets.DOCKERHUB_USERNAME }}
+  #         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
   example:
     if: ${{ github.event.inputs.build_only != 'true' && (github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'example')) }}
@@ -167,7 +168,7 @@ jobs:
         uses: docker/build-push-action@v1
         with:
           path: docker
-          dockerfile: docker/Dockerfile_example
+          dockerfile: docker/Dockerfile_centos7_example
           repository: riga/law
           tags: example
           push: true
