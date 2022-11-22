@@ -37,8 +37,10 @@ COPY bashrc /root/.bashrc
 WORKDIR /root/install
 
 # prepare yum
+RUN sed -i "s/mirrorlist/#mirrorlist/g" /etc/yum.repos.d/CentOS-*; \
+    sed -i "s|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g" /etc/yum.repos.d/CentOS-*
 RUN yum -y update; yum clean all
-RUN yum -y install yum-plugin-priorities yum-utils; yum clean all
+RUN yum -y install yum-utils; yum clean all
 RUN yum -y install epel-release; yum clean all
 
 # update locales
@@ -83,11 +85,12 @@ RUN wget -nv https://boostorg.jfrog.io/artifactory/main/release/1.80.0/source/bo
 
 # WLCG software
 RUN rpm -Uvh https://repo.opensciencegrid.org/osg/3.6/osg-3.6-el8-release-latest.rpm
-RUN yum-config-manager --add-repo http://linuxsoft.cern.ch/cern/centos/7/cern/x86_64
+RUN yum-config-manager --add-repo http://linuxsoft.cern.ch/cern/centos/8/CERN/x86_64/
 RUN yum -y update; yum clean all
 RUN yum -y install CERN-CA-certs osg-ca-certs osg-voms voms-clients; yum clean all
 
 # gfal2
+RUN yum -y install pugixml dcap
 ENV CPATH /usr/local/include/gfal2:${CPATH}
 ENV GFAL_PLUGIN_DIR /usr/local/lib64/gfal2-plugins
 RUN yum -y install lfc-devel dpm-devel srm-ifce-devel dcap-devel globus-gass-copy-devel \
@@ -97,7 +100,7 @@ RUN git clone https://gitlab.cern.ch/dmc/gfal2.git && \
     git checkout tags/v2.21.1 && \
     mkdir build && \
     cd build && \
-    cmake .. \
+    cmake3 .. \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
         -DMAIN_DOC=FALSE \
         -DSKIP_TESTS=TRUE && \
@@ -110,7 +113,7 @@ RUN git clone https://gitlab.cern.ch/dmc/gfal2-bindings.git && \
     git checkout tags/v1.12.0 && \
     mkdir build && \
     cd build && \
-    cmake .. \
+    cmake3 .. \
         -DGFAL2_INCLUDE_DIRS=/usr/local/include/gfal2 \
         -DPYTHON_EXECUTABLE= \
         -DPYTHON_EXECUTABLE_3="$( pyenv which python )" \
@@ -127,7 +130,7 @@ RUN git clone https://github.com/cern-it-sdc-id/gfal2-dropbox.git && \
     cd gfal2-dropbox && \
     mkdir build && \
     cd build && \
-    cmake .. \
+    cmake3 .. \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
         -DGFAL2_INCLUDE_DIRS=/usr/local/include/gfal2 && \
     make && \

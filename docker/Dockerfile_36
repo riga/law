@@ -94,7 +94,7 @@ RUN yum -y install lfc-devel dpm-devel srm-ifce-devel dcap-devel globus-gass-cop
     davix-devel xrootd-client-devel libssh2-devel gtest-devel libuuid-devel; yum clean all
 RUN git clone https://gitlab.cern.ch/dmc/gfal2.git && \
     cd gfal2 && \
-    git checkout tags/v2.21.0 && \
+    git checkout tags/v2.21.1 && \
     mkdir build && \
     cd build && \
     cmake .. \
