@@ -3,21 +3,21 @@ FROM centos:7
 # labels
 LABEL law.version="0.1.8"
 LABEL law.image_name="riga/law"
-LABEL law.image_tag="py310"
-LABEL law.image_dir="law-py310"
+LABEL law.image_tag="py311"
+LABEL law.image_dir="law-py311"
 LABEL law.image_python_major="3"
-LABEL law.image_python_minor="10"
-LABEL law.image_python_patch="8"
-LABEL law.image_python="3.10.8"
-LABEL law.image_python_mm="3.10"
+LABEL law.image_python_minor="11"
+LABEL law.image_python_patch="0"
+LABEL law.image_python="3.11.0"
+LABEL law.image_python_mm="3.11"
 
 # law specific environment variables
-ENV LAW_SANDBOX docker::riga/law:py310
-ENV LAW_IMAGE_NAME law-py310
-ENV LAW_IMAGE_TAG py310
+ENV LAW_SANDBOX docker::riga/law:py311
+ENV LAW_IMAGE_NAME law-py311
+ENV LAW_IMAGE_TAG py311
 ENV LAW_IMAGE_PYTHON_MAJOR 3
-ENV LAW_IMAGE_PYTHON_MINOR 10
-ENV LAW_IMAGE_PYTHON_PATCH 8
+ENV LAW_IMAGE_PYTHON_MINOR 11
+ENV LAW_IMAGE_PYTHON_PATCH 0
 ENV LAW_IMAGE_PYTHON ${LAW_IMAGE_PYTHON_MAJOR}.${LAW_IMAGE_PYTHON_MINOR}.${LAW_IMAGE_PYTHON_PATCH}
 ENV LAW_IMAGE_PYTHON_MM ${LAW_IMAGE_PYTHON_MAJOR}.${LAW_IMAGE_PYTHON_MINOR}
 ENV LAW_IMAGE_SOURCE_DIR /root/law
@@ -53,7 +53,7 @@ RUN yum -y install gcc gcc-c++ libffi-devel openssl-devel glib2-devel libattr-de
     yum clean all
 RUN cd /usr/bin; curl https://getmic.ro | bash
 
-# custom openssl 1.1.1 lts for python 3.10
+# custom openssl 1.1.1 lts for python 3.11
 RUN wget https://www.openssl.org/source/openssl-1.1.1s.tar.gz && \
     tar -xzf openssl-1.1.1s.tar.gz && \
     cd openssl-1.1.1s && \

@@ -133,6 +133,26 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+  py311:
+    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'py311') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v3
+        with:
+          persist-credentials: false
+
+      - name: Build and deploy image 🐳
+        uses: docker/build-push-action@v1
+        with:
+          path: docker
+          dockerfile: docker/Dockerfile_311
+          repository: riga/law
+          tags: py311
+          push: ${{ github.event.inputs.build_only != 'true' }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
   example:
     if: ${{ github.event.inputs.build_only != 'true' && (github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'example')) }}
     needs: py39
