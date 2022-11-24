@@ -6,12 +6,12 @@ Helpful utility functions.
 
 __all__ = [
     "default_lock", "io_lock", "console_lock", "no_value", "rel_path", "law_src_path",
-    "law_home_path", "law_run", "print_err", "abort", "import_file", "is_number", "try_int",
-    "round_discrete", "str_to_int", "flag_to_bool", "empty_context", "common_task_params",
-    "colored", "uncolored", "query_choice", "is_pattern", "brace_expand", "range_expand",
-    "range_join", "multi_match", "is_iterable", "is_lazy_iterable", "make_list", "make_tuple",
-    "make_unique", "is_nested", "flatten", "merge_dicts", "unzip", "which", "map_verbose",
-    "map_struct", "mask_struct", "tmp_file", "perf_counter", "interruptable_popen",
+    "law_home_path", "law_run", "print_err", "abort", "import_file", "get_terminal_width",
+    "is_number", "try_int", "round_discrete", "str_to_int", "flag_to_bool", "empty_context",
+    "common_task_params", "colored", "uncolored", "query_choice", "is_pattern", "brace_expand",
+    "range_expand", "range_join", "multi_match", "is_iterable", "is_lazy_iterable", "make_list",
+    "make_tuple", "make_unique", "is_nested", "flatten", "merge_dicts", "unzip", "which",
+    "map_verbose", "map_struct", "mask_struct", "tmp_file", "perf_counter", "interruptable_popen",
     "readable_popen", "create_hash", "create_random_string", "copy_no_perm", "makedirs",
     "user_owns_file", "iter_chunks", "human_bytes", "parse_bytes", "human_duration",
     "parse_duration", "is_file_exists_error", "send_mail", "DotDict", "ShorthandDict",
@@ -183,6 +183,16 @@ def import_file(path, attr=None):
         return pkg[attr]
 
     return pkg
+
+
+def get_terminal_width():
+    """
+    Returns the terminal width when possible, and *None* otherwise.
+    """
+    if not callable(getattr(os, "get_terminal_size", None)):
+        return None
+
+    return os.get_terminal_size().columns
 
 
 def is_number(n):

@@ -19,8 +19,8 @@ from law.target.base import Target
 from law.target.file import FileSystemTarget
 from law.target.collection import TargetCollection, FileCollection
 from law.util import (
-    colored, flatten, flag_to_bool, query_choice, human_bytes, is_lazy_iterable, make_list,
-    makedirs,
+    colored, uncolored, uncolor_cre, flatten, flag_to_bool, query_choice, human_bytes,
+    is_lazy_iterable, make_list, makedirs, get_terminal_width,
 )
 from law.logger import get_logger
 
@@ -83,6 +83,47 @@ def _iter_output(output, offset, ind="  "):
                 lookup[:0] = _lookup
 
 
+def _print_wrapped(line, width, offset=""):
+    # when the width is not set or the line is empty, just print the line
+    if not line or width is None or width <= 0:
+        print(line)
+        return
+
+    # split into actual strings to print (even parts) and color/style modifiers (odd parts) for
+    # proper width computation
+    parts = [(part, i % 2 == 1) for i, part in enumerate(uncolor_cre.split(line))]
+
+    # build lines with odd parts until the line is filled
+    line, length, last_style = "", 0, ""
+    while parts:
+        part, is_style = parts.pop(0)
+        if is_style:
+            # style modifier
+            line += part
+            last_style = part
+        elif length + len(part) <= width:
+            # actual string that still fits
+            line += part
+            length += len(part)
+        else:
+            # actual string that would overflow the line, so add the characters that would still fit
+            # and then print the line
+            n = width - length
+            line += part[:n]
+            print(line)
+            # add the remaining characters with an uncolored offset and reset the state
+            parts[:0] = [
+                ("\033[0m", True),
+                (uncolored(offset), False),
+                (last_style, True),
+                (part[n:], False),
+            ]
+            line, length, last_style = "", 0, ""
+    # print any leftover line
+    if line:
+        print(line)
+
+
 def print_task_deps(task, max_depth=1):
     max_depth = int(max_depth)
 
@@ -90,17 +131,23 @@ def print_task_deps(task, max_depth=1):
     print("")
 
     # get the format chars
-    fmt_name = Config.instance().get_expanded("task", "interactive_format")
+    cfg = Config.instance()
+    fmt_name = cfg.get_expanded("task", "interactive_format")
     fmt = fmt_chars.get(fmt_name, fmt_chars["default"])
 
+    # get the line break setting
+    break_lines = cfg.get_expanded_boolean("task", "interactive_line_breaks")
+    terminal_width = get_terminal_width() if break_lines else None
+    _print = lambda line, offset: _print_wrapped(line, terminal_width, offset)
+
     parents_last_flags = []
-    for dep, _, depth, is_last in task.walk_deps(
+    for dep, next_deps, depth, is_last in task.walk_deps(
         max_depth=max_depth,
         order="pre",
         yield_last_flag=True,
     ):
         del parents_last_flags[depth:]
-        task_prefix = "{} {} ".format(depth, fmt[">"])
+        next_deps_shown = bool(next_deps) and (max_depth < 0 or depth < max_depth)
 
         # determine the print common offset
         offset = [(" " if f else fmt["|"]) + fmt["ind"] * " " for f in parents_last_flags[1:]]
@@ -113,11 +160,21 @@ def print_task_deps(task, max_depth=1):
         if depth > 0 and free_lines:
             print(free_lines)
 
-        # print the task line
-        dep_offset = offset
+        # determine task offset and prefix
+        task_offset = offset
         if depth > 0:
-            dep_offset += fmt["l" if is_last else "t"] + fmt["ind"] * fmt["-"]
-        print(dep_offset + task_prefix + dep.repr(color=True))
+            task_offset += fmt["l" if is_last else "t"] + fmt["ind"] * fmt["-"]
+        task_prefix = "{} {} ".format(depth, fmt[">"])
+
+        # determine text offset and prefix
+        text_offset = offset
+        if depth > 0:
+            text_offset += (" " if is_last else fmt["|"]) + fmt["ind"] * " "
+        text_prefix = (len(task_prefix) - 1) * " "
+        text_offset += (fmt["|"] if next_deps_shown else " ") + text_prefix
+
+        # print the task line
+        _print(task_offset + task_prefix + dep.repr(color=True), text_offset)
 
 
 def print_task_status(task, max_depth=0, target_depth=0, flags=None):
@@ -133,8 +190,14 @@ def print_task_status(task, max_depth=0, target_depth=0, flags=None):
     print("")
 
     # get the format chars
-    fmt_name = Config.instance().get_expanded("task", "interactive_format")
+    cfg = Config.instance()
+    fmt_name = cfg.get_expanded("task", "interactive_format")
     fmt = fmt_chars.get(fmt_name, fmt_chars["default"])
+
+    # get the line break setting
+    break_lines = cfg.get_expanded_boolean("task", "interactive_line_breaks")
+    terminal_width = get_terminal_width() if break_lines else None
+    _print = lambda line, offset: _print_wrapped(line, terminal_width, offset)
 
     # walk through deps
     done = []
@@ -145,8 +208,6 @@ def print_task_status(task, max_depth=0, target_depth=0, flags=None):
         yield_last_flag=True,
     ):
         del parents_last_flags[depth:]
-        task_prefix = "{} {} ".format(depth, fmt[">"])
-        text_prefix = (fmt["ind"] + len(task_prefix) - 1) * " "
         next_deps_shown = bool(next_deps) and (max_depth < 0 or depth < max_depth)
 
         # determine the print common offset
@@ -165,20 +226,25 @@ def print_task_status(task, max_depth=0, target_depth=0, flags=None):
         if isinstance(dep, BaseWorkflow):
             dep.get_branch_map()
 
-        # print the task line
-        dep_offset = offset
+        # determine task offset and prefix
+        task_offset = offset
         if depth > 0:
-            dep_offset += fmt["l" if is_last else "t"] + fmt["ind"] * fmt["-"]
-        print(dep_offset + task_prefix + dep.repr(color=True))
+            task_offset += fmt["l" if is_last else "t"] + fmt["ind"] * fmt["-"]
+        task_prefix = "{} {} ".format(depth, fmt[">"])
 
-        # determine the text offset for downstream
+        # determine text offset and prefix
         text_offset = offset
         if depth > 0:
             text_offset += (" " if is_last else fmt["|"]) + fmt["ind"] * " "
+        text_prefix = (len(task_prefix) - 1) * " "
         text_offset += (fmt["|"] if next_deps_shown else " ") + text_prefix
+        text_offset_ind = text_offset + fmt["ind"] * " "
+
+        # print the task line
+        _print(task_offset + task_prefix + dep.repr(color=True), text_offset)
 
         if dep in done:
-            print(text_offset + colored("outputs already checked", "yellow"))
+            _print(text_offset_ind + colored("outputs already checked", "yellow"), text_offset_ind)
             continue
 
         done.append(dep)
@@ -186,17 +252,16 @@ def print_task_status(task, max_depth=0, target_depth=0, flags=None):
         # start the traversing
         for output, _, oprefix, ooffset, _ in _iter_output(
             dep.output(),
-            text_offset,
+            text_offset_ind,
             fmt["ind"] * " ",
         ):
-            print(ooffset + oprefix + output.repr(color=True))
+            _print(ooffset + oprefix + output.repr(color=True), ooffset + len(oprefix) * " ")
             ooffset += fmt["ind"] * " "
             status_text = output.status_text(max_depth=target_depth, flags=flags, color=True)
             status_lines = status_text.split("\n")
-            status_text = status_lines[0]
+            _print(ooffset + status_lines[0], ooffset)
             for line in status_lines[1:]:
-                status_text += "\n" + ooffset + line
-            print(ooffset + status_text)
+                _print(ooffset + line, ooffset)
 
 
 def print_task_output(task, max_depth=0, scheme=True):
@@ -230,20 +295,31 @@ def remove_task_output(task, max_depth=0, mode=None, run_task=False):
     if run_task:
         print("task will run after output removal")
 
+    # get the format chars
+    cfg = Config.instance()
+    fmt_name = cfg.get_expanded("task", "interactive_format")
+    fmt = fmt_chars.get(fmt_name, fmt_chars["default"])
+
+    # get the line break setting
+    break_lines = cfg.get_expanded_boolean("task", "interactive_line_breaks")
+    terminal_width = [get_terminal_width() if break_lines else None]
+    _print = lambda line, offset: _print_wrapped(line, terminal_width[0], offset)
+
+    # custom query_choice function that updates the terminal_width
+    def _query_choice(*args, **kwargs):
+        terminal_width[0] = get_terminal_width() if break_lines else None
+        return query_choice(*args, **kwargs)
+
     # determine the mode, i.e., interactive, dry, all
     modes = ["i", "d", "a"]
     mode_names = ["interactive", "dry", "all"]
     if mode and mode not in modes:
         raise Exception("unknown removal mode '{}'".format(mode))
     if not mode:
-        mode = query_choice("removal mode?", modes, default="i", descriptions=mode_names)
+        mode = _query_choice("removal mode?", modes, default="i", descriptions=mode_names)
     mode_name = mode_names[modes.index(mode)]
     print("selected {} mode".format(colored(mode_name + " mode", "blue", style="bright")))
     print("")
-
-    # get the format chars
-    fmt_name = Config.instance().get_expanded("task", "interactive_format")
-    fmt = fmt_chars.get(fmt_name, fmt_chars["default"])
 
     done = []
     parents_last_flags = []
@@ -253,8 +329,6 @@ def remove_task_output(task, max_depth=0, mode=None, run_task=False):
         yield_last_flag=True,
     ):
         del parents_last_flags[depth:]
-        task_prefix = "{} {} ".format(depth, fmt[">"])
-        text_prefix = (fmt["ind"] + len(task_prefix) - 1) * " "
         next_deps_shown = bool(next_deps) and (max_depth < 0 or depth < max_depth)
 
         # determine the print common offset
@@ -273,65 +347,70 @@ def remove_task_output(task, max_depth=0, mode=None, run_task=False):
         if isinstance(dep, BaseWorkflow):
             dep.get_branch_map()
 
-        # print the task line
-        dep_offset = offset
+        # determine task offset and prefix
+        task_offset = offset
         if depth > 0:
-            dep_offset += fmt["l" if is_last else "t"] + fmt["ind"] * fmt["-"]
-        print(dep_offset + task_prefix + dep.repr(color=True))
+            task_offset += fmt["l" if is_last else "t"] + fmt["ind"] * fmt["-"]
+        task_prefix = "{} {} ".format(depth, fmt[">"])
 
-        # determine the text offset for downstream
+        # determine text offset and prefix
         text_offset = offset
         if depth > 0:
             text_offset += (" " if is_last else fmt["|"]) + fmt["ind"] * " "
+        text_prefix = (len(task_prefix) - 1) * " "
         text_offset += (fmt["|"] if next_deps_shown else " ") + text_prefix
+        text_offset_ind = text_offset + fmt["ind"] * " "
+
+        # print the task line
+        _print(task_offset + task_prefix + dep.repr(color=True), text_offset)
 
         # always skip external tasks
         if isinstance(dep, ExternalTask):
-            print(text_offset + colored("task is external", "yellow"))
+            _print(text_offset_ind + colored("task is external", "yellow"), text_offset_ind)
             continue
 
         # skip when this task was already handled
         if dep in done:
-            print(text_offset + colored("already handled", "yellow"))
+            _print(text_offset_ind + colored("already handled", "yellow"), text_offset_ind)
             continue
         done.append(dep)
 
         # skip when mode is "all" and task is configured to skip
         if mode == "a" and getattr(dep, "skip_output_removal", False):
-            print(text_offset + colored("configured to skip", "yellow"))
+            _print(text_offset_ind + colored("configured to skip", "yellow"), text_offset_ind)
             continue
 
         # query for a decision per task when mode is "interactive"
         task_mode = None
         if mode == "i":
-            task_mode = query_choice(text_offset + "remove outputs?", ["y", "n", "a"], default="y",
-                descriptions=["yes", "no", "all"])
+            task_mode = _query_choice(text_offset_ind + "remove outputs?", ["y", "n", "a"],
+                default="y", descriptions=["yes", "no", "all"])
             if task_mode == "n":
                 continue
 
         # start the traversing through output structure
         for output, odepth, oprefix, ooffset, lookup in _iter_output(
             dep.output(),
-            text_offset,
+            text_offset_ind,
             fmt["ind"] * " ",
         ):
-            print(ooffset + oprefix + output.repr(color=True))
+            _print(ooffset + oprefix + output.repr(color=True), ooffset + len(oprefix) * " ")
             ooffset += fmt["ind"] * " "
 
             # skip external targets
             if getattr(output, "external", False):
-                print(ooffset + colored("external output", "yellow"))
+                _print(ooffset + colored("external output", "yellow"), ooffset)
                 continue
 
             # stop here when in dry mode
             if mode == "d":
-                print(ooffset + colored("dry removed", "yellow"))
+                _print(ooffset + colored("dry removed", "yellow"), ooffset)
                 continue
 
             # when the mode is "interactive" and the task decision is not "all", query per output
             if mode == "i" and task_mode != "a":
                 if isinstance(output, TargetCollection):
-                    coll_choice = query_choice(ooffset + "remove?", ("y", "n", "i"),
+                    coll_choice = _query_choice(ooffset + "remove?", ("y", "n", "i"),
                         default="n", descriptions=["yes", "no", "interactive"])
                     if coll_choice == "i":
                         lookup[:0] = _flatten_output(output.targets, odepth + 1)
@@ -339,15 +418,15 @@ def remove_task_output(task, max_depth=0, mode=None, run_task=False):
                     else:
                         target_choice = coll_choice
                 else:
-                    target_choice = query_choice(ooffset + "remove?", ("y", "n"),
+                    target_choice = _query_choice(ooffset + "remove?", ("y", "n"),
                         default="n", descriptions=["yes", "no"])
                 if target_choice == "n":
-                    print(ooffset + colored("skipped", "yellow"))
+                    _print(ooffset + colored("skipped", "yellow"), ooffset)
                     continue
 
             # finally remove
             output.remove()
-            print(ooffset + colored("removed", "red", style="bright"))
+            _print(ooffset + colored("removed", "red", style="bright"), ooffset)
 
     return run_task
 
@@ -367,11 +446,26 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
     if include_external:
         print("include external tasks")
 
+    # get the format chars
+    cfg = Config.instance()
+    fmt_name = cfg.get_expanded("task", "interactive_format")
+    fmt = fmt_chars.get(fmt_name, fmt_chars["default"])
+
+    # get the line break setting
+    break_lines = cfg.get_expanded_boolean("task", "interactive_line_breaks")
+    terminal_width = [get_terminal_width() if break_lines else None]
+    _print = lambda line, offset: _print_wrapped(line, terminal_width[0], offset)
+
+    # custom query_choice function that updates the terminal_width
+    def _query_choice(*args, **kwargs):
+        terminal_width[0] = get_terminal_width() if break_lines else None
+        return query_choice(*args, **kwargs)
+
     # determine the mode, i.e., all, dry, interactive
     modes = ["i", "a", "d"]
     mode_names = ["interactive", "all", "dry"]
     if mode is None:
-        mode = query_choice("fetch mode?", modes, default="i", descriptions=mode_names)
+        mode = _query_choice("fetch mode?", modes, default="i", descriptions=mode_names)
     elif isinstance(mode, int):
         mode = modes[mode]
     else:
@@ -382,10 +476,6 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
     print("selected {} mode".format(colored(mode_name + " mode", "blue", style="bright")))
     print("")
 
-    # get the format chars
-    fmt_name = Config.instance().get_expanded("task", "interactive_format")
-    fmt = fmt_chars.get(fmt_name, fmt_chars["default"])
-
     done = []
     parents_last_flags = []
     for dep, next_deps, depth, is_last in task.walk_deps(
@@ -394,8 +484,6 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
         yield_last_flag=True,
     ):
         del parents_last_flags[depth:]
-        task_prefix = "{} {} ".format(depth, fmt[">"])
-        text_prefix = (fmt["ind"] + len(task_prefix) - 1) * " "
         next_deps_shown = bool(next_deps) and (max_depth < 0 or depth < max_depth)
 
         # determine the print common offset
@@ -414,31 +502,36 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
         if isinstance(dep, BaseWorkflow):
             dep.get_branch_map()
 
-        # print the task line
-        dep_offset = offset
+        # determine task offset and prefix
+        task_offset = offset
         if depth > 0:
-            dep_offset += fmt["l" if is_last else "t"] + fmt["ind"] * fmt["-"]
-        print("{}{}{}".format(dep_offset, task_prefix, dep.repr(color=True)))
+            task_offset += fmt["l" if is_last else "t"] + fmt["ind"] * fmt["-"]
+        task_prefix = "{} {} ".format(depth, fmt[">"])
 
-        # determine the text offset for downstream
+        # determine text offset and prefix
         text_offset = offset
         if depth > 0:
             text_offset += (" " if is_last else fmt["|"]) + fmt["ind"] * " "
+        text_prefix = (len(task_prefix) - 1) * " "
         text_offset += (fmt["|"] if next_deps_shown else " ") + text_prefix
+        text_offset_ind = text_offset + fmt["ind"] * " "
+
+        # print the task line
+        _print(task_offset + task_prefix + dep.repr(color=True), text_offset)
 
         if not include_external and isinstance(dep, ExternalTask):
-            print(text_offset + colored("task is external", "yellow"))
+            _print(text_offset_ind + colored("task is external", "yellow"), text_offset_ind)
             continue
 
         if dep in done:
-            print(text_offset + colored("outputs already fetched", "yellow"))
+            _print(text_offset_ind + colored("outputs already fetched", "yellow"), text_offset_ind)
             continue
 
         if mode == "i":
-            task_mode = query_choice(text_offset + "fetch outputs?", ("y", "n", "a"),
+            task_mode = _query_choice(text_offset_ind + "fetch outputs?", ("y", "n", "a"),
                 default="y", descriptions=["yes", "no", "all"])
             if task_mode == "n":
-                print(text_offset + colored("skipped", "yellow"))
+                _print(text_offset_ind + colored("skipped", "yellow"), text_offset_ind)
                 continue
 
         done.append(dep)
@@ -446,7 +539,7 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
         # start the traversing through output structure with a lookup pattern
         for output, odepth, oprefix, ooffset, lookup in _iter_output(
             dep.output(),
-            text_offset,
+            text_offset_ind,
             fmt["ind"] * " ",
         ):
             try:
@@ -458,35 +551,35 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
             target_line = ooffset + oprefix + output.repr(color=True)
             if stat:
                 target_line += " ({:.2f} {})".format(*human_bytes(stat.st_size))
-            print(target_line)
+            _print(target_line, ooffset + len(oprefix) * " ")
             ooffset += fmt["ind"] * " "
 
             # skip external targets
             if not include_external and getattr(output, "external", False):
-                print(ooffset + colored("external output, skip", "yellow"))
+                _print(ooffset + colored("external output, skip", "yellow"), ooffset)
                 continue
 
             # skip missing targets
             if stat is None and not isinstance(output, TargetCollection):
-                print(ooffset + colored("not existing, skip", "yellow"))
+                _print(ooffset + colored("not existing, skip", "yellow"), ooffset)
                 continue
 
             # skip targets without a copy_to_local method
             is_copyable = callable(getattr(output, "copy_to_local", None))
             if not is_copyable and not isinstance(output, TargetCollection):
-                print(ooffset + colored("not a file target, skip", "yellow"))
+                _print(ooffset + colored("not a file target, skip", "yellow"), ooffset)
                 continue
 
             # stop here when in dry mode
             if mode == "d":
-                print(ooffset + colored("dry fetched", "yellow"))
+                _print(ooffset + colored("dry fetched", "yellow"), ooffset)
                 continue
 
             # collect actual outputs to fetch
             to_fetch = [output]
             if mode == "i" and task_mode != "a":
                 if isinstance(output, TargetCollection):
-                    coll_choice = query_choice(ooffset + "fetch?", ("y", "n", "i"),
+                    coll_choice = _query_choice(ooffset + "fetch?", ("y", "n", "i"),
                         default="y", descriptions=["yes", "no", "interactive"])
                     if coll_choice == "i":
                         lookup[:0] = _flatten_output(output.targets, odepth + 1)
@@ -495,10 +588,10 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
                         target_choice = coll_choice
                     to_fetch = list(output._flat_target_list)
                 else:
-                    target_choice = query_choice(ooffset + "fetch?", ("y", "n"),
+                    target_choice = _query_choice(ooffset + "fetch?", ("y", "n"),
                         default="y", descriptions=["yes", "no"])
                 if target_choice == "n":
-                    print(ooffset + colored("skipped", "yellow"))
+                    _print(ooffset + colored("skipped", "yellow"), ooffset)
                     continue
 
             # flatten all target collections
@@ -518,5 +611,5 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
                 basename = "{}__{}".format(dep.live_task_id, outp.basename)
                 outp.copy_to_local(os.path.join(target_dir, basename), retries=0)
 
-                print("{}{} ({})".format(ooffset, colored("fetched", "green", style="bright"),
-                    basename))
+                _print(ooffset + "{} ({})".format(colored("fetched", "green", style="bright"),
+                    basename), ooffset)

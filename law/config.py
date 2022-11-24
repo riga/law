@@ -78,6 +78,7 @@ class Config(ConfigParser):
             "colored_repr": False,
             "colored_str": True,
             "interactive_format": "fancy",
+            "interactive_line_breaks": True,
         },
         "target": {
             "colored_repr": False,

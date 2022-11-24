@@ -197,6 +197,13 @@
 ; Type: string
 ; Default: "fancy"
 
+; interactive_line_breaks
+; Description: A boolean flag that decides whether smart line breaks should be used when printing
+; interactive task outputs to terminal. Automatically disabled when the terminal width cannot be
+; determined.
+; Type: boolean
+; Default: True
+
 
 ; --- target section -------------------------------------------------------------------------------
 
