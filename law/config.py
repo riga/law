@@ -20,7 +20,7 @@ import luigi
 import six
 from six.moves.configparser import ConfigParser
 
-from law.util import no_value, flag_to_bool, brace_expand, str_to_int
+from law.util import no_value, brace_expand, str_to_int
 
 
 def law_home_path(*paths):
@@ -66,7 +66,8 @@ class Config(ConfigParser):
             "software_dir": os.getenv("LAW_SOFTWARE_DIR") or law_home_path("software"),
             "inherit": None,
             "extend": None,
-            "sync_luigi_config": flag_to_bool(os.getenv("LAW_SYNC_LUIGI_CONFIG", "True")),
+            "sync_env": True,
+            "sync_luigi_config": True,
         },
         "logging": {
             "law": os.getenv("LAW_LOG_LEVEL") or "WARNING",
@@ -275,6 +276,8 @@ class Config(ConfigParser):
 
     _option_ref_regex = re.compile(r"^\&(::(?P<section>[^\:]+))?::(?P<option>.+)$")
 
+    _env_option_regex = re.compile(r"^LAW__([a-zA-Z0-9_]+)__([a-zA-Z0-9_]+)$")
+
     @classmethod
     def instance(cls, *args, **kwargs):
         """
@@ -294,7 +297,7 @@ class Config(ConfigParser):
         return (m.group("section") or default_section, m.group("option"))
 
     def __init__(self, config_file="", skip_defaults=False, skip_fallbacks=False,
-            skip_includes=False, skip_luigi_sync=False):
+            skip_includes=False, skip_env_sync=False, skip_luigi_sync=False):
         ConfigParser.__init__(self, allow_no_value=True)
 
         # lookup to correct config file
@@ -332,7 +335,7 @@ class Config(ConfigParser):
         if not skip_includes and self.config_file:
             # eagerly read the config file to get a glimpse of the files to inherit from
             c = self.__class__(self.config_file, skip_defaults=True, skip_fallbacks=True,
-                skip_includes=True, skip_luigi_sync=True)
+                skip_includes=True, skip_env_sync=True, skip_luigi_sync=True)
             opt = "inherit"
             if c.has_option("core", "inherit_configs") and not c.get_expanded("core", "inherit"):
                 # print a warning, not using the logger yet since it's not initialized at this point
@@ -358,6 +361,10 @@ class Config(ConfigParser):
                     "future release of law; please use 'core.extend' instead",
                 )
             include_configs(self.get_expanded("core", opt))
+
+        # sync with environment variables
+        if not skip_env_sync and self.get_expanded_boolean("core", "sync_env"):
+            self.sync_env()
 
         # sync with luigi configuration
         if not skip_luigi_sync and self.get_expanded_boolean("core", "sync_luigi_config"):
@@ -462,7 +469,8 @@ class Config(ConfigParser):
         Updates the current config by that found in *filename*. All *args* and *kwargs* are
         forwarded to :py:meth:`update`.
         """
-        p = self.__class__(filename, skip_defaults=True, skip_fallbacks=True, skip_luigi_sync=True)
+        p = self.__class__(filename, skip_defaults=True, skip_fallbacks=True, skip_env_sync=True,
+            skip_luigi_sync=True)
         self.update(p._sections, *args, **kwargs)
 
     def get_default(self, section, option, default=None, type=None, expand_vars=False,
@@ -613,6 +621,22 @@ class Config(ConfigParser):
             if not self.is_missing_or_none(section, option):
                 return option
         return None
+
+    def sync_env(self):
+        """
+        Synchronizes options defined via environment variables in the format
+        ``LAW__<section>__<option>``. The synchronization only works in case neither the section nor
+        the option contain double underscores (which is anyway discouraged).
+        """
+        for name, value in os.environ.items():
+            m = self._env_option_regex.match(name)
+            if not m:
+                continue
+
+            section, option = m.groups()
+            if not self.has_section(section):
+                self.add_section(section)
+            self.set(section, option, value)
 
     def sync_luigi_config(self, push=True, pull=True):
         """

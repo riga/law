@@ -274,6 +274,11 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
         if order not in ("level", "pre"):
             raise ValueError("unknown traversal order '{}', use 'level' or 'pre'".format(order))
 
+        # yielding the last flag as well is only available in 'pre' order
+        if order != "pre" and yield_last_flag:
+            raise ValueError("yield_last_flag can only be used in 'pre' order, but got '{}'".format(
+                order))
+
         tasks = [(self, 0)]
         while len(tasks):
             task, depth = tasks.pop(0)
@@ -282,7 +287,7 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
 
             # define the tuple of objects to yield
             tpl = (task, deps, depth)
-            if order != "pre" or not yield_last_flag:
+            if not yield_last_flag:
                 yield tpl
 
             # define the next deps, considering the maximum depth if set

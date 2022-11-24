@@ -342,7 +342,7 @@ styles = {
     "hidden": 8,
 }
 
-uncolor_cre = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
+uncolor_cre = re.compile(r"(\x1B\[[0-?]*[ -/]*[@-~])")
 
 
 def colored(msg, color=None, background=None, style=None, force=False):

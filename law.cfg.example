@@ -9,6 +9,7 @@
 ;   - Option referencing
 ;   - Environment variable expansion
 ;   - The "None" value
+;   - Synchronization with environment variables
 ;   - Synchronization with luigi configuration
 ;
 ; - law configuration
@@ -47,7 +48,8 @@
 ; --- Configuration file resolution order ----------------------------------------------------------
 ; Law configuration files (like the one you are just reading) are looked up in a certain order:
 ; $LAW_CONFIG_FILE, ./law.cfg, "config" in the law home directory, or "etc/law/config". The config
-; parser only reads the first existing file.
+; parser only reads the first existing file. Please also note the optional synchronization with
+; environment variables described below.
 
 ; --- Inheritance and extensions -------------------------------------------------------------------
 ; The law configuration can inherit from or can be extended by additional configuration files. See
@@ -71,6 +73,13 @@
 ; etc., are configured to return a default value (which itself defaults to "None" (the NoneType)) in
 ; case an option is not existing. Sometimes it can be useful to actively declare an option as
 ; missing. This can be achieved by setting an option to "None" (string).
+
+; --- Synchronization with environment variables ---------------------------------------------------
+; In some scenarios it might be useful to control the value of some options via environment
+; variables, for instance, when testing features or prototyping outside of an existing configuration
+; file. For these cases, a synchronization mechanism is implemented that reads variables named
+; "LAW__the_section__the_option" and overwrites the respective option with its value. This is
+; enabled by default, but can be configured by the "sync_env" option in the "[core]" section.
 
 ; --- Synchronization with luigi configuration -----------------------------------------------------
 ; law is built on top of luigi and does not replace it. Therefore, another luigi-specfic
@@ -119,6 +128,13 @@
 ; file. Brace expansion, such as "myfile{1,2}.cfg" to "myfile1.cfg, myfile2.cfg" is applied.
 ; Type: string, list of strings
 ; Default: None
+
+; sync_env
+; Description: A boolean flag that decides whether the config should be synchronized with
+; environment variables that have the format "LAW__the_section__the_option". When "True", the
+; synchronization takes place after all defaults and config files were read.
+; Type: boolean
+; Default: True
 
 ; sync_luigi_config
 ; Description: A boolean flag that decides whether sections starting with "luigi" plus underscore
