@@ -1,0 +1,77 @@
+FROM centos:8
+
+# labels
+LABEL law.version="0.1.8"
+LABEL law.image_name="riga/law"
+LABEL law.image_tag="c8-py37"
+LABEL law.image_os="centos8"
+LABEL law.image_python_major="3"
+LABEL law.image_python_minor="7"
+LABEL law.image_python="3.7"
+
+# law specific environment variables
+ENV LAW_IMAGE_ROOT /root/law
+ENV LAW_IMAGE_NAME riga/law
+ENV LAW_IMAGE_TAG c8-py37
+ENV LAW_IMAGE_PYTHON_MAJOR 3
+ENV LAW_IMAGE_PYTHON_MINOR 7
+ENV LAW_IMAGE_PYTHON ${LAW_IMAGE_PYTHON_MAJOR}.${LAW_IMAGE_PYTHON_MINOR}
+ENV LAW_CONDA_ROOT /root/conda
+ENV LAW_CONDA_VERSION 4.12.0
+ENV LAW_CONDA_INSTALL_FILE https://repo.anaconda.com/miniconda/Miniconda${LAW_IMAGE_PYTHON_MAJOR}-py${LAW_IMAGE_PYTHON_MAJOR}${LAW_IMAGE_PYTHON_MINOR}_${LAW_CONDA_VERSION}-Linux-x86_64.sh
+ENV LAW_SANDBOX docker::riga/law:c8-py37,docker::riga/law:py37
+
+# exposed ports
+EXPOSE 8082
+
+# bash files
+COPY bash_profile /root/.bash_profile
+COPY bashrc /root/.bashrc
+
+# installation workdir
+WORKDIR /root/install
+
+# prepare yum
+RUN sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-* && \
+    sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+RUN sed -i -r 's/^(override_install_langs=.+)/#\1/' /etc/yum.conf
+RUN yum -y update; yum clean all
+RUN yum -y install yum-utils epel-release wget; yum clean all
+
+# setup conda
+ENV PATH ${LAW_CONDA_ROOT}/bin:${PATH}
+RUN wget "${LAW_CONDA_INSTALL_FILE}" -O setup_miniconda.sh -q && \
+    bash setup_miniconda.sh -b -u -p "${LAW_CONDA_ROOT}" && \
+    rm setup_miniconda.sh
+RUN echo $'\n\
+changeps1: false\n\
+channels:\n\
+  - conda-forge\n\
+  - defaults\n\
+' >> "${LAW_CONDA_ROOT}/.condarc"
+SHELL ["conda", "run", "-n", "base", "/bin/bash", "-c"]
+
+# conda packages
+RUN conda install --yes libgcc gcc which wget nano micro screen git git-lfs cmake ncurses readline && \
+    conda clean --all
+RUN conda install --yes gfal2 gfal2-util python-gfal2 && \
+    conda clean --all
+
+# python packages
+RUN pip install --no-cache-dir --upgrade pip
+RUN pip install --no-cache-dir --upgrade setuptools
+RUN pip install --no-cache-dir slackclient python-telegram-bot
+RUN pip install --no-cache-dir flake8 flake8-quotes flake8-commas pytest-cov
+
+# cleanup installation workdir
+WORKDIR /root
+RUN rm -rf /root/install
+
+# install law master
+RUN git clone --recursive https://github.com/riga/law "${LAW_IMAGE_ROOT}" && \
+    cd "${LAW_IMAGE_ROOT}" && \
+    pip install --no-cache-dir .
+WORKDIR ${LAW_IMAGE_ROOT}
+
+# init command
+SHELL ["conda", "run", "-n", "base", "/bin/bash", "-i", "--login"]

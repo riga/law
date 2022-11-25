@@ -3,8 +3,7 @@ FROM centos:7
 # labels
 LABEL law.version="0.1.8"
 LABEL law.image_name="riga/law"
-LABEL law.image_tag="py36"
-LABEL law.image_dir="law-py36"
+LABEL law.image_tag="c7-py36"
 LABEL law.image_os="centos7"
 LABEL law.image_python_major="3"
 LABEL law.image_python_minor="6"
@@ -13,9 +12,9 @@ LABEL law.image_python="3.6.15"
 LABEL law.image_python_mm="3.6"
 
 # law specific environment variables
-ENV LAW_SANDBOX docker::riga/law:py36
-ENV LAW_IMAGE_NAME law-py36
-ENV LAW_IMAGE_TAG py36
+ENV LAW_SANDBOX docker::riga/law:c7-py36,docker::riga/law:py36
+ENV LAW_IMAGE_NAME riga/law
+ENV LAW_IMAGE_TAG c7-py36
 ENV LAW_IMAGE_PYTHON_MAJOR 3
 ENV LAW_IMAGE_PYTHON_MINOR 6
 ENV LAW_IMAGE_PYTHON_PATCH 15
@@ -156,9 +155,6 @@ RUN git clone https://github.com/riga/law "${LAW_IMAGE_SOURCE_DIR}" && \
     cd "${LAW_IMAGE_SOURCE_DIR}" && \
     pip install --no-cache-dir .
 WORKDIR ${LAW_IMAGE_SOURCE_DIR}
-
-# shell initialization
-RUN echo 'source "$( law completion )" ""' >> /root/.bash_profile
 
 # init command
 CMD bash --login

@@ -8,13 +8,13 @@ on:
         required: false
         default: 'false'
       specific_job:
-        description: Run a specific job? (py27|py36|py37|py38|py39|py310|py311|example)
+        description: Run a specific job? (py27|py36|py37|py38|py39|py310|py311|c7|c8|example)
         required: false
         default: ''
 
 jobs:
-  py27:
-    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'py27') }}
+  c7-py27:
+    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'c7-py27') || contains(github.event.inputs.specific_job, 'py27') || contains(github.event.inputs.specific_job, 'c7') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -28,13 +28,13 @@ jobs:
           path: docker
           dockerfile: docker/Dockerfile_centos7_py27
           repository: riga/law
-          tags: py27,py2
+          tags: c7-py27,py27,py2
           push: ${{ github.event.inputs.build_only != 'true' }}
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-  py36:
-    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'py36') }}
+  c7-py36:
+    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'c7-py36') || contains(github.event.inputs.specific_job, 'py36') || contains(github.event.inputs.specific_job, 'c7') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -48,13 +48,13 @@ jobs:
           path: docker
           dockerfile: docker/Dockerfile_centos7_py36
           repository: riga/law
-          tags: py36
+          tags: c7-py36,py36
           push: ${{ github.event.inputs.build_only != 'true' }}
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-  py37:
-    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'py37') }}
+  c7-py37:
+    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'c7-py37') || contains(github.event.inputs.specific_job, 'py37') || contains(github.event.inputs.specific_job, 'c7') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -68,13 +68,33 @@ jobs:
           path: docker
           dockerfile: docker/Dockerfile_centos7_py37
           repository: riga/law
-          tags: py37
+          tags: c7-py37
           push: ${{ github.event.inputs.build_only != 'true' }}
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-  py38:
-    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'py38') }}
+  c8-py37:
+    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'c8-py37') || contains(github.event.inputs.specific_job, 'py37') || contains(github.event.inputs.specific_job, 'c8') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v3
+        with:
+          persist-credentials: false
+
+      - name: Build and deploy image 🐳
+        uses: docker/build-push-action@v1
+        with:
+          path: docker
+          dockerfile: docker/Dockerfile_centos8_py37
+          repository: riga/law
+          tags: c8-py37,py37
+          push: ${{ github.event.inputs.build_only != 'true' }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  c7-py38:
+    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'c7-py38') || contains(github.event.inputs.specific_job, 'py38') || contains(github.event.inputs.specific_job, 'c7') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -88,13 +108,33 @@ jobs:
           path: docker
           dockerfile: docker/Dockerfile_centos7_py38
           repository: riga/law
-          tags: py38
+          tags: c7-py38
           push: ${{ github.event.inputs.build_only != 'true' }}
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-  py39:
-    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'py39') || contains(github.event.inputs.specific_job, 'example') }}
+  c8-py37:
+    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'c8-py38') || contains(github.event.inputs.specific_job, 'py38') || contains(github.event.inputs.specific_job, 'c8') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v3
+        with:
+          persist-credentials: false
+
+      - name: Build and deploy image 🐳
+        uses: docker/build-push-action@v1
+        with:
+          path: docker
+          dockerfile: docker/Dockerfile_centos8_py38
+          repository: riga/law
+          tags: c8-py38,py38
+          push: ${{ github.event.inputs.build_only != 'true' }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  c7-py39:
+    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'c7-py39') || contains(github.event.inputs.specific_job, 'py39') || contains(github.event.inputs.specific_job, 'c7') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -108,13 +148,33 @@ jobs:
           path: docker
           dockerfile: docker/Dockerfile_centos7_py39
           repository: riga/law
-          tags: py39,py3,latest
+          tags: c7-py39,c7-py3
           push: ${{ github.event.inputs.build_only != 'true' }}
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-  py310:
-    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'py310') }}
+  c8-py39:
+    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'c8-py39') || contains(github.event.inputs.specific_job, 'py39') || contains(github.event.inputs.specific_job, 'c8') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v3
+        with:
+          persist-credentials: false
+
+      - name: Build and deploy image 🐳
+        uses: docker/build-push-action@v1
+        with:
+          path: docker
+          dockerfile: docker/Dockerfile_centos8_py39
+          repository: riga/law
+          tags: c8-py39,c8-py3,c8,py39,py3,latest
+          push: ${{ github.event.inputs.build_only != 'true' }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  c7-py310:
+    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'c7-py310') || contains(github.event.inputs.specific_job, 'py310') || contains(github.event.inputs.specific_job, 'c7') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -128,14 +188,14 @@ jobs:
           path: docker
           dockerfile: docker/Dockerfile_centos7_py310
           repository: riga/law
-          tags: py310
+          tags: c7-py310,py310
           push: ${{ github.event.inputs.build_only != 'true' }}
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
   # NOTE: disabled for now due to some gfal2-bindings issue
-  # py311:
-  #   if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'py311') }}
+  # c7-py311:
+  #   if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'c7-py311') || contains(github.event.inputs.specific_job, 'py311') || contains(github.event.inputs.specific_job, 'c7') }}
   #   runs-on: ubuntu-latest
   #   steps:
   #     - name: Checkout 🛎️
@@ -149,14 +209,14 @@ jobs:
   #         path: docker
   #         dockerfile: docker/Dockerfile_centos7_py311
   #         repository: riga/law
-  #         tags: py311
+  #         tags: c7-py311
   #         push: ${{ github.event.inputs.build_only != 'true' }}
   #         username: ${{ secrets.DOCKERHUB_USERNAME }}
   #         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
   example:
     if: ${{ github.event.inputs.build_only != 'true' && (github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'example')) }}
-    needs: py39
+    needs: c8-py39
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -168,7 +228,7 @@ jobs:
         uses: docker/build-push-action@v1
         with:
           path: docker
-          dockerfile: docker/Dockerfile_centos7_example
+          dockerfile: docker/Dockerfile_example
           repository: riga/law
           tags: example
           push: true

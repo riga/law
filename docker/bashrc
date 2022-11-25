@@ -1,3 +1,5 @@
 #!/usr/bin/env bash
 
 [ -f "/etc/bashrc" ] && source "/etc/bashrc" ""
+
+source "$( law completion )" ""
