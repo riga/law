@@ -489,7 +489,7 @@ def localize(fn, opts, task, *args, **kwargs):
     output_struct = task.output() if opts["output"] else None
 
     # store original input and output methods
-    input_orig = task.output
+    input_orig = task.input
     output_orig = task.output
 
     # input and output kwargs

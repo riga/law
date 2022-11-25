@@ -113,7 +113,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-  c8-py37:
+  c8-py38:
     if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'c8-py38') || contains(github.event.inputs.specific_job, 'py38') || contains(github.event.inputs.specific_job, 'c8') }}
     runs-on: ubuntu-latest
     steps:
