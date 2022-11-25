@@ -29,7 +29,7 @@
 
 
 **Note**: This project is currently under development.
-Version 1.0.0 will be the first, fully documented beta release, targetted for mid 2022.
+Version 1.0.0 will be the first, fully documented beta release, targetted for end of 2022.
 
 Use law to build complex and large-scale task workflows.
 It is build on top of `luigi <https://github.com/spotify/luigi>`__ and adds abstractions for **run locations**, **storage locations** and **software environments**.
@@ -39,7 +39,7 @@ Key features:
 
 - CLI with auto-completion and interactive status and dependency inspection.
 - Remote targets with automatic retries and local caching
-   - WebDAV, HTTP, Dropbox, SFTP, all WLCG protocols (srm, xrootd, rfio, dcap, gsiftp, ...)
+   - WebDAV, HTTP, Dropbox, SFTP, all WLCG protocols (srm, xrootd, dcap, gsiftp, webdav, ...)
 - Automatic submission to batch systems from within tasks
    - HTCondor, LSF, gLite, ARC, Slurm
 - Environment sandboxing, configurable on task level
@@ -209,22 +209,23 @@ If this is the case, just source the law completion script (which internally ena
 Tests
 -----
 
-To run and test law, there are three docker images available on the `DockerHub <https://cloud.docker.com/u/riga/repository/docker/riga/law>`__, corresponding to Python versions 2.7, and 3.7 to 3.10.
-They are based on CentOS 7 and ship with the dependencies listed above, including gfal2.
+To run and test law, there are various docker `riga/law` images available on the `DockerHub <https://cloud.docker.com/u/riga/repository/docker/riga/law>`__, corresponding to different OS and Python versions.
+
+
+|    OS    | Python |                  Tags                  |
+| -------- | ------ | -------------------------------------- |
+| Centos 8 |    3.9 | c8-py39, c8-py3, c8, py39, py3, latest |
+| Centos 8 |    3.8 | c8-py38, py38                          |
+| Centos 8 |    3.7 | c8-py37, py37                          |
+| Centos 7 |   3.10 | c7-py310, py310                        |
+| Centos 7 |    3.9 | c7-py39, c7-py3                        |
+| Centos 7 |    3.8 | c7-py38                                |
+| Centos 7 |    3.7 | c7-py37                                |
+| Centos 7 |    3.6 | c7-py36, py36                          |
 
 .. code-block:: bash
 
    docker run -ti riga/law:latest
-
-
-Tags:
-
-- ``py310``: Latest Python 3.10
-- ``py39``, ``py3``, ``latest``: Latest Python 3.9
-- ``py38``: Latest Python 3.8
-- ``py37``: Latest Python 3.7
-- ``py2``, ``py27``: Python 2.7
-- ``example``: Example runner, based on ``latest`` (see `below <#examples>`__)
 
 
 Development
