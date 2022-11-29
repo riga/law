@@ -8,13 +8,13 @@ on:
         required: false
         default: 'false'
       specific_job:
-        description: Run a specific job? (py27|py36|py37|py38|py39|py310|py311|c7|c8|example)
+        description: Run a specific job? (c8-py37|c8-py38|c8-py39|c8-py310|c7-py27|c7-py36|c7-py37|c7-py38|c7-py39|c7-py310|example)
         required: false
         default: ''
 
 jobs:
   c7-py27:
-    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'c7-py27') || contains(github.event.inputs.specific_job, 'py27') || contains(github.event.inputs.specific_job, 'c7') }}
+    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'c7-py27') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -34,7 +34,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
   c7-py36:
-    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'c7-py36') || contains(github.event.inputs.specific_job, 'py36') || contains(github.event.inputs.specific_job, 'c7') }}
+    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'c7-py36') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -54,7 +54,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
   c7-py37:
-    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'c7-py37') || contains(github.event.inputs.specific_job, 'py37') || contains(github.event.inputs.specific_job, 'c7') }}
+    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'c7-py37') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -74,7 +74,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
   c8-py37:
-    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'c8-py37') || contains(github.event.inputs.specific_job, 'py37') || contains(github.event.inputs.specific_job, 'c8') }}
+    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'c8-py37') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -94,7 +94,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
   c7-py38:
-    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'c7-py38') || contains(github.event.inputs.specific_job, 'py38') || contains(github.event.inputs.specific_job, 'c7') }}
+    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'c7-py38') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -114,7 +114,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
   c8-py38:
-    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'c8-py38') || contains(github.event.inputs.specific_job, 'py38') || contains(github.event.inputs.specific_job, 'c8') }}
+    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'c8-py38') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -134,7 +134,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
   c7-py39:
-    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'c7-py39') || contains(github.event.inputs.specific_job, 'py39') || contains(github.event.inputs.specific_job, 'c7') }}
+    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'c7-py39') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -154,7 +154,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
   c8-py39:
-    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'c8-py39') || contains(github.event.inputs.specific_job, 'py39') || contains(github.event.inputs.specific_job, 'c8') }}
+    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'c8-py39') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -174,7 +174,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
   c7-py310:
-    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'c7-py310') || contains(github.event.inputs.specific_job, 'py310') || contains(github.event.inputs.specific_job, 'c7') }}
+    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'c7-py310') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -195,7 +195,7 @@ jobs:
 
   # NOTE: disabled for now due to some gfal2-bindings issue
   # c7-py311:
-  #   if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'c7-py311') || contains(github.event.inputs.specific_job, 'py311') || contains(github.event.inputs.specific_job, 'c7') }}
+  #   if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'c7-py311') }}
   #   runs-on: ubuntu-latest
   #   steps:
   #     - name: Checkout 🛎️
