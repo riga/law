@@ -61,7 +61,7 @@ RUN conda install --yes gfal2 gfal2-util python-gfal2 && \
 RUN pip install --no-cache-dir --upgrade pip
 RUN pip install --no-cache-dir --upgrade setuptools
 RUN pip install --no-cache-dir slackclient python-telegram-bot
-RUN pip install --no-cache-dir flake8 flake8-quotes flake8-commas pytest-cov
+RUN pip install --no-cache-dir "flake8<6" flake8-quotes flake8-commas pytest-cov
 
 # cleanup installation workdir
 WORKDIR /root
