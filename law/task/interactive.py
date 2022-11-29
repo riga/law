@@ -137,8 +137,9 @@ def print_task_deps(task, max_depth=1):
 
     # get the line break setting
     break_lines = cfg.get_expanded_boolean("task", "interactive_line_breaks")
-    terminal_width = get_terminal_width() if break_lines else None
-    _print = lambda line, offset: _print_wrapped(line, terminal_width, offset)
+    out_width = cfg.get_expanded_int("task", "interactive_line_width")
+    print_width = (out_width if out_width > 0 else get_terminal_width()) if break_lines else None
+    _print = lambda line, offset: _print_wrapped(line, print_width, offset)
 
     parents_last_flags = []
     for dep, next_deps, depth, is_last in task.walk_deps(
@@ -196,8 +197,9 @@ def print_task_status(task, max_depth=0, target_depth=0, flags=None):
 
     # get the line break setting
     break_lines = cfg.get_expanded_boolean("task", "interactive_line_breaks")
-    terminal_width = get_terminal_width() if break_lines else None
-    _print = lambda line, offset: _print_wrapped(line, terminal_width, offset)
+    out_width = cfg.get_expanded_int("task", "interactive_line_width")
+    print_width = (out_width if out_width > 0 else get_terminal_width()) if break_lines else None
+    _print = lambda line, offset: _print_wrapped(line, print_width, offset)
 
     # walk through deps
     done = []
@@ -302,12 +304,14 @@ def remove_task_output(task, max_depth=0, mode=None, run_task=False):
 
     # get the line break setting
     break_lines = cfg.get_expanded_boolean("task", "interactive_line_breaks")
-    terminal_width = [get_terminal_width() if break_lines else None]
-    _print = lambda line, offset: _print_wrapped(line, terminal_width[0], offset)
+    out_width = cfg.get_expanded_int("task", "interactive_line_width")
+    print_width = [(out_width if out_width > 0 else get_terminal_width()) if break_lines else None]
+    _print = lambda line, offset: _print_wrapped(line, print_width[0], offset)
 
     # custom query_choice function that updates the terminal_width
     def _query_choice(*args, **kwargs):
-        terminal_width[0] = get_terminal_width() if break_lines else None
+        if print_width[0]:
+            print_width[0] = out_width if out_width > 0 else get_terminal_width()
         return query_choice(*args, **kwargs)
 
     # determine the mode, i.e., interactive, dry, all
@@ -453,12 +457,14 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
 
     # get the line break setting
     break_lines = cfg.get_expanded_boolean("task", "interactive_line_breaks")
-    terminal_width = [get_terminal_width() if break_lines else None]
-    _print = lambda line, offset: _print_wrapped(line, terminal_width[0], offset)
+    out_width = cfg.get_expanded_int("task", "interactive_line_width")
+    print_width = (out_width if out_width > 0 else get_terminal_width()) if break_lines else None
+    _print = lambda line, offset: _print_wrapped(line, print_width[0], offset)
 
     # custom query_choice function that updates the terminal_width
     def _query_choice(*args, **kwargs):
-        terminal_width[0] = get_terminal_width() if break_lines else None
+        if print_width[0]:
+            print_width[0] = out_width if out_width > 0 else get_terminal_width()
         return query_choice(*args, **kwargs)
 
     # determine the mode, i.e., all, dry, interactive

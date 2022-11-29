@@ -204,6 +204,12 @@
 ; Type: boolean
 ; Default: True
 
+; interactive_line_width
+; Description: The width of interactive task output when "interactive_line_breaks" is enabled. When
+; zero or negative, the terminal size is obtained dynamically if possible.
+; Type: integer
+; Default: 0
+
 
 ; --- target section -------------------------------------------------------------------------------
 

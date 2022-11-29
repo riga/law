@@ -185,14 +185,22 @@ def import_file(path, attr=None):
     return pkg
 
 
-def get_terminal_width():
+def get_terminal_width(fallback=False):
     """
-    Returns the terminal width when possible, and *None* otherwise.
+    Returns the terminal width when possible, and *None* otherwise. By default, the width is
+    obtained through ``os.get_terminal_size``, querying the *sys.__stdout__* which might fail in
+    case no valid output device is connected. However, when *fallback* is *True*,
+    ``shutil.get_terminal_size`` is used instead, which priotizes the *COLUMNS* variable if set.
     """
-    if not callable(getattr(os, "get_terminal_size", None)):
-        return None
+    width = None
+    func = getattr(shutil if fallback else os, "get_terminal_size", None)
+    if callable(func):
+        try:
+            width = func().columns
+        except OSError:
+            pass
 
-    return os.get_terminal_size().columns
+    return width
 
 
 def is_number(n):
