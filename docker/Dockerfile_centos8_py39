@@ -73,5 +73,5 @@ RUN git clone --recursive https://github.com/riga/law "${LAW_IMAGE_ROOT}" && \
     pip install --no-cache-dir .
 WORKDIR ${LAW_IMAGE_ROOT}
 
-# init command
+# default shell
 SHELL ["conda", "run", "-n", "base", "/bin/bash", "-i", "--login"]

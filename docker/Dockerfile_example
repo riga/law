@@ -4,15 +4,20 @@ FROM riga/law:latest
 LABEL law.image_name="riga/law"
 LABEL law.image_tag="example"
 
+# reset the shell
+SHELL ["/bin/sh", "-c"]
+
 # copy files
 COPY start_example.sh /root/start_example.sh
+RUN chmod ug+x /root/start_example.sh
 
 # workdir
 WORKDIR /root
 
 # update the law repository
-RUN cd "${LAW_IMAGE_SOURCE_DIR}" && git pull
+RUN cd "${LAW_IMAGE_ROOT}" && git pull
 
-# entry point
+# default shell and entry point
+SHELL ["conda", "run", "-n", "base", "/bin/bash", "-i", "--login"]
 ENTRYPOINT ["/root/start_example.sh"]
 CMD ["loremipsum"]

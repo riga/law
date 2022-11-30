@@ -12,7 +12,7 @@ LABEL law.image_python="3.8.15"
 LABEL law.image_python_mm="3.8"
 
 # law specific environment variables
-ENV LAW_SANDBOX docker::riga/law:c7-py38
+ENV LAW_IMAGE_ROOT /root/law
 ENV LAW_IMAGE_NAME riga/law
 ENV LAW_IMAGE_TAG c7-py38
 ENV LAW_IMAGE_PYTHON_MAJOR 3
@@ -20,7 +20,7 @@ ENV LAW_IMAGE_PYTHON_MINOR 8
 ENV LAW_IMAGE_PYTHON_PATCH 15
 ENV LAW_IMAGE_PYTHON ${LAW_IMAGE_PYTHON_MAJOR}.${LAW_IMAGE_PYTHON_MINOR}.${LAW_IMAGE_PYTHON_PATCH}
 ENV LAW_IMAGE_PYTHON_MM ${LAW_IMAGE_PYTHON_MAJOR}.${LAW_IMAGE_PYTHON_MINOR}
-ENV LAW_IMAGE_SOURCE_DIR /root/law
+ENV LAW_SANDBOX docker::riga/law:c7-py38
 
 # basic environment variables
 ENV CPATH /usr/local/include:/usr/include:${CPATH}
@@ -151,10 +151,10 @@ WORKDIR /root
 RUN rm -rf install
 
 # install law master
-RUN git clone https://github.com/riga/law "${LAW_IMAGE_SOURCE_DIR}" && \
-    cd "${LAW_IMAGE_SOURCE_DIR}" && \
+RUN git clone https://github.com/riga/law "${LAW_IMAGE_ROOT}" && \
+    cd "${LAW_IMAGE_ROOT}" && \
     pip install --no-cache-dir .
-WORKDIR ${LAW_IMAGE_SOURCE_DIR}
+WORKDIR ${LAW_IMAGE_ROOT}
 
 # init command
 CMD bash --login

@@ -2,7 +2,7 @@
 
 action() {
     local example_name="${1:-loremipsum}"
-    local example_dir="${LAW_IMAGE_SOURCE_DIR}/examples/${example_name}"
+    local example_dir="${LAW_IMAGE_ROOT}/examples/${example_name}"
 
     # valid example?
     if [ ! -d "${example_dir}" ]; then
@@ -28,6 +28,6 @@ action() {
     echo
 
     # run a bash login shell
-    bash --login
+    bash -i --login
 }
 action "$@"
