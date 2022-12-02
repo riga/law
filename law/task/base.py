@@ -595,7 +595,7 @@ class Task(six.with_metaclass(Register, BaseTask)):
         if serialize:
             param = getattr(self.__class__, name, no_value)
             if param != no_value:
-                value = param.serialize(value)
+                value = param.serialize(value) if isinstance(param, luigi.Parameter) else param
 
         return "{}={}".format(colored(name, color="blue", style="bright") if color else name, value)
 
@@ -668,6 +668,9 @@ class WrapperTask(Task):
 
     def complete(self):
         return all(task.complete() for task in flatten(self.requires()))
+
+    def output(self):
+        return self.input()
 
     def run(self):
         return
