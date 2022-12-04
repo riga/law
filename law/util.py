@@ -7,13 +7,13 @@ Helpful utility functions.
 __all__ = [
     "default_lock", "io_lock", "console_lock", "no_value", "rel_path", "law_src_path",
     "law_home_path", "law_run", "print_err", "abort", "import_file", "get_terminal_width",
-    "is_number", "try_int", "round_discrete", "str_to_int", "flag_to_bool", "empty_context",
-    "common_task_params", "colored", "uncolored", "query_choice", "is_pattern", "brace_expand",
-    "range_expand", "range_join", "multi_match", "is_iterable", "is_lazy_iterable", "make_list",
-    "make_tuple", "make_unique", "is_nested", "flatten", "merge_dicts", "unzip", "which",
-    "map_verbose", "map_struct", "mask_struct", "tmp_file", "perf_counter", "interruptable_popen",
-    "readable_popen", "create_hash", "create_random_string", "copy_no_perm", "makedirs",
-    "user_owns_file", "iter_chunks", "human_bytes", "parse_bytes", "human_duration",
+    "is_classmethod", "is_number", "try_int", "round_discrete", "str_to_int", "flag_to_bool",
+    "empty_context", "common_task_params", "colored", "uncolored", "query_choice", "is_pattern",
+    "brace_expand", "range_expand", "range_join", "multi_match", "is_iterable", "is_lazy_iterable",
+    "make_list", "make_tuple", "make_unique", "is_nested", "flatten", "merge_dicts", "unzip",
+    "which", "map_verbose", "map_struct", "mask_struct", "tmp_file", "perf_counter",
+    "interruptable_popen", "readable_popen", "create_hash", "create_random_string", "copy_no_perm",
+    "makedirs", "user_owns_file", "iter_chunks", "human_bytes", "parse_bytes", "human_duration",
     "parse_duration", "is_file_exists_error", "send_mail", "DotDict", "ShorthandDict",
     "open_compat", "patch_object", "join_generators", "quote_cmd", "escape_markdown",
     "classproperty", "BaseStream", "TeeStream", "FilteredStream",
@@ -44,6 +44,7 @@ import threading
 import io
 import shlex
 import logging
+import inspect
 
 import six
 
@@ -77,8 +78,11 @@ class NoValue(object):
     def __nonzero__(self):
         return False
 
-    def __str__(self):
+    def __repr__(self):
         return "{}.no_value".format(self.__module__)
+
+    def __str__(self):
+        return "no_value"
 
 
 #: Unique dummy value that is used to denote missing values and always evaluates to *False*.
@@ -201,6 +205,17 @@ def get_terminal_width(fallback=False):
             pass
 
     return width
+
+
+def is_classmethod(cls, attr):
+    """
+    Returns *True* if the attribute *attr* of a class *cls* is a classmethod, and *False* otherwise.
+    When *attr* is a string, it is considered the name of an attribute that is obtained first.
+    """
+    if isinstance(attr, six.string_types):
+        attr = getattr(cls, attr)
+
+    return inspect.ismethod(attr) and attr.__self__ is cls
 
 
 def is_number(n):
