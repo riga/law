@@ -147,6 +147,7 @@ For the latter, do
 
 - `loremipsum <https://github.com/riga/law/tree/master/examples/loremipsum>`__: The *hello world* example of law.
 - `workflows <https://github.com/riga/law/tree/master/examples/workflows>`__: Law workflows.
+- `workflow_parameters <https://github.com/riga/law/tree/master/examples/workflow_parameters>`__: Law workflows with a more convenient interface for accessing certain branches.
 - `dropbox_targets <https://github.com/riga/law/tree/master/examples/dropbox_targets>`__: Working with targets that are stored on Dropbox.
 - `wlcg_targets <https://github.com/riga/law/tree/master/examples/wlcg_targets>`__: Working with targets that are stored on WLCG storage elements (dCache, EOS, ...). TODO.
 - `htcondor_at_vispa <https://github.com/riga/law/tree/master/examples/htcondor_at_vispa>`__: HTCondor workflows at the `VISPA service <https://vispa.physik.rwth-aachen.de>`__.
@@ -211,9 +212,9 @@ Tests
 
 To run and test law, there are various docker `riga/law` images available on the `DockerHub <https://cloud.docker.com/u/riga/repository/docker/riga/law>`__, corresponding to different OS and Python versions.
 
-
++----------+--------+----------------------------------------+
 |    OS    | Python |                  Tags                  |
-| -------- | ------ | -------------------------------------- |
++==========+========+========================================+
 | Centos 8 |    3.9 | c8-py39, c8-py3, c8, py39, py3, latest |
 | Centos 8 |    3.8 | c8-py38, py38                          |
 | Centos 8 |    3.7 | c8-py37, py37                          |
@@ -222,6 +223,7 @@ To run and test law, there are various docker `riga/law` images available on the
 | Centos 7 |    3.8 | c7-py38                                |
 | Centos 7 |    3.7 | c7-py37                                |
 | Centos 7 |    3.6 | c7-py36, py36                          |
++----------+--------+----------------------------------------+
 
 .. code-block:: bash
 
