@@ -231,7 +231,7 @@ To run and test law, there are various docker `riga/law` images available on the
 +----------+--------+----------------------------------------+
 | Centos 7 |    3.6 | c7-py36, py36                          |
 +----------+--------+----------------------------------------+
-| Centos 7 |    2.7 | c7-py27, py27, py2                     |
+| Centos 7 |    2.7 | c7-py27, c7-py2, py27, py2             |
 +----------+--------+----------------------------------------+
 
 .. code-block:: bash
