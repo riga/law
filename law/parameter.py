@@ -267,7 +267,7 @@ class CSVParameter(luigi.Parameter):
         p = CSVParameter(cls=luigi.IntParameter, force_tuple=False)
         p.parse("1")
         # => 1
-        # note: the result would be (1,) with force_tuple left at its default value (True)
+        # note: the result would be (1,) with force_tuple left at True (default)
         p.parse("1,")
         # => (1,)
         p.serialize(1)
