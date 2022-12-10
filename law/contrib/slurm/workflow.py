@@ -62,8 +62,12 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
         c.input_files["job_file"] = law_job_file
 
         # collect task parameters
-        proxy_cmd = ProxyCommand(task.as_branch(branches[0]), exclude_task_args={"branch"},
-            exclude_global_args=["workers", "local-scheduler"])
+        exclude_args = task.exclude_params_branch | task.exclude_params_workflow | {"workflow"}
+        proxy_cmd = ProxyCommand(
+            task.as_branch(branches[0]),
+            exclude_task_args=exclude_args,
+            exclude_global_args=["workers", "local-scheduler"],
+        )
         if task.slurm_use_local_scheduler():
             proxy_cmd.add_arg("--local-scheduler", "True", overwrite=True)
         for key, value in OrderedDict(task.slurm_cmdline_args()).items():
@@ -74,6 +78,7 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
             task_cls=task.__class__,
             task_params=proxy_cmd.build(skip_run=True),
             branches=branches,
+            workers=task.job_workers,
             auto_retry=False,
             dashboard_data=self.dashboard.remote_hook_data(
                 job_num, self.submission_data.attempts.get(job_num, 0)),

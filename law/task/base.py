@@ -310,18 +310,23 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
                 is_last = next_depth is None or next_depth < depth
                 yield tpl + (is_last,)
 
-    def cli_args(self, exclude=None, replace=None):
+    def cli_args(self, exclude=None, replace=None, skip_empty_bools=True):
         exclude = set() if exclude is None else set(make_list(exclude))
         if replace is None:
             replace = {}
 
         args = OrderedDict()
         for name, param in self.get_params():
+            # skip excluded parameters
             if multi_match(name, exclude, any):
                 continue
+            # get the raw value
             raw = replace.get(name, getattr(self, name))
-            val = param.serialize(raw)
-            args["--" + name.replace("_", "-")] = str(val)
+            # when the parameter is bool but its value is None, skip it
+            if skip_empty_bools and isinstance(param, luigi.BoolParameter) and raw is None:
+                continue
+            # serialize and add it
+            args["--" + name.replace("_", "-")] = str(param.serialize(raw))
 
         return args
 
@@ -595,7 +600,7 @@ class Task(six.with_metaclass(Register, BaseTask)):
         if serialize:
             param = getattr(self.__class__, name, no_value)
             if param != no_value:
-                value = param.serialize(value)
+                value = param.serialize(value) if isinstance(param, luigi.Parameter) else param
 
         return "{}={}".format(colored(name, color="blue", style="bright") if color else name, value)
 
@@ -668,6 +673,9 @@ class WrapperTask(Task):
 
     def complete(self):
         return all(task.complete() for task in flatten(self.requires()))
+
+    def output(self):
+        return self.input()
 
     def run(self):
         return

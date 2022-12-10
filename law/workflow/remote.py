@@ -203,7 +203,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         self.submission_data = self.submission_data_cls(tasks_per_job=task.tasks_per_job)
 
         # setup the job mananger
-        self.job_manager = self.create_job_manager(threads=task.threads)
+        self.job_manager = self.create_job_manager(threads=task.submission_threads)
         self.job_manager.status_diff_styles["unsubmitted"] = ({"color": "green"}, {}, {})
 
         # boolean per job num denoting if a job should be / was skipped
@@ -743,7 +743,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             if dump_freq and (i + 1) % dump_freq == 0:
                 self.dump_submission_data()
 
-        return self.job_manager.submit_batch(job_files, retries=3, threads=task.threads,
+        return self.job_manager.submit_batch(job_files, retries=3, threads=task.submission_threads,
             callback=progress_callback, **submit_kwargs)
 
     def poll(self):
@@ -1057,7 +1057,7 @@ class BaseRemoteWorkflow(BaseWorkflow):
 
        When *True*, only submit jobs and skip status polling. Defaults to *False*.
 
-    .. py:classattribute:: threads
+    .. py:classattribute:: submission_threads
        type: luigi.IntParameter
 
        Number of threads to use for both job submission and job status polling. Defaults to *4*.
@@ -1067,6 +1067,12 @@ class BaseRemoteWorkflow(BaseWorkflow):
 
        Maximum job walltime after which a job will be considered failed. Empty default value. The
        default unit is hours when a plain number is passed.
+
+    .. py:classattribute:: job_workers
+       type: luigi.IntParameter
+
+       Number of cores to use within jobs to process multiple tasks in parallel (via adding
+       '--workers' to remote job command). Defaults to *1*.
 
     .. py:classattribute:: poll_interval
        type: law.DurationParameter
@@ -1125,16 +1131,10 @@ class BaseRemoteWorkflow(BaseWorkflow):
         significant=False,
         description="just submit, do not initiate status polling after submission; default: False",
     )
-    threads = luigi.IntParameter(
+    submission_threads = luigi.IntParameter(
         default=4,
         significant=False,
         description="number of threads to use for (re)submission and status queries; default: 4",
-    )
-    walltime = DurationParameter(
-        default=NO_FLOAT,
-        unit="h",
-        significant=False,
-        description="maximum wall time; default unit is hours; default: infinite",
     )
     poll_interval = DurationParameter(
         default=1,
@@ -1146,6 +1146,18 @@ class BaseRemoteWorkflow(BaseWorkflow):
         default=5,
         significant=False,
         description="maximum number of consecutive errors during polling; default: 5",
+    )
+    walltime = DurationParameter(
+        default=NO_FLOAT,
+        unit="h",
+        significant=False,
+        description="maximum wall time; default unit is hours; default: infinite",
+    )
+    job_workers = luigi.IntParameter(
+        default=1,
+        significant=False,
+        description="number of cores to use within jobs to process multiple tasks in parallel (via "
+        "adding --workers to remote job commands); default: 1",
     )
     shuffle_jobs = luigi.BoolParameter(
         default=False,
@@ -1179,8 +1191,8 @@ class BaseRemoteWorkflow(BaseWorkflow):
     exclude_index = True
 
     exclude_params_branch = {
-        "retries", "tasks_per_job", "parallel_jobs", "no_poll", "threads", "walltime",
-        "poll_interval", "poll_fails", "shuffle_jobs", "cancel_jobs", "cleanup_jobs",
+        "retries", "tasks_per_job", "parallel_jobs", "no_poll", "submission_threads", "walltime",
+        "job_workers", "poll_interval", "poll_fails", "shuffle_jobs", "cancel_jobs", "cleanup_jobs",
         "ignore_submission", "transfer_logs",
     }
     exclude_params_repr = {"cancel_jobs", "cleanup_jobs"}

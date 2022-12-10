@@ -883,6 +883,11 @@ class JobArguments(object):
 
        The list of branch numbers covered by the task.
 
+    .. py:attribute:: workers
+       type: int
+
+       The number of workers to use in "law run" commands.
+
     .. py:attribute:: auto_retry
        type: bool
 
@@ -895,12 +900,14 @@ class JobArguments(object):
        :py:meth:`law.job.dashboard.BaseJobDashboard.remote_hook_data`.
     """
 
-    def __init__(self, task_cls, task_params, branches, auto_retry=False, dashboard_data=None):
+    def __init__(self, task_cls, task_params, branches, workers=1, auto_retry=False,
+            dashboard_data=None):
         super(JobArguments, self).__init__()
 
         self.task_cls = task_cls
         self.task_params = task_params
         self.branches = branches
+        self.workers = max(workers, 1)
         self.auto_retry = auto_retry
         self.dashboard_data = dashboard_data or []
 
@@ -937,6 +944,7 @@ class JobArguments(object):
             self.task_cls.__name__,
             self.encode_string(self.task_params),
             self.encode_list(self.branches),
+            self.workers,
             self.encode_bool(self.auto_retry),
             self.encode_list(self.dashboard_data),
         ]
@@ -946,7 +954,7 @@ class JobArguments(object):
         Returns the list of job arguments from :py:meth:`get_args`, joined into a single string
         using a single space character.
         """
-        return " ".join(str(item) for item in self.get_args())
+        return " ".join(str(arg) for arg in self.get_args())
 
 
 class JobInputFile(object):
