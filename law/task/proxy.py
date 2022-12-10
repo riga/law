@@ -33,8 +33,10 @@ class ProxyCommand(object):
         super(ProxyCommand, self).__init__()
 
         self.task = task
-        self.args = self.load_args(exclude_task_args=exclude_task_args,
-            exclude_global_args=exclude_global_args)
+        self.args = self.load_args(
+            exclude_task_args=exclude_task_args,
+            exclude_global_args=exclude_global_args,
+        )
 
     def load_args(self, exclude_task_args=None, exclude_global_args=None):
         args = []

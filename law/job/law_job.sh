@@ -8,9 +8,10 @@
 # 2. LAW_JOB_TASK_CLASS: The task class that is executed.
 # 3. LAW_JOB_TASK_PARAMS: The base64 encoded representation of task parameters.
 # 4. LAW_JOB_TASK_BRANCHES: The base64 encoded list of task branches to run.
-# 5. LAW_JOB_AUTO_RETRY: Either "yes" or "no" to control whether failed tasks are rerun once within
+# 5. LAW_JOB_WORKERS: The number of workers to use for processing branches in parallel.
+# 6. LAW_JOB_AUTO_RETRY: Either "yes" or "no" to control whether failed tasks are rerun once within
 #      the job.
-# 6. LAW_JOB_DASHBOARD_DATA: The base64 encoded representation of dashboard data used by dashboard
+# 7. LAW_JOB_DASHBOARD_DATA: The base64 encoded representation of dashboard data used by dashboard
 #      hooks.
 #
 # Note that all arguments are exported as environment variables.
@@ -85,8 +86,11 @@ law_job() {
     export LAW_JOB_TASK_CLASS="$2"
     export LAW_JOB_TASK_PARAMS="$( echo "$3" | base64 --decode )"
     export LAW_JOB_TASK_BRANCHES="$( echo "$4" | base64 --decode )"
-    export LAW_JOB_AUTO_RETRY="$5"
-    export LAW_JOB_DASHBOARD_DATA="$( echo "$6" | base64 --decode )"
+    export LAW_JOB_TASK_BRANCHES_CSV="${LAW_JOB_TASK_BRANCHES// /,}"
+    export LAW_JOB_TASK_N_BRANCHES="$( echo "${LAW_JOB_TASK_BRANCHES}" | tr " " "\n" | wc -l | tr -d " " )"
+    export LAW_JOB_WORKERS="$5"
+    export LAW_JOB_AUTO_RETRY="$6"
+    export LAW_JOB_DASHBOARD_DATA="$( echo "$7" | base64 --decode )"
 
 
     #
@@ -411,7 +415,8 @@ law_job() {
     echo "task module   : ${LAW_JOB_TASK_MODULE}"
     echo "task family   : ${LAW_JOB_TASK_CLASS}"
     echo "task params   : ${LAW_JOB_TASK_PARAMS}"
-    echo "branches      : ${LAW_JOB_TASK_BRANCHES}"
+    echo "branches      : ${LAW_JOB_TASK_BRANCHES_CSV}"
+    echo "job workers   : ${LAW_JOB_WORKERS}"
     echo "auto retry    : ${LAW_JOB_AUTO_RETRY}"
     echo "dashboard data: ${LAW_JOB_DASHBOARD_DATA}"
 
@@ -512,48 +517,58 @@ open('${input_file_render_base}', 'w').write(content);\
     # run the task(s)
     #
 
-    for branch in ${LAW_JOB_TASK_BRANCHES}; do
-        _law_job_section "run task branch ${branch}"
 
-        local cmd="law run ${LAW_JOB_TASK_MODULE}.${LAW_JOB_TASK_CLASS} --branch ${branch} ${LAW_JOB_TASK_PARAMS}"
-        echo "cmd: ${cmd}"
+    # determine some settings depending on whether there is one or more branches to run
+    local branch_param="branch"
+    local workflow_param=""
+    local deps_depth="2"
+    if [ "${LAW_JOB_TASK_N_BRANCHES}" != "1" ]; then
+        branch_param="branches"
+        workflow_param="--workflow=local"
+        deps_depth="3"
+    fi
+
+    _law_job_section "run task ${branch_param} ${LAW_JOB_TASK_BRANCHES_CSV}"
+
+    # build the full command
+    local cmd="law run ${LAW_JOB_TASK_MODULE}.${LAW_JOB_TASK_CLASS} ${LAW_JOB_TASK_PARAMS} --${branch_param}=${LAW_JOB_TASK_BRANCHES_CSV} ${workflow_param} --workers ${LAW_JOB_WORKERS}"
+    echo "cmd: ${cmd}"
+    echo
+
+    _law_job_subsection "dependency tree"
+    eval "LAW_LOG_LEVEL=INFO ${cmd} --print-deps=${deps_depth}"
+    local law_ret="$?"
+    if [ "${law_ret}" != "0" ]; then
+        >&2 echo "dependency tree for ${branch_param} ${LAW_JOB_TASK_BRANCHES_CSV} failed with code ${law_ret}, stop job"
+        _law_job_call_hook law_hook_job_failed "50" "${law_ret}"
+        _law_job_finalize "50" "${law_ret}"
+        return "$?"
+    fi
+
+    echo
+    _law_job_subsection "execute attempt 1"
+    date +"%d/%m/%Y %T.%N (%Z)"
+    eval "${cmd}"
+    law_ret="$?"
+    echo "task exit code: ${law_ret}"
+    date +"%d/%m/%Y %T.%N (%Z)"
+
+    if [ "${law_ret}" != "0" ] && [ "${LAW_JOB_AUTO_RETRY}" = "yes" ]; then
         echo
-
-        _law_job_subsection "dependency tree"
-        eval "LAW_LOG_LEVEL=debug ${cmd} --print-deps 2"
-        local law_ret="$?"
-        if [ "${law_ret}" != "0" ]; then
-            >&2 echo "dependency tree for branch ${branch} failed with code ${law_ret}, stop job"
-            _law_job_call_hook law_hook_job_failed "50" "${law_ret}"
-            _law_job_finalize "50" "${law_ret}"
-            return "$?"
-        fi
-
-        echo
-        _law_job_subsection "execute attempt 1"
+        _law_job_subsection "execute attempt 2"
         date +"%d/%m/%Y %T.%N (%Z)"
         eval "${cmd}"
         law_ret="$?"
         echo "task exit code: ${law_ret}"
         date +"%d/%m/%Y %T.%N (%Z)"
+    fi
 
-        if [ "${law_ret}" != "0" ] && [ "${LAW_JOB_AUTO_RETRY}" = "yes" ]; then
-            echo
-            _law_job_subsection "execute attempt 2"
-            date +"%d/%m/%Y %T.%N (%Z)"
-            eval "${cmd}"
-            law_ret="$?"
-            echo "task exit code: ${law_ret}"
-            date +"%d/%m/%Y %T.%N (%Z)"
-        fi
-
-        if [ "${law_ret}" != "0" ]; then
-            >&2 echo "branch ${branch} failed with code ${law_ret}, stop job"
-            _law_job_call_hook law_hook_job_failed "60" "${law_ret}"
-            _law_job_finalize "60" "${law_ret}"
-            return "$?"
-        fi
-    done
+    if [ "${law_ret}" != "0" ]; then
+        >&2 echo "execution of ${branch_param} ${LAW_JOB_TASK_BRANCHES_CSV} failed with code ${law_ret}, stop job"
+        _law_job_call_hook law_hook_job_failed "60" "${law_ret}"
+        _law_job_finalize "60" "${law_ret}"
+        return "$?"
+    fi
 
 
     #
