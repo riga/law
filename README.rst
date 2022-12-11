@@ -128,8 +128,8 @@ Projects using law
    - MC generation with Herwig and analysis of generated events with Rivet
    - `repo <https://github.com/HerrHorizontal/herwig-run>`__
 - CMS SUSY Searches at DESY
-	- Analysis framework for CMS SUSY searches going from custom NanoAODs -> NTuple production -> DNN-based inference -> final plots and fits
-	- `repo <https://github.com/frengelk/Susy1LeptonAnalysis>`__
+   - Analysis framework for CMS SUSY searches going from custom NanoAODs -> NTuple production -> DNN-based inference -> final plots and fits
+   - `repo <https://github.com/frengelk/Susy1LeptonAnalysis>`__
 - YOUR REPOSITORY HERE
 
 If your project uses law but is not yet listed here, feel free to open a pull request or mention your project details in a new `issue <https://github.com/riga/law/issues/new?template=register_project.md&title=New%20project%20using%20law&assignee=riga>`__ and it will be added.
@@ -147,7 +147,7 @@ For the latter, do
 
 - `loremipsum <https://github.com/riga/law/tree/master/examples/loremipsum>`__: The *hello world* example of law.
 - `workflows <https://github.com/riga/law/tree/master/examples/workflows>`__: Law workflows.
-- `notebooks <https://github.com/riga/law/tree/master/examples/notebooks>`__: Different examples showing how to use law in notebooks.
+- `notebooks <https://github.com/riga/law/tree/master/examples/notebooks>`__: Examples showing how to use and work with law in notebooks.
 - `dropbox_targets <https://github.com/riga/law/tree/master/examples/dropbox_targets>`__: Working with targets that are stored on Dropbox.
 - `wlcg_targets <https://github.com/riga/law/tree/master/examples/wlcg_targets>`__: Working with targets that are stored on WLCG storage elements (dCache, EOS, ...). TODO.
 - `htcondor_at_vispa <https://github.com/riga/law/tree/master/examples/htcondor_at_vispa>`__: HTCondor workflows at the `VISPA service <https://vispa.physik.rwth-aachen.de>`__.
@@ -213,16 +213,27 @@ Tests
 To run and test law, there are various docker `riga/law` images available on the `DockerHub <https://cloud.docker.com/u/riga/repository/docker/riga/law>`__, corresponding to different OS and Python versions.
 
 
++----------+--------+----------------------------------------+
 |    OS    | Python |                  Tags                  |
-| -------- | ------ | -------------------------------------- |
++==========+========+========================================+
 | Centos 8 |    3.9 | c8-py39, c8-py3, c8, py39, py3, latest |
++----------+--------+----------------------------------------+
 | Centos 8 |    3.8 | c8-py38, py38                          |
++----------+--------+----------------------------------------+
 | Centos 8 |    3.7 | c8-py37, py37                          |
++----------+--------+----------------------------------------+
 | Centos 7 |   3.10 | c7-py310, py310                        |
-| Centos 7 |    3.9 | c7-py39, c7-py3                        |
++----------+--------+----------------------------------------+
+| Centos 7 |    3.9 | c7-py39, c7-py3, c7                    |
++----------+--------+----------------------------------------+
 | Centos 7 |    3.8 | c7-py38                                |
++----------+--------+----------------------------------------+
 | Centos 7 |    3.7 | c7-py37                                |
++----------+--------+----------------------------------------+
 | Centos 7 |    3.6 | c7-py36, py36                          |
++----------+--------+----------------------------------------+
+| Centos 7 |    2.7 | c7-py27, c7-py2, py27, py2             |
++----------+--------+----------------------------------------+
 
 .. code-block:: bash
 
