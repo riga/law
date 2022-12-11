@@ -13,7 +13,7 @@ import logging
 import six
 
 import law.cli
-from law.util import law_run, quote_cmd
+from law.util import law_run, quote_cmd, patch_object
 from law.logger import get_logger
 
 
@@ -22,6 +22,7 @@ logger = get_logger(__name__)
 
 def create_magics(init_cmd=None, init_fn=None, line_cmd=None, line_fn=None, log_level=None):
     import IPython.core as ipc
+    from luigi.cmdline_parser import CmdlineParser
 
     # prepare commands
     if init_cmd:
@@ -100,8 +101,18 @@ def create_magics(init_cmd=None, init_fn=None, line_cmd=None, line_fn=None, log_
                     line_fn(line)
 
                 if prog == "run":
-                    law_run(argv)
+                    # perform run calls interactively, with a patch to the ArgumentParser to replace
+                    # the ipython default (usually "ipykernel_launcher.py") with "law"
+                    _build_parser_orig = CmdlineParser._build_parser
+                    def _build_parser(*args, **kwargs):
+                        parser = _build_parser_orig(*args, **kwargs)
+                        parser.prog = "law"
+                        return parser
+
+                    with patch_object(CmdlineParser, "_build_parser", staticmethod(_build_parser)):
+                        law_run(argv)
                 else:
+                    # forward all other progs to the cli interface
                     law.cli.cli.run([prog] + argv)
             except SystemExit as e:
                 # reraise when the exit code is non-zero
