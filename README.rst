@@ -147,6 +147,7 @@ For the latter, do
 
 - `loremipsum <https://github.com/riga/law/tree/master/examples/loremipsum>`__: The *hello world* example of law.
 - `workflows <https://github.com/riga/law/tree/master/examples/workflows>`__: Law workflows.
+- `notebooks <https://github.com/riga/law/tree/master/examples/notebooks>`__: Different examples showing how to use law in notebooks.
 - `dropbox_targets <https://github.com/riga/law/tree/master/examples/dropbox_targets>`__: Working with targets that are stored on Dropbox.
 - `wlcg_targets <https://github.com/riga/law/tree/master/examples/wlcg_targets>`__: Working with targets that are stored on WLCG storage elements (dCache, EOS, ...). TODO.
 - `htcondor_at_vispa <https://github.com/riga/law/tree/master/examples/htcondor_at_vispa>`__: HTCondor workflows at the `VISPA service <https://vispa.physik.rwth-aachen.de>`__.
