@@ -49,12 +49,18 @@ def load(*packages):
             raise Exception("cannot load contrib package '{}', attribute with that name already "
                 "exists in the law module".format(pkg))
 
+        # load the module
         mod = __import__("law.contrib.{}".format(pkg), globals(), locals(), [pkg])
         setattr(law, pkg, mod)
         law.__all__.append(pkg)
         loaded_packages.append(pkg)
-
         logger.debug("loaded contrib package '{}'".format(pkg))
+
+        # optionally call its auto_load hook when existing
+        auto_load = getattr(mod, "auto_load", None)
+        if callable(auto_load):
+            auto_load()
+            logger.debug("invoked auto_load hook of contrib package '{}'".format(pkg))
 
 
 def load_all():
