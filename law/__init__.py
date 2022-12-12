@@ -11,8 +11,9 @@ __all__ = [
     "Sandbox", "BashSandbox", "VenvSandbox",
     "BaseJobManager", "BaseJobFileFactory", "JobInputFile", "JobArguments",
     "NO_STR", "NO_INT", "NO_FLOAT", "is_no_param", "get_param", "TaskInstanceParameter",
-    "DurationParameter", "BytesParameter", "CSVParameter", "MultiCSVParameter", "RangeParameter",
-    "MultiRangeParameter", "NotifyParameter", "NotifyMultiParameter", "NotifyMailParameter",
+    "OptionalBoolParameter", "DurationParameter", "BytesParameter", "CSVParameter",
+    "MultiCSVParameter", "RangeParameter", "MultiRangeParameter", "NotifyParameter",
+    "NotifyMultiParameter", "NotifyMailParameter",
     "Config",
     "run", "no_value",
     "notify_mail",
@@ -58,9 +59,9 @@ from law.util import law_run as run, no_value
 from law.config import Config
 from law.notification import notify_mail
 from law.parameter import (
-    NO_STR, NO_INT, NO_FLOAT, is_no_param, get_param, TaskInstanceParameter, DurationParameter,
-    BytesParameter, CSVParameter, MultiCSVParameter, RangeParameter, MultiRangeParameter,
-    NotifyParameter, NotifyMultiParameter, NotifyMailParameter,
+    NO_STR, NO_INT, NO_FLOAT, is_no_param, get_param, TaskInstanceParameter, OptionalBoolParameter,
+    DurationParameter, BytesParameter, CSVParameter, MultiCSVParameter, RangeParameter,
+    MultiRangeParameter, NotifyParameter, NotifyMultiParameter, NotifyMailParameter,
 )
 from law.target.file import (
     FileSystemTarget, FileSystemFileTarget, FileSystemDirectoryTarget, localize_file_targets,
