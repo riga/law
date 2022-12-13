@@ -20,7 +20,7 @@ action() {
 
     export LAW_HOME="${this_dir}/.law"
     export LAW_CONFIG_FILE="${this_dir}/law.cfg"
-    export LOREMIPSUM_DATA_PATH="${this_dir}/data"
+    export DATA_PATH="${this_dir}/data"
 
     source "$( law completion )" ""
 }
