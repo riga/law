@@ -56,17 +56,17 @@ No tasks ran so far, so no output target should exist yet. You will see this out
 ```shell
 print task status with max_depth -1 and target_depth 0
 
-> check status of CreateAlphabet(version=v1)
-|   - check LocalFileTarget(path=/examplepath/data/CreateAlphabet/v1/alphabet.txt)
-|     -> absent
-|
-|   > check status of CreateChars(branch=-1, version=v1, ...)
-|   |   - check LocalFileTarget(path=/examplepath/data/CreateChars/v1/slurm_submission_0To26.json, optional)
-|   |     -> absent
-|   |   - check LocalFileTarget(path=/examplepath/data/CreateChars/v1/slurm_status_0To26.json, optional)
-|   |     -> absent
-|   |   - check TargetCollection(len=26, threshold=1.0)
-|   |     -> absent (0/26)
+0 > CreateAlphabet(version=v1)
+│     LocalFileTarget(fs=local_fs, path=$DATA_PATH/CreateAlphabet/v1/alphabet.txt)
+│       absent
+│
+└──1 > CreateChars(workflow=slurm, branch=-1, branches=, version=v1)
+         submission: LocalFileTarget(fs=local_fs, path=$DATA_PATH/CreateChars/v1/slurm_submission_0To26.json, optional)
+           absent
+         status: LocalFileTarget(fs=local_fs, path=$DATA_PATH/CreateChars/v1/slurm_status_0To26.json, optional)
+           absent
+         collection: TargetCollection(len=26, threshold=26.0)
+           absent (0/26)
 ```
 
 
@@ -99,17 +99,17 @@ When step 4 succeeded, all output targets should exist:
 ```shell
 print task status with max_depth -1 and target_depth 0
 
-> check status of CreateAlphabet(version=v1)
-|   - check LocalFileTarget(path=/examplepath/data/CreateAlphabet/v1/alphabet.txt)
-|     -> existent
-|
-|   > check status of CreateChars(branch=-1, version=v1, ...)
-|   |   - check LocalFileTarget(path=/examplepath/data/CreateChars/v1/slurm_submission_0To26.json, optional)
-|   |     -> existent
-|   |   - check LocalFileTarget(path=/examplepath/data/CreateChars/v1/slurm_status_0To26.json, optional)
-|   |     -> existent
-|   |   - check TargetCollection(len=26, threshold=1.0)
-|   |     -> existent (26/26)
+0 > CreateAlphabet(version=v1)
+│     LocalFileTarget(fs=local_fs, path=$DATA_PATH/CreateAlphabet/v1/alphabet.txt)
+│       existent
+│
+└──1 > CreateChars(workflow=slurm, branch=-1, branches=, version=v1)
+         submission: LocalFileTarget(fs=local_fs, path=$DATA_PATH/CreateChars/v1/slurm_submission_0To26.json, optional)
+           existent
+         status: LocalFileTarget(fs=local_fs, path=$DATA_PATH/CreateChars/v1/slurm_status_0To26.json, optional)
+           existent
+         collection: TargetCollection(len=26, threshold=26.0)
+           existent (26/26)
 ```
 
 
