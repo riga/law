@@ -7,6 +7,8 @@ ROOT-related utilities.
 __all__ = ["import_ROOT", "hadd_task"]
 
 
+import os
+
 import six
 
 from law.target.local import LocalFileTarget, LocalDirectoryTarget
@@ -55,21 +57,23 @@ def hadd_task(task, inputs, output, cwd=None, local=False, force=True, hadd_args
     localized. When *force* is *True*, any existing output file is overwritten. *hadd_args* can be a
     sequence of additional arguments that are added to the hadd command.
     """
+    abspath = lambda path: os.path.abspath(os.path.expandvars(os.path.expanduser(path)))
+
     # ensure inputs are targets
     inputs = [
-        LocalFileTarget(inp) if isinstance(inp, six.string_types) else inp
+        LocalFileTarget(abspath(inp)) if isinstance(inp, six.string_types) else inp
         for inp in inputs
     ]
 
     # ensure output is a target
     if isinstance(output, six.string_types):
-        output = LocalFileTarget(output)
+        output = LocalFileTarget(abspath(output))
 
     # default cwd
     if not cwd:
         cwd = LocalDirectoryTarget(is_tmp=True)
     elif isinstance(cwd, six.string_types):
-        cwd = LocalDirectoryTarget(cwd)
+        cwd = LocalDirectoryTarget(abspath(cwd))
     cwd.touch()
 
     # helper to create the hadd cmd

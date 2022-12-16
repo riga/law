@@ -78,7 +78,8 @@ class TransferLocalFile(Task):
         # when self.source_path is set, return a target around it
         # otherwise assume self.requires() returns a task with a single local target
         if self.source_path not in (NO_STR, None):
-            return LocalFileTarget(self.source_path)
+            source_path = os.path.abspath(os.path.expandvars(os.path.expanduser(self.source_path)))
+            return LocalFileTarget(source_path)
         return self.input()
 
     @abstractmethod

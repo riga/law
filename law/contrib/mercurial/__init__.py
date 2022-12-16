@@ -60,6 +60,7 @@ class BundleMercurialRepository(Task):
 
     def output(self):
         repo_base = os.path.basename(self.get_repo_path())
+        repo_base = os.path.abspath(os.path.expandvars(os.path.expanduser(repo_base)))
         return LocalFileTarget("{}_{}.tgz".format(repo_base, self.checksum))
 
     @log

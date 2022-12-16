@@ -53,9 +53,9 @@ def merge_parquet_files(src_paths, dst_path, force=True, callback=None, writer_o
         callback = lambda i: None
 
     # prepare paths
-    prepare = lambda p: os.path.abspath(os.path.expandvars(os.path.expanduser(p)))
-    src_paths = list(map(prepare, src_paths))
-    dst_path = prepare(dst_path)
+    abspath = lambda p: os.path.abspath(os.path.expandvars(os.path.expanduser(p)))
+    src_paths = list(map(abspath, src_paths))
+    dst_path = abspath(dst_path)
 
     # prepare the dst directory
     dir_name = os.path.dirname(dst_path)
@@ -103,15 +103,17 @@ def merge_parquet_task(task, inputs, output, local=False, cwd=None, force=True, 
     is *True*, any existing output file is overwritten. *writer_opts* is forwarded to
     :py:func:`merge_parquet_files` which is used internally for the actual merging.
     """
+    abspath = lambda path: os.path.abspath(os.path.expandvars(os.path.expanduser(path)))
+
     # ensure inputs are targets
     inputs = [
-        LocalFileTarget(inp) if isinstance(inp, six.string_types) else inp
+        LocalFileTarget(abspath(inp)) if isinstance(inp, six.string_types) else inp
         for inp in inputs
     ]
 
     # ensure output is a target
     if isinstance(output, six.string_types):
-        output = LocalFileTarget(output)
+        output = LocalFileTarget(abspath(output))
 
     def merge(inputs, output):
         with task.publish_step("merging {} parquet files ...".format(len(inputs)), runtime=True):
@@ -123,8 +125,11 @@ def merge_parquet_task(task, inputs, output, local=False, cwd=None, force=True, 
                 output.copy_from_local(inputs[0])
             else:
                 # merge
-                merge_parquet_files([inp.path for inp in inputs], output.path,
-                    writer_opts=writer_opts)
+                merge_parquet_files(
+                    [inp.path for inp in inputs],
+                    output.path,
+                    writer_opts=writer_opts,
+                )
 
         # print the size
         output_size = human_bytes(output.stat().st_size, fmt=True)
@@ -139,7 +144,7 @@ def merge_parquet_task(task, inputs, output, local=False, cwd=None, force=True, 
         if not cwd:
             cwd = LocalDirectoryTarget(is_tmp=True)
         elif isinstance(cwd, str):
-            cwd = LocalDirectoryTarget(cwd)
+            cwd = LocalDirectoryTarget(abspath(cwd))
         cwd.touch()
 
         # fetch
