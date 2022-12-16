@@ -344,7 +344,7 @@ class RemoteCache(object):
         if self.mtime_patience < 0:
             return True
 
-        return abs(self.mtime(rpath) - rmtime) > self.mtime_patience
+        return abs(self.mtime(rpath) - rmtime) <= self.mtime_patience
 
     def _remove(self, cpath, lock=True):
         def remove():
