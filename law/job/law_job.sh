@@ -363,8 +363,6 @@ law_job() {
 
         echo "PATH           : ${PATH}"
         echo "PYTHONPATH     : ${PYTHONPATH}"
-        echo "PYTHON27PATH   : ${PYTHON27PATH}"
-        echo "PYTHON3PATH    : ${PYTHON3PATH}"
         echo "LD_LIBRARY_PATH: ${LD_LIBRARY_PATH}"
         echo "CPATH          : ${CPATH}"
     }
