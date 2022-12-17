@@ -10,6 +10,7 @@ __all__ = ["before_run", "patch_all"]
 
 import re
 import functools
+import copy
 import logging
 
 import luigi
@@ -56,6 +57,7 @@ def patch_all():
     patch_keepalive_run()
     patch_cmdline_parser()
     patch_interface_logging()
+    patch_parameter_copy()
 
     logger.debug("applied all law-specific luigi patches")
 
@@ -362,3 +364,36 @@ def patch_interface_logging():
     luigi.setup_logging.InterfaceLogging._default = classmethod(_default)
 
     logger.debug("patched luigi.setup_logging.InterfaceLogging._default")
+
+
+def patch_parameter_copy():
+    """
+    Patches ``luigi.parameter.Parameter`` to add a convenience methods that allows to copy parameter
+    instances and assigning new attributes such as descriptions or default values. This same
+    functionality will eventually be moved to luigi, but the patch might be kept for versions of
+    luigi where it was not addded yet.
+    """
+    def _copy(self, add_default_to_description=False, **kwargs):
+        # copy the instance
+        inst = copy.copy(self)
+
+        # kwargs should in general match those accepted in the constructor, which are mostly saved
+        # as instance attributes using the same name, except in some cases which must be redirected
+        if "default" in kwargs and "_default" not in kwargs:
+            kwargs["_default"] = kwargs.pop("default")
+        if "config_path" in kwargs and "_config_path" not in kwargs:
+            kwargs["_config_path"] = kwargs.pop("config_path")
+
+        # overwrite attributes
+        inst.__dict__.update(kwargs)
+
+        # amend the description
+        if add_default_to_description:
+            prefix = "; " if inst.description else ""
+            inst.description += "{}default: {}".format(prefix, inst._default)
+
+        return inst
+
+    luigi.parameter.Parameter.copy = _copy
+
+    logger.debug("patched luigi.parameter.Parameter.copy")
