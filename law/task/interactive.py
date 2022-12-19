@@ -458,7 +458,7 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
     # get the line break setting
     break_lines = cfg.get_expanded_boolean("task", "interactive_line_breaks")
     out_width = cfg.get_expanded_int("task", "interactive_line_width")
-    print_width = (out_width if out_width > 0 else get_terminal_width()) if break_lines else None
+    print_width = [(out_width if out_width > 0 else get_terminal_width()) if break_lines else None]
     _print = lambda line, offset: _print_wrapped(line, print_width[0], offset)
 
     # custom query_choice function that updates the terminal_width
