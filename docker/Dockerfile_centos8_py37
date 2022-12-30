@@ -53,9 +53,9 @@ SHELL ["conda", "run", "-n", "base", "/bin/bash", "-c"]
 
 # conda packages
 RUN conda install --yes libgcc gcc which wget nano micro screen git git-lfs cmake ncurses readline && \
-    conda clean --all
+    conda clean --all --yes
 RUN conda install --yes gfal2 gfal2-util python-gfal2 && \
-    conda clean --all
+    conda clean --all --yes
 
 # python packages
 RUN pip install --no-cache-dir --upgrade pip

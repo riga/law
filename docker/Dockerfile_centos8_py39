@@ -19,7 +19,7 @@ ENV LAW_IMAGE_PYTHON ${LAW_IMAGE_PYTHON_MAJOR}.${LAW_IMAGE_PYTHON_MINOR}
 ENV LAW_CONDA_ROOT /root/conda
 ENV LAW_CONDA_VERSION 4.12.0
 ENV LAW_CONDA_INSTALL_FILE https://repo.anaconda.com/miniconda/Miniconda${LAW_IMAGE_PYTHON_MAJOR}-py${LAW_IMAGE_PYTHON_MAJOR}${LAW_IMAGE_PYTHON_MINOR}_${LAW_CONDA_VERSION}-Linux-x86_64.sh
-ENV LAW_SANDBOX docker::riga/law:c8-py39,docker::riga/law:py39,docker::riga/law:c8-py3,docker::riga/law:py3,docker::riga/law:c8,docker::riga/law:latest,docker::riga/law
+ENV LAW_SANDBOX docker::riga/law:c8-py39,docker::riga/law:py39
 
 # exposed ports
 EXPOSE 8082
@@ -53,9 +53,9 @@ SHELL ["conda", "run", "-n", "base", "/bin/bash", "-c"]
 
 # conda packages
 RUN conda install --yes libgcc gcc which wget nano micro screen git git-lfs cmake ncurses readline && \
-    conda clean --all
+    conda clean --all --yes
 RUN conda install --yes gfal2 gfal2-util python-gfal2 && \
-    conda clean --all
+    conda clean --all --yes
 
 # python packages
 RUN pip install --no-cache-dir --upgrade pip
