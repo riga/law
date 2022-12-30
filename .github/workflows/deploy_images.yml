@@ -193,6 +193,26 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+  c8-py310:
+    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'c8-py310') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v3
+        with:
+          persist-credentials: false
+
+      - name: Build and deploy image 🐳
+        uses: docker/build-push-action@v1
+        with:
+          path: docker
+          dockerfile: docker/Dockerfile_centos8_py310
+          repository: riga/law
+          tags: c8-py310
+          push: ${{ github.event.inputs.build_only != 'true' }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
   # NOTE: disabled for now due to some gfal2-bindings issue
   # c7-py311:
   #   if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'c7-py311') }}
