@@ -25,6 +25,10 @@ class ProxyTask(BaseTask):
     exclude_params_req = {"task"}
 
 
+# disable instance caching
+ProxyTask.disable_instance_cache()
+
+
 class ProxyCommand(object):
 
     arg_sep = "__law_arg_sep__"
@@ -101,9 +105,9 @@ def get_proxy_attribute(task, attr, proxy=True, super_cls=Task):
         if attr in _forward_sandbox_attributes and isinstance(task, SandboxTask):
             if attr == "run" and not task.is_sandboxed():
                 return task.sandbox_proxy.run
-            elif attr == "input" and _sandbox_stagein_dir and task.is_sandboxed():
+            if attr == "input" and _sandbox_stagein_dir and task.is_sandboxed():
                 return task._staged_input
-            elif attr == "output" and _sandbox_stageout_dir and task.is_sandboxed():
+            if attr == "output" and _sandbox_stageout_dir and task.is_sandboxed():
                 return task._staged_output
 
     return super_cls.__getattribute__(task, attr)
