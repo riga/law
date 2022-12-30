@@ -524,10 +524,10 @@ class SandboxTask(Task):
 
     def is_root_task(self):
         is_root = super(SandboxTask, self).is_root_task()
-        if _sandbox_switched:
-            return is_root and _sandbox_is_root_task
-        else:
+        if not _sandbox_switched:
             return is_root
+
+        return is_root and _sandbox_is_root_task
 
     def _staged_input(self):
         if not _sandbox_stagein_dir:

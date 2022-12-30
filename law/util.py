@@ -541,10 +541,17 @@ def range_expand(s, include_end=False, min_value=None, max_value=None, sep=":"):
     """
     Takes a string, or a sequence of strings in the format ``"1:3"``, or a tuple or a sequence of
     tuples containing start and stop values of a range and returns a list of all intermediate
-    values. When *include_end* is *True*, the end value is included. One sided range expressions
-    such as ``":4"`` or ``"4:"`` for strings and ``(None, 4)`` or ``(4, None)`` for tuples are also
-    expanded but they require *min_value* and *max_value* to be set (an exception is raised
-    otherwise), with *max_value* being either included or not, depending on *include_end*. Example:
+    values. When *include_end* is *True*, the end value is included.
+
+    One sided range expressions such as ``":4"`` or ``"4:"`` for strings and ``(None, 4)`` or
+    ``(4, None)`` for tuples are also expanded but they require *min_value* and *max_value* to be
+    set (an exception is raised otherwise), with *max_value* being either included or not, depending
+    on *include_end*.
+
+    Also, when a *min_value* (*max_value*) is set, the minimum (maximum) of expanded range is
+    limited at this value.
+
+    Example:
 
     .. code-block:: python
 
@@ -633,6 +640,13 @@ def range_expand(s, include_end=False, min_value=None, max_value=None, sep=":"):
 
     # remove duplicates preserving the order
     numbers = make_unique(numbers)
+
+    # apply limits
+    if min_value is not None:
+        numbers = [num for num in numbers if num >= min_value]
+    if max_value is not None:
+        py_max_value = (max_value + 1) if include_end else max_value
+        numbers = [num for num in numbers if num < py_max_value]
 
     return numbers
 

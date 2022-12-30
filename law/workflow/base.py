@@ -549,19 +549,26 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         """
         return
 
-    def _reset_branch_boundaries(self, branch_map):
+    def _reset_branch_boundaries(self, full_branch_map):
         if self.is_branch():
             raise Exception("calls to _reset_branch_boundaries are forbidden for branch tasks")
 
         # rejoin branch ranges when given
         if self.branches:
             # get minimum and maximum branches
-            min_branch = min(branch_map.keys())
-            max_branch = max(branch_map.keys())
+            min_branch = min(full_branch_map.keys())
+            max_branch = max(full_branch_map.keys())
 
-            branches = range_expand(list(self.branches), min_value=min_branch,
-                max_value=max_branch + 1)
-            self.branches = tuple(range_join(branches))
+            # get expanded branch values
+            branches = range_expand(list(self.branches), min_value=min_branch, max_value=max_branch,
+                include_end=True)
+
+            # assign back to branches attribute, use an empty tuple in case all branches are used
+            use_all = (
+                len(branches) == len(full_branch_map) and
+                set(branches) == set(full_branch_map)
+            )
+            self.branches = () if use_all else tuple(range_join(branches))
 
     def _reduce_branch_map(self, branch_map):
         if self.is_branch():
@@ -577,7 +584,7 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
             max_branch = max(branches)
 
             requested = range_expand(list(self.branches), min_value=min_branch,
-                max_value=max_branch + 1)
+                max_value=max_branch, include_end=True)
             remove_branches |= branches - set(requested)
 
         # remove from branch map
