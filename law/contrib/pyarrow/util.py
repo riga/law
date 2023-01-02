@@ -6,7 +6,6 @@ PyArrow related utilities.
 
 __all__ = ["merge_parquet_files", "merge_parquet_task"]
 
-
 import os
 import shutil
 
@@ -16,37 +15,24 @@ from law.target.local import LocalFileTarget, LocalDirectoryTarget
 from law.util import map_verbose, human_bytes
 
 
-def merge_parquet_files(src_paths, dst_path, force=True, callback=None, writer_opts=None):
+def merge_parquet_files(src_paths, dst_path, force=True, callback=None, writer_opts=None,
+        copy_single=False):
     """
     Merges parquet files in *src_paths* into a new file at *dst_path*. Intermediate directories are
     created automatically. When *dst_path* exists and *force* is *True*, the file is removed first.
-    Otherwise, an exception is thrown. *callback* can refer to a callable accepting a single integer
-    argument representing the index of the file after it was merged. *writer_opts* can be a
-    dictionary of keyword arguments that are passed to the *ParquetWriter* instantiation. Its
-    defaults are:
+    Otherwise, an exception is thrown.
 
-        - "version": "2.0"
-        - "compression": "gzip"
-        - "use_dictionary": True
-        - "data_page_size": 2097152
-        - "write_statistics": True
+    *callback* can refer to a callable accepting a single integer argument representing the index of
+    the file after it was merged. *writer_opts* can be a dictionary of keyword arguments that are
+    passed to the *ParquetWriter* instance. When *src_paths* contains only a single file and
+    *copy_single* is *True*, the file is copied to *dst_path* and no merging takes place.
 
-    The full, expanded *dst_path* is returned.
+    The absolute, expanded *dst_path* is returned.
     """
     import pyarrow.parquet as pq
 
     if not src_paths:
         raise Exception("cannot merge empty list of parquet files")
-
-    # default writer options
-    _writer_opts = dict(
-        version="2.4",
-        compression="gzip",
-        use_dictionary=True,
-        data_page_size=2097152,
-        write_statistics=True,
-    )
-    _writer_opts.update(writer_opts or {})
 
     # default callable
     if not callable(callback):
@@ -69,7 +55,7 @@ def merge_parquet_files(src_paths, dst_path, force=True, callback=None, writer_o
         os.remove(dst_path)
 
     # trivial case
-    if len(src_paths) == 1:
+    if copy_single and len(src_paths) == 1:
         shutil.copy(src_paths[0], dst_path)
         callback(0)
         return dst_path
@@ -78,30 +64,34 @@ def merge_parquet_files(src_paths, dst_path, force=True, callback=None, writer_o
     table = pq.read_table(src_paths[0])
 
     # write the file
-    with pq.ParquetWriter(dst_path, table.schema, **_writer_opts) as writer:
+    with pq.ParquetWriter(dst_path, table.schema, **(writer_opts or {})) as writer:
         # write the first table
         writer.write_table(table)
         callback(0)
 
         # write the remaining ones
         for i, path in enumerate(src_paths[1:], 1):
-            table = pq.read_table(path)
-            writer.write_table(table)
+            writer.write_table(pq.read_table(path))
             callback(i)
 
     return dst_path
 
 
-def merge_parquet_task(task, inputs, output, local=False, cwd=None, force=True, writer_opts=None):
+def merge_parquet_task(task, inputs, output, local=False, cwd=None, force=True, writer_opts=None,
+        copy_single=False):
     """
     This method is intended to be used by tasks that are supposed to merge parquet files, e.g. when
     inheriting from :py:class:`law.contrib.tasks.MergeCascade`. *inputs* should be a sequence of
-    targets that represent the files to merge into *output*. When *local* is *False* and files need
-    to be copied from remote first, *cwd* can be a set as the dowload directory. When empty, a
-    temporary directory is used. The *task* itself is used to print and publish messages via its
-    :py:meth:`law.Task.publish_message` and :py:meth:`law.Task.publish_step` methods. When *force*
-    is *True*, any existing output file is overwritten. *writer_opts* is forwarded to
-    :py:func:`merge_parquet_files` which is used internally for the actual merging.
+    targets that represent the files to merge into *output*.
+
+    When *local* is *False* and files need to be copied from remote first, *cwd* can be a set as the
+    dowload directory. When empty, a temporary directory is used. The *task* itself is used to print
+    and publish messages via its :py:meth:`law.Task.publish_message` and
+    :py:meth:`law.Task.publish_step` methods. When *force* is *True*, any existing output file is
+    overwritten.
+
+    *writer_opts* and *copy_single* are forwarded to :py:func:`merge_parquet_files` which is used
+    internally for the actual merging.
     """
     abspath = lambda path: os.path.abspath(os.path.expandvars(os.path.expanduser(path)))
 
@@ -121,19 +111,21 @@ def merge_parquet_task(task, inputs, output, local=False, cwd=None, force=True, 
             if output.exists() and force:
                 output.remove()
 
-            if len(inputs) == 1:
-                output.copy_from_local(inputs[0])
-            else:
-                # merge
-                merge_parquet_files(
-                    [inp.path for inp in inputs],
-                    output.path,
-                    writer_opts=writer_opts,
-                )
+            # merge
+            merge_parquet_files(
+                [inp.path for inp in inputs],
+                output.path,
+                writer_opts=writer_opts,
+                copy_single=copy_single,
+            )
+
+        stat = output.exists(stat=True)
+        if not stat:
+            raise Exception("output '{}' not creating during merging".format(output.path))
 
         # print the size
-        output_size = human_bytes(output.stat().st_size, fmt=True)
-        task.publish_message(f"merged file size: {output_size}")
+        output_size = human_bytes(stat.st_size, fmt=True)
+        task.publish_message("merged file size: {}".format(output_size))
 
     if local:
         # everything is local, just merge

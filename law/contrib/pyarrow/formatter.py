@@ -21,7 +21,7 @@ class ParquetFormatter(Formatter):
 
     @classmethod
     def accepts(cls, path, mode):
-        return get_path(path).endswith(".parquet")
+        return get_path(path).endswith((".parquet", ".parq"))
 
     @classmethod
     def load(cls, path, *args, **kwargs):
@@ -37,7 +37,7 @@ class ParquetTableFormatter(Formatter):
 
     @classmethod
     def accepts(cls, path, mode):
-        return get_path(path).endswith(".parquet")
+        return get_path(path).endswith((".parquet", ".parq"))
 
     @classmethod
     def load(cls, path, *args, **kwargs):
