@@ -22,7 +22,7 @@ from law.target.file import (
     FileSystem, FileSystemTarget, FileSystemFileTarget, FileSystemDirectoryTarget, get_path,
     get_scheme, add_scheme, remove_scheme,
 )
-from law.target.formatter import find_formatter
+from law.target.formatter import AUTO_FORMATTER, find_formatter
 from law.util import is_file_exists_error
 from law.logger import get_logger
 
@@ -307,25 +307,6 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
 
         return open(abspath, mode)
 
-    def load(self, path, formatter, *args, **kwargs):
-        # remove kwargs that might be designated for remote files
-        kwargs = RemoteFileSystem.split_remote_kwargs(kwargs)[1]
-
-        return find_formatter(path, "load", formatter).load(self.abspath(path), *args, **kwargs)
-
-    def dump(self, path, formatter, *args, **kwargs):
-        # remove kwargs that might be designated for remote files
-        kwargs = RemoteFileSystem.split_remote_kwargs(kwargs)[1]
-
-        # also remove permission settings
-        perm = kwargs.pop("perm", None)
-        dir_perm = kwargs.pop("dir_perm", None)
-
-        # use open() to handle parent directory writing and permissisions
-        self.open(path, "w", perm=perm, dir_perm=dir_perm).close()
-
-        return find_formatter(path, "dump", formatter).dump(self.abspath(path), *args, **kwargs)
-
 
 LocalFileSystem.default_instance = LocalFileSystem()
 
@@ -377,6 +358,13 @@ class LocalTarget(FileSystemTarget, shims.LocalTarget):
 
         super(LocalTarget, self).__init__(path=path, is_tmp=is_tmp, fs=fs, **kwargs)
 
+    def __del__(self):
+        # when this destructor is called during shutdown, os.path or os.path.exists might be unset
+        if getattr(os, "path", None) is None or not callable(os.path.exists):
+            return
+
+        super(LocalTarget, self).__del__()
+
     def _repr_flags(self):
         flags = super(LocalTarget, self)._repr_flags()
         if self.is_tmp:
@@ -410,12 +398,34 @@ class LocalTarget(FileSystemTarget, shims.LocalTarget):
     def move_from_local(self, *args, **kwargs):
         return self.fs._unscheme(self.move_from(*args, **kwargs))
 
-    def __del__(self):
-        # when this destructor is called during shutdown, os.path or os.path.exists might be unset
-        if getattr(os, "path", None) is None or not callable(os.path.exists):
-            return
+    def load(self, *args, **kwargs):
+        # remove kwargs that might be designated for remote files
+        kwargs = RemoteFileSystem.split_remote_kwargs(kwargs)[1]
 
-        super(LocalTarget, self).__del__()
+        # invoke formatter
+        formatter = kwargs.pop("_formatter", None) or kwargs.pop("formatter", AUTO_FORMATTER)
+        return find_formatter(self.abspath, "load", formatter).load(self.abspath, *args, **kwargs)
+
+    def dump(self, *args, **kwargs):
+        # remove kwargs that might be designated for remote files
+        kwargs = RemoteFileSystem.split_remote_kwargs(kwargs)[1]
+
+        # also remove permission settings
+        perm = kwargs.pop("perm", None)
+        dir_perm = kwargs.pop("dir_perm", None)
+
+        # create intermediate directories
+        self.parent.touch(perm=dir_perm)
+
+        # invoke the formatter
+        formatter = kwargs.pop("_formatter", None) or kwargs.pop("formatter", AUTO_FORMATTER)
+        ret = find_formatter(self.abspath, "dump", formatter).dump(self.abspath, *args, **kwargs)
+
+        # chmod
+        if perm and self.exists():
+            self.chmod(perm)
+
+        return ret
 
 
 class LocalFileTarget(FileSystemFileTarget, LocalTarget):

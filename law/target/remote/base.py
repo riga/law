@@ -21,7 +21,6 @@ from law.target.file import (
 )
 from law.target.local import LocalFileSystem, LocalFileTarget, LocalDirectoryTarget
 from law.target.remote.cache import RemoteCache
-from law.target.formatter import find_formatter
 from law.util import make_list, merge_dicts
 from law.logger import get_logger
 
@@ -561,22 +560,6 @@ class RemoteFileSystem(FileSystem):
             f = lpath if yield_path else open(lpath, mode)
             return RemoteFileProxy(f, success_fn=copy_and_cleanup, failure_fn=cleanup)
 
-    def load(self, path, formatter, *args, **kwargs):
-        # split kwargs that might be designated for remote files
-        remote_kwargs, kwargs = self.split_remote_kwargs(kwargs)
-
-        fmt = find_formatter(path, "load", formatter)
-        with self.open(path, "r", _yield_path=True, **remote_kwargs) as lpath:
-            return fmt.load(lpath, *args, **kwargs)
-
-    def dump(self, path, formatter, *args, **kwargs):
-        # split kwargs that might be designated for remote files
-        remote_kwargs, kwargs = self.split_remote_kwargs(kwargs, include=["perm", "dir_perm"])
-
-        fmt = find_formatter(path, "dump", formatter)
-        with self.open(path, "w", _yield_path=True, **remote_kwargs) as lpath:
-            return fmt.dump(lpath, *args, **kwargs)
-
 
 class RemoteTarget(FileSystemTarget):
 
@@ -633,6 +616,22 @@ class RemoteTarget(FileSystemTarget):
     def move_from_local(self, src=None, **kwargs):
         src = add_scheme(self.fs.local_fs.abspath(get_path(src)), "file")
         return self.move_from(src, **kwargs)
+
+    def load(self, *args, **kwargs):
+        # split kwargs that might be designated for remote files
+        remote_kwargs, kwargs = self.fs.split_remote_kwargs(kwargs)
+
+        # forward to the localized representation
+        with self.localize(mode="r", **remote_kwargs) as loc:
+            return loc.load(*args, **kwargs)
+
+    def dump(self, *args, **kwargs):
+        # split kwargs that might be designated for remote files
+        remote_kwargs, kwargs = self.fs.split_remote_kwargs(kwargs)
+
+        # forward to the localized representation
+        with self.localize(mode="a", **remote_kwargs) as loc:
+            return loc.dump(*args, **kwargs)
 
 
 class RemoteFileTarget(FileSystemFileTarget, RemoteTarget):
