@@ -19,7 +19,7 @@ from law.target.file import (
     FileSystem, FileSystemTarget, FileSystemFileTarget, FileSystemDirectoryTarget, get_path,
     get_scheme, add_scheme, remove_scheme,
 )
-from law.target.local import LocalFileSystem, LocalFileTarget
+from law.target.local import LocalFileSystem, LocalFileTarget, LocalDirectoryTarget
 from law.target.remote.cache import RemoteCache
 from law.target.formatter import find_formatter
 from law.util import make_list, merge_dicts
@@ -649,7 +649,7 @@ class RemoteFileTarget(FileSystemFileTarget, RemoteTarget):
         if mode not in ["r", "w", "a"]:
             raise Exception("unknown mode '{}', use 'r', 'w' or 'a'".format(mode))
 
-        logger.debug("localizing file target {!r} with mode '{}'".format(self, mode))
+        logger.debug("localizing {!r} with mode '{}'".format(self, mode))
 
         if mode == "r":
             with self.fs.open(self.path, "r", _yield_path=True, perm=perm, **kwargs) as lpath:
@@ -660,7 +660,7 @@ class RemoteFileTarget(FileSystemFileTarget, RemoteTarget):
 
             # copy to local in append mode
             if mode == "a" and self.exists():
-                self.copy_to_local(tmp)
+                self.copy_to_local(tmp, **kwargs)
 
             try:
                 yield tmp
@@ -668,8 +668,8 @@ class RemoteFileTarget(FileSystemFileTarget, RemoteTarget):
                 if tmp.exists():
                     self.copy_from_local(tmp, perm=perm, dir_perm=dir_perm, **kwargs)
                 else:
-                    logger.warning("cannot move non-existing localized file target {!r}".format(
-                        self))
+                    logger.warning("cannot move non-existing localized target to actual "
+                        "representation {!r}".format(self))
             finally:
                 tmp.remove()
 
@@ -680,6 +680,51 @@ class RemoteDirectoryTarget(FileSystemDirectoryTarget, RemoteTarget):
         args, kwargs = super(RemoteDirectoryTarget, self)._child_args(path)
         args += (self.fs,)
         return args, kwargs
+
+    @contextmanager
+    def localize(self, mode="r", perm=None, dir_perm=None, tmp_dir=None, **kwargs):
+        if mode not in ["r", "w", "a"]:
+            raise Exception("unknown mode '{}', use 'r', 'w' or 'a'".format(mode))
+
+        logger.debug("localizing {!r} with mode '{}'".format(self, mode))
+
+        if mode == "r":
+            # create a temporary directory
+            tmp = LocalDirectoryTarget(is_tmp=True, tmp_dir=tmp_dir)
+
+            # copy contents
+            self.copy_to_local(tmp, **kwargs)
+
+            # yield the copy
+            try:
+                yield tmp
+            finally:
+                tmp.remove(silent=True)
+
+        else:  # mode "w" or "a"
+            # create a temporary directory
+            tmp = LocalDirectoryTarget(is_tmp=True, tmp_dir=tmp_dir)
+
+            # copy in append mode, otherwise ensure that it exists
+            if mode == "a" and self.exists():
+                self.copy_to_local(tmp)
+            else:
+                tmp.touch()
+
+            # yield the copy
+            try:
+                yield tmp
+
+                # move back again, first removing current content
+                # TODO: keep track of changed contents in "a" mode and copy only those?
+                if tmp.exists():
+                    self.remove(**kwargs)
+                    self.copy_from_local(tmp, perm=perm, dir_perm=dir_perm, **kwargs)
+                else:
+                    logger.warning("cannot move non-existing localized target to actual "
+                        "representation {!r}, leaving original contents unchanged".format(self))
+            finally:
+                tmp.remove()
 
 
 RemoteTarget.file_class = RemoteFileTarget

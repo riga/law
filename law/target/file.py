@@ -289,6 +289,10 @@ class FileSystemTarget(Target, shims.FileSystemTarget):
     def move_from_local(self, *args, **kwargs):
         return
 
+    @abstractmethod
+    @contextmanager
+    def localize(self, mode="r", perm=None, dir_perm=None, tmp_dir=None, **kwargs):
+        return
 
 class FileSystemFileTarget(FileSystemTarget):
 
@@ -336,11 +340,6 @@ class FileSystemFileTarget(FileSystemTarget):
         # when src is a plain string, let the fs handle it
         # TODO: complain when src not local? forward to copy_to request depending on protocol?
         return self.fs.move(get_path(src), self.path, perm=perm, dir_perm=dir_perm, **kwargs)
-
-    @abstractmethod
-    @contextmanager
-    def localize(self, mode="r", perm=None, dir_perm=None, tmp_dir=None, **kwargs):
-        return
 
 
 class FileSystemDirectoryTarget(FileSystemTarget):
@@ -410,9 +409,13 @@ class FileSystemDirectoryTarget(FileSystemTarget):
                     t = self.child(basename, type=type_flag)
                     t.copy_to(os.path.join(_dst, basename), perm=perm, dir_perm=dir_perm, **kwargs)
 
+        return _dst
+
     def copy_from(self, src, perm=None, dir_perm=None, **kwargs):
+        # when src is a directory target itself, forward to its copy_to implementation as it might
+        # be more performant to use its own directory walking
         if isinstance(src, FileSystemDirectoryTarget):
-            return src.copy_to(self.path, perm=perm, dir_perm=dir_perm, **kwargs)
+            return src.copy_to(self, perm=perm, dir_perm=dir_perm, **kwargs)
 
         # create the target dir
         self.touch(perm=dir_perm, **kwargs)
@@ -427,6 +430,8 @@ class FileSystemDirectoryTarget(FileSystemTarget):
                 for basename in basenames:
                     t = self.child(basename, type=type_flag)
                     t.copy_from(os.path.join(_src, basename), perm=perm, dir_perm=dir_perm, **kwargs)
+
+        return self.abspath
 
     def move_to(self, dst, perm=None, dir_perm=None, **kwargs):
         # create the target dir
@@ -448,9 +453,13 @@ class FileSystemDirectoryTarget(FileSystemTarget):
         # finally remove
         self.remove()
 
+        return _dst
+
     def move_from(self, src, perm=None, dir_perm=None, **kwargs):
+        # when src is a directory target itself, forward to its move_to implementation as it might
+        # be more performant to use its own directory walking
         if isinstance(src, FileSystemDirectoryTarget):
-            return src.move_to(self.path, perm=perm, dir_perm=dir_perm, **kwargs)
+            return src.move_to(self, perm=perm, dir_perm=dir_perm, **kwargs)
 
         # create the target dir
         self.touch(perm=dir_perm, **kwargs)
@@ -468,6 +477,8 @@ class FileSystemDirectoryTarget(FileSystemTarget):
 
         # finally remove
         self.fs.remove(_src)
+
+        return self.abspath
 
 
 FileSystemTarget.file_class = FileSystemFileTarget

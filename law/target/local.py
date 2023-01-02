@@ -425,7 +425,7 @@ class LocalFileTarget(FileSystemFileTarget, LocalTarget):
         if mode not in ["r", "w", "a"]:
             raise Exception("unknown mode '{}', use 'r', 'w' or 'a'".format(mode))
 
-        logger.debug("localizing file target {!r} with mode '{}'".format(self, mode))
+        logger.debug("localizing {!r} with mode '{}'".format(self, mode))
 
         # get additional arguments
         is_tmp = kwargs.pop("is_tmp", mode in ("w", "a"))
@@ -462,10 +462,10 @@ class LocalFileTarget(FileSystemFileTarget, LocalTarget):
 
                     # move back again
                     if tmp.exists():
-                        tmp.move_to_local(self, perm=perm, dir_perm=dir_perm)
+                        tmp.copy_to_local(self, perm=perm, dir_perm=dir_perm)
                     else:
-                        logger.warning("cannot move non-existing, temporary target to localized "
-                            "file target {!r}".format(self))
+                        logger.warning("cannot move non-existing localized target to actual "
+                            "representation {!r}".format(self))
                 finally:
                     tmp.remove()
             else:
@@ -484,6 +484,66 @@ class LocalDirectoryTarget(FileSystemDirectoryTarget, LocalTarget):
         args, kwargs = super(LocalDirectoryTarget, self)._child_args(path)
         kwargs["fs"] = self.fs
         return args, kwargs
+
+    @contextmanager
+    def localize(self, mode="r", perm=None, dir_perm=None, tmp_dir=None, **kwargs):
+        if mode not in ["r", "w", "a"]:
+            raise Exception("unknown mode '{}', use 'r', 'w' or 'a'".format(mode))
+
+        logger.debug("localizing {!r} with mode '{}'".format(self, mode))
+
+        # get additional arguments
+        is_tmp = kwargs.pop("is_tmp", mode in ("w", "a"))
+
+        if mode == "r":
+            if is_tmp:
+                # create a temporary target
+                tmp = self.__class__(is_tmp=True, tmp_dir=tmp_dir)
+
+                # copy contents
+                self.copy_to_local(tmp)
+
+                # yield the copy
+                try:
+                    yield tmp
+                finally:
+                    tmp.remove(silent=True)
+            else:
+                # simply yield
+                yield self
+
+        else:  # mode "w" or "a"
+            if is_tmp:
+                # create a temporary target
+                tmp = self.__class__(is_tmp=True, tmp_dir=tmp_dir)
+
+                # copy in append mode, otherwise ensure that it exists
+                if mode == "a" and self.exists():
+                    self.copy_to_local(tmp)
+                else:
+                    tmp.touch()
+
+                # yield the copy
+                try:
+                    yield tmp
+
+                    # move back again, first removing current content
+                    # TODO: keep track of changed contents in "a" mode and copy only those?
+                    if tmp.exists():
+                        self.remove()
+                        tmp.copy_to_local(self, perm=perm, dir_perm=dir_perm)
+                    else:
+                        logger.warning("cannot move non-existing localized target to actual "
+                            "representation {!r}, leaving original contents unchanged".format(self))
+                finally:
+                    tmp.remove()
+            else:
+                # create the parent dir and the directory itself
+                self.parent.touch(perm=dir_perm)
+                self.touch(perm=perm)
+
+                # simply yield, do not differentiate "w" and "a" modes
+                yield self
 
 
 LocalTarget.file_class = LocalFileTarget
