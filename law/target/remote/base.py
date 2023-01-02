@@ -173,30 +173,62 @@ class RemoteFileSystem(FileSystem):
         return self.file_interface.uri(self.abspath(path), **kwargs)
 
     def dirname(self, path):
+        # forward to local_fs
+        if self.is_local(path):
+            return self.local_fs.dirname(path)
+
         return super(RemoteFileSystem, self).dirname(self.abspath(path))
 
     def basename(self, path):
+        # forward to local_fs
+        if self.is_local(path):
+            return self.local_fs.basename(path)
+
         return super(RemoteFileSystem, self).basename(self.abspath(path))
 
     def stat(self, path, **kwargs):
+        # forward to local_fs
+        if self.is_local(path):
+            return self.local_fs.stat(path)
+
         return self.file_interface.stat(self.abspath(path), **kwargs)
 
     def exists(self, path, stat=False, **kwargs):
+        # forward to local_fs
+        if self.is_local(path):
+            return self.local_fs.exists(path, stat=stat)
+
         return self.file_interface.exists(self.abspath(path), stat=stat, **kwargs)
 
     def isdir(self, path, rstat=None, **kwargs):
+        # forward to local_fs
+        if self.is_local(path):
+            return self.local_fs.isdir(path)
+
         return self.file_interface.isdir(path, stat=rstat, **kwargs)
 
     def isfile(self, path, rstat=None, **kwargs):
+        # forward to local_fs
+        if self.is_local(path):
+            return self.local_fs.isfile(path)
+
         return self.file_interface.isfile(path, stat=rstat, **kwargs)
 
     def chmod(self, path, perm, **kwargs):
+        # forward to local_fs
+        if self.is_local(path):
+            return self.local_fs.chmod(path, perm)
+
         if not self.has_permissions:
             return True
 
         return self.file_interface.chmod(self.abspath(path), perm, **kwargs)
 
     def remove(self, path, **kwargs):
+        # forward to local_fs
+        if self.is_local(path):
+            return self.local_fs.remove(path)
+
         # protection against removing the base directory of the remote file system
         path = self.abspath(path)
         if path == "/":
@@ -206,6 +238,10 @@ class RemoteFileSystem(FileSystem):
         return self.file_interface.remove(path, **kwargs)
 
     def mkdir(self, path, perm=None, recursive=True, **kwargs):
+        # forward to local_fs
+        if self.is_local(path):
+            return self.local_fs.mkdir(path, perm=perm, recursive=recursive)
+
         if perm is None:
             perm = self.default_dir_perm or 0o0770
 
@@ -214,6 +250,10 @@ class RemoteFileSystem(FileSystem):
         return x
 
     def listdir(self, path, pattern=None, type=None, **kwargs):
+        # forward to local_fs
+        if self.is_local(path):
+            return self.local_fs.listdir(path, pattern=pattern, type=type)
+
         elems = self.file_interface.listdir(self.abspath(path), **kwargs)
 
         # apply pattern filter
@@ -229,6 +269,12 @@ class RemoteFileSystem(FileSystem):
         return elems
 
     def walk(self, path, max_depth=-1, **kwargs):
+        # forward to local_fs
+        if self.is_local(path):
+            for obj in self.local_fs.walk(path, max_depth=max_depth):
+                yield obj
+            return
+
         # mimic os.walk with a max_depth and yield the current depth
         search_dirs = [(self.abspath(path), 0)]
         while search_dirs:
@@ -254,6 +300,10 @@ class RemoteFileSystem(FileSystem):
             search_dirs.extend((os.path.join(search_dir, d), depth + 1) for d in dirs)
 
     def glob(self, pattern, cwd=None, **kwargs):
+        # forward to local_fs
+        if self.is_local(pattern):
+            return self.local_fs.glob(pattern, cwd=cwd)
+
         # helper to check if a string represents a pattern
         def is_pattern(s):
             return "*" in s or "?" in s
