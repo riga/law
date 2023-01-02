@@ -104,8 +104,13 @@ def hadd_task(task, inputs, output, cwd=None, local=False, force=True, hadd_args
                 if code != 0:
                     raise Exception("hadd failed")
 
-        task.publish_message("merged file size: {}".format(human_bytes(
-            output.stat().st_size, fmt=True)))
+        stat = output.exists(stat=True)
+        if not stat:
+            raise Exception("output '{}' not creating during merging".format(output.path))
+
+        # print the size
+        output_size = human_bytes(stat.st_size, fmt=True)
+        task.publish_message("merged file size: {}".format(output_size))
 
     else:
         # when not local, we need to fetch files first into the cwd
@@ -132,5 +137,10 @@ def hadd_task(task, inputs, output, cwd=None, local=False, force=True, hadd_args
                     if code != 0:
                         raise Exception("hadd failed")
 
-                    task.publish_message("merged file size: {}".format(human_bytes(
-                        tmp_out.stat().st_size, fmt=True)))
+            stat = tmp_out.exists(stat=True)
+            if not stat:
+                raise Exception("output '{}' not creating during merging".format(tmp_out.path))
+
+            # print the size
+            output_size = human_bytes(stat.st_size, fmt=True)
+            task.publish_message("merged file size: {}".format(output_size))
