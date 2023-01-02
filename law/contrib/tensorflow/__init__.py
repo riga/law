@@ -5,10 +5,12 @@
 TensorFlow contrib functionality.
 """
 
-__all__ = ["TFGraphFormatter", "TFKerasModelFormatter", "TFKerasWeightsFormatter"]
+__all__ = [
+    "TFGraphFormatter", "TFSavedModelFormatter", "TFKerasModelFormatter", "TFKerasWeightsFormatter",
+]
 
 
 # provisioning imports
 from law.contrib.tensorflow.formatter import (
-    TFGraphFormatter, TFKerasModelFormatter, TFKerasWeightsFormatter,
+    TFGraphFormatter, TFSavedModelFormatter, TFKerasModelFormatter, TFKerasWeightsFormatter,
 )

@@ -4,7 +4,9 @@
 TensorFlow target formatters.
 """
 
-__all__ = ["TFGraphFormatter", "TFKerasModelFormatter", "TFKerasWeightsFormatter"]
+__all__ = [
+    "TFGraphFormatter", "TFSavedModelFormatter", "TFKerasModelFormatter", "TFKerasWeightsFormatter",
+]
 
 
 import os
@@ -181,13 +183,35 @@ class TFGraphFormatter(Formatter):
             return tf.io.write_graph(graph, graph_dir, graph_name, *args, **kwargs)
 
 
+class TFSavedModelFormatter(Formatter):
+
+    name = "tf_saved_model"
+
+    @classmethod
+    def accepts(cls, path, mode):
+        # accept paths where basenames refer to directories, likely without any file extension
+        _, ext = os.path.splitext(get_path(path))
+        return not ext
+
+    @classmethod
+    def dump(cls, path, model, *args, **kwargs):
+        import tensorflow as tf
+        return tf.saved_model.save(model, get_path(path), *args, **kwargs)
+
+    @classmethod
+    def load(cls, path, *args, **kwargs):
+        import tensorflow as tf
+        return tf.saved_model.load(get_path(path), *args, **kwargs)
+
+
 class TFKerasModelFormatter(Formatter):
 
     name = "tf_keras_model"
 
     @classmethod
     def accepts(cls, path, mode):
-        return get_path(path).endswith((".hdf5", ".h5", ".json", ".yaml", ".yml"))
+        _, ext = os.path.splitext(get_path(path))
+        return ext in (".hdf5", ".h5", ".json", ".yaml", ".yml", "")
 
     @classmethod
     def dump(cls, path, model, *args, **kwargs):
