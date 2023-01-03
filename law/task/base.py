@@ -13,7 +13,7 @@ import logging
 from collections import OrderedDict
 from contextlib import contextmanager
 from abc import ABCMeta, abstractmethod
-from inspect import getargspec
+import inspect
 
 import luigi
 import six
@@ -31,6 +31,8 @@ from law.logger import get_logger
 
 
 logger = get_logger(__name__)
+
+getfullargspec = inspect.getfullargspec if six.PY3 else inspect.getargspec
 
 
 class BaseRegister(luigi.task_register.Register):
@@ -257,9 +259,9 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
         # create a temporary dictionary of param_kwargs that is patched for the duration of the
         # call to create the string representation of the parameters
         param_kwargs = {attr: getattr(self, attr) for attr in self.param_kwargs}
-        # only_public was introduced in 2.8.0, so check if that arg exists
+        # only_public was introduced in luigi 2.8.0, so check if that arg exists
         str_params_kwargs = {"only_significant": True}
-        if "only_public" in getargspec(self.to_str_params).args:
+        if "only_public" in getfullargspec(self.to_str_params).args:
             str_params_kwargs["only_public"] = True
         with patch_object(self, "param_kwargs", param_kwargs):
             str_params = self.to_str_params(**str_params_kwargs)
