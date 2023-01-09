@@ -146,14 +146,23 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
         # assign to actual parameters
         values = super(BaseTask, cls).get_param_values(params, args, kwargs)
 
+        # parse left-over strings in case values were given programmatically, but unencoded
+        values = [
+            (
+                name,
+                (getattr(cls, name).parse(value) if isinstance(value, six.string_types) else value),
+            )
+            for name, value in values
+        ]
+
         # call the hook optionally modifying the values afterwards,
         # but remove temporary objects that might have been placed into it
         param_names = {name for name, _ in params}
-        values = list(
+        values = [
             (name, value)
             for name, value in cls.modify_param_values(OrderedDict(values)).items()
             if name in param_names
-        )
+        ]
 
         return values
 

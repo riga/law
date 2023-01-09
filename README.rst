@@ -29,7 +29,7 @@
 
 
 **Note**: This project is currently under development.
-Version 1.0.0 will be the first, fully documented beta release, targetted for end of 2022.
+Version 1.0.0 will be the first, fully documented beta release, targetted for mid 2023.
 
 Use law to build complex and large-scale task workflows.
 It is build on top of `luigi <https://github.com/spotify/luigi>`__ and adds abstractions for **run locations**, **storage locations** and **software environments**.
