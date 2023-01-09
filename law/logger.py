@@ -15,7 +15,7 @@ import logging
 
 import six
 
-from law.util import no_value, colored, ipykernel
+from law.util import no_value, colored, ipykernel, ON_COLAB
 
 
 _logging_setup = False
@@ -33,6 +33,10 @@ def setup_logging():
     if _logging_setup:
         return
     _logging_setup = True
+
+    # remove root handlers on colab
+    if ON_COLAB and logging.root.handlers:
+        logging.root.removeHandler(logging.root.handlers[0])
 
     # setup the main law logger first and set its handler which is propagated to subloggers
     logger = get_logger("law", skip_setup=True)

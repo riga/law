@@ -54,6 +54,12 @@ try:
 except ImportError:
     ipykernel = None
 
+try:
+    import google.colab  # noqa
+    ON_COLAB = True
+except ImportError:
+    ON_COLAB = False
+
 
 logger = logging.getLogger(__name__)
 
