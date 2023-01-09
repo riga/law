@@ -27,6 +27,7 @@ import re
 import math
 import fnmatch
 import itertools
+import functools
 import tempfile
 import subprocess
 import signal
@@ -123,6 +124,8 @@ def law_run(argv, **kwargs):
         law_run("MyTask --param value")
     """
     from luigi.interface import run as luigi_run
+    from luigi.cmdline_parser import CmdlineParser
+    from law.parser import _reset as reset_parser
 
     # ensure that argv is a list of strings
     if isinstance(argv, six.string_types):
@@ -133,7 +136,28 @@ def law_run(argv, **kwargs):
     # luigi's pid locking must be disabled
     argv.append("--no-lock")
 
-    return luigi_run(argv, **kwargs)
+    # run with a patch to the ArgumentParser to overwrite the prog default
+    _build_parser_orig = CmdlineParser._build_parser
+    @functools.wraps(_build_parser_orig)
+    def _build_parser(*args, **kwargs):
+        parser = _build_parser_orig(*args, **kwargs)
+        parser.prog = "law run"
+        return parser
+
+    ret = False
+    try:
+        with patch_object(
+            CmdlineParser,
+            "_build_parser",
+            staticmethod(_build_parser),
+            orig=staticmethod(_build_parser_orig),
+        ):
+            ret = luigi_run(argv, **kwargs)
+    finally:
+        # reset parser objects
+        reset_parser()
+
+    return ret
 
 
 def print_err(*args, **kwargs):
@@ -2021,35 +2045,39 @@ def open_compat(*args, **kwargs):
 
 
 @contextlib.contextmanager
-def patch_object(obj, attr, value, lock=False):
+def patch_object(obj, attr, value, reset=True, orig=no_value, lock=False):
     """
     Context manager that temporarily patches an object *obj* by replacing its attribute *attr* with
-    *value*. The original value is set again when the context is closed. When *lock* is *True*, the
-    py:attr:`default_lock` object is used to ensure the patch is thread-safe. When *lock* is a lock
-    instance, this object is used instead.
+    *value*. The original value is set again when the context is closed unless *reset* is *False*.
+    The original value is obtained through ``getattr`` or taken from *orig* if set. When *lock* is
+    *True*, the py:attr:`default_lock` object is used to ensure the patch is thread-safe.
+    When *lock* is a lock instance, this object is used instead.
     """
-    orig = getattr(obj, attr, no_value)
+    if orig is no_value:
+        # get the original value
+        orig = getattr(obj, attr, no_value)
 
+    # handle thread locks
     if lock:
         if isinstance(lock, bool):
             lock = default_lock
-        lock.acquire()
+    else:
+        lock = empty_context()
 
-    try:
-        setattr(obj, attr, value)
-
-        yield obj
-    finally:
-        if lock and lock.locked():
-            lock.release()
-
+    with lock:
         try:
-            if orig is no_value:
-                delattr(obj, attr)
-            else:
-                setattr(obj, attr, orig)
-        except:
-            pass
+            setattr(obj, attr, value)
+
+            yield obj
+        finally:
+            try:
+                if reset:
+                    if orig is no_value:
+                        delattr(obj, attr)
+                    else:
+                        setattr(obj, attr, orig)
+            except:
+                pass
 
 
 def join_generators(*generators, **kwargs):

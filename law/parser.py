@@ -63,7 +63,7 @@ def full_parser():
 
         # build the full argument parser with luigi helpers
         root_task = luigi_parser.known_args.root_task
-        _full_parser = luigi_parser._build_parser(root_task)
+        _full_parser = luigi_parser._build_parser(root_task=root_task)
 
         logger.debug("built full luigi argument parser")
 
@@ -188,3 +188,20 @@ def global_cmdline_values():
                 _global_cmdline_values[action.dest] = getattr(luigi_parser.known_args, action.dest)
 
     return _global_cmdline_values
+
+
+def _reset():
+    """
+    Resets all singletons defined by the parser functions above.
+    """
+    global _root_task
+    global _full_parser
+    global _root_task_parser
+    global _global_cmdline_args
+    global _global_cmdline_values
+
+    _root_task = None
+    _full_parser = None
+    _root_task_parser = None
+    _global_cmdline_args = None
+    _global_cmdline_values = None
