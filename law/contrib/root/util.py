@@ -46,7 +46,7 @@ def import_ROOT(batch=True, ignore_cli=True, reset=False):
 def hadd_task(task, inputs, output, cwd=None, local=False, force=True, hadd_args=None):
     """
     This method is intended to be used by tasks that are supposed to merge root files, e.g. when
-    inheriting from :py:class:`law.contrib.tasks.MergeCascade`. *inputs* should be a sequence of
+    inheriting from :py:class:`law.contrib.tasks.ForestMerge`. *inputs* should be a sequence of
     local targets that represent the files to merge into *output*. *cwd* is the working directory
     in which hadd is invoked. When empty, a temporary directory is used. The *task* itself is
     used to print and publish messages via its :py:meth:`law.Task.publish_message` and
