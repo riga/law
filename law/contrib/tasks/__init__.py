@@ -176,8 +176,9 @@ class ForestMerge(LocalWorkflow):
 
         # when set, also forward the tree itself and caching decisions
         if inst._merge_forest_built:
-            new_inst._merge_forest_built = True
+            new_inst._cache_forest = inst._cache_forest
             new_inst._merge_forest = inst._merge_forest
+            new_inst._merge_forest_built = new_inst._merge_forest is not None
             new_inst._leaves_per_tree = inst._leaves_per_tree
 
         return new_inst
@@ -190,6 +191,7 @@ class ForestMerge(LocalWorkflow):
         is constructed, but rather deferred to a future call.
         """
         target._is_merge_output_placeholder = True
+        return target
 
     @classmethod
     def _check_merge_output_placeholder(cls, target):
@@ -226,8 +228,12 @@ class ForestMerge(LocalWorkflow):
         # since the forest counts as a branch, as_workflow should point the tree_index 0
         # which is only used to compute the overall merge tree
         if self.is_forest():
-            return self._req_tree(self, branch=-1, tree_index=0,
-                _exclude=self.exclude_params_workflow)
+            return self._req_tree(
+                self,
+                branch=-1,
+                tree_index=0,
+                _exclude=self.exclude_params_workflow,
+            )
 
         return super(ForestMerge, self)._create_workflow_task()
 
@@ -245,16 +251,36 @@ class ForestMerge(LocalWorkflow):
         self._build_merge_forest()
         return self._leaves_per_tree
 
+    @property
+    def leaf_range(self):
+        if not self.is_leaf():
+            raise Exception("leaf_range can only be accessed by leaves")
+
+        # compute the range
+        leaves_per_tree = self.leaves_per_tree
+        merge_factor = self.merge_factor
+        n_leaves = leaves_per_tree[self.tree_index]
+        offset = sum(leaves_per_tree[:self.tree_index])
+        if merge_factor <= 0:
+            merge_factor = n_leaves
+        start_leaf = offset + self.branch * merge_factor
+        end_leaf = min(start_leaf + merge_factor, offset + n_leaves)
+
+        return start_leaf, end_leaf
+
     def _get_tree(self):
         if self.is_forest():
-            raise Exception("merge tree cannot be determined for the merge forest, ForestMerge "
-                "misconfigured")
+            raise Exception(
+                "merge tree cannot be determined for the merge forest, ForestMerge misconfigured",
+            )
 
         try:
             return self.merge_forest[self.tree_index]
         except IndexError:
-            raise Exception("merge tree {} not found, forest only contains {} tree(s)".format(
-                self.tree_index, len(self.merge_forest)))
+            raise Exception(
+                "merge tree {} not found, forest only contains {} tree(s)".format(
+                    self.tree_index, len(self.merge_forest)),
+            )
 
     def _build_merge_forest(self):
         # a node in the tree can be described by a tuple of integers, where each value denotes the
@@ -281,27 +307,37 @@ class ForestMerge(LocalWorkflow):
                 nodes += nodify(_obj, node + (i if node else root_id,))
             return nodes
 
-        # first, determine the number of files to merge in total when not already set via params
-        if self._n_leaves is None:
-            # the following lines build the workflow requirements,
-            # which strictly requires this task to be a workflow
-            wf = self.as_workflow()
-
-            # get inputs, i.e. outputs of workflow requirements and trace actual inputs to merge
-            # an integer number representing the number of inputs is also valid
-            inputs = luigi.task.getpaths(wf.merge_workflow_requires())
-            inputs = wf.trace_merge_workflow_inputs(inputs)
-            self._n_leaves = inputs if isinstance(inputs, six.integer_types) else len(inputs)
-
         # infer the number of trees from the merge output
         output = self.merge_output()
         is_placeholder = self._check_merge_output_placeholder(output)
         n_trees = 1
         if not is_placeholder:
             n_trees = len(output) if isinstance(output, (list, tuple, TargetCollection)) else 1
+
+        # first, determine the number of files to merge in total when not already set via params
+        reset_n_leaves = False
+        if self._n_leaves is None:
+            # defer computation when the output is a placeholder
+            if is_placeholder:
+                self._n_leaves = 1
+                reset_n_leaves = True
+            else:
+                # the following lines build the workflow requirements,
+                # which strictly requires this task to be a workflow
+                wf = self.as_workflow()
+
+                # get inputs, i.e. outputs of workflow requirements and trace actual inputs to merge
+                # an integer number representing the number of inputs is also valid
+                inputs = luigi.task.getpaths(wf.merge_workflow_requires())
+                inputs = wf.trace_merge_workflow_inputs(inputs)
+                self._n_leaves = inputs if isinstance(inputs, six.integer_types) else len(inputs)
+
+        # complain when there are too few leaves for the configured number of trees to create
         if self._n_leaves < n_trees:
-            raise Exception("too few leaves ({}) for number of requested trees ({})".format(
-                self._n_leaves, n_trees))
+            raise Exception(
+                "too few leaves ({}) for number of requested trees ({})".format(
+                    self._n_leaves, n_trees),
+            )
 
         # determine the number of leaves per tree
         n_min = self._n_leaves // n_trees
@@ -337,11 +373,15 @@ class ForestMerge(LocalWorkflow):
 
         # complain when the depth is too large
         if not self.is_forest() and self.tree_depth > self.max_tree_depth:
-            raise ValueError("tree_depth {} exceeds maximum depth {} in task {}".format(
-                self.tree_depth, self.max_tree_depth, self))
+            raise ValueError(
+                "tree_depth {} exceeds maximum depth {} in task {}".format(
+                    self.tree_depth, self.max_tree_depth, self),
+            )
 
-        # set the final cache decision
+        # set the final cache decisions
         self._merge_forest_built = self._cache_forest and not is_placeholder
+        if reset_n_leaves:
+            self._n_leaves = None
 
     def create_branch_map(self):
         tree = self._get_tree()
@@ -390,8 +430,10 @@ class ForestMerge(LocalWorkflow):
         reqs = super(ForestMerge, self).workflow_requires()
 
         if self.is_forest():
-            raise Exception("workflow requirements cannot be determined for the merge forest, "
-                "ForestMerge misconfigured")
+            raise Exception(
+                "workflow requirements cannot be determined for the merge forest, " +
+                "ForestMerge misconfigured",
+            )
 
         elif self.is_leaf():
             # this is simply the merge workflow requirement
@@ -405,8 +447,9 @@ class ForestMerge(LocalWorkflow):
 
     def _forest_requires(self):
         if not self.is_forest():
-            raise Exception("_forest_requires can only be determined for the forest, ForestMerge "
-                "misconfigured")
+            raise Exception(
+                "_forest_requires can only be determined for the forest, ForestMerge misconfigured",
+            )
 
         n_trees = len(self.merge_forest)
         indices = range(n_trees)
@@ -420,8 +463,12 @@ class ForestMerge(LocalWorkflow):
             ]
 
         return {
-            i: self._req_tree(self, branch=-1, tree_index=i,
-                _exclude=self.exclude_params_workflow)
+            i: self._req_tree(
+                self,
+                branch=-1,
+                tree_index=i,
+                _exclude=self.exclude_params_workflow,
+            )
             for i in indices
         }
 
@@ -433,16 +480,7 @@ class ForestMerge(LocalWorkflow):
 
         elif self.is_leaf():
             # this is simply the merge requirement
-            # also determine and pass the corresponding leaf number range,
-            # where 0 refers to the overall first element to merge
-            n_leaves = self.leaves_per_tree[self.tree_index]
-            offset = sum(self.leaves_per_tree[:self.tree_index])
-            merge_factor = self.merge_factor
-            if merge_factor <= 0:
-                merge_factor = n_leaves
-            start_leaf = offset + self.branch * merge_factor
-            end_leaf = min(start_leaf + merge_factor, offset + n_leaves)
-            reqs["forest_merge"] = self.merge_requires(start_leaf, end_leaf)
+            reqs["forest_merge"] = self.merge_requires(*self.leaf_range)
 
         else:
             # get all child nodes in the next layer at depth = depth + 1 and store their branches
@@ -477,15 +515,22 @@ class ForestMerge(LocalWorkflow):
         else:
             first_output = flatten(output)[0]
             if not isinstance(first_output, FileSystemTarget):
-                raise Exception("cannot determine directory for intermediate merged outputs from "
-                    "'{}'".format(output))
+                raise Exception(
+                    "cannot determine directory for intermediate merged outputs from '{}'".format(
+                        output),
+                )
             intermediate_dir = first_output.parent
 
         # helper to create an intermediate output
         def get_intermediate_output(leaf_output):
             name, ext = os.path.splitext(leaf_output.basename)
-            basename = self.node_format.format(name=name, ext=ext, tree=self.tree_index,
-                branch=self.branch, depth=self.tree_depth)
+            basename = self.node_format.format(
+                name=name,
+                ext=ext,
+                tree=self.tree_index,
+                branch=self.branch,
+                depth=self.tree_depth,
+            )
             return intermediate_dir.child(basename, type="f")
 
         # return intermediate outputs in the same structure
@@ -496,10 +541,8 @@ class ForestMerge(LocalWorkflow):
     def run(self):
         # nothing to do for the forest
         if self.is_forest():
-            # yield the forest dependencies again if the output is temporary, causing the
-            # dependencies to be reevaluated dynamically if needed
-            if self._check_merge_output_placeholder(self.output()):
-                yield self._forest_requires()
+            # yield the forest dependencies again
+            yield self._forest_requires()
             return
 
         # trace actual inputs to merge
