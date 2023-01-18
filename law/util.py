@@ -1092,15 +1092,17 @@ def map_struct(func, struct, map_dict=True, map_list=True, map_tuple=False, map_
         return func(struct) if isinstance(struct, cls) else struct
 
     # custom mapping?
-    elif custom_mappings and isinstance(struct, tuple(flatten(custom_mappings.keys()))):
+    if custom_mappings and isinstance(struct, tuple(flatten(custom_mappings.keys()))):
         # get the mapping function
         for mapping_types, mapping_func in six.iteritems(custom_mappings):
             if isinstance(struct, mapping_types):
                 return mapping_func(func, struct, map_dict=map_dict, map_list=map_list,
                     map_tuple=map_tuple, map_set=map_set, cls=cls, custom_mappings=custom_mappings)
+        # this point should never be reached
+        return struct
 
     # traverse?
-    elif isinstance(struct, valid_types):
+    if isinstance(struct, valid_types):
         # create a new struct, treat tuples as lists for itertative item appending
         new_struct = struct.__class__() if not isinstance(struct, tuple) else []
 
@@ -1128,15 +1130,19 @@ def map_struct(func, struct, map_dict=True, map_list=True, map_tuple=False, map_
         return new_struct
 
     # apply the mapping function on everything else
-    else:
-        return func(struct)
+    return func(struct)
 
 
-def mask_struct(mask, struct, replace=no_value):
+def mask_struct(mask, struct, replace=no_value, convert_types=None):
     """
     Masks a complex structured object *struct* with a *mask* and returns the remaining values. When
     *replace* is set, masked values are replaced with that value instead of being removed. The
-    *mask* can have a complex structure as well. Examples:
+    *mask* can have a complex structure as well.
+
+    *convert_types* can be a dictionary containing conversion functions mapped to types (or tuples)
+    thereof that is applied to objects during the struct traversal if their types match.
+
+    Examples:
 
     .. code-block:: python
 
@@ -1154,12 +1160,20 @@ def mask_struct(mask, struct, replace=no_value):
     if is_lazy_iterable(struct):
         struct = list(struct)
 
+    # cast convert types
+    if convert_types and isinstance(struct, tuple(flatten(convert_types.keys()))):
+        # get the mapping function
+        for _types, convert in six.iteritems(convert_types):
+            if isinstance(struct, _types):
+                struct = convert(struct)
+                break
+
     # when mask is a bool, or struct is not a dict or sequence, apply the mask immediately
     if isinstance(mask, bool) or not isinstance(struct, (list, tuple, dict)):
         return struct if mask else replace
 
     # check list and tuple types
-    elif isinstance(struct, (list, tuple)) and isinstance(mask, (list, tuple)):
+    if isinstance(struct, (list, tuple)) and isinstance(mask, (list, tuple)):
         new_struct = []
         for i, val in enumerate(struct):
             if i >= len(mask):
@@ -1168,14 +1182,14 @@ def mask_struct(mask, struct, replace=no_value):
                 repl = replace
                 if isinstance(replace, (list, tuple)) and len(replace) > i:
                     repl = replace[i]
-                val = mask_struct(mask[i], val, replace=repl)
+                val = mask_struct(mask[i], val, replace=repl, convert_types=convert_types)
                 if val != no_value:
                     new_struct.append(val)
 
         return struct.__class__(new_struct) if new_struct else replace
 
     # check dict types
-    elif isinstance(struct, dict) and isinstance(mask, dict):
+    if isinstance(struct, dict) and isinstance(mask, dict):
         new_struct = struct.__class__()
         for key, val in six.iteritems(struct):
             if key not in mask:
@@ -1184,14 +1198,16 @@ def mask_struct(mask, struct, replace=no_value):
                 repl = replace
                 if isinstance(replace, dict) and key in replace:
                     repl = replace[key]
-                val = mask_struct(mask[key], val, replace=repl)
+                val = mask_struct(mask[key], val, replace=repl, convert_types=convert_types)
                 if val != no_value:
                     new_struct[key] = val
         return new_struct or replace
 
     # when this point is reached, mask and struct have incompatible types
-    raise TypeError("mask and struct must have the same type, got '{}' and '{}'".format(type(mask),
-            type(struct)))
+    raise TypeError(
+        "mask and struct must have the same type, got '{}' and '{}'".format(
+            type(mask), type(struct)),
+    )
 
 
 @contextlib.contextmanager
