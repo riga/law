@@ -30,7 +30,7 @@ try:
 
     HAS_GFAL2 = True
 
-except ImportError:
+except (ImportError, TypeError):
     HAS_GFAL2 = False
 
     class GFAL2Dummy(object):

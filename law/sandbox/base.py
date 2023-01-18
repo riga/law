@@ -64,17 +64,17 @@ if _sandbox_switched:
 
 class StageInfo(object):
 
-    def __init__(self, targets, stage_dir, stage_targets):
+    def __init__(self, targets, stage_dir, staged_targets):
         super(StageInfo, self).__init__()
 
         self.targets = targets
         self.stage_dir = stage_dir
-        self.stage_targets = stage_targets
+        self.staged_targets = staged_targets
 
     def __str__(self):
-        tmpl = "{}.{} object at {}:\n  targets      : {}\n  stage_dir    : {}\n  stage_targets: {}"
+        tmpl = "{}.{} object at {}:\n  targets      : {}\n  stage_dir    : {}\n  staged_targets: {}"
         return tmpl.format(self.__class__.__module__, self.__class__.__name__, hex(id(self)),
-            self.targets, self.stage_dir.path, self.stage_targets)
+            self.targets, self.stage_dir.path, self.staged_targets)
 
     def __repr__(self):
         return str(self)
@@ -328,41 +328,40 @@ class SandboxProxy(ProxyTask):
         if not stagein_mask:
             return None
 
-        # determine inputs as seen from outside and within the sandbox
-        inputs = self.task.input()
+        # determine inputs as seen by the sandbox
         with patch_object(os, "environ", self.task.env, lock=True):
             sandbox_inputs = self.task.input()
 
-        # apply the mask to both structs
-        inputs = mask_struct(stagein_mask, inputs)
+        # apply the mask
         sandbox_inputs = mask_struct(stagein_mask, sandbox_inputs)
-        if not inputs:
+        if not sandbox_inputs:
             return None
-
-        # create a lookup for input -> sandbox input
-        sandbox_targets = dict(zip(flatten(inputs), flatten(sandbox_inputs)))
 
         # create the stage-in directory
         stagein_dir = tmp_dir.child(stagein_dir_name, type="d")
         stagein_dir.touch()
 
-        # create the structure of staged inputs
-        def stagein_target(target):
-            sandbox_target = sandbox_targets[target]
-            staged_target = make_staged_target(stagein_dir, sandbox_target)
-            logger.debug("stage-in {} to {}".format(target.path, staged_target.path))
-            target.copy_to_local(staged_target)
-            return staged_target
+        # create localized sandbox input representations
+        staged_inputs = create_staged_target_struct(stagein_dir, sandbox_inputs)
 
-        def map_collection(func, collection, **kwargs):
-            map_struct(func, collection.targets, **kwargs)
+        # perform the actual stage-in via copying
+        flat_sandbox_inputs = flatten(sandbox_inputs)
+        flat_staged_inputs = flatten(staged_inputs)
+        while flat_sandbox_inputs:
+            sandbox_input = flat_sandbox_inputs.pop(0)
+            staged_input = flat_staged_inputs.pop(0)
 
-        staged_inputs = map_struct(stagein_target, inputs,
-            custom_mappings={TargetCollection: map_collection})
+            if isinstance(sandbox_input, TargetCollection):
+                flat_sandbox_inputs = sandbox_input._flat_target_list + flat_sandbox_inputs
+                flat_staged_inputs = staged_input._flat_target_list + flat_staged_inputs
+                continue
+
+            logger.debug("stage-in {} to {}".format(sandbox_input.path, staged_input.path))
+            sandbox_input.copy_to_local(staged_input)
 
         logger.info("staged-in {} file(s)".format(len(stagein_dir.listdir())))
 
-        return StageInfo(inputs, stagein_dir, staged_inputs)
+        return StageInfo(sandbox_inputs, stagein_dir, staged_inputs)
 
     def prepare_stageout(self, tmp_dir):
         # check if the stage-out dir is set
@@ -377,44 +376,43 @@ class SandboxProxy(ProxyTask):
         if not stageout_mask:
             return None
 
-        # determine outputs as seen from outside and within the sandbox
-        outputs = self.task.output()
+        # determine outputs as seen by the sandbox
         with patch_object(os, "environ", self.task.env, lock=True):
             sandbox_outputs = self.task.output()
 
-        # apply the mask to both structs
-        outputs = mask_struct(stageout_mask, outputs)
+        # apply the mask
         sandbox_outputs = mask_struct(stageout_mask, sandbox_outputs)
-        if not outputs:
+        if not sandbox_outputs:
             return None
 
         # create the stage-out directory
         stageout_dir = tmp_dir.child(stageout_dir_name, type="d")
         stageout_dir.touch()
 
-        # create a lookup for input -> sandbox input
-        sandbox_targets = dict(zip(flatten(outputs), flatten(sandbox_outputs)))
+        # create localized sandbox output representations
+        staged_outputs = create_staged_target_struct(stageout_dir, sandbox_outputs)
 
-        return StageInfo(outputs, stageout_dir, sandbox_targets)
+        return StageInfo(sandbox_outputs, stageout_dir, staged_outputs)
 
     def stageout(self, stageout_info):
-        # traverse actual outputs, try to identify them in tmp_dir
-        # and move them to their proper location
-        def stageout_target(target):
-            sandbox_target = stageout_info.stage_targets[target]
-            staged_target = make_staged_target(stageout_info.stage_dir, sandbox_target)
-            logger.debug("stage-out {} to {}".format(staged_target.path, target))
-            if staged_target.exists():
-                target.copy_from_local(staged_target)
+        # perform the actual stage-out via copying
+        flat_sandbox_outputs = flatten(stageout_info.targets)
+        flat_staged_outputs = flatten(stageout_info.staged_targets)
+        while flat_sandbox_outputs:
+            sandbox_output = flat_sandbox_outputs.pop(0)
+            staged_output = flat_staged_outputs.pop(0)
+
+            if isinstance(sandbox_output, TargetCollection):
+                flat_sandbox_outputs = sandbox_output._flat_target_list + flat_sandbox_outputs
+                flat_staged_outputs = staged_output._flat_target_list + flat_staged_outputs
+                continue
+
+            logger.debug("stage-out {} to {}".format(staged_output.path, sandbox_output.path))
+            if staged_output.exists():
+                sandbox_output.copy_from_local(staged_output)
             else:
                 logger.warning("could not find output target at {} for stage-out".format(
-                    staged_target.path))
-
-        def map_collection(func, collection, **kwargs):
-            map_struct(func, collection.targets, **kwargs)
-
-        map_struct(stageout_target, stageout_info.targets,
-            custom_mappings={TargetCollection: map_collection})
+                    staged_output.path))
 
         logger.info("staged-out {} file(s)".format(len(stageout_info.stage_dir.listdir())))
 
@@ -538,7 +536,7 @@ class SandboxTask(Task):
         inputs = self.__getattribute__("input", proxy=False)()
 
         # create the struct of staged inputs
-        staged_inputs = make_staged_target_struct(_sandbox_stagein_dir, inputs)
+        staged_inputs = create_staged_target_struct(_sandbox_stagein_dir, inputs)
 
         # apply the stage-in mask
         return mask_struct(self.sandbox_stagein(), staged_inputs, inputs)
@@ -552,7 +550,7 @@ class SandboxTask(Task):
         outputs = self.__getattribute__("output", proxy=False)()
 
         # create the struct of staged outputs
-        staged_outputs = make_staged_target_struct(_sandbox_stageout_dir, outputs)
+        staged_outputs = create_staged_target_struct(_sandbox_stageout_dir, outputs)
 
         # apply the stage-out mask
         return mask_struct(self.sandbox_stageout(), staged_outputs, outputs)
@@ -605,9 +603,9 @@ class SandboxTask(Task):
         return
 
 
-def make_staged_target_struct(stage_dir, struct):
+def create_staged_target_struct(stage_dir, struct):
     def map_target(target):
-        return make_staged_target(stage_dir, target)
+        return create_staged_target(stage_dir, target)
 
     def map_collection(func, collection, **kwargs):
         staged_targets = map_struct(func, collection.targets, **kwargs)
@@ -616,7 +614,7 @@ def make_staged_target_struct(stage_dir, struct):
     return map_struct(map_target, struct, custom_mappings={TargetCollection: map_collection})
 
 
-def make_staged_target(stage_dir, target):
+def create_staged_target(stage_dir, target):
     if not isinstance(stage_dir, LocalDirectoryTarget):
         stage_dir = LocalDirectoryTarget(stage_dir)
 
