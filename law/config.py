@@ -7,8 +7,8 @@ law config parser implementation.
 __all__ = [  # noqa
     "Config", "sections", "options", "keys", "items", "update", "include", "get", "getint",
     "getfloat", "getboolean", "get_default", "get_expanded", "get_expanded_int",
-    "get_expanded_float", "get_expanded_boolean", "is_missing_or_none", "find_option", "set",
-    "has_section", "has_option", "remove_option",
+    "get_expanded_float", "get_expanded_boolean", "is_missing_or_none", "find_option",
+    "add_section", "has_section", "remove_section", "set", "has_option", "remove_option",
 ]
 
 
