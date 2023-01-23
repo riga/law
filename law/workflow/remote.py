@@ -21,7 +21,9 @@ import six
 from law.workflow.base import BaseWorkflow, BaseWorkflowProxy
 from law.job.dashboard import NoJobDashboard
 from law.parameter import NO_FLOAT, NO_INT, get_param, DurationParameter
-from law.util import is_number, iter_chunks, merge_dicts, human_duration, DotDict, ShorthandDict
+from law.util import (
+    is_number, colored, iter_chunks, merge_dicts, human_duration, DotDict, ShorthandDict,
+)
 from law.logger import get_logger
 
 
@@ -126,6 +128,18 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
        A dictionary containing short error messages mapped to job exit codes as defined in the
        remote job execution script.
 
+    .. py:attribute:: show_errors
+       type: int
+
+       Numbers of errors to explicity show during job submission and status polling.
+
+    .. py:attribute:: summarize_status_errors
+       type: bool, int
+
+       During status polling, when the number of errors exceeds :py:attr:`show_errors`, a summary of
+       errors if shown when this flag is true. When a number is given, the summary is printed if the
+       number of errors exceeds this value.
+
     .. py:attribute:: job_manager
        type: law.job.base.BaseJobManager
 
@@ -147,12 +161,6 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
        type: law.job.dashboard.BaseJobDashboard
 
        Reference to the dashboard instance that is used by the workflow.
-
-    .. py:attribute:: show_errors
-       type: int
-
-       Numbers of errors to explicity show during job submission and status polling. Further errors
-       are shown abbreviated.
 
     .. py:attribute:: submission_data_cls
        read-only
@@ -178,6 +186,13 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         80: "stageout command failed",
     }
 
+    # configures how many job errors are fully shown
+    show_errors = 5
+
+    # control the printing of status error summaries
+    summarize_status_errors = True
+
+    # maximum number of parallel jobs
     n_parallel_max = sys.maxsize
 
     def __init__(self, *args, **kwargs):
@@ -211,9 +226,6 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
         # retry counts per job num
         self.job_retries = defaultdict(int)
-
-        # configures how many job errors are shown (the rest is abbreviated)
-        self.show_errors = 5
 
         # cached output() return value, set in run()
         self._outputs = None
@@ -365,6 +377,65 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         self.poll_data.n_parallel = n_parallel
 
         return n_parallel
+
+    def _print_status_errors(self, failed_jobs):
+        print("{} in task {}:".format(
+            colored("{} failed job(s)".format(len(failed_jobs)), color="red", style="bright"),
+            self.task.task_id,
+        ))
+
+        # prepare the decision for showing the error summary
+        threshold = self.summarize_status_errors
+        show_summary = threshold and (isinstance(threshold, bool) or len(failed_jobs) >= threshold)
+
+        # show the first n errors
+        tmpl = "    job: {job_num}, branch(es): {branches}, id: {job_id}, " \
+            "status: {status}, code: {code}, error: {error}{ext}"
+        for i, (job_num, data) in enumerate(six.iteritems(failed_jobs)):
+            branches = self.submission_data.jobs[job_num]["branches"]
+            log_file = self.submission_data.jobs[job_num]["log_file"]
+            ext = ""
+            if data["code"] in self.job_error_messages:
+                law_err = self.job_error_messages[data["code"]]
+                ext += ", job script error: {}".format(law_err)
+            if log_file:
+                ext += ", log: {}".format(log_file)
+
+            print(tmpl.format(job_num=job_num, branches=",".join(str(b) for b in branches),
+                ext=ext, **data))
+
+            if i >= self.show_errors:
+                remaining = len(failed_jobs) - self.show_errors
+                if remaining > 0:
+                    print("    ... and {} more".format(remaining))
+                break
+        else:
+            # all errors shown, no need for a summary
+            show_summary = False
+
+        # additional error summary
+        if show_summary:
+            # group by error code, status, and the first 40 characters of the error message
+            groups = OrderedDict()
+            n_error_chars = 40
+            for job_num, data in six.iteritems(failed_jobs):
+                error_trunc = (
+                    data["error"]
+                    if len(data["error"]) <= n_error_chars else
+                    data["error"][:n_error_chars - 3] + "..."
+                )
+                key = (data["code"], data["status"], error_trunc)
+                if key not in groups:
+                    groups[key] = {"n_jobs": 0, "n_branches": 0}
+                groups[key]["n_jobs"] += 1
+                groups[key]["n_branches"] += len(self.submission_data.jobs[job_num]["branches"])
+
+            # show the summary
+            print(colored("error summary:", color="red", style="bright"))
+            tmpl = "    {n_jobs} jobs ({n_branches} branches) with status: {status}, " \
+                "code: {code}, error: {error}"
+            for (code, status, error_trunc), stats in six.iteritems(groups):
+                print(tmpl.format(status=status, code=code, error=error_trunc, **stats))
 
     def complete(self):
         if self.task.is_controlling_remote_jobs():
@@ -936,30 +1007,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             # inform the scheduler about the progress
             task.publish_progress(100.0 * n_finished / n_jobs)
 
-            # log newly failed jobs
+            # print newly failed jobs
             if newly_failed_jobs:
-                print("{} failed job(s) in task {}:".format(len(newly_failed_jobs), task.task_id))
-                tmpl = "    job: {job_num}, branch(es): {branches}, id: {job_id}, " \
-                    "status: {status}, code: {code}, error: {error}{ext}"
-
-                for i, (job_num, data) in enumerate(six.iteritems(newly_failed_jobs)):
-                    branches = self.submission_data.jobs[job_num]["branches"]
-                    log_file = self.submission_data.jobs[job_num]["log_file"]
-                    ext = ""
-                    if data["code"] in self.job_error_messages:
-                        law_err = self.job_error_messages[data["code"]]
-                        ext += ", job script error: {}".format(law_err)
-                    if log_file:
-                        ext += ", log: {}".format(log_file)
-
-                    print(tmpl.format(job_num=job_num, branches=",".join(str(b) for b in branches),
-                        ext=ext, **data))
-
-                    if i + 1 >= self.show_errors:
-                        remaining = len(newly_failed_jobs) - self.show_errors
-                        if remaining > 0:
-                            print("    ... and {} more".format(remaining))
-                        break
+                self._print_status_errors(newly_failed_jobs)
 
             # infer the overall status
             reached_end = n_jobs == n_finished + n_failed
