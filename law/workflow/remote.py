@@ -404,7 +404,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             print(tmpl.format(job_num=job_num, branches=",".join(str(b) for b in branches),
                 ext=ext, **data))
 
-            if i >= self.show_errors:
+            if i >= self.show_errors and len(failed_jobs) > self.show_errors + 1:
                 remaining = len(failed_jobs) - self.show_errors
                 if remaining > 0:
                     print("    ... and {} more".format(remaining))
