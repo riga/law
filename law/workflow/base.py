@@ -519,8 +519,12 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
             else:
                 return self.req(self, branch=branch, _skip_task_excludes=True)
 
-        return self.req(self, branch=branch or 0, _exclude=self.exclude_params_branch,
-            _skip_task_excludes=True)
+        return self.req(
+            self,
+            branch=branch or 0,
+            _exclude=self.exclude_params_branch,
+            _skip_task_excludes=True,
+        )
 
     def as_workflow(self):
         """
@@ -539,8 +543,12 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         """
         Implements how the workflow task is created as used internally by :py:meth:`as_workflow`.
         """
-        return self.req(self, branch=-1, _exclude=self.exclude_params_workflow,
-            _skip_task_excludes=True)
+        return self.req(
+            self,
+            branch=-1,
+            _exclude=self.exclude_params_workflow,
+            _skip_task_excludes=True,
+        )
 
     @abstractmethod
     def create_branch_map(self):
@@ -556,12 +564,16 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         # rejoin branch ranges when given
         if self.branches:
             # get minimum and maximum branches
-            min_branch = min(full_branch_map.keys())
-            max_branch = max(full_branch_map.keys())
+            branches = set(full_branch_map.keys())
+            min_branch = min(branches)
+            max_branch = max(branches)
 
             # get expanded branch values
-            branches = range_expand(list(self.branches), min_value=min_branch, max_value=max_branch,
-                include_end=True)
+            branches = range_expand(
+                list(self.branches),
+                min_value=min_branch,
+                max_value=max_branch,
+            )
 
             # assign back to branches attribute, use an empty tuple in case all branches are used
             use_all = (
@@ -583,8 +595,11 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
             min_branch = min(branches)
             max_branch = max(branches)
 
-            requested = range_expand(list(self.branches), min_value=min_branch,
-                max_value=max_branch, include_end=True)
+            requested = range_expand(
+                list(self.branches),
+                min_value=min_branch,
+                max_value=max_branch,
+            )
             remove_branches |= branches - set(requested)
 
         # remove from branch map
@@ -599,8 +614,10 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         the branch map is additionally filtered accordingly. The branch map is cached internally.
         """
         if self.is_branch():
-            return self.as_workflow().get_branch_map(reset_boundaries=reset_boundaries,
-                reduce_branches=reduce_branches)
+            return self.as_workflow().get_branch_map(
+                reset_boundaries=reset_boundaries,
+                reduce_branches=reduce_branches,
+            )
 
         if self._branch_map is None:
             # create a new branch map
