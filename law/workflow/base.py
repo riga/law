@@ -481,8 +481,10 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
 
         if self.is_workflow():
             # when this is a workflow, add the workflow type
-            if "workflow" not in params:
-                params["workflow"] = self.workflow
+            params.setdefault("workflow", self.workflow)
+            # skip branches when empty
+            if not params.get("branches"):
+                params.pop("branches", None)
         else:
             # when this is a branch, remove workflow parameters
             for param in self.exclude_params_branch:

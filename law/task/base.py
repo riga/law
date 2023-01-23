@@ -434,6 +434,7 @@ class Task(six.with_metaclass(Register, BaseTask)):
     exclude_index = True
     exclude_params_req = set()
     exclude_params_repr = set()
+    exclude_params_repr_empty = set()
 
     @classmethod
     def req_params(cls, inst, _exclude=None, _prefer_cli=None, **kwargs):
@@ -595,8 +596,14 @@ class Task(six.with_metaclass(Register, BaseTask)):
         # build a map "name -> value" for all significant parameters
         params = OrderedDict()
         for name, param in self.get_params():
-            if param.significant and not multi_match(name, exclude):
-                params[name] = getattr(self, name)
+            value = getattr(self, name)
+            include = (
+                param.significant and
+                not multi_match(name, exclude) and
+                (name not in self.exclude_params_repr_empty or value)
+            )
+            if include:
+                params[name] = value
 
         return params
 
