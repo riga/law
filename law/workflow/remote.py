@@ -426,16 +426,24 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 )
                 key = (data["code"], data["status"], error_trunc)
                 if key not in groups:
-                    groups[key] = {"n_jobs": 0, "n_branches": 0}
+                    groups[key] = {"n_jobs": 0, "n_branches": 0, "log_file": None}
                 groups[key]["n_jobs"] += 1
                 groups[key]["n_branches"] += len(self.submission_data.jobs[job_num]["branches"])
+                if not groups[key]["log_file"]:
+                    groups[key]["log_file"] = self.submission_data.jobs[job_num]["log_file"]
 
             # show the summary
             print(colored("error summary:", color="red", style="bright"))
             tmpl = "    {n_jobs} jobs ({n_branches} branches) with status: {status}, " \
-                "code: {code}, error: {error}"
+                "code: {code}, error: {error}{ext}"
             for (code, status, error_trunc), stats in six.iteritems(groups):
-                print(tmpl.format(status=status, code=code, error=error_trunc, **stats))
+                # add status messsages of known error codes
+                if code in self.job_error_messages:
+                    code = "{} ({})".format(code, self.job_error_messages[code])
+                # add an example log file
+                ext = ", example log: {log_file}".format(**stats) if stats["log_file"] else ""
+                # print the line
+                print(tmpl.format(status=status, code=code, error=error_trunc, ext=ext, **stats))
 
     def complete(self):
         if self.task.is_controlling_remote_jobs():

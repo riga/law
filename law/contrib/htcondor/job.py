@@ -35,7 +35,7 @@ class HTCondorJobManager(BaseJobManager):
     chunk_size_query = _cfg.get_expanded_int("job", "htcondor_chunk_size_query")
 
     submission_job_id_cre = re.compile(r"^(\d+) job\(s\) submitted to cluster (\d+)\.$")
-    long_block_cre = re.compile(r"(\w+) \= \"?(.*)\"?\n")
+    long_block_cre = re.compile(r"(\w+) \= \"?([^\"\n]*)\"?\n")
 
     def __init__(self, pool=None, scheduler=None, user=None, threads=1):
         super(HTCondorJobManager, self).__init__()
@@ -288,7 +288,10 @@ class HTCondorJobManager(BaseJobManager):
             code = int(data.get("ExitCode") or data.get("ExitStatus") or "0")
 
             # get the error message (if any)
-            error = data.get("HoldReason") or data.get("RemoveReason")
+            error = data.get("HoldReason")
+            remove_error = data.get("RemoveReason")
+            if not error or (error.lower() == "undefined" and remove_error):
+                error = remove_error
 
             # handle inconsistencies between status, code and the presence of an error message
             if code != 0:
