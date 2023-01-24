@@ -568,7 +568,7 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
             # get minimum and maximum branches
             branches = set(full_branch_map.keys())
             min_branch = min(branches)
-            max_branch = max(branches)
+            max_branch = max(branches) + 1
 
             # get expanded branch values
             branches = range_expand(
@@ -595,7 +595,7 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         if self.branches:
             branches = set(branch_map.keys())
             min_branch = min(branches)
-            max_branch = max(branches)
+            max_branch = max(branches) + 1
 
             requested = range_expand(
                 list(self.branches),
