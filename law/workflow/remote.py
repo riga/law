@@ -1046,8 +1046,8 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 if err:
                     raise Exception(err.format(self.poll_data.n_finished_min, n_jobs, n_failed))
 
-            # configurable poll callback
-            task.poll_callback(self.poll_data)
+            # invoke the poll callback
+            self._get_task_attribute("poll_callback", True)(self.poll_data)
 
             # trigger automatic resubmission and submission of unsubmitted jobs if necessary
             if retry_jobs or self.poll_data.n_active < self.poll_data.n_parallel:

@@ -74,14 +74,14 @@ class BaseWorkflowProxy(ProxyTask):
         AttributeError is raised.
         """
         attr = "{}_{}".format(self.workflow_type, name)
+
         if fallback:
             value = getattr(self.task, attr, no_value)
             if value != no_value:
                 return value
-            else:
-                return getattr(self.task, name)
-        else:
-            return getattr(self.task, attr)
+            return getattr(self.task, name)
+
+        return getattr(self.task, attr)
 
     def complete(self):
         """
@@ -198,7 +198,7 @@ def cached_workflow_property(func=None, attr=None, setter=True, empty_value=no_v
                 return some_other_computation()
     """
     def decorator(func):
-        _attr = attr or ("_workflow_cached_" + func.__name__)
+        _attr = attr or "_workflow_cached_{}".format(func.__name__)
 
         @functools.wraps(func)
         def getter(self):
@@ -518,8 +518,7 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         if self.is_branch():
             if branch is None or branch == self.branch:
                 return self
-            else:
-                return self.req(self, branch=branch, _skip_task_excludes=True)
+            return self.req(self, branch=branch, _skip_task_excludes=True)
 
         return self.req(
             self,
@@ -633,13 +632,15 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
             elif self.force_contiguous_branches:
                 n = len(branch_map)
                 if set(branch_map.keys()) != set(range(n)):
-                    raise ValueError("branch map keys must constitute contiguous range "
-                        "[0, {})".format(n))
+                    raise ValueError(
+                        "branch map keys must constitute contiguous range [0, {})".format(n))
             else:
                 for branch in branch_map:
                     if not isinstance(branch, six.integer_types) or branch < 0:
-                        raise ValueError("branch map keys must be non-negative integers, got "
-                            "'{}' ({})".format(branch, type(branch).__name__))
+                        raise ValueError(
+                            "branch map keys must be non-negative integers, got '{}' ({})".format(
+                                branch, type(branch).__name__),
+                        )
 
             # post-process
             if reset_boundaries:
@@ -755,17 +756,17 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         """
         branch_map = self.get_branch_map()
 
-        if self.branches:
-            ranges = range_join(list(branch_map.keys()))
-            if len(ranges) > max_ranges:
-                return "{}_ranges_{}".format(len(ranges), create_hash(ranges))
-            else:
-                return "_".join(
-                    str(r[0]) if len(r) == 1 else "{}To{}".format(r[0], r[1] + 1)
-                    for r in ranges
-                )
+        if not self.branches:
+            return "{}To{}".format(min(branch_map.keys()), max(branch_map.keys()) + 1)
 
-        return "{}To{}".format(min(branch_map.keys()), max(branch_map.keys()) + 1)
+        ranges = range_join(list(branch_map.keys()))
+        if len(ranges) > max_ranges:
+            return "{}_ranges_{}".format(len(ranges), create_hash(ranges))
+
+        return "_".join(
+            str(r[0]) if len(r) == 1 else "{}To{}".format(r[0], r[1] + 1)
+            for r in ranges
+        )
 
     def workflow_complete(self):
         """
@@ -855,9 +856,9 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
                 msg.respond("{} set to {}".format(attr, value))
                 logger.info("{} of task {} set to {}".format(attr, self.live_task_id, value))
             return True
-        else:
-            msg.respond("task cannot handle scheduler message: {}".format(msg))
-            return False
+
+        msg.respond("task cannot handle scheduler message: {}".format(msg))
+        return False
 
 
 BaseWorkflow.workflow_property = workflow_property
