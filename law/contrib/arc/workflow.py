@@ -66,7 +66,13 @@ class ARCWorkflowProxy(BaseRemoteWorkflowProxy):
         c.input_files["job_file"] = law_job_file
 
         # collect task parameters
-        exclude_args = task.exclude_params_branch | task.exclude_params_workflow | {"workflow"}
+        exclude_args = (
+            task.exclude_params_branch |
+            task.exclude_params_workflow |
+            task.exclude_params_remote_workflow |
+            task.exclude_params_arc_workflow |
+            {"workflow"}
+        )
         proxy_cmd = ProxyCommand(
             task.as_branch(branches[0]),
             exclude_task_args=exclude_args,
@@ -159,6 +165,8 @@ class ARCWorkflow(BaseRemoteWorkflow):
     arc_job_kwargs_query = None
 
     exclude_params_branch = {"arc_ce"}
+
+    exclude_params_arc_workflow = set()
 
     exclude_index = True
 

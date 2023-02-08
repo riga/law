@@ -62,7 +62,13 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
         c.input_files["job_file"] = law_job_file
 
         # collect task parameters
-        exclude_args = task.exclude_params_branch | task.exclude_params_workflow | {"workflow"}
+        exclude_args = (
+            task.exclude_params_branch |
+            task.exclude_params_workflow |
+            task.exclude_params_remote_workflow |
+            task.exclude_params_slurm_workflow |
+            {"workflow"}
+        )
         proxy_cmd = ProxyCommand(
             task.as_branch(branches[0]),
             exclude_task_args=exclude_args,
@@ -165,6 +171,8 @@ class SlurmWorkflow(BaseRemoteWorkflow):
     slurm_job_kwargs_query = None
 
     exclude_params_branch = {"slurm_partition"}
+
+    exclude_params_slurm_workflow = set()
 
     exclude_index = True
 

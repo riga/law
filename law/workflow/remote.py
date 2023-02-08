@@ -1255,6 +1255,8 @@ class BaseRemoteWorkflow(BaseWorkflow):
     }
     exclude_params_repr = {"cancel_jobs", "cleanup_jobs"}
 
+    exclude_params_remote_workflow = set()
+
     def is_controlling_remote_jobs(self):
         """
         Returns *True* if the remote workflow is only controlling remote jobs instead of handling

@@ -440,12 +440,13 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
     def _initialize_workflow(self, force=False):
         if self._workflow_initialized and not force:
             return
-        self._workflow_initialized = True
 
         if self.is_workflow():
             self._workflow_cls = self.find_workflow_cls(self.workflow)
             self._workflow_proxy = self._workflow_cls.workflow_proxy_cls(task=self)
             logger.debug("created workflow proxy instance of type '{}'".format(self.workflow))
+
+        self._workflow_initialized = True
 
     @property
     def workflow_cls(self):
