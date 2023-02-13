@@ -90,7 +90,7 @@ class TargetCollection(Target):
 
     def iter_missing(self, keys=False):
         for key, targets in self._iter_flat(keys=True):
-            if any(not t.exists() for t in targets):
+            if any(not t.optional and not t.exists() for t in targets):
                 yield (key, targets) if keys else targets
 
     def keys(self):
@@ -135,7 +135,7 @@ class TargetCollection(Target):
         # simple counting with early stopping criteria for both success and fail
         n = 0
         for i, targets in enumerate(self._iter_flat()):
-            if all(t.exists() for t in targets):
+            if all(t.optional or t.exists() for t in targets):
                 n += 1
                 if n >= threshold:
                     return True
