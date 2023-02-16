@@ -21,6 +21,7 @@ import six
 from law.config import Config
 from law.parameter import NO_STR, CSVParameter
 from law.target.file import localize_file_targets
+from law.target.collection import TargetCollection
 from law.parser import root_task, global_cmdline_values
 from law.logger import setup_logger
 from law.util import (
@@ -230,14 +231,19 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
         self._task_logger = None
 
     def complete(self):
+        # create a flat list of all non-optional outputs
+        # target collections handle optional outputs themselves in their exists() call
         outputs = [t for t in flatten(self.output()) if not t.optional]
 
         if len(outputs) == 0:
             logger.warning("task {!r} has either no non-optional outputs or no custom complete() "
                 "method".format(self))
-            return False
+            return True
 
-        return all(t.exists() for t in outputs)
+        return all(
+            t.exists(skip_optional=True) if isinstance(t, TargetCollection) else t.exists()
+            for t in outputs
+        )
 
     @abstractmethod
     def run(self):
