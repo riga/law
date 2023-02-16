@@ -96,8 +96,8 @@ class TargetCollection(Target):
     def keys(self):
         if isinstance(self._flat_targets, (list, tuple)):
             return list(range(len(self)))
-        else:  # dict
-            return list(self._flat_targets.keys())
+        # dict
+        return list(self._flat_targets.keys())
 
     def uri(self, *args, **kwargs):
         return flatten(t.uri(*args, **kwargs) for t in self._flat_target_list)
@@ -111,17 +111,19 @@ class TargetCollection(Target):
 
     def remove(self, silent=True):
         for t in self._flat_target_list:
-            t.remove(silent=silent)
+            if silent:
+                t.remove(silent=True)
+            elif t.exists():
+                t.remove()
 
     def _abs_threshold(self):
         if self.threshold < 0:
             return 0
-        elif self.threshold <= 1:
+        if self.threshold <= 1:
             return len(self) * self.threshold
-        else:
-            return min(len(self), max(self.threshold, 0.0))
+        return min(len(self), max(self.threshold, 0.0))
 
-    def exists(self, count=None):
+    def exists(self, count=None, skip_optional=False):
         threshold = self._abs_threshold()
 
         # trivial case
@@ -156,16 +158,17 @@ class TargetCollection(Target):
 
         if existing:
             return n if not keys else (n, existing_keys)
-        else:
-            n = len(self) - n
-            missing_keys = [key for key in self.keys() if key not in existing_keys]
-            return n if not keys else (n, missing_keys)
+
+        # missing
+        n = len(self) - n
+        missing_keys = [key for key in self.keys() if key not in existing_keys]
+        return n if not keys else (n, missing_keys)
 
     def random_target(self):
         if isinstance(self.targets, (list, tuple)):
             return random.choice(self.targets)
-        else:  # dict
-            return random.choice(list(self.targets.values()))
+        # dict
+        return random.choice(list(self.targets.values()))
 
     def map(self, func):
         """
@@ -348,8 +351,8 @@ class SiblingFileCollection(FileCollection):
         if not self.dir.exists():
             if existing:
                 return 0 if not keys else (0, [])
-            else:
-                return len(self) if not keys else (len(self), self.keys())
+            # missing
+            return len(self) if not keys else (len(self), self.keys())
 
         # get the basenames of all elements of the directory
         if basenames is None:
@@ -368,10 +371,11 @@ class SiblingFileCollection(FileCollection):
 
         if existing:
             return n if not keys else (n, existing_keys)
-        else:
-            n = len(self) - n
-            missing_keys = [key for key in self.keys() if key not in existing_keys]
-            return n if not keys else (n, missing_keys)
+
+        # missing
+        n = len(self) - n
+        missing_keys = [key for key in self.keys() if key not in existing_keys]
+        return n if not keys else (n, missing_keys)
 
     def remove(self, silent=True):
         for targets in self.iter_existing():
@@ -482,10 +486,11 @@ class NestedSiblingFileCollection(FileCollection):
 
         if existing:
             return n if not keys else (n, existing_keys)
-        else:
-            n = len(self) - n
-            missing_keys = [key for key in self.keys() if key not in existing_keys]
-            return n if not keys else (n, missing_keys)
+
+        # missing
+        n = len(self) - n
+        missing_keys = [key for key in self.keys() if key not in existing_keys]
+        return n if not keys else (n, missing_keys)
 
     def remove(self, silent=True):
         for targets in self.iter_existing():
