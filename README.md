@@ -191,6 +191,11 @@ source "$( law completion )"
 ### Tests
 
 To run and test law, there are various docker `riga/law` images available on the [DockerHub](https://cloud.docker.com/u/riga/repository/docker/riga/law), corresponding to different OS and Python versions.
+Start them via
+
+```shell
+docker run -ti riga/law:<the_tag>
+```
 
 |    OS    | Python |                   Tags                   |
 | -------- | ------ | ---------------------------------------- |
@@ -205,9 +210,6 @@ To run and test law, there are various docker `riga/law` images available on the
 | Centos 7 |    3.6 | c7-py36, py36                            |
 | Centos 7 |    2.7 | c7-py27, c7-py2, py27, py2               |
 
-```shell
-docker run -ti riga/law:latest
-```
 
 ### Contributors
 
@@ -219,6 +221,8 @@ docker run -ti riga/law:latest
 <!-- prettier-ignore-end -->
 
 <!-- ALL-CONTRIBUTORS-LIST:END -->
+
+This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification.
 
 
 ### Development
