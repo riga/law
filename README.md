@@ -218,6 +218,7 @@ docker run -ti riga/law:latest
   <tbody>
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="http://github.com/riga"><img src="https://avatars.githubusercontent.com/u/1908734?v=4?s=100" width="100px;" alt="Marcel Rieger"/><br /><sub><b>Marcel Rieger</b></sub></a><br /><a href="https://github.com/riga/law/commits?author=riga" title="Code">💻</a> <a href="https://github.com/riga/law/pulls?q=is%3Apr+reviewed-by%3Ariga" title="Reviewed Pull Requests">👀</a> <a href="#maintenance-riga" title="Maintenance">🚧</a> <a href="https://github.com/riga/law/commits?author=riga" title="Documentation">📖</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/pfackeldey"><img src="https://avatars.githubusercontent.com/u/18463582?v=4?s=100" width="100px;" alt="Peter Fackeldey"/><br /><sub><b>Peter Fackeldey</b></sub></a><br /><a href="https://github.com/riga/law/commits?author=pfackeldey" title="Code">💻</a></td>
     </tr>
   </tbody>
 </table>
