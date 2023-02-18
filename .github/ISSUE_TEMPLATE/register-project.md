@@ -1,6 +1,6 @@
 ---
 name: Register project
-about: Describe your project
+about: Add your project to the listing in the README
 title: ''
 labels: docs
 assignees: riga

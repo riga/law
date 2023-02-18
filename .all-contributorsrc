@@ -1,0 +1,15 @@
+{
+  "projectName": "law",
+  "projectOwner": "riga",
+  "repoType": "github",
+  "repoHost": "https://github.com",
+  "contributorsPerLine": 7,
+  "skipCi": true,
+  "imageSize": 100,
+  "commit": false,
+  "commitConvention": "angular",
+  "files": [
+    "README.md"
+  ],
+  "contributors": []
+}
