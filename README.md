@@ -224,6 +224,7 @@ docker run -ti riga/law:<the_tag>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/yrath"><img src="https://avatars.githubusercontent.com/u/20044510?v=4?s=100" width="100px;" alt="Yannik Rath"/><br /><sub><b>Yannik Rath</b></sub></a><br /><a href="https://github.com/riga/law/commits?author=yrath" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/jaimeleonh"><img src="https://avatars.githubusercontent.com/u/47629805?v=4?s=100" width="100px;" alt="Jaime Leon Holgado"/><br /><sub><b>Jaime Leon Holgado</b></sub></a><br /><a href="https://github.com/riga/law/commits?author=jaimeleonh" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/lmoureaux"><img src="https://avatars.githubusercontent.com/u/22327575?v=4?s=100" width="100px;" alt="Louis Moureaux"/><br /><sub><b>Louis Moureaux</b></sub></a><br /><a href="https://github.com/riga/law/commits?author=lmoureaux" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="http://www.linkedin.com/in/lgeiger"><img src="https://avatars.githubusercontent.com/u/13285808?v=4?s=100" width="100px;" alt="Lukas Geiger"/><br /><sub><b>Lukas Geiger</b></sub></a><br /><a href="https://github.com/riga/law/commits?author=lgeiger" title="Code">💻</a></td>
     </tr>
   </tbody>
 </table>
