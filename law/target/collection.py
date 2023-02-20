@@ -11,6 +11,7 @@ __all__ = [
 
 import types
 import random
+from abc import abstractmethod
 from contextlib import contextmanager
 
 import six
@@ -72,7 +73,7 @@ class TargetCollection(Target):
     def _repr_pairs(self):
         return Target._repr_pairs(self) + [("len", len(self)), ("threshold", self.threshold)]
 
-    def _iter_flat(self, keys=False):
+    def _iter_flat(self):
         # prepare the generator for looping
         if isinstance(self._flat_targets, (list, tuple)):
             gen = enumerate(self._flat_targets)
@@ -81,17 +82,32 @@ class TargetCollection(Target):
 
         # loop and yield
         for key, targets in gen:
-            yield (key, targets) if keys else targets
+            yield (key, targets)
 
-    def iter_existing(self, keys=False):
-        for key, targets in self._iter_flat(keys=True):
-            if all(t.exists() for t in targets):
+    def _iter_state(self, existing=True, optional_existing=None, keys=False):
+        existing = bool(existing)
+        if optional_existing is not None:
+            optional_existing = bool(optional_existing)
+
+        # helper to check for existence
+        def exists(t):
+            if optional_existing is not None and t.optional:
+                return optional_existing
+            if isinstance(t, TargetCollection):
+                return t.exists(optional_existing=optional_existing)
+            return t.exists()
+
+        # loop and yield
+        for key, targets in self._iter_flat():
+            state = all(exists(t) for t in targets)
+            if state is existing:
                 yield (key, targets) if keys else targets
 
-    def iter_missing(self, keys=False):
-        for key, targets in self._iter_flat(keys=True):
-            if any(not t.optional and not t.exists() for t in targets):
-                yield (key, targets) if keys else targets
+    def iter_existing(self, **kwargs):
+        return self._iter_state(existing=True, **kwargs)
+
+    def iter_missing(self, **kwargs):
+        return self._iter_state(existing=False, **kwargs)
 
     def keys(self):
         if isinstance(self._flat_targets, (list, tuple)):
@@ -123,38 +139,28 @@ class TargetCollection(Target):
             return len(self) * self.threshold
         return min(len(self), max(self.threshold, 0.0))
 
+    def complete(self, **kwargs):
+        kwargs["optional_existing"] = True
+        return self.optional or self.exists(**kwargs)
+
     def _exists_fwd(self, **kwargs):
-        keys = ["skip_optional"]
-        return self.exists(**{key: kwargs[key] for key in keys if key in kwargs})
+        fwd = ["optional_existing"]
+        return self.exists(**{key: kwargs[key] for key in fwd if key in kwargs})
 
-    def exists(self, count=None, skip_optional=False):
+    def exists(self, **kwargs):
+        # get the threshold
         threshold = self._abs_threshold()
-
-        # trivial case
         if threshold == 0:
             return True
 
-        # when a count was passed, simple compare with the threshold
-        if count is not None:
-            return count >= threshold
-
-        # helper to check for existence
-        def exists(t):
-            if skip_optional and t.optional:
-                return True
-            if isinstance(t, TargetCollection):
-                return t.exists(skip_optional=skip_optional)
-            return t.exists()
-
-        # simple counting with early stopping criteria for both success and fail
+        # simple counting with early stopping criteria for both success and fail cases
         n = 0
-        for i, targets in enumerate(self._iter_flat()):
-            if all(exists(t) for t in targets):
-                n += 1
+        for i, targets in enumerate(self.iter_existing(**kwargs)):
+            n += 1
 
-                # check for early success
-                if n >= threshold:
-                    return True
+            # check for early success
+            if n >= threshold:
+                return True
 
             # check for early fail
             if n + (len(self) - i - 1) < threshold:
@@ -162,29 +168,14 @@ class TargetCollection(Target):
 
         return False
 
-    def count(self, existing=True, keys=False, skip_optional=True):
-        # helper to check for existence
-        def exists(t):
-            if skip_optional and t.optional:
-                return True
-            if isinstance(t, TargetCollection):
-                return t.exists(skip_optional=skip_optional)
-            return t.exists()
+    def count(self, **kwargs):
+        # simple counting of keys
+        keys = kwargs.get("keys", False)
+        kwargs["keys"] = True
+        target_keys = [key for key, _ in self._iter_state(**kwargs)]
 
-        # simple counting
-        existing_keys = []
-        for key, targets in self._iter_flat(keys=True):
-            if all(exists(t) for t in targets):
-                existing_keys.append(key)
-
-        if existing:
-            n = len(existing_keys)
-            return n if not keys else (n, existing_keys)
-
-        # missing
-        n = len(self) - len(existing_keys)
-        missing_keys = [key for key in self.keys() if key not in existing_keys]
-        return n if not keys else (n, missing_keys)
+        n = len(target_keys)
+        return n if not keys else (n, target_keys)
 
     def random_target(self):
         if isinstance(self.targets, (list, tuple)):
@@ -272,6 +263,15 @@ class SiblingFileCollectionBase(FileCollection):
     Base class for file collections whose elements are located in the same directory (siblings).
     """
 
+    def remove(self, silent=True):
+        for targets in self.iter_existing():
+            for t in targets:
+                t.remove(silent=silent)
+
+    @abstractmethod
+    def _exists_fwd(self, **kwargs):
+        return
+
 
 class SiblingFileCollection(SiblingFileCollectionBase):
     """
@@ -321,39 +321,14 @@ class SiblingFileCollection(SiblingFileCollectionBase):
         dir_path = self.dir.path if expand else self.dir.unexpanded_path
         return TargetCollection._repr_pairs(self) + [("fs", self.dir.fs.name), ("dir", dir_path)]
 
-    def iter_existing(self, keys=False):
-        basenames = self.dir.listdir() if self.dir.exists() else None
-        for key, targets in self._iter_flat(keys=True):
-            if basenames and all(t.basename in basenames for t in flatten_collections(targets)):
-                yield (key, targets) if keys else targets
+    def _iter_state(self, existing=True, optional_existing=None, basenames=None, keys=False):
+        existing = bool(existing)
+        if optional_existing is not None:
+            optional_existing = bool(optional_existing)
 
-    def iter_missing(self, keys=False):
-        basenames = self.dir.listdir() if self.dir.exists() else None
-        for key, targets in self._iter_flat(keys=True):
-            if (
-                basenames is None or
-                any(t.basename not in basenames for t in flatten_collections(targets))
-            ):
-                yield (key, targets) if keys else targets
-
-    def _exists_fwd(self, **kwargs):
-        keys = ["basenames", "skip_optional"]
-        return self.exists(**{key: kwargs[key] for key in keys if key in kwargs})
-
-    def exists(self, count=None, basenames=None, skip_optional=False):
-        threshold = self._abs_threshold()
-
-        # trivial case
-        if threshold == 0:
-            return True
-
-        # when a count was passed, simple compare with the threshold
-        if count is not None:
-            return count >= threshold
-
-        # check the dir
+        # the directory must exist
         if not self.dir.exists():
-            return False
+            return
 
         # get the basenames of all elements of the directory
         if basenames is None:
@@ -361,70 +336,26 @@ class SiblingFileCollection(SiblingFileCollectionBase):
 
         # helper to check for existence
         def exists(t):
-            if skip_optional and t.optional:
-                return True
+            if optional_existing is not None and t.optional:
+                return optional_existing
             if isinstance(t, SiblingFileCollectionBase):
                 return t._exists_fwd(
                     basenames=basenames,
-                    skip_optional=skip_optional,
+                    optional_existing=optional_existing,
                 )
             if isinstance(t, TargetCollection):
                 return all(exists(_t) for _t in flatten_collections(t))
             return t.basename in basenames
 
-        # simple counting with early stopping criteria for both success and fail
-        n = 0
-        for i, targets in enumerate(self._iter_flat()):
-            if all(exists(t) for t in targets):
-                n += 1
+        # loop and yield
+        for key, targets in self._iter_flat():
+            state = all(exists(t) for t in targets)
+            if state is existing:
+                yield (key, targets) if keys else targets
 
-                # check for early success
-                if n >= threshold:
-                    return True
-
-            # early check for fail
-            if n + (len(self) - i - 1) < threshold:
-                return False
-
-        return False
-
-    def count(self, existing=True, keys=False, basenames=None, skip_optional=True):
-        # get the basenames of all elements of the directory
-        if basenames is None:
-            basenames = self.dir.listdir() if self.dir.exists() else []
-
-        # helper to check for existence
-        def exists(t):
-            if skip_optional and t.optional:
-                return True
-            if isinstance(t, SiblingFileCollectionBase):
-                return t._exists_fwd(
-                    basenames=basenames,
-                    skip_optional=skip_optional,
-                )
-            if isinstance(t, TargetCollection):
-                return all(exists(_t) for _t in flatten_collections(t))
-            return t.basename in basenames
-
-        # simple counting
-        existing_keys = []
-        for key, targets in self._iter_flat(keys=True):
-            if all(exists(t) for t in targets):
-                existing_keys.append(key)
-
-        if existing:
-            n = len(existing_keys)
-            return n if not keys else (n, existing_keys)
-
-        # missing
-        n = len(self) - len(existing_keys)
-        missing_keys = [key for key in self.keys() if key not in existing_keys]
-        return n if not keys else (n, missing_keys)
-
-    def remove(self, silent=True):
-        for targets in self.iter_existing():
-            for t in targets:
-                t.remove(silent=silent)
+    def _exists_fwd(self, **kwargs):
+        fwd = ["basenames", "optional_existing"]
+        return self.exists(**{key: kwargs[key] for key in fwd if key in kwargs})
 
 
 class NestedSiblingFileCollection(SiblingFileCollectionBase):
@@ -467,37 +398,10 @@ class NestedSiblingFileCollection(SiblingFileCollectionBase):
             for collection in self.collections
         }
 
-    def iter_existing(self, keys=False):
-        basenames = self._get_basenames()
-        for key, targets in self._iter_flat(keys=True):
-            for t in flatten_collections(targets):
-                if t.basename not in basenames[self._flat_target_collections[t]]:
-                    break
-            else:
-                yield (key, targets) if keys else targets
-
-    def iter_missing(self, keys=False):
-        basenames = self._get_basenames()
-        for key, targets in self._iter_flat(keys=True):
-            for t in flatten_collections(targets):
-                if t.basename not in basenames[self._flat_target_collections[t]]:
-                    yield (key, targets) if keys else targets
-                    break
-
-    def _exists_fwd(self, **kwargs):
-        keys = [("basenames", "basenames_dict"), ("skip_optional", "skip_optional")]
-        return self.exists(**{dst: kwargs[src] for dst, src in keys if src in kwargs})
-
-    def exists(self, count=None, basenames=None, skip_optional=False):
-        threshold = self._abs_threshold()
-
-        # trivial case
-        if threshold == 0:
-            return True
-
-        # when a count was passed, simple compare with the threshold
-        if count is not None:
-            return count >= threshold
+    def _iter_state(self, existing=True, optional_existing=None, basenames=None, keys=False):
+        existing = bool(existing)
+        if optional_existing is not None:
+            optional_existing = bool(optional_existing)
 
         # get the dict of all basenames
         if basenames is None:
@@ -505,70 +409,26 @@ class NestedSiblingFileCollection(SiblingFileCollectionBase):
 
         # helper to check for existence
         def exists(t, _basenames):
-            if skip_optional and t.optional:
-                return True
+            if optional_existing is not None and t.optional:
+                return optional_existing
             if isinstance(t, SiblingFileCollectionBase):
                 return t._exists_fwd(
                     basenames=_basenames,
-                    skip_optional=skip_optional,
+                    optional_existing=optional_existing,
                 )
             if isinstance(t, TargetCollection):
                 return all(exists(_t for _t in flatten_collections(t)))
             return t.basename in _basenames
 
-        # simple counting with early stopping criteria for both success and fail
-        n = 0
-        for i, targets in enumerate(self._iter_flat()):
-            if all(exists(t, basenames[self._flat_target_collections[t]]) for t in targets):
-                n += 1
+        # loop and yield
+        for key, targets in self._iter_flat():
+            state = all(exists(t, basenames[self._flat_target_collections[t]]) for t in targets)
+            if state is existing:
+                yield (key, targets) if keys else targets
 
-                # check for early success
-                if n >= threshold:
-                    return True
-
-            # check for early fail
-            if n + (len(self) - i - 1) < threshold:
-                return False
-
-        return False
-
-    def count(self, existing=True, keys=False, basenames=None, skip_optional=True):
-        # get the basenames of all elements of the directory
-        if basenames is None:
-            basenames = self._get_basenames()
-
-        # helper to check for existence
-        def exists(t, _basenames):
-            if skip_optional and t.optional:
-                return True
-            if isinstance(t, SiblingFileCollectionBase):
-                return t._exists_fwd(
-                    basenames=_basenames,
-                    skip_optional=skip_optional,
-                )
-            if isinstance(t, TargetCollection):
-                return all(exists(_t for _t in flatten_collections(t)))
-            return t.basename in _basenames
-
-        # simple counting
-        existing_keys = []
-        for key, targets in self._iter_flat(keys=True):
-            if all(exists(t, basenames[self._flat_target_collections[t]]) for t in targets):
-                existing_keys.append(key)
-
-        if existing:
-            n = len(existing_keys)
-            return n if not keys else (n, existing_keys)
-
-        # missing
-        n = len(self) - len(existing_keys)
-        missing_keys = [key for key in self.keys() if key not in existing_keys]
-        return n if not keys else (n, missing_keys)
-
-    def remove(self, silent=True):
-        for targets in self.iter_existing():
-            for t in targets:
-                t.remove(silent=silent)
+    def _exists_fwd(self, **kwargs):
+        fwd = [("basenames", "basenames_dict"), ("optional_existing", "optional_existing")]
+        return self.exists(**{dst: kwargs[src] for dst, src in fwd if src in kwargs})
 
 
 def flatten_collections(*targets):

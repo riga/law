@@ -95,6 +95,17 @@ class Target(shims.Target):
 
         return colored(text, _color, style="bright") if color else text
 
+    def complete(self, **kwargs):
+        """
+        Returns almost the same state information as :py:meth:`exists` (called internally), but
+        potentially also includes settings such as :py:attr:`optional`. All *kwargs* are forwarded
+        to :py:meth:`exists`.
+
+        This method is mostly useful in conjunction with task implementations whereas the vanilla
+        :py:meth:`exists` method should be used when relying on the actual existence status.
+        """
+        return self.optional or self.exists(**kwargs)
+
     @abstractmethod
     def exists(self):
         return
