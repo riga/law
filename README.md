@@ -1,6 +1,6 @@
 <center>
   <a href="https://github.com/riga/law">
-    <img src="https://raw.githubusercontent.com/riga/law/master/logo.png" />
+    <img src="https://raw.githubusercontent.com/riga/law/master/assets/logo.png" />
   </a>
 </center>
 
