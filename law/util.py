@@ -7,13 +7,13 @@ Helpful utility functions.
 __all__ = [
     "default_lock", "io_lock", "console_lock", "no_value", "rel_path", "law_src_path",
     "law_home_path", "law_run", "print_err", "abort", "import_file", "get_terminal_width",
-    "is_number", "try_int", "round_discrete", "str_to_int", "flag_to_bool", "empty_context",
-    "common_task_params", "colored", "uncolored", "query_choice", "is_pattern", "brace_expand",
-    "range_expand", "range_join", "multi_match", "is_iterable", "is_lazy_iterable", "make_list",
-    "make_tuple", "make_unique", "is_nested", "flatten", "merge_dicts", "unzip", "which",
-    "map_verbose", "map_struct", "mask_struct", "tmp_file", "perf_counter", "interruptable_popen",
-    "readable_popen", "create_hash", "create_random_string", "copy_no_perm", "makedirs",
-    "user_owns_file", "iter_chunks", "human_bytes", "parse_bytes", "human_duration",
+    "is_number", "is_float", "try_int", "round_discrete", "str_to_int", "flag_to_bool",
+    "empty_context", "common_task_params", "colored", "uncolored", "query_choice", "is_pattern",
+    "brace_expand", "range_expand", "range_join", "multi_match", "is_iterable", "is_lazy_iterable",
+    "make_list", "make_tuple", "make_unique", "is_nested", "flatten", "merge_dicts", "unzip",
+    "which", "map_verbose", "map_struct", "mask_struct", "tmp_file", "perf_counter",
+    "interruptable_popen", "readable_popen", "create_hash", "create_random_string", "copy_no_perm",
+    "makedirs", "user_owns_file", "iter_chunks", "human_bytes", "parse_bytes", "human_duration",
     "parse_duration", "is_file_exists_error", "send_mail", "DotDict", "ShorthandDict",
     "open_compat", "patch_object", "join_generators", "quote_cmd", "escape_markdown",
     "classproperty", "BaseStream", "TeeStream", "FilteredStream",
@@ -238,6 +238,18 @@ def is_number(n):
     Returns *True* if *n* is a number, i.e., integer or float, and in particular no boolean.
     """
     return isinstance(n, six.integer_types + (float,)) and not isinstance(n, bool)
+
+
+def is_float(v):
+    """
+    Takes any value *v* and tries to convert it to a float. Returns *True* success, and *False*
+    otherwise.
+    """
+    try:
+        float(v)
+        return True
+    except:
+        return False
 
 
 def try_int(n):
@@ -1768,8 +1780,8 @@ def parse_duration(s, input_unit="s", unit="s"):
     duration_seconds = 0.0
 
     # number or string?
-    if isinstance(s, six.integer_types + (float,)):
-        duration_seconds += s * time_units[input_unit]
+    if isinstance(s, six.integer_types + (float,)) or is_float(s):
+        duration_seconds += float(s) * time_units[input_unit]
     else:
         s = s.strip()
 
