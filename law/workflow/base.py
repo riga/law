@@ -377,6 +377,7 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
     reset_branch_map_before_run = False
     create_branch_map_before_repr = False
     workflow_run_decorators = None
+    cache_workflow_requirements = False
 
     # accessible properties
     workflow_property = None
@@ -437,6 +438,9 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         self._workflow_cls = None
         self._workflow_proxy = None
 
+        # attribute for cached requirements if enabled
+        self._cached_workflow_requirements = no_value
+
     def _initialize_workflow(self, force=False):
         if self._workflow_initialized and not force:
             return
@@ -493,6 +497,34 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
 
         return params
 
+    def req_branch(self, branch, **kwargs):
+        if branch == -1:
+            raise ValueError(
+                "branch must not be -1 when creating a new branch task via req_branch(), "
+                "but got {}".format(branch),
+            )
+
+        # default kwargs
+        kwargs.setdefault("_skip_task_excludes", True)
+        if self.is_workflow():
+            kwargs.setdefault("_exclude", self.exclude_params_workflow)
+
+        # create the task
+        task = self.req(self, branch=branch, **kwargs)
+
+        # set the _workflow_task attribute if known
+        task._workflow_task = self if self.is_workflow() else self._workflow_task
+
+        return task
+
+    def req_workflow(self, **kwargs):
+        # default kwargs
+        kwargs.setdefault("_skip_task_excludes", True)
+        if self.is_branch():
+            kwargs.setdefault("_exclude", self._exclude_params_workflow)
+
+        return self.req(self, branch=-1, **kwargs)
+
     def is_branch(self):
         """
         Returns whether or not this task refers to a *branch*.
@@ -516,17 +548,10 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         if branch == -1:
             raise ValueError("branch must not be -1 when selecting a branch task")
 
-        if self.is_branch():
-            if branch is None or branch == self.branch:
-                return self
-            return self.req(self, branch=branch, _skip_task_excludes=True)
+        if self.is_branch() and branch in (None, self.branch):
+            return self
 
-        return self.req(
-            self,
-            branch=branch or 0,
-            _exclude=self.exclude_params_branch,
-            _skip_task_excludes=True,
-        )
+        return self.req_branch(branch or 0)
 
     def as_workflow(self):
         """
@@ -537,20 +562,9 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
             return self
 
         if self._workflow_task is None:
-            self._workflow_task = self._create_workflow_task()
+            self._workflow_task = self.req_workflow()
 
         return self._workflow_task
-
-    def _create_workflow_task(self):
-        """
-        Implements how the workflow task is created as used internally by :py:meth:`as_workflow`.
-        """
-        return self.req(
-            self,
-            branch=-1,
-            _exclude=self.exclude_params_workflow,
-            _skip_task_excludes=True,
-        )
 
     @abstractmethod
     def create_branch_map(self):
@@ -794,7 +808,15 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         if self.is_branch():
             raise Exception("calls to workflow_input are forbidden for branch tasks")
 
-        return luigi.task.getpaths(self.workflow_proxy.requires())
+        # get potentially cached workflow requirements
+        if self.cache_workflow_requirements:
+            if self._cached_workflow_requirements is no_value:
+                self._cached_workflow_requirements = self.workflow_proxy.requires()
+            reqs = self._cached_workflow_requirements
+        else:
+            reqs = self.workflow_proxy.requires()
+
+        return luigi.task.getpaths(reqs)
 
     def requires_from_branch(self):
         """
