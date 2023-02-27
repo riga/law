@@ -507,7 +507,7 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         # default kwargs
         kwargs.setdefault("_skip_task_excludes", True)
         if self.is_workflow():
-            kwargs.setdefault("_exclude", self.exclude_params_workflow)
+            kwargs.setdefault("_exclude", self.exclude_params_branch)
 
         # create the task
         task = self.req(self, branch=branch, **kwargs)
@@ -521,7 +521,7 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         # default kwargs
         kwargs.setdefault("_skip_task_excludes", True)
         if self.is_branch():
-            kwargs.setdefault("_exclude", self._exclude_params_workflow)
+            kwargs.setdefault("_exclude", self.exclude_params_workflow)
 
         return self.req(self, branch=-1, **kwargs)
 
