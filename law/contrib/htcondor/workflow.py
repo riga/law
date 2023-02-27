@@ -224,6 +224,9 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
     def htcondor_job_config(self, config, job_num, branches):
         return config
 
+    def htcondor_check_job_completeness(self):
+        return False
+
     def htcondor_use_local_scheduler(self):
         return False
 

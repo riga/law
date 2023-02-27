@@ -216,6 +216,9 @@ class SlurmWorkflow(BaseRemoteWorkflow):
     def slurm_job_config(self, config, job_num, branches):
         return config
 
+    def slurm_check_job_completeness(self):
+        return False
+
     def slurm_use_local_scheduler(self):
         return False
 

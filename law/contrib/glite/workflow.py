@@ -234,6 +234,9 @@ class GLiteWorkflow(BaseRemoteWorkflow):
     def glite_job_config(self, config, job_num, branches):
         return config
 
+    def glite_check_job_completeness(self):
+        return False
+
     def glite_use_local_scheduler(self):
         return True
 

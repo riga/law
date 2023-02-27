@@ -219,6 +219,9 @@ class LSFWorkflow(BaseRemoteWorkflow):
     def lsf_job_config(self, config, job_num, branches):
         return config
 
+    def lsf_check_job_completeness(self):
+        return False
+
     def lsf_use_local_scheduler(self):
         return True
 

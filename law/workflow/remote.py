@@ -960,21 +960,37 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             newly_failed_jobs = OrderedDict()
             retry_jobs = OrderedDict()
             for job_num, data in six.iteritems(states_by_num):
+                sub_data = self.submission_data.jobs[job_num]
+
                 if data["status"] == self.job_manager.PENDING:
                     pending_jobs[job_num] = data
                     task.forward_dashboard_event(self.dashboard, data, "status.pending", job_num)
+                    continue
 
-                elif data["status"] == self.job_manager.RUNNING:
+                if data["status"] == self.job_manager.RUNNING:
                     running_jobs[job_num] = data
                     task.forward_dashboard_event(self.dashboard, data, "status.running", job_num)
+                    continue
 
-                elif data["status"] == self.job_manager.FINISHED:
-                    finished_jobs[job_num] = data
-                    self.poll_data.n_active -= 1
-                    self.submission_data.jobs[job_num]["job_id"] = self.submission_data.dummy_job_id
-                    task.forward_dashboard_event(self.dashboard, data, "status.finished", job_num)
+                if data["status"] == self.job_manager.FINISHED:
+                    # additionally check if the outputs really exist
+                    check_completeness = self._get_task_attribute("check_job_completeness")()
+                    if not check_completeness or all(
+                        self.task.as_branch(b).complete()
+                        for b in sub_data["branches"]
+                    ):
+                        finished_jobs[job_num] = data
+                        self.poll_data.n_active -= 1
+                        sub_data["job_id"] = self.submission_data.dummy_job_id
+                        task.forward_dashboard_event(self.dashboard, data, "status.finished",
+                            job_num)
+                        continue
 
-                elif data["status"] in (self.job_manager.FAILED, self.job_manager.RETRY):
+                    # the job is marked as finished but not all branches are complete
+                    data["status"] = self.job_manager.FAILED
+                    data["error"] = "branch task(s) incomplete due to missing outputs"
+
+                if data["status"] in (self.job_manager.FAILED, self.job_manager.RETRY):
                     newly_failed_jobs[job_num] = data
                     self.poll_data.n_active -= 1
 
@@ -989,9 +1005,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                     else:
                         failed_jobs[job_num] = data
                         task.forward_dashboard_event(self.dashboard, data, "status.failed", job_num)
+                    continue
 
-                else:
-                    raise Exception("unknown job status '{}'".format(data["status"]))
+                raise Exception("unknown job status '{}'".format(data["status"]))
 
             # gather some counts
             n_pending = len(pending_jobs)

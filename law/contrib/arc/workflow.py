@@ -214,6 +214,9 @@ class ARCWorkflow(BaseRemoteWorkflow):
     def arc_job_config(self, config, job_num, branches):
         return config
 
+    def arc_check_job_completeness(self):
+        return False
+
     def arc_use_local_scheduler(self):
         return True
 
