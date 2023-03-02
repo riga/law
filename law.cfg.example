@@ -855,7 +855,8 @@
 
 ; htcondor_merge_job_files
 ; Description: A boolean flag that decides whether multiple job description files should be merged
-; into a single file before submission.
+; into a single file before submission. When "False", the "htcondor_chunk_size_submit" option is
+; not considered either.
 ; Type: boolean
 ; Default: True
 

@@ -29,13 +29,17 @@ _cfg = Config.instance()
 
 class HTCondorJobManager(BaseJobManager):
 
-    # chunking settings
-    chunk_size_submit = _cfg.get_expanded_int("job", "htcondor_chunk_size_submit")
-    chunk_size_cancel = _cfg.get_expanded_int("job", "htcondor_chunk_size_cancel")
-    chunk_size_query = _cfg.get_expanded_int("job", "htcondor_chunk_size_query")
-
     # whether to merge jobs files for batched submission
     merge_job_files = _cfg.get_expanded_bool("job", "htcondor_merge_job_files")
+
+    # chunking settings
+    chunk_size_submit = (
+        _cfg.get_expanded_int("job", "htcondor_chunk_size_submit")
+        if merge_job_files
+        else 0
+    )
+    chunk_size_cancel = _cfg.get_expanded_int("job", "htcondor_chunk_size_cancel")
+    chunk_size_query = _cfg.get_expanded_int("job", "htcondor_chunk_size_query")
 
     submission_job_id_cre = re.compile(r"^(\d+) job\(s\) submitted to cluster (\d+)\.$")
     long_block_cre = re.compile(r"(\w+) \= \"?([^\"\n]*)\"?\n")
@@ -124,7 +128,7 @@ class HTCondorJobManager(BaseJobManager):
             if code == 0:
                 # loop through all lines and try to match the expected pattern
                 job_ids = []
-                for line in out.strip().split("\n")[::-1]:
+                for line in out.strip().split("\n"):
                     m = self.submission_job_id_cre.match(line.strip())
                     if m:
                         job_ids.extend([

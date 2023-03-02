@@ -76,7 +76,7 @@ class SlurmJobManager(BaseJobManager):
             # get the job id(s)
             if code == 0:
                 # loop through all lines and try to match the expected pattern
-                for line in out.strip().split("\n")[::-1]:
+                for line in out.strip().split("\n"):
                     m = self.submission_cre.match(line.strip())
                     if m:
                         job_ids = [int(m.group(1))]
