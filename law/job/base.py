@@ -227,23 +227,24 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
         def cb_factory(i):
             if not callable(callback):
                 return None
-            elif chunking:
+
+            if chunking:
                 def wrapper(job_ids):
                     offset = sum(len(chunk) for chunk in chunks[:i])
                     for j in range(len(chunks[i])):
                         job_id = job_ids if isinstance(job_ids, Exception) else job_ids[j]
                         callback(offset + j, job_id)
-                return wrapper
             else:
                 def wrapper(job_id):
                     callback(i, job_id)
-                return wrapper
+
+            return wrapper
 
         # threaded processing
         pool = ThreadPool(threads)
         results = [
-            pool.apply_async(self.submit, (v,), kwargs, callback=cb_factory(i))
-            for i, v in enumerate(chunks)
+            pool.apply_async(self.submit, (_job_files,), kwargs, callback=cb_factory(i))
+            for i, _job_files in enumerate(chunks)
         ]
         pool.close()
         pool.join()
@@ -292,16 +293,17 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
         def cb_factory(i):
             if not callable(callback):
                 return None
-            elif chunking:
+
+            if chunking:
                 def wrapper(err):
                     offset = sum(len(chunk) for chunk in chunks[:i])
                     for j in range(len(chunks[i])):
                         callback(offset + j, err)
-                return wrapper
             else:
                 def wrapper(err):
                     callback(i, err)
-                return wrapper
+
+            return wrapper
 
         # threaded processing
         pool = ThreadPool(threads)
@@ -346,16 +348,17 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
         def cb_factory(i):
             if not callable(callback):
                 return None
-            elif chunking:
+
+            if chunking:
                 def wrapper(err):
                     offset = sum(len(chunk) for chunk in chunks[:i])
                     for j in range(len(chunks[i])):
                         callback(offset + j, err)
-                return wrapper
             else:
                 def wrapper(err):
                     callback(i, err)
-                return wrapper
+
+            return wrapper
 
         # threaded processing
         pool = ThreadPool(threads)
@@ -400,17 +403,18 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
         def cb_factory(i):
             if not callable(callback):
                 return None
-            elif chunking:
+
+            if chunking:
                 def wrapper(query_data):
                     offset = sum(len(chunk) for chunk in chunks[:i])
                     for j in range(len(chunks[i])):
                         data = query_data if isinstance(query_data, Exception) else query_data[j]
                         callback(offset + j, data)
-                return wrapper
             else:
                 def wrapper(data):
                     callback(i, data)
-                return wrapper
+
+            return wrapper
 
         # threaded processing
         pool = ThreadPool(threads)

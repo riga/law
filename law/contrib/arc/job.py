@@ -103,18 +103,20 @@ class ARCJobManager(BaseJobManager):
             # retry or done?
             if code == 0:
                 return job_ids if chunking else job_ids[0]
-            else:
-                logger.debug("submission of arc job(s) '{}' failed with code {}:\n{}".format(
-                    job_files, code, out))
-                if retries > 0:
-                    retries -= 1
-                    time.sleep(retry_delay)
-                    continue
-                elif silent:
-                    return None
-                else:
-                    raise Exception("submission of arc job(s) '{}' failed:\n{}".format(job_files,
-                        out))
+
+            logger.debug("submission of arc job(s) '{}' failed with code {}:\n{}".format(
+                job_files, code, out))
+
+            if retries > 0:
+                retries -= 1
+                time.sleep(retry_delay)
+                continue
+
+            if silent:
+                return None
+
+            raise Exception("submission of arc job(s) '{}' failed:\n{}".format(job_files,
+                out))
 
     def cancel(self, job_id, job_list=None, silent=False):
         # default arguments

@@ -92,18 +92,20 @@ class GLiteJobManager(BaseJobManager):
             # retry or done?
             if code == 0:
                 return job_id
-            else:
-                logger.debug("submission of glite job '{}' failed with code {}:\n{}".format(
-                    job_file, code, out))
-                if retries > 0:
-                    retries -= 1
-                    time.sleep(retry_delay)
-                    continue
-                elif silent:
-                    return None
-                else:
-                    raise Exception("submission of glite job '{}' failed:\n{}".format(
-                        job_file, out))
+
+            logger.debug("submission of glite job '{}' failed with code {}:\n{}".format(
+                job_file, code, out))
+
+            if retries > 0:
+                retries -= 1
+                time.sleep(retry_delay)
+                continue
+
+            if silent:
+                return None
+
+            raise Exception("submission of glite job '{}' failed:\n{}".format(
+                job_file, out))
 
     def cancel(self, job_id, silent=False):
         # build the command

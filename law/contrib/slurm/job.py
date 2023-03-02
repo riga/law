@@ -88,18 +88,20 @@ class SlurmJobManager(BaseJobManager):
             # retry or done?
             if code == 0:
                 return job_ids
-            else:
-                logger.debug("submission of slurm job '{}' failed with code {}:\n{}".format(
-                    job_file, code, err))
-                if retries > 0:
-                    retries -= 1
-                    time.sleep(retry_delay)
-                    continue
-                elif silent:
-                    return None
-                else:
-                    raise Exception("submission of slurm job '{}' failed:\n{}".format(
-                        job_file, err))
+
+            logger.debug("submission of slurm job '{}' failed with code {}:\n{}".format(
+                job_file, code, err))
+
+            if retries > 0:
+                retries -= 1
+                time.sleep(retry_delay)
+                continue
+
+            if silent:
+                return None
+
+            raise Exception("submission of slurm job '{}' failed:\n{}".format(
+                job_file, err))
 
     def cancel(self, job_id, partition=None, silent=False):
         # default arguments
