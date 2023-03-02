@@ -34,7 +34,7 @@ class BashSandbox(Sandbox):
         # login flag
         cfg = Config.instance()
         cfg_section = self.get_config_section()
-        if cfg.get_expanded_boolean(cfg_section, "login"):
+        if cfg.get_expanded_bool(cfg_section, "login"):
             cmd.extend(["-l"])
 
         return cmd

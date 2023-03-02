@@ -7,8 +7,9 @@ law config parser implementation.
 __all__ = [  # noqa
     "Config", "sections", "options", "keys", "items", "update", "include", "get", "getint",
     "getfloat", "getboolean", "get_default", "get_expanded", "get_expanded_int",
-    "get_expanded_float", "get_expanded_boolean", "is_missing_or_none", "find_option",
-    "add_section", "has_section", "remove_section", "set", "has_option", "remove_option",
+    "get_expanded_float", "get_expanded_bool", "get_expanded_boolean", "is_missing_or_none",
+    "find_option", "add_section", "has_section", "remove_section", "set", "has_option",
+    "remove_option",
 ]
 
 
@@ -366,11 +367,11 @@ class Config(ConfigParser):
             include_configs(self.get_expanded("core", opt))
 
         # sync with environment variables
-        if not skip_env_sync and self.get_expanded_boolean("core", "sync_env"):
+        if not skip_env_sync and self.get_expanded_bool("core", "sync_env"):
             self.sync_env()
 
         # sync with luigi configuration
-        if not skip_luigi_sync and self.get_expanded_boolean("core", "sync_luigi_config"):
+        if not skip_luigi_sync and self.get_expanded_bool("core", "sync_luigi_config"):
             self.sync_luigi_config()
 
     def _convert_to_boolean(self, value):
@@ -578,12 +579,18 @@ class Config(ConfigParser):
         kwargs["type"] = float
         return self.get_expanded(*args, **kwargs)
 
-    def get_expanded_boolean(self, *args, **kwargs):
+    def get_expanded_bool(self, *args, **kwargs):
         """
         Same as :py:meth:`get_expanded` with *type* set to ``bool``.
         """
         kwargs["type"] = bool
         return self.get_expanded(*args, **kwargs)
+
+    def get_expanded_boolean(self, *args, **kwargs):
+        """
+        Alias for :py:meth:`get_expanded_bool` for backwards compatibility.
+        """
+        return self.get_expanded_bool(*args, **kwargs)
 
     def is_missing_or_none(self, section, option):
         """

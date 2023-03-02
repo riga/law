@@ -56,17 +56,17 @@ class GFALFileInterface(RemoteFileInterface):
                 _config[option] = func(section, postfix + option)
 
         # use atomic contexts per operation
-        add("atomic_contexts", cfg.get_expanded_boolean)
+        add("atomic_contexts", cfg.get_expanded_bool)
 
         # transfer config
         config.setdefault("transfer_config", {})
         transfer_specs = [
             ("timeout", cfg.get_expanded_int),
-            ("checksum_check", cfg.get_expanded_boolean),
+            ("checksum_check", cfg.get_expanded_bool),
             ("nbstreams", cfg.get_expanded_int),
-            ("overwrite", cfg.get_expanded_boolean),
-            ("create_parent", cfg.get_expanded_boolean),
-            ("strict_copy", cfg.get_expanded_boolean),
+            ("overwrite", cfg.get_expanded_bool),
+            ("create_parent", cfg.get_expanded_bool),
+            ("strict_copy", cfg.get_expanded_bool),
         ]
         for name, func in transfer_specs:
             add(name, func, "gfal_transfer_", config["transfer_config"])

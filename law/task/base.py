@@ -582,16 +582,16 @@ class Task(six.with_metaclass(Register, BaseTask)):
         return super(Task, self).cli_args(exclude=exclude, replace=replace)
 
     def __repr__(self):
-        color = Config.instance().get_expanded_boolean("task", "colored_repr")
+        color = Config.instance().get_expanded_bool("task", "colored_repr")
         return self.repr(color=color)
 
     def __str__(self):
-        color = Config.instance().get_expanded_boolean("task", "colored_str")
+        color = Config.instance().get_expanded_bool("task", "colored_str")
         return self.repr(color=color)
 
     def repr(self, all_params=False, color=None, **kwargs):
         if color is None:
-            color = Config.instance().get_expanded_boolean("task", "colored_repr")
+            color = Config.instance().get_expanded_bool("task", "colored_repr")
 
         family = self._repr_family(self.get_task_family(), color=color, **kwargs)
 

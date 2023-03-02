@@ -77,14 +77,14 @@ class RemoteCache(object):
             return parse_duration(value, input_unit="s", unit="s")
 
         add("root", cfg.get_expanded)
-        add("cleanup", cfg.get_expanded_boolean)
+        add("cleanup", cfg.get_expanded_bool)
         add("max_size", get_size)
         add("mtime_patience", cfg.get_expanded_float)
         add("file_perm", cfg.get_expanded_int)
         add("dir_perm", cfg.get_expanded_int)
         add("wait_delay", get_time)
         add("max_waits", cfg.get_expanded_int)
-        add("global_lock", cfg.get_expanded_boolean)
+        add("global_lock", cfg.get_expanded_bool)
 
         # inside sandboxes, never cleanup since the outer process will do that if needed
         if _sandbox_switched:

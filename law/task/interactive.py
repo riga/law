@@ -136,7 +136,7 @@ def print_task_deps(task, max_depth=1):
     fmt = fmt_chars.get(fmt_name, fmt_chars["default"])
 
     # get the line break setting
-    break_lines = cfg.get_expanded_boolean("task", "interactive_line_breaks")
+    break_lines = cfg.get_expanded_bool("task", "interactive_line_breaks")
     out_width = cfg.get_expanded_int("task", "interactive_line_width")
     print_width = (out_width if out_width > 0 else get_terminal_width()) if break_lines else None
     _print = lambda line, offset: _print_wrapped(line, print_width, offset)
@@ -196,7 +196,7 @@ def print_task_status(task, max_depth=0, target_depth=0, flags=None):
     fmt = fmt_chars.get(fmt_name, fmt_chars["default"])
 
     # get the line break setting
-    break_lines = cfg.get_expanded_boolean("task", "interactive_line_breaks")
+    break_lines = cfg.get_expanded_bool("task", "interactive_line_breaks")
     out_width = cfg.get_expanded_int("task", "interactive_line_width")
     print_width = (out_width if out_width > 0 else get_terminal_width()) if break_lines else None
     _print = lambda line, offset: _print_wrapped(line, print_width, offset)
@@ -303,7 +303,7 @@ def remove_task_output(task, max_depth=0, mode=None, run_task=False):
     fmt = fmt_chars.get(fmt_name, fmt_chars["default"])
 
     # get the line break setting
-    break_lines = cfg.get_expanded_boolean("task", "interactive_line_breaks")
+    break_lines = cfg.get_expanded_bool("task", "interactive_line_breaks")
     out_width = cfg.get_expanded_int("task", "interactive_line_width")
     print_width = [(out_width if out_width > 0 else get_terminal_width()) if break_lines else None]
     _print = lambda line, offset: _print_wrapped(line, print_width[0], offset)
@@ -456,7 +456,7 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
     fmt = fmt_chars.get(fmt_name, fmt_chars["default"])
 
     # get the line break setting
-    break_lines = cfg.get_expanded_boolean("task", "interactive_line_breaks")
+    break_lines = cfg.get_expanded_bool("task", "interactive_line_breaks")
     out_width = cfg.get_expanded_int("task", "interactive_line_width")
     print_width = [(out_width if out_width > 0 else get_terminal_width()) if break_lines else None]
     _print = lambda line, offset: _print_wrapped(line, print_width[0], offset)

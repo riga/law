@@ -76,7 +76,7 @@ class RemoteFileInterface(six.with_metaclass(abc.ABCMeta, object)):
         add("retry_delay", get_time)
 
         # default setting for the random base selection
-        add("random_base", cfg.get_expanded_boolean)
+        add("random_base", cfg.get_expanded_bool)
 
         return config
 

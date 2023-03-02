@@ -584,9 +584,9 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
 
         # get default values from config if None
         if mkdtemp is None:
-            mkdtemp = cfg.get_expanded_boolean("job", "job_file_dir_mkdtemp")
+            mkdtemp = cfg.get_expanded_bool("job", "job_file_dir_mkdtemp")
         if cleanup is None:
-            cleanup = cfg.get_expanded_boolean("job", "job_file_dir_cleanup")
+            cleanup = cfg.get_expanded_bool("job", "job_file_dir_cleanup")
 
         # store the cleanup flag
         self.cleanup = cleanup

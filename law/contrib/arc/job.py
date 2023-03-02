@@ -298,10 +298,10 @@ class ARCJobFileFactory(BaseJobFileFactory):
             kwargs["dir"] = cfg.get_expanded("job", cfg.find_option("job",
                 "arc_job_file_dir", "job_file_dir"))
         if kwargs.get("mkdtemp") is None:
-            kwargs["mkdtemp"] = cfg.get_expanded_boolean("job", cfg.find_option("job",
+            kwargs["mkdtemp"] = cfg.get_expanded_bool("job", cfg.find_option("job",
                 "arc_job_file_dir_mkdtemp", "job_file_dir_mkdtemp"))
         if kwargs.get("cleanup") is None:
-            kwargs["cleanup"] = cfg.get_expanded_boolean("job", cfg.find_option("job",
+            kwargs["cleanup"] = cfg.get_expanded_bool("job", cfg.find_option("job",
                 "arc_job_file_dir_cleanup", "job_file_dir_cleanup"))
 
         super(ARCJobFileFactory, self).__init__(**kwargs)

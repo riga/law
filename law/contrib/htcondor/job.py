@@ -35,7 +35,7 @@ class HTCondorJobManager(BaseJobManager):
     chunk_size_query = _cfg.get_expanded_int("job", "htcondor_chunk_size_query")
 
     # whether to merge jobs files for batched submission
-    merge_job_files = _cfg.get_expanded_boolean("job", "htcondor_merge_job_files")
+    merge_job_files = _cfg.get_expanded_bool("job", "htcondor_merge_job_files")
 
     submission_job_id_cre = re.compile(r"^(\d+) job\(s\) submitted to cluster (\d+)\.$")
     long_block_cre = re.compile(r"(\w+) \= \"?([^\"\n]*)\"?\n")
@@ -346,10 +346,10 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
             kwargs["dir"] = cfg.get_expanded("job", cfg.find_option("job",
                 "htcondor_job_file_dir", "job_file_dir"))
         if kwargs.get("mkdtemp") is None:
-            kwargs["mkdtemp"] = cfg.get_expanded_boolean("job", cfg.find_option("job",
+            kwargs["mkdtemp"] = cfg.get_expanded_bool("job", cfg.find_option("job",
                 "htcondor_job_file_dir_mkdtemp", "job_file_dir_mkdtemp"))
         if kwargs.get("cleanup") is None:
-            kwargs["cleanup"] = cfg.get_expanded_boolean("job", cfg.find_option("job",
+            kwargs["cleanup"] = cfg.get_expanded_bool("job", cfg.find_option("job",
                 "htcondor_job_file_dir_cleanup", "job_file_dir_cleanup"))
 
         super(HTCondorJobFileFactory, self).__init__(**kwargs)
