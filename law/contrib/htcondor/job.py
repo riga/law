@@ -34,6 +34,9 @@ class HTCondorJobManager(BaseJobManager):
     chunk_size_cancel = _cfg.get_expanded_int("job", "htcondor_chunk_size_cancel")
     chunk_size_query = _cfg.get_expanded_int("job", "htcondor_chunk_size_query")
 
+    # whether to merge jobs files for batched submission
+    merge_job_files = _cfg.get_expanded_boolean("job", "htcondor_merge_job_files")
+
     submission_job_id_cre = re.compile(r"^(\d+) job\(s\) submitted to cluster (\d+)\.$")
     long_block_cre = re.compile(r"(\w+) \= \"?([^\"\n]*)\"?\n")
 
@@ -92,14 +95,14 @@ class HTCondorJobManager(BaseJobManager):
                         ),
                     )
 
-        # define the single, merged job file if necessary
-        _job_file = job_files[0]
-        if len(job_files) > 1:
+        # define a single, merged job file if necessary
+        if self.merge_job_files and len(job_files) > 1:
             _job_file = tempfile.mkstemp(prefix="merged_job_", suffix=".jdl", dir=job_file_dir)[1]
             with open(_job_file, "w") as f:
                 for job_file in job_files:
                     with open(job_file, "r") as _f:
                         f.write(_f.read() + "\n")
+            job_files = [_job_file]
 
         # build the command
         cmd = ["condor_submit"]
@@ -107,7 +110,7 @@ class HTCondorJobManager(BaseJobManager):
             cmd += ["-pool", pool]
         if scheduler:
             cmd += ["-name", scheduler]
-        cmd += [os.path.basename(_job_file)]
+        cmd += list(map(os.path.basename, job_files))
         cmd = quote_cmd(cmd)
 
         # define the actual submission in a loop to simplify retries
@@ -115,7 +118,7 @@ class HTCondorJobManager(BaseJobManager):
             # run the command
             logger.debug("submit htcondor job with command '{}'".format(cmd))
             code, out, err = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=os.path.dirname(_job_file))
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=os.path.dirname(job_files[0]))
 
             # get the job id(s)
             if code == 0:
@@ -135,18 +138,21 @@ class HTCondorJobManager(BaseJobManager):
             # retry or done?
             if code == 0:
                 return job_ids if chunking else job_ids[0]
-            else:
-                logger.debug("submission of htcondor job '{}' failed with code {}:\n{}".format(
-                    _job_file, code, err))
-                if retries > 0:
-                    retries -= 1
-                    time.sleep(retry_delay)
-                    continue
-                elif silent:
-                    return None
-                else:
-                    raise Exception("submission of htcondor job '{}' failed:\n{}".format(
-                        _job_file, err))
+
+            job_files_repr = ",".join(map(os.path.basename, job_files))
+            logger.debug("submission of htcondor job(s) '{}' failed with code {}:\n{}".format(
+                job_files_repr, code, err))
+
+            if retries > 0:
+                retries -= 1
+                time.sleep(retry_delay)
+                continue
+
+            if silent:
+                return None
+
+            raise Exception("submission of htcondor job(s) '{}' failed:\n{}".format(
+                job_files_repr, err))
 
     def cancel(self, job_id, pool=None, scheduler=None, silent=False):
         # default arguments

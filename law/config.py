@@ -213,6 +213,7 @@ class Config(ConfigParser):
             "htcondor_chunk_size_submit": 25,
             "htcondor_chunk_size_cancel": 25,
             "htcondor_chunk_size_query": 25,
+            "htcondor_merge_job_files": True,
             "lsf_job_file_dir": None,
             "lsf_job_file_dir_mkdtemp": None,
             "lsf_job_file_dir_cleanup": False,

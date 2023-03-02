@@ -853,6 +853,12 @@
 ; Type: integer
 ; Default: 25
 
+; htcondor_merge_job_files
+; Description: A boolean flag that decides whether multiple job description files should be merged
+; into a single file before submission.
+; Type: boolean
+; Default: True
+
 ; lsf_job_file_dir
 ; lsf_job_file_dir_mkdtemp
 ; lsf_job_file_dir_cleanup
