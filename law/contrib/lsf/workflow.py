@@ -222,6 +222,9 @@ class LSFWorkflow(BaseRemoteWorkflow):
     def lsf_check_job_completeness(self):
         return False
 
+    def lsf_check_job_completeness_delay(self):
+        return 0.0
+
     def lsf_use_local_scheduler(self):
         return True
 

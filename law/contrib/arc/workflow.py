@@ -217,6 +217,9 @@ class ARCWorkflow(BaseRemoteWorkflow):
     def arc_check_job_completeness(self):
         return False
 
+    def arc_check_job_completeness_delay(self):
+        return 0.0
+
     def arc_use_local_scheduler(self):
         return True
 

@@ -954,6 +954,12 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             del unknown_jobs
             del states_by_id
 
+            # get settings from the task for triggering post-finished status checks
+            check_completeness = self._get_task_attribute("check_job_completeness")()
+            check_completeness_delay = self._get_task_attribute("check_job_completeness_delay")()
+            if check_completeness_delay:
+                time.sleep(check_completeness_delay)
+
             # store jobs per status and take further actions depending on the status
             pending_jobs = OrderedDict()
             running_jobs = OrderedDict()
@@ -974,7 +980,6 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
                 if data["status"] == self.job_manager.FINISHED:
                     # additionally check if the outputs really exist
-                    check_completeness = self._get_task_attribute("check_job_completeness")()
                     if not check_completeness or all(
                         self.task.as_branch(b).complete()
                         for b in sub_data["branches"]
