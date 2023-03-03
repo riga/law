@@ -837,7 +837,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 if self._can_skip_job(job_num, data["branches"]):
                     data["status"] = self.job_manager.FINISHED
                     data["code"] = 0
-                    finished_jobs.append(data)
+                    finished_jobs.append(job_num)
                     continue
 
                 # mark as active or unknown
@@ -897,14 +897,10 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             for job_num in active_jobs:
                 # update job data with status info
                 data = self.job_data.jobs[job_num]
-                data.update({
-                    field: value
-                    for field, value in (
-                        (field, states_by_id[data["job_id"]][field])
-                        for field in ["status", "error", "code"]
-                    )
-                    if value is not None
-                })
+                for field in ["status", "error", "code"]:
+                    value = states_by_id[data["job_id"]][field]
+                    if value is not None:
+                        data[field] = value
 
                 # when the task picked up an existing submission file, then in the first polling
                 # iteration, it might happen that a job is finished, but outputs of its tasks are
