@@ -4,12 +4,13 @@
 Base definition of remote workflows based on job submission and status polling.
 """
 
-__all__ = ["SubmissionData", "StatusData", "BaseRemoteWorkflowProxy", "BaseRemoteWorkflow"]
+__all__ = ["JobData", "BaseRemoteWorkflowProxy", "BaseRemoteWorkflow"]
 
 
 import sys
 import time
 import re
+import copy
 import random
 import threading
 from collections import OrderedDict, defaultdict
@@ -30,11 +31,11 @@ from law.logger import get_logger
 logger = get_logger(__name__)
 
 
-class SubmissionData(ShorthandDict):
+class JobData(ShorthandDict):
     """
     Sublcass of :py:class:`law.util.ShorthandDict` that adds shorthands for the attributes *jobs*,
-    *unsubmitted_jobs*, *tasks_per_job*, and *dashboard_config*. The content is saved in the
-    submission files created by :py:class:`BaseRemoteWorkflow`.
+    *unsubmitted_jobs*, *tasks_per_job*, and *dashboard_config*. This container object is used to
+    store and keep track of per job information in :py:class:`BaseRemoteWorkflow`.
 
     .. py:classattribute:: dummy_job_id
        type: string
@@ -53,12 +54,15 @@ class SubmissionData(ShorthandDict):
     dummy_job_id = "dummy_job_id"
 
     @classmethod
-    def job_data(cls, job_id=dummy_job_id, branches=None, log_file=None, **kwargs):
+    def job_data(cls, job_id=dummy_job_id, branches=None, status=None, code=None, error=None,
+            log_file=None, **kwargs):
         """
         Returns a dictionary containing default job submission information such as the *job_id*,
-        task *branches* covered by the job, and an optional *log_file*.
+        task *branches* covered by the job, a job *status* string, a job return code, an *error*
+        message, and a *log_file*. Additional *kwargs* are accepted but _not_ stored.
         """
-        return dict(job_id=job_id, branches=branches or [], log_file=log_file)
+        return dict(job_id=job_id, branches=branches or [], status=status, code=code, error=error,
+            log_file=log_file)
 
     def __len__(self):
         return len(self.jobs) + len(self.unsubmitted_jobs)
@@ -72,33 +76,7 @@ class SubmissionData(ShorthandDict):
                 cls = other[key].__class__
                 other[key] = cls((int(job_num), val) for job_num, val in six.iteritems(other[key]))
 
-        super(SubmissionData, self).update(other)
-
-
-class StatusData(ShorthandDict):
-    """
-    Sublcass of :py:class:`law.util.ShorthandDict` that adds shorthands for the *jobs* attribute.
-    The content is saved in the status files of the :py:class:`BaseRemoteWorkflow`.
-
-    .. py:classattribute:: dummy_job_id
-       type: string
-
-       A unique, dummy job id (``"dummy_job_id"``).
-    """
-
-    attributes = {
-        "jobs": {},  # job_num -> job_data (see classmethod below)
-    }
-
-    dummy_job_id = SubmissionData.dummy_job_id
-
-    @classmethod
-    def job_data(cls, job_id=dummy_job_id, status=None, code=None, error=None):
-        """
-        Returns a dictionary containing default job status information such as the *job_id*, a job
-        *status* string, a job return code, and an *error* message.
-        """
-        return dict(job_id=job_id, status=status, code=code, error=error)
+        super(JobData, self).update(other)
 
 
 class PollData(ShorthandDict):
@@ -152,25 +130,20 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
        Reference to a job file factory. The instance is created and configured by
        :py:meth:`create_job_file_factory`.
 
-    .. py:attribute:: submission_data
-       type: SubmissionData
+    .. py:attribute:: job_data
+       type: JobData
 
-       The submission data instance holding job information.
+       The job data object holding job submission and status information.
 
     .. py:attribute:: dashboard
        type: law.job.dashboard.BaseJobDashboard
 
        Reference to the dashboard instance that is used by the workflow.
 
-    .. py:attribute:: submission_data_cls
+    .. py:attribute:: job_data_cls
        read-only
 
-       Class for instantiating :py:attr:`submission_data`.
-
-    .. py:attribute:: status_data_cls
-       read-only
-
-       Class for instantiating status data (used internally).
+       Class for instantiating :py:attr:`job_data`.
     """
 
     # job error messages for errors defined in the remote job script
@@ -214,8 +187,8 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             n_active=0,
         )
 
-        # submission data
-        self.submission_data = self.submission_data_cls(tasks_per_job=task.tasks_per_job)
+        # job data
+        self.job_data = self.job_data_cls(tasks_per_job=task.tasks_per_job)
 
         # setup the job mananger
         self.job_manager = self.create_job_manager(threads=task.submission_threads)
@@ -246,12 +219,8 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         self._set_parallel_jobs(task.parallel_jobs)
 
     @property
-    def submission_data_cls(self):
-        return SubmissionData
-
-    @property
-    def status_data_cls(self):
-        return StatusData
+    def job_data_cls(self):
+        return JobData
 
     @abstractmethod
     def create_job_manager(self, **kwargs):
@@ -326,8 +295,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
             # when the job is skipped, write a dummy entry into submission data
             if self.skip_jobs[job_num]:
-                self.submission_data.jobs[job_num] = self.submission_data_cls.job_data(
-                    branches=branches)
+                self.job_data.jobs[job_num] = self.job_data_cls.job_data(branches=branches)
 
         return self.skip_jobs[job_num]
 
@@ -355,13 +323,12 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         if n_parallel <= 0:
             n_parallel = self.n_parallel_max
 
-        is_inf = n_parallel == self.n_parallel_max
-
         # do nothing when the value does not differ from the current one
         if n_parallel == self.poll_data.n_parallel:
             return
 
         # add or remove the "unsubmitted" status from the job manager and adjust the last counts
+        is_inf = n_parallel == self.n_parallel_max
         man = self.job_manager
         has_unsubmitted = man.status_names[0] == "unsubmitted"
         if is_inf:
@@ -392,17 +359,14 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         tmpl = "    job: {job_num}, branch(es): {branches}, id: {job_id}, " \
             "status: {status}, code: {code}, error: {error}{ext}"
         for i, (job_num, data) in enumerate(six.iteritems(failed_jobs)):
-            branches = self.submission_data.jobs[job_num]["branches"]
-            log_file = self.submission_data.jobs[job_num]["log_file"]
             ext = ""
             if data["code"] in self.job_error_messages:
                 law_err = self.job_error_messages[data["code"]]
                 ext += ", job script error: {}".format(law_err)
-            if log_file:
-                ext += ", log: {}".format(log_file)
+            if data["log_file"]:
+                ext += ", log: {}".format(data["log_file"])
 
-            print(tmpl.format(job_num=job_num, branches=",".join(str(b) for b in branches),
-                ext=ext, **data))
+            print(tmpl.format(job_num=job_num, ext=ext, **data))
 
             if i >= self.show_errors and len(failed_jobs) > self.show_errors + 1:
                 remaining = len(failed_jobs) - self.show_errors
@@ -428,9 +392,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 if key not in groups:
                     groups[key] = {"n_jobs": 0, "n_branches": 0, "log_file": None}
                 groups[key]["n_jobs"] += 1
-                groups[key]["n_branches"] += len(self.submission_data.jobs[job_num]["branches"])
+                groups[key]["n_branches"] += len(data["branches"])
                 if not groups[key]["log_file"]:
-                    groups[key]["log_file"] = self.submission_data.jobs[job_num]["log_file"]
+                    groups[key]["log_file"] = data["log_file"]
 
             # show the summary
             print(colored("error summary:", color="red", style="bright"))
@@ -448,8 +412,8 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
     def complete(self):
         if self.task.is_controlling_remote_jobs():
             return self._controlled_jobs
-        else:
-            return super(BaseRemoteWorkflowProxy, self).complete()
+
+        return super(BaseRemoteWorkflowProxy, self).complete()
 
     def requires(self):
         # use upstream and workflow specific requirements only when not controlling running jobs
@@ -479,14 +443,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         outputs = DotDict()
         postfix = self._get_task_attribute("output_postfix")()
 
-        # a file containing the submission data, i.e. job ids etc
-        submission_file = "{}_submission{}.json".format(self.workflow_type, postfix)
-        outputs["submission"] = out_dir.child(submission_file, type="f", optional=True)
-
-        # a file containing status data when the jobs are done
-        if not task.no_poll:
-            status_file = "{}_status{}.json".format(self.workflow_type, postfix)
-            outputs["status"] = out_dir.child(status_file, type="f", optional=True)
+        # file containing the job data, i.e. job ids, last status codes, log files, etc
+        job_data_file = "{}_jobs{}.json".format(self.workflow_type, postfix)
+        outputs["jobs"] = out_dir.child(job_data_file, type="f", optional=True)
 
         # update with upstream output when not just controlling running jobs
         if not task.is_controlling_remote_jobs():
@@ -494,18 +453,18 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
         return outputs
 
-    def dump_submission_data(self):
+    def dump_job_data(self):
         """
         Dumps the current submission data to the submission file.
         """
         # renew the dashboard config
-        self.submission_data["dashboard_config"] = self.dashboard.get_persistent_config()
+        self.job_data["dashboard_config"] = self.dashboard.get_persistent_config()
 
-        # write the submission data to the output file
+        # write the job data to the output file
         with self._dump_lock:
-            self._outputs["submission"].dump(self.submission_data, formatter="json", indent=4)
+            self._outputs["jobs"].dump(self.job_data, formatter="json", indent=4)
 
-        logger.debug("submission data dumped")
+        logger.debug("job data dumped")
 
     def run(self):
         """
@@ -520,12 +479,12 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         # create the job dashboard interface
         self.dashboard = task.create_job_dashboard() or NoJobDashboard()
 
-        # read submission data and reset some values
-        self._submitted = not task.ignore_submission and self._outputs["submission"].exists()
+        # read job data and reset some values
+        self._submitted = not task.ignore_submission and self._outputs["jobs"].exists()
         if self._submitted:
-            self.submission_data.update(self._outputs["submission"].load(formatter="json"))
-            task.tasks_per_job = self.submission_data.tasks_per_job
-            self.dashboard.apply_config(self.submission_data.dashboard_config)
+            self.job_data.update(self._outputs["jobs"].load(formatter="json"))
+            task.tasks_per_job = self.job_data.tasks_per_job
+            self.dashboard.apply_config(self.job_data.dashboard_config)
 
         # store the initially complete branches
         if "collection" in self._outputs:
@@ -538,59 +497,57 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             if self._submitted:
                 self.cancel()
             self._controlled_jobs = True
+            return
 
         # cleanup jobs?
-        elif self._cleanup_jobs:
+        if self._cleanup_jobs:
             if self._submitted:
                 self.cleanup()
             self._controlled_jobs = True
+            return
 
-        # submit and/or wait while polling
-        else:
-            # maybe set a tracking url
-            tracking_url = self.dashboard.create_tracking_url()
-            if tracking_url:
-                task.set_tracking_url(tracking_url)
+        # from here on, submit and/or wait while polling
 
-            # ensure the output directory exists
+        # maybe set a tracking url
+        tracking_url = self.dashboard.create_tracking_url()
+        if tracking_url:
+            task.set_tracking_url(tracking_url)
+
+        # ensure the output directory exists
+        if not self._submitted:
+            self._outputs["jobs"].parent.touch()
+
+        try:
+            # instantiate the configured job file factory
+            self.job_file_factory = self.create_job_file_factory()
+
+            # submit
             if not self._submitted:
-                self._outputs["submission"].parent.touch()
+                # set the initial list of unsubmitted jobs
+                branches = sorted(task.branch_map.keys())
+                branch_chunks = list(iter_chunks(branches, task.tasks_per_job))
+                self.job_data.unsubmitted_jobs = OrderedDict(
+                    (i + 1, branches) for i, branches in enumerate(branch_chunks)
+                )
+                self.submit()
 
-            # at this point, when the status file exists, it is considered outdated
-            if "status" in self._outputs:
-                self._outputs["status"].remove()
+            # sleep once to give the job interface time to register the jobs
+            if not self._submitted and not task.no_poll:
+                post_submit_delay = self._get_task_attribute("post_submit_delay", True)()
+                if post_submit_delay > 0:
+                    logger.debug("sleep for {} second(s) due to post_submit_delay".format(
+                        post_submit_delay))
+                    time.sleep(post_submit_delay)
 
-            try:
-                # instantiate the configured job file factory
-                self.job_file_factory = self.create_job_file_factory()
+            # start status polling when a) no_poll is not set, or b) the jobs were already
+            # submitted so that failed jobs are resubmitted after a single polling iteration
+            if not task.no_poll or self._submitted:
+                self.poll()
 
-                # submit
-                if not self._submitted:
-                    # set the initial list of unsubmitted jobs
-                    branches = sorted(task.branch_map.keys())
-                    branch_chunks = list(iter_chunks(branches, task.tasks_per_job))
-                    self.submission_data.unsubmitted_jobs = OrderedDict(
-                        (i + 1, branches) for i, branches in enumerate(branch_chunks)
-                    )
-                    self.submit()
-
-                # sleep once to give the job interface time to register the jobs
-                if not self._submitted and not task.no_poll:
-                    post_submit_delay = self._get_task_attribute("post_submit_delay", True)()
-                    if post_submit_delay > 0:
-                        logger.debug("sleep for {} second(s) due to post_submit_delay".format(
-                            post_submit_delay))
-                        time.sleep(post_submit_delay)
-
-                # start status polling when a) no_poll is not set, or b) the jobs were already
-                # submitted so that failed jobs are resubmitted after a single polling iteration
-                if not task.no_poll or self._submitted:
-                    self.poll()
-
-            finally:
-                # in any event, cleanup the job file
-                if self.job_file_factory:
-                    self.job_file_factory.cleanup_dir(force=False)
+        finally:
+            # in any event, cleanup the job file
+            if self.job_file_factory:
+                self.job_file_factory.cleanup_dir(force=False)
 
     def cancel(self):
         """
@@ -601,8 +558,8 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
         # get job ids from submission data
         job_ids = [
-            d["job_id"] for d in self.submission_data.jobs.values()
-            if d["job_id"] not in (self.submission_data.dummy_job_id, None)
+            d["job_id"] for d in self.job_data.jobs.values()
+            if d["job_id"] not in (self.job_data.dummy_job_id, None)
         ]
         if not job_ids:
             return
@@ -628,7 +585,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                     break
 
         # inform the dashboard
-        for job_num, job_data in six.iteritems(self.submission_data.jobs):
+        for job_num, job_data in six.iteritems(self.job_data.jobs):
             task.forward_dashboard_event(self.dashboard, job_data, "action.cancel", job_num)
 
     def cleanup(self):
@@ -640,8 +597,8 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
         # get job ids from submission data
         job_ids = [
-            d["job_id"] for d in self.submission_data.jobs.values()
-            if d["job_id"] not in (self.submission_data.dummy_job_id, None)
+            d["job_id"] for d in self.job_data.jobs.values()
+            if d["job_id"] not in (self.job_data.dummy_job_id, None)
         ]
         if not job_ids:
             return
@@ -679,7 +636,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
         # keep track of the list of unsubmitted job nums before retry jobs are handled to control
         # whether they are resubmitted immediately or at the end (subject to shuffling)
-        unsubmitted_job_nums = list(self.submission_data.unsubmitted_jobs.keys())
+        unsubmitted_job_nums = list(self.job_data.unsubmitted_jobs.keys())
         if task.shuffle_jobs:
             random.shuffle(unsubmitted_job_nums)
 
@@ -695,8 +652,8 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 # update the job id
                 n = self.poll_data.n_active + len(submit_jobs)
                 if n >= self.poll_data.n_parallel or task.append_retry_jobs:
-                    self.submission_data.jobs.pop(job_num, None)
-                    self.submission_data.unsubmitted_jobs[job_num] = branches
+                    self.job_data.jobs.pop(job_num, None)
+                    self.job_data.unsubmitted_jobs[job_num] = branches
                     if task.append_retry_jobs:
                         unsubmitted_job_nums.append(job_num)
                     else:
@@ -708,17 +665,17 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
         # fill with unsubmitted jobs until maximum number of parallel jobs is reached
         for job_num in unsubmitted_job_nums:
-            branches = self.submission_data.unsubmitted_jobs[job_num]
+            branches = self.job_data.unsubmitted_jobs[job_num]
 
             # remove jobs that don't need to be submitted
             if self._can_skip_job(job_num, branches):
-                self.submission_data.unsubmitted_jobs.pop(job_num, None)
+                self.job_data.unsubmitted_jobs.pop(job_num, None)
                 continue
 
             # mark job for submission only when n_parallel is not reached yet
             n = self.poll_data.n_active + len(submit_jobs)
             if n < self.poll_data.n_parallel:
-                self.submission_data.unsubmitted_jobs.pop(job_num, None)
+                self.job_data.unsubmitted_jobs.pop(job_num, None)
                 submit_jobs[job_num] = sorted(branches)
 
         # store submission data for jobs about to be submitted
@@ -726,14 +683,14 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
         # when there is nothing to submit, dump the submission data to the output file and stop here
         if not submit_jobs:
-            if retry_jobs or self.submission_data.unsubmitted_jobs:
-                self.dump_submission_data()
+            if retry_jobs or self.job_data.unsubmitted_jobs:
+                self.dump_job_data()
             return new_submission_data
 
         # add empty job entries to submission data
         for job_num, branches in six.iteritems(submit_jobs):
-            job_data = self.submission_data_cls.job_data(branches=branches)
-            self.submission_data.jobs[job_num] = job_data
+            job_data = self.job_data_cls.job_data(branches=branches)
+            self.job_data.jobs[job_num] = job_data
 
         # create job submission files mapped to job nums
         job_files = OrderedDict()
@@ -754,10 +711,10 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             # handle errors
             if isinstance(job_id, Exception):
                 errors.append((job_num, job_id))
-                job_id = self.submission_data_cls.dummy_job_id
+                job_id = self.job_data.dummy_job_id
 
             # set the job id in the job data
-            job_data = self.submission_data.jobs[job_num]
+            job_data = self.job_data.jobs[job_num]
             job_data["job_id"] = job_id
             job_data["log_file"] = files.get("log")
             new_submission_data[job_num] = job_data.copy()
@@ -765,8 +722,8 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             # inform the dashboard
             task.forward_dashboard_event(self.dashboard, job_data, "action.submit", job_num)
 
-        # dump the submission data to the output file
-        self.dump_submission_data()
+        # dump the job data to the output file
+        self.dump_job_data()
 
         # raise exceptions or log
         if errors:
@@ -793,8 +750,8 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         job_nums = list(job_files.keys())
         job_files = [f["job"] for f in six.itervalues(job_files)]
 
-        # prepare objects for dumping intermediate submission data
-        dump_freq = self._get_task_attribute("dump_intermediate_submission_data", True)()
+        # prepare objects for dumping intermediate job data
+        dump_freq = self._get_task_attribute("dump_intermediate_job_data", True)()
         if dump_freq and not is_number(dump_freq):
             dump_freq = 50
 
@@ -812,15 +769,15 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 job_id = job_id[0]
 
             # set the job id early
-            self.submission_data.jobs[job_num]["job_id"] = job_id
+            self.job_data.jobs[job_num]["job_id"] = job_id
 
             # log a message every 25 jobs
             if i in (0, len(job_files) - 1) or (i + 1) % 25 == 0:
                 task.publish_message("submitted {}/{} job(s)".format(i + 1, len(job_files)))
 
-            # dump intermediate submission data with a certain frequency
+            # dump intermediate job data with a certain frequency
             if dump_freq and (i + 1) % dump_freq == 0:
-                self.dump_submission_data()
+                self.dump_job_data()
 
         return self.job_manager.submit_batch(job_files, retries=3, threads=task.submission_threads,
             callback=progress_callback, **submit_kwargs)
@@ -830,13 +787,14 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         Initiates the job status polling loop.
         """
         task = self.task
+        dump_intermediate_job_data = task.dump_intermediate_job_data()
 
         # total job count
-        n_jobs = len(self.submission_data)
+        n_jobs = len(self.job_data)
 
         # track finished and failed jobs in dicts holding status data
-        finished_jobs = OrderedDict()
-        failed_jobs = OrderedDict()
+        finished_jobs = []
+        failed_jobs = []
 
         # track number of consecutive polling failures and the start time
         n_poll_fails = 0
@@ -868,40 +826,44 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             # determine the currently active jobs, i.e., the jobs whose states should be checked,
             # jobs whose ids are unknown, and jobs that can be skipped, i.e., jobs whose tasks'
             # outputs are already present
-            active_jobs = OrderedDict()
-            unknown_jobs = OrderedDict()
-            for job_num, data in six.iteritems(self.submission_data.jobs):
+            active_jobs = []
+            unknown_jobs = []
+            for job_num, data in six.iteritems(self.job_data.jobs):
                 # skip jobs that are already known to be finished or failed
                 if job_num in finished_jobs or job_num in failed_jobs:
                     continue
 
                 # skip jobs whose tasks are aready complete
                 if self._can_skip_job(job_num, data["branches"]):
-                    finished_jobs[job_num] = self.status_data_cls.job_data(
-                        status=self.job_manager.FINISHED, code=0)
+                    data["status"] = self.job_manager.FINISHED
+                    data["code"] = 0
+                    finished_jobs.append(data)
                     continue
 
                 # mark as active or unknown
                 data = data.copy()
-                if data["job_id"] in (None, self.status_data_cls.dummy_job_id):
-                    data["job_id"] = self.status_data_cls.dummy_job_id
-                    unknown_jobs[job_num] = data
+                if data["job_id"] in (None, self.job_data.dummy_job_id):
+                    data["job_id"] = self.job_data.dummy_job_id
+                    data["status"] = self.job_manager.RETRY
+                    data["error"] = "unknown job id"
+                    unknown_jobs.append(job_num)
                 else:
-                    active_jobs[job_num] = data
+                    active_jobs.append(job_num)
             self.poll_data.n_active = len(active_jobs) + len(unknown_jobs)
 
             # query job states
-            job_ids = [data["job_id"] for data in six.itervalues(active_jobs)]  # noqa: F812
+            job_ids = [self.job_data.jobs[job_num]["job_id"] for job_num in active_jobs]
             query_data = self.job_manager.query_batch(job_ids, **query_kwargs)
 
             # separate into actual states and errors that might have occured during the status query
-            states_by_id = {}
+            states_by_id = OrderedDict()
             errors = []
             for job_id, state_or_error in six.iteritems(query_data):
                 if isinstance(state_or_error, Exception):
                     errors.append(state_or_error)
                 else:
                     states_by_id[job_id] = state_or_error
+            del query_data
 
             # print the first couple errors
             if errors:
@@ -927,31 +889,32 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 # no errors occured, reset the fail counter
                 n_poll_fails = 0
 
-            # states stores job_id's as keys, so replace them by job_num's
-            # from active_jobs (which was used for the list of jobs to query in the first place)
-            states_by_num = OrderedDict()
-            for job_num, data in six.iteritems(active_jobs):
-                job_id = data["job_id"]
-                states_by_num[job_num] = self.status_data_cls.job_data(**states_by_id[job_id])
+            # from here on, consider unknown jobs again as active
+            active_jobs += unknown_jobs
+            del unknown_jobs
+
+            # handle active jobs
+            for job_num in active_jobs:
+                # update job data with status info
+                data = self.job_data.jobs[job_num]
+                data.update({
+                    field: value
+                    for field, value in (
+                        (field, states_by_id[data["job_id"]][field])
+                        for field in ["status", "error", "code"]
+                    )
+                    if value is not None
+                })
 
                 # when the task picked up an existing submission file, then in the first polling
                 # iteration, it might happen that a job is finished, but outputs of its tasks are
                 # not existing, e.g. when they were removed externaly and the job id is still known
                 # to the batch system; in this case, mark it as unknown and to be retried
                 if self._submitted and i == 0:
-                    is_finished = states_by_num[job_num]["status"] == self.job_manager.FINISHED
+                    is_finished = data["status"] == self.job_manager.FINISHED
                     if is_finished and not self._can_skip_job(job_num, data["branches"]):
-                        states_by_num[job_num] = self.status_data_cls.job_data(
-                            status=self.job_manager.RETRY, error="initially missing task outputs")
-
-            # always consider jobs with unknown ids as retry jobs
-            for job_num, data in six.iteritems(unknown_jobs):
-                states_by_num[job_num] = self.status_data_cls.job_data(
-                    status=self.job_manager.RETRY, error="unknown job id")
-
-            # clear potentially large dicts
-            del active_jobs
-            del unknown_jobs
+                        data["status"] = self.job_manager.RETRY
+                        data["error"] = "initially missing task outputs"
             del states_by_id
 
             # get settings from the task for triggering post-finished status checks
@@ -961,34 +924,36 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 time.sleep(check_completeness_delay)
 
             # store jobs per status and take further actions depending on the status
-            pending_jobs = OrderedDict()
-            running_jobs = OrderedDict()
-            newly_failed_jobs = OrderedDict()
-            retry_jobs = OrderedDict()
-            for job_num, data in six.iteritems(states_by_num):
-                sub_data = self.submission_data.jobs[job_num]
+            pending_jobs = []
+            running_jobs = []
+            newly_failed_jobs = []
+            retry_jobs = []
+            for job_num in active_jobs:
+                data = self.job_data.jobs[job_num]
 
                 if data["status"] == self.job_manager.PENDING:
-                    pending_jobs[job_num] = data
-                    task.forward_dashboard_event(self.dashboard, data, "status.pending", job_num)
+                    pending_jobs.append(job_num)
+                    task.forward_dashboard_event(self.dashboard, copy.deepcopy(data),
+                        "status.pending", job_num)
                     continue
 
                 if data["status"] == self.job_manager.RUNNING:
-                    running_jobs[job_num] = data
-                    task.forward_dashboard_event(self.dashboard, data, "status.running", job_num)
+                    running_jobs.append(job_num)
+                    task.forward_dashboard_event(self.dashboard, copy.deepcopy(data),
+                        "status.running", job_num)
                     continue
 
                 if data["status"] == self.job_manager.FINISHED:
                     # additionally check if the outputs really exist
                     if not check_completeness or all(
                         self.task.as_branch(b).complete()
-                        for b in sub_data["branches"]
+                        for b in data["branches"]
                     ):
-                        finished_jobs[job_num] = data
+                        finished_jobs.append(job_num)
                         self.poll_data.n_active -= 1
-                        sub_data["job_id"] = self.submission_data.dummy_job_id
-                        task.forward_dashboard_event(self.dashboard, data, "status.finished",
-                            job_num)
+                        data["job_id"] = self.job_data.dummy_job_id
+                        task.forward_dashboard_event(self.dashboard, copy.deepcopy(data),
+                            "status.finished", job_num)
                         continue
 
                     # the job is marked as finished but not all branches are complete
@@ -996,20 +961,22 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                     data["error"] = "branch task(s) incomplete due to missing outputs"
 
                 if data["status"] in (self.job_manager.FAILED, self.job_manager.RETRY):
-                    newly_failed_jobs[job_num] = data
+                    newly_failed_jobs.append(job_num)
                     self.poll_data.n_active -= 1
 
                     # retry or ultimately failed?
                     if self.job_retries[job_num] < task.retries:
                         self.job_retries[job_num] += 1
-                        self.submission_data.attempts.setdefault(job_num, 0)
-                        self.submission_data.attempts[job_num] += 1
+                        self.job_data.attempts.setdefault(job_num, 0)
+                        self.job_data.attempts[job_num] += 1
                         data["status"] = self.job_manager.RETRY
-                        retry_jobs[job_num] = self.submission_data.jobs[job_num]["branches"]
-                        task.forward_dashboard_event(self.dashboard, data, "status.retry", job_num)
+                        retry_jobs.append(job_num)
+                        task.forward_dashboard_event(self.dashboard, copy.deepcopy(data),
+                            "status.retry", job_num)
                     else:
-                        failed_jobs[job_num] = data
-                        task.forward_dashboard_event(self.dashboard, data, "status.failed", job_num)
+                        failed_jobs.append(job_num)
+                        task.forward_dashboard_event(self.dashboard, copy.deepcopy(data),
+                            "status.failed", job_num)
                     continue
 
                 raise Exception("unknown job status '{}'".format(data["status"]))
@@ -1020,7 +987,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             n_finished = len(finished_jobs)
             n_retry = len(retry_jobs)
             n_failed = len(failed_jobs)
-            n_unsubmitted = len(self.submission_data.unsubmitted_jobs)
+            n_unsubmitted = len(self.job_data.unsubmitted_jobs)
 
             # log the status line
             counts = (n_pending, n_running, n_finished, n_retry, n_failed)
@@ -1038,27 +1005,34 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
             # print newly failed jobs
             if newly_failed_jobs:
-                self._print_status_errors(newly_failed_jobs)
+                self._print_status_errors({
+                    job_num: self.job_data.jobs[job_num]
+                    for job_num in newly_failed_jobs
+                })
 
             # infer the overall status
             reached_end = n_jobs == n_finished + n_failed
             finished = n_finished >= self.poll_data.n_finished_min
             failed = n_failed > self.poll_data.n_failed_max
             unreachable = n_jobs - n_failed < self.poll_data.n_finished_min
+
+            # write job data
+            if finished or dump_intermediate_job_data:
+                self.dump_job_data()
+
+            # stop when finished
             if finished:
-                # write status output
-                if "status" in self._outputs:
-                    status_data = self.status_data_cls()
-                    status_data.jobs.update(finished_jobs)
-                    status_data.jobs.update(states_by_num)
-                    self._outputs["status"].dump(status_data, formatter="json", indent=4)
                 break
-            elif failed:
+
+            # complain when failed
+            if failed:
                 failed_nums = [job_num for job_num in failed_jobs if job_num not in retry_jobs]
                 raise Exception(
                     "tolerance exceeded for job(s) {}".format(",".join(map(str, failed_nums))),
                 )
-            elif unreachable:
+
+            # stop early if unreachable
+            if unreachable:
                 err = None
                 if reached_end:
                     err = "acceptance of {} not reached, total jobs: {}, failed jobs: {}"
@@ -1072,7 +1046,10 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
             # trigger automatic resubmission and submission of unsubmitted jobs if necessary
             if retry_jobs or self.poll_data.n_active < self.poll_data.n_parallel:
-                self.submit(retry_jobs)
+                self.submit({
+                    job_num: self.job_data.jobs[job_num]["branches"]
+                    for job_num in newly_failed_jobs
+                })
 
             # break when no polling is desired
             # we can get to this point when there was already a submission and the no_poll
@@ -1088,11 +1065,11 @@ class BaseRemoteWorkflow(BaseWorkflow):
     """
     Opinionated base class for remote workflows that works in 2 phases:
 
-       1. Create and submit *m* jobs that process *n* tasks. Submission data is stored in the
-       so-called *submission* file, which is an output target of this workflow.
+       1. Create and submit *m* jobs that process *n* tasks. Submission information (mostly job ids)
+       is stored in the so-called *jobs* file, which is an output target of this workflow.
 
-       2. Use the submission data and start status polling. When done, status data is stored in the
-       so-called *status* file, which is an output target of this workflow.
+       2. Use the job data and start status polling. When done, status data is stored alongside the
+       submission information in the same *jobs* file.
 
     .. py:classattribute:: check_unreachable_acceptance
        type: bool
@@ -1174,15 +1151,13 @@ class BaseRemoteWorkflow(BaseWorkflow):
        type: luigi.BoolParameter
 
        When *True*, already running jobs are cancelled and no new ones are submitted. The job ids
-       are read from the job submission file which must exist for obvious reasons. Defaults to
-       *False*.
+       are read from the jobs file if existing. Defaults to *False*.
 
     .. py:classattribute:: cleanup_jobs
        type: luigi.BoolParameter
 
        When *True*, already running jobs are cleaned up and no new ones are submitted. The job ids
-       are read from the job submission file which must exist for obvious reasons. Defaults to
-       *False*.
+       are read from the jobs file if existing. Defaults to *False*.
 
     .. py:classattribute:: transfer_logs
        type: luigi.BoolParameter
@@ -1300,7 +1275,7 @@ class BaseRemoteWorkflow(BaseWorkflow):
         """
         return self.poll_interval * 60
 
-    def dump_intermediate_submission_data(self):
+    def dump_intermediate_job_data(self):
         return True
 
     def create_job_dashboard(self):

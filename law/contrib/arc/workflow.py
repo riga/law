@@ -91,7 +91,7 @@ class ARCWorkflowProxy(BaseRemoteWorkflowProxy):
             workers=task.job_workers,
             auto_retry=False,
             dashboard_data=self.dashboard.remote_hook_data(
-                job_num, self.submission_data.attempts.get(job_num, 0)),
+                job_num, self.job_data.attempts.get(job_num, 0)),
         )
         c.arguments = job_args.join()
 
