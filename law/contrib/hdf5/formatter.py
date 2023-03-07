@@ -27,4 +27,6 @@ class H5pyFormatter(Formatter):
     @classmethod
     def dump(cls, path, *args, **kwargs):
         import h5py
-        return h5py.File(get_path(path), "w", *args, **kwargs)
+        f=h5py.File(get_path(path), "w")
+        f.create_dataset(name=kwargs["name"],data=kwargs["data"],)
+        f.close()
