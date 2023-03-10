@@ -27,11 +27,11 @@ class Target(shims.Target):
         super(Target, self).__init__(**kwargs)
 
     def __repr__(self):
-        color = Config.instance().get_expanded_boolean("target", "colored_repr")
+        color = Config.instance().get_expanded_bool("target", "colored_repr")
         return self.repr(color=color)
 
     def __str__(self):
-        color = Config.instance().get_expanded_boolean("target", "colored_str")
+        color = Config.instance().get_expanded_bool("target", "colored_str")
         return self.repr(color=color)
 
     def __hash__(self):
@@ -43,7 +43,7 @@ class Target(shims.Target):
 
     def repr(self, color=None):
         if color is None:
-            color = Config.instance().get_expanded_boolean("target", "colored_repr")
+            color = Config.instance().get_expanded_bool("target", "colored_repr")
 
         class_name = self._repr_class_name(self.__class__.__name__, color=color)
 

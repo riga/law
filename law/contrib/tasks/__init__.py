@@ -224,18 +224,14 @@ class ForestMerge(LocalWorkflow):
     def is_leaf(self):
         return not self.is_forest() and self.tree_depth == self.max_tree_depth
 
-    def _create_workflow_task(self):
+    def req_workflow(self, **kwargs):
         # since the forest counts as a branch, as_workflow should point the tree_index 0
         # which is only used to compute the overall merge tree
         if self.is_forest():
-            return self._req_tree(
-                self,
-                branch=-1,
-                tree_index=0,
-                _exclude=self.exclude_params_workflow,
-            )
+            kwargs["tree_index"] = 0
+            kwargs["_skip_task_excludes"] = False
 
-        return super(ForestMerge, self)._create_workflow_task()
+        return super(ForestMerge, self).req_workflow(**kwargs)
 
     @property
     def max_tree_depth(self):

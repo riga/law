@@ -38,10 +38,10 @@ class FileSystem(shims.FileSystem):
                 config[option] = func(section, option)
 
         # read configs
-        add("has_permissions", cfg.get_expanded_boolean)
+        add("has_permissions", cfg.get_expanded_bool)
         add("default_file_perm", cfg.get_expanded_int)
         add("default_dir_perm", cfg.get_expanded_int)
-        add("create_file_dir", cfg.get_expanded_boolean)
+        add("create_file_dir", cfg.get_expanded_bool)
 
         return config
 
@@ -159,11 +159,11 @@ class FileSystemTarget(Target, shims.FileSystemTarget):
 
         # add the path
         cfg = Config.instance()
-        expand = cfg.get_expanded_boolean("target", "expand_path_repr")
+        expand = cfg.get_expanded_bool("target", "expand_path_repr")
         pairs.append(("path", self.path if expand else self.unexpanded_path))
 
         # optionally add the file size
-        if cfg.get_expanded_boolean("target", "filesize_repr"):
+        if cfg.get_expanded_bool("target", "filesize_repr"):
             stat = self.exists(stat=True)
             pairs.append(("size", human_bytes(stat.st_size, fmt="{:.1f}{}") if stat else "-"))
 

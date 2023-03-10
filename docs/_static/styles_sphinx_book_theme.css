@@ -1,0 +1,11 @@
+/* sphinx_rtd_theme styles */
+
+div#site-navigation img.logo {
+    width: 240px !important;
+    height: 160px !important;
+    max-height: none !important;
+}
+
+div#site-navigation div.navbar_extra_footer {
+    display: none;
+}

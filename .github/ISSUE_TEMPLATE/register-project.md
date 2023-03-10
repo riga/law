@@ -1,3 +1,12 @@
+---
+name: Register project
+about: Add your project to the listing in the README
+title: ''
+labels: docs
+assignees: riga
+
+---
+
 ## Project details
 
 - a link to your repository

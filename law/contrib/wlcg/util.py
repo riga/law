@@ -33,8 +33,8 @@ def get_voms_proxy_file():
     """
     if "X509_USER_PROXY" in os.environ:
         return os.environ["X509_USER_PROXY"]
-    else:
-        return "/tmp/x509up_u{}".format(os.getuid())
+
+    return "/tmp/x509up_u{}".format(os.getuid())
 
 
 def _voms_proxy_info(args=None, proxy_file=None, silent=False):
@@ -98,26 +98,33 @@ def get_voms_proxy_vo(proxy_file=None):
     return _voms_proxy_info(args=["--vo"], proxy_file=proxy_file)[1].strip()
 
 
-def check_voms_proxy_validity(log=False, proxy_file=None):
+def check_voms_proxy_validity(return_rfc=False, proxy_file=None):
     """
-    Returns *True* when a valid voms proxy exists, *False* otherwise. When *log* is *True*, a
-    warning will be logged. When *proxy_file* is *None*, it defaults to the result of
-    :py:func:`get_voms_proxy_file`. Otherwise, when it evaluates to *False*, ``voms-proxy-info`` is
-    queried without a custom proxy file.
-    """
-    code, out, err = _voms_proxy_info(args=["--exists"], proxy_file=proxy_file, silent=True)
+    Returns *True* if a valid voms proxy exists (positive lifetime), and *False* otherwise. When
+    *return_rfc* is *True*, The return value will be a 2-tuple, containing also whether the proxy
+    is RFC3820 compliant.
 
+     When *proxy_file* is *None*, it defaults to the result of :py:func:`get_voms_proxy_file`.
+     Otherwise, when it evaluates to *False*, ``voms-proxy-info`` is ueried without a custom proxy
+     file.
+    """
+    code, _, err = _voms_proxy_info(args=["--exists"], proxy_file=proxy_file, silent=True)
+
+    rfc = False
     if code == 0:
         valid = get_voms_proxy_lifetime(proxy_file=proxy_file) > 0
+
+        if valid and return_rfc:
+            out = _voms_proxy_info(args=["--type"], proxy_file=proxy_file, silent=True)[1]
+            rfc = out.strip().lower().startswith("rfc3820 compliant")
+
     elif err.strip().lower().startswith("proxy not found"):
         valid = False
+
     else:
         raise Exception("voms-proxy-info failed: {}".format(err))
 
-    if log and not valid:
-        logger.warning("no valid voms proxy found")
-
-    return valid
+    return (valid, rfc) if return_rfc else valid
 
 
 def renew_voms_proxy(password="", vo=None, lifetime="8 days", proxy_file=None):

@@ -1,0 +1,73 @@
+{
+  "projectName": "law",
+  "projectOwner": "riga",
+  "repoType": "github",
+  "repoHost": "https://github.com",
+  "contributorsPerLine": 7,
+  "skipCi": true,
+  "imageSize": 100,
+  "commit": false,
+  "commitConvention": "angular",
+  "files": [
+    "README.md"
+  ],
+  "contributors": [
+    {
+      "login": "riga",
+      "name": "Marcel Rieger",
+      "avatar_url": "https://avatars.githubusercontent.com/u/1908734?v=4",
+      "profile": "http://github.com/riga",
+      "contributions": [
+        "code",
+        "review",
+        "maintenance",
+        "doc"
+      ]
+    },
+    {
+      "login": "pfackeldey",
+      "name": "Peter Fackeldey",
+      "avatar_url": "https://avatars.githubusercontent.com/u/18463582?v=4",
+      "profile": "https://github.com/pfackeldey",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "yrath",
+      "name": "Yannik Rath",
+      "avatar_url": "https://avatars.githubusercontent.com/u/20044510?v=4",
+      "profile": "https://github.com/yrath",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "jaimeleonh",
+      "name": "Jaime Leon Holgado",
+      "avatar_url": "https://avatars.githubusercontent.com/u/47629805?v=4",
+      "profile": "https://github.com/jaimeleonh",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "lmoureaux",
+      "name": "Louis Moureaux",
+      "avatar_url": "https://avatars.githubusercontent.com/u/22327575?v=4",
+      "profile": "https://github.com/lmoureaux",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "lgeiger",
+      "name": "Lukas Geiger",
+      "avatar_url": "https://avatars.githubusercontent.com/u/13285808?v=4",
+      "profile": "http://www.linkedin.com/in/lgeiger",
+      "contributions": [
+        "code"
+      ]
+    }
+  ]
+}

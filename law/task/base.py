@@ -77,6 +77,9 @@ class BaseRegister(luigi.task_register.Register):
 
 class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
 
+    # whether to cache the result of requires() for input() and potentially also other calls
+    cache_requirements = False
+
     exclude_index = True
     exclude_params_index = set()
     exclude_params_req = set()
@@ -229,6 +232,9 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
         # task level logger, created lazily
         self._task_logger = None
 
+        # attribute for cached requirements if enabled
+        self._cached_requirements = no_value
+
     def complete(self):
         # create a flat list of all outputs
         outputs = flatten(self.output())
@@ -238,6 +244,19 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
             return True
 
         return all(t.complete() for t in outputs)
+
+    def input(self):
+        # get potentially cached requirements
+        if self.cache_requirements:
+            if self._cached_requirements is no_value:
+                self._cached_requirements = self.requires()
+            else:
+                print("BASETASK.INPUT() TAKING REQS FROM CACHE BITCHES")
+            reqs = self._cached_requirements
+        else:
+            reqs = self.requires()
+
+        return luigi.task.getpaths(reqs)
 
     @abstractmethod
     def run(self):
@@ -563,16 +582,16 @@ class Task(six.with_metaclass(Register, BaseTask)):
         return super(Task, self).cli_args(exclude=exclude, replace=replace)
 
     def __repr__(self):
-        color = Config.instance().get_expanded_boolean("task", "colored_repr")
+        color = Config.instance().get_expanded_bool("task", "colored_repr")
         return self.repr(color=color)
 
     def __str__(self):
-        color = Config.instance().get_expanded_boolean("task", "colored_str")
+        color = Config.instance().get_expanded_bool("task", "colored_str")
         return self.repr(color=color)
 
     def repr(self, all_params=False, color=None, **kwargs):
         if color is None:
-            color = Config.instance().get_expanded_boolean("task", "colored_repr")
+            color = Config.instance().get_expanded_bool("task", "colored_repr")
 
         family = self._repr_family(self.get_task_family(), color=color, **kwargs)
 
@@ -690,7 +709,17 @@ class WrapperTask(Task):
         return super(WrapperTask, self)._repr_flags() + ["wrapper"]
 
     def complete(self):
-        return all(task.complete() for task in flatten(self.requires()))
+        # get potentially cached requirements
+        if self.cache_requirements:
+            if self._cached_requirements is no_value:
+                self._cached_requirements = self.requires()
+            else:
+                print("WRAPPER.COMPLETE() TAKING REQS FROM CACHE BITCHES")
+            reqs = self._cached_requirements
+        else:
+            reqs = self.requires()
+
+        return all(task.complete() for task in flatten(reqs))
 
     def output(self):
         return self.input()

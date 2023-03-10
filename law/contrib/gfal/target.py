@@ -56,17 +56,17 @@ class GFALFileInterface(RemoteFileInterface):
                 _config[option] = func(section, postfix + option)
 
         # use atomic contexts per operation
-        add("atomic_contexts", cfg.get_expanded_boolean)
+        add("atomic_contexts", cfg.get_expanded_bool)
 
         # transfer config
         config.setdefault("transfer_config", {})
         transfer_specs = [
             ("timeout", cfg.get_expanded_int),
-            ("checksum_check", cfg.get_expanded_boolean),
+            ("checksum_check", cfg.get_expanded_bool),
             ("nbstreams", cfg.get_expanded_int),
-            ("overwrite", cfg.get_expanded_boolean),
-            ("create_parent", cfg.get_expanded_boolean),
-            ("strict_copy", cfg.get_expanded_boolean),
+            ("overwrite", cfg.get_expanded_bool),
+            ("create_parent", cfg.get_expanded_bool),
+            ("strict_copy", cfg.get_expanded_bool),
         ]
         for name, func in transfer_specs:
             add(name, func, "gfal_transfer_", config["transfer_config"])
@@ -126,7 +126,7 @@ class GFALFileInterface(RemoteFileInterface):
                 del self._transfer_parameters[pid]
 
     def exists(self, path, stat=False, base=None, **kwargs):
-        uri = self.uri(path, cmd="stat" if stat else ("exists", "stat"), base=base)
+        uri = self.uri(path, base_name="stat" if stat else ("exists", "stat"), base=base)
         with self.context() as ctx:
             try:
                 logger.debug("invoking gfal2 exists({})".format(uri))
@@ -135,9 +135,9 @@ class GFALFileInterface(RemoteFileInterface):
             except gfal2.GError:
                 return None if stat else False
 
-    @RemoteFileInterface.retry(uri_cmd="stat")
+    @RemoteFileInterface.retry(uri_base_name="stat")
     def stat(self, path, base=None, **kwargs):
-        uri = self.uri(path, cmd="stat", base=base)
+        uri = self.uri(path, base_name="stat", base=base)
         with self.context() as ctx:
             try:
                 logger.debug("invoking gfal2 stat({})".format(uri))
@@ -168,12 +168,12 @@ class GFALFileInterface(RemoteFileInterface):
 
         return not self.isdir(path, stat=stat, base=base)
 
-    @RemoteFileInterface.retry(uri_cmd="chmod")
+    @RemoteFileInterface.retry(uri_base_name="chmod")
     def chmod(self, path, perm, base=None, silent=False, **kwargs):
         if perm is None:
             return True
 
-        uri = self.uri(path, cmd="chmod", base=base)
+        uri = self.uri(path, base_name="chmod", base=base)
         with self.context() as ctx:
             try:
                 logger.debug("invoking gfal2 chmod({}, {})".format(uri, perm))
@@ -189,9 +189,9 @@ class GFALFileInterface(RemoteFileInterface):
                     return False
                 e.reraise()
 
-    @RemoteFileInterface.retry(uri_cmd="unlink")
+    @RemoteFileInterface.retry(uri_base_name="unlink")
     def unlink(self, path, base=None, silent=True, **kwargs):
-        uri = self.uri(path, cmd="unlink", base=base)
+        uri = self.uri(path, base_name="unlink", base=base)
         with self.context() as ctx:
             try:
                 logger.debug("invoking gfal2 unlink({})".format(uri))
@@ -207,9 +207,9 @@ class GFALFileInterface(RemoteFileInterface):
                     return False
                 e.reraise()
 
-    @RemoteFileInterface.retry(uri_cmd="rmdir")
+    @RemoteFileInterface.retry(uri_base_name="rmdir")
     def rmdir(self, path, base=None, silent=True, **kwargs):
-        uri = self.uri(path, cmd="rmdir", base=base)
+        uri = self.uri(path, base_name="rmdir", base=base)
         with self.context() as ctx:
             try:
                 logger.debug("invoking gfal2 rmdir({})".format(uri))
@@ -225,7 +225,7 @@ class GFALFileInterface(RemoteFileInterface):
                     return False
                 e.reraise()
 
-    @RemoteFileInterface.retry(uri_cmd="unlink")
+    @RemoteFileInterface.retry(uri_base_name="unlink")
     def remove(self, path, base=None, silent=True, **kwargs):
         """
         Recursive removal is potentially expensive in terms of remote file operations, so this
@@ -233,7 +233,7 @@ class GFALFileInterface(RemoteFileInterface):
         """
         # most common use case is file removal, so try this first and in case there is an error
         # interpret its message to get more info on the object without further operations
-        uri = self.uri(path, cmd="unlink", base=base)
+        uri = self.uri(path, base_name="unlink", base=base)
         with self.context() as ctx:
             try:
                 logger.debug("invoking gfal2 unlink({})".format(uri))
@@ -251,7 +251,7 @@ class GFALFileInterface(RemoteFileInterface):
                     e.reraise()
 
         # at this point, we are dealing with a directory so try to delete it right away
-        uri = self.uri(path, cmd="rmdir", base=base)
+        uri = self.uri(path, base_name="rmdir", base=base)
         with self.context() as ctx:
             try:
                 logger.debug("invoking gfal2 rmdir({})".format(uri))
@@ -275,9 +275,9 @@ class GFALFileInterface(RemoteFileInterface):
 
         return self.rmdir(path, base=base, silent=silent, retries=0)
 
-    @RemoteFileInterface.retry(uri_cmd="mkdir")
+    @RemoteFileInterface.retry(uri_base_name="mkdir")
     def mkdir(self, path, perm, base=None, silent=True, **kwargs):
-        uri = self.uri(path, cmd="mkdir", base=base)
+        uri = self.uri(path, base_name="mkdir", base=base)
         with self.context() as ctx:
             try:
                 logger.debug("invoking gfal2 mkdir({}, {})".format(uri, perm))
@@ -295,9 +295,9 @@ class GFALFileInterface(RemoteFileInterface):
                         return False
                 e.reraise()
 
-    @RemoteFileInterface.retry(uri_cmd=["mkdir_rec", "mkdir"])
+    @RemoteFileInterface.retry(uri_base_name=["mkdir_rec", "mkdir"])
     def mkdir_rec(self, path, perm, base=None, silent=True, **kwargs):
-        uri = self.uri(path, cmd="mkdir", base=base)
+        uri = self.uri(path, base_name="mkdir", base=base)
         with self.context() as ctx:
             try:
                 logger.debug("invoking gfal2 mkdir_rec({}, {})".format(uri, perm))
@@ -315,9 +315,9 @@ class GFALFileInterface(RemoteFileInterface):
                         return False
                 e.reraise()
 
-    @RemoteFileInterface.retry(uri_cmd="listdir")
+    @RemoteFileInterface.retry(uri_base_name="listdir")
     def listdir(self, path, base=None, **kwargs):
-        uri = self.uri(path, cmd="listdir", base=base)
+        uri = self.uri(path, base_name="listdir", base=base)
         with self.context() as ctx:
             try:
                 logger.debug("invoking gfal2 listdir({})".format(uri))
@@ -326,17 +326,17 @@ class GFALFileInterface(RemoteFileInterface):
             except gfal2.GError:
                 raise RetryException()
 
-    @RemoteFileInterface.retry(uri_cmd="filecopy")
+    @RemoteFileInterface.retry(uri_base_name="filecopy")
     def filecopy(self, src, dst, base=None, **kwargs):
         if has_scheme(src):
             src_uri = self.sanitize_path(src)
         else:
-            src_uri = self.uri(src, cmd="filecopy", base=base)
+            src_uri = self.uri(src, base_name="filecopy", base=base)
 
         if has_scheme(dst):
             dst_uri = self.sanitize_path(dst)
         else:
-            dst_uri = self.uri(dst, cmd="filecopy", base=base)
+            dst_uri = self.uri(dst, base_name="filecopy", base=base)
 
         with self.context() as ctx, self.transfer_parameters(ctx) as params:
             try:

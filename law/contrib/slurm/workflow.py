@@ -46,7 +46,7 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
         postfix = "_{}To{}".format(branches[0], branches[-1] + 1)
 
         # create the config
-        c = self.job_file_factory.Config()
+        c = self.job_file_factory.get_config()
         c.input_files = {}
         c.render_variables = {}
         c.custom_content = []
@@ -87,7 +87,7 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
             workers=task.job_workers,
             auto_retry=False,
             dashboard_data=self.dashboard.remote_hook_data(
-                job_num, self.submission_data.attempts.get(job_num, 0)),
+                job_num, self.job_data.attempts.get(job_num, 0)),
         )
         c.arguments = job_args.join()
 
@@ -215,6 +215,12 @@ class SlurmWorkflow(BaseRemoteWorkflow):
 
     def slurm_job_config(self, config, job_num, branches):
         return config
+
+    def slurm_check_job_completeness(self):
+        return False
+
+    def slurm_check_job_completeness_delay(self):
+        return 0.0
 
     def slurm_use_local_scheduler(self):
         return False

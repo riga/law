@@ -317,7 +317,7 @@ class SiblingFileCollection(SiblingFileCollectionBase):
                     t.__class__.__name__, t, self.dir))
 
     def _repr_pairs(self):
-        expand = Config.instance().get_expanded_boolean("target", "expand_path_repr")
+        expand = Config.instance().get_expanded_bool("target", "expand_path_repr")
         dir_path = self.dir.path if expand else self.dir.unexpanded_path
         return TargetCollection._repr_pairs(self) + [("fs", self.dir.fs.name), ("dir", dir_path)]
 

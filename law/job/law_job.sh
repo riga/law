@@ -22,7 +22,6 @@
 #     afterwards. It is randomly named and placed inside LAW_JOB_INIT_DIR for the purpose of
 #     preventing file collisions on batch systems that spawn multiple jobs in the same directory. It
 #     contains symbolic links to all input files.
-# - LAW_JOB_FILE_POSTFIX: The postfix of all input and output files, e.g. "_0To1".
 # - LAW_SRC_PATH: The location of the law package, obtained via "law location".
 # - LAW_JOB_TMP: A directory "tmp" inside LAW_JOB_HOME.
 # - LAW_TARGET_TMP_DIR: Same as LAW_JOB_TMP.
@@ -40,7 +39,6 @@
 # - bootstrap_command: A command that is executed before running tasks.
 # - dashboard_file: A file that can contain dashboard functions to be used in hooks. See the
 #     documentation below.
-# - file_postfix: The postfix of all input and output files, e.g. "_0To1".
 # - input_files: Absolute or job relative paths of all input files, separated by spaces.
 # - input_files_render: Absolute or job relative paths of input files that should be rendered if
 #     render_variables is set.
@@ -104,7 +102,6 @@ law_job() {
     export LAW_JOB_HOME="$( mktemp -d "${LAW_JOB_BASE}/job_XXXXXXXXXXXX" )"
     export LAW_JOB_TMP="${LAW_JOB_TMP:-{{law_job_tmp}}}"
     export LAW_JOB_TMP="${LAW_JOB_TMP:-${LAW_JOB_HOME}/tmp}"
-    export LAW_JOB_FILE_POSTFIX="{{file_postfix}}"
     export LAW_JOB_ORIGINAL_TMP="${TMP}"
     export LAW_JOB_ORIGINAL_TEMP="${TEMP}"
     export LAW_JOB_ORIGINAL_TMPDIR="${TMPDIR}"

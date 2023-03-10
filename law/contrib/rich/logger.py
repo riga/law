@@ -79,7 +79,7 @@ def replace_console_handlers(loggers=("luigi", "luigi.*", "luigi-*", "law", "law
             # emit warning for colored_* configs
             cfg = Config.instance()
             opts = [(s, o) for s in ["task", "target"] for o in ["colored_str", "colored_repr"]]
-            if any(cfg.get_expanded_boolean(*opt) for opt in opts):
+            if any(cfg.get_expanded_bool(*opt) for opt in opts):
                 logger.warning_once(
                     "interfering_colors_in_rich_handler",
                     "law is currently configured to colorize string representations of tasks and "

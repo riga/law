@@ -1,6 +1,10 @@
-.. include:: ../README.rst
-   :end-before: marker-after-header
+**law**
+=======
 
+.. include:: ../README.md
+   :parser: myst_parser.sphinx_
+   :start-after: <!-- marker-after-logo -->
+   :end-before: <!-- marker-after-contents-heading -->
 
 .. toctree::
    :maxdepth: 1
@@ -15,7 +19,7 @@
    api/index
    contrib/index
 
-
-.. include:: ../README.rst
-   :start-after: marker-before-body
-   :end-before: marker-after-body
+.. include:: ../README.md
+   :parser: myst_parser.sphinx_
+   :start-after: <!-- marker-before-body -->
+   :end-before: <!-- marker-after-body -->

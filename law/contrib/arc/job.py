@@ -103,29 +103,33 @@ class ARCJobManager(BaseJobManager):
             # retry or done?
             if code == 0:
                 return job_ids if chunking else job_ids[0]
-            else:
-                logger.debug("submission of arc job(s) '{}' failed with code {}:\n{}".format(
-                    job_files, code, out))
-                if retries > 0:
-                    retries -= 1
-                    time.sleep(retry_delay)
-                    continue
-                elif silent:
-                    return None
-                else:
-                    raise Exception("submission of arc job(s) '{}' failed:\n{}".format(job_files,
-                        out))
+
+            logger.debug("submission of arc job(s) '{}' failed with code {}:\n{}".format(
+                job_files, code, out))
+
+            if retries > 0:
+                retries -= 1
+                time.sleep(retry_delay)
+                continue
+
+            if silent:
+                return None
+
+            raise Exception("submission of arc job(s) '{}' failed:\n{}".format(job_files, out))
 
     def cancel(self, job_id, job_list=None, silent=False):
         # default arguments
         if job_list is None:
             job_list = self.job_list
 
+        chunking = isinstance(job_id, (list, tuple))
+        job_ids = make_list(job_id)
+
         # build the command
         cmd = ["arckill"]
         if job_list:
             cmd += ["-j", job_list]
-        cmd += make_list(job_id)
+        cmd += job_ids
         cmd = quote_cmd(cmd)
 
         # run it
@@ -139,16 +143,21 @@ class ARCJobManager(BaseJobManager):
             raise Exception("cancellation of arc job(s) '{}' failed with code {}:\n{}".format(
                 job_id, code, out))
 
+        return {job_id: None for job_id in job_ids} if chunking else None
+
     def cleanup(self, job_id, job_list=None, silent=False):
         # default arguments
         if job_list is None:
             job_list = self.job_list
 
+        chunking = isinstance(job_id, (list, tuple))
+        job_ids = make_list(job_id)
+
         # build the command
         cmd = ["arcclean"]
         if job_list:
             cmd += ["-j", job_list]
-        cmd += make_list(job_id)
+        cmd += job_ids
         cmd = quote_cmd(cmd)
 
         # run it
@@ -161,6 +170,8 @@ class ARCJobManager(BaseJobManager):
             # arc prints everything to stdout
             raise Exception("cleanup of arc job(s) '{}' failed with code {}:\n{}".format(
                 job_id, code, out))
+
+        return {job_id: None for job_id in job_ids} if chunking else None
 
     def query(self, job_id, job_list=None, silent=False):
         # default arguments
@@ -298,10 +309,10 @@ class ARCJobFileFactory(BaseJobFileFactory):
             kwargs["dir"] = cfg.get_expanded("job", cfg.find_option("job",
                 "arc_job_file_dir", "job_file_dir"))
         if kwargs.get("mkdtemp") is None:
-            kwargs["mkdtemp"] = cfg.get_expanded_boolean("job", cfg.find_option("job",
+            kwargs["mkdtemp"] = cfg.get_expanded_bool("job", cfg.find_option("job",
                 "arc_job_file_dir_mkdtemp", "job_file_dir_mkdtemp"))
         if kwargs.get("cleanup") is None:
-            kwargs["cleanup"] = cfg.get_expanded_boolean("job", cfg.find_option("job",
+            kwargs["cleanup"] = cfg.get_expanded_bool("job", cfg.find_option("job",
                 "arc_job_file_dir_cleanup", "job_file_dir_cleanup"))
 
         super(ARCJobFileFactory, self).__init__(**kwargs)
@@ -324,7 +335,7 @@ class ARCJobFileFactory(BaseJobFileFactory):
 
     def create(self, postfix=None, **kwargs):
         # merge kwargs and instance attributes
-        c = self.get_config(kwargs)
+        c = self.get_config(**kwargs)
 
         # some sanity checks
         if not c.file_name:

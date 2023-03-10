@@ -50,10 +50,10 @@ class RemoteFileSystem(FileSystem):
                 config[option] = func(section, option)
 
         # default setting for validation for existence after copy
-        add("validate_copy", cfg.get_expanded_boolean)
+        add("validate_copy", cfg.get_expanded_bool)
 
         # default setting for using the cache
-        add("use_cache", cfg.get_expanded_boolean)
+        add("use_cache", cfg.get_expanded_bool)
 
         # cache options
         if cfg.options(section, prefix="cache_"):
