@@ -84,7 +84,7 @@ class TargetCollection(Target):
         for key, targets in gen:
             yield (key, targets)
 
-    def _iter_state(self, existing=True, optional_existing=None, keys=False):
+    def _iter_state(self, existing=True, optional_existing=None, keys=False, unpack=True):
         existing = bool(existing)
         if optional_existing is not None:
             optional_existing = bool(optional_existing)
@@ -101,6 +101,8 @@ class TargetCollection(Target):
         for key, targets in self._iter_flat():
             state = all(exists(t) for t in targets)
             if state is existing:
+                if unpack:
+                    targets = self.targets[key]
                 yield (key, targets) if keys else targets
 
     def iter_existing(self, **kwargs):
@@ -321,7 +323,14 @@ class SiblingFileCollection(SiblingFileCollectionBase):
         dir_path = self.dir.path if expand else self.dir.unexpanded_path
         return TargetCollection._repr_pairs(self) + [("fs", self.dir.fs.name), ("dir", dir_path)]
 
-    def _iter_state(self, existing=True, optional_existing=None, basenames=None, keys=False):
+    def _iter_state(
+        self,
+        existing=True,
+        optional_existing=None,
+        basenames=None,
+        keys=False,
+        unpack=True,
+    ):
         existing = bool(existing)
         if optional_existing is not None:
             optional_existing = bool(optional_existing)
@@ -351,6 +360,8 @@ class SiblingFileCollection(SiblingFileCollectionBase):
         for key, targets in self._iter_flat():
             state = all(exists(t) for t in targets)
             if state is existing:
+                if unpack:
+                    targets = self.targets[key]
                 yield (key, targets) if keys else targets
 
     def _exists_fwd(self, **kwargs):
@@ -398,7 +409,14 @@ class NestedSiblingFileCollection(SiblingFileCollectionBase):
             for collection in self.collections
         }
 
-    def _iter_state(self, existing=True, optional_existing=None, basenames=None, keys=False):
+    def _iter_state(
+        self,
+        existing=True,
+        optional_existing=None,
+        basenames=None,
+        keys=False,
+        unpack=True,
+    ):
         existing = bool(existing)
         if optional_existing is not None:
             optional_existing = bool(optional_existing)
@@ -424,6 +442,8 @@ class NestedSiblingFileCollection(SiblingFileCollectionBase):
         for key, targets in self._iter_flat():
             state = all(exists(t, basenames[self._flat_target_collections[t]]) for t in targets)
             if state is existing:
+                if unpack:
+                    targets = self.targets[key]
                 yield (key, targets) if keys else targets
 
     def _exists_fwd(self, **kwargs):
