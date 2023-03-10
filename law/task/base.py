@@ -236,14 +236,14 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
         self._cached_requirements = no_value
 
     def complete(self):
-        outputs = [t for t in flatten(self.output()) if not t.optional]
+        # create a flat list of all outputs
+        outputs = flatten(self.output())
 
         if len(outputs) == 0:
-            logger.warning("task {!r} has either no non-optional outputs or no custom complete() "
-                "method".format(self))
-            return False
+            logger.warning("task {!r} has no outputs or no custom complete() method".format(self))
+            return True
 
-        return all(t.exists() for t in outputs)
+        return all(t.complete() for t in outputs)
 
     def input(self):
         # get potentially cached requirements
