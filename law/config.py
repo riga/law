@@ -242,6 +242,9 @@ class Config(ConfigParser):
             "slurm_job_file_dir_cleanup": False,
             "slurm_chunk_size_cancel": 25,
             "slurm_chunk_size_query": 25,
+            "crab_job_file_dir": None,
+            "crab_job_file_dir_cleanup": False,
+            "crab_sandbox_name": "CMSSW_10_6_30",
         },
         "notifications": {
             "mail_recipient": None,
@@ -291,6 +294,12 @@ class Config(ConfigParser):
         },
         "singularity_sandbox_env": {},
         "singularity_sandbox_volumes": {},
+        "cmssw_sandbox": {
+            "stagein_dir_name": "stagein",
+            "stageout_dir_name": "stageout",
+            "login": False,
+        },
+        "cmssw_sandbox_env": {},
     }
 
     _config_files = ["$LAW_CONFIG_FILE", "law.cfg", law_home_path("config"), "etc/law/config"]

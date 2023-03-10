@@ -898,6 +898,30 @@
 ; Type: integer
 ; Default: 25
 
+; crab_job_file_dir
+; crab_job_file_dir_mkdtemp
+; crab_job_file_dir_cleanup
+; Description: These three options are identical to the ones above without the "crab" prefix, but
+; only apply to the "law.cms.CrabJobFileFactory". When "None" or not existing, the values above are
+; used.
+
+; crab_work_area
+; Description: The directory in which the "law.cms.CrabJobManager" will create crab project
+; directories upon submission. Defaults to "crab_job_file_dir".
+; Type: string
+; Default: job.crab_job_file_dir
+
+; crab_sandbox_name
+; Description: The name of the "cmssw" sandbox to use which provides the crab executable. In its
+; simplest form, this is just the version string of the CMSSW release to use. However, additional
+; settings can be appended with the "::" delimiter in the format
+; "cmssw_version::setting=value::setting=value" for more configurablity. Supported settings are
+; "setup", an additional setup script that is executed inside the src directory during installation,
+; "dir", a custom install directory, "arch", a custom scram architecture, and "cores", the number of
+; CPU cores to use for installation.
+; Type: string
+; Default: CMSSW_10_6_30
+
 
 ; --- notifications section ------------------------------------------------------------------------
 
@@ -1198,3 +1222,48 @@
 ; represent host and container directory, respectively.
 ; The volumes defined in this section are applied to all singularity sandboxes. To configure volumes
 ; per image, create a section "singularity_sandbox_volumes_<image_name>" with the desired values.
+
+
+; --- cmssw_sandbox section ------------------------------------------------------------------------
+
+[cmssw_sandbox]
+
+; Note:
+; This section defines the default options for all cmssw sandboxes. To configure options per cmssw
+; version, create a section "cmssw_sandbox_<cmssw_version>" with the desired options.
+
+
+; stagein_dir_name
+; Description: Name of a directory which is placed automatically inside a temporary directory and to
+; which input files are staged-in outside of the sandbox and provided to the sandboxed task. When
+; "None", no stage-in is performed and the task is assumed to be able to access inputs directly from
+; within the sandbox.
+; Type: string
+; Default: "stagein"
+
+; stageout_dir_name
+; Description: Name of a directory which is placed automatically inside a temporary directory and
+; provided to sandboxed tasks to store outputs and from which those files are staged-out outside the
+; sandbox. When "None", no stage-out is performed and the task is assumed to be able to store
+; outputs directly from within the sandbox.
+; Type: string
+; Default: "stageout"
+
+; login
+; Description: A boolean flag that decides whether the bash beneath the sandbox should be invoked as
+; a login shell.
+; Type: boolean
+; Default: False
+
+
+; --- cmssw_sandbox_env section --------------------------------------------------------------------
+
+[cmssw_sandbox_env]
+
+; Note:
+; Here you can define environment variables via key-value pairs that are accessible in a cmssw
+; sandbox. When an option has no value, i.e., when only a key is given, the value of the variable of
+; the current environment is used.
+; The environment variables defined in this section are applied to all cmssw sandboxes. To
+; configure variables per cmssw version, create a section "cmssw_sandbox_env_<cmssw_version>" with
+; the desired values.

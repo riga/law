@@ -29,7 +29,7 @@ Key features:
 - Remote targets with automatic retries and local caching
   - WebDAV, HTTP, Dropbox, SFTP, all WLCG protocols (srm, xrootd, dcap, gsiftp, webdav, ...)
 - Automatic submission to batch systems from within tasks
-  - HTCondor, LSF, gLite, ARC, Slurm
+  - HTCondor, LSF, gLite, ARC, Slurm, CMS-CRAB
 - Environment sandboxing, configurable on task level
   - Docker, Singularity, Sub-Shells, Virutal envs
 
