@@ -577,7 +577,10 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
         # cancel jobs
         task.publish_message("going to cancel {} jobs".format(len(job_ids)))
-        errors = self.job_manager.cancel_batch(job_ids, **cancel_kwargs)
+        if self.job_manager.job_grouping:
+            errors = self.job_manager.cancel_group(job_ids, **cancel_kwargs)
+        else:
+            errors = self.job_manager.cancel_batch(job_ids, **cancel_kwargs)
 
         # print errors
         if errors:
@@ -616,7 +619,10 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
         # cleanup jobs
         task.publish_message("going to cleanup {} jobs".format(len(job_ids)))
-        errors = self.job_manager.cleanup_batch(job_ids, **cleanup_kwargs)
+        if self.job_manager.job_grouping:
+            errors = self.job_manager.cleanup_group(job_ids, **cleanup_kwargs)
+        else:
+            errors = self.job_manager.cleanup_batch(job_ids, **cleanup_kwargs)
 
         # print errors
         if errors:
@@ -700,18 +706,16 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             job_data = self.job_data_cls.job_data(branches=branches)
             self.job_data.jobs[job_num] = job_data
 
-        # create job submission files mapped to job nums
-        job_files = OrderedDict()
-        for job_num, branches in six.iteritems(submit_jobs):
-            job_files[job_num] = self.create_job_file(job_num, branches)
-
         # log some stats
         dst_info = self._destination_info_postfix()
         task.publish_message("going to submit {} {} job(s){}".format(
             len(submit_jobs), self.workflow_type, dst_info))
 
-        # actual submission
-        job_ids = self._submit(job_files)
+        # job file preparation and submission
+        if self.job_manager.job_grouping:
+            job_ids, job_files = self._submit_group(submit_jobs)
+        else:
+            job_ids, job_files = self._submit(submit_jobs)
 
         # store submission data
         errors = []
@@ -725,7 +729,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             job_data = self.job_data.jobs[job_num]
             job_data["job_id"] = job_id
             job_data["log_file"] = files.get("log")
-            new_submission_data[job_num] = job_data.copy()
+            new_submission_data[job_num] = copy.deepcopy(job_data)
 
             # inform the dashboard
             task.forward_dashboard_event(self.dashboard, job_data, "action.submit", job_num)
@@ -750,8 +754,13 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
         return new_submission_data
 
-    def _submit(self, job_files, **kwargs):
+    def _submit(self, submit_jobs, **kwargs):
         task = self.task
+
+        # create job submission files mapped to job nums
+        job_files = OrderedDict()
+        for job_num, branches in six.iteritems(submit_jobs):
+            job_files[job_num] = self.create_job_file(job_num, branches)
 
         # job_files is an ordered mapping job_num -> {"job": PATH, "log": PATH/None}, get keys and
         # values for faster lookup by numeric index
@@ -787,8 +796,46 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             if dump_freq and (i + 1) % dump_freq == 0:
                 self.dump_job_data()
 
-        return self.job_manager.submit_batch(job_files, retries=3, threads=task.submission_threads,
-            callback=progress_callback, **submit_kwargs)
+        return (
+            self.job_manager.submit_batch(
+                job_files,
+                retries=3,
+                threads=task.submission_threads,
+                callback=progress_callback,
+                **submit_kwargs,
+            ),
+            job_files,
+        )
+
+    def _submit_group(self, submit_jobs, **kwargs):
+        task = self.task
+
+        # create the single multi submission file, passing the job_num -> branches dict
+        job_file = self.create_job_file(submit_jobs)
+
+        # get job kwargs for submission and merge with passed kwargs
+        submit_kwargs = self._get_job_kwargs("submit")
+        submit_kwargs = merge_dicts(submit_kwargs, kwargs)
+
+        # submission
+        job_ids = self.job_manager.submit_group(
+            job_file["job"],
+            retries=3,
+            threads=task.submission_threads,
+            **submit_kwargs,
+        )
+
+        # set all job ids
+        for job_num, job_id in zip(submit_jobs, job_ids):
+            self.job_data.jobs[job_num]["job_id"] = job_id
+
+        # dump job data
+        self.dump_job_data()
+
+        return (
+            job_ids,
+            {job_num: job_file for job_num in submit_jobs},
+        )
 
     def poll(self):
         """
@@ -861,7 +908,10 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
             # query job states
             job_ids = [self.job_data.jobs[job_num]["job_id"] for job_num in active_jobs]
-            query_data = self.job_manager.query_batch(job_ids, **query_kwargs)
+            if self.job_manager.job_grouping:
+                query_data = self.job_manager.query_group(job_ids, **query_kwargs)
+            else:
+                query_data = self.job_manager.query_batch(job_ids, **query_kwargs)
 
             # separate into actual states and errors that might have occured during the status query
             states_by_id = OrderedDict()
