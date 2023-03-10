@@ -60,6 +60,23 @@ class Config(ConfigParser):
 
     _instance = None
 
+    class Deferred(object):
+        """
+        Wrapper around callables representing deferred options.
+        """
+
+        str_repr = str(object())
+
+        def __init__(self, func):
+            self.func = func
+
+        def __call__(self, *args, **kwargs):
+            return self.func(*args, **kwargs)
+
+        def __str__(self):
+            # same string repr for all instances to identify them as deferred objects
+            return self.str_repr
+
     _default_config = {
         "core": {
             "law_home": law_home_path(),
@@ -374,6 +391,9 @@ class Config(ConfigParser):
         if not skip_luigi_sync and self.get_expanded_bool("core", "sync_luigi_config"):
             self.sync_luigi_config()
 
+        # resolve deferred default values
+        self.resolve_deferred_defaults()
+
     def _convert_to_boolean(self, value):
         # py2 backport
         if six.PY3:
@@ -683,6 +703,19 @@ class Config(ConfigParser):
 
                 for option, value in lparser.items(lsection):
                     self.set(section, option, value)
+
+    def resolve_deferred_defaults(self):
+        """
+        Traverses all options, checks whether they are deferred callables and if so, resolves and
+        sets them.
+        """
+        # TODO: priority based order?
+        for section in self.sections():
+            for option, value in self.items(section):
+                if value == self.Deferred.str_repr:
+                    value = self._default_config.get(section, {}).get(option, value)
+                if isinstance(value, self.Deferred):
+                    self.set(section, option, str(value(self)))
 
 
 # register convenience functions on module-level
