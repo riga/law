@@ -84,16 +84,19 @@ class Sandbox(six.with_metaclass(ABCMeta, object)):
 
     delimiter = "::"
 
+    # cached envs
+    _envs = {}
+
     @staticmethod
     def check_key(key, silent=False):
-        valid = True
-        if "," in key:
-            valid = False
+        # commas are not allowed since the LAW_SANDBOX env variable is allowed to contain multiple
+        # comma-separated sandbox keys that need to be separated
+        valid = "," not in key
 
         if not valid and not silent:
             raise ValueError("invalid sandbox key format '{}'".format(key))
-        else:
-            return valid
+
+        return valid
 
     @staticmethod
     def split_key(key):
@@ -128,7 +131,7 @@ class Sandbox(six.with_metaclass(ABCMeta, object)):
 
         raise Exception("no sandbox with type '{}' found".format(_type))
 
-    def __init__(self, name, task=None):
+    def __init__(self, name, task=None, env_cache_path=None):
         super(Sandbox, self).__init__()
 
         # when a task is set, it must be a SandboxTask instance
@@ -137,10 +140,18 @@ class Sandbox(six.with_metaclass(ABCMeta, object)):
 
         self.name = name
         self.task = task
+        self.env_cache_path = (
+            os.path.abspath(os.path.expandvars(os.path.expanduser(env_cache_path)))
+            if env_cache_path
+            else None
+        )
 
         # target staging info
         self.stagein_info = None
         self.stageout_info = None
+
+    def is_active(self):
+        return self.key in _current_sandbox
 
     @property
     def key(self):
@@ -154,12 +165,25 @@ class Sandbox(six.with_metaclass(ABCMeta, object)):
         return False
 
     @abstractproperty
-    def env(self):
+    def env_cache_key(self):
+        return
+
+    @abstractmethod
+    def create_env(self):
         return
 
     @abstractmethod
     def cmd(self, proxy_cmd):
         return
+
+    @property
+    def env(self):
+        cache_key = (self.sandbox_type, self.env_cache_key)
+
+        if cache_key not in self._envs:
+            self._envs[cache_key] = self.create_env()
+
+        return self._envs[cache_key]
 
     def run(self, cmd, stdout=None, stderr=None):
         if stdout is None:
@@ -170,15 +194,18 @@ class Sandbox(six.with_metaclass(ABCMeta, object)):
         return interruptable_popen(cmd, shell=True, executable="/bin/bash", stdout=stdout,
             stderr=stderr, env=self.env)
 
+    def get_custom_config_section_postfix(self):
+        return self.name
+
     def get_config_section(self, postfix=None):
         section = self.sandbox_type + "_sandbox"
         if postfix:
             section += "_" + postfix
 
-        image_section = section + "_" + self.name
+        custom_section = "{}_{}".formart(section, self.get_custom_config_section_postfix())
 
         cfg = Config.instance()
-        return image_section if cfg.has_section(image_section) else section
+        return custom_section if cfg.has_section(custom_section) else section
 
     def _get_env(self):
         # environment variables to set
@@ -470,6 +497,11 @@ class SandboxTask(Task):
             return
         self._sandbox_initialized = True
 
+        # reset values
+        self._effective_sandbox = None
+        self._sandbox_inst = None
+        self._sandbox_proxy = None
+
         # when we are already in a sandbox, this task is placed inside it, i.e., there is no nesting
         if _sandbox_switched:
             self._effective_sandbox = _current_sandbox[0]
@@ -493,11 +525,14 @@ class SandboxTask(Task):
             self._effective_sandbox = NO_STR
 
         # create the sandbox proxy when required
-        if not self.is_sandboxed():
-            self._sandbox_inst = Sandbox.new(self._effective_sandbox, self)
-            self._sandbox_proxy = SandboxProxy(task=self)
-            logger.debug("created sandbox proxy instance of type '{}'".format(
-                self._effective_sandbox))
+        if self._effective_sandbox not in (None, NO_STR):
+            sandbox_inst = Sandbox.new(self._effective_sandbox, self)
+            if not sandbox_inst.is_active():
+                self._sandbox_inst = sandbox_inst
+                self._sandbox_proxy = SandboxProxy(task=self)
+                logger.debug(
+                    "created sandbox proxy instance of type '{}'".format(self._effective_sandbox),
+                )
 
     @property
     def effective_sandbox(self):
@@ -518,7 +553,7 @@ class SandboxTask(Task):
         return get_proxy_attribute(self, attr, proxy=proxy, super_cls=Task)
 
     def is_sandboxed(self):
-        return self.effective_sandbox == NO_STR or self.effective_sandbox in _current_sandbox
+        return self.effective_sandbox == NO_STR or not self.sandbox_inst
 
     def is_root_task(self):
         is_root = super(SandboxTask, self).is_root_task()
