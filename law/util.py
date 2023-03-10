@@ -1502,12 +1502,16 @@ def human_bytes(n, unit=None, fmt=False):
     value = n / 1024.0 ** idx
     unit = byte_units[idx]
 
+    # vast value to int when the unit is bytes
+    if idx == 0:
+        value = int(round(value))
+
     if fmt:
         if not isinstance(fmt, six.string_types):
-            fmt = "{:.1f} {}"
+            fmt = "{} {}" if idx == 0 else "{:.1f} {}"
         return fmt.format(value, unit)
-    else:
-        return value, unit
+
+    return value, unit
 
 
 def parse_bytes(s, input_unit="bytes", unit="bytes"):
