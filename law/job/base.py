@@ -216,19 +216,27 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
         calls, in an order that corresponds to *job_files*. When an exception was raised during a
         submission, this exception is added to the returned list.
         """
+    def _apply_batch(
+        self,
+        func,
+        result_type,
+        job_objs,
+        default_chunk_size,
+        threads=None,
+        chunk_size=None,
+        callback=None,
+        **kwargs,
+    ):
         # default arguments
         threads = max(threads or self.threads or 1, 1)
 
         # is chunking allowed?
-        if self.chunk_size_submit:
-            chunk_size = max(chunk_size or self.chunk_size_submit, 0)
-        else:
-            chunk_size = 0
+        chunk_size = max(chunk_size or default_chunk_size, 0) if default_chunk_size else 0
         chunking = chunk_size > 0
 
-        # build chunks (either job files one by one, or real chunks of job files)
-        job_files = make_list(job_files)
-        chunks = list(iter_chunks(job_files, chunk_size)) if chunking else job_files
+        # build chunks if needed
+        job_objs = make_list(job_objs)
+        job_objs = list(iter_chunks(job_objs, chunk_size)) if chunking else job_objs
 
         # factory to call the passed callback for each job file even when chunking
         def cb_factory(i):
@@ -236,117 +244,127 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
                 return None
 
             if chunking:
-                def wrapper(job_ids):
-                    offset = sum(len(chunk) for chunk in chunks[:i])
-                    for j in range(len(chunks[i])):
-                        job_id = job_ids if isinstance(job_ids, Exception) else job_ids[j]
-                        callback(offset + j, job_id)
+                def wrapper(result_data):
+                    offset = sum(map(len, job_objs[:i]))
+                    for j in range(len(job_objs[i])):
+                        data = result_data if isinstance(result_data, Exception) else result_data[j]
+                        callback(offset + j, data)
             else:
-                def wrapper(job_id):
-                    callback(i, job_id)
+                def wrapper(data):
+                    callback(i, data)
 
             return wrapper
 
         # threaded processing
         pool = ThreadPool(threads)
         results = [
-            pool.apply_async(self.submit, (_job_files,), kwargs, callback=cb_factory(i))
-            for i, _job_files in enumerate(chunks)
+            pool.apply_async(func, (arg,), kwargs, callback=cb_factory(i))
+            for i, arg in enumerate(job_objs)
         ]
         pool.close()
         pool.join()
 
-        # store return values or errors, same length as job files, independent of chunking
+        # store result data or an exception
+        result_data = result_type()
         if chunking:
-            outputs = []
-            for i, (chunk, res) in enumerate(six.moves.zip(chunks, results)):
-                job_ids = get_async_result_silent(res)
-                if isinstance(job_ids, Exception):
-                    job_ids = len(chunk) * [job_ids]
-                outputs.extend(job_ids)
+            for _job_objs, res in six.moves.zip(job_objs, results):
+                data = get_async_result_silent(res)
+                for job_obj in _job_objs:
+                    _data = data if isinstance(data, Exception) else data[job_obj]
+                    if isinstance(result_data, list):
+                        result_data.append(_data)
+                    else:
+                        result_data[job_obj] = _data
         else:
-            outputs = flatten(get_async_result_silent(res) for res in results)
+            for job_obj, res in six.moves.zip(job_objs, results):
+                data = get_async_result_silent(res)
+                if isinstance(result_data, list):
+                    result_data.append(data)
+                else:
+                    result_data[job_obj] = data
 
-        return outputs
+        return result_data
+
+    def submit_batch(self, job_files, threads=None, chunk_size=None, callback=None, **kwargs):
+        """
+        Submits a batch of jobs given by *job_files* via a thread pool of size *threads* which
+        defaults to its instance attribute. When *chunk_size*, which defaults to
+        :py:attr:`chunk_size_submit`, is not negative, *job_files* are split into chunks of that
+        size which are passed to :py:meth:`submit`.
+
+        When *callback* is set, it is invoked after each successful job submission with the index of
+        the corresponding job file (starting at 0) and either the assigned job id or an exception if
+        any occurred. All other *kwargs* are passed to
+        :py:meth:`submit`.
+
+        The return value is a list containing the return values of the particular :py:meth:`submit`
+        calls, in an order that corresponds to *job_files*. When an exception was raised during a
+        submission, this exception is added to the returned list.
+        """
+        return self._apply_batch(
+            func=self.submit,
+            result_type=list,
+            job_objs=job_files,
+            default_chunk_size=self.chunk_size_submit,
+            threads=threads,
+            chunk_size=chunk_size,
+            callback=callback,
+            **kwargs,
+        )
 
     def cancel_batch(self, job_ids, threads=None, chunk_size=None, callback=None, **kwargs):
         """
         Cancels a batch of jobs given by *job_ids* via a thread pool of size *threads* which
         defaults to its instance attribute. When *chunk_size*, which defaults to
         :py:attr:`chunk_size_cancel`, is not negative, *job_ids* are split into chunks of that size
-        which are passed to :py:meth:`cancel`. When *callback* is set, it is invoked after each
-        successful job (or job chunk) cancelling with the index of the corresponding job id
-        (starting at 0) and either *None* or an exception if any occurred. All other *kwargs* are
-        passed to :py:meth:`cancel`.
+        which are passed to :py:meth:`cancel`.
+
+        When *callback* is set, it is invoked after each successful job (or job chunk) cancelling
+        with the index of the corresponding job id (starting at 0) and either *None* or an exception
+        if any occurred. All other *kwargs* are passed to :py:meth:`cancel`.
 
         Exceptions that occured during job cancelling are stored in a list and returned. An empty
         list means that no exceptions occured.
         """
-        # default arguments
-        threads = max(threads or self.threads or 1, 1)
+        results = self._apply_batch(
+            func=self.cancel,
+            result_type=dict,
+            job_objs=job_ids,
+            default_chunk_size=self.chunk_size_cancel,
+            threads=threads,
+            chunk_size=chunk_size,
+            callback=callback,
+            **kwargs,
+        )
 
-        # is chunking allowed?
-        if self.chunk_size_cancel:
-            chunk_size = max(chunk_size or self.chunk_size_cancel, 0)
-        else:
-            chunk_size = 0
-        chunking = chunk_size > 0
-
-        # build chunks (either job ids one by one, or real chunks of job ids)
-        job_ids = make_list(job_ids)
-        chunks = list(iter_chunks(job_ids, chunk_size)) if chunking else job_ids
-
-        # factory to call the passed callback for each job id even when chunking
-        def cb_factory(i):
-            if not callable(callback):
-                return None
-
-            if chunking:
-                def wrapper(err):
-                    offset = sum(len(chunk) for chunk in chunks[:i])
-                    for j in range(len(chunks[i])):
-                        callback(offset + j, err)
-            else:
-                def wrapper(err):
-                    callback(i, err)
-
-            return wrapper
-
-        # threaded processing
-        pool = ThreadPool(threads)
-        results = [pool.apply_async(self.cancel, (v,), kwargs, callback=cb_factory(i))
-                   for i, v in enumerate(chunks)]
-        pool.close()
-        pool.join()
-
-        # store errors
-        errors = list(filter(bool, flatten(get_async_result_silent(res) for res in results)))
-
-        return errors
+        # return only errors
+        return [error for error in results.values() if isinstance(error, Exception)]
 
     def cleanup_batch(self, job_ids, threads=None, chunk_size=None, callback=None, **kwargs):
         """
         Cleans up a batch of jobs given by *job_ids* via a thread pool of size *threads* which
         defaults to its instance attribute. When *chunk_size*, which defaults to
         :py:attr:`chunk_size_cleanup`, is not negative, *job_ids* are split into chunks of that size
-        which are passed to :py:meth:`cleanup`. When *callback* is set, it is invoked after each
-        successful job (or job chunk) cleaning with the index of the corresponding job id (starting
-        at 0) and either *None* or an exception if any occurred. All other *kwargs* are passed to
+        which are passed to :py:meth:`cleanup`.
+
+        When *callback* is set, it is invoked after each successful job (or job chunk) cleaning with
+        the index of the corresponding job id (starting at 0) and either *None* or an exception if
+        any occurred. All other *kwargs* are passed to
         :py:meth:`cleanup`.
 
         Exceptions that occured during job cleaning are stored in a list and returned. An empty list
         means that no exceptions occured.
         """
-        # default arguments
-        threads = max(threads or self.threads or 1, 1)
-
-        # is chunking allowed?
-        if self.chunk_size_cleanup:
-            chunk_size = max(chunk_size or self.chunk_size_cleanup, 0)
-        else:
-            chunk_size = 0
-        chunking = chunk_size > 0
-
+        results = self._apply_batch(
+            func=self.cleanup,
+            result_type=dict,
+            job_objs=job_ids,
+            default_chunk_size=self.chunk_size_cleanup,
+            threads=threads,
+            chunk_size=chunk_size,
+            callback=callback,
+            **kwargs,
+        )
         # build chunks (either job ids one by one, or real chunks of job ids)
         job_ids = make_list(job_ids)
         chunks = list(iter_chunks(job_ids, chunk_size)) if chunking else job_ids
@@ -377,21 +395,33 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
         # store errors
         errors = list(filter(bool, flatten(get_async_result_silent(res) for res in results)))
 
-        return errors
+        # return only errors
+        return [error for error in results.values() if isinstance(error, Exception)]
 
     def query_batch(self, job_ids, threads=None, chunk_size=None, callback=None, **kwargs):
         """
         Queries the status of a batch of jobs given by *job_ids* via a thread pool of size *threads*
         which defaults to its instance attribute. When *chunk_size*, which defaults to
         :py:attr:`chunk_size_query`, is not negative, *job_ids* are split into chunks of that size
-        which are passed to :py:meth:`query`. When *callback* is set, it is invoked after each
-        successful job (or job chunk) status query with the index of the corresponding job id
-        (starting at 0) and the obtained status query data or an exception if any occurred. All
-        other *kwargs* are passed to :py:meth:`query`.
+        which are passed to :py:meth:`query`.
+
+        When *callback* is set, it is invoked after each successful job (or job chunk) status query
+        with the index of the corresponding job id (starting at 0) and the obtained status query
+        data or an exception if any occurred. All other *kwargs* are passed to :py:meth:`query`.
 
         This method returns a dictionary that maps job ids to either the status query data or to an
         exception if any occurred.
         """
+        return self._apply_batch(
+            func=self.query,
+            result_type=dict,
+            job_objs=job_ids,
+            default_chunk_size=self.chunk_size_query,
+            threads=threads,
+            chunk_size=chunk_size,
+            callback=callback,
+            **kwargs,
+        )
         # default arguments
         threads = max(threads or self.threads or 1, 1)
 

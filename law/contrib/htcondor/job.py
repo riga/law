@@ -165,13 +165,16 @@ class HTCondorJobManager(BaseJobManager):
         if scheduler is None:
             scheduler = self.scheduler
 
+        chunking = isinstance(job_id, (list, tuple))
+        job_ids = make_list(job_id)
+
         # build the command
         cmd = ["condor_rm"]
         if pool:
             cmd += ["-pool", pool]
         if scheduler:
             cmd += ["-name", scheduler]
-        cmd += make_list(job_id)
+        cmd += job_ids
         cmd = quote_cmd(cmd)
 
         # run it
@@ -183,6 +186,8 @@ class HTCondorJobManager(BaseJobManager):
         if code != 0 and not silent:
             raise Exception("cancellation of htcondor job(s) '{}' failed with code {}:\n{}".format(
                 job_id, code, err))
+
+        return {job_id: None for job_id in job_ids} if chunking else None
 
     def query(self, job_id, pool=None, scheduler=None, user=None, silent=False):
         # default arguments
@@ -222,9 +227,8 @@ class HTCondorJobManager(BaseJobManager):
         if code != 0:
             if silent:
                 return None
-            else:
-                raise Exception("queue query of htcondor job(s) '{}' failed with code {}:"
-                    "\n{}".format(job_id, code, err))
+            raise Exception("queue query of htcondor job(s) '{}' failed with code {}:"
+                "\n{}".format(job_id, code, err))
 
         # parse the output and extract the status per job
         query_data = self.parse_long_output(out)
@@ -255,9 +259,8 @@ class HTCondorJobManager(BaseJobManager):
             if code != 0:
                 if silent:
                     return None
-                else:
-                    raise Exception("history query of htcondor job(s) '{}' failed with code {}:"
-                        "\n{}".format(job_id, code, err))
+                raise Exception("history query of htcondor job(s) '{}' failed with code {}:"
+                    "\n{}".format(job_id, code, err))
 
             # parse the output and update query data
             query_data.update(self.parse_long_output(out))
@@ -268,12 +271,11 @@ class HTCondorJobManager(BaseJobManager):
                 if not chunking:
                     if silent:
                         return None
-                    else:
-                        raise Exception("htcondor job(s) '{}' not found in query response".format(
-                            job_id))
-                else:
-                    query_data[_job_id] = self.job_status_dict(job_id=_job_id, status=self.FAILED,
-                        error="job not found in query response")
+                    raise Exception("htcondor job(s) '{}' not found in query response".format(
+                        job_id))
+
+                query_data[_job_id] = self.job_status_dict(job_id=_job_id, status=self.FAILED,
+                    error="job not found in query response")
 
         return query_data if chunking else query_data[job_id]
 
@@ -375,7 +377,7 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
 
     def create(self, postfix=None, **kwargs):
         # merge kwargs and instance attributes
-        c = self.get_config(kwargs)
+        c = self.get_config(**kwargs)
 
         # some sanity checks
         if not c.file_name:

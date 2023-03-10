@@ -110,11 +110,14 @@ class LSFJobManager(BaseJobManager):
         if queue is None:
             queue = self.queue
 
+        chunking = isinstance(job_id, (list, tuple))
+        job_ids = make_list(job_id)
+
         # build the command
         cmd = ["bkill"]
         if queue:
             cmd += ["-q", queue]
-        cmd += make_list(job_id)
+        cmd += job_ids
         cmd = quote_cmd(cmd)
 
         # run it
@@ -126,6 +129,8 @@ class LSFJobManager(BaseJobManager):
         if code != 0 and not silent:
             raise Exception("cancellation of lsf job(s) '{}' failed with code {}:\n{}".format(
                 job_id, code, err))
+
+        return {job_id: None for job_id in job_ids} if chunking else None
 
     def query(self, job_id, queue=None, silent=False):
         # default arguments
@@ -262,7 +267,7 @@ class LSFJobFileFactory(BaseJobFileFactory):
 
     def create(self, postfix=None, **kwargs):
         # merge kwargs and instance attributes
-        c = self.get_config(kwargs)
+        c = self.get_config(**kwargs)
 
         # some sanity checks
         if not c.file_name:

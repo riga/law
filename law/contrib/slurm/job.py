@@ -108,11 +108,14 @@ class SlurmJobManager(BaseJobManager):
         if partition is None:
             partition = self.partition
 
+        chunking = isinstance(job_id, (list, tuple))
+        job_ids = make_list(job_id)
+
         # build the command
         cmd = ["scancel"]
         if partition:
             cmd += ["--partition", partition]
-        cmd += make_list(job_id)
+        cmd += job_ids
         cmd = quote_cmd(cmd)
 
         # run it
@@ -124,6 +127,8 @@ class SlurmJobManager(BaseJobManager):
         if code != 0 and not silent:
             raise Exception("cancellation of slurm job(s) '{}' failed with code {}:\n{}".format(
                 job_id, code, err))
+
+        return {job_id: None for job_id in job_ids} if chunking else None
 
     def query(self, job_id, partition=None, silent=False):
         # default arguments
@@ -320,7 +325,7 @@ class SlurmJobFileFactory(BaseJobFileFactory):
 
     def create(self, postfix=None, **kwargs):
         # merge kwargs and instance attributes
-        c = self.get_config(kwargs)
+        c = self.get_config(**kwargs)
 
         # some sanity checks
         if not c.file_name:

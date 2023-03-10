@@ -46,7 +46,7 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
         postfix = "_{}To{}".format(branches[0], branches[-1] + 1)
 
         # create the config
-        c = self.job_file_factory.Config()
+        c = self.job_file_factory.get_config()
         c.input_files = {}
         c.render_variables = {}
         c.custom_content = []
