@@ -122,8 +122,8 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
     .. py:classattribute:: chunk_size_query
        type: int
 
-       The default chunk size value when no value is given in :py:meth:`query_batch`. When the
-       value evaluates to *False*, no chunking is allowed.
+       The default chunk size value when no value is given in :py:meth:`query_batch`. When the value
+       evaluates to *False*, no chunking is allowed.
     """
 
     PENDING = "pending"
@@ -151,12 +151,19 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
     chunk_size_query = 0
 
     @classmethod
-    def job_status_dict(cls, job_id=None, status=None, code=None, error=None):
+    def job_status_dict(cls, job_id=None, status=None, code=None, error=None, extra=None):
         """
         Returns a dictionay that describes the status of a job given its *job_id*, *status*, return
-        *code*, and *error*.
+        *code*, *error*, and additional *extra* data.
         """
-        return dict(job_id=job_id, status=status, code=code, error=error)
+        return dict(job_id=job_id, status=status, code=code, error=error, extra=extra)
+
+    @classmethod
+    def cast_job_id(cls, job_id):
+        """
+        Hook for casting an input *job_id*, for instance, after loading serialized data from json.
+        """
+        return job_id
 
     def __init__(self, status_names=None, status_diff_styles=None, threads=1):
         super(BaseJobManager, self).__init__()
@@ -443,14 +450,20 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
         Returns a job status line containing job counts per status. When *last_counts* is *True*,
         the status line also contains the differences in job counts with respect to the counts from
         the previous call to this method. When you pass a list or tuple, those values are used
-        intead to compute the differences. The status line starts with the sum of jobs which is
-        inferred from *counts*. When you want to use a custom value, set *sum_counts*. The length of
-        *counts* should match the length of *status_names* of this instance. When *timestamp* is
-        *True*, the status line begins with the current timestamp. When *timestamp* is a non-empty
-        string, it is used as the ``strftime`` format. *align* handles the alignment of the values
-        in the status line by using a maximum width. *True* will result in the default width of 4.
-        When *align* evaluates to *False*, no alignment is used. By default, some elements of the
-        status line are colored. Set *color* to *False* to disable this feature. Example:
+        intead to compute the differences.
+
+        The status line starts with the sum of jobs which is inferred from *counts*. When you want
+        to use a custom value, set *sum_counts*. The length of *counts* should match the length of
+        *status_names* of this instance. When *timestamp* is *True*, the status line begins with the
+        current timestamp. When *timestamp* is a non-empty string, it is used as the ``strftime``
+        format.
+
+        *align* handles the alignment of the values in the status line by using a maximum width.
+        *True* will result in the default width of 4. When *align* evaluates to *False*, no
+        alignment is used. By default, some elements of the status line are colored. Set *color* to
+        *False* to disable this feature.
+
+        Example:
 
         .. code-block:: python
 
@@ -601,6 +614,7 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
 
         # store the directory, default to the job.job_file_dir config
         self.dir = dir or cfg.get_expanded("job", "job_file_dir")
+        self.dir = os.path.expandvars(os.path.expanduser(self.dir))
 
         # create the directory
         makedirs(self.dir)
@@ -809,7 +823,7 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
 
         return dst
 
-    def get_config(self, kwargs):
+    def get_config(self, **kwargs):
         """
         The :py:meth:`create` method potentially takes a lot of keywork arguments for configuring
         the content of job files. It is useful if some of these configuration values default to
@@ -857,10 +871,9 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
             shutil.rmtree(self.dir)
 
     @abstractmethod
-    def create(self, postfix=None, **kwargs):
+    def create(self, **kwargs):
         """
-        Abstract job file creation method that must be implemented by inheriting classes. *postfix*
-        may be passed to :py:meth:`provide_input`.
+        Abstract job file creation method that must be implemented by inheriting classes.
         """
         return
 
@@ -1009,6 +1022,32 @@ class JobInputFile(object):
        read-only
 
        Whether the path has a non-empty protocol referring to a remote resource.
+
+    .. py:attribute:: path_sub_abs
+       type: str, None
+
+       Absolute file path as seen by the submission node. Set only during job file creation.
+
+    .. py:attribute:: path_sub_rel
+       type: str, None
+
+       File path relative to the submission directory if the submission itself is not forced to use
+       absolute paths. Otherwise identical to :py:attr:`path_sub_abs`. Set only during job file
+       creation.
+
+    .. py:attribute:: path_job_pre_render
+       type: str, None
+
+       File path as seen by the job node, prior to a potential job-side rendering. It is a full,
+       absolute path in case forwarding is supported, and a relative basename otherwise. Set only
+       during job file creation.
+
+    .. py:attribute:: path_job_post_render
+       type: str, None
+
+       File path as seen by the job node, after a potential job-side rendering. Therefore, it is
+       identical to :py:attr:`path_job_pre_render` if rendering is disabled, and a relative basename
+       otherwise. Set only during job file creation.
     """
 
     def __init__(self, path, copy=None, share=None, forward=None, postfix=None, render=None,

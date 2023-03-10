@@ -218,6 +218,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         # intially, set the number of parallel jobs which might change at some piont
         self._set_parallel_jobs(task.parallel_jobs)
 
+        # tracking url
+        self._tracking_url = None
+
     @property
     def job_data_cls(self):
         return JobData
@@ -482,7 +485,12 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         # read job data and reset some values
         self._submitted = not task.ignore_submission and self._outputs["jobs"].exists()
         if self._submitted:
+            # load job data and cast job ids
             self.job_data.update(self._outputs["jobs"].load(formatter="json"))
+            for job_data in six.itervalues(self.job_data.jobs):
+                job_data["job_id"] = self.job_manager.cast_job_id(job_data["job_id"])
+
+            # sync other settings
             task.tasks_per_job = self.job_data.tasks_per_job
             self.dashboard.apply_config(self.job_data.dashboard_config)
 
@@ -509,9 +517,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         # from here on, submit and/or wait while polling
 
         # maybe set a tracking url
-        tracking_url = self.dashboard.create_tracking_url()
-        if tracking_url:
-            task.set_tracking_url(tracking_url)
+        self._tracking_url = self.dashboard.create_tracking_url()
+        if self._tracking_url:
+            task.set_tracking_url(self._tracking_url)
 
         # ensure the output directory exists
         if not self._submitted:
@@ -858,11 +866,19 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             # separate into actual states and errors that might have occured during the status query
             states_by_id = OrderedDict()
             errors = []
-            for job_id, state_or_error in six.iteritems(query_data):
+            for job_num, (job_id, state_or_error) in zip(active_jobs, six.iteritems(query_data)):
                 if isinstance(state_or_error, Exception):
                     errors.append(state_or_error)
                 else:
                     states_by_id[job_id] = state_or_error
+                    # sync extra info if available
+                    extra = state_or_error.get("extra")
+                    if isinstance(extra, dict):
+                        if not self._tracking_url and "tracking_url" in extra:
+                            self._tracking_url = extra["tracking_url"]
+                            task.set_tracking_url(self._tracking_url)
+                        if not self.job_data.jobs[job_num]["log_file"] and "log_file" in extra:
+                            self.job_data.jobs[job_num]["log_file"] = extra["log_file"]
             del query_data
 
             # print the first couple errors
