@@ -239,7 +239,7 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
         threads=None,
         chunk_size=None,
         callback=None,
-        **kwargs,
+        **kwargs  # noqa
     ):
         # default arguments
         threads = max(threads or self.threads or 1, 1)
@@ -322,7 +322,7 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
             threads=threads,
             chunk_size=chunk_size,
             callback=callback,
-            **kwargs,
+            **kwargs  # noqa
         )
 
     def cancel_batch(self, job_ids, threads=None, chunk_size=None, callback=None, **kwargs):
@@ -347,7 +347,7 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
             threads=threads,
             chunk_size=chunk_size,
             callback=callback,
-            **kwargs,
+            **kwargs  # noqa
         )
 
         # return only errors
@@ -376,7 +376,7 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
             threads=threads,
             chunk_size=chunk_size,
             callback=callback,
-            **kwargs,
+            **kwargs  # noqa
         )
 
         # return only errors
@@ -404,7 +404,7 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
             threads=threads,
             chunk_size=chunk_size,
             callback=callback,
-            **kwargs,
+            **kwargs  # noqa
         )
 
     def _apply_group(
@@ -415,7 +415,7 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
         job_objs,
         threads=None,
         callback=None,
-        **kwargs,
+        **kwargs  # noqa
     ):
         # default arguments
         threads = max(threads or self.threads or 1, 1)
@@ -496,7 +496,7 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
             job_objs=job_files,
             threads=threads,
             callback=callback,
-            **kwargs,
+            **kwargs  # noqa
         )
 
     def cancel_group(self, job_ids, threads=None, callback=None, **kwargs):
@@ -519,7 +519,7 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
             job_objs=job_ids,
             threads=threads,
             callback=callback,
-            **kwargs,
+            **kwargs  # noqa
         )
 
         # return only errors
@@ -545,7 +545,7 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
             job_objs=job_ids,
             threads=threads,
             callback=callback,
-            **kwargs,
+            **kwargs  # noqa
         )
 
         # return only errors
@@ -571,7 +571,7 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
             job_objs=job_ids,
             threads=threads,
             callback=callback,
-            **kwargs,
+            **kwargs  # noqa
         )
 
     def status_line(self, counts, last_counts=None, sum_counts=None, timestamp=True, align=False,

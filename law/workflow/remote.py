@@ -802,7 +802,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 retries=3,
                 threads=task.submission_threads,
                 callback=progress_callback,
-                **submit_kwargs,
+                **submit_kwargs  # noqa
             ),
             all_job_files,
         )
@@ -822,7 +822,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             job_file["job"],
             retries=3,
             threads=task.submission_threads,
-            **submit_kwargs,
+            **submit_kwargs  # noqa
         )
 
         # set all job ids
