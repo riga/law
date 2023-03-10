@@ -283,12 +283,11 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
         if chunking:
             for _job_objs, res in six.moves.zip(job_objs, results):
                 data = get_async_result_silent(res)
-                for job_obj in _job_objs:
-                    _data = data if isinstance(data, Exception) else data[job_obj]
+                for i, job_obj in enumerate(_job_objs):
                     if isinstance(result_data, list):
-                        result_data.append(_data)
+                        result_data.append(data if isinstance(data, Exception) else data[i])
                     else:
-                        result_data[job_obj] = _data
+                        result_data[job_obj] = data if isinstance(data, Exception) else data[job_obj]
         else:
             for job_obj, res in six.moves.zip(job_objs, results):
                 data = get_async_result_silent(res)

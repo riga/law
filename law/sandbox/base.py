@@ -202,7 +202,7 @@ class Sandbox(six.with_metaclass(ABCMeta, object)):
         if postfix:
             section += "_" + postfix
 
-        custom_section = "{}_{}".formart(section, self.get_custom_config_section_postfix())
+        custom_section = "{}_{}".format(section, self.get_custom_config_section_postfix())
 
         cfg = Config.instance()
         return custom_section if cfg.has_section(custom_section) else section

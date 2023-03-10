@@ -715,7 +715,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         if self.job_manager.job_grouping:
             job_ids, job_files = self._submit_group(submit_jobs)
         else:
-            job_ids, job_files = self._submit(submit_jobs)
+            job_ids, job_files = self._submit_batch(submit_jobs)
 
         # store submission data
         errors = []
@@ -754,18 +754,18 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
         return new_submission_data
 
-    def _submit(self, submit_jobs, **kwargs):
+    def _submit_batch(self, submit_jobs, **kwargs):
         task = self.task
 
         # create job submission files mapped to job nums
-        job_files = OrderedDict()
+        all_job_files = OrderedDict()
         for job_num, branches in six.iteritems(submit_jobs):
-            job_files[job_num] = self.create_job_file(job_num, branches)
+            all_job_files[job_num] = self.create_job_file(job_num, branches)
 
-        # job_files is an ordered mapping job_num -> {"job": PATH, "log": PATH/None}, get keys and
-        # values for faster lookup by numeric index
-        job_nums = list(job_files.keys())
-        job_files = [f["job"] for f in six.itervalues(job_files)]
+        # all_job_files is an ordered mapping job_num -> {"job": PATH, "log": PATH/None},
+        # get keys and values for faster lookup by numeric index
+        job_nums = list(all_job_files.keys())
+        job_files = [f["job"] for f in six.itervalues(all_job_files)]
 
         # prepare objects for dumping intermediate job data
         dump_freq = self._get_task_attribute("dump_intermediate_job_data", True)()
@@ -804,7 +804,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 callback=progress_callback,
                 **submit_kwargs,
             ),
-            job_files,
+            all_job_files,
         )
 
     def _submit_group(self, submit_jobs, **kwargs):
