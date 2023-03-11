@@ -25,12 +25,19 @@ class BundleMercurialRepository(Task):
 
     task_namespace = "law.mercurial"
 
-    exclude_files = CSVParameter(default=(), description="patterns of files to exclude, default: "
-        "()")
-    include_files = CSVParameter(default=(), description="patterns of files to force-include, "
-        "takes precedence over .hgignore, default: ()")
-    custom_checksum = luigi.Parameter(default=NO_STR, description="a custom checksum to use, "
-        "default: NO_STR")
+    exclude_files = CSVParameter(
+        default=(),
+        description="patterns of files to exclude, default: ()",
+    )
+    include_files = CSVParameter(
+        default=(),
+        description="patterns of files to force-include, takes precedence over .hgignore, "
+        "default: ()",
+    )
+    custom_checksum = luigi.Parameter(
+        default=NO_STR,
+        description="a custom checksum to use, default: NO_STR",
+    )
 
     def __init__(self, *args, **kwargs):
         super(BundleMercurialRepository, self).__init__(*args, **kwargs)

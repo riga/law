@@ -992,6 +992,19 @@
 ; Default: False
 
 
+; --- bash_sandbox_env section ---------------------------------------------------------------------
+
+[bash_sandbox_env]
+
+; Note:
+; Here you can define environment variables via key-value pairs that are accessible in a bash
+; sandbox. When an option has no value, i.e., when only a key is given, the value of the variable of
+; the current environment is used.
+; The environment variables defined in this section are applied to all bash sandboxes. To configure
+; variables per bash initialization file, create a section "bash_sandbox_env_<init_file>" with the
+; desired values.
+
+
 ; --- venv_sandbox section -------------------------------------------------------------------------
 
 [venv_sandbox]
@@ -1018,17 +1031,17 @@
 ; Default: "stageout"
 
 
-; --- bash_sandbox_env section ---------------------------------------------------------------------
+; --- venv_sandbox_env section ---------------------------------------------------------------------
 
-[bash_sandbox_env]
+[venv_sandbox_env]
 
 ; Note:
-; Here you can define environment variables via key-value pairs that are accessible in a bash
+; Here you can define environment variables via key-value pairs that are accessible in a venv
 ; sandbox. When an option has no value, i.e., when only a key is given, the value of the variable of
 ; the current environment is used.
-; The environment variables defined in this section are applied to all bash sandboxes. To configure
-; variables per bash initialization file, create a section "bash_sandbox_env_<init_file>" with the
-; desired values.
+; The environment variables defined in this section are applied to all venv sandboxes. To configure
+; variables per venv directory, create a section "venv_sandbox_env_<venv_dir>" with the desired
+; values.
 
 
 ; --- docker_sandbox section -----------------------------------------------------------------------

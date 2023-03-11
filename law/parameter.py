@@ -291,7 +291,8 @@ class CSVParameter(luigi.Parameter):
         tuple.
 
     .. py:attribute:: _inst
-       type: cls
+
+        type: :py:attr:`cls`
 
         Instance of the luigi parameter class *cls* that is used internally for parameter parsing
         and serialization.
@@ -468,7 +469,8 @@ class MultiCSVParameter(CSVParameter):
         effects, the *default* value given to the constructor is also converted to a tuple.
 
     .. py:attribute:: _inst
-       type: cls
+
+        type: :py:attr:`cls`
 
         Instance of the luigi parameter class *cls* that is used internally for parameter parsing
         and serialization.
@@ -556,13 +558,15 @@ class RangeParameter(luigi.Parameter):
         # => "4"
 
     .. py:classattribute:: RANGE_SEP
-       type: string
+
+        type: string
 
         Character used as a separator between range edges when parsing strings and serializing
         values. Defaults to ``":"``.
 
     .. py:classattribute:: OPEN
-       type: None
+
+        type: None
 
         Value denoting open edges in parsed ranges.
     """
@@ -658,7 +662,8 @@ class MultiRangeParameter(RangeParameter):
         # => ""5:9,13:15""
 
     .. py:classattribute:: MULTI_RANGE_SEP
-       type: string
+
+        type: string
 
         Character used as a separator between ranges when parsing strings and serializing
         values. Defaults to ``","``.

@@ -66,71 +66,83 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
     :py:meth:`cancel_batch`, :py:meth:`cleanup_batch` and :py:meth:`query_batch`.
 
     .. py:classattribute:: PENDING
-       type: string
 
-       Flag that represents the ``PENDING`` status.
+        type: string
+
+        Flag that represents the ``PENDING`` status.
 
     .. py:classattribute:: RUNNING
-       type: string
 
-       Flag that represents the ``RUNNING`` status.
+        type: string
+
+        Flag that represents the ``RUNNING`` status.
 
     .. py:classattribute:: FINISHED
-       type: string
 
-       Flag that represents the ``FINISHED`` status.
+        type: string
+
+        Flag that represents the ``FINISHED`` status.
 
     .. py:classattribute:: RETRY
-       type: string
 
-       Flag that represents the ``RETRY`` status.
+        type: string
+
+        Flag that represents the ``RETRY`` status.
 
     .. py:classattribute:: FAILED
-       type: string
 
-       Flag that represents the ``FAILED`` status.
+        type: string
+
+        Flag that represents the ``FAILED`` status.
 
     .. py:classattribute:: default_status_names
-       type: list
 
-       The list of all default status flags that is used in :py:meth:`status_line`.
+        type: list
+
+        The list of all default status flags that is used in :py:meth:`status_line`.
 
     .. py:classattribute:: default_status_diff_styles
-       type: dict
 
-       A dictionary that defines to coloring styles per job status that is used in
-       :py:meth:`status_line`.
+        type: dict
+
+        A dictionary that defines to coloring styles per job status that is used in
+        :py:meth:`status_line`.
 
     .. py:classattribute:: job_grouping
-       type: bool
 
-       Whether this manager implementation groups jobs into single interactions for submission and
-       status queries. In general, this means that the submission of a single job file can result in
-       multiple jobs on the remote batch system.
+        type: bool
+
+        Whether this manager implementation groups jobs into single interactions for submission and
+        status queries. In general, this means that the submission of a single job file can result
+        in multiple jobs on the remote batch system.
 
     .. py:classattribute:: chunk_size_submit
-       type: int
 
-       The default chunk size value when no value is given in :py:meth:`submit_batch`. When the
-       value evaluates to *False*, no chunking is allowed.
+        type: int
+
+        The default chunk size value when no value is given in :py:meth:`submit_batch`. When the
+        value evaluates to *False*, no chunking is allowed.
 
     .. py:classattribute:: chunk_size_cancel
-       type: int
 
-       The default chunk size value when no value is given in :py:meth:`cancel_batch`. When the
-       value evaluates to *False*, no chunking is allowed.
+        type: int
+
+        The default chunk size value when no value is given in :py:meth:`cancel_batch`. When the
+        value evaluates to *False*, no chunking is allowed.
 
     .. py:classattribute:: chunk_size_cleanup
-       type: int
 
-       The default chunk size value when no value is given in :py:meth:`cleanup_batch`. When the
-       value evaluates to *False*, no chunking is allowed.
+        type: int
+
+        The default chunk size value when no value is given in :py:meth:`cleanup_batch`. When the
+        value evaluates to *False*, no chunking is allowed.
 
     .. py:classattribute:: chunk_size_query
-       type: int
 
-       The default chunk size value when no value is given in :py:meth:`query_batch`. When the value
-       evaluates to *False*, no chunking is allowed.
+        type: int
+
+        The default chunk size value when no value is given in :py:meth:`query_batch`. When the
+        value evaluates to *False*, no chunking is allowed.
     """
 
     PENDING = "pending"
@@ -681,22 +693,25 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
     in their :py:meth:`create` method.
 
     .. py::classattribute:: config_attrs
-       type: list
 
-       List of attributes that is used to create a configuration dictionary. See
-       :py:meth:`get_config` for more info.
+        type: list
+
+        List of attributes that is used to create a configuration dictionary. See
+        :py:meth:`get_config` for more info.
 
     .. py::attribute:: dir
-       type: string
 
-       The path to the internal job file directory.
+        type: string
+
+        The path to the internal job file directory.
 
     .. py::attribute: cleanup
-       type: bool
 
-       Boolean that denotes whether this internal job file directory is temporary and should be
-       cleaned up upon instance deletion. It defaults to *True* when the *dir* constructor argument
-       is *None*.
+        type: bool
+
+        Boolean that denotes whether this internal job file directory is temporary and should be
+        cleaned up upon instance deletion. It defaults to *True* when the *dir* constructor argument
+        is *None*.
     """
 
     config_attrs = ["dir", "render_variables", "custom_log_file"]
@@ -1016,35 +1031,41 @@ class JobArguments(object):
     `law/job/job.sh <https://github.com/riga/law/blob/master/law/job/job.sh>`__.
 
     .. py:attribute:: task_cls
-       type: Register
 
-       The task class.
+        type: :py:class:`law.Register`
+
+        The task class.
 
     .. py:attribute:: task_params
-       type: list
 
-       The list of task parameters.
+        type: list
+
+        The list of task parameters.
 
     .. py:attribute:: branches
+
        type: list
 
-       The list of branch numbers covered by the task.
+        The list of branch numbers covered by the task.
 
     .. py:attribute:: workers
-       type: int
 
-       The number of workers to use in "law run" commands.
+        type: int
+
+        The number of workers to use in "law run" commands.
 
     .. py:attribute:: auto_retry
-       type: bool
 
-       A flag denoting if the job-internal automatic retry mechanism should be used.
+        type: bool
+
+        A flag denoting if the job-internal automatic retry mechanism should be used.
 
     .. py:attribute:: dashboard_data
-       type: list
 
-       If a job dashboard is used, this is a list of configuration values as returned by
-       :py:meth:`law.job.dashboard.BaseJobDashboard.remote_hook_data`.
+        type: list
+
+        If a job dashboard is used, this is a list of configuration values as returned by
+        :py:meth:`law.job.dashboard.BaseJobDashboard.remote_hook_data`.
     """
 
     def __init__(self, task_cls, task_params, branches, workers=1, auto_retry=False,
@@ -1111,73 +1132,86 @@ class JobInputFile(object):
     :py:meth:`BaseJobFileFactory.provide_input`). See the attributs below for more info.
 
     .. py:attribute:: path
-       type: str
 
-       The path of the input file.
+        type: str
+
+        The path of the input file.
 
     .. py:attribute:: copy
-       type: bool
 
-       Whether this file should be copied into the job submission directory or not.
+        type: bool
+
+        Whether this file should be copied into the job submission directory or not.
 
     .. py:attribute:: share
-       type: bool
 
-       Whether the file can be shared in the job submission directory. A shared file is copied only
-       once into the submission directory and :py:attr:`render_local` must be *False*.
+        type: bool
+
+        Whether the file can be shared in the job submission directory. A shared file is copied only
+        once into the submission directory and :py:attr:`render_local` must be *False*.
 
     .. py:attribute:: forward
-       type: bool
 
-       Whether this file should actually not be listed as a normal input file in job description but
-       just passed to the list of inputs for treatment in the law job script itself. Only considered
-       if supported by the submission system (e.g. local ones such as htcondor or slurm).
+        type: bool
+
+        Whether this file should actually not be listed as a normal input file in job description
+        but just passed to the list of inputs for treatment in the law job script itself. Only
+        considered if supported by the submission system (e.g. local ones such as htcondor or
+        slurm).
 
     .. py:attribute:: postfix
-       type: bool
 
-       Whether the file path should be postfixed when copied.
+        type: bool
+
+        Whether the file path should be postfixed when copied.
 
     .. py:attribute:: render_local
-       type: bool
 
-       Whether render variables should be resolved locally when copied.
+        type: bool
+
+        Whether render variables should be resolved locally when copied.
 
     .. py:attribute:: render_job
 
-       Whether render variables should be resolved as part of the job script.
+        type: bool
+
+        Whether render variables should be resolved as part of the job script.
 
     .. py:attribute:: is_remote
-       type: bool
-       read-only
 
-       Whether the path has a non-empty protocol referring to a remote resource.
+        type: bool (read-only)
+
+        Whether the path has a non-empty protocol referring to a remote resource.
 
     .. py:attribute:: path_sub_abs
-       type: str, None
 
-       Absolute file path as seen by the submission node. Set only during job file creation.
+        type: str, None
+
+        Absolute file path as seen by the submission node. Set only during job file creation.
 
     .. py:attribute:: path_sub_rel
-       type: str, None
 
-       File path relative to the submission directory if the submission itself is not forced to use
-       absolute paths. Otherwise identical to :py:attr:`path_sub_abs`. Set only during job file
-       creation.
+        type: str, None
+
+        File path relative to the submission directory if the submission itself is not forced to use
+        absolute paths. Otherwise identical to :py:attr:`path_sub_abs`. Set only during job file
+        creation.
 
     .. py:attribute:: path_job_pre_render
-       type: str, None
 
-       File path as seen by the job node, prior to a potential job-side rendering. It is a full,
-       absolute path in case forwarding is supported, and a relative basename otherwise. Set only
-       during job file creation.
+        type: str, None
+
+        File path as seen by the job node, prior to a potential job-side rendering. It is a full,
+        absolute path in case forwarding is supported, and a relative basename otherwise. Set only
+        during job file creation.
 
     .. py:attribute:: path_job_post_render
-       type: str, None
 
-       File path as seen by the job node, after a potential job-side rendering. Therefore, it is
-       identical to :py:attr:`path_job_pre_render` if rendering is disabled, and a relative basename
-       otherwise. Set only during job file creation.
+        type: str, None
+
+        File path as seen by the job node, after a potential job-side rendering. Therefore, it is
+        identical to :py:attr:`path_job_pre_render` if rendering is disabled, and a relative
+        basename otherwise. Set only during job file creation.
     """
 
     def __init__(self, path, copy=None, share=None, forward=None, postfix=None, render=None,

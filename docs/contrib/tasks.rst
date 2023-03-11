@@ -25,15 +25,3 @@ Task ``ForestMerge``
 
 .. autoclass:: ForestMerge
    :members:
-
-
-Task ``CascadeMerge``
----------------------
-
-.. note::
-
-   This class is deprecated. Use :py:class:`ForestMerge` instead.
-
-
-.. autoclass:: CascadeMerge
-   :members:
