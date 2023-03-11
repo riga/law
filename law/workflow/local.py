@@ -80,8 +80,8 @@ class LocalWorkflow(BaseWorkflow):
 
         When *True*, the workflow will require its branch tasks within
         :py:meth:`LocalWorkflowProxy.requires` so that the execution of the workflow indirectly
-            starts all branch tasks. When *False*, the workflow uses dynamic dependencies by
-            yielding its branch tasks within its own run method.
+        starts all branch tasks. When *False*, the workflow uses dynamic dependencies by yielding
+        its branch tasks within its own run method.
     """
 
     workflow_proxy_cls = LocalWorkflowProxy
