@@ -266,7 +266,7 @@ class SiblingFileCollectionBase(FileCollection):
     """
 
     def remove(self, silent=True):
-        for targets in self.iter_existing():
+        for targets in self.iter_existing(unpack=False):
             for t in targets:
                 t.remove(silent=silent)
 
