@@ -905,7 +905,6 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                     continue
 
                 # mark as active or unknown
-                data = data.copy()
                 if data["job_id"] in (None, self.job_data.dummy_job_id):
                     data["job_id"] = self.job_data.dummy_job_id
                     data["status"] = self.job_manager.RETRY
@@ -964,10 +963,6 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 # no errors occured, reset the fail counter
                 n_poll_fails = 0
 
-            # from here on, consider unknown jobs again as active
-            active_jobs += unknown_jobs
-            del unknown_jobs
-
             # handle active jobs
             for job_num in active_jobs:
                 # update job data with status info
@@ -987,6 +982,10 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                         data["status"] = self.job_manager.RETRY
                         data["error"] = "initially missing task outputs"
             del states_by_id
+
+            # from here on, consider unknown jobs again as active
+            active_jobs += unknown_jobs
+            del unknown_jobs
 
             # get settings from the task for triggering post-finished status checks
             check_completeness = self._get_task_attribute("check_job_completeness")()
