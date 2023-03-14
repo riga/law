@@ -79,7 +79,7 @@ class SlurmJobManager(BaseJobManager):
                 for line in out.strip().split("\n"):
                     m = self.submission_cre.match(line.strip())
                     if m:
-                        job_ids = [int(m.group(1))]
+                        job_id = int(m.group(1))
                         break
                 else:
                     code = 1
@@ -87,7 +87,7 @@ class SlurmJobManager(BaseJobManager):
 
             # retry or done?
             if code == 0:
-                return job_ids
+                return job_id
 
             logger.debug("submission of slurm job '{}' failed with code {}:\n{}".format(
                 job_file, code, err))
