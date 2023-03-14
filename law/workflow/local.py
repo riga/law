@@ -69,17 +69,19 @@ class LocalWorkflow(BaseWorkflow):
     more info.
 
     .. py:classattribute:: workflow_proxy_cls
-       type: BaseWorkflowProxy
 
-       Reference to the :py:class:`LocalWorkflowProxy` class.
+        type: :py:class:`BaseWorkflowProxy`
+
+        Reference to the :py:class:`LocalWorkflowProxy` class.
 
     .. py:classattribute:: local_workflow_require_branches
-       type: bool
 
-       When *True*, the workflow will require its branch tasks within
-       :py:meth:`LocalWorkflowProxy.requires` so that the execution of the workflow indirectly
-       starts all branch tasks. When *False*, the workflow uses dynamic dependencies by yielding its
-       branch tasks within its own run method.
+        type: bool
+
+        When *True*, the workflow will require its branch tasks within
+        :py:meth:`LocalWorkflowProxy.requires` so that the execution of the workflow indirectly
+        starts all branch tasks. When *False*, the workflow uses dynamic dependencies by yielding
+        its branch tasks within its own run method.
     """
 
     workflow_proxy_cls = LocalWorkflowProxy

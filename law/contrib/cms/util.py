@@ -29,15 +29,17 @@ class Site(object):
         print(site.redirector)  # "cmsxrootd.fnal.gov"
 
     .. py:classattribute:: redirectors
-       type: dict
 
-       A mapping of country codes to redirectors.
+        type: dict
+
+        A mapping of country codes to redirectors.
 
     .. py:attribute:: name
-       type: string
 
-       The name of the site, e.g. ``T2_DE_RWTH``. This is either the name provided in the
-       constructor or it is determined for the current site by reading environment variables.
+        type: string
+
+        The name of the site, e.g. ``T2_DE_RWTH``. This is either the name provided in the
+        constructor or it is determined for the current site by reading environment variables.
     """
 
     redirectors = {

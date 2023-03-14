@@ -42,20 +42,23 @@ class Config(ConfigParser):
     by setting *skip_defaults* to *True*.
 
     .. py:classattribute:: _instance
-       type: Config
 
-       Global instance of this class.
+        type: :py:class:`Config`
+
+        Global instance of this class.
 
     .. py:classattribute:: _default_config
-       type: dict
 
-       Default configuration.
+        type: dict
+
+        Default configuration.
 
     .. py:classattribute:: _config_files
-       type: list
 
-       List of configuration files that are checked during setup (unless *skip_fallbacks* is
-       *True*). When a file exists, the check is stopped. Therefore, the order is important here.
+        type: list
+
+        List of configuration files that are checked during setup (unless *skip_fallbacks* is
+        *True*). When a file exists, the check is stopped. Therefore, the order is important here.
     """
 
     _instance = None

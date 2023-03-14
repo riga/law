@@ -20,15 +20,8 @@ Class ``BaseRemoteWorkflowProxy``
    :members:
 
 
-Class ``SubmissionData``
-------------------------
+Class ``JobData``
+-----------------
 
-.. autoclass:: SubmissionData
-   :members:
-
-
-Class ``StatusData``
---------------------
-
-.. autoclass:: StatusData
+.. autoclass:: JobData
    :members:

@@ -38,9 +38,10 @@ class JobData(ShorthandDict):
     store and keep track of per job information in :py:class:`BaseRemoteWorkflow`.
 
     .. py:classattribute:: dummy_job_id
-       type: string
 
-       A unique, dummy job id (``"dummy_job_id"``).
+        type: string
+
+        A unique, dummy job id (``"dummy_job_id"``).
     """
 
     attributes = {
@@ -101,49 +102,57 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
     Workflow proxy base class for remote workflows.
 
     .. py:classattribute:: job_error_messages
-       type: dict
 
-       A dictionary containing short error messages mapped to job exit codes as defined in the
-       remote job execution script.
+        type: dict
+
+        A dictionary containing short error messages mapped to job exit codes as defined in the
+        remote job execution script.
 
     .. py:attribute:: show_errors
-       type: int
 
-       Numbers of errors to explicity show during job submission and status polling.
+        type: int
+
+        Numbers of errors to explicity show during job submission and status polling.
 
     .. py:attribute:: summarize_status_errors
-       type: bool, int
 
-       During status polling, when the number of errors exceeds :py:attr:`show_errors`, a summary of
-       errors if shown when this flag is true. When a number is given, the summary is printed if the
-       number of errors exceeds this value.
+        type: bool, int
+
+        During status polling, when the number of errors exceeds :py:attr:`show_errors`, a summary
+        of errors if shown when this flag is true. When a number is given, the summary is printed if
+        the number of errors exceeds this value.
 
     .. py:attribute:: job_manager
-       type: law.job.base.BaseJobManager
 
-       Reference to the job manager object that handles the actual job submission, status queries,
-       etc. The instance is created and configured by :py:meth:`create_job_manager`.
+        type: :py:class:`law.job.base.BaseJobManager'
+
+        Reference to the job manager object that handles the actual job submission, status queries,
+        etc. The instance is created and configured by :py:meth:`create_job_manager`.
 
     .. py:attribute:: job_file_factory
-       type: law.job.base.BaseJobFileFactory
 
-       Reference to a job file factory. The instance is created and configured by
-       :py:meth:`create_job_file_factory`.
+        type: :py:class:`law.job.base.BaseJobFileFactory`
+
+        Reference to a job file factory. The instance is created and configured by
+        :py:meth:`create_job_file_factory`.
 
     .. py:attribute:: job_data
-       type: JobData
 
-       The job data object holding job submission and status information.
+        type: :py:class:`JobData`
+
+        The job data object holding job submission and status information.
 
     .. py:attribute:: dashboard
-       type: law.job.dashboard.BaseJobDashboard
 
-       Reference to the dashboard instance that is used by the workflow.
+        type: :py:class:`law.job.dashboard.BaseJobDashboard`
+
+        Reference to the dashboard instance that is used by the workflow.
 
     .. py:attribute:: job_data_cls
-       read-only
 
-       Class for instantiating :py:attr:`job_data`.
+        type: type (read-only)
+
+        Class for instantiating :py:attr:`job_data`.
     """
 
     # job error messages for errors defined in the remote job script
@@ -1134,97 +1143,113 @@ class BaseRemoteWorkflow(BaseWorkflow):
        submission information in the same *jobs* file.
 
     .. py:classattribute:: check_unreachable_acceptance
-       type: bool
 
-       When *True*, stop the job status polling early if the minimum number of finsihed jobs as
-       defined by :py:attr:`acceptance` becomes unreachable. Otherwise, keep polling until all jobs
-       are either finished or failed. Defaults to *False*.
+        type: bool
+
+        When *True*, stop the job status polling early if the minimum number of finsihed jobs as
+        defined by :py:attr:`acceptance` becomes unreachable. Otherwise, keep polling until all jobs
+        are either finished or failed. Defaults to *False*.
 
     .. py:classattribute:: align_polling_status_line
-       type: int, bool
 
-       Alignment value that is passed to :py:meth:`law.job.base.BaseJobManager.status_line` to print
-       the status line during job status polling. Defaults to *False*.
+        type: int, bool
+
+        Alignment value that is passed to :py:meth:`law.job.base.BaseJobManager.status_line` to
+        print the status line during job status polling. Defaults to *False*.
 
     .. py:classattribute:: append_retry_jobs
-       type: bool
 
-       When *True*, jobs to retry are added to the end of the jobs to submit, giving priority to new
-       ones. However, when *shuffle_jobs* is *True*, they might be submitted again earlier.
-       Defaults to *False*.
+        type: bool
+
+        When *True*, jobs to retry are added to the end of the jobs to submit, giving priority to
+        new ones. However, when *shuffle_jobs* is *True*, they might be submitted again earlier.
+        Defaults to *False*.
 
     .. py:classattribute:: retries
-       type: luigi.IntParameter
 
-       Maximum number of automatic resubmission attempts per job before considering it failed.
-       Defaults to *5*.
+        type: :py:class:`luigi.IntParameter`
+
+        Maximum number of automatic resubmission attempts per job before considering it failed.
+        Defaults to *5*.
 
     .. py:classattribute:: tasks_per_job
-       type: luigi.IntParameter
 
-       Number of tasks to be processed by per job. Defaults to *1*.
+        type: :py:class:`luigi.IntParameter`
+
+        Number of tasks to be processed by per job. Defaults to *1*.
 
     .. py:classattribute:: parallel_jobs
-       type: luigi.IntParameter
 
-       Maximum number of parallel running jobs, e.g. to protect a very busy queue of a batch system.
-       Empty default value (infinity).
+        type: :py:class:`luigi.IntParameter`
+
+        Maximum number of parallel running jobs, e.g. to protect a very busy queue of a batch
+        system. Empty default value (infinity).
 
     .. py:classattribute:: no_poll
-       type: luigi.BoolParameter
 
-       When *True*, only submit jobs and skip status polling. Defaults to *False*.
+        type: :py:class:`luigi.BoolParameter`
+
+        When *True*, only submit jobs and skip status polling. Defaults to *False*.
 
     .. py:classattribute:: submission_threads
-       type: luigi.IntParameter
 
-       Number of threads to use for both job submission and job status polling. Defaults to *4*.
+        type: :py:class:`luigi.IntParameter`
+
+        Number of threads to use for both job submission and job status polling. Defaults to 4.
 
     .. py:classattribute:: walltime
-       type: law.DurationParameter
 
-       Maximum job walltime after which a job will be considered failed. Empty default value. The
-       default unit is hours when a plain number is passed.
+        type: :py:class:`law.DurationParameter`
+
+        Maximum job walltime after which a job will be considered failed. Empty default value. The
+        default unit is hours when a plain number is passed.
 
     .. py:classattribute:: job_workers
-       type: luigi.IntParameter
 
-       Number of cores to use within jobs to process multiple tasks in parallel (via adding
-       '--workers' to remote job command). Defaults to *1*.
+        type: :py:class:`luigi.IntParameter`
+
+        Number of cores to use within jobs to process multiple tasks in parallel (via adding
+        '--workers' to remote job command). Defaults to 1.
 
     .. py:classattribute:: poll_interval
-       type: law.DurationParameter
 
-       Interva between two job status polls. Defaults to 1 minute. The default unit is minutes when
-       a plain number is passed.
+        type: :py:class:`law.DurationParameter`
+
+        Interval between two job status polls. Defaults to 1 minute. The default unit is minutes
+        when a plain number is passed.
 
     .. py:classattribute:: poll_fails
-       type: luigi.IntParameter
 
-       Maximum number of consecutive errors during status polling after which a job is considered
-       failed. This can occur due to networking problems. Defaults to *5*.
+        type: :py:class:`luigi.IntParameter`
+
+        Maximum number of consecutive errors during status polling after which a job is considered
+        failed. This can occur due to networking problems. Defaults to *5*.
 
     .. py:classattribute:: shuffle_jobs
-       type: luigi.BoolParameter
 
-       When *True*, the order of jobs is shuffled before submission. Defaults to *False*.
+        type: :py:class:`luigi.BoolParameter`
+
+        When *True*, the order of jobs is shuffled before submission. Defaults to *False*.
 
     .. py:classattribute:: cancel_jobs
-       type: luigi.BoolParameter
 
-       When *True*, already running jobs are cancelled and no new ones are submitted. The job ids
-       are read from the jobs file if existing. Defaults to *False*.
+        type: :py:class:`luigi.BoolParameter`
+
+        When *True*, already running jobs are cancelled and no new ones are submitted. The job ids
+        are read from the jobs file if existing. Defaults to *False*.
 
     .. py:classattribute:: cleanup_jobs
-       type: luigi.BoolParameter
 
-       When *True*, already running jobs are cleaned up and no new ones are submitted. The job ids
-       are read from the jobs file if existing. Defaults to *False*.
+        type: :py:class:`luigi.BoolParameter`
+
+        When *True*, already running jobs are cleaned up and no new ones are submitted. The job ids
+        are read from the jobs file if existing. Defaults to *False*.
 
     .. py:classattribute:: transfer_logs
-       type: luigi.BoolParameter
 
-       Transfer the combined log file back to the output directory. Defaults to *False*.
+        type: :py:class:`luigi.BoolParameter`
+
+        Transfer the combined log file back to the output directory. Defaults to *False*.
     """
 
     retries = luigi.IntParameter(

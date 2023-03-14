@@ -33,15 +33,17 @@ class BaseWorkflowProxy(ProxyTask):
     Base class of all workflow proxies.
 
     .. py:classattribute:: workflow_type
-       type: string
 
-       The named type of the workflow. This attribute refers to the value of the ``--workflow``
-       parameter on the command line to select a particular workflow.
+        type: string
+
+        The named type of the workflow. This attribute refers to the value of the ``--workflow``
+        parameter on the command line to select a particular workflow.
 
     .. py:attribute:: task
-       type: Task
 
-       Reference to the actual *workflow* task.
+        type: Task
+
+        Reference to the actual *workflow* task.
     """
 
     workflow_type = None
@@ -235,102 +237,118 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
     Base class of all workflows.
 
     .. py:classattribute:: workflow
-       type: luigi.Parameter
 
-       Workflow type that refers to the workflow proxy implementation at instantiation / execution
-       time. Empty default value.
+        type: :py:class:`luigi.Parameter`
+
+        Workflow type that refers to the workflow proxy implementation at instantiation / execution
+        time. Empty default value.
 
     .. py:classattribute:: acceptance
-       type: luigi.FloatParameter
 
-       Number of complete tasks to consider the workflow successful. Values larger than one are
-       interpreted as absolute numbers, and as fractions otherwise. Defaults to *1.0*.
+        type: :py:class:`luigi.FloatParameter`
+
+        Number of complete tasks to consider the workflow successful. Values larger than one are
+        interpreted as absolute numbers, and as fractions otherwise. Defaults to *1.0*.
 
     .. py:classattribute:: tolerance
-       type: luigi.FloatParameter
 
-       Number of failed tasks to still consider the workflow successful. Values larger than one are
-       interpreted as absolute numbers, and as fractions otherwise. Defaults to *0.0*.
+        type: :py:class:`luigi.FloatParameter`
+
+        Number of failed tasks to still consider the workflow successful. Values larger than one are
+        interpreted as absolute numbers, and as fractions otherwise. Defaults to *0.0*.
 
     .. py:classattribute:: branch
-       type: luigi.IntParameter
 
-       The branch number to run this task for. *-1* means that this task is the actual *workflow*,
-       rather than a *branch* task. Defaults to *-1*.
+        type: :py:class:`luigi.IntParameter`
+
+        The branch number to run this task for. *-1* means that this task is the actual *workflow*,
+        rather than a *branch* task. Defaults to *-1*.
 
     .. py:classattribute:: branches
-       type: law.MultiRangeParameter
 
-       Explicit list of branches or branch ranges to process. Empty default value.
+        type: :py:class:`law.MultiRangeParameter`
+
+        Explicit list of branches or branch ranges to process. Empty default value.
 
     .. py:classattribute:: workflow_proxy_cls
-       type: BaseWorkflowProxy
 
-       Reference to the workflow proxy class associated to this workflow.
+        type: :py:class:`BaseWorkflowProxy`
+
+        Reference to the workflow proxy class associated to this workflow.
 
     .. py:classattribute:: output_collection_cls
-       type: TargetCollection
 
-       Configurable target collection class to use, such as
-       :py:class:`target.collection.TargetCollection`, :py:class:`target.collection.FileCollection`
-       or :py:class:`target.collection.SiblingFileCollection`.
+        type: :py:class:`law.TargetCollection`
+
+        Configurable target collection class to use, such as
+        :py:class:`target.collection.TargetCollection`, :py:class:`target.collection.FileCollection`
+        or :py:class:`target.collection.SiblingFileCollection`.
 
     .. py:classattribute:: force_contiguous_branches
-       type: bool
 
-       Flag that denotes if this workflow is forced to use contiguous branch numbers, starting from
-       0. If *False*, an exception is raised otherwise.
+        type: bool
+
+        Flag that denotes if this workflow is forced to use contiguous branch numbers, starting from
+        0. If *False*, an exception is raised otherwise.
 
     .. py:classattribute:: reset_branch_map_before_run
-       type: bool
 
-       Flag that denotes whether the branch map should be recreated from scratch before the run
-       method of the underlying workflow proxy is called.
+        type: bool
+
+        Flag that denotes whether the branch map should be recreated from scratch before the run
+        method of the underlying workflow proxy is called.
 
     .. py:classattribute:: create_branch_map_before_repr
-       type: bool
 
-       Flag that denotes whether the branch map should be created (if not already done) before the
-       task representation is created via :py:meth:`repr`.
+        type: bool
+
+        Flag that denotes whether the branch map should be created (if not already done) before the
+        task representation is created via :py:meth:`repr`.
 
     .. py:classattribute:: workflow_property
-       type: function
 
-       Reference to :py:func:`workflow_property`.
+        type: function
+
+        Reference to :py:func:`workflow_property`.
 
     .. py:classattribute:: cached_workflow_property
-       type: function
 
-       Reference to :py:func:`cached_workflow_property`.
+        type: function
+
+        Reference to :py:func:`cached_workflow_property`.
 
     .. py:classattribute:: workflow_run_decorators
-       type: sequence, None
 
-       Sequence of decorator functions that will be conveniently used to decorate the workflow
-       proxy's run method. This way, there is no need to subclass and reset the
-       :py:attr:`workflow_proxy_cls` just to add a decorator. The value is *None* by default.
+        type: sequence, None
+
+        Sequence of decorator functions that will be conveniently used to decorate the workflow
+        proxy's run method. This way, there is no need to subclass and reset the
+        :py:attr:`workflow_proxy_cls` just to add a decorator. The value is *None* by default.
 
     .. py:attribute:: workflow_cls
-       type: law.task.Register
 
-       Reference to the class of the realized workflow. This is especially helpful in case your
-       derived class inherits from multiple workflows.
+        type: :py:class:`law.Register`
+
+        Reference to the class of the realized workflow. This is especially helpful in case your
+        derived class inherits from multiple workflows.
 
     .. py:attribute:: workflow_proxy
-       type: BaseWorkflowProxy
 
-       Reference to the underlying workflow proxy instance.
+        type: :py:class:`BaseWorkflowProxy`
+
+        Reference to the underlying workflow proxy instance.
 
     .. py:attribute:: branch_map
-       read-only
-       type: dict
 
-       Shorthand for :py:meth:`get_branch_map`.
+        type: dict (read-only)
+
+        Shorthand for :py:meth:`get_branch_map`.
 
     .. py:attribute:: branch_data
-       read-only
 
-       Shorthand for ``self.branch_map[self.branch]``.
+        type: any (read-only)
+
+        Shorthand for ``self.branch_map[self.branch]``.
     """
 
     workflow = luigi.Parameter(

@@ -1956,10 +1956,11 @@ class ShorthandDict(collections.OrderedDict):
         # => 3
 
     .. py:classattribute: attributes
-       type: dict
 
-       Mapping of attribute names to default values. ``__getattr__`` and ``__setattr__`` support is
-       provided for these attributes.
+        type: dict
+
+        Mapping of attribute names to default values. ``__getattr__`` and ``__setattr__`` support is
+        provided for these attributes.
     """
 
     attributes = {}

@@ -2,7 +2,7 @@
 # flake8: noqa
 
 __all__ = [
-    "Task", "WrapperTask", "ExternalTask",
+    "Register", "Task", "WrapperTask", "ExternalTask",
     "SandboxTask",
     "BaseWorkflow", "LocalWorkflow", "workflow_property", "cached_workflow_property",
     "FileSystemTarget", "FileSystemFileTarget", "FileSystemDirectoryTarget",
@@ -71,7 +71,7 @@ from law.target.collection import (
     TargetCollection, FileCollection, SiblingFileCollection, NestedSiblingFileCollection,
 )
 import law.decorator
-from law.task.base import Task, WrapperTask, ExternalTask
+from law.task.base import Register, Task, WrapperTask, ExternalTask
 from law.workflow.base import BaseWorkflow, workflow_property, cached_workflow_property
 from law.workflow.local import LocalWorkflow
 from law.sandbox.base import Sandbox, SandboxTask

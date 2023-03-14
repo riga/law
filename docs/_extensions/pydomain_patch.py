@@ -6,6 +6,8 @@ Patch for the default sphinx python domain that adds:
 - classattribute directive
 """
 
+from docutils import nodes
+from sphinx import addnodes
 from sphinx.locale import _
 from sphinx.domains import ObjType
 from sphinx.domains.python import PyAttribute
@@ -14,7 +16,10 @@ from sphinx.domains.python import PyAttribute
 class PyClassAttribute(PyAttribute):
 
     def get_signature_prefix(self, sig):
-        return "classattribute"
+        return [
+            nodes.Text("classattribute"),
+            addnodes.desc_sig_space(),
+        ]
 
     def get_index_text(self, modname, name_cls):
         name, cls = name_cls
