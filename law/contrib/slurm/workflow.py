@@ -196,7 +196,7 @@ class SlurmWorkflow(BaseRemoteWorkflow):
         return None
 
     def slurm_output_postfix(self):
-        return "_" + self.get_branches_repr()
+        return ""
 
     def slurm_job_manager_cls(self):
         return SlurmJobManager

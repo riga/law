@@ -199,7 +199,7 @@ class LSFWorkflow(BaseRemoteWorkflow):
         return DotDict()
 
     def lsf_output_postfix(self):
-        return "_" + self.get_branches_repr()
+        return ""
 
     def lsf_job_manager_cls(self):
         return LSFJobManager

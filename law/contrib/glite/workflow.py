@@ -207,7 +207,7 @@ class GLiteWorkflow(BaseRemoteWorkflow):
         return DotDict()
 
     def glite_output_postfix(self):
-        return "_" + self.get_branches_repr()
+        return ""
 
     def glite_output_uri(self):
         return self.glite_output_directory().uri()

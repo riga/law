@@ -191,7 +191,7 @@ class ARCWorkflow(BaseRemoteWorkflow):
         return DotDict()
 
     def arc_output_postfix(self):
-        return "_" + self.get_branches_repr()
+        return ""
 
     def arc_output_uri(self):
         return self.arc_output_directory().uri()

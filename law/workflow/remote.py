@@ -453,7 +453,13 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
         # define outputs
         outputs = DotDict()
-        postfix = self._get_task_attribute("output_postfix")()
+        postfix = [
+            task.control_output_postfix(),
+            self._get_task_attribute("output_postfix")(),
+        ]
+        postfix = "_".join(map(str, filter(bool, postfix))) or ""
+        if postfix:
+            postfix = "_" + postfix
 
         # file containing the job data, i.e. job ids, last status codes, log files, etc
         job_data_file = "{}_jobs{}.json".format(self.workflow_type, postfix)
@@ -1345,6 +1351,12 @@ class BaseRemoteWorkflow(BaseWorkflow):
         new ones. This is the case when either *cancel_jobs* or *cleanup_jobs* is *True*.
         """
         return self.cancel_jobs or self.cleanup_jobs
+
+    def control_output_postfix(self):
+        """
+        Hook that should return a string that is inserted into the names of control output files.
+        """
+        return self.get_branches_repr()
 
     def poll_callback(self, poll_data):
         """

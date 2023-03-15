@@ -204,7 +204,7 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
         return None
 
     def htcondor_output_postfix(self):
-        return "_" + self.get_branches_repr()
+        return ""
 
     def htcondor_job_manager_cls(self):
         return HTCondorJobManager
