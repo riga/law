@@ -146,6 +146,7 @@ class ForestMerge(LocalWorkflow):
     pilot = False
 
     node_format = "{name}.t{tree}.d{depth}.b{branch}{ext}"
+    postfix_format = "t{tree}_d{depth}"
     merge_factor = 2
 
     exclude_index = True
@@ -513,7 +514,8 @@ class ForestMerge(LocalWorkflow):
             if not isinstance(first_output, FileSystemTarget):
                 raise Exception(
                     "cannot determine directory for intermediate merged outputs from '{}'".format(
-                        output),
+                        output,
+                    ),
                 )
             intermediate_dir = first_output.parent
 
@@ -557,3 +559,11 @@ class ForestMerge(LocalWorkflow):
             with self.publish_step(msg):
                 for inp in flatten(inputs):
                     inp.remove()
+
+    def control_output_postfix(self):
+        postfix = super(ForestMerge, self).control_output_postfix()
+        return ("{pf}_" + self.postfix_format).format(
+            pf=postfix,
+            tree=self.tree_index,
+            depth=self.tree_depth,
+        )
