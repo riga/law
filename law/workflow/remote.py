@@ -979,7 +979,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                         data[field] = value
 
                 # when the task picked up an existing submission file, then in the first polling
-                # iteration, it might happen that a job is finished, but outputs of its tasks are
+                # iteration it might happen that a job is finished, but outputs of its tasks are
                 # not existing, e.g. when they were removed externaly and the job id is still known
                 # to the batch system; in this case, mark it as unknown and to be retried
                 if self._submitted and i == 0:

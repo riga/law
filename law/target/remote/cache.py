@@ -262,7 +262,10 @@ class RemoteCache(object):
                 with open(lock_path, "w") as f:
                     f.write("")
                 self._locked_cpaths.add(cpath)
-                os.utime(lock_path, None)
+                try:
+                    os.utime(lock_path, None)
+                except OSError:
+                    pass
 
             yield
         except:
