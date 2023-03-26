@@ -27,12 +27,12 @@ logger = get_logger(__name__)
 
 class RetryException(Exception):
 
-    def __init__(self, msg="", orig=()):
-        self.orig_type, self.orig_exception, self.orig_traceback = orig or sys.exc_info()
-        super(RetryException, self).__init__(msg or str(self.orig_exception))
+    def __init__(self, msg="", exc=None):
+        self.exc_type, self.exc_value, self.exc_traceback = exc or sys.exc_info()
+        super(RetryException, self).__init__(msg or str(self.exc_value))
 
     def reraise(self):
-        return six.reraise(self.orig_type, self.orig_exception, self.orig_traceback)
+        return six.reraise(self.exc_type, self.exc_value, self.exc_traceback)
 
 
 class RemoteFileInterface(six.with_metaclass(abc.ABCMeta, object)):

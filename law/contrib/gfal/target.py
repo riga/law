@@ -324,7 +324,11 @@ class GFALFileInterface(RemoteFileInterface):
                 return ctx.listdir(uri)
 
             except gfal2.GError:
-                raise RetryException()
+                e = GFALError_listdir(uri)
+                # some protocols throw an error upon listdir on empty directories
+                if e.EMPTY:
+                    return []
+                e.reraise()
 
     @RemoteFileInterface.retry(uri_base_name="filecopy")
     def filecopy(self, src, dst, base=None, **kwargs):
@@ -357,19 +361,19 @@ class GFALOperationError(RetryException):
 
     UNKNOWN = "unknown reason"
 
-    def __init__(self, uri):
+    def __init__(self, uri, exc=None):
         # store uri and scheme
         self.uri = uri
         self.scheme = get_scheme(uri)
 
         # get the original error objects and find the error reason
-        orig = sys.exc_info()
-        self.reason = self._get_reason(str(orig[1]), self.uri, self.scheme)
+        exc = exc or sys.exc_info()
+        self.reason = self._get_reason(str(exc[1]), self.uri, self.scheme)
 
         # add the error reason to the message
-        msg = "{} ({}: {})".format(orig[1], self.__class__.__name__, self.reason)
+        msg = "{} ({}: {})".format(exc[1], self.__class__.__name__, self.reason)
 
-        super(GFALOperationError, self).__init__(msg=msg, orig=orig)
+        super(GFALOperationError, self).__init__(msg=msg, exc=exc)
 
     @classmethod
     def _get_reason(cls, msg, uri, scheme):
@@ -535,12 +539,27 @@ class GFALError_mkdir(GFALOperationError):
         return cls.UNKNOWN
 
 
+class GFALError_listdir(GFALOperationError):
+
+    EMPTY = "directory is empty"
+
+    @classmethod
+    def _get_reason(cls, msg, uri, scheme):
+        lmsg = msg.lower()
+        if scheme == "root":
+            # xrootd throws an expcetion when a directory is empty
+            if lmsg.strip().endswith("invalid response (unknown error 303)"):
+                return cls.EMPTY
+
+        return cls.UNKNOWN
+
+
 class GFALError_filecopy(GFALOperationError):
 
     SRC_NOT_FOUND = "source not found"
     DST_EXISTS = "target already exists"
 
-    def __init__(self, src_uri, dst_uri):
+    def __init__(self, src_uri, dst_uri, exc=None):
         # store uri and scheme
         self.src_uri = src_uri
         self.dst_uri = dst_uri
@@ -548,15 +567,15 @@ class GFALError_filecopy(GFALOperationError):
         self.dst_scheme = get_scheme(dst_uri)
 
         # get the original error objects and find the error reason
-        orig = sys.exc_info()
-        self.reason = self._get_reason(str(orig[1]), self.src_uri, self.dst_uri, self.src_scheme,
+        exc = exc or sys.exc_info()
+        self.reason = self._get_reason(str(exc[1]), self.src_uri, self.dst_uri, self.src_scheme,
             self.dst_scheme)
 
         # add the error reason to the message
-        msg = "{} ({}: {})".format(orig[1], self.__class__.__name__, self.reason)
+        msg = "{} ({}: {})".format(exc[1], self.__class__.__name__, self.reason)
 
         # bypass the GFALOperationError init
-        RetryException.__init__(self, msg=msg, orig=orig)
+        RetryException.__init__(self, msg=msg, exc=exc)
 
     @classmethod
     def _get_reason(cls, msg, src_uri, dst_uri, src_scheme, dst_scheme):
