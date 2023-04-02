@@ -170,8 +170,8 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
         return values
 
     @classmethod
-    def req(cls, *args, **kwargs):
-        return cls(**cls.req_params(*args, **kwargs))
+    def req(cls, inst, **kwargs):
+        return cls(**cls.req_params(inst, **kwargs))
 
     @classmethod
     def req_params(cls, inst, _exclude=None, _prefer_cli=None, _skip_task_excludes=False,
