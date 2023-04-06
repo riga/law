@@ -21,11 +21,22 @@ def run(argv=None):
     executes the requested subprogram. When *None*, *argv* defaults to ``sys.argv[1:]``.
     """
     # setup the main parser and sub parsers
-    parser = ArgumentParser(prog="law", description="The law command line tool.")
-    sub_parsers = parser.add_subparsers(help="subcommands", dest="command")
+    parser = ArgumentParser(
+        prog="law",
+        description="The law command line tool.",
+    )
+    sub_parsers = parser.add_subparsers(
+        help="subcommands",
+        dest="command",
+    )
 
     # add main arguments
-    parser.add_argument("--version", "-V", action="version", version=law.__version__)
+    parser.add_argument(
+        "--version",
+        "-V",
+        action="version",
+        version=law.__version__,
+    )
 
     # setup all progs
     mods = {}

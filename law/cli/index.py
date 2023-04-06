@@ -29,21 +29,55 @@ def setup_parser(sub_parsers):
     """
     Sets up the command line parser for the *index* subprogram and adds it to *sub_parsers*.
     """
-    parser = sub_parsers.add_parser("index", prog="law index", description="Create or update the "
-        "(human-readable) law task index file ({}). This is only required for the shell "
-        "auto-completion.".format(_cfg.get_expanded("core", "index_file")))
+    parser = sub_parsers.add_parser(
+        "index",
+        prog="law index",
+        description="Create or update the (human-readable) law task index file ({}). This is only "
+        "required for the shell auto-completion.".format(_cfg.get_expanded("core", "index_file")),
+    )
 
-    parser.add_argument("--modules", "-m", nargs="+", help="additional modules to traverse")
-    parser.add_argument("--no-externals", "-e", action="store_true", help="skip external tasks")
-    parser.add_argument("--remove", "-r", action="store_true", help="remove the index file and "
-        "exit")
-    parser.add_argument("--show", "-s", action="store_true", help="print the content of the index "
-        "file and exit")
-    parser.add_argument("--location", "-l", action="store_true", help="print the location of the "
-        "index file and exit")
-    parser.add_argument("--quiet", "-q", action="store_true", help="quiet mode without output")
-    parser.add_argument("--verbose", "-v", action="store_true", help="verbose output, disables the "
-        "quiet mode when set")
+    parser.add_argument(
+        "--modules",
+        "-m",
+        nargs="+",
+        help="additional modules to traverse",
+    )
+    parser.add_argument(
+        "--no-externals",
+        "-e",
+        action="store_true",
+        help="skip external tasks",
+    )
+    parser.add_argument(
+        "--remove",
+        "-r",
+        action="store_true",
+        help="remove the index file and exit",
+    )
+    parser.add_argument(
+        "--show",
+        "-s",
+        action="store_true",
+        help="print the content of the index file and exit",
+    )
+    parser.add_argument(
+        "--location",
+        "-l",
+        action="store_true",
+        help="print the location of the index file and exit",
+    )
+    parser.add_argument(
+        "--quiet",
+        "-q",
+        action="store_true",
+        help="quiet mode without output",
+    )
+    parser.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="verbose output, disables the quiet mode when set",
+    )
 
 
 def execute(args):
@@ -142,9 +176,10 @@ def execute(args):
         # skip the task
         task_family = cls.get_task_family()
         if "-" in task_family:
-            logger.critical("skipping task '{}' as its family '{}' contains a '-' which cannot be "
-                "interpreted by luigi's command line parser, please use '_' or alike".format(
-                    cls, task_family))
+            logger.critical(
+                "skipping task '{}' as its family '{}' contains a '-' which cannot be interpreted "
+                "by luigi's command line parser, please use '_' or alike".format(cls, task_family),
+            )
             continue
 
         # show an error when there is a "_" after a "." in the task family, i.e., when there is a
@@ -152,9 +187,11 @@ def execute(args):
         # is not able to decide whether it should complete the task family or a task-level parameter
         # skip the task
         if "_" in task_family.rsplit(".", 1)[-1]:
-            logger.error("skipping task '{}' as its family '{}' contains a '_' after the namespace "
+            logger.error(
+                "skipping task '{}' as its family '{}' contains a '_' after the namespace "
                 "definition which would lead to ambiguities between task families and task-level "
-                "parameters in the law shell autocompletion".format(cls, task_family))
+                "parameters in the law shell autocompletion".format(cls, task_family),
+            )
             continue
 
         # skip already seen task families and warn when the class is not added yet in the classes to
@@ -162,10 +199,12 @@ def execute(args):
         # imports of the same physical file via different module ids
         if task_family in seen_families:
             if cls not in task_classes:
-                logger.error("skipping task '{}' as a task with the same family '{}' but a "
+                logger.error(
+                    "skipping task '{}' as a task with the same family '{}' but a different "
                     "different address was already seen; this is likely due to multiple imports of "
                     "the same physical file through different module ids and since it is no longer "
-                    "unique, luigi's task lookup will probably fail".format(cls, task_family))
+                    "unique, luigi's task lookup will probably fail".format(cls, task_family),
+                )
             continue
         seen_families.append(task_family)
 

@@ -21,6 +21,8 @@ __all__ = [
 ]
 
 
+import os
+
 # package infos
 from law.__version__ import (
     __doc__, __author__, __email__, __copyright__, __credits__, __contact__, __license__,
@@ -30,6 +32,7 @@ from law.__version__ import (
 # luigi version infos
 import re
 import luigi
+
 # __version__ was introduced in 2.8.11
 luigi_version = getattr(luigi, "__version__", "2.8.10")
 luigi_version_info = tuple(
@@ -43,9 +46,10 @@ import law.logger
 law.logger.setup_logging()
 
 
-# use cached software
-from law.cli.software import use_software_cache
-use_software_cache(reload_deps=True)
+# prefer cached software
+if os.getenv("LAW_USE_SOFTWARE_CACHE", "1").lower() in ("1", "yes", "true"):
+    from law.cli.software import use_software_cache
+    use_software_cache(reload_deps=True)
 
 
 # luigi patches
