@@ -19,7 +19,7 @@ import six
 from law.config import Config
 from law.sandbox.base import Sandbox
 from law.target.local import LocalFileTarget
-from law.cli.software import deps as law_deps
+from law.cli.software import get_software_deps
 from law.util import make_list, interruptable_popen, quote_cmd, flatten, makedirs
 
 
@@ -187,7 +187,7 @@ class DockerSandbox(Sandbox):
         env["PYTHONPATH"] = os.pathsep.join([dst(python_dir), "$PYTHONPATH"])
 
         # forward python directories of law and dependencies
-        for mod in law_deps:
+        for mod in get_software_deps():
             path = os.path.dirname(mod.__file__)
             name, ext = os.path.splitext(os.path.basename(mod.__file__))
             if name == "__init__":
