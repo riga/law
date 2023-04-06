@@ -445,6 +445,21 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         msg = " for type '{}'".format(name) if name else ""
         raise ValueError("cannot determine workflow class{} in task class {}".format(msg, cls))
 
+    @classmethod
+    def req_different_branching(cls, inst, **kwargs):
+        """
+        Variation of :py:meth:`Task.req` that should be used when defining requirements between
+        workflows that implement a different branch granularity (e.g. task B with 10 branches
+        requires task A with 2 branches). The only difference to the base method is that workflow
+        specific parameters such as *branches* or *tolerance* are automatically skipped when not
+        added explicitly in *kwargs*.
+        """
+        _exclude = set(make_list(kwargs.get("_exclude", [])))
+        _exclude |= cls.exclude_params_branch
+        kwargs["_exclude"] = _exclude
+
+        return cls.req(inst, **kwargs)
+
     def __init__(self, *args, **kwargs):
         super(BaseWorkflow, self).__init__(*args, **kwargs)
 

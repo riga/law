@@ -101,6 +101,7 @@ class Config(ConfigParser):
             "interactive_format": "fancy",
             "interactive_line_breaks": True,
             "interactive_line_width": 0,
+            "interactive_status_skip_seen": False,
         },
         "target": {
             "colored_repr": False,

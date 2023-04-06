@@ -193,7 +193,7 @@
 
 ; interactive_format
 ; Description: The style of interactive task outputs, e.g. when adding "--print-status N" to a
-; command. Possible values: default, fancy.
+; command. Possible values: plain, compact, fancy, fancy_compact.
 ; Type: string
 ; Default: "fancy"
 
@@ -209,6 +209,13 @@
 ; zero or negative, the terminal size is obtained dynamically if possible.
 ; Type: integer
 ; Default: 0
+
+; interactive_status_skip_seen
+; Description: A boolean flag that decides whether during interactive task status traversal, e.g.
+; when adding "--print-status N" to a command, tasks whose status has already been checked are
+; not checked again in case they appear more than once in the dependency tree.
+; Type: boolean
+; Default: False
 
 
 ; --- target section -------------------------------------------------------------------------------

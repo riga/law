@@ -1341,10 +1341,12 @@ def readable_popen(*args, **kwargs):
     p = subprocess.Popen(*args, **kwargs)
 
     def line_gen():
-        for line in iter(lambda: p.stdout.readline(), ""):
-            if six.PY3:
-                line = line.decode("utf-8")
-            yield line.rstrip()
+        if six.PY2:
+            for line in iter(lambda: p.stdout.readline(), ""):
+                yield line.rstrip()
+        else:
+            for line in p.stdout:
+                yield line.decode("utf-8").rstrip()
 
         # communicate in the end
         p.communicate()

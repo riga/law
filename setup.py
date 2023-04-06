@@ -100,6 +100,6 @@ setup(
     zip_safe=False,
     packages=find_packages(exclude=["tests"]),
     include_package_data=True,
-    scripts=["bin/law", "bin/law3"],
+    scripts=["bin/law", "bin/law2", "bin/law3"],
     options=options,
 )
