@@ -2,6 +2,7 @@
 
 
 import os
+import sys
 import re
 from setuptools import setup, find_packages
 
@@ -45,7 +46,8 @@ def readlines(f):
 
 
 # read the readme file
-with open(os.path.join(this_dir, "README.md"), "r") as f:
+open_kwargs = {} if sys.version_info.major < 3 else {"encoding": "utf-8"}
+with open(os.path.join(this_dir, "README.md"), "r", **open_kwargs) as f:
     long_description = f.read()
 
 
