@@ -70,16 +70,16 @@ eval "$( pyenv virtualenv-init - )"' >> /root/.bashrc
 
 # boost
 ENV BOOST_ROOT /usr/local
-RUN wget -nv https://boostorg.jfrog.io/artifactory/main/release/1.82.0/source/boost_1_82_0.tar.gz && \
-    tar -xzf boost_1_82_0.tar.gz && \
-    cd boost_1_82_0 && \
+RUN wget -nv https://boostorg.jfrog.io/artifactory/main/release/1.81.0/source/boost_1_81_0.tar.gz && \
+    tar -xzf boost_1_81_0.tar.gz && \
+    cd boost_1_81_0 && \
     ./bootstrap.sh --with-libraries=system,thread,python --with-python="$( pyenv which python )" && \
     perl -pi -e 's!(\Qincludes ?= $(prefix)/include/python$(version)\E)!\1m!' tools/build/src/tools/python.jam && \
     ./b2 install --prefix=${BOOST_ROOT} && \
     ldconfig && \
     cd .. && \
-    rm -rf boost_1_82_0 && \
-    rm boost_1_82_0.tar.gz
+    rm -rf boost_1_81_0 && \
+    rm boost_1_81_0.tar.gz
 
 # WLCG software
 RUN rpm -Uvh https://repo.opensciencegrid.org/osg/3.6/osg-3.6-el7-release-latest.rpm
