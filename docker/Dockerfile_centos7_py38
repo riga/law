@@ -49,7 +49,8 @@ RUN yum -y reinstall glibc-common
 RUN yum -y groupinstall development; yum clean all
 RUN yum -y install gcc gcc-c++ libffi-devel openssl-devel glib2-devel libattr-devel openldap-devel \
     zlib-devel bzip2 bzip2-devel json-c-devel ncurses-devel curl-devel readline-devel tk-devel \
-    sqlite sqlite-devel libsqlite3x-devel xz-devel which wget nano screen git git-lfs cmake cmake3; \
+    sqlite sqlite-devel libsqlite3x-devel xz-devel which wget nano screen git git-lfs cmake cmake3 \
+    cryptopp; \
     yum clean all
 RUN cd /usr/bin; curl https://getmic.ro | bash
 
