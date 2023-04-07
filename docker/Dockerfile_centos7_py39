@@ -2,14 +2,14 @@ FROM centos:7
 
 # labels
 LABEL law.version="0.1.12"
-LABEL law.image_name="riga/law"
-LABEL law.image_tag="c7-py39"
-LABEL law.image_os="centos7"
-LABEL law.image_python_major="3"
-LABEL law.image_python_minor="9"
-LABEL law.image_python_patch="15"
-LABEL law.image_python="3.9.15"
-LABEL law.image_python_mm="3.9"
+LABEL law.image-name="riga/law"
+LABEL law.image-tag="c7-py39"
+LABEL law.image-os="centos7"
+LABEL law.image-python-major="3"
+LABEL law.image-python-minor="9"
+LABEL law.image-python-patch="16"
+LABEL law.image-python="3.9.16"
+LABEL law.image-python-mm="3.9"
 
 # law specific environment variables
 ENV LAW_IMAGE_ROOT /root/law
@@ -17,7 +17,7 @@ ENV LAW_IMAGE_NAME riga/law
 ENV LAW_IMAGE_TAG c7-py39
 ENV LAW_IMAGE_PYTHON_MAJOR 3
 ENV LAW_IMAGE_PYTHON_MINOR 9
-ENV LAW_IMAGE_PYTHON_PATCH 15
+ENV LAW_IMAGE_PYTHON_PATCH 16
 ENV LAW_IMAGE_PYTHON ${LAW_IMAGE_PYTHON_MAJOR}.${LAW_IMAGE_PYTHON_MINOR}.${LAW_IMAGE_PYTHON_PATCH}
 ENV LAW_IMAGE_PYTHON_MM ${LAW_IMAGE_PYTHON_MAJOR}.${LAW_IMAGE_PYTHON_MINOR}
 ENV LAW_SANDBOX docker::riga/law:c7-py39,docker::riga/law:c7-py3
@@ -70,16 +70,16 @@ eval "$( pyenv virtualenv-init - )"' >> /root/.bashrc
 
 # boost
 ENV BOOST_ROOT /usr/local
-RUN wget -nv https://boostorg.jfrog.io/artifactory/main/release/1.80.0/source/boost_1_80_0.tar.gz && \
-    tar -xzf boost_1_80_0.tar.gz && \
-    cd boost_1_80_0 && \
+RUN wget -nv https://boostorg.jfrog.io/artifactory/main/release/1.82.0/source/boost_1_82_0.tar.gz && \
+    tar -xzf boost_1_82_0.tar.gz && \
+    cd boost_1_82_0 && \
     ./bootstrap.sh --with-libraries=system,thread,python --with-python="$( pyenv which python )" && \
     perl -pi -e 's!(\Qincludes ?= $(prefix)/include/python$(version)\E)!\1m!' tools/build/src/tools/python.jam && \
     ./b2 install --prefix=${BOOST_ROOT} && \
     ldconfig && \
     cd .. && \
-    rm -rf boost_1_80_0 && \
-    rm boost_1_80_0.tar.gz
+    rm -rf boost_1_82_0 && \
+    rm boost_1_82_0.tar.gz
 
 # WLCG software
 RUN rpm -Uvh https://repo.opensciencegrid.org/osg/3.6/osg-3.6-el7-release-latest.rpm
@@ -94,7 +94,7 @@ RUN yum -y install lfc-devel dpm-devel srm-ifce-devel dcap-devel globus-gass-cop
     davix-devel xrootd-client-devel libssh2-devel gtest-devel libuuid-devel; yum clean all
 RUN git clone https://gitlab.cern.ch/dmc/gfal2.git && \
     cd gfal2 && \
-    git checkout tags/v2.21.1 && \
+    git checkout tags/v2.21.4 && \
     mkdir build && \
     cd build && \
     cmake .. \

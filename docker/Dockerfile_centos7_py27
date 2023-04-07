@@ -2,14 +2,14 @@ FROM centos:7
 
 # labels
 LABEL law.version="0.1.12"
-LABEL law.image_name="riga/law"
-LABEL law.image_tag="c7-py27"
-LABEL law.image_os="centos7"
-LABEL law.image_python_major="2"
-LABEL law.image_python_minor="7"
-LABEL law.image_python_patch="5"
-LABEL law.image_python="2.7.5"
-LABEL law.image_python_mm="2.7"
+LABEL law.image-name="riga/law"
+LABEL law.image-tag="c7-py27"
+LABEL law.image-os="centos7"
+LABEL law.image-python-major="2"
+LABEL law.image-python-minor="7"
+LABEL law.image-python-patch="5"
+LABEL law.image-python="2.7.5"
+LABEL law.image-python-mm="2.7"
 
 # law specific environment variables
 ENV LAW_IMAGE_ROOT /root/law
