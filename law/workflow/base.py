@@ -365,6 +365,10 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         description="the type of the workflow to use; uses the first workflow type in the MRO when "
         "empty; default: empty",
     )
+    effective_workflow = luigi.Parameter(
+        default=NO_STR,
+        description="do not set manually",
+    )
     acceptance = luigi.FloatParameter(
         default=1.0,
         significant=False,
@@ -405,6 +409,7 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
     create_branch_map_before_repr = False
     workflow_run_decorators = None
     cache_workflow_requirements = False
+    passthrough_requested_workflow = True
 
     # accessible properties
     workflow_property = None
@@ -412,6 +417,9 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
 
     exclude_index = True
 
+    exclude_params_req = {"effective_workflow"}
+    exclude_params_index = {"effective_workflow"}
+    exclude_params_repr = {"workflow"}
     exclude_params_branch = {"acceptance", "tolerance", "pilot", "branches"}
     exclude_params_workflow = {"branch"}
 
@@ -423,6 +431,13 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         if params.get("workflow") in [None, NO_STR]:
             params["workflow"] = cls.find_workflow_cls().workflow_proxy_cls.workflow_type
 
+        # set the effective workflow parameter based on the actual resolution
+        workflow_cls = cls.find_workflow_cls(
+            name=params["workflow"],
+            fallback_to_first=cls.passthrough_requested_workflow,
+        )
+        params["effective_workflow"] = workflow_cls.workflow_proxy_cls.workflow_type
+
         # show deprecation error when start or end branch parameters are set
         if "start_branch" in params or "end_branch" in params:
             raise DeprecationWarning(
@@ -433,7 +448,9 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         return params
 
     @classmethod
-    def find_workflow_cls(cls, name=None):
+    def find_workflow_cls(cls, name=None, fallback_to_first=False):
+        first_cls = None
+
         for workflow_cls in cls.mro():
             if not issubclass(workflow_cls, BaseWorkflow):
                 continue
@@ -441,6 +458,11 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
                 continue
             if name in [workflow_cls.workflow_proxy_cls.workflow_type, None, NO_STR]:
                 return workflow_cls
+            if first_cls is None:
+                first_cls = workflow_cls
+
+        if fallback_to_first and first_cls is not None:
+            return first_cls
 
         msg = " for type '{}'".format(name) if name else ""
         raise ValueError("cannot determine workflow class{} in task class {}".format(msg, cls))
@@ -488,9 +510,11 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
             return
 
         if self.is_workflow():
-            self._workflow_cls = self.find_workflow_cls(self.workflow)
+            self._workflow_cls = self.find_workflow_cls(self.effective_workflow)
             self._workflow_proxy = self._workflow_cls.workflow_proxy_cls(task=self)
-            logger.debug("created workflow proxy instance of type '{}'".format(self.workflow))
+            logger.debug(
+                "created workflow proxy instance of type '{}'".format(self.effective_workflow),
+            )
 
         self._workflow_initialized = True
 
@@ -527,8 +551,14 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         params = super(BaseWorkflow, self)._repr_params(*args, **kwargs)
 
         if self.is_workflow():
-            # when this is a workflow, add the workflow type
-            params.setdefault("workflow", self.workflow)
+            # when this is a workflow, add the requested or effective workflow type,
+            # depending on whether the requested one is to be passed through
+            workflow = (
+                self.workflow
+                if self.passthrough_requested_workflow
+                else self.effective_workflow
+            )
+            params.setdefault("workflow", workflow)
             # skip branches when empty
             if not params.get("branches"):
                 params.pop("branches", None)
