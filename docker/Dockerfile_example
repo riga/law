@@ -5,7 +5,7 @@ LABEL law.image_name="riga/law"
 LABEL law.image_tag="example"
 
 # reset the shell
-SHELL ["/bin/sh", "-c"]
+# SHELL ["/bin/sh", "-c"]
 
 # copy files
 COPY start_example.sh /root/start_example.sh
@@ -18,6 +18,6 @@ WORKDIR /root
 RUN cd "${LAW_IMAGE_ROOT}" && git pull
 
 # default shell and entry point
-SHELL ["conda", "run", "-n", "base", "/bin/bash", "-i", "--login"]
+SHELL ["micromamba", "run", "-n", "base", "/bin/bash", "-i", "--login"]
 ENTRYPOINT ["/root/start_example.sh"]
 CMD ["loremipsum"]
