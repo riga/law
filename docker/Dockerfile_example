@@ -15,9 +15,13 @@ RUN chmod ug+x /root/start_example.sh
 WORKDIR /root
 
 # update the law repository
-RUN cd "${LAW_IMAGE_ROOT}" && git pull
+RUN cd "${LAW_IMAGE_ROOT}" && \
+    git pull && \
+    pip install --no-cache-dir .
 
-# default shell and entry point
+# default shell
 SHELL ["micromamba", "run", "-n", "base", "/bin/bash", "-i", "--login"]
+
+# entry point
 ENTRYPOINT ["/root/start_example.sh"]
 CMD ["loremipsum"]
