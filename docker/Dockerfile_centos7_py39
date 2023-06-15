@@ -58,7 +58,7 @@ channels:\n\
 SHELL ["micromamba", "run", "-n", "base", "/bin/bash", "-c"]
 
 # mamba packages
-RUN micromamba install "python=${LAW_IMAGE_PYTHON_MAJOR}.${LAW_IMAGE_PYTHON_MINOR}" gcc which wget nano micro screen git git-lfs cmake ncurses readline && \
+RUN micromamba install "python=${LAW_IMAGE_PYTHON_MAJOR}.${LAW_IMAGE_PYTHON_MINOR}" gcc which wget nano micro git git-lfs cmake ncurses readline && \
     micromamba clean --all
 RUN micromamba install gfal2 gfal2-util python-gfal2 && \
     micromamba clean --all
