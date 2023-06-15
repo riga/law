@@ -193,25 +193,26 @@ source "$( law completion )"
 
 ### Tests
 
-To run and test law, there are various docker `riga/law` images available on the [DockerHub](https://cloud.docker.com/u/riga/repository/docker/riga/law), corresponding to different OS and Python versions.
+To run and test law, there are various docker `riga/law` images available on the [DockerHub](https://cloud.docker.com/u/riga/repository/docker/riga/law), corresponding to different OS and Python versions (based on [micromamba](https://mamba.readthedocs.io/en/latest/user_guide/micromamba.html)).
 Start them via
 
 ```shell
 docker run -ti riga/law:<the_tag>
 ```
 
-|    OS    | Python |                   Tags                   |
-| -------- | ------ | ---------------------------------------- |
-| Centos 8 |   3.10 | c8-py310, c8-py3, c8, py310, py3, latest |
-| Centos 8 |    3.9 | c8-py39, py39                            |
-| Centos 8 |    3.8 | c8-py38, py38                            |
-| Centos 8 |    3.7 | c8-py37, py37                            |
-| Centos 7 |   3.10 | c7-py310                                 |
-| Centos 7 |    3.9 | c7-py39, c7-py3, c7                      |
-| Centos 7 |    3.8 | c7-py38                                  |
-| Centos 7 |    3.7 | c7-py37                                  |
-| Centos 7 |    3.6 | c7-py36, py36                            |
-| Centos 7 |    2.7 | c7-py27, c7-py2, py27, py2               |
+|    OS    | Python |                   Tags                    |
+| -------- | ------ | ----------------------------------------- |
+| Centos 8 |   3.11 | c8-py311, py311                           |
+| Centos 8 |   3.10 | c8-py310, c8-py3, c8, py310, py3, latest  |
+| Centos 8 |    3.9 | c8-py39, py39                             |
+| Centos 8 |    3.8 | c8-py38, py38                             |
+| Centos 8 |    3.7 | c8-py37, py37                             |
+| Centos 7 |   3.10 | c7-py310                                  |
+| Centos 7 |    3.9 | c7-py39, c7-py3, c7                       |
+| Centos 7 |    3.8 | c7-py38                                   |
+| Centos 7 |    3.7 | c7-py37                                   |
+| Centos 7 |    3.6 | c7-py36, py36 (removed soon)              |
+| Centos 7 |    2.7 | c7-py27, c7-py2, py27, py2 (removed soon) |
 
 
 ### Contributors
