@@ -1118,7 +1118,12 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                     raise Exception(err.format(self.poll_data.n_finished_min, n_jobs, n_failed))
 
             # invoke the poll callback
-            self._get_task_attribute("poll_callback", True)(self.poll_data)
+            poll_callback_res = self._get_task_attribute("poll_callback", True)(self.poll_data)
+            if poll_callback_res is False:
+                logger.debug(
+                    "job polling loop gracefully stopped due to False returned by poll_callback",
+                )
+                break
 
             # trigger automatic resubmission and submission of unsubmitted jobs if necessary
             if retry_jobs or self.poll_data.n_active < self.poll_data.n_parallel:
@@ -1363,6 +1368,9 @@ class BaseRemoteWorkflow(BaseWorkflow):
         Configurable callback that is called after each job status query and before potential
         resubmission. It receives the variable polling attributes *poll_data* (:py:class:`PollData`)
         that can be changed within this method.
+
+        If *False* is returned, the polling loop is gracefully terminated. Returning any other value
+        does not have any effect.
         """
         return
 
