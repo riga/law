@@ -118,6 +118,9 @@ See [law.cfg.example](https://github.com/riga/law/tree/master/law.cfg.example).
 - CMS SUSY Searches at DESY
   - Analysis framework for CMS SUSY searches going from custom NanoAODs -> NTuple production -> DNN-based inference -> final plots and fits
   - [repo](https://github.com/frengelk/Susy1LeptonAnalysis)
+- Kingmaker (CMS Ntuple Production with CROWN)
+  - Ntuple conversion from CMS nanoAOD to analysis Ntuples using the CROWN framework. Also includes the training of an event classifier on those ntuples.
+  - [repo](https://github.com/KIT-CMS/KingMaker), [CROWN](https://github.com/KIT-CMS/CROWN)
 
 If your project uses law but is not yet listed here, feel free to open a pull request or mention your project details in a new [issue](https://github.com/riga/law/issues/new?assignees=riga&labels=docs&template=register-project.md) and it will be added.
 
