@@ -5,7 +5,7 @@ CMS-related contrib package. https://home.cern/about/experiments/cms
 """
 
 __all__ = [
-    "CrabCMSSWSandbox",
+    "CMSSWSandbox",
     "CrabJobManager", "CrabJobFileFactory", "CMSJobDashboard",
     "CrabWorkflow",
     "BundleCMSSW",
@@ -14,7 +14,7 @@ __all__ = [
 
 
 # provisioning imports
-from law.contrib.cms.sandbox import CrabCMSSWSandbox
+from law.contrib.cms.sandbox import CMSSWSandbox
 from law.contrib.cms.job import CrabJobManager, CrabJobFileFactory, CMSJobDashboard
 from law.contrib.cms.workflow import CrabWorkflow
 from law.contrib.cms.tasks import BundleCMSSW
