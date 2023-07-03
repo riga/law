@@ -154,6 +154,8 @@ class ForestMerge(LocalWorkflow):
 
     @classmethod
     def modify_param_values(cls, params):
+        params = super(ForestMerge, cls).modify_param_values(params)
+
         # when tree_index is negative, which refers to the merge forest, make sure this is branch 0
         if "tree_index" in params and "branch" in params and params["tree_index"] < 0:
             params["branch"] = 0
