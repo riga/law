@@ -58,6 +58,7 @@ def patch_all():
     patch_cmdline_parser()
     patch_interface_logging()
     patch_parameter_copy()
+    patch_parameter_parse_or_no_value()
 
     logger.debug("applied all law-specific luigi patches")
 
@@ -397,3 +398,18 @@ def patch_parameter_copy():
     luigi.parameter.Parameter.copy = _copy
 
     logger.debug("patched luigi.parameter.Parameter.copy")
+
+
+def patch_parameter_parse_or_no_value():
+    """
+    Patches ``luigi.parameter.Parameter`` to properly accept empty values such as empty strings for
+    normal parameters or zeros for integer parameters instead of treating them as missing and to be
+    replaced with default values.
+    """
+    def _parse_or_no_value(self, x):
+        empty = x is None or x is luigi.parameter._no_value
+        return luigi.parameter._no_value if empty else self.parse(x)
+
+    luigi.parameter.Parameter._parse_or_no_value = _parse_or_no_value
+
+    logger.debug("patched luigi.parameter.Parameter._parse_or_no_value")

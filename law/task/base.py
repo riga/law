@@ -212,7 +212,7 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
                 for key in global_cmdline_values().keys():
                     if key.startswith(prefix):
                         cls_args.append(key[len(prefix):])
-            for name in make_list(prefer_cli):
+            for name in prefer_cli:
                 if name in params and name in cls_args:
                     del params[name]
 
