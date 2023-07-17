@@ -55,6 +55,7 @@ def patch_all():
     patch_worker_get_work()
     patch_worker_factory()
     patch_keepalive_run()
+    patch_luigi_run_result()
     patch_cmdline_parser()
     patch_interface_logging()
     patch_parameter_copy()
@@ -257,6 +258,22 @@ def patch_keepalive_run():
     luigi.worker.KeepAliveThread.run = run
 
     logger.debug("patched luigi.worker.KeepAliveThread.run")
+
+
+def patch_luigi_run_result():
+    __init__orig = luigi.execution_summary.LuigiRunResult.__init__
+
+    @functools.wraps(__init__orig)
+    def __init__(self, *args, **kwargs):
+        __init__orig(self, *args, **kwargs)
+
+        # condense the summary text into a single line when sandboxed
+        if law.sandbox.base._sandbox_switched:
+            self.summary_text = luigi.execution_summary._create_one_line_summary(self.status)
+
+    luigi.execution_summary.LuigiRunResult.__init__ = __init__
+
+    logger.debug("patched luigi.execution_summary.LuigiRunResult.__init__")
 
 
 def patch_cmdline_parser():
