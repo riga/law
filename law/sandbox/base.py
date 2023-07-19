@@ -346,7 +346,8 @@ class SandboxProxy(ProxyTask):
             code, out, err = self.sandbox_inst.run(cmd)
             if code != 0:
                 raise Exception(
-                    "sandbox '{}' failed with exit code {}".format(self.sandbox_inst.key, code),
+                    "sandbox '{}' failed with exit code {}, please see the error inside the "
+                    "sandboxed context above for details".format(self.sandbox_inst.key, code),
                 )
 
         # actual stage_out
