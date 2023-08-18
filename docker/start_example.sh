@@ -9,12 +9,10 @@ action() {
         2>&1 echo "'${example_name}' is not a valid law example"
         return "1"
     fi
+    export LAW_DOCKER_EXAMPLE="${example_name}"
 
     echo "running law example '${example_name}' in ${example_dir}"
     echo
-
-    # make python 3 the default
-    ( cd /usr/local/bin && ln -s python3 python &> /dev/null && ln -s pip3 pip )
 
     # change directory and source the setup script when existing
     cd "${example_dir}"
@@ -28,6 +26,6 @@ action() {
     echo
 
     # run a bash login shell
-    bash -i --login
+    bash -i
 }
 action "$@"

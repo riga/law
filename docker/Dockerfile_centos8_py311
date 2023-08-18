@@ -1,25 +1,25 @@
-FROM centos:7
+FROM centos:8
 
 ARG TARGETPLATFORM
 
 # labels
 LABEL law.version="0.1.12"
 LABEL law.image-name="riga/law"
-LABEL law.image-tag="c7-py39"
-LABEL law.image-os="centos7"
+LABEL law.image-tag="c8-py311"
+LABEL law.image-os="centos8"
 LABEL law.image-python-major="3"
-LABEL law.image-python-minor="9"
-LABEL law.image-python="3.9"
+LABEL law.image-python-minor="11"
+LABEL law.image-python="3.11"
 
 # law specific environment variables
 ENV LAW_IMAGE_ROOT /root/law
 ENV LAW_IMAGE_NAME riga/law
-ENV LAW_IMAGE_TAG c7-py39
+ENV LAW_IMAGE_TAG c8-py311
 ENV LAW_IMAGE_PYTHON_MAJOR 3
-ENV LAW_IMAGE_PYTHON_MINOR 9
+ENV LAW_IMAGE_PYTHON_MINOR 11
 ENV LAW_IMAGE_PYTHON ${LAW_IMAGE_PYTHON_MAJOR}.${LAW_IMAGE_PYTHON_MINOR}
 ENV LAW_MAMBA_ROOT /root/mamba
-ENV LAW_SANDBOX docker::riga/law:c7-py39
+ENV LAW_SANDBOX docker::riga/law:c8-py311,docker::riga/law:py311
 
 # exposed ports
 EXPOSE 8082
@@ -32,6 +32,8 @@ COPY bashrc /root/.bashrc
 WORKDIR /root/install
 
 # prepare yum
+RUN sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-* && \
+    sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
 RUN sed -i -r 's/^(override_install_langs=.+)/#\1/' /etc/yum.conf
 RUN yum -y update; yum clean all
 RUN yum -y install yum-utils epel-release curl wget bzip2; yum clean all

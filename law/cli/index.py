@@ -16,7 +16,7 @@ import six
 
 from law.config import Config
 from law.task.base import Task, ExternalTask
-from law.util import multi_match, colored, abort, makedirs
+from law.util import multi_match, colored, abort, makedirs, brace_expand
 from law.logger import get_logger
 
 
@@ -116,6 +116,9 @@ def execute(args):
     lookup = [m.strip() for m in cfg.options("modules")]
     if args.modules:
         lookup += args.modules
+
+    # expand braces
+    lookup = sum(map(brace_expand, lookup), [])
 
     if not args.quiet:
         print("indexing tasks in {} module(s)".format(len(lookup)))

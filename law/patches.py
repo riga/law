@@ -55,9 +55,11 @@ def patch_all():
     patch_worker_get_work()
     patch_worker_factory()
     patch_keepalive_run()
+    patch_luigi_run_result()
     patch_cmdline_parser()
     patch_interface_logging()
     patch_parameter_copy()
+    patch_parameter_parse_or_no_value()
 
     logger.debug("applied all law-specific luigi patches")
 
@@ -258,6 +260,22 @@ def patch_keepalive_run():
     logger.debug("patched luigi.worker.KeepAliveThread.run")
 
 
+def patch_luigi_run_result():
+    __init__orig = luigi.execution_summary.LuigiRunResult.__init__
+
+    @functools.wraps(__init__orig)
+    def __init__(self, *args, **kwargs):
+        __init__orig(self, *args, **kwargs)
+
+        # condense the summary text into a single line when sandboxed
+        if law.sandbox.base._sandbox_switched:
+            self.summary_text = luigi.execution_summary._create_one_line_summary(self.status)
+
+    luigi.execution_summary.LuigiRunResult.__init__ = __init__
+
+    logger.debug("patched luigi.execution_summary.LuigiRunResult.__init__")
+
+
 def patch_cmdline_parser():
     """
     Patches the ``luigi.cmdline_parser.CmdlineParser`` to store the original command line arguments
@@ -397,3 +415,18 @@ def patch_parameter_copy():
     luigi.parameter.Parameter.copy = _copy
 
     logger.debug("patched luigi.parameter.Parameter.copy")
+
+
+def patch_parameter_parse_or_no_value():
+    """
+    Patches ``luigi.parameter.Parameter`` to properly accept empty values such as empty strings for
+    normal parameters or zeros for integer parameters instead of treating them as missing and to be
+    replaced with default values.
+    """
+    def _parse_or_no_value(self, x):
+        empty = x is None or x is luigi.parameter._no_value
+        return luigi.parameter._no_value if empty else self.parse(x)
+
+    luigi.parameter.Parameter._parse_or_no_value = _parse_or_no_value
+
+    logger.debug("patched luigi.parameter.Parameter._parse_or_no_value")

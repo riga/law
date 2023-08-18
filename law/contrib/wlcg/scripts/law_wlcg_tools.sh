@@ -132,7 +132,7 @@ law_wlcg_get_file() {
         # interpret $src_name as a regex to match the contents of $src_dir, select one randomly
         local random_src_name
         if ${src_is_remote}; then
-            random_src_name="$( python "$( which gfal-ls )" "${src_dir}" | grep -Po "${src_name}" | shuf -n 1 )"
+            random_src_name="$( gfal-ls "${src_dir}" | grep -Po "${src_name}" | shuf -n 1 )"
         else
             random_src_name="$( ls "${src_dir}" | grep -Po "${src_name}" | shuf -n 1 )"
         fi
@@ -148,7 +148,7 @@ law_wlcg_get_file() {
 
         # download the file
         if ${src_is_remote}; then
-            python "$( which gfal-copy )" --force "${src_dir}/${random_src_name}" "${dst_path}"
+            gfal-copy --force "${src_dir}/${random_src_name}" "${dst_path}"
         else
             cp "${src_dir}/${random_src_name}" "${dst_path}"
         fi
@@ -267,7 +267,7 @@ law_wlcg_put_file() {
     for i in $( seq 1 ${attempts} ); do
         # upload the file
         if ${dst_is_remote}; then
-            python "$( which gfal-copy )" --force "${src_path}" "${dst_dir}/${dst_name}"
+            gfal-copy --force "${src_path}" "${dst_dir}/${dst_name}"
         else
             mkdir -p "${dst_dir}" && rm -rf "${dst_dir}/${dst_name}" && cp "${src_path}" "${dst_dir}/${dst_name}"
         fi

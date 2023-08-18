@@ -9,6 +9,7 @@ __all__ = ["Sandbox", "SandboxTask"]
 
 import os
 import sys
+import shlex
 from abc import ABCMeta, abstractmethod, abstractproperty
 from contextlib import contextmanager
 from fnmatch import fnmatch
@@ -73,8 +74,14 @@ class StageInfo(object):
 
     def __str__(self):
         tmpl = "{}.{} object at {}:\n  targets      : {}\n  stage_dir    : {}\n  staged_targets: {}"
-        return tmpl.format(self.__class__.__module__, self.__class__.__name__, hex(id(self)),
-            self.targets, self.stage_dir.path, self.staged_targets)
+        return tmpl.format(
+            self.__class__.__module__,
+            self.__class__.__name__,
+            hex(id(self)),
+            self.targets,
+            self.stage_dir.path,
+            self.staged_targets,
+        )
 
     def __repr__(self):
         return str(self)
@@ -126,8 +133,7 @@ class Sandbox(six.with_metaclass(ABCMeta, object)):
             _cls = classes.pop(0)
             if getattr(_cls, "sandbox_type", None) == _type:
                 return _cls(name, *args, **kwargs)
-            else:
-                classes.extend(_cls.__subclasses__())
+            classes.extend(_cls.__subclasses__())
 
         raise Exception("no sandbox with type '{}' found".format(_type))
 
@@ -191,8 +197,14 @@ class Sandbox(six.with_metaclass(ABCMeta, object)):
         if stderr is None:
             stderr = sys.stderr
 
-        return interruptable_popen(cmd, shell=True, executable="/bin/bash", stdout=stdout,
-            stderr=stderr, env=self.env)
+        return interruptable_popen(
+            cmd,
+            shell=True,
+            executable="/bin/bash",
+            stdout=stdout,
+            stderr=stderr,
+            env=self.env,
+        )
 
     def get_custom_config_section_postfix(self):
         return self.name
@@ -298,8 +310,12 @@ class SandboxProxy(ProxyTask):
         return self.task.sandbox_inst
 
     def create_proxy_cmd(self):
-        return ProxyCommand(self.task, exclude_task_args=self.task.exclude_params_sandbox,
-            exclude_global_args=["workers"])
+        return ProxyCommand(
+            self.task,
+            exclude_task_args=self.task.exclude_params_sandbox,
+            exclude_global_args=["workers"],
+            executable=self.task.sandbox_law_executable(),
+        )
 
     def run(self):
         # before_run hook
@@ -331,8 +347,10 @@ class SandboxProxy(ProxyTask):
         with self._run_context(cmd):
             code, out, err = self.sandbox_inst.run(cmd)
             if code != 0:
-                raise Exception("sandbox '{}' failed with exit code {}".format(
-                    self.sandbox_inst.key, code))
+                raise Exception(
+                    "sandbox '{}' failed with exit code {}, please see the error inside the "
+                    "sandboxed context above for details".format(self.sandbox_inst.key, code),
+                )
 
         # actual stage_out
         if stageout_info:
@@ -438,8 +456,9 @@ class SandboxProxy(ProxyTask):
             if staged_output.exists():
                 sandbox_output.copy_from_local(staged_output)
             else:
-                logger.warning("could not find output target at {} for stage-out".format(
-                    staged_output.path))
+                logger.warning(
+                    "could not find output target at {} for stage-out".format(staged_output.path),
+                )
 
         logger.info("staged-out {} file(s)".format(len(stageout_info.stage_dir.listdir())))
 
@@ -564,8 +583,10 @@ class SandboxTask(Task):
 
     def _staged_input(self):
         if not _sandbox_stagein_dir:
-            raise Exception("LAW_SANDBOX_STAGEIN_DIR must not be empty in a sandbox when target "
-                "stage-in is required")
+            raise Exception(
+                "LAW_SANDBOX_STAGEIN_DIR must not be empty in a sandbox when target "
+                "stage-in is required",
+            )
 
         # get the original inputs
         inputs = self.__getattribute__("input", proxy=False)()
@@ -578,8 +599,10 @@ class SandboxTask(Task):
 
     def _staged_output(self):
         if not _sandbox_stageout_dir:
-            raise Exception("LAW_SANDBOX_STAGEOUT_DIR must not be empty in a sandbox when target "
-                "stage-out is required")
+            raise Exception(
+                "LAW_SANDBOX_STAGEOUT_DIR must not be empty in a sandbox when target "
+                "stage-out is required",
+            )
 
         # get the original outputs
         outputs = self.__getattribute__("output", proxy=False)()
@@ -628,6 +651,16 @@ class SandboxTask(Task):
     def sandbox_setup_cmds(self):
         # list of commands to set up the environment inside a sandbox
         return []
+
+    def sandbox_law_executable(self):
+        # law executable that is used inside the sandbox
+        executable = "law"
+
+        if self.sandbox_inst:
+            section = self.sandbox_inst.get_config_section()
+            executable = Config.instance().get_expanded(section, "law_executable")
+
+        return shlex.split(executable) if executable else []
 
     def sandbox_before_run(self):
         # method that is invoked before the run method of the sandbox proxy is called

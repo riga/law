@@ -212,7 +212,7 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
                 for key in global_cmdline_values().keys():
                     if key.startswith(prefix):
                         cls_args.append(key[len(prefix):])
-            for name in make_list(prefer_cli):
+            for name in prefer_cli:
                 if name in params and name in cls_args:
                     del params[name]
 
@@ -713,8 +713,6 @@ class WrapperTask(Task):
         if self.cache_requirements:
             if self._cached_requirements is no_value:
                 self._cached_requirements = self.requires()
-            else:
-                print("WRAPPER.COMPLETE() TAKING REQS FROM CACHE BITCHES")
             reqs = self._cached_requirements
         else:
             reqs = self.requires()

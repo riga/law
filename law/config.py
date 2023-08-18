@@ -266,17 +266,20 @@ class Config(ConfigParser):
         "bash_sandbox": {
             "stagein_dir_name": "stagein",
             "stageout_dir_name": "stageout",
+            "law_executable": "law",
             "login": False,
         },
         "bash_sandbox_env": {},
         "venv_sandbox": {
             "stagein_dir_name": "stagein",
             "stageout_dir_name": "stageout",
+            "law_executable": "law",
         },
         "venv_sandbox_env": {},
         "docker_sandbox": {
             "stagein_dir_name": "stagein",
             "stageout_dir_name": "stageout",
+            "law_executable": "law",
             "uid": None,
             "gid": None,
             "forward_dir": "/law_forward",
@@ -288,6 +291,7 @@ class Config(ConfigParser):
         "singularity_sandbox": {
             "stagein_dir_name": "stagein",
             "stageout_dir_name": "stageout",
+            "law_executable": "law",
             "uid": None,
             "gid": None,
             "forward_dir": "/law_forward",
