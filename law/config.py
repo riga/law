@@ -305,6 +305,7 @@ class Config(ConfigParser):
         "cmssw_sandbox": {
             "stagein_dir_name": "stagein",
             "stageout_dir_name": "stageout",
+            "law_executable": "law",
             "login": False,
         },
         "cmssw_sandbox_env": {},

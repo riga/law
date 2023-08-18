@@ -33,6 +33,8 @@
 ;   - [singularity_sandbox]
 ;   - [singularity_sandbox_env]
 ;   - [singularity_sandbox_volumes]
+;   - [cmssw_sandbox]
+;   - [cmssw_sandbox_env]
 ;
 ; Please note that configuration options of law contrib packages might also appear in sections of
 ; the general law configuration.
@@ -1288,6 +1290,11 @@
 ; outputs directly from within the sandbox.
 ; Type: string
 ; Default: "stageout"
+
+; law_executable
+; Description: The law executable to use within sandboxes, e.g. "law" or "python -m law".
+; Type: string
+; Default: "law"
 
 ; login
 ; Description: A boolean flag that decides whether the bash beneath the sandbox should be invoked as
