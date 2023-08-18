@@ -992,6 +992,11 @@
 ; Type: string
 ; Default: "stageout"
 
+; law_executable
+; Description: The law executable to use within sandboxes, e.g. "law" or "python -m law".
+; Type: string
+; Default: "law"
+
 ; login
 ; Description: A boolean flag that decides whether the bash sandbox should be invoked as a login
 ; shell.
@@ -1037,6 +1042,11 @@
 ; Type: string
 ; Default: "stageout"
 
+; law_executable
+; Description: The law executable to use within sandboxes, e.g. "law" or "python -m law".
+; Type: string
+; Default: "law"
+
 
 ; --- venv_sandbox_env section ---------------------------------------------------------------------
 
@@ -1075,6 +1085,11 @@
 ; outputs directly from within the sandbox.
 ; Type: string
 ; Default: "stageout"
+
+; law_executable
+; Description: The law executable to use within sandboxes, e.g. "law" or "python -m law".
+; Type: string
+; Default: "law"
 
 ; uid
 ; Description: The user id of the account inside the docker container. When "None", the container is
@@ -1154,6 +1169,11 @@
 ; outputs directly from within the sandbox.
 ; Type: string
 ; Default: "stageout"
+
+; law_executable
+; Description: The law executable to use within sandboxes, e.g. "law" or "python -m law".
+; Type: string
+; Default: "law"
 
 ; uid
 ; Description: The user id of the account inside the docker container. When "None", the container is

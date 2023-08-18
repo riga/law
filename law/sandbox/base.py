@@ -9,6 +9,7 @@ __all__ = ["Sandbox", "SandboxTask"]
 
 import os
 import sys
+import shlex
 from abc import ABCMeta, abstractmethod, abstractproperty
 from contextlib import contextmanager
 from fnmatch import fnmatch
@@ -313,6 +314,7 @@ class SandboxProxy(ProxyTask):
             self.task,
             exclude_task_args=self.task.exclude_params_sandbox,
             exclude_global_args=["workers"],
+            executable=self.task.sandbox_law_executable(),
         )
 
     def run(self):
@@ -649,6 +651,16 @@ class SandboxTask(Task):
     def sandbox_setup_cmds(self):
         # list of commands to set up the environment inside a sandbox
         return []
+
+    def sandbox_law_executable(self):
+        # law executable that is used inside the sandbox
+        executable = "law"
+
+        if self.sandbox_inst:
+            section = self.sandbox_inst.get_config_section()
+            executable = Config.instance().get_expanded(section, "law_executable")
+
+        return shlex.split(executable) if executable else []
 
     def sandbox_before_run(self):
         # method that is invoked before the run method of the sandbox proxy is called

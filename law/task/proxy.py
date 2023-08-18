@@ -7,6 +7,8 @@ Proxy task definition and helpers.
 __all__ = ["ProxyTask", "ProxyCommand", "get_proxy_attribute"]
 
 
+import shlex
+
 from law.task.base import BaseTask, Task
 from law.parameter import TaskInstanceParameter
 from law.parser import global_cmdline_args
@@ -33,13 +35,24 @@ class ProxyCommand(object):
 
     arg_sep = "__law_arg_sep__"
 
-    def __init__(self, task, exclude_task_args=None, exclude_global_args=None):
+    def __init__(
+        self,
+        task,
+        exclude_task_args=None,
+        exclude_global_args=None,
+        executable="law",
+    ):
         super(ProxyCommand, self).__init__()
 
         self.task = task
         self.args = self.load_args(
             exclude_task_args=exclude_task_args,
             exclude_global_args=exclude_global_args,
+        )
+        self.executable = list(
+            shlex.split(executable)
+            if isinstance(executable, str)
+            else executable,
         )
 
     def load_args(self, exclude_task_args=None, exclude_global_args=None):
@@ -68,12 +81,15 @@ class ProxyCommand(object):
 
         self.args.append((key, value))
 
-    def build_run_cmd(self):
-        return ["law", "run", "{}.{}".format(self.task.__module__, self.task.__class__.__name__)]
+    def build_run_cmd(self, executable=None):
+        exe = executable or self.executable
+        exe = list(shlex.split(executable) if isinstance(executable, str) else exe)
 
-    def build(self, skip_run=False):
+        return exe + ["run", "{}.{}".format(self.task.__module__, self.task.__class__.__name__)]
+
+    def build(self, skip_run=False, executable=None):
         # start with the run command
-        cmd = [] if skip_run else self.build_run_cmd()
+        cmd = [] if skip_run else self.build_run_cmd(executable=executable)
 
         # add arguments and insert dummary key value separators which are replaced with "=" later
         for key, value in self.args:
@@ -85,6 +101,7 @@ class ProxyCommand(object):
         return cmd
 
     def __str__(self):
+        # default command
         return self.build()
 
 
