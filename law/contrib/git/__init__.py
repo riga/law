@@ -8,6 +8,7 @@ __all__ = ["BundleGitRepository"]
 
 
 import os
+import threading
 import subprocess
 from abc import abstractmethod
 
@@ -43,6 +44,7 @@ class BundleGitRepository(Task):
         super(BundleGitRepository, self).__init__(*args, **kwargs)
 
         self._checksum = None
+        self._checksum_lock = threading.RLock()
 
     @abstractmethod
     def get_repo_path(self):
@@ -53,16 +55,23 @@ class BundleGitRepository(Task):
         if self.custom_checksum != NO_STR:
             return self.custom_checksum
 
-        if self._checksum is None:
-            cmd = [rel_path(__file__, "scripts", "repository_checksum.sh"), self.get_repo_path()]
-            cmd = quote_cmd(cmd)
+        with self._checksum_lock:
+            if self._checksum is None:
+                cmd = quote_cmd([
+                    rel_path(__file__, "scripts", "repository_checksum.sh"),
+                    self.get_repo_path(),
+                ])
 
-            code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-                stdout=subprocess.PIPE)
-            if code != 0:
-                raise Exception("repository checksum calculation failed")
+                code, out, _ = interruptable_popen(
+                    cmd,
+                    shell=True,
+                    executable="/bin/bash",
+                    stdout=subprocess.PIPE,
+                )
+                if code != 0:
+                    raise Exception("repository checksum calculation failed")
 
-            self._checksum = out.strip()
+                self._checksum = out.strip()
 
         return self._checksum
 
