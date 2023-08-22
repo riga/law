@@ -587,7 +587,7 @@ class CrabJobFileFactory(BaseJobFileFactory):
             ])),
         ])
 
-    def create(self, render_variables=None, **kwargs):
+    def create(self, **kwargs):
         # merge kwargs and instance attributes
         c = self.get_config(**kwargs)
 

@@ -125,19 +125,20 @@ EOF
     render_variables="$( echo "${render_variables}" | base64 --decode )"
 
     # check files to render
-    local input_files_render="{{input_files_render}}"
-    if [ -z "${input_files_render}" ]; then
+    local input_files_render=( {{input_files_render}} )
+    if [ "${#input_files_render[@]}" == "0" ]; then
         >&2 echo "received empty input files for rendering for LAW_CRAB_JOB_NUMBER ${LAW_CRAB_JOB_NUMBER}"
         return "3"
     fi
 
     # render files
     local input_file_render
-    for input_file_render in ${input_files_render}; do
+    for input_file_render in ${input_files_render[@]}; do
         # skip if the file refers to _this_ one
         local input_file_render_base="$( basename "${input_file_render}" )"
         [ "${input_file_render_base}" = "${this_file_base}" ] && continue
         # render
+        echo "render ${input_file_render}"
         python -c "\
 import re;\
 repl = ${render_variables};\

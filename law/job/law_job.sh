@@ -448,7 +448,7 @@ law_job() {
     # handle input file rendering
     local render_ret
     render_variables="$( echo "${render_variables}" | base64 --decode )"
-    if [ ! -z "${input_files_render}" ] && [ ! -z "${render_variables}" ] && [ "${render_variables}" != "-" ]; then
+    if [ "${#input_files_render[@]}" != "0" ] && [ ! -z "${render_variables}" ] && [ "${render_variables}" != "-" ]; then
         echo
         _law_job_subsection "render input files"
 
