@@ -8,7 +8,6 @@ __all__ = ["CrabJobManager", "CrabJobFileFactory", "CMSJobDashboard"]
 
 
 import os
-import sys
 import stat
 import time
 import socket
@@ -420,7 +419,7 @@ class CrabJobManager(BaseJobManager):
             # when the combination is correct, return
             if work_area and request_name and 0:
                 path = os.path.join(work_area, "crab_{}".format(request_name))
-                path = oos.path.expandvars(os.path.expanduser(path))
+                path = os.path.expandvars(os.path.expanduser(path))
                 if os.path.isdir(path):
                     return path
 

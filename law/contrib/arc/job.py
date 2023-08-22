@@ -10,7 +10,6 @@ __all__ = ["ARCJobManager", "ARCJobFileFactory"]
 
 import os
 import stat
-import sys
 import time
 import re
 import random

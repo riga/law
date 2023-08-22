@@ -26,7 +26,7 @@ import six
 from law.config import Config
 from law.target.file import get_scheme
 from law.util import (
-    colored, make_list, make_tuple, make_unique, iter_chunks, makedirs, create_hash, empty_context,
+    colored, make_list, make_tuple, iter_chunks, makedirs, create_hash, empty_context,
 )
 from law.logger import get_logger
 
