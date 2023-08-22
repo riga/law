@@ -4,10 +4,14 @@
 CMS-related utilities.
 """
 
-__all__ = ["Site", "lfn_to_pfn"]
+__all__ = ["Site", "lfn_to_pfn", "delegate_my_proxy"]
 
 
 import os
+
+import law
+
+law.contrib.load("wlcg")
 
 
 class Site(object):
@@ -112,3 +116,16 @@ def lfn_to_pfn(lfn, redirector="global"):
         raise ValueError("unknown redirector: {}".format(redirector))
 
     return "root://{}/{}".format(Site.redirectors[redirector], lfn)
+
+
+def delegate_my_proxy(*args, **kwargs):
+    """
+    Delegates a X509 proxy to a myproxy server in the exact same way that
+    :py:func:`law.wlcg.delegate_my_proxy` does, but with the *retrievers* argument set to a value
+    that is usually expected for crab submissions.
+    """
+    kwargs.setdefault(
+        "retrievers",
+        "/DC=ch/DC=cern/OU=computers/CN=crab-(preprod|prod|dev)-tw(01|02|03).cern.ch|/DC=ch/DC=cern/OU=computers/CN=stefanov(m|m2).cern.ch|/DC=ch/DC=cern/OU=computers/CN=dciangot-tw.cern.ch",  # noqa
+    )
+    return law.wlcg.delegate_my_proxy(*args, **kwargs)

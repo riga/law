@@ -5,8 +5,11 @@ Helpers for working with the WLCG.
 """
 
 __all__ = [
+    "get_user_key", "get_user_cert", "get_user_cert_subject",
     "get_voms_proxy_file", "get_voms_proxy_user", "get_voms_proxy_lifetime", "get_voms_proxy_vo",
-    "check_voms_proxy_validity", "renew_voms_proxy", "delegate_voms_proxy_glite", "get_ce_endpoint",
+    "check_voms_proxy_validity", "renew_voms_proxy", "delegate_voms_proxy_glite",
+    "delegate_my_proxy", "get_my_proxy_info",
+    "get_ce_endpoint",
 ]
 
 
@@ -15,6 +18,9 @@ import re
 import subprocess
 import uuid
 import json
+import hashlib
+import getpass
+import functools
 
 import six
 
@@ -25,6 +31,45 @@ from law.logger import get_logger
 
 
 logger = get_logger(__name__)
+
+
+def get_user_key():
+    """
+    Returns the expanded path to the globus user key, reading from "$X509_USER_KEY" and defaulting
+    to "$HOME/.globus/userkey.pem".
+    """
+    path = os.getenv("X509_USER_KEY", "$HOME/.globus/userkey.pem")
+    return os.path.expandvars(os.path.expanduser(path))
+
+
+def get_user_cert():
+    """
+    Returns the expanded path to the globus user certificate, reading from "$X509_USER_CERT" and
+    defaulting to "$HOME/.globus/usercert.pem".
+    """
+    path = os.getenv("X509_USER_CERT", "$HOME/.globus/usercert.pem")
+    return os.path.expandvars(os.path.expanduser(path))
+
+
+def get_user_cert_subject(user_cert=None):
+    """
+    Returns the user "subject" string of the certificate at *user_cert*, which defaults to the
+    return value of :py:func:`get_user_cert`.
+    """
+    # get the user certificate file
+    if user_cert is None:
+        user_cert = get_user_cert()
+    if not os.path.exists(user_cert):
+        raise Exception("usercert does not exist at '{}'".format(user_cert))
+
+    # extract the subject via openssl
+    cmd = ["openssl", "x509", "-in", user_cert, "-noout", "-subject"]
+    code, out, err = interruptable_popen(quote_cmd(cmd), shell=True, executable="/bin/bash",
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if code != 0:
+        raise Exception("subject extraction from usercert failed: {}".format(err))
+
+    return re.sub(r"^subject\s*=\s*", "", out.strip())
 
 
 def get_voms_proxy_file():
@@ -234,6 +279,129 @@ def delegate_voms_proxy_glite(endpoint, proxy_file=None, stdout=None, stderr=Non
         os.chmod(cache_file, 0o0600)
 
     return delegation_id
+
+
+def delegate_my_proxy(
+    endpoint="myproxy.cern.ch",
+    user_key=None,
+    user_cert=None,
+    user_name=None,
+    cred_lifetime=720,
+    proxy_lifetime=168,
+    retrievers=None,
+    rfc=True,
+    password=None,
+    password_file=None,
+    silent=False,
+):
+    """
+    Delegates an X509 proxy to a myproxy server *endpoint*.
+
+    *user_key* and *user_cert* default to the return values of :py:func:`get_user_key` and
+    :py:func:`get_user_cert`, respectively. When *user_name* is *None*, the sha1 encoded certificate
+    subject string is used instead.
+
+    The credential and proxy lifetimes can be defined in hours by *cred_lifetime* and
+    *proxy_lifetime*. When *retrievers* is given, it is passed as both ``--renewable_by`` and
+    ``--retrievable_by_cert`` to the underlying ``myproxy-init`` command. When *rfc* is *True*,
+    the delegated proxy will be RFC compliant.
+
+    If no *password* is given, the user is prompted for the password of the user certificate.
+    However, if a *password_file* is present, the password is extracted from this file.
+
+    The username is returned upon success. Otherwise an exception is raised unless *silent* is
+    *True* in which case *None* is returned.
+    """
+    # prepare arguments
+    if not user_key:
+        user_key = get_user_key()
+    if not user_cert:
+        user_cert = get_user_cert()
+    if not user_name:
+        subject = get_user_cert_subject()
+        user_name = hashlib.sha1(subject.encode("utf-8")).hexdigest()
+
+    # build the command
+    cmd = [
+        "myproxy-init",
+        "-s", endpoint,
+        "-y", user_key,
+        "-C", user_cert,
+        "-l", user_name,
+        "-t", str(proxy_lifetime),
+        "-c", str(cred_lifetime),
+    ]
+    if retrievers:
+        cmd.extend([
+            "-x", "-R", retrievers,
+            "-x", "-Z", retrievers,
+        ])
+    rfc_export = "GT_PROXY_MODE=rfc " if rfc else ""
+
+    # run it, depending on whether a password file is given
+    silent_pipe = subprocess.PIPE if silent else None
+    if password_file:
+        password_file = os.path.expandvars(os.path.expanduser(password_file))
+        cmd = "{}cat \"{}\" | {} -S".format(rfc_export, password_file, quote_cmd(cmd))
+        code = interruptable_popen(cmd, shell=True, executable="/bin/bash", stdout=silent_pipe,
+            stderr=silent_pipe)[0]
+        if code != 0:
+            if silent:
+                return
+            raise Exception("myproxy-init failed with code {}".format(code))
+    else:
+        cmd = "{}{}".format(rfc_export, quote_cmd(cmd))
+        stdin_callback = (lambda: password) if password else functools.partial(getpass.getpass, "")
+        code = interruptable_popen(cmd, shell=True, executable="/bin/bash", stdout=silent_pipe,
+            stderr=silent_pipe, stdin=subprocess.PIPE, stdin_callback=stdin_callback,
+            stdin_delay=0.2)[0]
+        if code != 0:
+            if silent:
+                return
+            raise Exception("myproxy-init failed with code {}".format(code))
+
+    return user_name
+
+
+def get_my_proxy_info(endpoint="myproxy.cern.ch", user_name=None, silent=False):
+    """
+    Returns information about a previous myproxy delegation to a server *endpoint*. When *user_name*
+    is *None*, the sha1 encoded certificate subject string is used instead.
+
+    The returned dictionary contains the fields ``user_name``, ``subject`` and ``timeleft``.
+
+    An exception is raised if the underlying ``myproxy-info`` command fails, unless *silent* is
+    *True* in which case *None* is returned.
+    """
+    # prepare arguments
+    if not user_name:
+        subject = get_user_cert_subject()
+        user_name = hashlib.sha1(subject.encode("utf-8")).hexdigest()
+
+    # build and run the command
+    cmd = ["myproxy-info", "-s", endpoint, "-l", user_name]
+    code, out, _ = interruptable_popen(quote_cmd(cmd), shell=True, executable="/bin/bash",
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE if silent else None)
+    if code != 0:
+        if silent:
+            return
+        raise Exception("myproxy-info failed with code {}".format(code))
+
+    # parse the output
+    info = {}
+    for line in out.strip().replace("\r\n", "\n").split("\n"):
+        line = line.strip()
+        if line.startswith("username: "):
+            info["user_name"] = line[len("username: "):]
+        elif line.startswith("owner: "):
+            info["subject"] = line[len("owner: "):]
+        elif line.startswith("timeleft: "):
+            m = re.match(r"^timeleft:\s+(\d+):(\d+):(\d+).*$", line)
+            if m:
+                times = list(map(int, m.groups()))
+                info["timeleft"] = times[0] * 3600 + times[1] * 60 + times[2]
+
+    return info
 
 
 def get_ce_endpoint(ce):

@@ -1,0 +1,66 @@
+#!/usr/bin/env python
+
+"""
+Script to trigger a myproxy delegation, e.g. for crab submission.
+"""
+
+
+def delegate(renew, endpoint, user_name, password_file):
+    import law
+    law.contrib.load("cms", "wlcg")
+
+    # when not renewing, check if a previous delegation exists
+    if not renew:
+        info = law.wlcg.get_my_proxy_info(
+            endpoint=endpoint,
+            user_name=user_name,
+            silent=True,
+        )
+        if info:
+            return info["user_name"]
+
+    # create a new delegation
+    return law.cms.delegate_my_proxy(
+        endpoint=endpoint,
+        user_name=user_name,
+        password_file=password_file,
+    )
+
+
+def main():
+    from argparse import ArgumentParser
+
+    parser = ArgumentParser(
+        prog="law_cms_delegate_myproxy",
+        description="delegates an X509 proxy to a myproxy server",
+    )
+    parser.add_argument(
+        "--renew",
+        "-r",
+        action="store_true",
+        help="renew the delegation even if an existing one was found",
+    )
+    parser.add_argument(
+        "--endpoint",
+        "-e",
+        default="myproxy.cern.ch",
+        help="the server endpoint; default: myproxy.cern.ch",
+    )
+    parser.add_argument(
+        "--password-file",
+        "-p",
+        help="a file containing the certificate password",
+    )
+    parser.add_argument(
+        "--username",
+        "-u",
+        help="a custom user name",
+    )
+    args = parser.parse_args()
+
+    print(delegate(args.renew, args.endpoint, args.username, args.password_file))
+
+
+# entry hook
+if __name__ == "__main__":
+    main()
