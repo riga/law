@@ -80,7 +80,7 @@ class GLiteJobManager(BaseJobManager):
             # glite prints everything to stdout
             logger.debug("submit glite job with command '{}'".format(cmd))
             code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-                stdout=subprocess.PIPE, stderr=sys.stderr, cwd=job_file_dir)
+                stdout=subprocess.PIPE, cwd=job_file_dir)
 
             # in some cases, the return code is 0 but the ce did not respond with a valid id
             if code == 0:
@@ -117,7 +117,7 @@ class GLiteJobManager(BaseJobManager):
         # run it
         logger.debug("cancel glite job(s) with command '{}'".format(cmd))
         code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-            stdout=subprocess.PIPE, stderr=sys.stderr)
+            stdout=subprocess.PIPE)
 
         # check success
         if code != 0 and not silent:
@@ -138,7 +138,7 @@ class GLiteJobManager(BaseJobManager):
         # run it
         logger.debug("cleanup glite job(s) with command '{}'".format(cmd))
         code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-            stdout=subprocess.PIPE, stderr=sys.stderr)
+            stdout=subprocess.PIPE)
 
         # check success
         if code != 0 and not silent:
@@ -159,7 +159,7 @@ class GLiteJobManager(BaseJobManager):
         # run it
         logger.debug("query glite job(s) with command '{}'".format(cmd))
         code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-            stdout=subprocess.PIPE, stderr=sys.stderr)
+            stdout=subprocess.PIPE)
 
         # handle errors
         if code != 0:
