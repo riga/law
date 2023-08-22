@@ -168,7 +168,7 @@ law_job() {
 
         # function existing?
         if command -v "${name}" &> /dev/null; then
-            eval "${name}" "$@"
+            eval "${name}" "${args}"
         else
             >&2 echo "function '${name}' does not exist, skip"
             return "2"

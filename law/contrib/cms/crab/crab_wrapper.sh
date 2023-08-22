@@ -167,15 +167,52 @@ open('${input_file_render_base}', 'w').write(content);\
         return "5"
     fi
 
-    # print its contents
-    echo "=== content of job file '${job_file}'"
-    echo
-    cat "${job_file}"
-    echo
-    echo "=== end of job file content"
+    # debugging: print its contents
+    # echo "=== content of job file '${job_file}'"
+    # echo
+    # cat "${job_file}"
+    # echo
+    # echo "=== end of job file content"
+
+    # debugging: pretty print a path variable
+    # log_path_var() {
+    #     python2 -c "import os; print('$1:\n  ' + '\n  '.join(os.getenv('$1', '').split(':')))"
+    # }
+
+    # helper to remove fragments of a path variable
+    filter_path_var() {
+        # get arguments
+        local old_val="$1"
+        shift
+        local regexps=${@}
+
+        # loop through paths and set the new variable if no expression matched
+        local new_val=""
+        printf '%s:\0' "${old_val}" | while IFS=: read -d: -r p; do
+            local matched="false"
+            local regexp
+            for regexp in ${regexps[@]}; do
+                if echo "${p}" | grep -Po "${regexp}" &> /dev/null; then
+                    matched="true"
+                    break
+                fi
+            done
+            if ! ${matched}; then
+                [ ! -z "${new_val}" ] && new_val="${new_val}:"
+                new_val="${new_val}${p}"
+                echo "${new_val}"
+            fi
+        done | tail -n 1
+    }
+
+    # remove cmssw related variables from paths
+    local NEW_PATH="$( filter_path_var "${PATH}" "^/cvmfs/cms\.cern\.ch/" "^${CMSSW_BASE:-NOT_SET}" )"
+    local NEW_PYTHONPATH="$( filter_path_var "${PYTHONPATH}" "^/cvmfs/cms\.cern\.ch/" "python2\.7/site-packages" )"
+    local NEW_LD_LIBRARY_PATH="$( filter_path_var "${LD_LIBRARY_PATH}" "^/cvmfs/cms\.cern\.ch/" "^${CMSSW_BASE:-NOT_SET}" )"
 
     # run it
-    bash "${job_file}" ${crab_job_arguments}
+    echo "run actual job file"
+    PATH="${NEW_PATH}" PYTHONPATH="${NEW_PYTHONPATH}" LD_LIBRARY_PATH="${NEW_LD_LIBRARY_PATH}" bash "${job_file}" ${crab_job_arguments}
 }
 
 action "$@"
