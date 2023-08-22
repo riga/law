@@ -249,6 +249,7 @@ class Config(ConfigParser):
             "crab_job_file_dir": None,
             "crab_job_file_dir_cleanup": False,
             "crab_sandbox_name": "CMSSW_10_6_30",
+            "crab_password_file": None,
         },
         "notifications": {
             "mail_recipient": None,

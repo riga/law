@@ -28,7 +28,8 @@ setup_cmssw() {
     #
 
     source_crab() {
-        eval "type crab" &> /dev/null && return "0"
+        # check the python package and executable
+        type crab &> /dev/null && python3 -c "import CRABClient" &> /dev/null && return "0"
 
         local crab_source="/cvmfs/cms.cern.ch/crab3/crab.sh"
         if ! source "${crab_source}" ""; then
@@ -38,7 +39,7 @@ setup_cmssw() {
     }
 
     source_cmssw() {
-        eval "type scram" &> /dev/null && return "0"
+        type scram &> /dev/null && return "0"
 
         local cmssw_source="/cvmfs/cms.cern.ch/cmsset_default.sh"
         if ! source "${cmssw_source}" ""; then
@@ -101,9 +102,9 @@ setup_cmssw() {
     # setup new cmssw
     #
 
-    # source cmssw and crabb setup
-    source_cmssw || return "$?"
-    source_crab || return "$?"
+    # source cmssw and crab setup
+    source_cmssw || return "$?"
+    source_crab || return "$?"
 
     # define variables
     local custom_cmssw_dir="${custom_install_dir}/${custom_cmssw_version}"

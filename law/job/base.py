@@ -25,7 +25,9 @@ import six
 
 from law.config import Config
 from law.target.file import get_scheme
-from law.util import colored, make_list, iter_chunks, makedirs, create_hash, empty_context
+from law.util import (
+    colored, make_list, make_tuple, make_unique, iter_chunks, makedirs, create_hash, empty_context,
+)
 from law.logger import get_logger
 
 
@@ -235,8 +237,10 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
     def group_job_ids(self, job_ids):
         """
         Hook that needs to be implemented if the job mananger supports grouping of jobs, i.e., when
-        :py:attr:`job_grouping` is *True*. If so, it should take a sequence of *job_ids and return a
-        list of groups (again lists) of ids, with an arbitrary grouping mechanism.
+        :py:attr:`job_grouping` is *True*, and potentially used during status queries, job
+        cancellation and removal. If so, it should take a sequence of *job_ids* and return a
+        dictionary mapping ids of group jobs (used for queries etc) to the corresponding lists of
+        original job ids, with an arbitrary grouping mechanism.
         """
         raise NotImplementedError(
             "internal error, {}.group_job_ids not implemented".format(self.__class__.__name__),
@@ -423,7 +427,7 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
         self,
         func,
         result_type,
-        group_ids,
+        group_func,
         job_objs,
         threads=None,
         callback=None,
@@ -433,56 +437,39 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
         threads = max(threads or self.threads or 1, 1)
 
         # group objects
-        job_objs = make_list(job_objs)
-        if group_ids:
-            job_objs = self.group_job_ids(job_objs)
-            if isinstance(job_objs, dict):
-                job_objs = list(job_objs.values())
+        job_objs = group_func(make_list(job_objs))
 
         # factory to call the passed callback for each job file even when chunking
         def cb_factory(i):
             if not callable(callback):
                 return None
 
-            if group_ids:
-                def wrapper(result_data):
-                    offset = sum(map(len, job_objs[:i]))
-                    for j in range(len(job_objs[i])):
-                        data = result_data if isinstance(result_data, Exception) else result_data[j]
-                        callback(offset + j, data)
-            else:
-                def wrapper(data):
-                    callback(i, data)
+            def wrapper(result_data):
+                offset = sum(map(len, list(job_objs.values())[:i]))
+                for j in range(len(list(job_objs.values())[i])):
+                    data = result_data if isinstance(result_data, Exception) else result_data[j]
+                    callback(offset + j, data)
 
             return wrapper
 
         # threaded processing
         pool = ThreadPool(threads)
         results = [
-            pool.apply_async(func, (arg,), kwargs, callback=cb_factory(i))
-            for i, arg in enumerate(job_objs)
+            pool.apply_async(func, make_tuple(arg), kwargs, callback=cb_factory(i))
+            for i, arg in enumerate(job_objs.items())
         ]
         pool.close()
         pool.join()
 
         # store result data or an exception
         result_data = result_type()
-        if group_ids:
-            for _job_objs, res in six.moves.zip(job_objs, results):
-                data = get_async_result_silent(res)
-                for job_obj in _job_objs:
-                    _data = data if isinstance(data, Exception) else data[job_obj]
-                    if isinstance(result_data, list):
-                        result_data.append(_data)
-                    else:
-                        result_data[job_obj] = _data
-        else:
-            for job_obj, res in six.moves.zip(job_objs, results):
-                data = get_async_result_silent(res)
+        for _job_objs, res in six.moves.zip(job_objs.values(), results):
+            data = get_async_result_silent(res)
+            for i, job_obj in enumerate(_job_objs):
                 if isinstance(result_data, list):
-                    result_data.append(data)
+                    result_data.append(data if isinstance(data, Exception) else data[i])
                 else:
-                    result_data[job_obj] = data
+                    result_data[job_obj] = data if isinstance(data, Exception) else data[job_obj]
 
         return result_data
 
@@ -501,10 +488,17 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
         file properly expanded. When an exception was raised during a submission, this exception is
         added to the returned list.
         """
+        # in order to use the generic grouping mechanism in _apply_group create a trivial group_func
+        def group_func(job_files):
+            groups = defaultdict(list)
+            for job_file in job_files:
+                groups[job_file].append(job_file)
+            return groups
+
         return self._apply_group(
             func=self.submit,
             result_type=list,
-            group_ids=False,
+            group_func=group_func,
             job_objs=job_files,
             threads=threads,
             callback=callback,
@@ -527,7 +521,7 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
         results = self._apply_group(
             func=self.cancel,
             result_type=dict,
-            group_ids=True,
+            group_func=self.group_job_ids,
             job_objs=job_ids,
             threads=threads,
             callback=callback,
@@ -553,7 +547,7 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
         results = self._apply_group(
             func=self.cleanup,
             result_type=dict,
-            group_ids=True,
+            group_func=self.group_job_ids,
             job_objs=job_ids,
             threads=threads,
             callback=callback,
@@ -579,7 +573,7 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
         return self._apply_group(
             func=self.query,
             result_type=dict,
-            group_ids=True,
+            group_func=self.group_job_ids,
             job_objs=job_ids,
             threads=threads,
             callback=callback,

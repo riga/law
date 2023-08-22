@@ -219,7 +219,7 @@ class CrabWorkflow(BaseRemoteWorkflow):
         Hook to define the postfix of outputs, for instance such that workflows with different
         parameters do not write their intermediate job status information into the same json file.
         """
-        return "_" + self.get_branches_repr()
+        return ""
 
     def crab_output_uri(self):
         return self.crab_output_directory().uri()

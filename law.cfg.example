@@ -931,6 +931,12 @@
 ; Type: string
 ; Default: CMSSW_10_6_30
 
+; crab_password_file
+; Description: A file containing the X509 certificate password for automatic proxy delegations by
+; the "law.crab.CrabJobManager".
+; Type: string
+; Default: None
+
 
 ; --- notifications section ------------------------------------------------------------------------
 

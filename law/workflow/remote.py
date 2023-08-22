@@ -221,14 +221,14 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         # flag denoting if jobs were cancelled or cleaned up (i.e. controlled)
         self._controlled_jobs = False
 
+        # tracking url
+        self._tracking_url = None
+
         # lock to protect the dumping of submission data
         self._dump_lock = threading.Lock()
 
         # intially, set the number of parallel jobs which might change at some piont
         self._set_parallel_jobs(task.parallel_jobs)
-
-        # tracking url
-        self._tracking_url = None
 
     @property
     def job_data_cls(self):
@@ -246,7 +246,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
     @abstractmethod
     def create_job_file_factory(self, **kwargs):
         """
-        Hook to instantiate and return a class derived  of
+        Hook to instantiate and return a class derived of
         :py:class:`law.job.base.BaseJobFileFactory`. This method must be implemented by inheriting
         classes and should update and forward all *kwargs* to the constructor of the respective job
         file factory.
@@ -254,11 +254,16 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         return
 
     @abstractmethod
-    def create_job_file(self, job_num, branches):
+    def create_job_file(self, *args, **kwargs):
         """
-        Creates a job file using the :py:attr:`job_file_factory` given the job number *job_num* and
-        the list of branch numbers *branches* covered by the job. The path of the job file is
-        returned. This method must be implemented by inheriting classes.
+        Creates a job file using the :py:attr:`job_file_factory`. The expected arguments depend on
+        wether the job manager supports job grouping (:py:attr:`BaseJobManager.job_grouping`). If it
+        does, two arguments containing the job number (*job_num*) and the list of branch numbers
+        (*branches*) covered by the job. If job grouping is supported, a single dictionary mapping
+        job numbers to covered branch values must be passed. In any case, the path(s) of job files
+        are returned.
+
+        This method must be implemented by inheriting classes.
         """
         return
 
@@ -279,6 +284,19 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         if dst_info != "":
             dst_info = ", {}".format(dst_info)
         return dst_info
+
+    @property
+    def tracking_url(self):
+        return self._tracking_url
+
+    @tracking_url.setter
+    def tracking_url(self, tracking_url):
+        old_url = self.tracking_url
+        self._tracking_url = tracking_url
+        if tracking_url and self.task:
+            self.task.set_tracking_url(tracking_url)
+            if tracking_url != old_url:
+                self.task.publish_message("tracking url set to {}".format(tracking_url))
 
     @property
     def _cancel_jobs(self):
@@ -532,9 +550,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         # from here on, submit and/or wait while polling
 
         # maybe set a tracking url
-        self._tracking_url = self.dashboard.create_tracking_url()
-        if self._tracking_url:
-            task.set_tracking_url(self._tracking_url)
+        self.tracking_url = self.dashboard.create_tracking_url()
 
         # ensure the output directory exists
         if not self._submitted:
@@ -834,7 +850,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
         # submission
         job_ids = self.job_manager.submit_group(
-            job_file["job"],
+            [job_file["job"]] * len(submit_jobs),
             retries=3,
             threads=task.submission_threads,
             **submit_kwargs  # noqa
@@ -843,9 +859,6 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         # set all job ids
         for job_num, job_id in zip(submit_jobs, job_ids):
             self.job_data.jobs[job_num]["job_id"] = job_id
-
-        # dump job data
-        self.dump_job_data()
 
         return (
             job_ids,
@@ -938,9 +951,8 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                     # sync extra info if available
                     extra = state_or_error.get("extra")
                     if isinstance(extra, dict):
-                        if not self._tracking_url and "tracking_url" in extra:
-                            self._tracking_url = extra["tracking_url"]
-                            task.set_tracking_url(self._tracking_url)
+                        if not self.tracking_url and "tracking_url" in extra:
+                            self.tracking_url = extra["tracking_url"]
                         if not self.job_data.jobs[job_num]["log_file"] and "log_file" in extra:
                             self.job_data.jobs[job_num]["log_file"] = extra["log_file"]
             del query_data

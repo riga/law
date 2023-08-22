@@ -32,13 +32,12 @@ from law.util import (
 from law.logger import get_logger
 
 import law.contrib.cms.sandbox
+from law.contrib.cms.util import delegate_my_proxy
 
 
 law.contrib.load("wlcg")
 
 logger = get_logger(__name__)
-
-_cfg = Config.instance()
 
 
 class CrabJobManager(BaseJobManager):
@@ -52,7 +51,7 @@ class CrabJobManager(BaseJobManager):
     log_n_jobs_cre = re.compile(r"^config\.Data\.totalUnits\s+\=\s+(\d+)\s*$")
     log_task_name_cre = re.compile(r"^.+\s+Task\s+name\s*\:\s+([^\s]+)\s*$")
 
-    group_jobs = True
+    job_grouping = True
 
     JobId = namedtuple("JobId", ["crab_num", "task_name", "proj_dir"])
 
@@ -67,8 +66,8 @@ class CrabJobManager(BaseJobManager):
         # create the cmssw sandbox
         self.cmssw_sandbox = Sandbox.new("cmssw::{}".format(sandbox_name))
 
-        # cached decision whether proxy is valid
-        self.proxy_valid = None
+        # cached proxy delegation user name
+        self.proxy_delegation_user_name = None
 
         # store attributes
         self.proxy = proxy
@@ -85,18 +84,15 @@ class CrabJobManager(BaseJobManager):
 
     @property
     def cmssw_env(self):
-        # check if the proxy is valid
-        if not self.proxy_valid:
-            valid, rfc_compliant = law.wlcg.check_voms_proxy_validity(return_rfc=True)
-            hint = (
-                "please create a valid, rfc compliant proxy (e.g. via "
-                "'voms-proxy-init -vo cms -rfc') before submitting crab jobs"
-            )
-            if not valid:
-                raise Exception("voms proxy missing or expired; {}".format(hint))
-            if not rfc_compliant:
-                raise Exception("voms proxy not rfc compliant; {}".format(hint))
-            self.proxy_valid = True
+        # check if the proxy is valid and store the delegation name
+        if not self.proxy_delegation_user_name:
+            info = law.wlcg.get_my_proxy_info(silent=True)
+            if info:
+                self.proxy_delegation_user_name = info["user_name"]
+            else:
+                cfg = Config.instance()
+                password_file = cfg.get_expanded("job", "crab_password_file")
+                self.proxy_delegation_user_name = delegate_my_proxy(password_file=password_file)
 
         return self.cmssw_sandbox.env
 
@@ -111,53 +107,40 @@ class CrabJobManager(BaseJobManager):
 
         return groups
 
-    @classmethod
-    def parse_log_file(cls, log_file):
-        cres = [cls.log_n_jobs_cre, cls.log_task_name_cre]
-        names = ["n_jobs", "task_name"]
-        values = len(cres) * [None]
-
-        with open(log_file, "r") as f:
-            for line in f.readlines():
-                for i, (cre, value) in enumerate(zip(cres, values)):
-                    if value:
-                        continue
-                    m = cre.match(line)
-                    if m:
-                        values[i] = m.group(1)
-                if all(values):
-                    break
-
-        return dict(zip(names, values))
-
-    def _apply_group(self, func, job_ids, *args, **kwargs):
-        # when job_ids is a string or a sequence of strings, interpret them as project dirs, read
+    def _apply_group(self, func, result_type, group_func, job_objs, *args, **kwargs):
+        # when job_objs is a string or a sequence of strings, interpret them as project dirs, read
         # their log files to extract task names, build actual job ids and forward them
-        _job_ids = []
-        for i, job_id in enumerate(make_list(job_ids)):
-            if not isinstance(job_id, six.string_types):
-                _job_ids.append(job_id)
-                continue
+        if func != self.submit:
+            job_ids = []
+            for i, job_id in enumerate(make_list(job_objs)):
+                if not isinstance(job_id, six.string_types):
+                    job_ids.append(job_id)
+                    continue
 
-            proj_dir = job_id
-            log_file = os.path.join(proj_dir, "crab.log")
-            if not os.path.exists(log_file):
-                _job_ids.append(job_id)
-                continue
+                # get n_jobs and task_name from log file
+                proj_dir = job_id
+                log_file = os.path.join(proj_dir, "crab.log")
+                log_data = self._parse_log_file(log_file)
+                if not log_data or "n_jobs" not in log_data or "task_name" not in log_data:
+                    job_ids.append(job_id)
+                    continue
 
-            # get n_jobs and task_name
-            log_data = self.parse_log_file(log_file)
-            if "n_jobs" not in log_data or "task_name" not in log_data:
-                _job_ids.append(job_id)
-                continue
+                # expand ids
+                for crab_num in range(1, int(log_data["n_jobs"]) + 1):
+                    job_ids.append(self.JobId(crab_num, log_data["task_name"], proj_dir))
+            job_objs = job_ids
 
-            # expand ids
-            for crab_num in range(1, int(log_data["n_jobs"]) + 1):
-                _job_ids.append(self.JobId(crab_num, log_data["task_name"], proj_dir))
+        return super(CrabJobManager, self)._apply_group(
+            func,
+            result_type,
+            group_func,
+            job_objs,
+            *args,
+            **kwargs  # noqa
+        )
 
-        return super(CrabJobManager, self)._apply_group(func, _job_ids, *args, **kwargs)
-
-    def submit(self, job_file, proxy=None, instance=None, retries=0, retry_delay=3, silent=False):
+    def submit(self, job_file, job_files=None, proxy=None, instance=None, retries=0, retry_delay=3,
+            silent=False):
         # default arguments
         if proxy is None:
             proxy = self.proxy
@@ -181,12 +164,19 @@ class CrabJobManager(BaseJobManager):
             # crab prints everything to stdout
             logger.debug("submit crab jobs with command '{}'".format(cmd))
             code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-                stdout=subprocess.PIPE, stderr=sys.stderr, cwd=job_file_dir, env=self.cmssw_env)
+                stdout=subprocess.PIPE, cwd=job_file_dir, env=self.cmssw_env)
 
             # handle errors
             if code != 0:
-                logger.debug("submission of glite job '{}' failed with code {}:\n{}".format(
+                logger.debug("submission of crab job '{}' failed with code {}:\n{}".format(
                     job_file, code, out))
+
+                # remove the project directory
+                proj_dir = self._proj_dir_from_job_file(job_file, self.cmssw_env)
+                if proj_dir and os.path.isdir(proj_dir):
+                    logger.debug("removing crab project '{}' from previous attempt".format(
+                        proj_dir))
+                    shutil.rmtree(proj_dir)
 
                 if retries > 0:
                     retries -= 1
@@ -196,8 +186,8 @@ class CrabJobManager(BaseJobManager):
                 if silent:
                     return None
 
-                raise Exception("submission of glite job '{}' failed:\n{}".format(
-                    job_file, out))
+                raise Exception("submission of crab job '{}' failed with code {}:\n{}".format(
+                    job_file, code, out))
 
             # parse outputs
             task_name, log_file = None, None
@@ -220,24 +210,27 @@ class CrabJobManager(BaseJobManager):
             if not log_file:
                 raise Exception("no valid log file found in submission output:\n\n{}".format(out))
 
-            # get the number of jobs from the log file
-            log_data = self.parse_log_file(log_file)
-            if "n_jobs" not in log_data:
-                raise Exception("number of jobs not extractable from log file {}".format(log_file))
-            n_jobs = int(log_data["n_jobs"])
-
-            # build and return job ids
+            # create job ids with log data
             proj_dir = os.path.dirname(log_file)
-            return [
-                self.JobId(crab_num, task_name, proj_dir)
-                for crab_num in range(1, n_jobs + 1)
-            ]
+            job_ids = self._job_ids_from_proj_dir(proj_dir)
 
-    def cancel(self, job_ids, proxy=None, instance=None, silent=False):
-        job_ids = make_list(job_ids)
+            # checks
+            if not job_ids:
+                raise Exception("number of jobs not extractable from log file {}".format(log_file))
+            if job_files is not None and len(job_files) != len(job_ids):
+                raise Exception(
+                    "number of submited jobs ({}) does not match number of job files ({})".format(
+                        len(job_ids), len(job_file)),
+                )
+
+            return job_ids
+
+    def cancel(self, proj_dir, job_ids=None, proxy=None, instance=None, silent=False):
+        if job_ids is None:
+            job_ids = self._job_ids_from_proj_dir(proj_dir)
 
         # build the command
-        cmd = ["crab", "kill", "--dir", job_ids[0].proj_dir]
+        cmd = ["crab", "kill", "--dir", proj_dir]
         if proxy:
             cmd += ["--proxy", proxy]
         if instance:
@@ -247,31 +240,34 @@ class CrabJobManager(BaseJobManager):
         # run it
         logger.debug("cancel crab job(s) with command '{}'".format(cmd))
         code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-            stdout=subprocess.PIPE, stderr=sys.stderr, env=self.cmssw_env)
+            stdout=subprocess.PIPE, env=self.cmssw_env)
 
         # check success
         if code != 0 and not silent:
             # crab prints everything to stdout
-            raise Exception("cancellation of crab job(s) '{}' failed with code {}:\n{}".format(
-                job_ids, code, out))
+            raise Exception(
+                "cancellation of crab jobs from project '{}' failed with code {}:\n{}".format(
+                    proj_dir, code, out),
+            )
 
         return {job_id: None for job_id in job_ids}
 
-    def cleanup(self, job_ids, proxy=None, instance=None, silent=False):
-        job_ids = make_list(job_ids)
+    def cleanup(self, proj_dir, job_ids=None, proxy=None, instance=None, silent=False):
+        if job_ids is None:
+            job_ids = self._job_ids_from_proj_dir(proj_dir)
 
         # just delete the project directory
-        proj_dir = job_ids[0].proj_dir
         if os.path.isdir(proj_dir):
             shutil.rmtree(proj_dir)
 
         return {job_id: None for job_id in job_ids}
 
-    def query(self, job_ids, proxy=None, instance=None, silent=False):
-        job_ids = make_list(job_ids)
+    def query(self, proj_dir, job_ids=None, proxy=None, instance=None, silent=False):
+        if job_ids is None:
+            job_ids = self._job_ids_from_proj_dir(proj_dir)
 
         # build the command
-        cmd = ["crab", "status", "--dir", job_ids[0].proj_dir, "--json"]
+        cmd = ["crab", "status", "--dir", proj_dir, "--json"]
         if proxy:
             cmd += ["--proxy", proxy]
         if instance:
@@ -281,29 +277,34 @@ class CrabJobManager(BaseJobManager):
         # run it
         logger.debug("query crab job(s) with command '{}'".format(cmd))
         code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-            stdout=subprocess.PIPE, stderr=sys.stderr, env=self.cmssw_env)
+            stdout=subprocess.PIPE, env=self.cmssw_env)
 
         # handle errors
         if code != 0:
             if silent:
                 return None
             # crab prints everything to stdout
-            raise Exception("status query of crab job(s) '{}' failed with code {}:\n{}".format(
-                job_ids, code, out))
+            raise Exception(
+                "status query of crab jobs from project '{}' failed with code {}:\n{}".format(
+                    proj_dir, code, out),
+            )
 
         # parse the output and extract the status per job
-        query_data = self.parse_query_output(out, job_ids)
+        query_data = self.parse_query_output(out, proj_dir, job_ids)
 
         # compare to the requested job ids and perform some checks
         for job_id in job_ids:
             if job_id not in query_data:
-                query_data[job_id] = self.job_status_dict(job_id=job_id, status=self.FAILED,
-                    error="job not found in query response")
+                query_data[job_id] = self.job_status_dict(
+                    job_id=job_id,
+                    status=self.FAILED,
+                    error="job not found in query response",
+                )
 
         return query_data
 
     @classmethod
-    def parse_query_output(cls, out, job_ids):
+    def parse_query_output(cls, out, proj_dir, job_ids):
         # parse values using compiled regexps
         cres = [
             cls.query_server_status_cre,
@@ -372,18 +373,113 @@ class CrabJobManager(BaseJobManager):
                 continue
             job_id = num_to_id_map[crab_num]
 
+            # parse error info
+            code = None
+            error = data.get("Error")
+            if isinstance(error, list) and len(error) >= 2:
+                code = error[0]
+                error = str(error[1]).strip()
+
             # extra info
             _extra = extra(job_id) or {}
             _extra["restarts"] = data.get("Restarts", 0)
+            _extra["site_history"] = data.get("SiteHistory")
 
             # fill query data
             query_data[job_id] = cls.job_status_dict(
                 job_id=job_id,
                 status=cls.map_status(data["State"]),
+                code=code,
+                error=error,
                 extra=_extra,
             )
 
         return query_data
+
+    @classmethod
+    def _proj_dir_from_job_file(cls, job_file, cmssw_env):
+        work_area = None
+        request_name = None
+
+        with open(job_file, "r") as f:
+            # fast approach: parse the job file
+            for line in f.readlines():
+                if work_area and request_name:
+                    break
+                if not work_area:
+                    m = re.match(r"^.+[^\w]workArea\s*=\s(\'|\")(.+)(\'|\").*$", line.strip())
+                    if m:
+                        work_area = m.group(2)
+                        continue
+                if not request_name:
+                    m = re.match(r"^.+[^\w]requestName\s*=\s(\'|\")(.+)(\'|\").*$", line.strip())
+                    if m:
+                        request_name = m.group(2)
+                        continue
+
+            # when the combination is correct, return
+            if work_area and request_name and 0:
+                path = os.path.join(work_area, "crab_{}".format(request_name))
+                path = oos.path.expandvars(os.path.expanduser(path))
+                if os.path.isdir(path):
+                    return path
+
+            # long approach: read the file in the cmssw env and manually print
+            m = re.match(r"^CMSSW(_.+|)_(\d)+_\d+_\d+.*$", cmssw_env["CMSSW_VERSION"])
+            cmssw_major = int(m.group(2)) if m else None
+            py_exec = "python3" if cmssw_major is None or cmssw_major >= 11 else "python"
+            cmd = """{} -c '
+from os.path import join
+with open("{}", "r") as f:
+    mod = dict()
+    exec(f.read(), mod)
+    cfg = mod["cfg"]
+print(join(cfg.General.workArea, "crab_" + cfg.General.requestName))'""".format(py_exec, job_file)
+            code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
+                stdout=subprocess.PIPE, env=cmssw_env)
+            if code == 0:
+                path = out.strip().replace("\r\n", "\n").split("\n")[-1]
+                path = os.path.expandvars(os.path.expanduser(path))
+                if os.path.isdir(path):
+                    return path
+
+        return None
+
+    @classmethod
+    def _parse_log_file(cls, log_file):
+        log_file = os.path.expandvars(os.path.expanduser(log_file))
+        if not os.path.exists(log_file):
+            return None
+
+        cres = [cls.log_n_jobs_cre, cls.log_task_name_cre]
+        names = ["n_jobs", "task_name"]
+        values = len(cres) * [None]
+
+        with open(log_file, "r") as f:
+            for line in f.readlines():
+                for i, (cre, value) in enumerate(zip(cres, values)):
+                    if value:
+                        continue
+                    m = cre.match(line)
+                    if m:
+                        values[i] = m.group(1)
+                if all(values):
+                    break
+
+        return dict(zip(names, values))
+
+    @classmethod
+    def _job_ids_from_proj_dir(cls, proj_dir):
+        # read log data
+        log_data = cls._parse_log_file(os.path.join(proj_dir, "crab.log"))
+        if not log_data or "n_jobs" not in log_data or "task_name" not in log_data:
+            return None
+
+        # build and return ids
+        return [
+            cls.JobId(crab_num, log_data["task_name"], proj_dir)
+            for crab_num in range(1, int(log_data["n_jobs"]) + 1)
+        ]
 
     @classmethod
     def map_status(cls, status):
@@ -662,18 +758,20 @@ class CrabJobFileFactory(BaseJobFileFactory):
         # write the job file
         self.write_crab_config(job_file, c.crab, custom_content=c.custom_content)
 
-        logger.debug("created glite job file at '{}'".format(job_file))
+        logger.debug("created crab job file at '{}'".format(job_file))
 
         return job_file, c
 
     @classmethod
     def write_crab_config(cls, job_file, crab_config, custom_content=None):
+        fmt_flat = lambda s: "\"{}\"".format(s) if isinstance(s, six.string_types) else str(s)
+
         with open(job_file, "w") as f:
             # header
             f.write("# coding: utf-8\n")
             f.write("\n")
             f.write("from CRABClient.UserUtilities import config\n")
-            f.write("\n\n")
+            f.write("\n")
             f.write("cfg = config()\n")
             f.write("\n")
 
@@ -689,9 +787,9 @@ class CrabJobFileFactory(BaseJobFileFactory):
                     if value is None:
                         continue
                     value_str = (
-                        "'{}'".format(value)
-                        if isinstance(value, six.string_types)
-                        else str(value)
+                        "[\n{}\n]".format("\n".join("    {},".format(fmt_flat(v)) for v in value))
+                        if isinstance(value, (list, tuple))
+                        else fmt_flat(value)
                     )
                     f.write("cfg.{}.{} = {}\n".format(section, option, value_str))
                 f.write("\n")
