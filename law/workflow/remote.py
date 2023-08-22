@@ -224,6 +224,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         # tracking url
         self._tracking_url = None
 
+        # flag denoting whether the first log file was already printed
+        self._printed_first_log = False
+
         # lock to protect the dumping of submission data
         self._dump_lock = threading.Lock()
 
@@ -296,7 +299,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         if tracking_url and self.task:
             self.task.set_tracking_url(tracking_url)
             if tracking_url != old_url:
-                self.task.publish_message("tracking url set to {}".format(tracking_url))
+                self.task.publish_message("tracking url: {}".format(tracking_url))
 
     @property
     def _cancel_jobs(self):
@@ -950,11 +953,15 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                     states_by_id[job_id] = state_or_error
                     # sync extra info if available
                     extra = state_or_error.get("extra")
-                    if isinstance(extra, dict):
-                        if not self.tracking_url and "tracking_url" in extra:
-                            self.tracking_url = extra["tracking_url"]
-                        if not self.job_data.jobs[job_num]["log_file"] and "log_file" in extra:
-                            self.job_data.jobs[job_num]["log_file"] = extra["log_file"]
+                    if not isinstance(extra, dict):
+                        continue
+                    if not self.tracking_url and "tracking_url" in extra:
+                        self.tracking_url = extra["tracking_url"]
+                    if extra.get("log_file"):
+                        self.job_data.jobs[job_num]["log_file"] = extra["log_file"]
+                        if not self._printed_first_log:
+                            task.publish_message("first log file: {}".format(extra["log_file"]))
+                            self._printed_first_log = True
             del query_data
 
             # print the first couple errors

@@ -44,11 +44,15 @@ class CrabJobManager(BaseJobManager):
     submission_task_name_cre = re.compile(r"^Task\s+name\s*\:\s+([^\s]+)\s*$")
     submission_log_file_cre = re.compile(r"^Log\s+file\s+is\s+([^\s]+\.log)\s*$")
     query_server_status_cre = re.compile(r"^Status\s+on\s+the\s+CRAB\s+server\s*\:\s+([^\s].*)$")
+    query_user_cre = re.compile(r"^Task\s+name\s*:\s+\d+_\d+\:([^_]+)_.+$")
+    query_scheduler_cre = re.compile(r"^Grid\s+scheduler\s+-\s+Task\s+Worker\s*\:\s+([^\s]+).+$")
     query_scheduler_status_cre = re.compile(r"^Status\s+on\s+the\s+scheduler\s*\:\s+([^\s].*)$")
     query_monitoring_url_cre = re.compile(r"^Dashboard\s+monitoring\s+URL\s*\:\s+([^\s].*)$")
     query_json_line_cre = re.compile(r"^\s*(\{.+\})\s*$")
     log_n_jobs_cre = re.compile(r"^config\.Data\.totalUnits\s+\=\s+(\d+)\s*$")
     log_task_name_cre = re.compile(r"^.+\s+Task\s+name\s*\:\s+([^\s]+)\s*$")
+
+    log_file_pattern = "https://cmsweb.cern.ch:8443/scheddmon/{scheduler_id}/{user}/{task_name}/job_out.{crab_num}.{attempt}.txt"  # noqa
 
     job_grouping = True
 
@@ -306,7 +310,9 @@ class CrabJobManager(BaseJobManager):
     def parse_query_output(cls, out, proj_dir, job_ids):
         # parse values using compiled regexps
         cres = [
+            cls.query_user_cre,
             cls.query_server_status_cre,
+            cls.query_scheduler_cre,
             cls.query_scheduler_status_cre,
             cls.query_json_line_cre,
             cls.query_monitoring_url_cre,
@@ -323,16 +329,28 @@ class CrabJobManager(BaseJobManager):
                 break
 
         # unpack
-        server_status, scheduler_status, json_line, monitoring_url = values
+        username, server_status, scheduler, scheduler_status, json_line, monitoring_url = values
+
+        # prepare the scheduler id for extra data
+        scheduler_id = None
+        m = re.match(r"^crab.*\@.+[^\d](\d+)\..+$", scheduler or "")
+        if m:
+            scheduler_id = m.group(1)
 
         # helper to build extra info
-        def extra(job_id):
-            if not monitoring_url:
-                return None
-            return {
-                "tracking_url": monitoring_url,
-                "log_file": "{}&var-crabid={}".format(monitoring_url, job_id.crab_num),
-            }
+        def extra(job_id, job_data=None):
+            extra = {}
+            if username and scheduler_id and job_data:
+                extra["log_file"] = cls.log_file_pattern.format(
+                    scheduler_id=scheduler_id,
+                    user=username,
+                    task_name=job_id.task_name,
+                    crab_num=job_id.crab_num,
+                    attempt=job_data.get("Retries", 0),
+                )
+            if monitoring_url:
+                extra["tracking_url"] = monitoring_url
+            return extra
 
         # in case scheduler status or the json line is missing, the submission could be too new
         if not scheduler_status or not json_line:
@@ -380,8 +398,7 @@ class CrabJobManager(BaseJobManager):
                 error = str(error[1]).strip()
 
             # extra info
-            _extra = extra(job_id) or {}
-            _extra["restarts"] = data.get("Restarts", 0)
+            _extra = extra(job_id, data) or {}
             _extra["site_history"] = data.get("SiteHistory")
 
             # fill query data
