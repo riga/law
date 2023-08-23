@@ -27,6 +27,7 @@ from law.job.base import BaseJobManager, BaseJobFileFactory, JobInputFile, Depre
 from law.job.dashboard import BaseJobDashboard
 from law.util import (
     DotDict, interruptable_popen, make_list, make_unique, quote_cmd, no_value, rel_path,
+    human_duration,
 )
 from law.logger import get_logger
 
@@ -83,19 +84,34 @@ class CrabJobManager(BaseJobManager):
         Converts a *job_id*, for instance after json deserialization, into a :py:class:`JobId`
         object.
         """
-        return cls.JobId(*job_id)
+        return cls.JobId(*job_id) if isinstance(job_id, (list, tuple)) else job_id
 
     @property
     def cmssw_env(self):
-        # check if the proxy is valid and store the delegation name
+        # check if the proxy is valid for more than 24h and store the delegation name
         if not self.proxy_delegation_user_name:
             info = law.wlcg.get_my_proxy_info(silent=True)
-            if info:
-                self.proxy_delegation_user_name = info["user_name"]
-            else:
+            delegate = False
+            if not info:
+                delegate = True
+            elif "user_name" not in info:
+                logger.warning("field 'user_name' not in myproxy info")
+                delegate = True
+            elif "time_left" not in info:
+                logger.warning("field 'time_left' not in myproxy info")
+                delegate = True
+            elif info["time_left"] < 86400:
+                logger.warning("myproxy lifetime below 24h ({})".format(
+                    human_duration(seconds=info["time_left"]),
+                ))
+                delegate = True
+
+            if delegate:
                 cfg = Config.instance()
                 password_file = cfg.get_expanded("job", "crab_password_file")
                 self.proxy_delegation_user_name = delegate_my_proxy(password_file=password_file)
+            else:
+                self.proxy_delegation_user_name = info["user_name"]
 
         return self.cmssw_sandbox.env
 
@@ -613,8 +629,6 @@ class CrabJobFileFactory(BaseJobFileFactory):
             raise ValueError("file_name must not be empty")
         if not c.executable:
             raise ValueError("executable must not be empty")
-        if not c.work_area:
-            raise ValueError("work_area must not be empty")
         if not c.request_name:
             raise ValueError("request_name must not be empty")
         if len(c.request_name) > 100:
@@ -741,9 +755,15 @@ class CrabJobFileFactory(BaseJobFileFactory):
             if os.path.exists(path):
                 os.chmod(path, os.stat(path).st_mode | stat.S_IXUSR | stat.S_IXGRP)
 
+        # resolve work_area relative to self.dir
+        if not c.work_area:
+            c.work_area = self.dir
+        else:
+            c.work_area = os.path.join(self.dir, os.path.expandvars(os.path.expanduser(c.work_area)))
+
         # General
         c.crab.General.requestName = c.request_name
-        c.crab.General.workArea = os.path.expandvars(os.path.expanduser(c.work_area))
+        c.crab.General.workArea = c.work_area
         c.crab.General.transferOutputs = bool(c.output_files)
 
         # JobType

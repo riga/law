@@ -174,10 +174,13 @@ open('${input_file_render_base}', 'w').write(content);\
     # echo
     # echo "=== end of job file content"
 
-    # debugging: pretty print a path variable
+    # debugging: pretty print path variables
     # log_path_var() {
     #     python2 -c "import os; print('$1:\n  ' + '\n  '.join(os.getenv('$1', '').split(':')))"
     # }
+    # log_path_var PATH
+    # log_path_var PYTHONPATH
+    # log_path_var LD_LIBRARY_PATH
 
     # helper to remove fragments of a path variable
     filter_path_var() {

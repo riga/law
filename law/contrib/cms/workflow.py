@@ -12,12 +12,14 @@ import uuid
 from abc import abstractmethod
 from collections import OrderedDict
 
+import six
+
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments, JobInputFile
 from law.target.file import get_path
 from law.target.local import LocalDirectoryTarget
 from law.task.proxy import ProxyCommand
-from law.util import law_src_path, merge_dicts, DotDict
+from law.util import no_value, law_src_path, merge_dicts, DotDict
 from law.logger import get_logger
 
 from law.contrib.cms.job import CrabJobManager, CrabJobFileFactory
@@ -29,6 +31,9 @@ logger = get_logger(__name__)
 class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
 
     workflow_type = "crab"
+
+    # job script error codes are not transferred, so disable them
+    job_error_messages = {}
 
     def create_job_manager(self, **kwargs):
         return self.task.crab_create_job_manager(**kwargs)
@@ -89,11 +94,14 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
         # add the request name
         c.request_name = task.crab_request_name(submit_jobs)
 
-        # add the storage site
-        c.storage_site = task.crab_storage_site()
-
-        # add the output base
-        c.output_lfn_base = task.crab_output_lfn_base()
+        # add the storage site and output base
+        stageout_location = task.crab_stageout_location()
+        if not isinstance(stageout_location, (list, tuple)) or len(stageout_location) != 2:
+            raise ValueError(
+                "the return value of crab_stageout_location() is expected to be a 2-tuple, got "
+                "'{}'".format(stageout_location),
+            )
+        c.storage_site, c.output_lfn_base = stageout_location
 
         # add the bootstrap file
         bootstrap_file = task.crab_bootstrap_file()
@@ -154,20 +162,13 @@ class CrabWorkflow(BaseRemoteWorkflow):
     exclude_index = True
 
     @abstractmethod
-    def crab_storage_site(self):
+    def crab_stageout_location(self):
         """
-        Hook to define the "Site.storageSite" setting, i.e., the name of the storage site to use
-        (e.g. "T2_DE_DESY"). In case crab's output staging is not used, the choice of the storage
-        site has no affect, but is still required for crab's job submission to work.
-        """
-        return
+        Hook to define both the "Site.storageSite" and "Data.outLFNDirBase" settings in a 2-tuple,
+        i.e., the name of the storage site to use and the base directory for crab's own output
+        staging. An example would be ``("T2_DE_DESY", "/store/user/...")``.
 
-    @abstractmethod
-    def crab_output_lfn_base(self):
-        """
-        Hook to define the "Data.outLFNDirBase", i.e., the base directory on the
-        :py:meth:`crab_storage_site` (e.g. "/store/user/...") to use for crab's output staging. In
-        case this is not used, the choice of the output base has no affect, but is still required
+        In case this is not used, the choice of the output base has no affect, but is still required
         for crab's job submission to work.
         """
         return
@@ -193,8 +194,14 @@ class CrabWorkflow(BaseRemoteWorkflow):
         :py:meth:`crab_output_directory` in case it refers to a local directory. When *None*, the
         value of the "job.crab_work_area" configuration options is used.
         """
-        output_dir = self.crab_output_directory()
-        return get_path(output_dir) if isinstance(output_dir, LocalDirectoryTarget) else None
+        # when job files are cleaned, try to use the output directory when local
+        if self.workflow_proxy.job_file_factory and self.workflow_proxy.job_file_factory.cleanup:
+            out_dir = self.crab_output_directory()
+            if isinstance(out_dir, six.string_types) or isinstance(out_dir, LocalDirectoryTarget):
+                return out_dir
+
+        # relative to the job file directory
+        return ""
 
     def crab_job_file(self):
         return JobInputFile(law_src_path("job", "law_job.sh"))

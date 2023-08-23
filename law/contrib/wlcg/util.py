@@ -368,7 +368,7 @@ def get_my_proxy_info(endpoint="myproxy.cern.ch", user_name=None, silent=False):
     Returns information about a previous myproxy delegation to a server *endpoint*. When *user_name*
     is *None*, the sha1 encoded certificate subject string is used instead.
 
-    The returned dictionary contains the fields ``user_name``, ``subject`` and ``timeleft``.
+    The returned dictionary contains the fields ``user_name``, ``subject`` and ``time_left``.
 
     An exception is raised if the underlying ``myproxy-info`` command fails, unless *silent* is
     *True* in which case *None* is returned.
@@ -399,7 +399,7 @@ def get_my_proxy_info(endpoint="myproxy.cern.ch", user_name=None, silent=False):
             m = re.match(r"^timeleft:\s+(\d+):(\d+):(\d+).*$", line)
             if m:
                 times = list(map(int, m.groups()))
-                info["timeleft"] = times[0] * 3600 + times[1] * 60 + times[2]
+                info["time_left"] = times[0] * 3600 + times[1] * 60 + times[2]
 
     return info
 
