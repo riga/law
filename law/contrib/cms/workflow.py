@@ -66,7 +66,7 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
         else:
             proxy_delegation_user_name = info["user_name"]
 
-        return {"proxy_delegation_user_name": proxy_delegation_user_name}
+        return {"myproxy_user_name": proxy_delegation_user_name}
 
     def create_job_file_factory(self, **kwargs):
         return self.task.crab_create_job_file_factory(**kwargs)
