@@ -17,7 +17,7 @@
 
 
 **Note**: This project is currently under development.
-Version 1.0.0 will be the first, fully documented beta release, targetted for mid 2023.
+Version 1.0.0 will be the first, fully documented beta release, targetted for fall 2023.
 
 Use law to build complex and large-scale task workflows.
 It is build on top of [luigi](https://github.com/spotify/luigi) and adds abstractions for **run locations**, **storage locations** and **software environments**.
@@ -29,7 +29,7 @@ Key features:
 - Remote targets with automatic retries and local caching
   - WebDAV, HTTP, Dropbox, SFTP, all WLCG protocols (srm, xrootd, dcap, gsiftp, webdav, ...)
 - Automatic submission to batch systems from within tasks
-  - HTCondor, LSF, gLite, ARC, Slurm
+  - HTCondor, LSF, gLite, ARC, Slurm, CMS-CRAB
 - Environment sandboxing, configurable on task level
   - Docker, Singularity, Sub-Shells, Virutal envs
 
@@ -141,6 +141,7 @@ docker run -ti riga/law:example <example_name>
 - [wlcg_targets](https://github.com/riga/law/tree/master/examples/wlcg_targets): Working with targets that are stored on WLCG storage elements (dCache, EOS, ...). TODO.
 - [htcondor_at_vispa](https://github.com/riga/law/tree/master/examples/htcondor_at_vispa): HTCondor workflows at the [VISPA service](https://vispa.physik.rwth-aachen.de).
 - [htcondor_at_cern](https://github.com/riga/law/tree/master/examples/htcondor_at_cern): HTCondor workflows at the CERN batch infrastructure.
+- [CMS Crab at CERN](https://github.com/riga/law_example_CMSCrabWorkflows): CMS Crab workflows executed from lxplus at CERN.
 - [sequential_htcondor_at_cern](https://github.com/riga/law/tree/master/examples/sequential_htcondor_at_cern): Continuation of the [htcondor_at_cern](https://github.com/riga/law/tree/master/examples/htcondor_at_cern) example, showing sequential jobs that eagerly start once jobs running previous requirements succeeded.
 - [htcondor_at_naf](https://github.com/riga/law/tree/master/examples/htcondor_at_naf): HTCondor workflows at German [National Analysis Facility (NAF)](https://confluence.desy.de/display/IS/NAF+-+National+Analysis+Facility).
 - [slurm_at_maxwell](https://github.com/riga/law/tree/master/examples/slurm_at_maxwell): Slurm workflows at the [Desy Maxwell cluster](https://confluence.desy.de/display/MXW/Maxwell+Cluster).

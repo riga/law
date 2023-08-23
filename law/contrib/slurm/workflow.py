@@ -146,9 +146,11 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
         return {"job": job_file, "log": abs_log_file}
 
     def destination_info(self):
-        info = []
-        info.extend(self.task.slurm_destination_info(info))
-        return ", ".join(map(str, info))
+        info = super(SlurmWorkflowProxy, self).destination_info()
+
+        info = self.task.slurm_destination_info(info)
+
+        return info
 
 
 class SlurmWorkflow(BaseRemoteWorkflow):

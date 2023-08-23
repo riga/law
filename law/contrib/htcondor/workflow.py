@@ -145,13 +145,17 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         return {"job": job_file, "log": abs_log_file}
 
     def destination_info(self):
-        info = []
+        info = super(HTCondorWorkflowProxy, self).destination_info()
+
         if self.task.htcondor_pool and self.task.htcondor_pool != NO_STR:
-            info.append("pool: {}".format(self.task.htcondor_pool))
+            info["pool"] = "pool: {}".format(self.task.htcondor_pool)
+
         if self.task.htcondor_scheduler and self.task.htcondor_scheduler != NO_STR:
-            info.append("scheduler: {}".format(self.task.htcondor_scheduler))
+            info["scheduler"] = "scheduler: {}".format(self.task.htcondor_scheduler)
+
         info = self.task.htcondor_destination_info(info)
-        return ", ".join(map(str, info))
+
+        return info
 
 
 class HTCondorWorkflow(BaseRemoteWorkflow):

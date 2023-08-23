@@ -1264,10 +1264,13 @@ def perf_counter():
 
 
 def interruptable_popen(*args, **kwargs):
-    """ interruptable_popen(*args, interrupt_callback=None, kill_timeout=None, **kwargs)
+    """ interruptable_popen(*args, stdin_callback=None, stdin_delay=0, interrupt_callback=None, kill_timeout=None, **kwargs)  # noqa
     Shorthand to :py:class:`Popen` followed by :py:meth:`Popen.communicate` which can be interrupted
     by *KeyboardInterrupt*. The return code, standard output and standard error are returned in a
     3-tuple.
+
+    *stdin_callback* can be a function accepting no arguments and whose return value is passed to
+    ``communicate`` after a delay of *stdin_delay* to feed data input to the subprocess.
 
     *interrupt_callback* can be a function, accepting the process instance as an argument, that is
     called immediately after a *KeyboardInterrupt* occurs. After that, a SIGTERM signal is send to
@@ -1279,6 +1282,8 @@ def interruptable_popen(*args, **kwargs):
     All other *args* and *kwargs* are forwarded to the :py:class:`Popen` constructor.
     """
     # get kwargs not being passed to Popen
+    stdin_callback = kwargs.pop("stdin_callback", None)
+    stdin_delay = kwargs.pop("stdin_delay", 0)
     interrupt_callback = kwargs.pop("interrupt_callback", None)
     kill_timeout = kwargs.pop("kill_timeout", None)
 
@@ -1286,9 +1291,18 @@ def interruptable_popen(*args, **kwargs):
     kwargs["preexec_fn"] = os.setsid
     p = subprocess.Popen(*args, **kwargs)
 
+    # get stdin
+    stdin_data = None
+    if callable(stdin_callback):
+        if stdin_delay > 0:
+            time.sleep(stdin_delay)
+        stdin_data = stdin_callback()
+        if isinstance(stdin_data, six.string_types):
+            stdin_data = (stdin_data + "\n").encode("utf-8")
+
     # handle interrupts
     try:
-        out, err = p.communicate()
+        out, err = p.communicate(stdin_data)
     except KeyboardInterrupt:
         # allow the interrupt_callback to perform a custom process termination
         if callable(interrupt_callback):

@@ -4,10 +4,14 @@
 CMS-related utilities.
 """
 
-__all__ = ["Site", "lfn_to_pfn"]
+__all__ = ["Site", "lfn_to_pfn", "renew_vomsproxy", "delegate_myproxy"]
 
 
 import os
+
+import law
+
+law.contrib.load("wlcg")
 
 
 class Site(object):
@@ -18,7 +22,7 @@ class Site(object):
 
     .. code-block:: python
 
-        site = Site() # executed on T2_DE_RWTH
+        site = Site()  # executed on T2_DE_RWTH
         print(site.name)        # "T2_DE_RWTH"
         print(site.country)     # "DE"
         print(site.redirector)  # "xrootd-cms.infn.it"
@@ -112,3 +116,26 @@ def lfn_to_pfn(lfn, redirector="global"):
         raise ValueError("unknown redirector: {}".format(redirector))
 
     return "root://{}/{}".format(Site.redirectors[redirector], lfn)
+
+
+def renew_vomsproxy(**kwargs):
+    """
+    Renews a VOMS proxy in the exact same way that :py:func:`law.wlcg.renew_vomsproxy` does, but
+    with the *vo* attribute set to ``"cms"`` by default.
+    """
+    kwargs.setdefault("vo", "cms")
+    return law.wlcg.renew_vomsproxy(**kwargs)
+
+
+def delegate_myproxy(**kwargs):
+    """
+    Delegates a X509 proxy to a myproxy server in the exact same way that
+    :py:func:`law.wlcg.delegate_myproxy` does, but with the *retrievers* argument set to a value
+    that is usually expected for crab submissions and the vo set to "cms".
+    """
+    kwargs.setdefault(
+        "retrievers",
+        "/DC=ch/DC=cern/OU=computers/CN=crab-(preprod|prod|dev)-tw(01|02|03).cern.ch|/DC=ch/DC=cern/OU=computers/CN=stefanov(m|m2).cern.ch|/DC=ch/DC=cern/OU=computers/CN=dciangot-tw.cern.ch",  # noqa
+    )
+    kwargs.setdefault("vo", "cms")
+    return law.wlcg.delegate_myproxy(**kwargs)

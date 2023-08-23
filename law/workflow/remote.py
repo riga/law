@@ -23,7 +23,8 @@ from law.workflow.base import BaseWorkflow, BaseWorkflowProxy
 from law.job.dashboard import NoJobDashboard
 from law.parameter import NO_FLOAT, NO_INT, get_param, DurationParameter
 from law.util import (
-    is_number, colored, iter_chunks, merge_dicts, human_duration, DotDict, ShorthandDict,
+    no_value, is_number, colored, iter_chunks, merge_dicts, human_duration, DotDict, ShorthandDict,
+    InsertableDict,
 )
 from law.logger import get_logger
 
@@ -56,14 +57,14 @@ class JobData(ShorthandDict):
 
     @classmethod
     def job_data(cls, job_id=dummy_job_id, branches=None, status=None, code=None, error=None,
-            log_file=None, **kwargs):
+            extra=None, **kwargs):
         """
         Returns a dictionary containing default job submission information such as the *job_id*,
         task *branches* covered by the job, a job *status* string, a job return code, an *error*
-        message, and a *log_file*. Additional *kwargs* are accepted but _not_ stored.
+        message, and *extra* data. Additional *kwargs* are accepted but _not_ stored.
         """
         return dict(job_id=job_id, branches=branches or [], status=status, code=code, error=error,
-            log_file=log_file)
+            extra=extra or {})
 
     def __len__(self):
         return len(self.jobs) + len(self.unsubmitted_jobs)
@@ -202,6 +203,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         # setup the job mananger
         self.job_manager = self.create_job_manager(threads=task.submission_threads)
         self.job_manager.status_diff_styles["unsubmitted"] = ({"color": "green"}, {}, {})
+        self._job_manager_setup_kwargs = no_value
 
         # boolean per job num denoting if a job should be / was skipped
         self.skip_jobs = {}
@@ -221,14 +223,17 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         # flag denoting if jobs were cancelled or cleaned up (i.e. controlled)
         self._controlled_jobs = False
 
+        # tracking url
+        self._tracking_url = None
+
+        # flag denoting whether the first log file was already printed
+        self._printed_first_log = False
+
         # lock to protect the dumping of submission data
         self._dump_lock = threading.Lock()
 
         # intially, set the number of parallel jobs which might change at some piont
         self._set_parallel_jobs(task.parallel_jobs)
-
-        # tracking url
-        self._tracking_url = None
 
     @property
     def job_data_cls(self):
@@ -243,10 +248,24 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         """
         return
 
+    def setup_job_manager(self):
+        """
+        Hook invoked externally to further setup the job mananger or perform batch system related
+        preparations, e.g. before jobs can be submitted. The returned keyword arguments will be
+        forwarded to the submit, cancel, cleanup and query methods of the job mananger.
+        """
+        return {}
+
+    def _setup_job_manager(self):
+        if self._job_manager_setup_kwargs == no_value:
+            self._job_manager_setup_kwargs = self.setup_job_manager()
+
+        return self._job_manager_setup_kwargs or {}
+
     @abstractmethod
     def create_job_file_factory(self, **kwargs):
         """
-        Hook to instantiate and return a class derived  of
+        Hook to instantiate and return a class derived of
         :py:class:`law.job.base.BaseJobFileFactory`. This method must be implemented by inheriting
         classes and should update and forward all *kwargs* to the constructor of the respective job
         file factory.
@@ -254,11 +273,16 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         return
 
     @abstractmethod
-    def create_job_file(self, job_num, branches):
+    def create_job_file(self, *args, **kwargs):
         """
-        Creates a job file using the :py:attr:`job_file_factory` given the job number *job_num* and
-        the list of branch numbers *branches* covered by the job. The path of the job file is
-        returned. This method must be implemented by inheriting classes.
+        Creates a job file using the :py:attr:`job_file_factory`. The expected arguments depend on
+        wether the job manager supports job grouping (:py:attr:`BaseJobManager.job_grouping`). If it
+        does, two arguments containing the job number (*job_num*) and the list of branch numbers
+        (*branches*) covered by the job. If job grouping is supported, a single dictionary mapping
+        job numbers to covered branch values must be passed. In any case, the path(s) of job files
+        are returned.
+
+        This method must be implemented by inheriting classes.
         """
         return
 
@@ -267,18 +291,33 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         Hook that can return a string containing information on the location that jobs are submitted
         to. The string is appended to submission and status messages.
         """
-        return ""
+        return InsertableDict()
 
     def _destination_info_postfix(self):
         """
         Returns the destination info ready to be appended to a string.
         """
         dst_info = self.destination_info()
+        if isinstance(dst_info, dict):
+            dst_info = list(dst_info.values())
         if isinstance(dst_info, (list, tuple)):
             dst_info = ", ".join(map(str, dst_info))
         if dst_info != "":
             dst_info = ", {}".format(dst_info)
         return dst_info
+
+    @property
+    def tracking_url(self):
+        return self._tracking_url
+
+    @tracking_url.setter
+    def tracking_url(self, tracking_url):
+        old_url = self.tracking_url
+        self._tracking_url = tracking_url
+        if tracking_url and self.task:
+            self.task.set_tracking_url(tracking_url)
+            if tracking_url != old_url:
+                self.task.publish_message("tracking url: {}".format(tracking_url))
 
     @property
     def _cancel_jobs(self):
@@ -357,6 +396,18 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
         return n_parallel
 
+    def _status_error_pairs(self, job_num, job_data):
+        return InsertableDict([
+            ("job", job_num),
+            ("branches", job_data["branches"]),
+            ("id", job_data["job_id"]),
+            ("status", job_data["status"]),
+            ("code", job_data["code"]),
+            ("error", job_data.get("error")),
+            ("job script error", self.job_error_messages.get(job_data["code"], no_value)),
+            ("log", job_data["extra"].get("log_file", no_value)),
+        ])
+
     def _print_status_errors(self, failed_jobs):
         print("{} in task {}:".format(
             colored("{} failed job(s)".format(len(failed_jobs)), color="red", style="bright"),
@@ -368,17 +419,19 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         show_summary = threshold and (isinstance(threshold, bool) or len(failed_jobs) >= threshold)
 
         # show the first n errors
-        tmpl = "    job: {job_num}, branch(es): {branches}, id: {job_id}, " \
-            "status: {status}, code: {code}, error: {error}{ext}"
         for i, (job_num, data) in enumerate(six.iteritems(failed_jobs)):
-            ext = ""
-            if data["code"] in self.job_error_messages:
-                law_err = self.job_error_messages[data["code"]]
-                ext += ", job script error: {}".format(law_err)
-            if data["log_file"]:
-                ext += ", log: {}".format(data["log_file"])
+            # get status pairs
+            status_pairs = self._status_error_pairs(job_num, data)
+            if isinstance(status_pairs, dict):
+                status_pairs = list(status_pairs.items())
 
-            print(tmpl.format(job_num=job_num, ext=ext, **data))
+            # print the status line
+            status_line = ", ".join([
+                "{} {}".format(colored("{}:".format(key), style="bright"), value)
+                for key, value in status_pairs
+                if value != no_value
+            ])
+            print("    {}".format(status_line))
 
             if i >= self.show_errors and len(failed_jobs) > self.show_errors + 1:
                 remaining = len(failed_jobs) - self.show_errors
@@ -391,35 +444,42 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
         # additional error summary
         if show_summary:
-            # group by error code, status, and the first 40 characters of the error message
+            # group by error code and status
             groups = OrderedDict()
-            n_error_chars = 40
             for job_num, data in six.iteritems(failed_jobs):
-                error_trunc = (
-                    data["error"]
-                    if len(data["error"]) <= n_error_chars else
-                    data["error"][:n_error_chars - 3] + "..."
-                )
-                key = (data["code"], data["status"], error_trunc)
+                key = (data["code"], data["status"])
                 if key not in groups:
-                    groups[key] = {"n_jobs": 0, "n_branches": 0, "log_file": None}
+                    groups[key] = {"n_jobs": 0, "n_branches": 0, "log_file": None, "error": None}
                 groups[key]["n_jobs"] += 1
                 groups[key]["n_branches"] += len(data["branches"])
+                if not groups[key]["error"]:
+                    groups[key]["error"] = data["error"]
                 if not groups[key]["log_file"]:
-                    groups[key]["log_file"] = data["log_file"]
+                    groups[key]["log_file"] = data["extra"].get("log_file")
 
             # show the summary
             print(colored("error summary:", color="red", style="bright"))
-            tmpl = "    {n_jobs} jobs ({n_branches} branches) with status: {status}, " \
-                "code: {code}, error: {error}{ext}"
-            for (code, status, error_trunc), stats in six.iteritems(groups):
-                # add status messsages of known error codes
+            for (code, status), stats in six.iteritems(groups):
+                # status messsages of known error codes
+                code_str = ""
                 if code in self.job_error_messages:
-                    code = "{} ({})".format(code, self.job_error_messages[code])
+                    code_str = " ({})".format(self.job_error_messages[code])
+                # pairs for printing
+                summary_pairs = [
+                    ("status", status),
+                    ("code", str(code) + code_str),
+                    ("example error", stats.get("error")),
+                ]
                 # add an example log file
-                ext = ", example log: {log_file}".format(**stats) if stats["log_file"] else ""
+                if stats["log_file"]:
+                    summary_pairs.append(("example log", stats["log_file"]))
                 # print the line
-                print(tmpl.format(status=status, code=code, error=error_trunc, ext=ext, **stats))
+                summary_line = ", ".join([
+                    "{} {}".format(colored("{}:".format(key), style="bright"), value)
+                    for key, value in summary_pairs
+                ])
+                print("    {n_jobs} jobs ({n_branches} branches) with {summary_line}".format(
+                    summary_line=summary_line, **stats))
 
     def complete(self):
         if self.task.is_controlling_remote_jobs():
@@ -532,9 +592,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         # from here on, submit and/or wait while polling
 
         # maybe set a tracking url
-        self._tracking_url = self.dashboard.create_tracking_url()
-        if self._tracking_url:
-            task.set_tracking_url(self._tracking_url)
+        self.tracking_url = self.dashboard.create_tracking_url()
 
         # ensure the output directory exists
         if not self._submitted:
@@ -587,8 +645,11 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         if not job_ids:
             return
 
+        # setup the job manager
+        job_man_kwargs = self._setup_job_manager()
+
         # get job kwargs for cancelling
-        cancel_kwargs = self._get_job_kwargs("cancel")
+        cancel_kwargs = merge_dicts(job_man_kwargs, self._get_job_kwargs("cancel"))
 
         # cancel jobs
         task.publish_message("going to cancel {} jobs".format(len(job_ids)))
@@ -629,8 +690,11 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         if not job_ids:
             return
 
+        # setup the job manager
+        job_man_kwargs = self._setup_job_manager()
+
         # get job kwargs for cleanup
-        cleanup_kwargs = self._get_job_kwargs("cleanup")
+        cleanup_kwargs = merge_dicts(job_man_kwargs, self._get_job_kwargs("cleanup"))
 
         # cleanup jobs
         task.publish_message("going to cleanup {} jobs".format(len(job_ids)))
@@ -743,7 +807,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             # set the job id in the job data
             job_data = self.job_data.jobs[job_num]
             job_data["job_id"] = job_id
-            job_data["log_file"] = files.get("log")
+            job_data["extra"]["log_file"] = files.get("log")
             new_submission_data[job_num] = copy.deepcopy(job_data)
 
             # inform the dashboard
@@ -765,7 +829,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                         print("    ... and {} more".format(remaining))
                     break
         else:
-            task.publish_message("submitted {} job(s)".format(len(submit_jobs)) + dst_info)
+            task.publish_message(
+                "submitted {} {} job(s){}".format(len(submit_jobs), self.workflow_type, dst_info),
+            )
 
         return new_submission_data
 
@@ -787,9 +853,11 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         if dump_freq and not is_number(dump_freq):
             dump_freq = 50
 
+        # setup the job manager
+        job_man_kwargs = self._setup_job_manager()
+
         # get job kwargs for submission and merge with passed kwargs
-        submit_kwargs = self._get_job_kwargs("submit")
-        submit_kwargs = merge_dicts(submit_kwargs, kwargs)
+        submit_kwargs = merge_dicts(job_man_kwargs, self._get_job_kwargs("submit"), kwargs)
 
         # progress callback to inform the scheduler
         def progress_callback(i, job_id):
@@ -828,13 +896,15 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         # create the single multi submission file, passing the job_num -> branches dict
         job_file = self.create_job_file(submit_jobs)
 
+        # setup the job manager
+        job_man_kwargs = self._setup_job_manager()
+
         # get job kwargs for submission and merge with passed kwargs
-        submit_kwargs = self._get_job_kwargs("submit")
-        submit_kwargs = merge_dicts(submit_kwargs, kwargs)
+        submit_kwargs = merge_dicts(job_man_kwargs, self._get_job_kwargs("submit"), kwargs)
 
         # submission
         job_ids = self.job_manager.submit_group(
-            job_file["job"],
+            [job_file["job"]] * len(submit_jobs),
             retries=3,
             threads=task.submission_threads,
             **submit_kwargs  # noqa
@@ -843,9 +913,6 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         # set all job ids
         for job_num, job_id in zip(submit_jobs, job_ids):
             self.job_data.jobs[job_num]["job_id"] = job_id
-
-        # dump job data
-        self.dump_job_data()
 
         return (
             job_ids,
@@ -870,8 +937,11 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         n_poll_fails = 0
         start_time = time.time()
 
+        # setup the job manager
+        job_man_kwargs = self._setup_job_manager()
+
         # get job kwargs for status querying
-        query_kwargs = self._get_job_kwargs("query")
+        query_kwargs = merge_dicts(job_man_kwargs, self._get_job_kwargs("query"))
 
         # start the poll loop
         i = -1
@@ -933,16 +1003,25 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             for job_num, (job_id, state_or_error) in zip(active_jobs, six.iteritems(query_data)):
                 if isinstance(state_or_error, Exception):
                     errors.append(state_or_error)
-                else:
-                    states_by_id[job_id] = state_or_error
-                    # sync extra info if available
-                    extra = state_or_error.get("extra")
-                    if isinstance(extra, dict):
-                        if not self._tracking_url and "tracking_url" in extra:
-                            self._tracking_url = extra["tracking_url"]
-                            task.set_tracking_url(self._tracking_url)
-                        if not self.job_data.jobs[job_num]["log_file"] and "log_file" in extra:
-                            self.job_data.jobs[job_num]["log_file"] = extra["log_file"]
+                    continue
+
+                # set the data
+                states_by_id[job_id] = state_or_error
+
+                # sync extra info if available
+                extra = state_or_error.get("extra")
+                if not isinstance(extra, dict):
+                    continue
+                self.job_data.jobs[job_num]["extra"] = extra
+
+                # set tracking url on the workflow proxy
+                if not self.tracking_url and "tracking_url" in extra:
+                    self.tracking_url = extra["tracking_url"]
+
+                # print the first log file
+                if not self._printed_first_log and extra.get("log_file"):
+                    task.publish_message("first log file: {}".format(extra["log_file"]))
+                    self._printed_first_log = True
             del query_data
 
             # print the first couple errors

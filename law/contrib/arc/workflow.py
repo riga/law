@@ -139,9 +139,13 @@ class ARCWorkflowProxy(BaseRemoteWorkflowProxy):
         return {"job": job_file, "log": abs_log_file}
 
     def destination_info(self):
-        info = ["ce: {}".format(",".join(self.task.arc_ce))]
+        info = super(ARCWorkflowProxy, self).destination_info()
+
+        info["ce"] = "ce: {}".format(",".join(self.task.arc_ce))
+
         info = self.task.arc_destination_info(info)
-        return ", ".join(map(str, info))
+
+        return info
 
 
 class ARCWorkflow(BaseRemoteWorkflow):

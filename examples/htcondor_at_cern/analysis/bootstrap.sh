@@ -7,6 +7,6 @@
 # base tasks in analysis/framework.py.
 
 action() {
-    source "{{analysis_path}}/setup.sh"
+    source "{{analysis_path}}/setup.sh" "$@"
 }
-action
+action "$@"
