@@ -179,6 +179,13 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
 
         return pairs
 
+    def destination_info(self):
+        info = super(CrabWorkflowProxy, self).destination_info()
+
+        info = self.task.crab_destination_info(info)
+
+        return info
+
 
 class CrabWorkflow(BaseRemoteWorkflow):
 
@@ -242,6 +249,9 @@ class CrabWorkflow(BaseRemoteWorkflow):
         return ""
 
     def crab_job_file(self):
+        """
+        Hook to return the location of the job file that is executed on job nodes.
+        """
         return JobInputFile(law_src_path("job", "law_job.sh"))
 
     def crab_bootstrap_file(self):
@@ -275,6 +285,9 @@ class CrabWorkflow(BaseRemoteWorkflow):
         return ""
 
     def crab_output_uri(self):
+        """
+        Hook to return the URI of the remote crab output directory.
+        """
         return self.crab_output_directory().uri()
 
     def crab_job_manager_cls(self):
@@ -326,7 +339,14 @@ class CrabWorkflow(BaseRemoteWorkflow):
         return 0.0
 
     def crab_cmdline_args(self):
+        """
+        Hook to add additional cli parameters to "law run" commands executed on job nodes.
+        """
         return {}
 
     def crab_destination_info(self, info):
+        """
+        Hook to add additional information behind each job status query line by extending an *info*
+        dictionary whose values will be shown separated by comma.
+        """
         return info

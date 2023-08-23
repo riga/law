@@ -105,7 +105,7 @@ def _vomsproxy_info(args=None, proxy_file=None, silent=False):
 def get_vomsproxy_identity(proxy_file=None, silent=False):
     """
     Returns the identity information of the voms proxy. When *proxy_file* is *None*, it defaults to
-    the result o :py:func:`get_vomsproxy_file`. Otherwise, when it evaluates to *False*,
+    the result of :py:func:`get_vomsproxy_file`. Otherwise, when it evaluates to *False*,
     ``voms-proxy-info`` is queried without a custom proxy file.
     """
     code, out, _ = _vomsproxy_info(args=["--identity"], proxy_file=proxy_file, silent=silent)

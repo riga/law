@@ -115,18 +115,18 @@ setup_cmssw() {
     # conditions from multiple processes, guard the setup with a pending_flag_file and
     # sleep for a random amount of seconds between 0 and 5 to further reduce the chance of
     # simultaneously starting processes reaching this point at the same time
-    sleep "$( python3 -c 'import random;print(random.random() * 5)')"
+    sleep "$( python3 -c 'import random;print(random.random() * 5)' )"
     # if an existing flag file is older than 25 minutes, consider it a dangling leftover from a
     # previously failed installation attempt and delete it
     if [ -f "${pending_flag_file}" ]; then
-        local flag_file_age="$(( $( date +%s ) - $( date +%s -r "${pending_flag_file}" )))"
+        local flag_file_age="$(( $( date +%s ) - $( date +%s -r "${pending_flag_file}" ) ))"
         [ "${flag_file_age}" -ge "1500" ] && rm -f "${pending_flag_file}"
     fi
     # start the sleep loop
     local sleep_counter="0"
     while [ -f "${pending_flag_file}" ]; do
         # wait at most 20 minutes
-        sleep_counter="$(( $sleep_counter + 1 ))"
+        sleep_counter="$(( ${sleep_counter} + 1 ))"
         if [ "${sleep_counter}" -ge 120 ]; then
             >&2 echo "installation of ${custom_cmssw_dir} is done in different process, but number of sleeps exceeded"
             return "6"

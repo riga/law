@@ -155,9 +155,13 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
         return {"job": job_file, "log": abs_log_file}
 
     def destination_info(self):
-        info = ["ce: {}".format(",".join(self.task.glite_ce))]
+        info = super(GLiteWorkflowProxy, self).destination_info()
+
+        info["ce"] = "ce: {}".format(",".join(self.task.glite_ce))
+
         info = self.task.glite_destination_info(info)
-        return ", ".join(map(str, info))
+
+        return info
 
 
 class GLiteWorkflow(BaseRemoteWorkflow):

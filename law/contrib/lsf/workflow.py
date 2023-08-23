@@ -147,11 +147,14 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
         return {"job": job_file, "log": abs_log_file}
 
     def destination_info(self):
-        info = []
+        info = super(LSFWorkflowProxy, self).destination_info()
+
         if self.task.lsf_queue != NO_STR:
-            info.append("queue: {}".format(self.task.lsf_queue))
+            info["queue"] = "queue: {}".format(self.task.lsf_queue)
+
         info = self.task.lsf_destination_info(info)
-        return ", ".join(map(str, info))
+
+        return info
 
 
 class LSFWorkflow(BaseRemoteWorkflow):

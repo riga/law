@@ -291,13 +291,15 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         Hook that can return a string containing information on the location that jobs are submitted
         to. The string is appended to submission and status messages.
         """
-        return ""
+        return InsertableDict()
 
     def _destination_info_postfix(self):
         """
         Returns the destination info ready to be appended to a string.
         """
         dst_info = self.destination_info()
+        if isinstance(dst_info, dict):
+            dst_info = list(dst_info.values())
         if isinstance(dst_info, (list, tuple)):
             dst_info = ", ".join(map(str, dst_info))
         if dst_info != "":
