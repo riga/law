@@ -427,26 +427,22 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
         # additional error summary
         if show_summary:
-            # group by error code, status, and the first 40 characters of the error message
+            # group by error code and status
             groups = OrderedDict()
-            n_error_chars = 40
             for job_num, data in six.iteritems(failed_jobs):
-                error_trunc = (
-                    data["error"]
-                    if len(data["error"]) <= n_error_chars else
-                    data["error"][:n_error_chars - 3] + "..."
-                )
-                key = (data["code"], data["status"], error_trunc)
+                key = (data["code"], data["status"])
                 if key not in groups:
-                    groups[key] = {"n_jobs": 0, "n_branches": 0, "log_file": None}
+                    groups[key] = {"n_jobs": 0, "n_branches": 0, "log_file": None, "error": None}
                 groups[key]["n_jobs"] += 1
                 groups[key]["n_branches"] += len(data["branches"])
+                if not groups[key]["error"]:
+                    groups[key]["error"] = data["error"]
                 if not groups[key]["log_file"]:
                     groups[key]["log_file"] = data["extra"].get("log_file")
 
             # show the summary
             print(colored("error summary:", color="red", style="bright"))
-            for (code, status, error_trunc), stats in six.iteritems(groups):
+            for (code, status), stats in six.iteritems(groups):
                 # status messsages of known error codes
                 code_str = ""
                 if code in self.job_error_messages:
@@ -455,7 +451,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 summary_pairs = [
                     ("status", status),
                     ("code", str(code) + code_str),
-                    ("error", error_trunc),
+                    ("example error", stats.get("error")),
                 ]
                 # add an example log file
                 if stats["log_file"]:
