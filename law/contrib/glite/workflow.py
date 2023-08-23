@@ -13,13 +13,14 @@ import sys
 from abc import abstractmethod
 from collections import OrderedDict
 
+import law
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments, JobInputFile, DeprecatedInputFiles
 from law.task.proxy import ProxyCommand
 from law.target.file import get_path
 from law.parameter import CSVParameter
 from law.util import law_src_path, merge_dicts, DotDict
-from law.contrib.wlcg import delegate_vomsproxy_glite, get_ce_endpoint
+from law.logger import get_logger
 
 from law.contrib.glite.job import GLiteJobManager, GLiteJobFileFactory
 
@@ -50,7 +51,7 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
         if callable(self.task.glite_delegate_proxy):
             delegation_ids = []
             for ce in self.task.glite_ce:
-                endpoint = get_ce_endpoint(ce)
+                endpoint = law.wlcg.get_ce_endpoint(ce)
                 delegation_ids.append(self.task.glite_delegate_proxy(endpoint))
             kwargs["delegation_id"] = delegation_ids
 
@@ -212,7 +213,8 @@ class GLiteWorkflow(BaseRemoteWorkflow):
         return self.glite_output_directory().uri()
 
     def glite_delegate_proxy(self, endpoint):
-        return delegate_vomsproxy_glite(endpoint, stdout=sys.stdout, stderr=sys.stderr, cache=True)
+        return law.wlcg.delegate_vomsproxy_glite(endpoint, stdout=sys.stdout, stderr=sys.stderr,
+            cache=True)
 
     def glite_job_manager_cls(self):
         return GLiteJobManager
