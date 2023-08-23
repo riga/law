@@ -48,7 +48,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ["27", "36", "37", "38", "39", "310"]
+        python: ["27", "36", "37", "38", "39", "310", "311"]
     name: test (python ${{ matrix.python }})
     steps:
       - name: Checkout 🛎️
