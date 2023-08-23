@@ -6,22 +6,22 @@ Helpers and targets providing functionality to work with the Worldwide LHC Compu
 """
 
 __all__ = [
-    "get_user_key", "get_user_cert", "get_user_cert_subject", "get_voms_proxy_file",
-    "get_voms_proxy_user", "get_voms_proxy_lifetime", "get_voms_proxy_vo",
-    "check_voms_proxy_validity", "renew_voms_proxy", "delegate_voms_proxy_glite",
-    "delegate_my_proxy", "get_my_proxy_info", "get_ce_endpoint",
+    "get_userkey", "get_usercert", "get_usercert_subject", "get_vomsproxy_file",
+    "get_vomsproxy_identity", "get_vomsproxy_lifetime", "get_vomsproxy_vo",
+    "check_vomsproxy_validity", "renew_vomsproxy", "delegate_vomsproxy_glite",
+    "delegate_myproxy", "get_myproxy_info", "get_ce_endpoint",
     "WLCGFileSystem", "WLCGTarget", "WLCGFileTarget", "WLCGDirectoryTarget",
-    "ensure_voms_proxy",
+    "ensure_vomsproxy",
 ]
 
 
 # provisioning imports
 from law.contrib.wlcg.util import (
-    get_user_key, get_user_cert, get_user_cert_subject,
-    get_voms_proxy_file, get_voms_proxy_user, get_voms_proxy_lifetime, get_voms_proxy_vo,
-    check_voms_proxy_validity, renew_voms_proxy, delegate_voms_proxy_glite,
-    delegate_my_proxy, get_my_proxy_info,
+    get_userkey, get_usercert, get_usercert_subject,
+    get_vomsproxy_file, get_vomsproxy_identity, get_vomsproxy_lifetime, get_vomsproxy_vo,
+    check_vomsproxy_validity, renew_vomsproxy, delegate_vomsproxy_glite,
+    delegate_myproxy, get_myproxy_info,
     get_ce_endpoint,
 )
 from law.contrib.wlcg.target import WLCGFileSystem, WLCGTarget, WLCGFileTarget, WLCGDirectoryTarget
-from law.contrib.wlcg.decorator import ensure_voms_proxy
+from law.contrib.wlcg.decorator import ensure_vomsproxy

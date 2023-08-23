@@ -128,7 +128,7 @@ class CrabJobManager(BaseJobManager):
             **kwargs  # noqa
         )
 
-    def submit(self, job_file, job_files=None, proxy=None, instance=None, myproxy_user_name=None,
+    def submit(self, job_file, job_files=None, proxy=None, instance=None, myproxy_username=None,
             retries=0, retry_delay=3, silent=False):
         # default arguments
         if proxy is None:
@@ -214,7 +214,7 @@ class CrabJobManager(BaseJobManager):
 
             return job_ids
 
-    def cancel(self, proj_dir, job_ids=None, proxy=None, instance=None, myproxy_user_name=None,
+    def cancel(self, proj_dir, job_ids=None, proxy=None, instance=None, myproxy_username=None,
             silent=False):
         if job_ids is None:
             job_ids = self._job_ids_from_proj_dir(proj_dir)
@@ -242,7 +242,7 @@ class CrabJobManager(BaseJobManager):
 
         return {job_id: None for job_id in job_ids}
 
-    def cleanup(self, proj_dir, job_ids=None, proxy=None, instance=None, myproxy_user_name=None,
+    def cleanup(self, proj_dir, job_ids=None, proxy=None, instance=None, myproxy_username=None,
             silent=False):
         if job_ids is None:
             job_ids = self._job_ids_from_proj_dir(proj_dir)
@@ -253,7 +253,7 @@ class CrabJobManager(BaseJobManager):
 
         return {job_id: None for job_id in job_ids}
 
-    def query(self, proj_dir, job_ids=None, proxy=None, instance=None, myproxy_user_name=None,
+    def query(self, proj_dir, job_ids=None, proxy=None, instance=None, myproxy_username=None,
             silent=False):
         if job_ids is None:
             job_ids = self._job_ids_from_proj_dir(proj_dir)

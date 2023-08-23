@@ -5,32 +5,42 @@ Script to trigger a myproxy delegation, e.g. for crab submission.
 """
 
 
-def delegate(renew, endpoint, user_name, password_file, skip_local, voms):
+def delegate(renew, endpoint, username, password_file, vo, voms_proxy):
     import law
+
     law.contrib.load("cms", "wlcg")
 
     # when not renewing, check if a previous delegation exists
     if not renew:
-        info = law.wlcg.get_my_proxy_info(
+        info = law.wlcg.get_myproxy_info(
             endpoint=endpoint,
-            user_name=user_name,
+            username=username,
             silent=True,
         )
         if info:
-            return info["user_name"]
+            print("existing myproxy delegation found for username {}".format(info["username"]))
+            return
+
+    if voms_proxy and (renew or not law.wlcg.check_vomsproxy_validity()):
+        print("\nrenewing voms-proxy")
+        law.cms.renew_vomsproxy(vo=vo, password_file=password_file)
 
     # create a new delegation
-    return law.cms.delegate_my_proxy(
+    print("\ndelegating to {}".format(endpoint))
+    law.cms.delegate_myproxy(
         endpoint=endpoint,
-        user_name=user_name,
+        username=username,
         password_file=password_file,
-        create_local=not skip_local,
-        voms=voms,
+        vo=vo,
     )
 
 
 def main():
     from argparse import ArgumentParser
+
+    import law
+
+    default_pf = law.config.get_expanded("job", "crab_password_file")
 
     parser = ArgumentParser(
         prog="law_cms_delegate_myproxy",
@@ -51,7 +61,10 @@ def main():
     parser.add_argument(
         "--password-file",
         "-p",
-        help="a file containing the certificate password",
+        help="a file containing the certificate password" + (
+            "; default: {}".format(default_pf) if default_pf else ""
+        ),
+        default=default_pf,
     )
     parser.add_argument(
         "--username",
@@ -59,27 +72,27 @@ def main():
         help="a custom user name",
     )
     parser.add_argument(
-        "--skip-local",
-        "-s",
-        action="store_true",
-        help="skip creating a local proxy file at $X509_USER_PROXY",
-    )
-    parser.add_argument(
-        "--voms",
+        "--vo",
         "-m",
         default="cms",
-        help="additional VOMS attributes; default: cms",
+        help="virtual organization to use; default: cms",
+    )
+    parser.add_argument(
+        "--voms-proxy",
+        "-v",
+        action="store_true",
+        help="create a voms-proxy prior to the delegation",
     )
     args = parser.parse_args()
 
-    print(delegate(
+    delegate(
         args.renew,
         args.endpoint,
         args.username,
         args.password_file,
-        args.skip_local,
-        args.voms,
-    ))
+        args.vo,
+        args.voms_proxy,
+    )
 
 
 # entry hook

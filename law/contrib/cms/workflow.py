@@ -14,6 +14,7 @@ from collections import OrderedDict
 
 import six
 
+import law
 from law.config import Config
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments, JobInputFile
@@ -23,9 +24,8 @@ from law.task.proxy import ProxyCommand
 from law.util import no_value, law_src_path, merge_dicts, DotDict, human_duration
 from law.logger import get_logger
 
-from law.contrib.wlcg.util import get_my_proxy_info
 from law.contrib.cms.job import CrabJobManager, CrabJobFileFactory
-from law.contrib.cms.util import delegate_my_proxy
+from law.contrib.cms.util import renew_vomsproxy, delegate_myproxy
 
 
 logger = get_logger(__name__)
@@ -42,31 +42,39 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
         return self.task.crab_create_job_manager(**kwargs)
 
     def setup_job_manager(self):
-        # check if the proxy is valid for more than 24h and store the delegation name
-        info = get_my_proxy_info(silent=True)
+        cfg = Config.instance()
+        password_file = cfg.get_expanded("job", "crab_password_file")
+
+        # ensure a VOMS proxy exists
+        if not law.wlcg.check_vomsproxy_validity():
+            print("renew voms-proxy")
+            renew_vomsproxy(password_file=password_file)
+
+        # ensure that it has been delegated to the myproxy server
+        info = law.wlcg.get_myproxy_info(silent=True)
         delegate = False
         if not info:
             delegate = True
-        elif "user_name" not in info:
-            logger.warning("field 'user_name' not in myproxy info")
+        elif "username" not in info:
+            logger.warning("field 'username' not in myproxy info")
             delegate = True
-        elif "time_left" not in info:
-            logger.warning("field 'time_left' not in myproxy info")
+        elif "timeleft" not in info:
+            logger.warning("field 'timeleft' not in myproxy info")
             delegate = True
-        elif info["time_left"] < 86400:
+        elif info["timeleft"] < 86400:
             logger.warning("myproxy lifetime below 24h ({})".format(
-                human_duration(seconds=info["time_left"]),
+                human_duration(seconds=info["timeleft"]),
             ))
             delegate = True
 
+        # actual delegation
         if delegate:
-            cfg = Config.instance()
-            password_file = cfg.get_expanded("job", "crab_password_file")
-            proxy_delegation_user_name = delegate_my_proxy(password_file=password_file)
+            print("delegate to myproxy server")
+            myproxy_username = delegate_myproxy(password_file=password_file)
         else:
-            proxy_delegation_user_name = info["user_name"]
+            myproxy_username = info["username"]
 
-        return {"myproxy_user_name": proxy_delegation_user_name}
+        return {"myproxy_username": myproxy_username}
 
     def create_job_file_factory(self, **kwargs):
         return self.task.crab_create_job_file_factory(**kwargs)
