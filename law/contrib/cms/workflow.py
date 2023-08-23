@@ -24,7 +24,9 @@ from law.task.proxy import ProxyCommand
 from law.util import no_value, law_src_path, merge_dicts, DotDict, human_duration
 from law.logger import get_logger
 
+from law.contrib.wlcg.util import get_my_proxy_info
 from law.contrib.cms.job import CrabJobManager, CrabJobFileFactory
+from law.contrib.cms.util import delegate_my_proxy
 
 
 logger = get_logger(__name__)
@@ -42,7 +44,7 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
 
     def setup_job_manager(self):
         # check if the proxy is valid for more than 24h and store the delegation name
-        info = law.wlcg.get_my_proxy_info(silent=True)
+        info = get_my_proxy_info(silent=True)
         delegate = False
         if not info:
             delegate = True

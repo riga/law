@@ -27,12 +27,10 @@ from law.job.base import BaseJobManager, BaseJobFileFactory, JobInputFile, Depre
 from law.job.dashboard import BaseJobDashboard
 from law.util import (
     DotDict, interruptable_popen, make_list, make_unique, quote_cmd, no_value, rel_path,
-    human_duration,
 )
 from law.logger import get_logger
 
 import law.contrib.cms.sandbox
-from law.contrib.cms.util import delegate_my_proxy
 
 
 law.contrib.load("wlcg")
