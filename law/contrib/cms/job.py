@@ -45,6 +45,7 @@ class CrabJobManager(BaseJobManager):
     query_server_status_cre = re.compile(r"^Status\s+on\s+the\s+CRAB\s+server\s*\:\s+([^\s].*)$")
     query_user_cre = re.compile(r"^Task\s+name\s*:\s+\d+_\d+\:([^_]+)_.+$")
     query_scheduler_cre = re.compile(r"^Grid\s+scheduler\s+-\s+Task\s+Worker\s*\:\s+([^\s]+).+$")
+    query_scheduler_id_cre = re.compile(r"^Grid\s+scheduler\s+-\s+Task\s+Worker\s*\:\s+crab.*\@.+[^\d](\d+)\..+$")  # noqa
     query_scheduler_status_cre = re.compile(r"^Status\s+on\s+the\s+scheduler\s*\:\s+([^\s].*)$")
     query_monitoring_url_cre = re.compile(r"^Dashboard\s+monitoring\s+URL\s*\:\s+([^\s].*)$")
     query_json_line_cre = re.compile(r"^\s*(\{.+\})\s*$")
@@ -301,7 +302,7 @@ class CrabJobManager(BaseJobManager):
         cres = [
             cls.query_user_cre,
             cls.query_server_status_cre,
-            cls.query_scheduler_cre,
+            cls.query_scheduler_id_cre,
             cls.query_scheduler_status_cre,
             cls.query_json_line_cre,
             cls.query_monitoring_url_cre,
@@ -318,13 +319,7 @@ class CrabJobManager(BaseJobManager):
                 break
 
         # unpack
-        username, server_status, scheduler, scheduler_status, json_line, monitoring_url = values
-
-        # prepare the scheduler id for extra data
-        scheduler_id = None
-        m = re.match(r"^crab.*\@.+[^\d](\d+)\..+$", scheduler or "")
-        if m:
-            scheduler_id = m.group(1)
+        username, server_status, scheduler_id, scheduler_status, json_line, monitoring_url = values
 
         # helper to build extra info
         def extra(job_id, job_data=None):
