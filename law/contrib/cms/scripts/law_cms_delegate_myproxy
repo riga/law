@@ -5,7 +5,7 @@ Script to trigger a myproxy delegation, e.g. for crab submission.
 """
 
 
-def delegate(renew, endpoint, user_name, password_file):
+def delegate(renew, endpoint, user_name, password_file, skip_local, voms):
     import law
     law.contrib.load("cms", "wlcg")
 
@@ -24,6 +24,8 @@ def delegate(renew, endpoint, user_name, password_file):
         endpoint=endpoint,
         user_name=user_name,
         password_file=password_file,
+        create_local=not skip_local,
+        voms=voms,
     )
 
 
@@ -56,9 +58,27 @@ def main():
         "-u",
         help="a custom user name",
     )
+    parser.add_argument(
+        "--skip-local",
+        "-s",
+        action="store_true",
+        help="skip creating a local proxy file at $X509_USER_PROXY",
+    )
+    parser.add_argument(
+        "--voms",
+        "-m",
+        help="additional VOMS attributes",
+    )
     args = parser.parse_args()
 
-    print(delegate(args.renew, args.endpoint, args.username, args.password_file))
+    print(delegate(
+        args.renew,
+        args.endpoint,
+        args.username,
+        args.password_file,
+        args.skip_local,
+        args.voms,
+    ))
 
 
 # entry hook

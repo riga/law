@@ -290,6 +290,8 @@ def delegate_my_proxy(
     proxy_lifetime=168,
     retrievers=None,
     rfc=True,
+    voms=None,
+    create_local=True,
     password=None,
     password_file=None,
     silent=False,
@@ -303,8 +305,11 @@ def delegate_my_proxy(
 
     The credential and proxy lifetimes can be defined in hours by *cred_lifetime* and
     *proxy_lifetime*. When *retrievers* is given, it is passed as both ``--renewable_by`` and
-    ``--retrievable_by_cert`` to the underlying ``myproxy-init`` command. When *rfc* is *True*,
-    the delegated proxy will be RFC compliant.
+    ``--retrievable_by_cert`` to the underlying ``myproxy-init`` command.
+
+    When *rfc* is *True*, the delegated proxy will be RFC compliant. To pass VOMS attributes to the
+    ``myproxy-init`` command, *voms* can be defined. When *create_local* is *True*, the delegatio
+    also creates a local proxy file (usually at $X509_USER_PROXY).
 
     If no *password* is given, the user is prompted for the password of the user certificate.
     However, if a *password_file* is present, the password is extracted from this file.
@@ -336,6 +341,10 @@ def delegate_my_proxy(
             "-x", "-R", retrievers,
             "-x", "-Z", retrievers,
         ])
+    if voms:
+        cmd.extend(["-m", voms])
+    if create_local:
+        cmd.append("-L")
     rfc_export = "GT_PROXY_MODE=rfc " if rfc else ""
 
     # run it, depending on whether a password file is given

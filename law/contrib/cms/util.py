@@ -122,10 +122,11 @@ def delegate_my_proxy(*args, **kwargs):
     """
     Delegates a X509 proxy to a myproxy server in the exact same way that
     :py:func:`law.wlcg.delegate_my_proxy` does, but with the *retrievers* argument set to a value
-    that is usually expected for crab submissions.
+    that is usually expected for crab submissions and VOMS set to "cms".
     """
     kwargs.setdefault(
         "retrievers",
         "/DC=ch/DC=cern/OU=computers/CN=crab-(preprod|prod|dev)-tw(01|02|03).cern.ch|/DC=ch/DC=cern/OU=computers/CN=stefanov(m|m2).cern.ch|/DC=ch/DC=cern/OU=computers/CN=dciangot-tw.cern.ch",  # noqa
     )
+    kwargs.setdefault("voms", "cms")
     return law.wlcg.delegate_my_proxy(*args, **kwargs)
