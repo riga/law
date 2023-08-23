@@ -125,6 +125,14 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
         # (the latter is None but will be synced from query data)
         return {"job": job_file, "log": None}
 
+    def _status_error_pairs(self, job_num, job_data):
+        pairs = super(CrabWorkflowProxy, self)._status_error_pairs(job_num, job_data)
+
+        # add site history
+        pairs.insert_before("log", "site history", job_data["extra"].get("site_history", no_value))
+
+        return pairs
+
 
 class CrabWorkflow(BaseRemoteWorkflow):
 

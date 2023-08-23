@@ -23,7 +23,8 @@ from law.workflow.base import BaseWorkflow, BaseWorkflowProxy
 from law.job.dashboard import NoJobDashboard
 from law.parameter import NO_FLOAT, NO_INT, get_param, DurationParameter
 from law.util import (
-    is_number, colored, iter_chunks, merge_dicts, human_duration, DotDict, ShorthandDict,
+    no_value, is_number, colored, iter_chunks, merge_dicts, human_duration, DotDict, ShorthandDict,
+    InsertableDict,
 )
 from law.logger import get_logger
 
@@ -56,14 +57,14 @@ class JobData(ShorthandDict):
 
     @classmethod
     def job_data(cls, job_id=dummy_job_id, branches=None, status=None, code=None, error=None,
-            log_file=None, **kwargs):
+            extra=None, **kwargs):
         """
         Returns a dictionary containing default job submission information such as the *job_id*,
         task *branches* covered by the job, a job *status* string, a job return code, an *error*
-        message, and a *log_file*. Additional *kwargs* are accepted but _not_ stored.
+        message, and *extra* data. Additional *kwargs* are accepted but _not_ stored.
         """
         return dict(job_id=job_id, branches=branches or [], status=status, code=code, error=error,
-            log_file=log_file)
+            extra=extra or {})
 
     def __len__(self):
         return len(self.jobs) + len(self.unsubmitted_jobs)
@@ -378,6 +379,18 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
         return n_parallel
 
+    def _status_error_pairs(self, job_num, job_data):
+        return InsertableDict([
+            ("job", job_num),
+            ("branches", job_data["branches"]),
+            ("id", job_data["job_id"]),
+            ("status", job_data["status"]),
+            ("code", job_data["code"]),
+            ("error", job_data.get("error")),
+            ("job script error", self.job_error_messages.get(job_data["code"], no_value)),
+            ("log", job_data["extra"].get("log_file", no_value)),
+        ])
+
     def _print_status_errors(self, failed_jobs):
         print("{} in task {}:".format(
             colored("{} failed job(s)".format(len(failed_jobs)), color="red", style="bright"),
@@ -389,17 +402,19 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         show_summary = threshold and (isinstance(threshold, bool) or len(failed_jobs) >= threshold)
 
         # show the first n errors
-        tmpl = "    job: {job_num}, branch(es): {branches}, id: {job_id}, " \
-            "status: {status}, code: {code}, error: {error}{ext}"
         for i, (job_num, data) in enumerate(six.iteritems(failed_jobs)):
-            ext = ""
-            if data["code"] in self.job_error_messages:
-                law_err = self.job_error_messages[data["code"]]
-                ext += ", job script error: {}".format(law_err)
-            if data["log_file"]:
-                ext += ", log: {}".format(data["log_file"])
+            # get status pairs
+            status_pairs = self._status_error_pairs(job_num, data)
+            if isinstance(status_pairs, dict):
+                status_pairs = list(status_pairs.items())
 
-            print(tmpl.format(job_num=job_num, ext=ext, **data))
+            # print the status line
+            status_line = ", ".join([
+                "{} {}".format(colored("{}:".format(key), style="bright"), value)
+                for key, value in status_pairs
+                if value != no_value
+            ])
+            print("    {}".format(status_line))
 
             if i >= self.show_errors and len(failed_jobs) > self.show_errors + 1:
                 remaining = len(failed_jobs) - self.show_errors
@@ -427,20 +442,31 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 groups[key]["n_jobs"] += 1
                 groups[key]["n_branches"] += len(data["branches"])
                 if not groups[key]["log_file"]:
-                    groups[key]["log_file"] = data["log_file"]
+                    groups[key]["log_file"] = data["extra"].get("log_file")
 
             # show the summary
             print(colored("error summary:", color="red", style="bright"))
-            tmpl = "    {n_jobs} jobs ({n_branches} branches) with status: {status}, " \
-                "code: {code}, error: {error}{ext}"
             for (code, status, error_trunc), stats in six.iteritems(groups):
-                # add status messsages of known error codes
+                # status messsages of known error codes
+                code_str = ""
                 if code in self.job_error_messages:
-                    code = "{} ({})".format(code, self.job_error_messages[code])
+                    code_str = " ({})".format(self.job_error_messages[code])
+                # pairs for printing
+                summary_pairs = [
+                    ("status", status),
+                    ("code", str(code) + code_str),
+                    ("error", error_trunc),
+                ]
                 # add an example log file
-                ext = ", example log: {log_file}".format(**stats) if stats["log_file"] else ""
+                if stats["log_file"]:
+                    summary_pairs.append(("example log", stats["log_file"]))
                 # print the line
-                print(tmpl.format(status=status, code=code, error=error_trunc, ext=ext, **stats))
+                summary_line = ", ".join([
+                    "{} {}".format(colored("{}:".format(key), style="bright"), value)
+                    for key, value in summary_pairs
+                ])
+                print("    {n_jobs} jobs ({n_branches} branches) with {summary_line}".format(
+                    summary_line=summary_line, **stats))
 
     def complete(self):
         if self.task.is_controlling_remote_jobs():
@@ -762,7 +788,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             # set the job id in the job data
             job_data = self.job_data.jobs[job_num]
             job_data["job_id"] = job_id
-            job_data["log_file"] = files.get("log")
+            job_data["extra"]["log_file"] = files.get("log")
             new_submission_data[job_num] = copy.deepcopy(job_data)
 
             # inform the dashboard
@@ -784,7 +810,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                         print("    ... and {} more".format(remaining))
                     break
         else:
-            task.publish_message("submitted {} job(s)".format(len(submit_jobs)) + dst_info)
+            task.publish_message(
+                "submitted {} {} job(s){}".format(len(submit_jobs), self.workflow_type, dst_info),
+            )
 
         return new_submission_data
 
@@ -949,19 +977,25 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             for job_num, (job_id, state_or_error) in zip(active_jobs, six.iteritems(query_data)):
                 if isinstance(state_or_error, Exception):
                     errors.append(state_or_error)
-                else:
-                    states_by_id[job_id] = state_or_error
-                    # sync extra info if available
-                    extra = state_or_error.get("extra")
-                    if not isinstance(extra, dict):
-                        continue
-                    if not self.tracking_url and "tracking_url" in extra:
-                        self.tracking_url = extra["tracking_url"]
-                    if extra.get("log_file"):
-                        self.job_data.jobs[job_num]["log_file"] = extra["log_file"]
-                        if not self._printed_first_log:
-                            task.publish_message("first log file: {}".format(extra["log_file"]))
-                            self._printed_first_log = True
+                    continue
+
+                # set the data
+                states_by_id[job_id] = state_or_error
+
+                # sync extra info if available
+                extra = state_or_error.get("extra")
+                if not isinstance(extra, dict):
+                    continue
+                self.job_data.jobs[job_num]["extra"] = extra
+
+                # set tracking url on the workflow proxy
+                if not self.tracking_url and "tracking_url" in extra:
+                    self.tracking_url = extra["tracking_url"]
+
+                # print the first log file
+                if not self._printed_first_log and extra.get("log_file"):
+                    task.publish_message("first log file: {}".format(extra["log_file"]))
+                    self._printed_first_log = True
             del query_data
 
             # print the first couple errors
