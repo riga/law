@@ -70,9 +70,6 @@ class CrabJobManager(BaseJobManager):
         # create the cmssw sandbox
         self.cmssw_sandbox = Sandbox.new("cmssw::{}".format(sandbox_name))
 
-        # cached proxy delegation user name
-        self.proxy_delegation_user_name = None
-
         # store attributes
         self.proxy = proxy
         self.instance = instance
@@ -88,31 +85,6 @@ class CrabJobManager(BaseJobManager):
 
     @property
     def cmssw_env(self):
-        # check if the proxy is valid for more than 24h and store the delegation name
-        if not self.proxy_delegation_user_name:
-            info = law.wlcg.get_my_proxy_info(silent=True)
-            delegate = False
-            if not info:
-                delegate = True
-            elif "user_name" not in info:
-                logger.warning("field 'user_name' not in myproxy info")
-                delegate = True
-            elif "time_left" not in info:
-                logger.warning("field 'time_left' not in myproxy info")
-                delegate = True
-            elif info["time_left"] < 86400:
-                logger.warning("myproxy lifetime below 24h ({})".format(
-                    human_duration(seconds=info["time_left"]),
-                ))
-                delegate = True
-
-            if delegate:
-                cfg = Config.instance()
-                password_file = cfg.get_expanded("job", "crab_password_file")
-                self.proxy_delegation_user_name = delegate_my_proxy(password_file=password_file)
-            else:
-                self.proxy_delegation_user_name = info["user_name"]
-
         return self.cmssw_sandbox.env
 
     def group_job_ids(self, job_ids):

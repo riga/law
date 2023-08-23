@@ -44,6 +44,19 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
     def create_job_manager(self, **kwargs):
         return self.task.glite_create_job_manager(**kwargs)
 
+    def setup_job_mananger(self):
+        kwargs = {}
+
+        # delegate the voms proxy to all endpoints
+        if callable(self.task.glite_delegate_proxy):
+            delegation_ids = []
+            for ce in self.task.glite_ce:
+                endpoint = get_ce_endpoint(ce)
+                delegation_ids.append(self.task.glite_delegate_proxy(endpoint))
+            kwargs["delegation_id"] = delegation_ids
+
+        return kwargs
+
     def create_job_file_factory(self, **kwargs):
         return self.task.glite_create_job_file_factory(**kwargs)
 
@@ -140,19 +153,6 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
 
         # return job and log files
         return {"job": job_file, "log": abs_log_file}
-
-    def _submit(self, *args, **kwargs):
-        task = self.task
-
-        # delegate the voms proxy to all endpoints
-        if self.delegation_ids is None and callable(task.glite_delegate_proxy):
-            self.delegation_ids = []
-            for ce in task.glite_ce:
-                endpoint = get_ce_endpoint(ce)
-                self.delegation_ids.append(task.glite_delegate_proxy(endpoint))
-        kwargs["delegation_id"] = self.delegation_ids
-
-        return super(GLiteWorkflowProxy, self)._submit(*args, **kwargs)
 
     def destination_info(self):
         info = ["ce: {}".format(",".join(self.task.glite_ce))]

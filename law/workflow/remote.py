@@ -203,6 +203,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         # setup the job mananger
         self.job_manager = self.create_job_manager(threads=task.submission_threads)
         self.job_manager.status_diff_styles["unsubmitted"] = ({"color": "green"}, {}, {})
+        self._job_manager_setup_kwargs = no_value
 
         # boolean per job num denoting if a job should be / was skipped
         self.skip_jobs = {}
@@ -246,6 +247,20 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         *kwargs* to the constructor of the respective job manager.
         """
         return
+
+    def setup_job_manager(self):
+        """
+        Hook invoked externally to further setup the job mananger or perform batch system related
+        preparations, e.g. before jobs can be submitted. The returned keyword arguments will be
+        forwarded to the submit, cancel, cleanup and query methods of the job mananger.
+        """
+        return {}
+
+    def _setup_job_manager(self):
+        if self._job_manager_setup_kwargs == no_value:
+            self._job_manager_setup_kwargs = self.setup_job_manager()
+
+        return self._job_manager_setup_kwargs or {}
 
     @abstractmethod
     def create_job_file_factory(self, **kwargs):
@@ -628,8 +643,11 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         if not job_ids:
             return
 
+        # setup the job manager
+        job_man_kwargs = self._setup_job_manager()
+
         # get job kwargs for cancelling
-        cancel_kwargs = self._get_job_kwargs("cancel")
+        cancel_kwargs = merge_dicts(job_man_kwargs, self._get_job_kwargs("cancel"))
 
         # cancel jobs
         task.publish_message("going to cancel {} jobs".format(len(job_ids)))
@@ -670,8 +688,11 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         if not job_ids:
             return
 
+        # setup the job manager
+        job_man_kwargs = self._setup_job_manager()
+
         # get job kwargs for cleanup
-        cleanup_kwargs = self._get_job_kwargs("cleanup")
+        cleanup_kwargs = merge_dicts(job_man_kwargs, self._get_job_kwargs("cleanup"))
 
         # cleanup jobs
         task.publish_message("going to cleanup {} jobs".format(len(job_ids)))
@@ -830,9 +851,11 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         if dump_freq and not is_number(dump_freq):
             dump_freq = 50
 
+        # setup the job manager
+        job_man_kwargs = self._setup_job_manager()
+
         # get job kwargs for submission and merge with passed kwargs
-        submit_kwargs = self._get_job_kwargs("submit")
-        submit_kwargs = merge_dicts(submit_kwargs, kwargs)
+        submit_kwargs = merge_dicts(job_man_kwargs, self._get_job_kwargs("submit"), kwargs)
 
         # progress callback to inform the scheduler
         def progress_callback(i, job_id):
@@ -871,9 +894,11 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         # create the single multi submission file, passing the job_num -> branches dict
         job_file = self.create_job_file(submit_jobs)
 
+        # setup the job manager
+        job_man_kwargs = self._setup_job_manager()
+
         # get job kwargs for submission and merge with passed kwargs
-        submit_kwargs = self._get_job_kwargs("submit")
-        submit_kwargs = merge_dicts(submit_kwargs, kwargs)
+        submit_kwargs = merge_dicts(job_man_kwargs, self._get_job_kwargs("submit"), kwargs)
 
         # submission
         job_ids = self.job_manager.submit_group(
@@ -910,8 +935,11 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         n_poll_fails = 0
         start_time = time.time()
 
+        # setup the job manager
+        job_man_kwargs = self._setup_job_manager()
+
         # get job kwargs for status querying
-        query_kwargs = self._get_job_kwargs("query")
+        query_kwargs = merge_dicts(job_man_kwargs, self._get_job_kwargs("query"))
 
         # start the poll loop
         i = -1
