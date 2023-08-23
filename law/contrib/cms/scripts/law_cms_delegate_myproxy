@@ -67,7 +67,8 @@ def main():
     parser.add_argument(
         "--voms",
         "-m",
-        help="additional VOMS attributes",
+        default="cms",
+        help="additional VOMS attributes; default: cms",
     )
     args = parser.parse_args()
 
