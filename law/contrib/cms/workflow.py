@@ -14,7 +14,6 @@ from collections import OrderedDict
 
 import six
 
-import law
 from law.config import Config
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments, JobInputFile
