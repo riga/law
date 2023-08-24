@@ -20,8 +20,7 @@ from law.task.proxy import ProxyTask, get_proxy_attribute
 from law.target.collection import TargetCollection
 from law.parameter import NO_STR, MultiRangeParameter
 from law.util import (
-    no_value, make_list, make_set, iter_chunks, range_expand, range_join, create_hash,
-    is_classmethod, DotDict,
+    no_value, make_list, make_set, iter_chunks, range_expand, range_join, create_hash, DotDict,
 )
 from law.logger import get_logger
 
