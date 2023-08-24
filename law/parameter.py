@@ -224,7 +224,7 @@ class BytesParameter(luigi.Parameter):
 
 class CSVParameter(luigi.Parameter):
     r""" __init__(*args, cls=luigi.Parameter, unique=False, sort=False, min_len=None, \
-        max_len=None, choices=None, brace_expand=False, escape_sep=True, **kwargs)
+        max_len=None, choices=None, brace_expand=False, escape_sep=True, force_tuple=True, **kwargs)
     Parameter that parses a comma-separated value (CSV) and produces a tuple. *cls* can refer to an
     other parameter class that will be used to parse and serialize the particular items.
 
@@ -241,6 +241,11 @@ class CSVParameter(luigi.Parameter):
     be quoted in csv-style with double quotes, but they should rather be backslash-escaped instead.
     Unless *escape_sep* is *False*, escaped separators (comma) are not split when parsing
     strings and, likewise, separators contained in values to serialze are escaped.
+
+    By default, single values are parsed such that they result in a tuple containing a single item.
+    However, when *force_tuple* is *False*, single values that do not end with a comma are not
+    wrapped by a tuple. Likewise, during serialization they are converted to a string as is, whereas
+    tuple containing only a single item will end with a trailing comma.
 
     Example:
 
@@ -281,6 +286,20 @@ class CSVParameter(luigi.Parameter):
         p.parse("1{2,3,4}9")
         # => (129, 139, 149)
 
+        # do not force tuples to wrap single values
+        p = CSVParameter(cls=luigi.IntParameter, force_tuple=False)
+        p.parse("1")
+        # => 1
+        # note: the result would be (1,) with force_tuple left at True (default)
+        p.parse("1,")
+        # => (1,)
+        p.serialize(1)
+        # => "1"
+        p.serialize((1,))
+        # => "1,"
+        p.serialize((1, 2))
+        # => "1,2"
+
     .. note::
 
         Due to the way `instance caching
@@ -307,6 +326,7 @@ class CSVParameter(luigi.Parameter):
         self._choices = kwargs.pop("choices", None)
         self._brace_expand = kwargs.pop("brace_expand", False)
         self._escape_sep = kwargs.pop("escape_sep", True)
+        self._force_tuple = kwargs.pop("force_tuple", True)
 
         # ensure that the default value is a tuple
         if "default" in kwargs:
@@ -359,6 +379,7 @@ class CSVParameter(luigi.Parameter):
 
     def parse(self, inp):
         """"""
+        return_single_value = False
         if not inp or inp == NO_STR:
             value = tuple()
         elif isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
@@ -376,7 +397,11 @@ class CSVParameter(luigi.Parameter):
                 # add back escaped separators per element
                 if self._escape_sep:
                     elems = [elem.replace(escaped_sep, ",") for elem in elems]
+            # skip trailing empty strings
+            if not elems[-1]:
+                elems.pop()
             value = tuple(map(self._inst.parse, elems))
+            return_single_value = len(value) == 1 and not self._force_tuple
         else:
             value = (inp,)
 
@@ -386,13 +411,15 @@ class CSVParameter(luigi.Parameter):
         self._check_len(value)
         self._check_choices(value)
 
-        return value
+        return value[0] if return_single_value else value
 
     def serialize(self, value):
         """"""
         if not value:
             value = tuple()
 
+        # ensure value is a tuple
+        was_sequence = isinstance(value, (tuple, list))
         value = make_tuple(value)
 
         # apply uniqueness, sort, length and choices checks
@@ -401,20 +428,27 @@ class CSVParameter(luigi.Parameter):
         self._check_len(value)
         self._check_choices(value)
 
-        return ",".join(str(self._inst.serialize(elem)) for elem in value)
+        # convert to string
+        s = ",".join(str(self._inst.serialize(elem)) for elem in value)
+
+        # add a trailing comma if necessary
+        if len(value) == 1 and not self._force_tuple and was_sequence:
+            s += ","
+
+        return s
 
 
 class MultiCSVParameter(CSVParameter):
     r""" __init__(*args, cls=luigi.Parameter, unique=False, sort=False, min_len=None, \
-        max_len=None, choices=None, brace_expand=False, escape_sep=True, **kwargs)
+        max_len=None, choices=None, brace_expand=False, escape_sep=True, force_tuple=True, **kwargs)
     Parameter that parses several comma-separated values (CSV), separated by colons, and produces a
     nested tuple. *cls* can refer to an other parameter class that will be used to parse and
     serialize the particular items.
 
     Except for the additional support for multiple CSV sequences, the parsing and serialization
     implementation is based on :py:class:`CSVParameter`, which also handles the features controlled
-    by *unique*, *sort*, *max_len*, *min_len*, *choices*, *brace_expand* and *escape_sep* per
-    sequence of values.
+    by *unique*, *sort*, *max_len*, *min_len*, *choices*, *brace_expand*, *escape_sep* and
+    *force_tuple* per sequence of values.
 
     However, note that in this case colon characters that are not meant to act as a delimiter cannot
     be quoted in csv-style with double quotes, but they should rather be backslash-escaped instead.
@@ -509,10 +543,7 @@ class MultiCSVParameter(CSVParameter):
         if not value:
             return ""
 
-        # ensure that value is a nested tuple
-        value = tuple(map(make_tuple, make_tuple(value)))
-
-        return ":".join(super(MultiCSVParameter, self).serialize(v) for v in value)
+        return ":".join(super(MultiCSVParameter, self).serialize(v) for v in make_tuple(value))
 
 
 class RangeParameter(luigi.Parameter):

@@ -20,7 +20,7 @@ from law.task.proxy import ProxyTask, get_proxy_attribute
 from law.target.collection import TargetCollection
 from law.parameter import NO_STR, MultiRangeParameter
 from law.util import (
-    no_value, make_list, iter_chunks, range_expand, range_join, create_hash, DotDict,
+    no_value, make_list, make_set, iter_chunks, range_expand, range_join, create_hash, DotDict,
 )
 from law.logger import get_logger
 
@@ -384,8 +384,8 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
     pilot = luigi.BoolParameter(
         default=False,
         significant=False,
-        description="disable requirements of the workflow to let branch tasks resolve requirements "
-        "on their own; default: False",
+        description="disable certain configurable requirements of the workflow to let branch tasks "
+        "resolve requirements on their own; default: False",
     )
     branch = luigi.IntParameter(
         default=-1,
@@ -438,13 +438,6 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         )
         params["effective_workflow"] = workflow_cls.workflow_proxy_cls.workflow_type
 
-        # show deprecation error when start or end branch parameters are set
-        if "start_branch" in params or "end_branch" in params:
-            raise DeprecationWarning(
-                "--start-branch and --end-branch are no longer supported; "
-                "please use '--branches start:end' instead",
-            )
-
         return params
 
     @classmethod
@@ -466,6 +459,25 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
 
         msg = " for type '{}'".format(name) if name else ""
         raise ValueError("cannot determine workflow class{} in task class {}".format(msg, cls))
+
+    @classmethod
+    def _sanitize_branch_map(cls, branch_map, force_contiguous_branches):
+        if isinstance(branch_map, (list, tuple)):
+            branch_map = dict(enumerate(branch_map))
+        elif isinstance(branch_map, six.integer_types):
+            branch_map = dict(enumerate(range(branch_map)))
+        elif force_contiguous_branches:
+            n = len(branch_map)
+            if set(branch_map.keys()) != set(range(n)):
+                raise ValueError("branch map keys must constitute contiguous range "
+                    "[0, {})".format(n))
+        else:
+            for branch in branch_map:
+                if not isinstance(branch, six.integer_types) or branch < 0:
+                    raise ValueError("branch map keys must be non-negative integers, got "
+                        "'{}' ({})".format(branch, type(branch).__name__))
+
+        return branch_map
 
     @classmethod
     def req_different_branching(cls, inst, **kwargs):
@@ -508,6 +520,7 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
     def _initialize_workflow(self, force=False):
         if self._workflow_initialized and not force:
             return
+        self._workflow_initialized = True
 
         if self.is_workflow():
             self._workflow_cls = self.find_workflow_cls(self.effective_workflow)
@@ -540,10 +553,8 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
     def cli_args(self, exclude=None, replace=None):
         exclude = set() if exclude is None else set(make_list(exclude))
 
-        if self.is_branch():
-            exclude |= self.exclude_params_branch
-        else:
-            exclude |= self.exclude_params_workflow
+        # exclude certain branch/workflow parameters
+        exclude |= self.exclude_params_branch if self.is_branch() else self.exclude_params_workflow
 
         return super(BaseWorkflow, self).cli_args(exclude=exclude, replace=replace)
 
@@ -578,8 +589,9 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
 
         # default kwargs
         kwargs.setdefault("_skip_task_excludes", True)
+        kwargs["_exclude"] = make_set(kwargs.get("_exclude", ()))
         if self.is_workflow():
-            kwargs.setdefault("_exclude", self.exclude_params_branch)
+            kwargs["_exclude"] |= set(self.exclude_params_branch)
 
         # create the task
         task = self.req(self, branch=branch, **kwargs)
@@ -592,8 +604,9 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
     def req_workflow(self, **kwargs):
         # default kwargs
         kwargs.setdefault("_skip_task_excludes", True)
+        kwargs["_exclude"] = make_set(kwargs.get("_exclude", ()))
         if self.is_branch():
-            kwargs.setdefault("_exclude", self.exclude_params_workflow)
+            kwargs["_exclude"] |= set(self.exclude_params_workflow)
 
         return self.req(self, branch=-1, **kwargs)
 
@@ -707,27 +720,13 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
                 reduce_branches=reduce_branches,
             )
 
-        if self._branch_map is None:
+        branch_map = self._branch_map
+        if branch_map is None:
             # create a new branch map
             branch_map = self.create_branch_map()
 
             # some type and sanity checks
-            if isinstance(branch_map, (list, tuple)):
-                branch_map = dict(enumerate(branch_map))
-            elif isinstance(branch_map, six.integer_types):
-                branch_map = dict(enumerate(range(branch_map)))
-            elif self.force_contiguous_branches:
-                n = len(branch_map)
-                if set(branch_map.keys()) != set(range(n)):
-                    raise ValueError(
-                        "branch map keys must constitute contiguous range [0, {})".format(n))
-            else:
-                for branch in branch_map:
-                    if not isinstance(branch, six.integer_types) or branch < 0:
-                        raise ValueError(
-                            "branch map keys must be non-negative integers, got '{}' ({})".format(
-                                branch, type(branch).__name__),
-                        )
+            branch_map = self._sanitize_branch_map(branch_map, self.force_contiguous_branches)
 
             # post-process
             if reset_boundaries:
@@ -735,14 +734,11 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
             if reduce_branches:
                 self._reduce_branch_map(branch_map)
 
-            # return the map when we are not going to cache it
-            if not self._cache_branches:
-                return branch_map
-
             # cache it
-            self._branch_map = branch_map
+            if self._cache_branches:
+                self._branch_map = branch_map
 
-        return self._branch_map
+        return branch_map
 
     @property
     def branch_map(self):

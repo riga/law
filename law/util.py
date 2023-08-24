@@ -7,16 +7,16 @@ Helpful utility functions.
 __all__ = [
     "default_lock", "io_lock", "console_lock", "no_value", "rel_path", "law_src_path",
     "law_home_path", "law_run", "print_err", "abort", "import_file", "get_terminal_width",
-    "is_number", "is_float", "try_int", "round_discrete", "str_to_int", "flag_to_bool",
-    "empty_context", "common_task_params", "colored", "uncolored", "query_choice", "is_pattern",
-    "brace_expand", "range_expand", "range_join", "multi_match", "is_iterable", "is_lazy_iterable",
-    "make_list", "make_tuple", "make_set", "make_unique", "is_nested", "flatten", "merge_dicts",
-    "unzip", "which", "map_verbose", "map_struct", "mask_struct", "tmp_file", "perf_counter",
-    "interruptable_popen", "readable_popen", "create_hash", "create_random_string", "copy_no_perm",
-    "makedirs", "user_owns_file", "iter_chunks", "human_bytes", "parse_bytes", "human_duration",
-    "parse_duration", "is_file_exists_error", "send_mail", "DotDict", "ShorthandDict",
-    "open_compat", "patch_object", "join_generators", "quote_cmd", "escape_markdown",
-    "classproperty", "BaseStream", "TeeStream", "FilteredStream",
+    "is_classmethod", "is_number", "is_float", "try_int", "round_discrete", "str_to_int",
+    "flag_to_bool", "empty_context", "common_task_params", "colored", "uncolored", "query_choice",
+    "is_pattern", "brace_expand", "range_expand", "range_join", "multi_match", "is_iterable",
+    "is_lazy_iterable", "make_list", "make_tuple", "make_set", "make_unique", "is_nested",
+    "flatten", "merge_dicts", "unzip", "which", "map_verbose", "map_struct", "mask_struct",
+    "tmp_file", "perf_counter", "interruptable_popen", "readable_popen", "create_hash",
+    "create_random_string", "copy_no_perm", "makedirs", "user_owns_file", "iter_chunks",
+    "human_bytes", "parse_bytes", "human_duration", "parse_duration", "is_file_exists_error",
+    "send_mail", "DotDict", "ShorthandDict", "open_compat", "patch_object", "join_generators",
+    "quote_cmd", "escape_markdown", "classproperty", "BaseStream", "TeeStream", "FilteredStream",
 ]
 
 
@@ -84,8 +84,11 @@ class NoValue(object):
     def __nonzero__(self):
         return False
 
-    def __str__(self):
+    def __repr__(self):
         return "{}.no_value".format(self.__module__)
+
+    def __str__(self):
+        return "no_value"
 
 
 #: Unique dummy value that is used to denote missing values and always evaluates to *False*.
@@ -231,6 +234,32 @@ def get_terminal_width(fallback=False):
             pass
 
     return width
+
+
+def is_classmethod(func, cls=None):
+    """
+    Returns *True* if *func* is a classmethod of *cls*, and *False* otherwise. When *cls* is *None*,
+    it is extracted from the function's qualified name and module name.
+    """
+    # when no cls is given, try to lookup it up in its associated module
+    _hasattr = lambda attr: getattr(func, attr, None) is not None
+    if cls is None:
+        if _hasattr("__qualname__") and _hasattr("__module__") and "." in func.__qualname__:
+            cls_name = func.__qualname__.rsplit(".", 1)[0]
+            cls = getattr(sys.modules.get(func.__module__), cls_name, None)
+
+    # when no class exists at this point, func cannot be a classmethod
+    if cls is None:
+        return False
+
+    # func requires a __name__
+    if not _hasattr("__name__"):
+        raise AttributeError("func '{}' has not attribute __name__".format(func))
+
+    try:
+        return cls.__dict__[func.__name__].__class__.__name__ == "classmethod"
+    except AttributeError:
+        return False
 
 
 def is_number(n):
