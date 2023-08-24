@@ -385,9 +385,6 @@ class CSVParameter(luigi.Parameter):
         elif isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
             value = make_tuple(inp)
         elif isinstance(inp, six.string_types):
-            if not self._force_tuple:
-                ended_with_comma = inp.endswith(",")
-                inp = inp.rstrip(",")
             if self._brace_expand:
                 elems = brace_expand(inp, split_csv=True, escape_csv_sep=self._escape_sep)
             else:
@@ -403,6 +400,7 @@ class CSVParameter(luigi.Parameter):
             # skip trailing empty strings
             if not elems[-1]:
                 elems.pop()
+            # parse
             value = tuple(map(self._inst.parse, elems))
             return_single_value = len(value) == 1 and not self._force_tuple
         else:

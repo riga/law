@@ -45,7 +45,6 @@ import threading
 import io
 import shlex
 import logging
-import inspect
 
 import six
 
