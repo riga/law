@@ -27,7 +27,7 @@ _law_complete() {
 
     # common parameters
     local common_params="run index config software completion location --help --version"
-    local common_run_params="workers local-scheduler scheduler-host scheduler-port log-level help"
+    local common_run_params="workers assistant local-scheduler scheduler-host scheduler-port log-level help"
 
     # the current word
     local cur="${COMP_WORDS[COMP_CWORD]}"
