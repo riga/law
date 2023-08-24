@@ -5,22 +5,26 @@ action() {
     local this_file="$( ${shell_is_zsh} && echo "${(%):-%x}" || echo "${BASH_SOURCE[0]}" )"
     local this_dir="$( cd "$( dirname "${this_file}" )" && pwd )"
 
-    # setup external software once
-    local sw_dir="${this_dir}/tmp"
+    export VIRTUAL_ENV_DISABLE_PROMPT="1"
+
+    # setup external software once in a venv
+    local sw_dir="${this_dir}/data/software"
     if [ ! -d "${sw_dir}" ]; then
         mkdir -p "${sw_dir}"
-        git clone https://github.com/spotify/luigi.git "${sw_dir}/luigi"
-        ( cd "${sw_dir}/luigi" && git checkout tags/2.8.13 )
-        git clone https://github.com/benjaminp/six.git "${sw_dir}/six"
+        python -m venv "${sw_dir}" --upgrade-deps || return "$?"
+        source "${sw_dir}/bin/activate" "" || return "$?"
+        pip install -U luigi six
+    else
+        source "${sw_dir}/bin/activate" "" || return "$?"
     fi
 
     local law_base="$( dirname "$( dirname "${this_dir}" )" )"
     export PATH="${law_base}/bin:${sw_dir}/luigi/bin:${PATH}"
-    export PYTHONPATH="${this_dir}:${law_base}:${sw_dir}/luigi:${sw_dir}/six:${PYTHONPATH}"
+    export PYTHONPATH="${this_dir}:${law_base}:${PYTHONPATH}"
 
     export LAW_HOME="${this_dir}/.law"
     export LAW_CONFIG_FILE="${this_dir}/law.cfg"
-    export WORKFLOWEXAMPLE_DATA_PATH="${this_dir}/data"
+    export WORKFLOWEXAMPLE_DATA_PATH="${this_dir}/data/store"
 
     source "$( law completion )" ""
 }

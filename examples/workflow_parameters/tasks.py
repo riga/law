@@ -13,8 +13,8 @@ class Task(law.Task):
         return (self.__class__.__name__,)
 
     def local_path(self, *path):
-        parts = (os.getenv("WORKFLOWEXAMPLE_DATA_PATH"),) + self.store_parts() + path
-        return os.path.join(*map(str, path))
+        parts = ("$WORKFLOWEXAMPLE_DATA_PATH",)+ self.store_parts() + path
+        return os.path.join(*map(str, parts))
 
     def local_target(self, *path):
         return law.LocalFileTarget(self.local_path(*path))
@@ -33,26 +33,30 @@ class CreateChars(Task, law.LocalWorkflow):
     def create_branch_map(cls, params):
         return [
             {"num": num, "upper_case": upper_case}
-            for num in range(97, 122 + 1)
             for upper_case in [True, False]
+            for num in range(97, 122 + 1)
         ]
 
     def output(self):
-        return self.local_target("output_{}_{}.json".format(self.num, self.upper_case))
+        return self.local_target("output_{}_{}.json".format(self.num, "uc" if self.upper_case else "lc"))
 
     def run(self):
-        num = self.branch_data
+        num = self.branch_data["num"]
         char = chr(num)
+        if self.branch_data["upper_case"]:
+            char = char.upper()
         self.output().dump({"num": num, "char": char})
 
 
 class CreateAlphabet(Task):
 
+    upper_case = luigi.BoolParameter(default=False)
+
     def requires(self):
         return CreateChars.req(self)
 
     def output(self):
-        return self.local_target("alphabet.txt")
+        return self.local_target("alphabet_{}.txt".format("uc" if self.upper_case else "lc"))
 
     def run(self):
         alphabet = "".join(
