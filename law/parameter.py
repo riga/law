@@ -19,7 +19,7 @@ import six
 from law.notification import notify_mail
 from law.util import (
     human_duration, parse_duration, time_units, time_unit_aliases, human_bytes, parse_bytes,
-    byte_units, is_lazy_iterable, make_tuple, make_unique, brace_expand, try_int,
+    byte_units, is_lazy_iterable, make_tuple, make_unique, brace_expand, try_int, no_value,
 )
 from law.logger import get_logger
 
@@ -51,7 +51,7 @@ def is_no_param(value):
     Checks whether a parameter *value* denotes an empty parameter, i.e., if the value is either
     :py:attr:`NO_STR`, :py:attr:`NO_INT`, or :py:attr:`NO_FLOAT`.
     """
-    return value in (NO_STR, NO_INT, NO_FLOAT)
+    return value in (NO_STR, NO_INT, NO_FLOAT, no_value)
 
 
 def get_param(value, default=None):
@@ -87,9 +87,9 @@ class OptionalBoolParameter(luigi.BoolParameter):
             return inp
 
         s = str(inp).lower()
-        if s == "true":
+        if s in ("true", "yes", "1"):
             return True
-        if s == "false":
+        if s in ("false", "no", "0"):
             return False
         if s == "none":
             return None
@@ -148,7 +148,7 @@ class DurationParameter(luigi.Parameter):
 
     def parse(self, inp):
         """"""
-        if not inp or inp == NO_STR:
+        if inp in (None, "", NO_STR, no_value):
             inp = "0"
 
         return parse_duration(inp, input_unit=self.unit, unit=self.unit)
@@ -206,7 +206,7 @@ class BytesParameter(luigi.Parameter):
 
     def parse(self, inp):
         """"""
-        if not inp or inp == NO_STR:
+        if inp in (None, "", NO_STR, no_value):
             inp = "0"
 
         return parse_bytes(inp, input_unit=self.unit, unit=self.unit)
@@ -380,7 +380,7 @@ class CSVParameter(luigi.Parameter):
     def parse(self, inp):
         """"""
         return_single_value = False
-        if not inp or inp == NO_STR:
+        if inp in (None, "", NO_STR, no_value):
             value = tuple()
         elif isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
             value = make_tuple(inp)
@@ -416,7 +416,7 @@ class CSVParameter(luigi.Parameter):
 
     def serialize(self, value):
         """"""
-        if not value:
+        if value in (None, NO_STR, no_value):
             value = tuple()
 
         # ensure value is a tuple
@@ -644,7 +644,7 @@ class RangeParameter(luigi.Parameter):
 
     def parse(self, inp):
         """"""
-        if not inp or inp == NO_STR:
+        if inp in (None, "", NO_STR, no_value):
             value = tuple()
         elif isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
             value = make_tuple(inp)
@@ -705,7 +705,7 @@ class MultiRangeParameter(RangeParameter):
 
     def parse(self, inp):
         """"""
-        if not inp or inp == NO_STR:
+        if inp in (None, "", NO_STR, no_value):
             value = tuple()
         elif isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
             value = tuple(super(MultiRangeParameter, self).parse(v) for v in inp)
