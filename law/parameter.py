@@ -332,9 +332,15 @@ class CSVParameter(luigi.Parameter):
         if "default" in kwargs:
             kwargs["default"] = make_tuple(kwargs["default"])
 
+        # cls might already point to an instance
+        inst = None
+        if isinstance(self._cls, luigi.Parameter):
+            inst = self._cls
+            self._cls = self._cls.__class__
+
         super(CSVParameter, self).__init__(*args, **kwargs)
 
-        self._inst = self._cls()
+        self._inst = self._cls() if inst is None else inst
 
     def _check_unique(self, value):
         if not self._unique:
