@@ -558,7 +558,6 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
                         )
                     _branch = branch_map_reversed[values]
                     if branch != -1 and branch != _branch:
-                        from IPython import embed; embed()
                         raise ValueError(
                             "workflow parameters {} in {} refer to branch {}, but branch {} "
                             "requested".format(wparams_repr(), cls.__name__, _branch, branch),
