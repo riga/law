@@ -485,7 +485,7 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
 
             # when there are any workflow parameters, create_branch_map must be a classmethod since
             # there is no way of accessing this map before instantiation
-            if not is_classmethod(cls, cls.create_branch_map):
+            if not is_classmethod(cls.create_branch_map, cls):
                 raise Exception(
                     "{}.create_branch_map must be a classmethod accepting a single parameter (dict "
                     "of parameter names and values) in case workflows use WorkflowParameter "
@@ -908,7 +908,7 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         if branch_map is None:
             # create a new branch map
             args = ()
-            if is_classmethod(self.__class__, self.create_branch_map):
+            if is_classmethod(self.create_branch_map, self.__class__):
                 params = OrderedDict([
                     (param_name, getattr(self, param_name))
                     for param_name, _ in self.get_params()

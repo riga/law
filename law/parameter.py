@@ -400,8 +400,11 @@ class CSVParameter(luigi.Parameter):
                 # add back escaped separators per element
                 if self._escape_sep:
                     elems = [elem.replace(escaped_sep, ",") for elem in elems]
+            # skip trailing empty strings
+            if not elems[-1]:
+                elems.pop()
             value = tuple(map(self._inst.parse, elems))
-            return_single_value = len(value) == 1 and not self._force_tuple and not ended_with_comma
+            return_single_value = len(value) == 1 and not self._force_tuple
         else:
             value = (inp,)
 

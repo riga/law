@@ -237,15 +237,30 @@ def get_terminal_width(fallback=False):
     return width
 
 
-def is_classmethod(cls, attr):
+def is_classmethod(func, cls=None):
     """
-    Returns *True* if the attribute *attr* of a class *cls* is a classmethod, and *False* otherwise.
-    When *attr* is a string, it is considered the name of an attribute that is obtained first.
+    Returns *True* if *func* is a classmethod of *cls*, and *False* otherwise. When *cls* is *None*,
+    it is extracted from the function's qualified name and module name.
     """
-    if isinstance(attr, six.string_types):
-        attr = getattr(cls, attr)
+    # when no cls is given, try to lookup it up in its associated module
+    _hasattr = lambda attr: getattr(func, attr, None) is not None
+    if cls is None:
+        if _hasattr("__qualname__") and _hasattr("__module__") and "." in func.__qualname__:
+            cls_name = func.__qualname__.rsplit(".", 1)[0]
+            cls = getattr(sys.modules.get(func.__module__), cls_name, None)
 
-    return inspect.ismethod(attr) and attr.__self__ is cls
+    # when no class exists at this point, func cannot be a classmethod
+    if cls is None:
+        return False
+
+    # func requires a __name__
+    if not _hasattr("__name__"):
+        raise AttributeError("func '{}' has not attribute __name__".format(func))
+
+    try:
+        return cls.__dict__[func.__name__].__class__.__name__ == "classmethod"
+    except AttributeError:
+        return False
 
 
 def is_number(n):
