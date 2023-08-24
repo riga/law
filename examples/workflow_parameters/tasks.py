@@ -14,7 +14,7 @@ class Task(law.Task):
 
     def local_path(self, *path):
         parts = (os.getenv("WORKFLOWEXAMPLE_DATA_PATH"),) + self.store_parts() + path
-        return os.path.join(*parts)
+        return os.path.join(*map(str, path))
 
     def local_target(self, *path):
         return law.LocalFileTarget(self.local_path(*path))

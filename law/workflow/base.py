@@ -735,10 +735,7 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         exclude = set() if exclude is None else set(make_list(exclude))
 
         # exclude certain branch/workflow parameters
-        if self.is_branch():
-            exclude |= self.exclude_params_branch
-        else:
-            exclude |= self.exclude_params_workflow
+        exclude |= self.exclude_params_branch if self.is_branch() else self.exclude_params_workflow
 
         # always exclude workflow parameters
         exclude |= set(self._workflow_param_names)
