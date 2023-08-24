@@ -13,7 +13,7 @@ import logging
 from collections import OrderedDict
 from contextlib import contextmanager
 from abc import ABCMeta, abstractmethod
-from inspect import getargspec
+import inspect
 
 import luigi
 import six
@@ -31,6 +31,8 @@ from law.logger import get_logger
 
 
 logger = get_logger(__name__)
+
+getfullargspec = inspect.getfullargspec if six.PY3 else inspect.getargspec
 
 
 class BaseRegister(luigi.task_register.Register):
@@ -74,6 +76,9 @@ class BaseRegister(luigi.task_register.Register):
 
 
 class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
+
+    # whether to cache the result of requires() for input() and potentially also other calls
+    cache_requirements = False
 
     exclude_index = True
     exclude_params_index = set()
@@ -144,20 +149,29 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
         # assign to actual parameters
         values = super(BaseTask, cls).get_param_values(params, args, kwargs)
 
+        # parse left-over strings in case values were given programmatically, but unencoded
+        values = [
+            (
+                name,
+                (getattr(cls, name).parse(value) if isinstance(value, six.string_types) else value),
+            )
+            for name, value in values
+        ]
+
         # call the hook optionally modifying the values afterwards,
         # but remove temporary objects that might have been placed into it
         param_names = {name for name, _ in params}
-        values = list(
+        values = [
             (name, value)
             for name, value in cls.modify_param_values(OrderedDict(values)).items()
             if name in param_names
-        )
+        ]
 
         return values
 
     @classmethod
-    def req(cls, *args, **kwargs):
-        return cls(**cls.req_params(*args, **kwargs))
+    def req(cls, inst, **kwargs):
+        return cls(**cls.req_params(inst, **kwargs))
 
     @classmethod
     def req_params(cls, inst, _exclude=None, _prefer_cli=None, _skip_task_excludes=False,
@@ -198,7 +212,7 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
                 for key in global_cmdline_values().keys():
                     if key.startswith(prefix):
                         cls_args.append(key[len(prefix):])
-            for name in make_list(prefer_cli):
+            for name in prefer_cli:
                 if name in params and name in cls_args:
                     del params[name]
 
@@ -218,15 +232,31 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
         # task level logger, created lazily
         self._task_logger = None
 
+        # attribute for cached requirements if enabled
+        self._cached_requirements = no_value
+
     def complete(self):
-        outputs = [t for t in flatten(self.output()) if not t.optional]
+        # create a flat list of all outputs
+        outputs = flatten(self.output())
 
         if len(outputs) == 0:
-            logger.warning("task {!r} has either no non-optional outputs or no custom complete() "
-                "method".format(self))
-            return False
+            logger.warning("task {!r} has no outputs or no custom complete() method".format(self))
+            return True
 
-        return all(t.exists() for t in outputs)
+        return all(t.complete() for t in outputs)
+
+    def input(self):
+        # get potentially cached requirements
+        if self.cache_requirements:
+            if self._cached_requirements is no_value:
+                self._cached_requirements = self.requires()
+            else:
+                print("BASETASK.INPUT() TAKING REQS FROM CACHE BITCHES")
+            reqs = self._cached_requirements
+        else:
+            reqs = self.requires()
+
+        return luigi.task.getpaths(reqs)
 
     @abstractmethod
     def run(self):
@@ -257,9 +287,9 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
         # create a temporary dictionary of param_kwargs that is patched for the duration of the
         # call to create the string representation of the parameters
         param_kwargs = {attr: getattr(self, attr) for attr in self.param_kwargs}
-        # only_public was introduced in 2.8.0, so check if that arg exists
+        # only_public was introduced in luigi 2.8.0, so check if that arg exists
         str_params_kwargs = {"only_significant": True}
-        if "only_public" in getargspec(self.to_str_params).args:
+        if "only_public" in getfullargspec(self.to_str_params).args:
             str_params_kwargs["only_public"] = True
         with patch_object(self, "param_kwargs", param_kwargs):
             str_params = self.to_str_params(**str_params_kwargs)
@@ -423,6 +453,7 @@ class Task(six.with_metaclass(Register, BaseTask)):
     exclude_index = True
     exclude_params_req = set()
     exclude_params_repr = set()
+    exclude_params_repr_empty = set()
 
     @classmethod
     def req_params(cls, inst, _exclude=None, _prefer_cli=None, **kwargs):
@@ -551,16 +582,16 @@ class Task(six.with_metaclass(Register, BaseTask)):
         return super(Task, self).cli_args(exclude=exclude, replace=replace)
 
     def __repr__(self):
-        color = Config.instance().get_expanded_boolean("task", "colored_repr")
+        color = Config.instance().get_expanded_bool("task", "colored_repr")
         return self.repr(color=color)
 
     def __str__(self):
-        color = Config.instance().get_expanded_boolean("task", "colored_str")
+        color = Config.instance().get_expanded_bool("task", "colored_str")
         return self.repr(color=color)
 
     def repr(self, all_params=False, color=None, **kwargs):
         if color is None:
-            color = Config.instance().get_expanded_boolean("task", "colored_repr")
+            color = Config.instance().get_expanded_bool("task", "colored_repr")
 
         family = self._repr_family(self.get_task_family(), color=color, **kwargs)
 
@@ -584,8 +615,14 @@ class Task(six.with_metaclass(Register, BaseTask)):
         # build a map "name -> value" for all significant parameters
         params = OrderedDict()
         for name, param in self.get_params():
-            if param.significant and not multi_match(name, exclude):
-                params[name] = getattr(self, name)
+            value = getattr(self, name)
+            include = (
+                param.significant and
+                not multi_match(name, exclude) and
+                (name not in self.exclude_params_repr_empty or value)
+            )
+            if include:
+                params[name] = value
 
         return params
 
@@ -672,7 +709,15 @@ class WrapperTask(Task):
         return super(WrapperTask, self)._repr_flags() + ["wrapper"]
 
     def complete(self):
-        return all(task.complete() for task in flatten(self.requires()))
+        # get potentially cached requirements
+        if self.cache_requirements:
+            if self._cached_requirements is no_value:
+                self._cached_requirements = self.requires()
+            reqs = self._cached_requirements
+        else:
+            reqs = self.requires()
+
+        return all(task.complete() for task in flatten(reqs))
 
     def output(self):
         return self.input()

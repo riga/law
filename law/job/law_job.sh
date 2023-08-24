@@ -22,7 +22,6 @@
 #     afterwards. It is randomly named and placed inside LAW_JOB_INIT_DIR for the purpose of
 #     preventing file collisions on batch systems that spawn multiple jobs in the same directory. It
 #     contains symbolic links to all input files.
-# - LAW_JOB_FILE_POSTFIX: The postfix of all input and output files, e.g. "_0To1".
 # - LAW_SRC_PATH: The location of the law package, obtained via "law location".
 # - LAW_JOB_TMP: A directory "tmp" inside LAW_JOB_HOME.
 # - LAW_TARGET_TMP_DIR: Same as LAW_JOB_TMP.
@@ -40,7 +39,6 @@
 # - bootstrap_command: A command that is executed before running tasks.
 # - dashboard_file: A file that can contain dashboard functions to be used in hooks. See the
 #     documentation below.
-# - file_postfix: The postfix of all input and output files, e.g. "_0To1".
 # - input_files: Absolute or job relative paths of all input files, separated by spaces.
 # - input_files_render: Absolute or job relative paths of input files that should be rendered if
 #     render_variables is set.
@@ -104,7 +102,6 @@ law_job() {
     export LAW_JOB_HOME="$( mktemp -d "${LAW_JOB_BASE}/job_XXXXXXXXXXXX" )"
     export LAW_JOB_TMP="${LAW_JOB_TMP:-{{law_job_tmp}}}"
     export LAW_JOB_TMP="${LAW_JOB_TMP:-${LAW_JOB_HOME}/tmp}"
-    export LAW_JOB_FILE_POSTFIX="{{file_postfix}}"
     export LAW_JOB_ORIGINAL_TMP="${TMP}"
     export LAW_JOB_ORIGINAL_TEMP="${TEMP}"
     export LAW_JOB_ORIGINAL_TMPDIR="${TMPDIR}"
@@ -171,7 +168,7 @@ law_job() {
 
         # function existing?
         if command -v "${name}" &> /dev/null; then
-            eval "${name}" "$@"
+            eval "${name}" "${args}"
         else
             >&2 echo "function '${name}' does not exist, skip"
             return "2"
@@ -363,8 +360,6 @@ law_job() {
 
         echo "PATH           : ${PATH}"
         echo "PYTHONPATH     : ${PYTHONPATH}"
-        echo "PYTHON27PATH   : ${PYTHON27PATH}"
-        echo "PYTHON3PATH    : ${PYTHON3PATH}"
         echo "LD_LIBRARY_PATH: ${LD_LIBRARY_PATH}"
         echo "CPATH          : ${CPATH}"
     }
@@ -453,7 +448,7 @@ law_job() {
     # handle input file rendering
     local render_ret
     render_variables="$( echo "${render_variables}" | base64 --decode )"
-    if [ ! -z "${input_files_render}" ] && [ ! -z "${render_variables}" ] && [ "${render_variables}" != "-" ]; then
+    if [ "${#input_files_render[@]}" != "0" ] && [ ! -z "${render_variables}" ] && [ "${render_variables}" != "-" ]; then
         echo
         _law_job_subsection "render input files"
 

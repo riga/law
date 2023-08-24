@@ -165,7 +165,7 @@ _law_complete() {
 
     # complete the "software" subcommand
     elif [ "${sub_cmd}" = "software" ]; then
-        local words="location remove help"
+        local words="deps location print-deps remove help"
         local inp="${cur##-}"
         inp="${inp##-}"
         COMPREPLY=( $( compgen -W "$( echo ${words} )" -P "--" -- "${inp}" ) )
@@ -206,4 +206,5 @@ else
 fi
 
 complete -o bashdefault -o default -F _law_complete law
+complete -o bashdefault -o default -F _law_complete law2
 complete -o bashdefault -o default -F _law_complete law3

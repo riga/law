@@ -7,6 +7,7 @@ law_wlcg_check_executable() {
     #
     # Arguments:
     # 1. name: The name of the executable to check.
+    # 2. mode: When "silent", no error message is printed.
     #
     # Examples:
     # > law_wlcg_check_executable python; echo $?
@@ -22,11 +23,12 @@ law_wlcg_check_executable() {
         >&2 echo "no executable given to check"
         return "2"
     fi
+    local mode="${2:-}"
 
     # do the check
     eval "type ${name}" &> /dev/null
     if [ "$?" != "0" ]; then
-        >&2 echo "executable '${name}' not found"
+        [ "${mode}" = "silent" ] || >&2 echo "executable '${name}' not found"
         return "1"
     else
         return "0"
@@ -94,10 +96,15 @@ law_wlcg_get_file() {
             random_dir="${src_dirs[$((i-1))]}"
             law_wlcg_get_file "${random_dir}" "${src_name}" "${dst_path}" "1"
             ret="$?"
-            [ "${ret}" = "0" ] && return "0"
+            if [ "${ret}" = "0" ]; then
+                echo "law_wlcg_get_file: fetched '${src_name}' from '${random_dir}'"
+                return "0"
+            fi
         done
 
-        >&2 echo "all download attempts failed"
+        >&2 echo "law_wlcg_get_file: all download attempts failed"
+        >&2 echo "law_wlcg_get_file: source directory '${random_dir}'"
+        >&2 echo "law_wlcg_get_file: source file = '${src_name}'"
         return "${ret}"
     fi
 
@@ -107,7 +114,7 @@ law_wlcg_get_file() {
     if [[ "${src_dir}" == *"://"* ]]; then
         local proto="${src_dir%%://*}"
         if [ -z "${proto}" ] || [ -z "$( echo "${proto}" | grep -E "^[a-zA-Z0-9_-]+$" )" ]; then
-            >&2 echo "malformed source directory '${src_dir}'"
+            >&2 echo "law_wlcg_get_file: malformed source directory '${src_dir}'"
             return "4"
         fi
         src_is_remote="true"
@@ -130,7 +137,7 @@ law_wlcg_get_file() {
             random_src_name="$( ls "${src_dir}" | grep -Po "${src_name}" | shuf -n 1 )"
         fi
         if [ -z "${random_src_name}" ]; then
-            >&2 echo "could not determine file to load from '${src_dir}' with file name '${src_name}'"
+            >&2 echo "law_wlcg_get_file: could not determine file to load from '${src_dir}' with file name '${src_name}'"
             ret="1"
             continue
         fi
@@ -146,12 +153,15 @@ law_wlcg_get_file() {
             cp "${src_dir}/${random_src_name}" "${dst_path}"
         fi
         if [ "$?" != "0" ]; then
-            >&2 echo "could not fetch '${random_src_name}' from '${src_dir}'"
+            >&2 echo "law_wlcg_get_file: all download attempts failed"
+            >&2 echo "law_wlcg_get_file: source directory '${src_dir}'"
+            >&2 echo "law_wlcg_get_file: source file = '${random_src_name}'"
             ret="2"
             continue
         fi
 
         # when this point is reached, the download succeeded
+        echo "law_wlcg_get_file: fetched '${random_src_name}' from '${src_dir}'"
         break
     done
 

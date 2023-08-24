@@ -1,13 +1,15 @@
 FROM centos:8
 
+ARG TARGETPLATFORM
+
 # labels
-LABEL law.version="0.1.9"
-LABEL law.image_name="riga/law"
-LABEL law.image_tag="c8-py38"
-LABEL law.image_os="centos8"
-LABEL law.image_python_major="3"
-LABEL law.image_python_minor="8"
-LABEL law.image_python="3.8"
+LABEL law.version="0.1.12"
+LABEL law.image-name="riga/law"
+LABEL law.image-tag="c8-py38"
+LABEL law.image-os="centos8"
+LABEL law.image-python-major="3"
+LABEL law.image-python-minor="8"
+LABEL law.image-python="3.8"
 
 # law specific environment variables
 ENV LAW_IMAGE_ROOT /root/law
@@ -16,9 +18,7 @@ ENV LAW_IMAGE_TAG c8-py38
 ENV LAW_IMAGE_PYTHON_MAJOR 3
 ENV LAW_IMAGE_PYTHON_MINOR 8
 ENV LAW_IMAGE_PYTHON ${LAW_IMAGE_PYTHON_MAJOR}.${LAW_IMAGE_PYTHON_MINOR}
-ENV LAW_CONDA_ROOT /root/conda
-ENV LAW_CONDA_VERSION 4.12.0
-ENV LAW_CONDA_INSTALL_FILE https://repo.anaconda.com/miniconda/Miniconda${LAW_IMAGE_PYTHON_MAJOR}-py${LAW_IMAGE_PYTHON_MAJOR}${LAW_IMAGE_PYTHON_MINOR}_${LAW_CONDA_VERSION}-Linux-x86_64.sh
+ENV LAW_MAMBA_ROOT /root/mamba
 ENV LAW_SANDBOX docker::riga/law:c8-py38,docker::riga/law:py38
 
 # exposed ports
@@ -36,26 +36,34 @@ RUN sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-* && \
     sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
 RUN sed -i -r 's/^(override_install_langs=.+)/#\1/' /etc/yum.conf
 RUN yum -y update; yum clean all
-RUN yum -y install yum-utils epel-release wget; yum clean all
+RUN yum -y install yum-utils epel-release curl wget bzip2; yum clean all
 
-# setup conda
-ENV PATH ${LAW_CONDA_ROOT}/bin:${PATH}
-RUN wget "${LAW_CONDA_INSTALL_FILE}" -O setup_miniconda.sh -q && \
-    bash setup_miniconda.sh -b -u -p "${LAW_CONDA_ROOT}" && \
-    rm setup_miniconda.sh
+# setup mamba
+env MAMBA_ROOT_PREFIX "${LAW_MAMBA_ROOT}"
+env MAMBA_EXE "${MAMBA_ROOT_PREFIX}/bin/micromamba"
+ENV PATH "${MAMBA_ROOT_PREFIX}/bin:${PATH}"
+RUN case "${TARGETPLATFORM}" in \
+        "linux/amd64") MAMBA_PLATFORM="linux-64" ;; \
+        "linux/arm64") MAMBA_PLATFORM="linux-aarch64" ;; \
+        "darwin/amd64") MAMBA_PLATFORM="osx-64" ;; \
+        "darwin/arm64") MAMBA_PLATFORM="osx-arm64" ;; \
+        *) MAMBA_PLATFORM="linux-64" ;; \
+    esac && \
+    mkdir -p "${MAMBA_ROOT_PREFIX}" && \
+    curl -Ls "https://micro.mamba.pm/api/micromamba/${MAMBA_PLATFORM}/latest" | tar -xvj -C "${MAMBA_ROOT_PREFIX}" "bin/micromamba"
 RUN echo $'\n\
 changeps1: false\n\
+always_yes: true\n\
 channels:\n\
   - conda-forge\n\
-  - defaults\n\
-' >> "${LAW_CONDA_ROOT}/.condarc"
-SHELL ["conda", "run", "-n", "base", "/bin/bash", "-c"]
+' >> "${MAMBA_ROOT_PREFIX}/.condarc"
+SHELL ["micromamba", "run", "-n", "base", "/bin/bash", "-c"]
 
-# conda packages
-RUN conda install --yes libgcc gcc which wget nano micro screen git git-lfs cmake ncurses readline && \
-    conda clean --all
-RUN conda install --yes gfal2 gfal2-util python-gfal2 && \
-    conda clean --all
+# mamba packages
+RUN micromamba install "python=${LAW_IMAGE_PYTHON_MAJOR}.${LAW_IMAGE_PYTHON_MINOR}" gcc which wget nano micro git git-lfs cmake ncurses readline && \
+    micromamba clean --all
+RUN micromamba install gfal2 gfal2-util python-gfal2 && \
+    micromamba clean --all
 
 # python packages
 RUN pip install --no-cache-dir --upgrade pip
@@ -73,5 +81,5 @@ RUN git clone --recursive https://github.com/riga/law "${LAW_IMAGE_ROOT}" && \
     pip install --no-cache-dir .
 WORKDIR ${LAW_IMAGE_ROOT}
 
-# init command
-SHELL ["conda", "run", "-n", "base", "/bin/bash", "-i", "--login"]
+# default shell
+SHELL ["micromamba", "run", "-n", "base", "/bin/bash", "-i", "--login"]

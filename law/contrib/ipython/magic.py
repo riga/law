@@ -70,7 +70,7 @@ def create_magics(init_cmd=None, init_fn=None, line_cmd=None, line_fn=None, log_
             logger.debug("running law command '{}'".format(cmd))
 
             # run it
-            self._run_bash(cmd)
+            return self._run_bash(cmd)
 
         @ipc.magic.line_magic
         def ilaw(self, line):
@@ -100,9 +100,11 @@ def create_magics(init_cmd=None, init_fn=None, line_cmd=None, line_fn=None, log_
                     line_fn(line)
 
                 if prog == "run":
-                    law_run(argv)
+                    # perform the run call interactively
+                    return law_run(argv)
                 else:
-                    law.cli.cli.run([prog] + argv)
+                    # forward all other progs to the cli interface
+                    return law.cli.cli.run([prog] + argv)
             except SystemExit as e:
                 # reraise when the exit code is non-zero
                 if e.code:
@@ -115,7 +117,7 @@ def create_magics(init_cmd=None, init_fn=None, line_cmd=None, line_fn=None, log_
             cmd = quote_cmd(["bash", "-c", cmd])
 
             # run it
-            self.shell.system_piped(cmd)
+            return self.shell.system_piped(cmd)
 
     return LawMagics
 
@@ -124,13 +126,16 @@ def register_magics(*args, **kwargs):
     """ register_magics(init_cmd=None, init_fn=None, line_cmd=None, line_fn=None, log_level=None)
     Registers the two IPython magic methods ``%law`` and ``%ilaw`` which execute law commands either
     via a subprocess in bash (``%law``) or interactively / inline within the running process
-    (``%ilaw``). *init_cmd* can be a shell command that is called before the magic methods are
-    registered. Similarly, *init_fn* can be a callable that is invoked prior to the method setup.
-    *line_cmd*, a shell command, and *line_fn*, a callable, are executed before a line magic is
-    called. The former is run before ``%law`` is evaluated, while the latter is called before
-    ``%ilaw`` with the line to interpret as the only argument. *log_level* conveniently sets the
-    level of the *law.contrib.ipython.magic* logger that is used within the magic methods. It should
-    be a number, or a string denoting a Python log level.
+    (``%ilaw``).
+
+    *init_cmd* can be a shell command that is called before the magic methods are registered.
+    Similarly, *init_fn* can be a callable that is invoked prior to the method setup. *line_cmd*, a
+    shell command, and *line_fn*, a callable, are executed before a line magic is called. The former
+    is run before ``%law`` is evaluated, while the latter is called before ``%ilaw`` with the line
+    to interpret as the only argument.
+
+    *log_level* conveniently sets the level of the *law.contrib.ipython.magic* logger that is used
+    within the magic methods. It should be a number, or a string denoting a Python log level.
     """
     ipy = None
     magics = None

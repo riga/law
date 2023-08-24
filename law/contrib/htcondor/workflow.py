@@ -46,7 +46,7 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         postfix = "_{}To{}".format(branches[0], branches[-1] + 1)
 
         # create the config
-        c = self.job_file_factory.Config()
+        c = self.job_file_factory.get_config()
         c.input_files = DeprecatedInputFiles()
         c.output_files = []
         c.render_variables = {}
@@ -63,7 +63,13 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         c.input_files["job_file"] = law_job_file
 
         # collect task parameters
-        exclude_args = task.exclude_params_branch | task.exclude_params_workflow | {"workflow"}
+        exclude_args = (
+            task.exclude_params_branch |
+            task.exclude_params_workflow |
+            task.exclude_params_remote_workflow |
+            task.exclude_params_htcondor_workflow |
+            {"workflow"}
+        )
         proxy_cmd = ProxyCommand(
             task.as_branch(branches[0]),
             exclude_task_args=exclude_args,
@@ -82,7 +88,7 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
             workers=task.job_workers,
             auto_retry=False,
             dashboard_data=self.dashboard.remote_hook_data(
-                job_num, self.submission_data.attempts.get(job_num, 0)),
+                job_num, self.job_data.attempts.get(job_num, 0)),
         )
         c.arguments = job_args.join()
 
@@ -139,13 +145,17 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         return {"job": job_file, "log": abs_log_file}
 
     def destination_info(self):
-        info = []
+        info = super(HTCondorWorkflowProxy, self).destination_info()
+
         if self.task.htcondor_pool and self.task.htcondor_pool != NO_STR:
-            info.append("pool: {}".format(self.task.htcondor_pool))
+            info["pool"] = "pool: {}".format(self.task.htcondor_pool)
+
         if self.task.htcondor_scheduler and self.task.htcondor_scheduler != NO_STR:
-            info.append("scheduler: {}".format(self.task.htcondor_scheduler))
+            info["scheduler"] = "scheduler: {}".format(self.task.htcondor_scheduler)
+
         info = self.task.htcondor_destination_info(info)
-        return ", ".join(map(str, info))
+
+        return info
 
 
 class HTCondorWorkflow(BaseRemoteWorkflow):
@@ -174,6 +184,8 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
 
     exclude_params_branch = {"htcondor_pool", "htcondor_scheduler"}
 
+    exclude_params_htcondor_workflow = set()
+
     exclude_index = True
 
     @abstractmethod
@@ -196,7 +208,7 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
         return None
 
     def htcondor_output_postfix(self):
-        return "_" + self.get_branches_repr()
+        return ""
 
     def htcondor_job_manager_cls(self):
         return HTCondorJobManager
@@ -215,6 +227,12 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
 
     def htcondor_job_config(self, config, job_num, branches):
         return config
+
+    def htcondor_check_job_completeness(self):
+        return False
+
+    def htcondor_check_job_completeness_delay(self):
+        return 0.0
 
     def htcondor_use_local_scheduler(self):
         return False

@@ -19,16 +19,13 @@ import six
 from law.config import Config
 from law.sandbox.base import Sandbox
 from law.target.local import LocalFileTarget
-from law.cli.software import deps as law_deps
+from law.cli.software import get_software_deps
 from law.util import make_list, interruptable_popen, quote_cmd, flatten, makedirs
 
 
 class DockerSandbox(Sandbox):
 
     sandbox_type = "docker"
-
-    # env cache per image
-    _envs = {}
 
     @property
     def image(self):
@@ -37,6 +34,71 @@ class DockerSandbox(Sandbox):
     @property
     def tag(self):
         return None if ":" not in self.image else self.image.split(":", 1)[1]
+
+    @property
+    def env_cache_key(self):
+        return self.image
+
+    def get_custom_config_section_postfix(self):
+        return self.image
+
+    def create_env(self):
+        # strategy: create a tempfile, forward it to a container, let python dump its full env,
+        # close the container and load the env file
+
+        # helper to load the env
+        def load_env(target):
+            try:
+                return tmp.load(formatter="pickle")
+            except Exception as e:
+                raise Exception(
+                    "env deserialization of sandbox {} failed: {}".format(self, e),
+                )
+
+        # load the env when the cache file is configured and existing
+        if self.env_cache_path and self.env_cache_path:
+            return load_env(LocalFileTarget(self.env_cache_path))
+
+        tmp = LocalFileTarget(is_tmp=".env")
+        tmp.touch()
+
+        env_file = os.path.join("/tmp", tmp.unique_basename)
+
+        # get the docker run command
+        docker_run_cmd = self._docker_run_cmd()
+
+        # mount the env file
+        docker_run_cmd.extend(["-v", "{}:{}".format(tmp.path, env_file)])
+
+        # build commands to setup the environment
+        setup_cmds = self._build_setup_cmds(self._get_env())
+
+        # build the python command that dumps the environment
+        py_cmd = "import os,pickle;" \
+            + "pickle.dump(dict(os.environ),open('{}','wb'),protocol=2)".format(env_file)
+
+        # build the full command
+        cmd = quote_cmd(docker_run_cmd + [self.image, "bash", "-l", "-c",
+            " && ".join(flatten(setup_cmds, quote_cmd(["python", "-c", py_cmd]))),
+        ])
+
+        # run it
+        code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        if code != 0:
+            raise Exception(
+                "docker sandbox env loading failed with exit code {}:\n{}".format(
+                    code, out),
+            )
+
+        # copy to the cache path when configured
+        if self.env_cache_path:
+            tmp.copy_to_local(self.env_cache_path)
+
+        # load the env
+        env = load_env(tmp)
+
+        return env
 
     def _docker_run_cmd(self):
         """
@@ -65,49 +127,6 @@ class DockerSandbox(Sandbox):
                 cmd.extend(make_list(args_getter()))
 
         return cmd
-
-    @property
-    def env(self):
-        # strategy: create a tempfile, forward it to a container, let python dump its full env,
-        # close the container and load the env file
-        if self.image not in self._envs:
-            tmp = LocalFileTarget(is_tmp=".env")
-            tmp.touch()
-
-            env_file = os.path.join("/tmp", tmp.unique_basename)
-
-            # get the docker run command
-            docker_run_cmd = self._docker_run_cmd()
-
-            # mount the env file
-            docker_run_cmd.extend(["-v", "{}:{}".format(tmp.path, env_file)])
-
-            # build commands to setup the environment
-            setup_cmds = self._build_setup_cmds(self._get_env())
-
-            # build the python command that dumps the environment
-            py_cmd = "import os,pickle;" \
-                + "pickle.dump(dict(os.environ),open('{}','wb'),protocol=2)".format(env_file)
-
-            # build the full command
-            cmd = quote_cmd(docker_run_cmd + [self.image, "bash", "-l", "-c",
-                " && ".join(flatten(setup_cmds, quote_cmd(["python", "-c", py_cmd]))),
-            ])
-
-            # run it
-            code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-                stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-            if code != 0:
-                raise Exception("docker sandbox env loading failed with exit code {}:\n{}".format(
-                    code, out))
-
-            # load the environment from the tmp file
-            env = tmp.load(formatter="pickle")
-
-            # cache
-            self._envs[self.image] = env
-
-        return self._envs[self.image]
 
     def cmd(self, proxy_cmd):
         # docker run command arguments
@@ -168,7 +187,7 @@ class DockerSandbox(Sandbox):
         env["PYTHONPATH"] = os.pathsep.join([dst(python_dir), "$PYTHONPATH"])
 
         # forward python directories of law and dependencies
-        for mod in law_deps:
+        for mod in get_software_deps():
             path = os.path.dirname(mod.__file__)
             name, ext = os.path.splitext(os.path.basename(mod.__file__))
             if name == "__init__":

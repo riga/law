@@ -20,7 +20,7 @@ from law.target.file import FileSystemTarget
 from law.target.collection import TargetCollection, FileCollection
 from law.util import (
     colored, uncolored, uncolor_cre, flatten, flag_to_bool, query_choice, human_bytes,
-    is_lazy_iterable, make_list, makedirs, get_terminal_width,
+    is_lazy_iterable, make_list, merge_dicts, makedirs, get_terminal_width,
 )
 from law.logger import get_logger
 
@@ -30,7 +30,7 @@ logger = get_logger(__name__)
 
 # formatting characters
 fmt_chars = {
-    "default": {
+    "plain": {
         "ind": 2,
         "free": 1,
         "-": "-",
@@ -49,6 +49,8 @@ fmt_chars = {
         ">": ">",
     },
 }
+fmt_chars["compact"] = merge_dicts(fmt_chars["plain"], {"free": 0})
+fmt_chars["fancy_compact"] = merge_dicts(fmt_chars["fancy"], {"free": 0})
 
 
 # helper to create a list of 3-tuples (target, depth, prefix) of an arbitrarily structured output
@@ -133,10 +135,10 @@ def print_task_deps(task, max_depth=1):
     # get the format chars
     cfg = Config.instance()
     fmt_name = cfg.get_expanded("task", "interactive_format")
-    fmt = fmt_chars.get(fmt_name, fmt_chars["default"])
+    fmt = fmt_chars.get(fmt_name, fmt_chars["fancy"])
 
     # get the line break setting
-    break_lines = cfg.get_expanded_boolean("task", "interactive_line_breaks")
+    break_lines = cfg.get_expanded_bool("task", "interactive_line_breaks")
     out_width = cfg.get_expanded_int("task", "interactive_line_width")
     print_width = (out_width if out_width > 0 else get_terminal_width()) if break_lines else None
     _print = lambda line, offset: _print_wrapped(line, print_width, offset)
@@ -193,13 +195,16 @@ def print_task_status(task, max_depth=0, target_depth=0, flags=None):
     # get the format chars
     cfg = Config.instance()
     fmt_name = cfg.get_expanded("task", "interactive_format")
-    fmt = fmt_chars.get(fmt_name, fmt_chars["default"])
+    fmt = fmt_chars.get(fmt_name, fmt_chars["fancy"])
 
     # get the line break setting
-    break_lines = cfg.get_expanded_boolean("task", "interactive_line_breaks")
+    break_lines = cfg.get_expanded_bool("task", "interactive_line_breaks")
     out_width = cfg.get_expanded_int("task", "interactive_line_width")
     print_width = (out_width if out_width > 0 else get_terminal_width()) if break_lines else None
     _print = lambda line, offset: _print_wrapped(line, print_width, offset)
+
+    # get other settings
+    skip_seen = cfg.get_expanded_bool("task", "interactive_status_skip_seen")
 
     # walk through deps
     done = []
@@ -245,7 +250,8 @@ def print_task_status(task, max_depth=0, target_depth=0, flags=None):
         # print the task line
         _print(task_offset + task_prefix + dep.repr(color=True), text_offset)
 
-        if dep in done:
+        # skip if already seen
+        if skip_seen and dep in done:
             _print(text_offset_ind + colored("outputs already checked", "yellow"), text_offset_ind)
             continue
 
@@ -300,10 +306,10 @@ def remove_task_output(task, max_depth=0, mode=None, run_task=False):
     # get the format chars
     cfg = Config.instance()
     fmt_name = cfg.get_expanded("task", "interactive_format")
-    fmt = fmt_chars.get(fmt_name, fmt_chars["default"])
+    fmt = fmt_chars.get(fmt_name, fmt_chars["fancy"])
 
     # get the line break setting
-    break_lines = cfg.get_expanded_boolean("task", "interactive_line_breaks")
+    break_lines = cfg.get_expanded_bool("task", "interactive_line_breaks")
     out_width = cfg.get_expanded_int("task", "interactive_line_width")
     print_width = [(out_width if out_width > 0 else get_terminal_width()) if break_lines else None]
     _print = lambda line, offset: _print_wrapped(line, print_width[0], offset)
@@ -322,7 +328,7 @@ def remove_task_output(task, max_depth=0, mode=None, run_task=False):
     if not mode:
         mode = _query_choice("removal mode?", modes, default="i", descriptions=mode_names)
     mode_name = mode_names[modes.index(mode)]
-    print("selected {} mode".format(colored(mode_name + " mode", "blue", style="bright")))
+    print("selected {} mode".format(colored(mode_name, "blue", style="bright")))
     print("")
 
     done = []
@@ -453,12 +459,12 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
     # get the format chars
     cfg = Config.instance()
     fmt_name = cfg.get_expanded("task", "interactive_format")
-    fmt = fmt_chars.get(fmt_name, fmt_chars["default"])
+    fmt = fmt_chars.get(fmt_name, fmt_chars["fancy"])
 
     # get the line break setting
-    break_lines = cfg.get_expanded_boolean("task", "interactive_line_breaks")
+    break_lines = cfg.get_expanded_bool("task", "interactive_line_breaks")
     out_width = cfg.get_expanded_int("task", "interactive_line_width")
-    print_width = (out_width if out_width > 0 else get_terminal_width()) if break_lines else None
+    print_width = [(out_width if out_width > 0 else get_terminal_width()) if break_lines else None]
     _print = lambda line, offset: _print_wrapped(line, print_width[0], offset)
 
     # custom query_choice function that updates the terminal_width
@@ -479,7 +485,7 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
     if mode not in modes:
         raise Exception("unknown fetch mode '{}'".format(mode))
     mode_name = mode_names[modes.index(mode)]
-    print("selected {} mode".format(colored(mode_name + " mode", "blue", style="bright")))
+    print("selected {} mode".format(colored(mode_name, "blue", style="bright")))
     print("")
 
     done = []

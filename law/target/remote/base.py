@@ -19,9 +19,8 @@ from law.target.file import (
     FileSystem, FileSystemTarget, FileSystemFileTarget, FileSystemDirectoryTarget, get_path,
     get_scheme, add_scheme, remove_scheme,
 )
-from law.target.local import LocalFileSystem, LocalFileTarget
+from law.target.local import LocalFileSystem, LocalFileTarget, LocalDirectoryTarget
 from law.target.remote.cache import RemoteCache
-from law.target.formatter import find_formatter
 from law.util import make_list, merge_dicts
 from law.logger import get_logger
 
@@ -51,10 +50,10 @@ class RemoteFileSystem(FileSystem):
                 config[option] = func(section, option)
 
         # default setting for validation for existence after copy
-        add("validate_copy", cfg.get_expanded_boolean)
+        add("validate_copy", cfg.get_expanded_bool)
 
         # default setting for using the cache
-        add("use_cache", cfg.get_expanded_boolean)
+        add("use_cache", cfg.get_expanded_bool)
 
         # cache options
         if cfg.options(section, prefix="cache_"):
@@ -173,30 +172,62 @@ class RemoteFileSystem(FileSystem):
         return self.file_interface.uri(self.abspath(path), **kwargs)
 
     def dirname(self, path):
+        # forward to local_fs
+        if self.is_local(path):
+            return self.local_fs.dirname(path)
+
         return super(RemoteFileSystem, self).dirname(self.abspath(path))
 
     def basename(self, path):
+        # forward to local_fs
+        if self.is_local(path):
+            return self.local_fs.basename(path)
+
         return super(RemoteFileSystem, self).basename(self.abspath(path))
 
     def stat(self, path, **kwargs):
+        # forward to local_fs
+        if self.is_local(path):
+            return self.local_fs.stat(path)
+
         return self.file_interface.stat(self.abspath(path), **kwargs)
 
     def exists(self, path, stat=False, **kwargs):
+        # forward to local_fs
+        if self.is_local(path):
+            return self.local_fs.exists(path, stat=stat)
+
         return self.file_interface.exists(self.abspath(path), stat=stat, **kwargs)
 
     def isdir(self, path, rstat=None, **kwargs):
+        # forward to local_fs
+        if self.is_local(path):
+            return self.local_fs.isdir(path)
+
         return self.file_interface.isdir(path, stat=rstat, **kwargs)
 
     def isfile(self, path, rstat=None, **kwargs):
+        # forward to local_fs
+        if self.is_local(path):
+            return self.local_fs.isfile(path)
+
         return self.file_interface.isfile(path, stat=rstat, **kwargs)
 
     def chmod(self, path, perm, **kwargs):
+        # forward to local_fs
+        if self.is_local(path):
+            return self.local_fs.chmod(path, perm)
+
         if not self.has_permissions:
             return True
 
         return self.file_interface.chmod(self.abspath(path), perm, **kwargs)
 
     def remove(self, path, **kwargs):
+        # forward to local_fs
+        if self.is_local(path):
+            return self.local_fs.remove(path)
+
         # protection against removing the base directory of the remote file system
         path = self.abspath(path)
         if path == "/":
@@ -206,6 +237,10 @@ class RemoteFileSystem(FileSystem):
         return self.file_interface.remove(path, **kwargs)
 
     def mkdir(self, path, perm=None, recursive=True, **kwargs):
+        # forward to local_fs
+        if self.is_local(path):
+            return self.local_fs.mkdir(path, perm=perm, recursive=recursive)
+
         if perm is None:
             perm = self.default_dir_perm or 0o0770
 
@@ -214,6 +249,10 @@ class RemoteFileSystem(FileSystem):
         return x
 
     def listdir(self, path, pattern=None, type=None, **kwargs):
+        # forward to local_fs
+        if self.is_local(path):
+            return self.local_fs.listdir(path, pattern=pattern, type=type)
+
         elems = self.file_interface.listdir(self.abspath(path), **kwargs)
 
         # apply pattern filter
@@ -229,6 +268,12 @@ class RemoteFileSystem(FileSystem):
         return elems
 
     def walk(self, path, max_depth=-1, **kwargs):
+        # forward to local_fs
+        if self.is_local(path):
+            for obj in self.local_fs.walk(path, max_depth=max_depth):
+                yield obj
+            return
+
         # mimic os.walk with a max_depth and yield the current depth
         search_dirs = [(self.abspath(path), 0)]
         while search_dirs:
@@ -254,6 +299,10 @@ class RemoteFileSystem(FileSystem):
             search_dirs.extend((os.path.join(search_dir, d), depth + 1) for d in dirs)
 
     def glob(self, pattern, cwd=None, **kwargs):
+        # forward to local_fs
+        if self.is_local(pattern):
+            return self.local_fs.glob(pattern, cwd=cwd)
+
         # helper to check if a string represents a pattern
         def is_pattern(s):
             return "*" in s or "?" in s
@@ -348,63 +397,67 @@ class RemoteFileSystem(FileSystem):
         if dst is None and not cache:
             raise Exception("copy destination must not be empty when caching is disabled")
 
-        if cache:
-            kwargs_no_retries = kwargs.copy()
-            kwargs_no_retries["retries"] = 0
-
-            # handle 3 cases: lr, rl, rc
-            if mode == "lr":
-                # strategy: copy to remote, copy to cache, sync stats
-
-                # copy to remote, no need to validate as we compute the stat anyway
-                dst_uri = self._atomic_copy(src, dst, perm=perm, validate=False, **kwargs)
-                rstat = self.stat(dst, **kwargs_no_retries)
-
-                # remove the cache entry
-                if dst in self.cache:
-                    self.cache.remove(dst)
-
-                # allocate cache space and copy to cache
-                lstat = self.local_fs.stat(src)
-                self.cache.allocate(lstat.st_size)
-                cdst_uri = add_scheme(self.cache.cache_path(dst), "file")
-                with self.cache.lock(dst):
-                    self._atomic_copy(src, cdst_uri, validate=False)
-                    self.cache.touch(dst, (int(time.time()), rstat.st_mtime))
-
-                return dst_uri
-
-            else:  # rl, rc
-                # strategy: copy to cache when not up to date, sync stats, opt. copy to local
-
-                # build the uri to the cache path of the src file
-                csrc_uri = add_scheme(self.cache.cache_path(src), "file")
-
-                # if the file is cached and prefer_cache is true,
-                # return the cache path, no questions asked
-                # otherwise, check if the file is there and up to date
-                if not prefer_cache or src not in self.cache:
-                    with self.cache.lock(src):
-                        # in cache and outdated?
-                        rstat = self.stat(src, **kwargs_no_retries)
-                        if src in self.cache and not self.cache.check_mtime(src, rstat.st_mtime):
-                            self.cache.remove(src, lock=False)
-                        # in cache at all?
-                        if src not in self.cache:
-                            self.cache.allocate(rstat.st_size)
-                            self._atomic_copy(src, csrc_uri, validate=validate, **kwargs)
-                            self.cache.touch(src, (int(time.time()), rstat.st_mtime))
-
-                if mode == "rl":
-                    # simply use the local_fs for copying
-                    self.local_fs.copy(csrc_uri, dst, perm=perm)
-                    return dst
-                else:  # rc
-                    return csrc_uri
-
-        else:
+        if not cache:
             # simply copy and return the dst path
             return self._atomic_copy(src, dst, perm=perm, validate=validate, **kwargs)
+
+        kwargs_no_retries = kwargs.copy()
+        kwargs_no_retries["retries"] = 0
+
+        # handle 3 cases: lr, rl, rc
+        if mode == "lr":
+            # strategy: copy to remote, copy to cache, sync stats
+
+            # copy to remote, no need to validate as we compute the stat anyway
+            dst_uri = self._atomic_copy(src, dst, perm=perm, validate=False, **kwargs)
+            rstat = self.stat(dst, **kwargs_no_retries)
+
+            # remove the cache entry
+            if dst in self.cache:
+                logger.debug("removing destination file {} from cache".format(dst))
+                self.cache.remove(dst)
+
+            # allocate cache space and copy to cache
+            lstat = self.local_fs.stat(src)
+            self.cache.allocate(lstat.st_size)
+            cdst_uri = add_scheme(self.cache.cache_path(dst), "file")
+            with self.cache.lock(dst):
+                logger.debug("loading source file {} to cache".format(src))
+                self._atomic_copy(src, cdst_uri, validate=False)
+                self.cache.touch(dst, (int(time.time()), rstat.st_mtime))
+
+            return dst_uri
+
+        else:  # rl, rc
+            # strategy: copy to cache when not up to date, sync stats, opt. copy to local
+
+            # build the uri to the cache path of the src file
+            csrc_uri = add_scheme(self.cache.cache_path(src), "file")
+
+            # if the file is cached and prefer_cache is true,
+            # return the cache path, no questions asked
+            # otherwise, check if the file is there and up to date
+            if not prefer_cache or src not in self.cache:
+                with self.cache.lock(src):
+                    # in cache and outdated?
+                    rstat = self.stat(src, **kwargs_no_retries)
+                    if src in self.cache and not self.cache.check_mtime(src, rstat.st_mtime):
+                        logger.debug("source file {} is outdated in cache, removing".format(src))
+                        self.cache.remove(src, lock=False)
+                    # in cache at all?
+                    if src not in self.cache:
+                        self.cache.allocate(rstat.st_size)
+                        self._atomic_copy(src, csrc_uri, validate=validate, **kwargs)
+                        logger.debug("loading source file {} to cache".format(src))
+                        self.cache.touch(src, (int(time.time()), rstat.st_mtime))
+
+            if mode == "rl":
+                # simply use the local_fs for copying
+                self.local_fs.copy(csrc_uri, dst, perm=perm)
+                return dst
+
+            # mode is rc
+            return csrc_uri
 
     def _prepare_dst_dir(self, dst, src=None, perm=None, **kwargs):
         """
@@ -507,22 +560,6 @@ class RemoteFileSystem(FileSystem):
             f = lpath if yield_path else open(lpath, mode)
             return RemoteFileProxy(f, success_fn=copy_and_cleanup, failure_fn=cleanup)
 
-    def load(self, path, formatter, *args, **kwargs):
-        # split kwargs that might be designated for remote files
-        remote_kwargs, kwargs = self.split_remote_kwargs(kwargs)
-
-        fmt = find_formatter(path, "load", formatter)
-        with self.open(path, "r", _yield_path=True, **remote_kwargs) as lpath:
-            return fmt.load(lpath, *args, **kwargs)
-
-    def dump(self, path, formatter, *args, **kwargs):
-        # split kwargs that might be designated for remote files
-        remote_kwargs, kwargs = self.split_remote_kwargs(kwargs, include=["perm", "dir_perm"])
-
-        fmt = find_formatter(path, "dump", formatter)
-        with self.open(path, "w", _yield_path=True, **remote_kwargs) as lpath:
-            return fmt.dump(lpath, *args, **kwargs)
-
 
 class RemoteTarget(FileSystemTarget):
 
@@ -580,15 +617,38 @@ class RemoteTarget(FileSystemTarget):
         src = add_scheme(self.fs.local_fs.abspath(get_path(src)), "file")
         return self.move_from(src, **kwargs)
 
+    def load(self, *args, **kwargs):
+        # split kwargs that might be designated for remote files
+        remote_kwargs, kwargs = self.fs.split_remote_kwargs(kwargs)
+
+        # forward to the localized representation
+        with self.localize(mode="r", **remote_kwargs) as loc:
+            return loc.load(*args, **kwargs)
+
+    def dump(self, *args, **kwargs):
+        # split kwargs that might be designated for remote files
+        remote_kwargs, kwargs = self.fs.split_remote_kwargs(kwargs)
+
+        # forward to the localized representation
+        with self.localize(mode="a", **remote_kwargs) as loc:
+            return loc.dump(*args, **kwargs)
+
 
 class RemoteFileTarget(FileSystemFileTarget, RemoteTarget):
+
+    @property
+    def cache_path(self):
+        if not self.fs.cache:
+            return None
+
+        return self.fs.cache.cache_path(self.path)
 
     @contextmanager
     def localize(self, mode="r", perm=None, dir_perm=None, tmp_dir=None, **kwargs):
         if mode not in ["r", "w", "a"]:
             raise Exception("unknown mode '{}', use 'r', 'w' or 'a'".format(mode))
 
-        logger.debug("localizing file target {!r} with mode '{}'".format(self, mode))
+        logger.debug("localizing {!r} with mode '{}'".format(self, mode))
 
         if mode == "r":
             with self.fs.open(self.path, "r", _yield_path=True, perm=perm, **kwargs) as lpath:
@@ -599,7 +659,7 @@ class RemoteFileTarget(FileSystemFileTarget, RemoteTarget):
 
             # copy to local in append mode
             if mode == "a" and self.exists():
-                self.copy_to_local(tmp)
+                self.copy_to_local(tmp, **kwargs)
 
             try:
                 yield tmp
@@ -607,8 +667,8 @@ class RemoteFileTarget(FileSystemFileTarget, RemoteTarget):
                 if tmp.exists():
                     self.copy_from_local(tmp, perm=perm, dir_perm=dir_perm, **kwargs)
                 else:
-                    logger.warning("cannot move non-existing localized file target {!r}".format(
-                        self))
+                    logger.warning("cannot move non-existing localized target to actual "
+                        "representation {!r}".format(self))
             finally:
                 tmp.remove()
 
@@ -619,6 +679,51 @@ class RemoteDirectoryTarget(FileSystemDirectoryTarget, RemoteTarget):
         args, kwargs = super(RemoteDirectoryTarget, self)._child_args(path)
         args += (self.fs,)
         return args, kwargs
+
+    @contextmanager
+    def localize(self, mode="r", perm=None, dir_perm=None, tmp_dir=None, **kwargs):
+        if mode not in ["r", "w", "a"]:
+            raise Exception("unknown mode '{}', use 'r', 'w' or 'a'".format(mode))
+
+        logger.debug("localizing {!r} with mode '{}'".format(self, mode))
+
+        if mode == "r":
+            # create a temporary directory
+            tmp = LocalDirectoryTarget(is_tmp=True, tmp_dir=tmp_dir)
+
+            # copy contents
+            self.copy_to_local(tmp, **kwargs)
+
+            # yield the copy
+            try:
+                yield tmp
+            finally:
+                tmp.remove(silent=True)
+
+        else:  # mode "w" or "a"
+            # create a temporary directory
+            tmp = LocalDirectoryTarget(is_tmp=True, tmp_dir=tmp_dir)
+
+            # copy in append mode, otherwise ensure that it exists
+            if mode == "a" and self.exists():
+                self.copy_to_local(tmp)
+            else:
+                tmp.touch()
+
+            # yield the copy
+            try:
+                yield tmp
+
+                # move back again, first removing current content
+                # TODO: keep track of changed contents in "a" mode and copy only those?
+                if tmp.exists():
+                    self.remove(**kwargs)
+                    self.copy_from_local(tmp, perm=perm, dir_perm=dir_perm, **kwargs)
+                else:
+                    logger.warning("cannot move non-existing localized target to actual "
+                        "representation {!r}, leaving original contents unchanged".format(self))
+            finally:
+                tmp.remove()
 
 
 RemoteTarget.file_class = RemoteFileTarget

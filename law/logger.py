@@ -15,7 +15,7 @@ import logging
 
 import six
 
-from law.util import no_value, colored, ipykernel
+from law.util import no_value, colored, ipykernel, ON_COLAB
 
 
 _logging_setup = False
@@ -33,6 +33,10 @@ def setup_logging():
     if _logging_setup:
         return
     _logging_setup = True
+
+    # remove root handlers on colab
+    if ON_COLAB and logging.root.handlers:
+        logging.root.removeHandler(logging.root.handlers[0])
 
     # setup the main law logger first and set its handler which is propagated to subloggers
     logger = get_logger("law", skip_setup=True)
@@ -244,47 +248,55 @@ class LogFormatter(logging.Formatter):
     :py:class:`logging.Formatter`.
 
     .. py:classattribute:: LOG_TEMPLATE
-       type: string
 
-       Template for log messages without stack traces.
+        type: string
+
+        Template for log messages without stack traces.
 
     .. py:classattribute:: ERR_TEMPLATE
-       type: string
 
-       Template for log messages including stack traces.
+        type: string
+
+        Template for log messages including stack traces.
 
     .. py:classattribute:: LEVEL_STYLES
-       type: dict
 
-       Style attributes forwarded to :py:func:`law.util.colored` per log level for styling level
-       names in logs
+        type: dict
+
+        Style attributes forwarded to :py:func:`law.util.colored` per log level for styling level
+        names in logs
 
     .. py:classattribute:: NAME_STYLES
-       type: dict
 
-       Style attributes forwarded to :py:func:`law.util.colored` per log level for styling logger
-       names in logs.
+        type: dict
+
+        Style attributes forwarded to :py:func:`law.util.colored` per log level for styling logger
+        names in logs.
 
     .. py:classattribute:: MSG_STYLES
-       type: dict
 
-       Style attributes forwarded to :py:func:`law.util.colored` per log level for styling messages
-       in logs.
+        type: dict
+
+        Style attributes forwarded to :py:func:`law.util.colored` per log level for styling messages
+        in logs.
 
     .. py:classattribute:: FORMAT_LEVEL
-       type: callable or None
 
-       Custom callback to format the log level using the full record.
+        type: callable or None
+
+        Custom callback to format the log level using the full record.
 
     .. py:classattribute:: FORMAT_NAME
-       type: callable or None
 
-       Custom callback to format the loger name using the full record.
+        type: callable, None
+
+        Custom callback to format the loger name using the full record.
 
     .. py:classattribute:: FORMAT_MSG
-       type: callable or None
 
-       Custom callback to format the log message using the full record.
+        type: callable, None
+
+        Custom callback to format the log message using the full record.
     """
 
     LOG_TEMPLATE = "{level}: {name} - {msg}"

@@ -75,6 +75,7 @@ class BundleCMSSW(Task):
         base = os.path.basename(self.get_cmssw_path())
         if self.checksum:
             base += "{}.".format(self.checksum)
+        base = os.path.abspath(os.path.expandvars(os.path.expanduser(base)))
         return LocalFileTarget("{}.tgz".format(base))
 
     @log

@@ -7,16 +7,16 @@ Helpful utility functions.
 __all__ = [
     "default_lock", "io_lock", "console_lock", "no_value", "rel_path", "law_src_path",
     "law_home_path", "law_run", "print_err", "abort", "import_file", "get_terminal_width",
-    "is_classmethod", "is_number", "try_int", "round_discrete", "str_to_int", "flag_to_bool",
-    "empty_context", "common_task_params", "colored", "uncolored", "query_choice", "is_pattern",
-    "brace_expand", "range_expand", "range_join", "multi_match", "is_iterable", "is_lazy_iterable",
-    "make_list", "make_tuple", "make_unique", "is_nested", "flatten", "merge_dicts", "unzip",
-    "which", "map_verbose", "map_struct", "mask_struct", "tmp_file", "perf_counter",
-    "interruptable_popen", "readable_popen", "create_hash", "create_random_string", "copy_no_perm",
-    "makedirs", "user_owns_file", "iter_chunks", "human_bytes", "parse_bytes", "human_duration",
-    "parse_duration", "is_file_exists_error", "send_mail", "DotDict", "ShorthandDict",
-    "open_compat", "patch_object", "join_generators", "quote_cmd", "escape_markdown",
-    "classproperty", "BaseStream", "TeeStream", "FilteredStream",
+    "is_classmethod", "is_number", "is_float", "try_int", "round_discrete", "str_to_int",
+    "flag_to_bool", "empty_context", "common_task_params", "colored", "uncolored", "query_choice",
+    "is_pattern", "brace_expand", "range_expand", "range_join", "multi_match", "is_iterable",
+    "is_lazy_iterable", "make_list", "make_tuple", "make_set", "make_unique", "is_nested",
+    "flatten", "merge_dicts", "unzip", "which", "map_verbose", "map_struct", "mask_struct",
+    "tmp_file", "perf_counter", "interruptable_popen", "readable_popen", "create_hash",
+    "create_random_string", "copy_no_perm", "makedirs", "user_owns_file", "iter_chunks",
+    "human_bytes", "parse_bytes", "human_duration", "parse_duration", "is_file_exists_error",
+    "send_mail", "DotDict", "ShorthandDict", "open_compat", "patch_object", "join_generators",
+    "quote_cmd", "escape_markdown", "classproperty", "BaseStream", "TeeStream", "FilteredStream",
 ]
 
 
@@ -27,6 +27,7 @@ import re
 import math
 import fnmatch
 import itertools
+import functools
 import tempfile
 import subprocess
 import signal
@@ -53,6 +54,12 @@ try:
     import ipykernel.iostream
 except ImportError:
     ipykernel = None
+
+try:
+    import google.colab  # noqa
+    ON_COLAB = True
+except ImportError:
+    ON_COLAB = False
 
 
 logger = logging.getLogger(__name__)
@@ -127,6 +134,8 @@ def law_run(argv, **kwargs):
         law_run("MyTask --param value")
     """
     from luigi.interface import run as luigi_run
+    from luigi.cmdline_parser import CmdlineParser
+    from law.parser import _reset as reset_parser
 
     # ensure that argv is a list of strings
     if isinstance(argv, six.string_types):
@@ -137,7 +146,28 @@ def law_run(argv, **kwargs):
     # luigi's pid locking must be disabled
     argv.append("--no-lock")
 
-    return luigi_run(argv, **kwargs)
+    # run with a patch to the ArgumentParser to overwrite the prog default
+    _build_parser_orig = CmdlineParser._build_parser
+    @functools.wraps(_build_parser_orig)
+    def _build_parser(*args, **kwargs):
+        parser = _build_parser_orig(*args, **kwargs)
+        parser.prog = "law run"
+        return parser
+
+    ret = False
+    try:
+        with patch_object(
+            CmdlineParser,
+            "_build_parser",
+            staticmethod(_build_parser),
+            orig=staticmethod(_build_parser_orig),
+        ):
+            ret = luigi_run(argv, **kwargs)
+    finally:
+        # reset parser objects
+        reset_parser()
+
+    return ret
 
 
 def print_err(*args, **kwargs):
@@ -223,6 +253,18 @@ def is_number(n):
     Returns *True* if *n* is a number, i.e., integer or float, and in particular no boolean.
     """
     return isinstance(n, six.integer_types + (float,)) and not isinstance(n, bool)
+
+
+def is_float(v):
+    """
+    Takes any value *v* and tries to convert it to a float. Returns *True* success, and *False*
+    otherwise.
+    """
+    try:
+        float(v)
+        return True
+    except:
+        return False
 
 
 def try_int(n):
@@ -556,10 +598,17 @@ def range_expand(s, include_end=False, min_value=None, max_value=None, sep=":"):
     """
     Takes a string, or a sequence of strings in the format ``"1:3"``, or a tuple or a sequence of
     tuples containing start and stop values of a range and returns a list of all intermediate
-    values. When *include_end* is *True*, the end value is included. One sided range expressions
-    such as ``":4"`` or ``"4:"`` for strings and ``(None, 4)`` or ``(4, None)`` for tuples are also
-    expanded but they require *min_value* and *max_value* to be set (an exception is raised
-    otherwise), with *max_value* being either included or not, depending on *include_end*. Example:
+    values. When *include_end* is *True*, the end value is included.
+
+    One sided range expressions such as ``":4"`` or ``"4:"`` for strings and ``(None, 4)`` or
+    ``(4, None)`` for tuples are also expanded but they require *min_value* and *max_value* to be
+    set (an exception is raised otherwise), with *max_value* being either included or not, depending
+    on *include_end*.
+
+    Also, when a *min_value* (*max_value*) is set, the minimum (maximum) of expanded range is
+    limited at this value.
+
+    Example:
 
     .. code-block:: python
 
@@ -648,6 +697,13 @@ def range_expand(s, include_end=False, min_value=None, max_value=None, sep=":"):
 
     # remove duplicates preserving the order
     numbers = make_unique(numbers)
+
+    # apply limits
+    if min_value is not None:
+        numbers = [num for num in numbers if num >= min_value]
+    if max_value is not None:
+        py_max_value = (max_value + 1) if include_end else max_value
+        numbers = [num for num in numbers if num < py_max_value]
 
     return numbers
 
@@ -760,12 +816,11 @@ def make_list(obj, cast=True):
     """
     if isinstance(obj, list):
         return list(obj)
-    elif is_lazy_iterable(obj):
+    if is_lazy_iterable(obj):
         return list(obj)
-    elif isinstance(obj, (tuple, set)) and cast:
+    if isinstance(obj, (tuple, set)) and cast:
         return list(obj)
-    else:
-        return [obj]
+    return [obj]
 
 
 def make_tuple(obj, cast=True):
@@ -775,12 +830,25 @@ def make_tuple(obj, cast=True):
     """
     if isinstance(obj, tuple):
         return obj
-    elif is_lazy_iterable(obj):
+    if is_lazy_iterable(obj):
         return tuple(obj)
-    elif isinstance(obj, (list, set)) and cast:
+    if isinstance(obj, (list, set)) and cast:
         return tuple(obj)
-    else:
-        return (obj,)
+    return (obj,)
+
+
+def make_set(obj, cast=True):
+    """
+    Converts an object *obj* to a set and returns it. Objects of types *list* and *tuple* are
+    converted if *cast* is *True*. Otherwise, and for all other types, *obj* is put in a new set.
+    """
+    if isinstance(obj, set):
+        return obj
+    if is_lazy_iterable(obj):
+        return set(obj)
+    if isinstance(obj, (list, tuple)) and cast:
+        return set(obj)
+    return {obj}
 
 
 def make_unique(obj):
@@ -791,10 +859,9 @@ def make_unique(obj):
     raised.
     """
     if not isinstance(obj, (list, tuple)):
-        if is_iterable(obj) or is_lazy_iterable(obj):
-            obj = list(obj)
-        else:
+        if not is_iterable(obj) and not is_lazy_iterable(obj):
             raise TypeError("object is neither list, tuple, nor generic iterable")
+        obj = list(obj)
 
     ret = sorted(obj.__class__(set(obj)), key=lambda elem: obj.index(elem))
 
@@ -816,28 +883,29 @@ def flatten(*structs, **kwargs):
     """
     if len(structs) == 0:
         return []
-    elif len(structs) > 1:
+
+    if len(structs) > 1:
         return flatten(structs, **kwargs)
-    else:
-        struct = structs[0]
 
-        flatten_seq = lambda seq: sum((flatten(obj, **kwargs) for obj in seq), [])
-        if isinstance(struct, dict):
-            if kwargs.get("flatten_dict", True):
-                return flatten_seq(struct.values())
-        elif isinstance(struct, list):
-            if kwargs.get("flatten_list", True):
-                return flatten_seq(struct)
-        elif isinstance(struct, tuple):
-            if kwargs.get("flatten_tuple", True):
-                return flatten_seq(struct)
-        elif isinstance(struct, set):
-            if kwargs.get("flatten_set", True):
-                return flatten_seq(struct)
-        elif is_lazy_iterable(struct):
+    struct = structs[0]
+
+    flatten_seq = lambda seq: sum((flatten(obj, **kwargs) for obj in seq), [])
+    if isinstance(struct, dict):
+        if kwargs.get("flatten_dict", True):
+            return flatten_seq(struct.values())
+    elif isinstance(struct, list):
+        if kwargs.get("flatten_list", True):
             return flatten_seq(struct)
+    elif isinstance(struct, tuple):
+        if kwargs.get("flatten_tuple", True):
+            return flatten_seq(struct)
+    elif isinstance(struct, set):
+        if kwargs.get("flatten_set", True):
+            return flatten_seq(struct)
+    elif is_lazy_iterable(struct):
+        return flatten_seq(struct)
 
-        return [struct]
+    return [struct]
 
 
 def merge_dicts(*dicts, **kwargs):
@@ -1063,15 +1131,17 @@ def map_struct(func, struct, map_dict=True, map_list=True, map_tuple=False, map_
         return func(struct) if isinstance(struct, cls) else struct
 
     # custom mapping?
-    elif custom_mappings and isinstance(struct, tuple(flatten(custom_mappings.keys()))):
+    if custom_mappings and isinstance(struct, tuple(flatten(custom_mappings.keys()))):
         # get the mapping function
         for mapping_types, mapping_func in six.iteritems(custom_mappings):
             if isinstance(struct, mapping_types):
                 return mapping_func(func, struct, map_dict=map_dict, map_list=map_list,
                     map_tuple=map_tuple, map_set=map_set, cls=cls, custom_mappings=custom_mappings)
+        # this point should never be reached
+        return struct
 
     # traverse?
-    elif isinstance(struct, valid_types):
+    if isinstance(struct, valid_types):
         # create a new struct, treat tuples as lists for itertative item appending
         new_struct = struct.__class__() if not isinstance(struct, tuple) else []
 
@@ -1099,15 +1169,19 @@ def map_struct(func, struct, map_dict=True, map_list=True, map_tuple=False, map_
         return new_struct
 
     # apply the mapping function on everything else
-    else:
-        return func(struct)
+    return func(struct)
 
 
-def mask_struct(mask, struct, replace=no_value):
+def mask_struct(mask, struct, replace=no_value, convert_types=None):
     """
     Masks a complex structured object *struct* with a *mask* and returns the remaining values. When
     *replace* is set, masked values are replaced with that value instead of being removed. The
-    *mask* can have a complex structure as well. Examples:
+    *mask* can have a complex structure as well.
+
+    *convert_types* can be a dictionary containing conversion functions mapped to types (or tuples)
+    thereof that is applied to objects during the struct traversal if their types match.
+
+    Examples:
 
     .. code-block:: python
 
@@ -1125,12 +1199,20 @@ def mask_struct(mask, struct, replace=no_value):
     if is_lazy_iterable(struct):
         struct = list(struct)
 
+    # cast convert types
+    if convert_types and isinstance(struct, tuple(flatten(convert_types.keys()))):
+        # get the mapping function
+        for _types, convert in six.iteritems(convert_types):
+            if isinstance(struct, _types):
+                struct = convert(struct)
+                break
+
     # when mask is a bool, or struct is not a dict or sequence, apply the mask immediately
     if isinstance(mask, bool) or not isinstance(struct, (list, tuple, dict)):
         return struct if mask else replace
 
     # check list and tuple types
-    elif isinstance(struct, (list, tuple)) and isinstance(mask, (list, tuple)):
+    if isinstance(struct, (list, tuple)) and isinstance(mask, (list, tuple)):
         new_struct = []
         for i, val in enumerate(struct):
             if i >= len(mask):
@@ -1139,14 +1221,14 @@ def mask_struct(mask, struct, replace=no_value):
                 repl = replace
                 if isinstance(replace, (list, tuple)) and len(replace) > i:
                     repl = replace[i]
-                val = mask_struct(mask[i], val, replace=repl)
+                val = mask_struct(mask[i], val, replace=repl, convert_types=convert_types)
                 if val != no_value:
                     new_struct.append(val)
 
         return struct.__class__(new_struct) if new_struct else replace
 
     # check dict types
-    elif isinstance(struct, dict) and isinstance(mask, dict):
+    if isinstance(struct, dict) and isinstance(mask, dict):
         new_struct = struct.__class__()
         for key, val in six.iteritems(struct):
             if key not in mask:
@@ -1155,14 +1237,16 @@ def mask_struct(mask, struct, replace=no_value):
                 repl = replace
                 if isinstance(replace, dict) and key in replace:
                     repl = replace[key]
-                val = mask_struct(mask[key], val, replace=repl)
+                val = mask_struct(mask[key], val, replace=repl, convert_types=convert_types)
                 if val != no_value:
                     new_struct[key] = val
         return new_struct or replace
 
     # when this point is reached, mask and struct have incompatible types
-    raise TypeError("mask and struct must have the same type, got '{}' and '{}'".format(type(mask),
-            type(struct)))
+    raise TypeError(
+        "mask and struct must have the same type, got '{}' and '{}'".format(
+            type(mask), type(struct)),
+    )
 
 
 @contextlib.contextmanager
@@ -1195,10 +1279,13 @@ def perf_counter():
 
 
 def interruptable_popen(*args, **kwargs):
-    """ interruptable_popen(*args, interrupt_callback=None, kill_timeout=None, **kwargs)
+    """ interruptable_popen(*args, stdin_callback=None, stdin_delay=0, interrupt_callback=None, kill_timeout=None, **kwargs)  # noqa
     Shorthand to :py:class:`Popen` followed by :py:meth:`Popen.communicate` which can be interrupted
     by *KeyboardInterrupt*. The return code, standard output and standard error are returned in a
     3-tuple.
+
+    *stdin_callback* can be a function accepting no arguments and whose return value is passed to
+    ``communicate`` after a delay of *stdin_delay* to feed data input to the subprocess.
 
     *interrupt_callback* can be a function, accepting the process instance as an argument, that is
     called immediately after a *KeyboardInterrupt* occurs. After that, a SIGTERM signal is send to
@@ -1210,6 +1297,8 @@ def interruptable_popen(*args, **kwargs):
     All other *args* and *kwargs* are forwarded to the :py:class:`Popen` constructor.
     """
     # get kwargs not being passed to Popen
+    stdin_callback = kwargs.pop("stdin_callback", None)
+    stdin_delay = kwargs.pop("stdin_delay", 0)
     interrupt_callback = kwargs.pop("interrupt_callback", None)
     kill_timeout = kwargs.pop("kill_timeout", None)
 
@@ -1217,9 +1306,18 @@ def interruptable_popen(*args, **kwargs):
     kwargs["preexec_fn"] = os.setsid
     p = subprocess.Popen(*args, **kwargs)
 
+    # get stdin
+    stdin_data = None
+    if callable(stdin_callback):
+        if stdin_delay > 0:
+            time.sleep(stdin_delay)
+        stdin_data = stdin_callback()
+        if isinstance(stdin_data, six.string_types):
+            stdin_data = (stdin_data + "\n").encode("utf-8")
+
     # handle interrupts
     try:
-        out, err = p.communicate()
+        out, err = p.communicate(stdin_data)
     except KeyboardInterrupt:
         # allow the interrupt_callback to perform a custom process termination
         if callable(interrupt_callback):
@@ -1284,10 +1382,12 @@ def readable_popen(*args, **kwargs):
     p = subprocess.Popen(*args, **kwargs)
 
     def line_gen():
-        for line in iter(lambda: p.stdout.readline(), ""):
-            if six.PY3:
-                line = line.decode("utf-8")
-            yield line.rstrip()
+        if six.PY2:
+            for line in iter(lambda: p.stdout.readline(), ""):
+                yield line.rstrip()
+        else:
+            for line in p.stdout:
+                yield line.decode("utf-8").rstrip()
 
         # communicate in the end
         p.communicate()
@@ -1445,12 +1545,16 @@ def human_bytes(n, unit=None, fmt=False):
     value = n / 1024.0 ** idx
     unit = byte_units[idx]
 
+    # vast value to int when the unit is bytes
+    if idx == 0:
+        value = int(round(value))
+
     if fmt:
         if not isinstance(fmt, six.string_types):
-            fmt = "{:.1f} {}"
+            fmt = "{} {}" if idx == 0 else "{:.1f} {}"
         return fmt.format(value, unit)
-    else:
-        return value, unit
+
+    return value, unit
 
 
 def parse_bytes(s, input_unit="bytes", unit="bytes"):
@@ -1723,8 +1827,8 @@ def parse_duration(s, input_unit="s", unit="s"):
     duration_seconds = 0.0
 
     # number or string?
-    if isinstance(s, six.integer_types + (float,)):
-        duration_seconds += s * time_units[input_unit]
+    if isinstance(s, six.integer_types + (float,)) or is_float(s):
+        duration_seconds += float(s) * time_units[input_unit]
     else:
         s = s.strip()
 
@@ -1895,10 +1999,11 @@ class ShorthandDict(collections.OrderedDict):
         # => 3
 
     .. py:classattribute: attributes
-       type: dict
 
-       Mapping of attribute names to default values. ``__getattr__`` and ``__setattr__`` support is
-       provided for these attributes.
+        type: dict
+
+        Mapping of attribute names to default values. ``__getattr__`` and ``__setattr__`` support is
+        provided for these attributes.
     """
 
     attributes = {}
@@ -2022,35 +2127,39 @@ def open_compat(*args, **kwargs):
 
 
 @contextlib.contextmanager
-def patch_object(obj, attr, value, lock=False):
+def patch_object(obj, attr, value, reset=True, orig=no_value, lock=False):
     """
     Context manager that temporarily patches an object *obj* by replacing its attribute *attr* with
-    *value*. The original value is set again when the context is closed. When *lock* is *True*, the
-    py:attr:`default_lock` object is used to ensure the patch is thread-safe. When *lock* is a lock
-    instance, this object is used instead.
+    *value*. The original value is set again when the context is closed unless *reset* is *False*.
+    The original value is obtained through ``getattr`` or taken from *orig* if set. When *lock* is
+    *True*, the py:attr:`default_lock` object is used to ensure the patch is thread-safe.
+    When *lock* is a lock instance, this object is used instead.
     """
-    orig = getattr(obj, attr, no_value)
+    if orig is no_value:
+        # get the original value
+        orig = getattr(obj, attr, no_value)
 
+    # handle thread locks
     if lock:
         if isinstance(lock, bool):
             lock = default_lock
-        lock.acquire()
+    else:
+        lock = empty_context()
 
-    try:
-        setattr(obj, attr, value)
-
-        yield obj
-    finally:
-        if lock and lock.locked():
-            lock.release()
-
+    with lock:
         try:
-            if orig is no_value:
-                delattr(obj, attr)
-            else:
-                setattr(obj, attr, orig)
-        except:
-            pass
+            setattr(obj, attr, value)
+
+            yield obj
+        finally:
+            try:
+                if reset:
+                    if orig is no_value:
+                        delattr(obj, attr)
+                    else:
+                        setattr(obj, attr, orig)
+            except:
+                pass
 
 
 def join_generators(*generators, **kwargs):

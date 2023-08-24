@@ -91,28 +91,33 @@ class LSFJobManager(BaseJobManager):
             # retry or done?
             if code == 0:
                 return job_id
-            else:
-                logger.debug("submission of lsf job '{}' failed with code {}:\n{}".format(
-                    job_file, code, err))
-                if retries > 0:
-                    retries -= 1
-                    time.sleep(retry_delay)
-                    continue
-                elif silent:
-                    return None
-                else:
-                    raise Exception("submission of lsf job '{}' failed: \n{}".format(job_file, err))
+
+            logger.debug("submission of lsf job '{}' failed with code {}:\n{}".format(
+                job_file, code, err))
+
+            if retries > 0:
+                retries -= 1
+                time.sleep(retry_delay)
+                continue
+
+            if silent:
+                return None
+
+            raise Exception("submission of lsf job '{}' failed: \n{}".format(job_file, err))
 
     def cancel(self, job_id, queue=None, silent=False):
         # default arguments
         if queue is None:
             queue = self.queue
 
+        chunking = isinstance(job_id, (list, tuple))
+        job_ids = make_list(job_id)
+
         # build the command
         cmd = ["bkill"]
         if queue:
             cmd += ["-q", queue]
-        cmd += make_list(job_id)
+        cmd += job_ids
         cmd = quote_cmd(cmd)
 
         # run it
@@ -124,6 +129,8 @@ class LSFJobManager(BaseJobManager):
         if code != 0 and not silent:
             raise Exception("cancellation of lsf job(s) '{}' failed with code {}:\n{}".format(
                 job_id, code, err))
+
+        return {job_id: None for job_id in job_ids} if chunking else None
 
     def query(self, job_id, queue=None, silent=False):
         # default arguments
@@ -231,10 +238,10 @@ class LSFJobFileFactory(BaseJobFileFactory):
             kwargs["dir"] = cfg.get_expanded("job", cfg.find_option("job",
                 "lsf_job_file_dir", "job_file_dir"))
         if kwargs.get("mkdtemp") is None:
-            kwargs["mkdtemp"] = cfg.get_expanded_boolean("job", cfg.find_option("job",
+            kwargs["mkdtemp"] = cfg.get_expanded_bool("job", cfg.find_option("job",
                 "lsf_job_file_dir_mkdtemp", "job_file_dir_mkdtemp"))
         if kwargs.get("cleanup") is None:
-            kwargs["cleanup"] = cfg.get_expanded_boolean("job", cfg.find_option("job",
+            kwargs["cleanup"] = cfg.get_expanded_bool("job", cfg.find_option("job",
                 "lsf_job_file_dir_cleanup", "job_file_dir_cleanup"))
 
         super(LSFJobFileFactory, self).__init__(**kwargs)
@@ -260,7 +267,7 @@ class LSFJobFileFactory(BaseJobFileFactory):
 
     def create(self, postfix=None, **kwargs):
         # merge kwargs and instance attributes
-        c = self.get_config(kwargs)
+        c = self.get_config(**kwargs)
 
         # some sanity checks
         if not c.file_name:

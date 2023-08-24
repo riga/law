@@ -7,6 +7,8 @@ Proxy task definition and helpers.
 __all__ = ["ProxyTask", "ProxyCommand", "get_proxy_attribute"]
 
 
+import shlex
+
 from law.task.base import BaseTask, Task
 from law.parameter import TaskInstanceParameter
 from law.parser import global_cmdline_args
@@ -25,17 +27,32 @@ class ProxyTask(BaseTask):
     exclude_params_req = {"task"}
 
 
+# disable instance caching
+ProxyTask.disable_instance_cache()
+
+
 class ProxyCommand(object):
 
     arg_sep = "__law_arg_sep__"
 
-    def __init__(self, task, exclude_task_args=None, exclude_global_args=None):
+    def __init__(
+        self,
+        task,
+        exclude_task_args=None,
+        exclude_global_args=None,
+        executable="law",
+    ):
         super(ProxyCommand, self).__init__()
 
         self.task = task
         self.args = self.load_args(
             exclude_task_args=exclude_task_args,
             exclude_global_args=exclude_global_args,
+        )
+        self.executable = list(
+            shlex.split(executable)
+            if isinstance(executable, str)
+            else executable,
         )
 
     def load_args(self, exclude_task_args=None, exclude_global_args=None):
@@ -64,12 +81,15 @@ class ProxyCommand(object):
 
         self.args.append((key, value))
 
-    def build_run_cmd(self):
-        return ["law", "run", "{}.{}".format(self.task.__module__, self.task.__class__.__name__)]
+    def build_run_cmd(self, executable=None):
+        exe = executable or self.executable
+        exe = list(shlex.split(executable) if isinstance(executable, str) else exe)
 
-    def build(self, skip_run=False):
+        return exe + ["run", "{}.{}".format(self.task.__module__, self.task.__class__.__name__)]
+
+    def build(self, skip_run=False, executable=None):
         # start with the run command
-        cmd = [] if skip_run else self.build_run_cmd()
+        cmd = [] if skip_run else self.build_run_cmd(executable=executable)
 
         # add arguments and insert dummary key value separators which are replaced with "=" later
         for key, value in self.args:
@@ -81,6 +101,7 @@ class ProxyCommand(object):
         return cmd
 
     def __str__(self):
+        # default command
         return self.build()
 
 
@@ -101,9 +122,9 @@ def get_proxy_attribute(task, attr, proxy=True, super_cls=Task):
         if attr in _forward_sandbox_attributes and isinstance(task, SandboxTask):
             if attr == "run" and not task.is_sandboxed():
                 return task.sandbox_proxy.run
-            elif attr == "input" and _sandbox_stagein_dir and task.is_sandboxed():
+            if attr == "input" and _sandbox_stagein_dir and task.is_sandboxed():
                 return task._staged_input
-            elif attr == "output" and _sandbox_stageout_dir and task.is_sandboxed():
+            if attr == "output" and _sandbox_stageout_dir and task.is_sandboxed():
                 return task._staged_output
 
     return super_cls.__getattribute__(task, attr)

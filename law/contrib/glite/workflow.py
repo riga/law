@@ -13,13 +13,13 @@ import sys
 from abc import abstractmethod
 from collections import OrderedDict
 
+import law
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments, JobInputFile, DeprecatedInputFiles
 from law.task.proxy import ProxyCommand
 from law.target.file import get_path
 from law.parameter import CSVParameter
 from law.util import law_src_path, merge_dicts, DotDict
-from law.contrib.wlcg import delegate_voms_proxy_glite, get_ce_endpoint
 from law.logger import get_logger
 
 from law.contrib.glite.job import GLiteJobManager, GLiteJobFileFactory
@@ -44,6 +44,19 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
     def create_job_manager(self, **kwargs):
         return self.task.glite_create_job_manager(**kwargs)
 
+    def setup_job_mananger(self):
+        kwargs = {}
+
+        # delegate the voms proxy to all endpoints
+        if callable(self.task.glite_delegate_proxy):
+            delegation_ids = []
+            for ce in self.task.glite_ce:
+                endpoint = law.wlcg.get_ce_endpoint(ce)
+                delegation_ids.append(self.task.glite_delegate_proxy(endpoint))
+            kwargs["delegation_id"] = delegation_ids
+
+        return kwargs
+
     def create_job_file_factory(self, **kwargs):
         return self.task.glite_create_job_file_factory(**kwargs)
 
@@ -54,7 +67,7 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
         postfix = "_{}To{}".format(branches[0], branches[-1] + 1)
 
         # create the config
-        c = self.job_file_factory.Config()
+        c = self.job_file_factory.get_config()
         c.input_files = DeprecatedInputFiles()
         c.output_files = []
         c.render_variables = {}
@@ -71,7 +84,13 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
         c.input_files["job_file"] = law_job_file
 
         # collect task parameters
-        exclude_args = task.exclude_params_branch | task.exclude_params_workflow | {"workflow"}
+        exclude_args = (
+            task.exclude_params_branch |
+            task.exclude_params_workflow |
+            task.exclude_params_remote_workflow |
+            task.exclude_params_glite_workflow |
+            {"workflow"}
+        )
         proxy_cmd = ProxyCommand(
             task.as_branch(branches[0]),
             exclude_task_args=exclude_args,
@@ -90,7 +109,7 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
             workers=task.job_workers,
             auto_retry=False,
             dashboard_data=self.dashboard.remote_hook_data(
-                job_num, self.submission_data.attempts.get(job_num, 0)),
+                job_num, self.job_data.attempts.get(job_num, 0)),
         )
         c.arguments = job_args.join()
 
@@ -135,23 +154,14 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
         # return job and log files
         return {"job": job_file, "log": abs_log_file}
 
-    def _submit(self, *args, **kwargs):
-        task = self.task
-
-        # delegate the voms proxy to all endpoints
-        if self.delegation_ids is None and callable(task.glite_delegate_proxy):
-            self.delegation_ids = []
-            for ce in task.glite_ce:
-                endpoint = get_ce_endpoint(ce)
-                self.delegation_ids.append(task.glite_delegate_proxy(endpoint))
-        kwargs["delegation_id"] = self.delegation_ids
-
-        return super(GLiteWorkflowProxy, self)._submit(*args, **kwargs)
-
     def destination_info(self):
-        info = ["ce: {}".format(",".join(self.task.glite_ce))]
+        info = super(GLiteWorkflowProxy, self).destination_info()
+
+        info["ce"] = "ce: {}".format(",".join(self.task.glite_ce))
+
         info = self.task.glite_destination_info(info)
-        return ", ".join(map(str, info))
+
+        return info
 
 
 class GLiteWorkflow(BaseRemoteWorkflow):
@@ -176,6 +186,8 @@ class GLiteWorkflow(BaseRemoteWorkflow):
 
     exclude_params_branch = {"glite_ce"}
 
+    exclude_params_glite_workflow = set()
+
     exclude_index = True
 
     @abstractmethod
@@ -199,13 +211,13 @@ class GLiteWorkflow(BaseRemoteWorkflow):
         return DotDict()
 
     def glite_output_postfix(self):
-        return "_" + self.get_branches_repr()
+        return ""
 
     def glite_output_uri(self):
         return self.glite_output_directory().uri()
 
     def glite_delegate_proxy(self, endpoint):
-        return delegate_voms_proxy_glite(endpoint, stdout=sys.stdout, stderr=sys.stderr,
+        return law.wlcg.delegate_vomsproxy_glite(endpoint, stdout=sys.stdout, stderr=sys.stderr,
             cache=True)
 
     def glite_job_manager_cls(self):
@@ -225,6 +237,12 @@ class GLiteWorkflow(BaseRemoteWorkflow):
 
     def glite_job_config(self, config, job_num, branches):
         return config
+
+    def glite_check_job_completeness(self):
+        return False
+
+    def glite_check_job_completeness_delay(self):
+        return 0.0
 
     def glite_use_local_scheduler(self):
         return True

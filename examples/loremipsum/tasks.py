@@ -41,18 +41,24 @@ def maybe_wait(func):
 
 class LoremIpsumBase(law.Task):
     """
-    Base task that we use to add a *file_index* parameter to all inheriting tasks to define which of
-    the 6 possible lorem ipsumfiles to use. It also provides some convenience methods to create
-    local file and directory targets at the default data path.
+    Base task that we use to add a *file_index* parameter to all inheriting
+    tasks to define which of the 6 possible lorem ipsumfiles to use. It also
+    provides some convenience methods to create local file and directory targets
+    at the default data path.
     """
 
-    file_index = luigi.ChoiceParameter(int, choices=list(range(1, 6 + 1)), description="the file "
-        "index ranging from 1 to 6")
-    slow = luigi.BoolParameter(description="before running, wait between 5 and 15 seconds")
+    file_index = luigi.ChoiceParameter(
+        int,
+        choices=list(range(1, 6 + 1)),
+        description="the file index ranging from 1 to 6",
+    )
+    slow = luigi.BoolParameter(
+        description="before running, wait between 5 and 15 seconds; default: False",
+    )
 
     def local_path(self, *path):
-        # LOREMIPSUM_DATA_PATH is defined in setup.sh
-        parts = (os.getenv("LOREMIPSUM_DATA_PATH"),) + path
+        # DATA_PATH is defined in setup.sh
+        parts = ("$DATA_PATH",) + path
         return os.path.join(*(str(p) for p in parts))
 
     def local_target(self, *path, **kwargs):

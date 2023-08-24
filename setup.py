@@ -2,6 +2,7 @@
 
 
 import os
+import sys
 import re
 from setuptools import setup, find_packages
 
@@ -45,7 +46,8 @@ def readlines(f):
 
 
 # read the readme file
-with open(os.path.join(this_dir, "README.rst"), "r") as f:
+open_kwargs = {} if sys.version_info.major < 3 else {"encoding": "utf-8"}
+with open(os.path.join(this_dir, "README.md"), "r", **open_kwargs) as f:
     long_description = f.read()
 
 
@@ -91,7 +93,7 @@ setup(
     keywords=" ".join(keywords),
     classifiers=classifiers,
     long_description=long_description,
-    long_description_content_type="text/x-rst",
+    long_description_content_type="text/markdown",
     install_requires=install_requires,
     python_requires=">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*, <4",
     extras_require={
@@ -100,6 +102,6 @@ setup(
     zip_safe=False,
     packages=find_packages(exclude=["tests"]),
     include_package_data=True,
-    scripts=["bin/law", "bin/law3"],
+    scripts=["bin/law", "bin/law2", "bin/law3"],
     options=options,
 )

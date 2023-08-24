@@ -35,7 +35,7 @@ action() {
         cd "${repo_path}" && \
         git rev-parse HEAD && \
         git diff && \
-        git ls-files --others --exclude-standard | xargs cat; \
+        git ls-files --others --exclude-standard | xargs cat 2>&1; \
         [ "${recursive}" = "1" ] && git submodule foreach --recursive --quiet "\
             git rev-parse HEAD && \
             git diff && \

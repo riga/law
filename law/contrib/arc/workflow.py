@@ -49,7 +49,7 @@ class ARCWorkflowProxy(BaseRemoteWorkflowProxy):
         postfix = "_{}To{}".format(branches[0], branches[-1] + 1)
 
         # create the config
-        c = self.job_file_factory.Config()
+        c = self.job_file_factory.get_config()
         c.input_files = DeprecatedInputFiles()
         c.output_files = []
         c.render_variables = {}
@@ -66,7 +66,13 @@ class ARCWorkflowProxy(BaseRemoteWorkflowProxy):
         c.input_files["job_file"] = law_job_file
 
         # collect task parameters
-        exclude_args = task.exclude_params_branch | task.exclude_params_workflow | {"workflow"}
+        exclude_args = (
+            task.exclude_params_branch |
+            task.exclude_params_workflow |
+            task.exclude_params_remote_workflow |
+            task.exclude_params_arc_workflow |
+            {"workflow"}
+        )
         proxy_cmd = ProxyCommand(
             task.as_branch(branches[0]),
             exclude_task_args=exclude_args,
@@ -85,7 +91,7 @@ class ARCWorkflowProxy(BaseRemoteWorkflowProxy):
             workers=task.job_workers,
             auto_retry=False,
             dashboard_data=self.dashboard.remote_hook_data(
-                job_num, self.submission_data.attempts.get(job_num, 0)),
+                job_num, self.job_data.attempts.get(job_num, 0)),
         )
         c.arguments = job_args.join()
 
@@ -133,9 +139,13 @@ class ARCWorkflowProxy(BaseRemoteWorkflowProxy):
         return {"job": job_file, "log": abs_log_file}
 
     def destination_info(self):
-        info = ["ce: {}".format(",".join(self.task.arc_ce))]
+        info = super(ARCWorkflowProxy, self).destination_info()
+
+        info["ce"] = "ce: {}".format(",".join(self.task.arc_ce))
+
         info = self.task.arc_destination_info(info)
-        return ", ".join(map(str, info))
+
+        return info
 
 
 class ARCWorkflow(BaseRemoteWorkflow):
@@ -160,6 +170,8 @@ class ARCWorkflow(BaseRemoteWorkflow):
 
     exclude_params_branch = {"arc_ce"}
 
+    exclude_params_arc_workflow = set()
+
     exclude_index = True
 
     @abstractmethod
@@ -183,7 +195,7 @@ class ARCWorkflow(BaseRemoteWorkflow):
         return DotDict()
 
     def arc_output_postfix(self):
-        return "_" + self.get_branches_repr()
+        return ""
 
     def arc_output_uri(self):
         return self.arc_output_directory().uri()
@@ -205,6 +217,12 @@ class ARCWorkflow(BaseRemoteWorkflow):
 
     def arc_job_config(self, config, job_num, branches):
         return config
+
+    def arc_check_job_completeness(self):
+        return False
+
+    def arc_check_job_completeness_delay(self):
+        return 0.0
 
     def arc_use_local_scheduler(self):
         return True

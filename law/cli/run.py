@@ -23,13 +23,23 @@ def setup_parser(sub_parsers):
     """
     Sets up the command line parser for the *run* subprogram and adds it to *sub_parsers*.
     """
-    parser = sub_parsers.add_parser("run", prog="law run", description="Run a task with "
-        "configurable parameters. See http://luigi.rtfd.io/en/stable/running_luigi.html for more "
-        "info.")
+    parser = sub_parsers.add_parser(
+        "run",
+        prog="law run",
+        description="Run a task with configurable parameters. See "
+        "http://luigi.rtfd.io/en/stable/running_luigi.html for more info.",
+    )
 
-    parser.add_argument("task_family", help="a task family registered in the task index file or "
-        "a module and task class in the format <module>.<class>")
-    parser.add_argument("parameter", nargs="*", help="task parameters")
+    parser.add_argument(
+        "task_family",
+        help="a task family registered in the task index file or a module and task class in the "
+        "format <module>.<class>",
+    )
+    parser.add_argument(
+        "parameter",
+        nargs="*",
+        help="task parameters",
+    )
 
 
 def execute(args, argv):
@@ -77,8 +87,7 @@ def execute(args, argv):
     if task_family is None:
         if error:
             raise error
-        else:
-            abort("task '{}' not found".format(args.task_family))
+        abort("task '{}' not found".format(args.task_family))
 
     # run luigi
     sys.argv[0] += " run"

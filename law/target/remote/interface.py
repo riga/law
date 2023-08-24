@@ -27,12 +27,12 @@ logger = get_logger(__name__)
 
 class RetryException(Exception):
 
-    def __init__(self, msg="", orig=()):
-        self.orig_type, self.orig_exception, self.orig_traceback = orig or sys.exc_info()
-        super(RetryException, self).__init__(msg or str(self.orig_exception))
+    def __init__(self, msg="", exc=None):
+        self.exc_type, self.exc_value, self.exc_traceback = exc or sys.exc_info()
+        super(RetryException, self).__init__(msg or str(self.exc_value))
 
     def reraise(self):
-        return six.reraise(self.orig_type, self.orig_exception, self.orig_traceback)
+        return six.reraise(self.exc_type, self.exc_value, self.exc_traceback)
 
 
 class RemoteFileInterface(six.with_metaclass(abc.ABCMeta, object)):
@@ -76,12 +76,21 @@ class RemoteFileInterface(six.with_metaclass(abc.ABCMeta, object)):
         add("retry_delay", get_time)
 
         # default setting for the random base selection
-        add("random_base", cfg.get_expanded_boolean)
+        add("random_base", cfg.get_expanded_bool)
 
         return config
 
     @classmethod
-    def retry(cls, func=None, uri_cmd=None):
+    def retry(cls, func=None, uri_cmd=None, uri_base_name=None):
+        # cmd will be deprecated and fully renamed to base_name, but has priority for now
+        if uri_cmd:
+            logger.warning_once(
+                "deprecate_RemoteFileInterface_retry_uri_cmd",
+                "the argument 'uri_cmd' in {}.retry is deprected, ".format(cls.__name__) +
+                "please use 'uri_base_name' instead",
+            )
+            uri_base_name = uri_cmd
+
         def decorator(func):
             @functools.wraps(func)
             def wrapper(self, *args, **kwargs):
@@ -99,10 +108,10 @@ class RemoteFileInterface(six.with_metaclass(abc.ABCMeta, object)):
                     base_set = bool(kwargs.get("base"))
                     skip_indices = []
                     while True:
-                        # when no base was set initially and an uri_cmd is given, get a random
+                        # when no base was set initially and a uri_base_name is given, get a random
                         # uri base under consideration of bases (given by their indices) to skip
-                        if not base_set and uri_cmd:
-                            base, idx = self.get_base(cmd=uri_cmd, random=random_base,
+                        if not base_set and uri_base_name:
+                            base, idx = self.get_base(base_name=uri_base_name, random=random_base,
                                 skip_indices=skip_indices, return_index=True)
                             kwargs["base"] = base
                             skip_indices.append(idx)
@@ -160,21 +169,30 @@ class RemoteFileInterface(six.with_metaclass(abc.ABCMeta, object)):
     def sanitize_path(self, p):
         return str(p)
 
-    def get_base(self, cmd=None, random=None, skip_indices=None, return_index=False,
+    def get_base(self, cmd=None, base_name=None, random=None, skip_indices=None, return_index=False,
             return_all=False):
         if random is None:
             random = self.random_base
 
-        # get potential bases for the given cmd
-        bases = make_list(self.base)
+        # cmd will be deprecated and fully renamed to base_name, but has priority for now
         if cmd:
-            for cmd in make_list(cmd):
-                if cmd in self.bases:
-                    bases = self.bases[cmd]
+            logger.warning_once(
+                "deprecate_RemoteFileInterface_get_base_cmd",
+                "the argument 'cmd' in {}.get_base is deprected, ".format(self.__class__.__name__) +
+                "please use 'base_name' instead",
+            )
+            base_name = cmd
+
+        # get potential bases for the given base_name
+        bases = make_list(self.base)
+        if base_name:
+            for base_name in make_list(base_name):
+                if base_name in self.bases:
+                    bases = self.bases[base_name]
                     break
 
         if not bases:
-            raise Exception("no bases available for command '{}'".format(cmd))
+            raise Exception("no bases available for command '{}'".format(base_name))
 
         # are there indices to skip?
         all_bases = bases

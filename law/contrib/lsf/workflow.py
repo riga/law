@@ -46,7 +46,7 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
         postfix = "_{}To{}".format(branches[0], branches[-1] + 1)
 
         # create the config
-        c = self.job_file_factory.Config()
+        c = self.job_file_factory.get_config()
         c.input_files = DeprecatedInputFiles()
         c.output_files = []
         c.render_variables = {}
@@ -63,7 +63,13 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
         c.input_files["job_file"] = law_job_file
 
         # collect task parameters
-        exclude_args = task.exclude_params_branch | task.exclude_params_workflow | {"workflow"}
+        exclude_args = (
+            task.exclude_params_branch |
+            task.exclude_params_workflow |
+            task.exclude_params_remote_workflow |
+            task.exclude_params_lsf_workflow |
+            {"workflow"}
+        )
         proxy_cmd = ProxyCommand(
             task.as_branch(branches[0]),
             exclude_task_args=exclude_args,
@@ -82,7 +88,7 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
             workers=task.job_workers,
             auto_retry=False,
             dashboard_data=self.dashboard.remote_hook_data(
-                job_num, self.submission_data.attempts.get(job_num, 0)),
+                job_num, self.job_data.attempts.get(job_num, 0)),
         )
         c.arguments = job_args.join()
 
@@ -141,11 +147,14 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
         return {"job": job_file, "log": abs_log_file}
 
     def destination_info(self):
-        info = []
+        info = super(LSFWorkflowProxy, self).destination_info()
+
         if self.task.lsf_queue != NO_STR:
-            info.append("queue: {}".format(self.task.lsf_queue))
+            info["queue"] = "queue: {}".format(self.task.lsf_queue)
+
         info = self.task.lsf_destination_info(info)
-        return ", ".join(map(str, info))
+
+        return info
 
 
 class LSFWorkflow(BaseRemoteWorkflow):
@@ -169,6 +178,8 @@ class LSFWorkflow(BaseRemoteWorkflow):
 
     exclude_params_branch = {"lsf_queue"}
 
+    exclude_params_lsf_workflow = set()
+
     exclude_index = True
 
     @abstractmethod
@@ -191,7 +202,7 @@ class LSFWorkflow(BaseRemoteWorkflow):
         return DotDict()
 
     def lsf_output_postfix(self):
-        return "_" + self.get_branches_repr()
+        return ""
 
     def lsf_job_manager_cls(self):
         return LSFJobManager
@@ -210,6 +221,12 @@ class LSFWorkflow(BaseRemoteWorkflow):
 
     def lsf_job_config(self, config, job_num, branches):
         return config
+
+    def lsf_check_job_completeness(self):
+        return False
+
+    def lsf_check_job_completeness_delay(self):
+        return 0.0
 
     def lsf_use_local_scheduler(self):
         return True

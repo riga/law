@@ -7,8 +7,9 @@ law config parser implementation.
 __all__ = [  # noqa
     "Config", "sections", "options", "keys", "items", "update", "include", "get", "getint",
     "getfloat", "getboolean", "get_default", "get_expanded", "get_expanded_int",
-    "get_expanded_float", "get_expanded_boolean", "is_missing_or_none", "find_option", "set",
-    "has_section", "has_option", "remove_option",
+    "get_expanded_float", "get_expanded_bool", "get_expanded_boolean", "is_missing_or_none",
+    "find_option", "add_section", "has_section", "remove_section", "set", "has_option",
+    "remove_option",
 ]
 
 
@@ -41,23 +42,43 @@ class Config(ConfigParser):
     by setting *skip_defaults* to *True*.
 
     .. py:classattribute:: _instance
-       type: Config
 
-       Global instance of this class.
+        type: :py:class:`Config`
+
+        Global instance of this class.
 
     .. py:classattribute:: _default_config
-       type: dict
 
-       Default configuration.
+        type: dict
+
+        Default configuration.
 
     .. py:classattribute:: _config_files
-       type: list
 
-       List of configuration files that are checked during setup (unless *skip_fallbacks* is
-       *True*). When a file exists, the check is stopped. Therefore, the order is important here.
+        type: list
+
+        List of configuration files that are checked during setup (unless *skip_fallbacks* is
+        *True*). When a file exists, the check is stopped. Therefore, the order is important here.
     """
 
     _instance = None
+
+    class Deferred(object):
+        """
+        Wrapper around callables representing deferred options.
+        """
+
+        str_repr = str(object())
+
+        def __init__(self, func):
+            self.func = func
+
+        def __call__(self, *args, **kwargs):
+            return self.func(*args, **kwargs)
+
+        def __str__(self):
+            # same string repr for all instances to identify them as deferred objects
+            return self.str_repr
 
     _default_config = {
         "core": {
@@ -80,6 +101,7 @@ class Config(ConfigParser):
             "interactive_format": "fancy",
             "interactive_line_breaks": True,
             "interactive_line_width": 0,
+            "interactive_status_skip_seen": False,
         },
         "target": {
             "colored_repr": False,
@@ -213,6 +235,7 @@ class Config(ConfigParser):
             "htcondor_chunk_size_submit": 25,
             "htcondor_chunk_size_cancel": 25,
             "htcondor_chunk_size_query": 25,
+            "htcondor_merge_job_files": True,
             "lsf_job_file_dir": None,
             "lsf_job_file_dir_mkdtemp": None,
             "lsf_job_file_dir_cleanup": False,
@@ -223,6 +246,10 @@ class Config(ConfigParser):
             "slurm_job_file_dir_cleanup": False,
             "slurm_chunk_size_cancel": 25,
             "slurm_chunk_size_query": 25,
+            "crab_job_file_dir": None,
+            "crab_job_file_dir_cleanup": False,
+            "crab_sandbox_name": "CMSSW_10_6_30",
+            "crab_password_file": None,
         },
         "notifications": {
             "mail_recipient": None,
@@ -240,17 +267,20 @@ class Config(ConfigParser):
         "bash_sandbox": {
             "stagein_dir_name": "stagein",
             "stageout_dir_name": "stageout",
+            "law_executable": "law",
             "login": False,
         },
         "bash_sandbox_env": {},
         "venv_sandbox": {
             "stagein_dir_name": "stagein",
             "stageout_dir_name": "stageout",
+            "law_executable": "law",
         },
         "venv_sandbox_env": {},
         "docker_sandbox": {
             "stagein_dir_name": "stagein",
             "stageout_dir_name": "stageout",
+            "law_executable": "law",
             "uid": None,
             "gid": None,
             "forward_dir": "/law_forward",
@@ -262,6 +292,7 @@ class Config(ConfigParser):
         "singularity_sandbox": {
             "stagein_dir_name": "stagein",
             "stageout_dir_name": "stageout",
+            "law_executable": "law",
             "uid": None,
             "gid": None,
             "forward_dir": "/law_forward",
@@ -272,6 +303,13 @@ class Config(ConfigParser):
         },
         "singularity_sandbox_env": {},
         "singularity_sandbox_volumes": {},
+        "cmssw_sandbox": {
+            "stagein_dir_name": "stagein",
+            "stageout_dir_name": "stageout",
+            "law_executable": "law",
+            "login": False,
+        },
+        "cmssw_sandbox_env": {},
     }
 
     _config_files = ["$LAW_CONFIG_FILE", "law.cfg", law_home_path("config"), "etc/law/config"]
@@ -365,12 +403,15 @@ class Config(ConfigParser):
             include_configs(self.get_expanded("core", opt))
 
         # sync with environment variables
-        if not skip_env_sync and self.get_expanded_boolean("core", "sync_env"):
+        if not skip_env_sync and self.get_expanded_bool("core", "sync_env"):
             self.sync_env()
 
         # sync with luigi configuration
-        if not skip_luigi_sync and self.get_expanded_boolean("core", "sync_luigi_config"):
+        if not skip_luigi_sync and self.get_expanded_bool("core", "sync_luigi_config"):
             self.sync_luigi_config()
+
+        # resolve deferred default values
+        self.resolve_deferred_defaults()
 
     def _convert_to_boolean(self, value):
         # py2 backport
@@ -577,12 +618,18 @@ class Config(ConfigParser):
         kwargs["type"] = float
         return self.get_expanded(*args, **kwargs)
 
-    def get_expanded_boolean(self, *args, **kwargs):
+    def get_expanded_bool(self, *args, **kwargs):
         """
         Same as :py:meth:`get_expanded` with *type* set to ``bool``.
         """
         kwargs["type"] = bool
         return self.get_expanded(*args, **kwargs)
+
+    def get_expanded_boolean(self, *args, **kwargs):
+        """
+        Alias for :py:meth:`get_expanded_bool` for backwards compatibility.
+        """
+        return self.get_expanded_bool(*args, **kwargs)
 
     def is_missing_or_none(self, section, option):
         """
@@ -675,6 +722,19 @@ class Config(ConfigParser):
 
                 for option, value in lparser.items(lsection):
                     self.set(section, option, value)
+
+    def resolve_deferred_defaults(self):
+        """
+        Traverses all options, checks whether they are deferred callables and if so, resolves and
+        sets them.
+        """
+        # TODO: priority based order?
+        for section in self.sections():
+            for option, value in self.items(section):
+                if value == self.Deferred.str_repr:
+                    value = self._default_config.get(section, {}).get(option, value)
+                if isinstance(value, self.Deferred):
+                    self.set(section, option, str(value(self)))
 
 
 # register convenience functions on module-level

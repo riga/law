@@ -2,7 +2,7 @@
 # flake8: noqa
 
 __all__ = [
-    "Task", "WrapperTask", "ExternalTask",
+    "Register", "Task", "WrapperTask", "ExternalTask",
     "SandboxTask",
     "BaseWorkflow", "WorkflowParameter", "LocalWorkflow", "workflow_property",
     "cached_workflow_property",
@@ -12,14 +12,17 @@ __all__ = [
     "Sandbox", "BashSandbox", "VenvSandbox",
     "BaseJobManager", "BaseJobFileFactory", "JobInputFile", "JobArguments",
     "NO_STR", "NO_INT", "NO_FLOAT", "is_no_param", "get_param", "TaskInstanceParameter",
-    "DurationParameter", "BytesParameter", "CSVParameter", "MultiCSVParameter", "RangeParameter",
-    "MultiRangeParameter", "NotifyParameter", "NotifyMultiParameter", "NotifyMailParameter",
+    "OptionalBoolParameter", "DurationParameter", "BytesParameter", "CSVParameter",
+    "MultiCSVParameter", "RangeParameter", "MultiRangeParameter", "NotifyParameter",
+    "NotifyMultiParameter", "NotifyMailParameter",
     "Config",
     "run", "no_value",
     "notify_mail",
     "luigi_version", "luigi_version_info",
 ]
 
+
+import os
 
 # package infos
 from law.__version__ import (
@@ -30,6 +33,7 @@ from law.__version__ import (
 # luigi version infos
 import re
 import luigi
+
 # __version__ was introduced in 2.8.11
 luigi_version = getattr(luigi, "__version__", "2.8.10")
 luigi_version_info = tuple(
@@ -43,9 +47,10 @@ import law.logger
 law.logger.setup_logging()
 
 
-# use cached software
-from law.cli.software import use_software_cache
-use_software_cache(reload_deps=True)
+# prefer cached software
+if os.getenv("LAW_USE_SOFTWARE_CACHE", "1").lower() in ("1", "yes", "true"):
+    from law.cli.software import use_software_cache
+    use_software_cache(reload_deps=True)
 
 
 # luigi patches
@@ -59,9 +64,9 @@ from law.util import law_run as run, no_value
 from law.config import Config
 from law.notification import notify_mail
 from law.parameter import (
-    NO_STR, NO_INT, NO_FLOAT, is_no_param, get_param, TaskInstanceParameter, DurationParameter,
-    BytesParameter, CSVParameter, MultiCSVParameter, RangeParameter, MultiRangeParameter,
-    NotifyParameter, NotifyMultiParameter, NotifyMailParameter,
+    NO_STR, NO_INT, NO_FLOAT, is_no_param, get_param, TaskInstanceParameter, OptionalBoolParameter,
+    DurationParameter, BytesParameter, CSVParameter, MultiCSVParameter, RangeParameter,
+    MultiRangeParameter, NotifyParameter, NotifyMultiParameter, NotifyMailParameter,
 )
 from law.target.file import (
     FileSystemTarget, FileSystemFileTarget, FileSystemDirectoryTarget, localize_file_targets,
@@ -71,7 +76,7 @@ from law.target.collection import (
     TargetCollection, FileCollection, SiblingFileCollection, NestedSiblingFileCollection,
 )
 import law.decorator
-from law.task.base import Task, WrapperTask, ExternalTask
+from law.task.base import Register, Task, WrapperTask, ExternalTask
 from law.workflow.base import (
     BaseWorkflow, WorkflowParameter, workflow_property, cached_workflow_property,
 )

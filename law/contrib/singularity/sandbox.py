@@ -15,8 +15,8 @@ import six
 
 from law.config import Config
 from law.sandbox.base import Sandbox
-from law.target.local import LocalDirectoryTarget
-from law.cli.software import deps as law_deps
+from law.target.local import LocalDirectoryTarget, LocalFileTarget
+from law.cli.software import get_software_deps
 from law.util import make_list, interruptable_popen, quote_cmd, flatten, law_src_path, makedirs
 
 
@@ -24,12 +24,89 @@ class SingularitySandbox(Sandbox):
 
     sandbox_type = "singularity"
 
-    # env cache per image
-    _envs = {}
-
     @property
     def image(self):
         return self.name
+
+    @property
+    def env_cache_key(self):
+        return self.image
+
+    def get_custom_config_section_postfix(self):
+        return self.image
+
+    def create_env(self):
+        # strategy: unlike docker, singularity might not allow binding of paths that do not exist
+        # in the container, so create a tmp directory on the host system and bind it as /tmp, let
+        # python dump its full env into a file, and read the file again on the host system
+
+        # helper to load the env
+        def load_env(target):
+            try:
+                return tmp.load(formatter="pickle")
+            except Exception as e:
+                raise Exception(
+                    "env deserialization of sandbox {} failed: {}".format(self, e),
+                )
+
+        # load the env when the cache file is configured and existing
+        if self.env_cache_path and self.env_cache_path:
+            return load_env(LocalFileTarget(self.env_cache_path))
+
+        # create tmp dir and file
+        tmp_dir = LocalDirectoryTarget(is_tmp=True)
+        tmp_dir.touch()
+        tmp = tmp_dir.child("env", type="f")
+        tmp.touch()
+
+        # determine whether volume binding is allowed
+        allow_binds_cb = getattr(self.task, "singularity_allow_binds", None)
+        if callable(allow_binds_cb):
+            allow_binds = allow_binds_cb()
+        else:
+            cfg = Config.instance()
+            allow_binds = cfg.get_expanded(self.get_config_section(), "allow_binds")
+
+        # arguments to configure the environment
+        args = ["-e"]
+        if allow_binds:
+            args.extend(["-B", "{}:/tmp".format(tmp_dir.path)])
+            env_file = "/tmp/{}".format(tmp.basename)
+        else:
+            env_file = tmp.path
+
+        # get the singularity exec command
+        singularity_exec_cmd = self._singularity_exec_cmd() + args
+
+        # build commands to setup the environment
+        setup_cmds = self._build_setup_cmds(self._get_env())
+
+        # build the python command that dumps the environment
+        py_cmd = "import os,pickle;" \
+            + "pickle.dump(dict(os.environ),open('{}','wb'),protocol=2)".format(env_file)
+
+        # build the full command
+        cmd = quote_cmd(singularity_exec_cmd + [self.image, "bash", "-l", "-c",
+            " && ".join(flatten(setup_cmds, quote_cmd(["python", "-c", py_cmd]))),
+        ])
+
+        # run it
+        code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        if code != 0:
+            raise Exception(
+                "singularity sandbox env loading failed with exit code {}:\n{}".format(
+                    code, out),
+            )
+
+        # copy to the cache path when configured
+        if self.env_cache_path:
+            tmp.copy_to_local(self.env_cache_path)
+
+        # load the env
+        env = load_env(tmp)
+
+        return env
 
     def _singularity_exec_cmd(self):
         cmd = ["singularity", "exec"]
@@ -42,66 +119,6 @@ class SingularitySandbox(Sandbox):
                 cmd.extend(make_list(args_getter()))
 
         return cmd
-
-    @property
-    def env(self):
-        # strategy: unlike docker, singularity might not allow binding of paths that do not exist
-        # in the container, so create a tmp directory on the host system and bind it as /tmp, let
-        # python dump its full env into a file, and read the file again on the host system
-        if self.image not in self._envs:
-            tmp_dir = LocalDirectoryTarget(is_tmp=True)
-            tmp_dir.touch()
-
-            tmp = tmp_dir.child("env", type="f")
-            tmp.touch()
-
-            # determine whether volume binding is allowed
-            allow_binds_cb = getattr(self.task, "singularity_allow_binds", None)
-            if callable(allow_binds_cb):
-                allow_binds = allow_binds_cb()
-            else:
-                cfg = Config.instance()
-                allow_binds = cfg.get_expanded(self.get_config_section(), "allow_binds")
-
-            # arguments to configure the environment
-            args = ["-e"]
-            if allow_binds:
-                args.extend(["-B", "{}:/tmp".format(tmp_dir.path)])
-                env_file = "/tmp/{}".format(tmp.basename)
-            else:
-                env_file = tmp.path
-
-            # get the singularity exec command
-            singularity_exec_cmd = self._singularity_exec_cmd() + args
-
-            # build commands to setup the environment
-            setup_cmds = self._build_setup_cmds(self._get_env())
-
-            # build the python command that dumps the environment
-            py_cmd = "import os,pickle;" \
-                + "pickle.dump(dict(os.environ),open('{}','wb'),protocol=2)".format(env_file)
-
-            # build the full command
-            cmd = quote_cmd(singularity_exec_cmd + [self.image, "bash", "-l", "-c",
-                " && ".join(flatten(setup_cmds, quote_cmd(["python", "-c", py_cmd]))),
-            ])
-
-            # run it
-            code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-                stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-            if code != 0:
-                raise Exception(
-                    "singularity sandbox env loading failed with exit code {}:\n{}".format(
-                        code, out),
-                )
-
-            # load the environment from the tmp file
-            env = tmp.load(formatter="pickle")
-
-            # cache
-            self._envs[self.image] = env
-
-        return self._envs[self.image]
 
     def cmd(self, proxy_cmd):
         # singularity exec command arguments
@@ -168,7 +185,7 @@ class SingularitySandbox(Sandbox):
                 env["PYTHONPATH"] = "$PYTHONPATH"
 
             # forward python directories of law and dependencies
-            for mod in law_deps:
+            for mod in get_software_deps():
                 path = os.path.dirname(mod.__file__)
                 name, ext = os.path.splitext(os.path.basename(mod.__file__))
                 if name == "__init__":

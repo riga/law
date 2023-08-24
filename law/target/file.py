@@ -38,10 +38,10 @@ class FileSystem(shims.FileSystem):
                 config[option] = func(section, option)
 
         # read configs
-        add("has_permissions", cfg.get_expanded_boolean)
+        add("has_permissions", cfg.get_expanded_bool)
         add("default_file_perm", cfg.get_expanded_int)
         add("default_dir_perm", cfg.get_expanded_int)
-        add("create_file_dir", cfg.get_expanded_boolean)
+        add("create_file_dir", cfg.get_expanded_bool)
 
         return config
 
@@ -135,14 +135,6 @@ class FileSystem(shims.FileSystem):
     def open(self, path, mode, perm=None, dir_perm=None, **kwargs):
         return
 
-    @abstractmethod
-    def load(self, path, formatter, *args, **kwargs):
-        return
-
-    @abstractmethod
-    def dump(self, path, formatter, *args, **kwargs):
-        return
-
 
 class FileSystemTarget(Target, shims.FileSystemTarget):
 
@@ -167,11 +159,11 @@ class FileSystemTarget(Target, shims.FileSystemTarget):
 
         # add the path
         cfg = Config.instance()
-        expand = cfg.get_expanded_boolean("target", "expand_path_repr")
+        expand = cfg.get_expanded_bool("target", "expand_path_repr")
         pairs.append(("path", self.path if expand else self.unexpanded_path))
 
         # optionally add the file size
-        if cfg.get_expanded_boolean("target", "filesize_repr"):
+        if cfg.get_expanded_bool("target", "filesize_repr"):
             stat = self.exists(stat=True)
             pairs.append(("size", human_bytes(stat.st_size, fmt="{:.1f}{}") if stat else "-"))
 
@@ -289,6 +281,19 @@ class FileSystemTarget(Target, shims.FileSystemTarget):
     def move_from_local(self, *args, **kwargs):
         return
 
+    @abstractmethod
+    @contextmanager
+    def localize(self, mode="r", perm=None, dir_perm=None, tmp_dir=None, **kwargs):
+        return
+
+    @abstractmethod
+    def load(self, *args, **kwargs):
+        return
+
+    @abstractmethod
+    def dump(self, *args, **kwargs):
+        return
+
 
 class FileSystemFileTarget(FileSystemTarget):
 
@@ -304,14 +309,6 @@ class FileSystemFileTarget(FileSystemTarget):
         # create the file via open without content
         with self.open("w", **kwargs) as f:
             f.write("")
-
-    def load(self, *args, **kwargs):
-        formatter = kwargs.pop("_formatter", None) or kwargs.pop("formatter", AUTO_FORMATTER)
-        return self.fs.load(self.path, formatter, *args, **kwargs)
-
-    def dump(self, *args, **kwargs):
-        formatter = kwargs.pop("_formatter", None) or kwargs.pop("formatter", AUTO_FORMATTER)
-        return self.fs.dump(self.path, formatter, *args, **kwargs)
 
     def copy_to(self, dst, perm=None, dir_perm=None, **kwargs):
         # TODO: complain when dst not local? forward to copy_from request depending on protocol?
@@ -336,11 +333,6 @@ class FileSystemFileTarget(FileSystemTarget):
         # when src is a plain string, let the fs handle it
         # TODO: complain when src not local? forward to copy_to request depending on protocol?
         return self.fs.move(get_path(src), self.path, perm=perm, dir_perm=dir_perm, **kwargs)
-
-    @abstractmethod
-    @contextmanager
-    def localize(self, mode="r", perm=None, dir_perm=None, tmp_dir=None, **kwargs):
-        return
 
 
 class FileSystemDirectoryTarget(FileSystemTarget):
@@ -410,9 +402,13 @@ class FileSystemDirectoryTarget(FileSystemTarget):
                     t = self.child(basename, type=type_flag)
                     t.copy_to(os.path.join(_dst, basename), perm=perm, dir_perm=dir_perm, **kwargs)
 
+        return _dst
+
     def copy_from(self, src, perm=None, dir_perm=None, **kwargs):
+        # when src is a directory target itself, forward to its copy_to implementation as it might
+        # be more performant to use its own directory walking
         if isinstance(src, FileSystemDirectoryTarget):
-            return src.copy_to(self.path, perm=perm, dir_perm=dir_perm, **kwargs)
+            return src.copy_to(self, perm=perm, dir_perm=dir_perm, **kwargs)
 
         # create the target dir
         self.touch(perm=dir_perm, **kwargs)
@@ -427,6 +423,8 @@ class FileSystemDirectoryTarget(FileSystemTarget):
                 for basename in basenames:
                     t = self.child(basename, type=type_flag)
                     t.copy_from(os.path.join(_src, basename), perm=perm, dir_perm=dir_perm, **kwargs)
+
+        return self.abspath
 
     def move_to(self, dst, perm=None, dir_perm=None, **kwargs):
         # create the target dir
@@ -448,9 +446,13 @@ class FileSystemDirectoryTarget(FileSystemTarget):
         # finally remove
         self.remove()
 
+        return _dst
+
     def move_from(self, src, perm=None, dir_perm=None, **kwargs):
+        # when src is a directory target itself, forward to its move_to implementation as it might
+        # be more performant to use its own directory walking
         if isinstance(src, FileSystemDirectoryTarget):
-            return src.move_to(self.path, perm=perm, dir_perm=dir_perm, **kwargs)
+            return src.move_to(self, perm=perm, dir_perm=dir_perm, **kwargs)
 
         # create the target dir
         self.touch(perm=dir_perm, **kwargs)
@@ -468,6 +470,8 @@ class FileSystemDirectoryTarget(FileSystemTarget):
 
         # finally remove
         self.fs.remove(_src)
+
+        return self.abspath
 
 
 FileSystemTarget.file_class = FileSystemFileTarget
@@ -549,7 +553,3 @@ def localize_file_targets(struct, *args, **kwargs):
         # an exception occured in one of the exit methods, raise the first one
         if not exc and exit_exc:
             raise exit_exc[0]
-
-
-# trailing imports
-from law.target.formatter import AUTO_FORMATTER

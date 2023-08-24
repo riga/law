@@ -25,7 +25,9 @@ import six
 
 from law.config import Config
 from law.target.file import get_scheme
-from law.util import colored, make_list, iter_chunks, flatten, makedirs, create_hash, empty_context
+from law.util import (
+    colored, make_list, make_tuple, iter_chunks, makedirs, create_hash, empty_context,
+)
 from law.logger import get_logger
 
 
@@ -66,64 +68,83 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
     :py:meth:`cancel_batch`, :py:meth:`cleanup_batch` and :py:meth:`query_batch`.
 
     .. py:classattribute:: PENDING
-       type: string
 
-       Flag that represents the ``PENDING`` status.
+        type: string
+
+        Flag that represents the ``PENDING`` status.
 
     .. py:classattribute:: RUNNING
-       type: string
 
-       Flag that represents the ``RUNNING`` status.
+        type: string
+
+        Flag that represents the ``RUNNING`` status.
 
     .. py:classattribute:: FINISHED
-       type: string
 
-       Flag that represents the ``FINISHED`` status.
+        type: string
+
+        Flag that represents the ``FINISHED`` status.
 
     .. py:classattribute:: RETRY
-       type: string
 
-       Flag that represents the ``RETRY`` status.
+        type: string
+
+        Flag that represents the ``RETRY`` status.
 
     .. py:classattribute:: FAILED
-       type: string
 
-       Flag that represents the ``FAILED`` status.
+        type: string
+
+        Flag that represents the ``FAILED`` status.
 
     .. py:classattribute:: default_status_names
-       type: list
 
-       The list of all default status flags that is used in :py:meth:`status_line`.
+        type: list
+
+        The list of all default status flags that is used in :py:meth:`status_line`.
 
     .. py:classattribute:: default_status_diff_styles
-       type: dict
 
-       A dictionary that defines to coloring styles per job status that is used in
-       :py:meth:`status_line`.
+        type: dict
+
+        A dictionary that defines to coloring styles per job status that is used in
+        :py:meth:`status_line`.
+
+    .. py:classattribute:: job_grouping
+
+        type: bool
+
+        Whether this manager implementation groups jobs into single interactions for submission and
+        status queries. In general, this means that the submission of a single job file can result
+        in multiple jobs on the remote batch system.
 
     .. py:classattribute:: chunk_size_submit
-       type: int
 
-       The default chunk size value when no value is given in :py:meth:`submit_batch`. When the
-       value evaluates to *False*, no chunking is allowed.
+        type: int
+
+        The default chunk size value when no value is given in :py:meth:`submit_batch`. When the
+        value evaluates to *False*, no chunking is allowed.
 
     .. py:classattribute:: chunk_size_cancel
-       type: int
 
-       The default chunk size value when no value is given in :py:meth:`cancel_batch`. When the
-       value evaluates to *False*, no chunking is allowed.
+        type: int
+
+        The default chunk size value when no value is given in :py:meth:`cancel_batch`. When the
+        value evaluates to *False*, no chunking is allowed.
 
     .. py:classattribute:: chunk_size_cleanup
-       type: int
 
-       The default chunk size value when no value is given in :py:meth:`cleanup_batch`. When the
-       value evaluates to *False*, no chunking is allowed.
+        type: int
+
+        The default chunk size value when no value is given in :py:meth:`cleanup_batch`. When the
+        value evaluates to *False*, no chunking is allowed.
 
     .. py:classattribute:: chunk_size_query
-       type: int
 
-       The default chunk size value when no value is given in :py:meth:`query_batch`. When the
-       value evaluates to *False*, no chunking is allowed.
+        type: int
+
+        The default chunk size value when no value is given in :py:meth:`query_batch`. When the
+        value evaluates to *False*, no chunking is allowed.
     """
 
     PENDING = "pending"
@@ -143,6 +164,9 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
         FAILED: ({}, {}, {"color": "red", "style": "bright"}),
     }
 
+    # job grouping settings
+    job_grouping = False
+
     # chunking settings for unbatched methods
     # disabled by default
     chunk_size_submit = 0
@@ -151,12 +175,19 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
     chunk_size_query = 0
 
     @classmethod
-    def job_status_dict(cls, job_id=None, status=None, code=None, error=None):
+    def job_status_dict(cls, job_id=None, status=None, code=None, error=None, extra=None):
         """
         Returns a dictionay that describes the status of a job given its *job_id*, *status*, return
-        *code*, and *error*.
+        *code*, *error*, and additional *extra* data.
         """
-        return dict(job_id=job_id, status=status, code=code, error=error)
+        return dict(job_id=job_id, status=status, code=code, error=error, extra=extra)
+
+    @classmethod
+    def cast_job_id(cls, job_id):
+        """
+        Hook for casting an input *job_id*, for instance, after loading serialized data from json.
+        """
+        return job_id
 
     def __init__(self, status_names=None, status_diff_styles=None, threads=1):
         super(BaseJobManager, self).__init__()
@@ -170,268 +201,384 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
     @abstractmethod
     def submit(self):
         """
-        Abstract atomic job submission.
+        Abstract atomic or group job submission.
+        Can throw exceptions.
+        Should return a list of job ids.
         """
         return
 
     @abstractmethod
     def cancel(self):
         """
-        Abstract atomic job cancellation.
+        Abstract atomic or group job cancellation.
+        Can throw exceptions.
+        Should return a dictionary mapping job ids to per-job return values.
         """
         return
 
     @abstractmethod
     def cleanup(self):
         """
-        Abstract atomic job cleanup.
+        Abstract atomic or group job cleanup.
+        Can throw exceptions.
+        Should return a dictionary mapping job ids to per-job return values.
         """
         return
 
     @abstractmethod
     def query(self):
         """
-        Abstract atomic job status query.
+        Abstract atomic or group job status query.
+        Can throw exceptions.
+        Should return a dictionary mapping job ids to per-job return values.
         """
         return
+
+    def group_job_ids(self, job_ids):
+        """
+        Hook that needs to be implemented if the job mananger supports grouping of jobs, i.e., when
+        :py:attr:`job_grouping` is *True*, and potentially used during status queries, job
+        cancellation and removal. If so, it should take a sequence of *job_ids* and return a
+        dictionary mapping ids of group jobs (used for queries etc) to the corresponding lists of
+        original job ids, with an arbitrary grouping mechanism.
+        """
+        raise NotImplementedError(
+            "internal error, {}.group_job_ids not implemented".format(self.__class__.__name__),
+        )
+
+    def _apply_batch(
+        self,
+        func,
+        result_type,
+        job_objs,
+        default_chunk_size,
+        threads=None,
+        chunk_size=None,
+        callback=None,
+        **kwargs  # noqa
+    ):
+        # default arguments
+        threads = max(threads or self.threads or 1, 1)
+
+        # is chunking allowed?
+        chunk_size = max(chunk_size or default_chunk_size, 0) if default_chunk_size else 0
+        chunking = chunk_size > 0
+
+        # build chunks if needed
+        job_objs = make_list(job_objs)
+        job_objs = list(iter_chunks(job_objs, chunk_size)) if chunking else job_objs
+
+        # factory to call the passed callback for each job file even when chunking
+        def cb_factory(i):
+            if not callable(callback):
+                return None
+
+            if chunking:
+                def wrapper(result_data):
+                    offset = sum(map(len, job_objs[:i]))
+                    for j in range(len(job_objs[i])):
+                        data = result_data if isinstance(result_data, Exception) else result_data[j]
+                        callback(offset + j, data)
+            else:
+                def wrapper(data):
+                    callback(i, data)
+
+            return wrapper
+
+        # threaded processing
+        pool = ThreadPool(threads)
+        results = [
+            pool.apply_async(func, (arg,), kwargs, callback=cb_factory(i))
+            for i, arg in enumerate(job_objs)
+        ]
+        pool.close()
+        pool.join()
+
+        # store result data or an exception
+        result_data = result_type()
+        if chunking:
+            for _job_objs, res in six.moves.zip(job_objs, results):
+                data = get_async_result_silent(res)
+                for i, job_obj in enumerate(_job_objs):
+                    if isinstance(result_data, list):
+                        result_data.append(data if isinstance(data, Exception) else data[i])
+                    else:
+                        result_data[job_obj] = data if isinstance(data, Exception) else data[job_obj]
+        else:
+            for job_obj, res in six.moves.zip(job_objs, results):
+                data = get_async_result_silent(res)
+                if isinstance(result_data, list):
+                    result_data.append(data)
+                else:
+                    result_data[job_obj] = data
+
+        return result_data
 
     def submit_batch(self, job_files, threads=None, chunk_size=None, callback=None, **kwargs):
         """
         Submits a batch of jobs given by *job_files* via a thread pool of size *threads* which
         defaults to its instance attribute. When *chunk_size*, which defaults to
         :py:attr:`chunk_size_submit`, is not negative, *job_files* are split into chunks of that
-        size which are passed to :py:meth:`submit`. When *callback* is set, it is invoked after each
-        successful job submission with the index of the corresponding job file (starting at 0) and
-        either the assigned job id or an exception if any occurred. All other *kwargs* are passed to
+        size which are passed to :py:meth:`submit`.
+
+        When *callback* is set, it is invoked after each successful job submission with the index of
+        the corresponding job file (starting at 0) and either the assigned job id or an exception if
+        any occurred. All other *kwargs* are passed to
         :py:meth:`submit`.
 
         The return value is a list containing the return values of the particular :py:meth:`submit`
         calls, in an order that corresponds to *job_files*. When an exception was raised during a
         submission, this exception is added to the returned list.
         """
-        # default arguments
-        threads = max(threads or self.threads or 1, 1)
-
-        # is chunking allowed?
-        if self.chunk_size_submit:
-            chunk_size = max(chunk_size or self.chunk_size_submit, 0)
-        else:
-            chunk_size = 0
-        chunking = chunk_size > 0
-
-        # build chunks (either job files one by one, or real chunks of job files)
-        job_files = make_list(job_files)
-        chunks = list(iter_chunks(job_files, chunk_size)) if chunking else job_files
-
-        # factory to call the passed callback for each job file even when chunking
-        def cb_factory(i):
-            if not callable(callback):
-                return None
-            elif chunking:
-                def wrapper(job_ids):
-                    offset = sum(len(chunk) for chunk in chunks[:i])
-                    for j in range(len(chunks[i])):
-                        job_id = job_ids if isinstance(job_ids, Exception) else job_ids[j]
-                        callback(offset + j, job_id)
-                return wrapper
-            else:
-                def wrapper(job_id):
-                    callback(i, job_id)
-                return wrapper
-
-        # threaded processing
-        pool = ThreadPool(threads)
-        results = [
-            pool.apply_async(self.submit, (v,), kwargs, callback=cb_factory(i))
-            for i, v in enumerate(chunks)
-        ]
-        pool.close()
-        pool.join()
-
-        # store return values or errors, same length as job files, independent of chunking
-        if chunking:
-            outputs = []
-            for i, (chunk, res) in enumerate(six.moves.zip(chunks, results)):
-                job_ids = get_async_result_silent(res)
-                if isinstance(job_ids, Exception):
-                    job_ids = len(chunk) * [job_ids]
-                outputs.extend(job_ids)
-        else:
-            outputs = flatten(get_async_result_silent(res) for res in results)
-
-        return outputs
+        return self._apply_batch(
+            func=self.submit,
+            result_type=list,
+            job_objs=job_files,
+            default_chunk_size=self.chunk_size_submit,
+            threads=threads,
+            chunk_size=chunk_size,
+            callback=callback,
+            **kwargs  # noqa
+        )
 
     def cancel_batch(self, job_ids, threads=None, chunk_size=None, callback=None, **kwargs):
         """
         Cancels a batch of jobs given by *job_ids* via a thread pool of size *threads* which
         defaults to its instance attribute. When *chunk_size*, which defaults to
         :py:attr:`chunk_size_cancel`, is not negative, *job_ids* are split into chunks of that size
-        which are passed to :py:meth:`cancel`. When *callback* is set, it is invoked after each
-        successful job (or job chunk) cancelling with the index of the corresponding job id
-        (starting at 0) and either *None* or an exception if any occurred. All other *kwargs* are
-        passed to :py:meth:`cancel`.
+        which are passed to :py:meth:`cancel`.
+
+        When *callback* is set, it is invoked after each successful job (or job chunk) cancelling
+        with the index of the corresponding job id (starting at 0) and either *None* or an exception
+        if any occurred. All other *kwargs* are passed to :py:meth:`cancel`.
 
         Exceptions that occured during job cancelling are stored in a list and returned. An empty
         list means that no exceptions occured.
         """
-        # default arguments
-        threads = max(threads or self.threads or 1, 1)
+        results = self._apply_batch(
+            func=self.cancel,
+            result_type=dict,
+            job_objs=job_ids,
+            default_chunk_size=self.chunk_size_cancel,
+            threads=threads,
+            chunk_size=chunk_size,
+            callback=callback,
+            **kwargs  # noqa
+        )
 
-        # is chunking allowed?
-        if self.chunk_size_cancel:
-            chunk_size = max(chunk_size or self.chunk_size_cancel, 0)
-        else:
-            chunk_size = 0
-        chunking = chunk_size > 0
-
-        # build chunks (either job ids one by one, or real chunks of job ids)
-        job_ids = make_list(job_ids)
-        chunks = list(iter_chunks(job_ids, chunk_size)) if chunking else job_ids
-
-        # factory to call the passed callback for each job id even when chunking
-        def cb_factory(i):
-            if not callable(callback):
-                return None
-            elif chunking:
-                def wrapper(err):
-                    offset = sum(len(chunk) for chunk in chunks[:i])
-                    for j in range(len(chunks[i])):
-                        callback(offset + j, err)
-                return wrapper
-            else:
-                def wrapper(err):
-                    callback(i, err)
-                return wrapper
-
-        # threaded processing
-        pool = ThreadPool(threads)
-        results = [pool.apply_async(self.cancel, (v,), kwargs, callback=cb_factory(i))
-                   for i, v in enumerate(chunks)]
-        pool.close()
-        pool.join()
-
-        # store errors
-        errors = list(filter(bool, flatten(get_async_result_silent(res) for res in results)))
-
-        return errors
+        # return only errors
+        return [error for error in results.values() if isinstance(error, Exception)]
 
     def cleanup_batch(self, job_ids, threads=None, chunk_size=None, callback=None, **kwargs):
         """
         Cleans up a batch of jobs given by *job_ids* via a thread pool of size *threads* which
         defaults to its instance attribute. When *chunk_size*, which defaults to
         :py:attr:`chunk_size_cleanup`, is not negative, *job_ids* are split into chunks of that size
-        which are passed to :py:meth:`cleanup`. When *callback* is set, it is invoked after each
-        successful job (or job chunk) cleaning with the index of the corresponding job id (starting
-        at 0) and either *None* or an exception if any occurred. All other *kwargs* are passed to
+        which are passed to :py:meth:`cleanup`.
+
+        When *callback* is set, it is invoked after each successful job (or job chunk) cleaning with
+        the index of the corresponding job id (starting at 0) and either *None* or an exception if
+        any occurred. All other *kwargs* are passed to
         :py:meth:`cleanup`.
 
         Exceptions that occured during job cleaning are stored in a list and returned. An empty list
         means that no exceptions occured.
         """
-        # default arguments
-        threads = max(threads or self.threads or 1, 1)
+        results = self._apply_batch(
+            func=self.cleanup,
+            result_type=dict,
+            job_objs=job_ids,
+            default_chunk_size=self.chunk_size_cleanup,
+            threads=threads,
+            chunk_size=chunk_size,
+            callback=callback,
+            **kwargs  # noqa
+        )
 
-        # is chunking allowed?
-        if self.chunk_size_cleanup:
-            chunk_size = max(chunk_size or self.chunk_size_cleanup, 0)
-        else:
-            chunk_size = 0
-        chunking = chunk_size > 0
-
-        # build chunks (either job ids one by one, or real chunks of job ids)
-        job_ids = make_list(job_ids)
-        chunks = list(iter_chunks(job_ids, chunk_size)) if chunking else job_ids
-
-        # factory to call the passed callback for each job id even when chunking
-        def cb_factory(i):
-            if not callable(callback):
-                return None
-            elif chunking:
-                def wrapper(err):
-                    offset = sum(len(chunk) for chunk in chunks[:i])
-                    for j in range(len(chunks[i])):
-                        callback(offset + j, err)
-                return wrapper
-            else:
-                def wrapper(err):
-                    callback(i, err)
-                return wrapper
-
-        # threaded processing
-        pool = ThreadPool(threads)
-        results = [pool.apply_async(self.cleanup, (v,), kwargs, callback=cb_factory(i))
-                   for i, v in enumerate(chunks)]
-        pool.close()
-        pool.join()
-
-        # store errors
-        errors = list(filter(bool, flatten(get_async_result_silent(res) for res in results)))
-
-        return errors
+        # return only errors
+        return [error for error in results.values() if isinstance(error, Exception)]
 
     def query_batch(self, job_ids, threads=None, chunk_size=None, callback=None, **kwargs):
         """
         Queries the status of a batch of jobs given by *job_ids* via a thread pool of size *threads*
         which defaults to its instance attribute. When *chunk_size*, which defaults to
         :py:attr:`chunk_size_query`, is not negative, *job_ids* are split into chunks of that size
-        which are passed to :py:meth:`query`. When *callback* is set, it is invoked after each
-        successful job (or job chunk) status query with the index of the corresponding job id
-        (starting at 0) and the obtained status query data or an exception if any occurred. All
-        other *kwargs* are passed to :py:meth:`query`.
+        which are passed to :py:meth:`query`.
+
+        When *callback* is set, it is invoked after each successful job (or job chunk) status query
+        with the index of the corresponding job id (starting at 0) and the obtained status query
+        data or an exception if any occurred. All other *kwargs* are passed to :py:meth:`query`.
 
         This method returns a dictionary that maps job ids to either the status query data or to an
         exception if any occurred.
         """
+        return self._apply_batch(
+            func=self.query,
+            result_type=dict,
+            job_objs=job_ids,
+            default_chunk_size=self.chunk_size_query,
+            threads=threads,
+            chunk_size=chunk_size,
+            callback=callback,
+            **kwargs  # noqa
+        )
+
+    def _apply_group(
+        self,
+        func,
+        result_type,
+        group_func,
+        job_objs,
+        threads=None,
+        callback=None,
+        **kwargs  # noqa
+    ):
         # default arguments
         threads = max(threads or self.threads or 1, 1)
 
-        # is chunking allowed?
-        if self.chunk_size_query:
-            chunk_size = max(chunk_size or self.chunk_size_query, 0)
-        else:
-            chunk_size = 0
-        chunking = chunk_size > 0
-
-        # build chunks (either job ids one by one, or real chunks of job ids)
-        job_ids = make_list(job_ids)
-        chunks = list(iter_chunks(job_ids, chunk_size)) if chunking else job_ids
+        # group objects
+        job_objs = group_func(make_list(job_objs))
 
         # factory to call the passed callback for each job file even when chunking
         def cb_factory(i):
             if not callable(callback):
                 return None
-            elif chunking:
-                def wrapper(query_data):
-                    offset = sum(len(chunk) for chunk in chunks[:i])
-                    for j in range(len(chunks[i])):
-                        data = query_data if isinstance(query_data, Exception) else query_data[j]
-                        callback(offset + j, data)
-                return wrapper
-            else:
-                def wrapper(data):
-                    callback(i, data)
-                return wrapper
+
+            def wrapper(result_data):
+                offset = sum(map(len, list(job_objs.values())[:i]))
+                for j in range(len(list(job_objs.values())[i])):
+                    data = result_data if isinstance(result_data, Exception) else result_data[j]
+                    callback(offset + j, data)
+
+            return wrapper
 
         # threaded processing
         pool = ThreadPool(threads)
-        results = [pool.apply_async(self.query, (v,), kwargs, callback=cb_factory(i))
-                   for i, v in enumerate(chunks)]
+        results = [
+            pool.apply_async(func, make_tuple(arg), kwargs, callback=cb_factory(i))
+            for i, arg in enumerate(job_objs.items())
+        ]
         pool.close()
         pool.join()
 
-        # store status data per job id or an exception
-        query_data = {}
-        if chunking:
-            for i, (chunk, res) in enumerate(six.moves.zip(chunks, results)):
-                data = get_async_result_silent(res)
-                if isinstance(data, Exception):
-                    data = {job_id: data for job_id in chunk}
-                query_data.update(data)
-        else:
-            for job_id, res in six.moves.zip(job_ids, results):
-                query_data[job_id] = get_async_result_silent(res)
+        # store result data or an exception
+        result_data = result_type()
+        for _job_objs, res in six.moves.zip(job_objs.values(), results):
+            data = get_async_result_silent(res)
+            for i, job_obj in enumerate(_job_objs):
+                if isinstance(result_data, list):
+                    result_data.append(data if isinstance(data, Exception) else data[i])
+                else:
+                    result_data[job_obj] = data if isinstance(data, Exception) else data[job_obj]
 
-        return query_data
+        return result_data
+
+    def submit_group(self, job_files, threads=None, callback=None, **kwargs):
+        """
+        Submits several job groups given by *job_files* via a thread pool of size *threads* which
+        defaults to its instance attribute. As per the definition of a job group, a single job file
+        can result in multiple jobs being processed on the remote batch system.
+
+        When *callback* is set, it is invoked after each successful job submission with the index of
+        the corresponding job (starting at 0) and either the assigned job id or an exception if any
+        occurred. All other *kwargs* are passed to :py:meth:`submit`.
+
+        The return value is a list containing the return values of the particular :py:meth:`submit`
+        calls, in an order that in general corresponds *job_files*, with ids of single jobs per job
+        file properly expanded. When an exception was raised during a submission, this exception is
+        added to the returned list.
+        """
+        # in order to use the generic grouping mechanism in _apply_group create a trivial group_func
+        def group_func(job_files):
+            groups = defaultdict(list)
+            for job_file in job_files:
+                groups[job_file].append(job_file)
+            return groups
+
+        return self._apply_group(
+            func=self.submit,
+            result_type=list,
+            group_func=group_func,
+            job_objs=job_files,
+            threads=threads,
+            callback=callback,
+            **kwargs  # noqa
+        )
+
+    def cancel_group(self, job_ids, threads=None, callback=None, **kwargs):
+        """
+        Takes several *job_ids*, groups them according to :py:meth:`group_job_ids`, and cancels all
+        groups simultaneously via a thread pool of size *threads* which defaults to its instance
+        attribute.
+
+        When *callback* is set, it is invoked after each successful job cancellation with the index
+        of the corresponding job id (starting at 0) and either *None* or an exception if any
+        occurred. All other *kwargs* are passed to :py:meth:`cancel`.
+
+        Exceptions that occured during job cancelling are stored in a list and returned. An empty
+        list means that no exceptions occured.
+        """
+        results = self._apply_group(
+            func=self.cancel,
+            result_type=dict,
+            group_func=self.group_job_ids,
+            job_objs=job_ids,
+            threads=threads,
+            callback=callback,
+            **kwargs  # noqa
+        )
+
+        # return only errors
+        return [error for error in results.values() if isinstance(error, Exception)]
+
+    def cleanup_group(self, job_ids, threads=None, callback=None, **kwargs):
+        """
+        Takes several *job_ids*, groups them according to :py:meth:`group_job_ids`, and cleans up
+        all groups simultaneously via a thread pool of size *threads* which defaults to its instance
+        attribute.
+
+        When *callback* is set, it is invoked after each successful job cleanup with the index of
+        the corresponding job id (starting at 0) and either *None* or an exception if any occurred.
+        All other *kwargs* are passed to :py:meth:`cleanup`.
+
+        Exceptions that occured during job cancelling are stored in a list and returned. An empty
+        list means that no exceptions occured.
+        """
+        results = self._apply_group(
+            func=self.cleanup,
+            result_type=dict,
+            group_func=self.group_job_ids,
+            job_objs=job_ids,
+            threads=threads,
+            callback=callback,
+            **kwargs  # noqa
+        )
+
+        # return only errors
+        return [error for error in results.values() if isinstance(error, Exception)]
+
+    def query_group(self, job_ids, threads=None, callback=None, **kwargs):
+        """
+        Takes several *job_ids*, groups them according to :py:meth:`group_job_ids`, and queries the
+        status of all groups simultaneously via a thread pool of size *threads* which defaults to
+        its instance attribute.
+
+        When *callback* is set, it is invoked after each successful job status query with the index
+        of the corresponding job id (starting at 0) and the obtained status query data or an
+        exception if any occurred. All other *kwargs* are passed to :py:meth:`query`.
+
+        This method returns a dictionary that maps job ids to either the status query data or to an
+        exception if any occurred.
+        """
+        return self._apply_group(
+            func=self.query,
+            result_type=dict,
+            group_func=self.group_job_ids,
+            job_objs=job_ids,
+            threads=threads,
+            callback=callback,
+            **kwargs  # noqa
+        )
 
     def status_line(self, counts, last_counts=None, sum_counts=None, timestamp=True, align=False,
             color=False):
@@ -439,14 +586,20 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
         Returns a job status line containing job counts per status. When *last_counts* is *True*,
         the status line also contains the differences in job counts with respect to the counts from
         the previous call to this method. When you pass a list or tuple, those values are used
-        intead to compute the differences. The status line starts with the sum of jobs which is
-        inferred from *counts*. When you want to use a custom value, set *sum_counts*. The length of
-        *counts* should match the length of *status_names* of this instance. When *timestamp* is
-        *True*, the status line begins with the current timestamp. When *timestamp* is a non-empty
-        string, it is used as the ``strftime`` format. *align* handles the alignment of the values
-        in the status line by using a maximum width. *True* will result in the default width of 4.
-        When *align* evaluates to *False*, no alignment is used. By default, some elements of the
-        status line are colored. Set *color* to *False* to disable this feature. Example:
+        intead to compute the differences.
+
+        The status line starts with the sum of jobs which is inferred from *counts*. When you want
+        to use a custom value, set *sum_counts*. The length of *counts* should match the length of
+        *status_names* of this instance. When *timestamp* is *True*, the status line begins with the
+        current timestamp. When *timestamp* is a non-empty string, it is used as the ``strftime``
+        format.
+
+        *align* handles the alignment of the values in the status line by using a maximum width.
+        *True* will result in the default width of 4. When *align* evaluates to *False*, no
+        alignment is used. By default, some elements of the status line are colored. Set *color* to
+        *False* to disable this feature.
+
+        Example:
 
         .. code-block:: python
 
@@ -534,22 +687,25 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
     in their :py:meth:`create` method.
 
     .. py::classattribute:: config_attrs
-       type: list
 
-       List of attributes that is used to create a configuration dictionary. See
-       :py:meth:`get_config` for more info.
+        type: list
+
+        List of attributes that is used to create a configuration dictionary. See
+        :py:meth:`get_config` for more info.
 
     .. py::attribute:: dir
-       type: string
 
-       The path to the internal job file directory.
+        type: string
+
+        The path to the internal job file directory.
 
     .. py::attribute: cleanup
-       type: bool
 
-       Boolean that denotes whether this internal job file directory is temporary and should be
-       cleaned up upon instance deletion. It defaults to *True* when the *dir* constructor argument
-       is *None*.
+        type: bool
+
+        Boolean that denotes whether this internal job file directory is temporary and should be
+        cleaned up upon instance deletion. It defaults to *True* when the *dir* constructor argument
+        is *None*.
     """
 
     config_attrs = ["dir", "render_variables", "custom_log_file"]
@@ -584,9 +740,9 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
 
         # get default values from config if None
         if mkdtemp is None:
-            mkdtemp = cfg.get_expanded_boolean("job", "job_file_dir_mkdtemp")
+            mkdtemp = cfg.get_expanded_bool("job", "job_file_dir_mkdtemp")
         if cleanup is None:
-            cleanup = cfg.get_expanded_boolean("job", "job_file_dir_cleanup")
+            cleanup = cfg.get_expanded_bool("job", "job_file_dir_cleanup")
 
         # store the cleanup flag
         self.cleanup = cleanup
@@ -597,6 +753,7 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
 
         # store the directory, default to the job.job_file_dir config
         self.dir = dir or cfg.get_expanded("job", "job_file_dir")
+        self.dir = os.path.expandvars(os.path.expanduser(self.dir))
 
         # create the directory
         makedirs(self.dir)
@@ -805,7 +962,7 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
 
         return dst
 
-    def get_config(self, kwargs):
+    def get_config(self, **kwargs):
         """
         The :py:meth:`create` method potentially takes a lot of keywork arguments for configuring
         the content of job files. It is useful if some of these configuration values default to
@@ -853,10 +1010,9 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
             shutil.rmtree(self.dir)
 
     @abstractmethod
-    def create(self, postfix=None, **kwargs):
+    def create(self, **kwargs):
         """
-        Abstract job file creation method that must be implemented by inheriting classes. *postfix*
-        may be passed to :py:meth:`provide_input`.
+        Abstract job file creation method that must be implemented by inheriting classes.
         """
         return
 
@@ -869,35 +1025,41 @@ class JobArguments(object):
     `law/job/job.sh <https://github.com/riga/law/blob/master/law/job/job.sh>`__.
 
     .. py:attribute:: task_cls
-       type: Register
 
-       The task class.
+        type: :py:class:`law.Register`
+
+        The task class.
 
     .. py:attribute:: task_params
-       type: list
 
-       The list of task parameters.
+        type: list
+
+        The list of task parameters.
 
     .. py:attribute:: branches
+
        type: list
 
-       The list of branch numbers covered by the task.
+        The list of branch numbers covered by the task.
 
     .. py:attribute:: workers
-       type: int
 
-       The number of workers to use in "law run" commands.
+        type: int
+
+        The number of workers to use in "law run" commands.
 
     .. py:attribute:: auto_retry
-       type: bool
 
-       A flag denoting if the job-internal automatic retry mechanism should be used.
+        type: bool
+
+        A flag denoting if the job-internal automatic retry mechanism should be used.
 
     .. py:attribute:: dashboard_data
-       type: list
 
-       If a job dashboard is used, this is a list of configuration values as returned by
-       :py:meth:`law.job.dashboard.BaseJobDashboard.remote_hook_data`.
+        type: list
+
+        If a job dashboard is used, this is a list of configuration values as returned by
+        :py:meth:`law.job.dashboard.BaseJobDashboard.remote_hook_data`.
     """
 
     def __init__(self, task_cls, task_params, branches, workers=1, auto_retry=False,
@@ -964,47 +1126,86 @@ class JobInputFile(object):
     :py:meth:`BaseJobFileFactory.provide_input`). See the attributs below for more info.
 
     .. py:attribute:: path
-       type: str
 
-       The path of the input file.
+        type: str
+
+        The path of the input file.
 
     .. py:attribute:: copy
-       type: bool
 
-       Whether this file should be copied into the job submission directory or not.
+        type: bool
+
+        Whether this file should be copied into the job submission directory or not.
 
     .. py:attribute:: share
-       type: bool
 
-       Whether the file can be shared in the job submission directory. A shared file is copied only
-       once into the submission directory and :py:attr:`render_local` must be *False*.
+        type: bool
+
+        Whether the file can be shared in the job submission directory. A shared file is copied only
+        once into the submission directory and :py:attr:`render_local` must be *False*.
 
     .. py:attribute:: forward
-       type: bool
 
-       Whether this file should actually not be listed as a normal input file in job description but
-       just passed to the list of inputs for treatment in the law job script itself. Only considered
-       if supported by the submission system (e.g. local ones such as htcondor or slurm).
+        type: bool
+
+        Whether this file should actually not be listed as a normal input file in job description
+        but just passed to the list of inputs for treatment in the law job script itself. Only
+        considered if supported by the submission system (e.g. local ones such as htcondor or
+        slurm).
 
     .. py:attribute:: postfix
-       type: bool
 
-       Whether the file path should be postfixed when copied.
+        type: bool
+
+        Whether the file path should be postfixed when copied.
 
     .. py:attribute:: render_local
-       type: bool
 
-       Whether render variables should be resolved locally when copied.
+        type: bool
+
+        Whether render variables should be resolved locally when copied.
 
     .. py:attribute:: render_job
 
-       Whether render variables should be resolved as part of the job script.
+        type: bool
+
+        Whether render variables should be resolved as part of the job script.
 
     .. py:attribute:: is_remote
-       type: bool
-       read-only
 
-       Whether the path has a non-empty protocol referring to a remote resource.
+        type: bool (read-only)
+
+        Whether the path has a non-empty protocol referring to a remote resource.
+
+    .. py:attribute:: path_sub_abs
+
+        type: str, None
+
+        Absolute file path as seen by the submission node. Set only during job file creation.
+
+    .. py:attribute:: path_sub_rel
+
+        type: str, None
+
+        File path relative to the submission directory if the submission itself is not forced to use
+        absolute paths. Otherwise identical to :py:attr:`path_sub_abs`. Set only during job file
+        creation.
+
+    .. py:attribute:: path_job_pre_render
+
+        type: str, None
+
+        File path as seen by the job node, prior to a potential job-side rendering. It is a full,
+        absolute path in case forwarding is supported, and a relative basename otherwise. Set only
+        during job file creation.
+
+    .. py:attribute:: path_job_post_render
+
+        type: str, None
+
+        File path as seen by the job node, after a potential job-side rendering. Therefore, it is
+        identical to :py:attr:`path_job_pre_render` if rendering is disabled, and a relative
+        basename otherwise. Set only during job file creation.
     """
 
     def __init__(self, path, copy=None, share=None, forward=None, postfix=None, render=None,

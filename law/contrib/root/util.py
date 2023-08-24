@@ -7,6 +7,8 @@ ROOT-related utilities.
 __all__ = ["import_ROOT", "hadd_task"]
 
 
+import os
+
 import six
 
 from law.target.local import LocalFileTarget, LocalDirectoryTarget
@@ -44,7 +46,7 @@ def import_ROOT(batch=True, ignore_cli=True, reset=False):
 def hadd_task(task, inputs, output, cwd=None, local=False, force=True, hadd_args=None):
     """
     This method is intended to be used by tasks that are supposed to merge root files, e.g. when
-    inheriting from :py:class:`law.contrib.tasks.MergeCascade`. *inputs* should be a sequence of
+    inheriting from :py:class:`law.contrib.tasks.ForestMerge`. *inputs* should be a sequence of
     local targets that represent the files to merge into *output*. *cwd* is the working directory
     in which hadd is invoked. When empty, a temporary directory is used. The *task* itself is
     used to print and publish messages via its :py:meth:`law.Task.publish_message` and
@@ -55,21 +57,23 @@ def hadd_task(task, inputs, output, cwd=None, local=False, force=True, hadd_args
     localized. When *force* is *True*, any existing output file is overwritten. *hadd_args* can be a
     sequence of additional arguments that are added to the hadd command.
     """
+    abspath = lambda path: os.path.abspath(os.path.expandvars(os.path.expanduser(path)))
+
     # ensure inputs are targets
     inputs = [
-        LocalFileTarget(inp) if isinstance(inp, six.string_types) else inp
+        LocalFileTarget(abspath(inp)) if isinstance(inp, six.string_types) else inp
         for inp in inputs
     ]
 
     # ensure output is a target
     if isinstance(output, six.string_types):
-        output = LocalFileTarget(output)
+        output = LocalFileTarget(abspath(output))
 
     # default cwd
     if not cwd:
         cwd = LocalDirectoryTarget(is_tmp=True)
     elif isinstance(cwd, six.string_types):
-        cwd = LocalDirectoryTarget(cwd)
+        cwd = LocalDirectoryTarget(abspath(cwd))
     cwd.touch()
 
     # helper to create the hadd cmd
@@ -100,8 +104,13 @@ def hadd_task(task, inputs, output, cwd=None, local=False, force=True, hadd_args
                 if code != 0:
                     raise Exception("hadd failed")
 
-        task.publish_message("merged file size: {}".format(human_bytes(
-            output.stat().st_size, fmt=True)))
+        stat = output.exists(stat=True)
+        if not stat:
+            raise Exception("output '{}' not creating during merging".format(output.path))
+
+        # print the size
+        output_size = human_bytes(stat.st_size, fmt=True)
+        task.publish_message("merged file size: {}".format(output_size))
 
     else:
         # when not local, we need to fetch files first into the cwd
@@ -128,5 +137,10 @@ def hadd_task(task, inputs, output, cwd=None, local=False, force=True, hadd_args
                     if code != 0:
                         raise Exception("hadd failed")
 
-                    task.publish_message("merged file size: {}".format(human_bytes(
-                        tmp_out.stat().st_size, fmt=True)))
+            stat = tmp_out.exists(stat=True)
+            if not stat:
+                raise Exception("output '{}' not creating during merging".format(tmp_out.path))
+
+            # print the size
+            output_size = human_bytes(stat.st_size, fmt=True)
+            task.publish_message("merged file size: {}".format(output_size))

@@ -77,14 +77,14 @@ class RemoteCache(object):
             return parse_duration(value, input_unit="s", unit="s")
 
         add("root", cfg.get_expanded)
-        add("cleanup", cfg.get_expanded_boolean)
+        add("cleanup", cfg.get_expanded_bool)
         add("max_size", get_size)
         add("mtime_patience", cfg.get_expanded_float)
         add("file_perm", cfg.get_expanded_int)
         add("dir_perm", cfg.get_expanded_int)
         add("wait_delay", get_time)
         add("max_waits", cfg.get_expanded_int)
-        add("global_lock", cfg.get_expanded_boolean)
+        add("global_lock", cfg.get_expanded_bool)
 
         # inside sandboxes, never cleanup since the outer process will do that if needed
         if _sandbox_switched:
@@ -262,7 +262,10 @@ class RemoteCache(object):
                 with open(lock_path, "w") as f:
                     f.write("")
                 self._locked_cpaths.add(cpath)
-                os.utime(lock_path, None)
+                try:
+                    os.utime(lock_path, None)
+                except OSError:
+                    pass
 
             yield
         except:
@@ -344,7 +347,7 @@ class RemoteCache(object):
         if self.mtime_patience < 0:
             return True
 
-        return abs(self.mtime(rpath) - rmtime) > self.mtime_patience
+        return abs(self.mtime(rpath) - rmtime) <= self.mtime_patience
 
     def _remove(self, cpath, lock=True):
         def remove():

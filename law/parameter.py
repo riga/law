@@ -6,8 +6,9 @@ Custom luigi parameters.
 
 __all__ = [
     "NO_STR", "NO_INT", "NO_FLOAT", "is_no_param", "get_param", "TaskInstanceParameter",
-    "DurationParameter", "BytesParameter", "CSVParameter", "MultiCSVParameter", "RangeParameter",
-    "MultiRangeParameter", "NotifyParameter", "NotifyMultiParameter", "NotifyMailParameter",
+    "OptionalBoolParameter", "DurationParameter", "BytesParameter", "CSVParameter",
+    "MultiCSVParameter", "RangeParameter", "MultiRangeParameter", "NotifyParameter",
+    "NotifyMultiParameter", "NotifyMailParameter",
 ]
 
 import csv
@@ -72,6 +73,28 @@ class TaskInstanceParameter(luigi.Parameter):
         if isinstance(x, Task):
             return getattr(x, "live_task_id", x.task_id)
         return str(x)
+
+
+class OptionalBoolParameter(luigi.BoolParameter):
+    """
+    Same as luigi's ``BoolParameter`` (and unlike luigi's ``OptionalBoolParameter``) but parses and
+    serializes ``"None"`` strings transparently to *None* values and vice-versa.
+    """
+
+    def parse(self, inp):
+        """"""
+        if isinstance(inp, bool) or inp is None:
+            return inp
+
+        s = str(inp).lower()
+        if s == "true":
+            return True
+        if s == "false":
+            return False
+        if s == "none":
+            return None
+
+        raise ValueError("cannot interpret '{}' as boolean".format(inp))
 
 
 class DurationParameter(luigi.Parameter):
@@ -287,7 +310,8 @@ class CSVParameter(luigi.Parameter):
         tuple.
 
     .. py:attribute:: _inst
-       type: cls
+
+        type: :py:attr:`cls`
 
         Instance of the luigi parameter class *cls* that is used internally for parameter parsing
         and serialization.
@@ -479,7 +503,8 @@ class MultiCSVParameter(CSVParameter):
         effects, the *default* value given to the constructor is also converted to a tuple.
 
     .. py:attribute:: _inst
-       type: cls
+
+        type: :py:attr:`cls`
 
         Instance of the luigi parameter class *cls* that is used internally for parameter parsing
         and serialization.
@@ -564,13 +589,15 @@ class RangeParameter(luigi.Parameter):
         # => "4"
 
     .. py:classattribute:: RANGE_SEP
-       type: string
+
+        type: string
 
         Character used as a separator between range edges when parsing strings and serializing
         values. Defaults to ``":"``.
 
     .. py:classattribute:: OPEN
-       type: None
+
+        type: None
 
         Value denoting open edges in parsed ranges.
     """
@@ -666,7 +693,8 @@ class MultiRangeParameter(RangeParameter):
         # => ""5:9,13:15""
 
     .. py:classattribute:: MULTI_RANGE_SEP
-       type: string
+
+        type: string
 
         Character used as a separator between ranges when parsing strings and serializing
         values. Defaults to ``","``.

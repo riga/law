@@ -8,6 +8,7 @@ __all__ = ["BundleMercurialRepository"]
 
 
 import os
+import threading
 import subprocess
 from abc import abstractmethod
 
@@ -18,24 +19,32 @@ from law.target.file import get_path
 from law.target.local import LocalFileTarget
 from law.parameter import NO_STR, CSVParameter
 from law.decorator import log
-from law.util import rel_path, interruptable_popen
+from law.util import rel_path, interruptable_popen, quote_cmd
 
 
 class BundleMercurialRepository(Task):
 
     task_namespace = "law.mercurial"
 
-    exclude_files = CSVParameter(default=(), description="patterns of files to exclude, default: "
-        "()")
-    include_files = CSVParameter(default=(), description="patterns of files to force-include, "
-        "takes precedence over .hgignore, default: ()")
-    custom_checksum = luigi.Parameter(default=NO_STR, description="a custom checksum to use, "
-        "default: NO_STR")
+    exclude_files = CSVParameter(
+        default=(),
+        description="patterns of files to exclude, default: ()",
+    )
+    include_files = CSVParameter(
+        default=(),
+        description="patterns of files to force-include, takes precedence over .hgignore, "
+        "default: ()",
+    )
+    custom_checksum = luigi.Parameter(
+        default=NO_STR,
+        description="a custom checksum to use, default: NO_STR",
+    )
 
     def __init__(self, *args, **kwargs):
         super(BundleMercurialRepository, self).__init__(*args, **kwargs)
 
         self._checksum = None
+        self._checksum_lock = threading.RLock(())
 
     @abstractmethod
     def get_repo_path(self):
@@ -46,20 +55,29 @@ class BundleMercurialRepository(Task):
         if self.custom_checksum != NO_STR:
             return self.custom_checksum
 
-        if self._checksum is None:
-            checksum_script = rel_path(__file__, "scripts", "repository_checksum.sh")
-            cmd = [checksum_script, self.get_repo_path()]
+        with self._checksum_lock:
+            if self._checksum is None:
+                cmd = quote_cmd([
+                    rel_path(__file__, "scripts", "repository_checksum.sh"),
+                    self.get_repo_path(),
+                ])
 
-            code, out, _ = interruptable_popen(cmd, stdout=subprocess.PIPE)
-            if code != 0:
-                raise Exception("repository checksum calculation failed")
+                code, out, _ = interruptable_popen(
+                    cmd,
+                    shell=True,
+                    executable="/bin/bash",
+                    stdout=subprocess.PIPE,
+                )
+                if code != 0:
+                    raise Exception("repository checksum calculation failed")
 
-            self._checksum = out.strip()
+                self._checksum = out.strip()
 
         return self._checksum
 
     def output(self):
         repo_base = os.path.basename(self.get_repo_path())
+        repo_base = os.path.abspath(os.path.expandvars(os.path.expanduser(repo_base)))
         return LocalFileTarget("{}_{}.tgz".format(repo_base, self.checksum))
 
     @log
