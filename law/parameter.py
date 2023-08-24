@@ -223,10 +223,11 @@ class BytesParameter(luigi.Parameter):
 
 
 class CSVParameter(luigi.Parameter):
-    r""" __init__(*args, cls=luigi.Parameter, unique=False, sort=False, min_len=None, \
+    r""" __init__(*args, cls=luigi.Parameter, inst=None, unique=False, sort=False, min_len=None, \
         max_len=None, choices=None, brace_expand=False, escape_sep=True, force_tuple=True, **kwargs)
-    Parameter that parses a comma-separated value (CSV) and produces a tuple. *cls* can refer to an
-    other parameter class that will be used to parse and serialize the particular items.
+    Parameter that parses a comma-separated value (CSV) and produces a tuple. *cls* (*inst*) can
+    refer to an other parameter class (instance) that will be used to parse and serialize the
+    particular items.
 
     When *unique* is *True*, both parsing and serialization methods make sure that values are
     unique. *sort* can be a boolean or a function for sorting parameter values.
@@ -313,12 +314,13 @@ class CSVParameter(luigi.Parameter):
 
         type: :py:attr:`cls`
 
-        Instance of the luigi parameter class *cls* that is used internally for parameter parsing
-        and serialization.
+        Instance of the luigi parameter class *cls* or *inst* directory, that is used internally for
+        parameter parsing and serialization.
     """
 
     def __init__(self, *args, **kwargs):
         self._cls = kwargs.pop("cls", luigi.Parameter)
+        self._inst = kwargs.pop("inst", None)
         self._unique = kwargs.pop("unique", False)
         self._sort = kwargs.pop("sort", False)
         self._min_len = kwargs.pop("min_len", None)
@@ -332,15 +334,13 @@ class CSVParameter(luigi.Parameter):
         if "default" in kwargs:
             kwargs["default"] = make_tuple(kwargs["default"])
 
-        # cls might already point to an instance
-        inst = None
-        if isinstance(self._cls, luigi.Parameter):
-            inst = self._cls
-            self._cls = self._cls.__class__
+        # instantiate cls when inst is not set, or set cls base on inst
+        if self._inst is None:
+            self._inst = self._cls()
+        else:
+            self._cls = self._inst.__class__
 
         super(CSVParameter, self).__init__(*args, **kwargs)
-
-        self._inst = self._cls() if inst is None else inst
 
     def _check_unique(self, value):
         if not self._unique:
@@ -446,11 +446,11 @@ class CSVParameter(luigi.Parameter):
 
 
 class MultiCSVParameter(CSVParameter):
-    r""" __init__(*args, cls=luigi.Parameter, unique=False, sort=False, min_len=None, \
+    r""" __init__(*args, cls=luigi.Parameter, inst=None, unique=False, sort=False, min_len=None, \
         max_len=None, choices=None, brace_expand=False, escape_sep=True, force_tuple=True, **kwargs)
     Parameter that parses several comma-separated values (CSV), separated by colons, and produces a
-    nested tuple. *cls* can refer to an other parameter class that will be used to parse and
-    serialize the particular items.
+    nested tuple. *cls* (*inst*) can refer to an other parameter class (instance) that will be used
+    to parse and serialize the particular items.
 
     Except for the additional support for multiple CSV sequences, the parsing and serialization
     implementation is based on :py:class:`CSVParameter`, which also handles the features controlled
@@ -513,8 +513,8 @@ class MultiCSVParameter(CSVParameter):
 
         type: :py:attr:`cls`
 
-        Instance of the luigi parameter class *cls* that is used internally for parameter parsing
-        and serialization.
+        Instance of the luigi parameter class *cls* or *inst* directly, that is used internally for
+        parameter parsing and serialization.
     """
 
     # custom csv dialect for splitting by ":" for automatic quoting

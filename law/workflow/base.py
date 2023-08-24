@@ -10,7 +10,7 @@ __all__ = ["BaseWorkflow", "WorkflowParameter", "workflow_property", "cached_wor
 import re
 import functools
 import itertools
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from abc import abstractmethod
 
 import luigi
@@ -558,8 +558,9 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         any_set = any(value != no_value for _, _, value in workflow_params)
         if any_set:
             # check if all parameters are set and if any of their values refers to a sequence
+            is_seq = lambda v: isinstance(v, (tuple, list, set))
+            any_seq = any(is_seq(value) for _, _, value in workflow_params)
             all_set = all(value != no_value for _, _, value in workflow_params)
-            any_seq = any(isinstance(value, (tuple, list)) for _, _, value in workflow_params)
             if all_set and not any_seq:
                 # when all are set and do not refer to any sequence,
                 # lookup the branch value and verify that workflow parameter values match
@@ -592,19 +593,28 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
                         "{} requested".format(wparams_repr(), cls.__name__, branch),
                     )
 
-                # lookup all branches matched by parameters
+                # create a version of the reversed branch map where workflow parameters that are not
+                # given are removed and correspinding branch values are merged
                 branch_map, branch_map_reversed = get_branch_map()
+                idxs = [i for i, (_, _, value) in enumerate(workflow_params) if value != no_value]
+                branch_map_reversed_collapsed = defaultdict(list)
+                for values, b in branch_map_reversed.items():
+                    collapsed_values = tuple(values[i] for i in idxs)
+                    branch_map_reversed_collapsed[collapsed_values].append(b)
+
+                # lookup all branches matched by parameters
                 _branches = []
                 names = [name for name, _, _ in workflow_params]
                 sequences = (make_list(value) for _, _, value in workflow_params)
                 for values in itertools.product(*sequences):
-                    if values not in branch_map_reversed:
-                        param_repr = cjoin(map("{}={}".format, zip(names, values)))
+                    collapsed_values = tuple(values[i] for i in idxs)
+                    if collapsed_values not in branch_map_reversed_collapsed:
+                        param_repr = cjoin(map("{0[0]}={0[1]}".format, zip(names, values)))
                         raise Exception(
                             "workflow parameter combination {} not found in branch map of "
                             "{}".format(param_repr, cls.__name__),
                         )
-                    _branches.append(branch_map_reversed[values])
+                    _branches.extend(branch_map_reversed_collapsed[collapsed_values])
 
                 # check if _branches match branches when set
                 branches = range_expand(list(branches), include_end=True, min_value=0,
@@ -645,7 +655,7 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
                 continue
             if not workflow_cls._defined_workflow_proxy:
                 continue
-            if name in [workflow_cls.workflow_proxy_cls.workflow_type, None, NO_STR]:
+            if name in (workflow_cls.workflow_proxy_cls.workflow_type, None, NO_STR):
                 return workflow_cls
             if first_cls is None:
                 first_cls = workflow_cls

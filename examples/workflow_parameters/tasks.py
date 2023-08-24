@@ -41,11 +41,10 @@ class CreateChars(Task, law.LocalWorkflow):
         return self.local_target("output_{}_{}.json".format(self.num, "uc" if self.upper_case else "lc"))
 
     def run(self):
-        num = self.branch_data["num"]
-        char = chr(num)
-        if self.branch_data["upper_case"]:
+        char = chr(self.num)
+        if self.upper_case:
             char = char.upper()
-        self.output().dump({"num": num, "char": char})
+        self.output().dump({"num": self.num, "char": char})
 
 
 class CreateAlphabet(Task):
