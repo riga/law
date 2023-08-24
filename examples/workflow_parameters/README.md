@@ -1,3 +1,0 @@
-# Example: Workflow parameters
-
-Todo.
