@@ -555,12 +555,12 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         branches = params.get("branches", ())
 
         # only perform lookups in case any workflow parameter is set
-        any_set = any(value != no_value for _, _, value in workflow_params)
+        set_idxs = [i for i, (_, _, value) in enumerate(workflow_params) if value != no_value]
+        any_set = len(set_idxs) > 0
         if any_set:
             # check if all parameters are set and if any of their values refers to a sequence
-            is_seq = lambda v: isinstance(v, (tuple, list, set))
-            any_seq = any(is_seq(value) for _, _, value in workflow_params)
-            all_set = all(value != no_value for _, _, value in workflow_params)
+            all_set = len(set_idxs) == len(workflow_params)
+            any_seq = any(isinstance(value, (tuple, list, set)) for _, _, value in workflow_params)
             if all_set and not any_seq:
                 # when all are set and do not refer to any sequence,
                 # lookup the branch value and verify that workflow parameter values match
@@ -596,10 +596,9 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
                 # create a version of the reversed branch map where workflow parameters that are not
                 # given are removed and correspinding branch values are merged
                 branch_map, branch_map_reversed = get_branch_map()
-                idxs = [i for i, (_, _, value) in enumerate(workflow_params) if value != no_value]
                 branch_map_reversed_collapsed = defaultdict(list)
                 for values, b in branch_map_reversed.items():
-                    collapsed_values = tuple(values[i] for i in idxs)
+                    collapsed_values = tuple(values[i] for i in set_idxs)
                     branch_map_reversed_collapsed[collapsed_values].append(b)
 
                 # lookup all branches matched by parameters
@@ -607,7 +606,7 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
                 names = [name for name, _, _ in workflow_params]
                 sequences = (make_list(value) for _, _, value in workflow_params)
                 for values in itertools.product(*sequences):
-                    collapsed_values = tuple(values[i] for i in idxs)
+                    collapsed_values = tuple(values[i] for i in set_idxs)
                     if collapsed_values not in branch_map_reversed_collapsed:
                         param_repr = cjoin(map("{0[0]}={0[1]}".format, zip(names, values)))
                         raise Exception(
