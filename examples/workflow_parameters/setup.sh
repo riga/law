@@ -19,7 +19,7 @@ action() {
     fi
 
     local law_base="$( dirname "$( dirname "${this_dir}" )" )"
-    export PATH="${law_base}/bin:${sw_dir}/luigi/bin:${PATH}"
+    export PATH="${law_base}/bin:${PATH}"
     export PYTHONPATH="${this_dir}:${law_base}:${PYTHONPATH}"
 
     export LAW_HOME="${this_dir}/.law"

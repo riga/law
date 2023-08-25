@@ -13,7 +13,7 @@ class Task(law.Task):
         return (self.__class__.__name__,)
 
     def local_path(self, *path):
-        parts = ("$WORKFLOWEXAMPLE_DATA_PATH",)+ self.store_parts() + path
+        parts = ("$WORKFLOWEXAMPLE_DATA_PATH",) + self.store_parts() + path
         return os.path.join(*map(str, parts))
 
     def local_target(self, *path):
@@ -38,7 +38,10 @@ class CreateChars(Task, law.LocalWorkflow):
         ]
 
     def output(self):
-        return self.local_target("output_{}_{}.json".format(self.num, "uc" if self.upper_case else "lc"))
+        return self.local_target("output_{}_{}.json".format(
+            self.num,
+            "uc" if self.upper_case else "lc",
+        ))
 
     def run(self):
         char = chr(self.num)
