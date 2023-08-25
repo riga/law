@@ -19,7 +19,7 @@ import six
 from law.notification import notify_mail
 from law.util import (
     human_duration, parse_duration, time_units, time_unit_aliases, human_bytes, parse_bytes,
-    byte_units, is_lazy_iterable, make_tuple, make_unique, brace_expand, try_int,
+    byte_units, is_lazy_iterable, make_tuple, make_unique, brace_expand, try_int, no_value,
 )
 from law.logger import get_logger
 
@@ -51,7 +51,7 @@ def is_no_param(value):
     Checks whether a parameter *value* denotes an empty parameter, i.e., if the value is either
     :py:attr:`NO_STR`, :py:attr:`NO_INT`, or :py:attr:`NO_FLOAT`.
     """
-    return value in (NO_STR, NO_INT, NO_FLOAT)
+    return value in (NO_STR, NO_INT, NO_FLOAT, no_value)
 
 
 def get_param(value, default=None):
@@ -87,9 +87,9 @@ class OptionalBoolParameter(luigi.BoolParameter):
             return inp
 
         s = str(inp).lower()
-        if s == "true":
+        if s in ("true", "yes", "1"):
             return True
-        if s == "false":
+        if s in ("false", "no", "0"):
             return False
         if s == "none":
             return None
@@ -148,7 +148,7 @@ class DurationParameter(luigi.Parameter):
 
     def parse(self, inp):
         """"""
-        if not inp or inp == NO_STR:
+        if inp in (None, "", NO_STR, no_value):
             inp = "0"
 
         return parse_duration(inp, input_unit=self.unit, unit=self.unit)
@@ -206,7 +206,7 @@ class BytesParameter(luigi.Parameter):
 
     def parse(self, inp):
         """"""
-        if not inp or inp == NO_STR:
+        if inp in (None, "", NO_STR, no_value):
             inp = "0"
 
         return parse_bytes(inp, input_unit=self.unit, unit=self.unit)
@@ -223,10 +223,11 @@ class BytesParameter(luigi.Parameter):
 
 
 class CSVParameter(luigi.Parameter):
-    r""" __init__(*args, cls=luigi.Parameter, unique=False, sort=False, min_len=None, \
+    r""" __init__(*args, cls=luigi.Parameter, inst=None, unique=False, sort=False, min_len=None, \
         max_len=None, choices=None, brace_expand=False, escape_sep=True, force_tuple=True, **kwargs)
-    Parameter that parses a comma-separated value (CSV) and produces a tuple. *cls* can refer to an
-    other parameter class that will be used to parse and serialize the particular items.
+    Parameter that parses a comma-separated value (CSV) and produces a tuple. *cls* (*inst*) can
+    refer to an other parameter class (instance) that will be used to parse and serialize the
+    particular items.
 
     When *unique* is *True*, both parsing and serialization methods make sure that values are
     unique. *sort* can be a boolean or a function for sorting parameter values.
@@ -313,12 +314,13 @@ class CSVParameter(luigi.Parameter):
 
         type: :py:attr:`cls`
 
-        Instance of the luigi parameter class *cls* that is used internally for parameter parsing
-        and serialization.
+        Instance of the luigi parameter class *cls* or *inst* directory, that is used internally for
+        parameter parsing and serialization.
     """
 
     def __init__(self, *args, **kwargs):
         self._cls = kwargs.pop("cls", luigi.Parameter)
+        self._inst = kwargs.pop("inst", None)
         self._unique = kwargs.pop("unique", False)
         self._sort = kwargs.pop("sort", False)
         self._min_len = kwargs.pop("min_len", None)
@@ -332,9 +334,13 @@ class CSVParameter(luigi.Parameter):
         if "default" in kwargs:
             kwargs["default"] = make_tuple(kwargs["default"])
 
-        super(CSVParameter, self).__init__(*args, **kwargs)
+        # instantiate cls when inst is not set, or set cls base on inst
+        if self._inst is None:
+            self._inst = self._cls()
+        else:
+            self._cls = self._inst.__class__
 
-        self._inst = self._cls()
+        super(CSVParameter, self).__init__(*args, **kwargs)
 
     def _check_unique(self, value):
         if not self._unique:
@@ -380,7 +386,7 @@ class CSVParameter(luigi.Parameter):
     def parse(self, inp):
         """"""
         return_single_value = False
-        if not inp or inp == NO_STR:
+        if inp in (None, "", NO_STR, no_value):
             value = tuple()
         elif isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
             value = make_tuple(inp)
@@ -400,6 +406,7 @@ class CSVParameter(luigi.Parameter):
             # skip trailing empty strings
             if not elems[-1]:
                 elems.pop()
+            # parse
             value = tuple(map(self._inst.parse, elems))
             return_single_value = len(value) == 1 and not self._force_tuple
         else:
@@ -415,7 +422,7 @@ class CSVParameter(luigi.Parameter):
 
     def serialize(self, value):
         """"""
-        if not value:
+        if value in (None, NO_STR, no_value):
             value = tuple()
 
         # ensure value is a tuple
@@ -439,11 +446,11 @@ class CSVParameter(luigi.Parameter):
 
 
 class MultiCSVParameter(CSVParameter):
-    r""" __init__(*args, cls=luigi.Parameter, unique=False, sort=False, min_len=None, \
+    r""" __init__(*args, cls=luigi.Parameter, inst=None, unique=False, sort=False, min_len=None, \
         max_len=None, choices=None, brace_expand=False, escape_sep=True, force_tuple=True, **kwargs)
     Parameter that parses several comma-separated values (CSV), separated by colons, and produces a
-    nested tuple. *cls* can refer to an other parameter class that will be used to parse and
-    serialize the particular items.
+    nested tuple. *cls* (*inst*) can refer to an other parameter class (instance) that will be used
+    to parse and serialize the particular items.
 
     Except for the additional support for multiple CSV sequences, the parsing and serialization
     implementation is based on :py:class:`CSVParameter`, which also handles the features controlled
@@ -506,8 +513,8 @@ class MultiCSVParameter(CSVParameter):
 
         type: :py:attr:`cls`
 
-        Instance of the luigi parameter class *cls* that is used internally for parameter parsing
-        and serialization.
+        Instance of the luigi parameter class *cls* or *inst* directly, that is used internally for
+        parameter parsing and serialization.
     """
 
     # custom csv dialect for splitting by ":" for automatic quoting
@@ -643,7 +650,7 @@ class RangeParameter(luigi.Parameter):
 
     def parse(self, inp):
         """"""
-        if not inp or inp == NO_STR:
+        if inp in (None, "", NO_STR, no_value):
             value = tuple()
         elif isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
             value = make_tuple(inp)
@@ -704,7 +711,7 @@ class MultiRangeParameter(RangeParameter):
 
     def parse(self, inp):
         """"""
-        if not inp or inp == NO_STR:
+        if inp in (None, "", NO_STR, no_value):
             value = tuple()
         elif isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
             value = tuple(super(MultiRangeParameter, self).parse(v) for v in inp)

@@ -136,6 +136,7 @@ docker run -ti riga/law:example <example_name>
 
 - [loremipsum](https://github.com/riga/law/tree/master/examples/loremipsum): The *hello world* example of law.
 - [workflows](https://github.com/riga/law/tree/master/examples/workflows): Law workflows.
+- [workflow_parameters](https://github.com/riga/law/tree/master/examples/workflows): Alternative way of parametrizing workflows with explicit branch parameters.
 - [notebooks](https://github.com/riga/law/tree/master/examples/notebooks): Examples showing how to use and work with law in notebooks.
 - [dropbox_targets](https://github.com/riga/law/tree/master/examples/dropbox_targets): Working with targets that are stored on Dropbox.
 - [wlcg_targets](https://github.com/riga/law/tree/master/examples/wlcg_targets): Working with targets that are stored on WLCG storage elements (dCache, EOS, ...). TODO.

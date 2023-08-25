@@ -4,12 +4,13 @@
 Workflow and workflow proxy base class definitions.
 """
 
-__all__ = ["BaseWorkflow", "workflow_property", "cached_workflow_property"]
+__all__ = ["BaseWorkflow", "WorkflowParameter", "workflow_property", "cached_workflow_property"]
 
 
 import re
 import functools
-from collections import OrderedDict
+import itertools
+from collections import OrderedDict, defaultdict
 from abc import abstractmethod
 
 import luigi
@@ -18,9 +19,10 @@ import six
 from law.task.base import Task, Register
 from law.task.proxy import ProxyTask, get_proxy_attribute
 from law.target.collection import TargetCollection
-from law.parameter import NO_STR, MultiRangeParameter
+from law.parameter import NO_STR, MultiRangeParameter, CSVParameter
 from law.util import (
-    no_value, make_list, make_set, iter_chunks, range_expand, range_join, create_hash, DotDict,
+    no_value, make_list, make_set, iter_chunks, range_expand, range_join, create_hash,
+    is_classmethod, DotDict,
 )
 from law.logger import get_logger
 
@@ -231,6 +233,35 @@ def cached_workflow_property(func=None, attr=None, setter=True, empty_value=no_v
     return decorator if not func else decorator(func)
 
 
+class WorkflowParameter(CSVParameter):
+
+    def __init__(self, *args, **kwargs):
+        # force an empty default value, disable single values being wrapped by tuples, and declare
+        # the parameter as insignificant as they only act as a convenient branch lookup interface
+        kwargs["default"] = no_value
+        kwargs["force_tuple"] = False
+        kwargs["significant"] = False
+
+        super(WorkflowParameter, self).__init__(*args, **kwargs)
+
+        # linearize the default
+        self._default = no_value
+
+    def parse(self, inp):
+        """"""
+        if inp in (None, NO_STR, no_value):
+            return no_value
+
+        return super(WorkflowParameter, self).parse(inp)
+
+    def serialize(self, value):
+        """"""
+        if value in (None, no_value):
+            return ""
+
+        return super(WorkflowParameter, self).serialize(value)
+
+
 class WorkflowRegister(Register):
 
     def __init__(cls, name, bases, classdict):
@@ -415,6 +446,9 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
     workflow_property = None
     cached_workflow_property = None
 
+    # caches
+    _cls_branch_map_cache = {}
+
     exclude_index = True
 
     exclude_params_req = {"effective_workflow"}
@@ -438,6 +472,184 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         )
         params["effective_workflow"] = workflow_cls.workflow_proxy_cls.workflow_type
 
+        # resolve workflow parameters
+        params = cls._resolve_workflow_parameters(params)
+
+        return params
+
+    @classmethod
+    def _resolve_workflow_parameters(cls, params):
+        """
+        Handles the translation from workflow parameters to branch values, updating *params*
+        in-place.
+        """
+        workflow_params = [
+            (name, param, params.get(name, no_value))
+            for name, param in cls.get_params()
+            if isinstance(param, WorkflowParameter)
+        ]
+
+        # nothing to do when the task does not use workflow parameters
+        if not workflow_params:
+            return params
+
+        # helper for error messages
+        cjoin = lambda seq: ",".join(map(str, seq))
+        wparams_repr = lambda: cjoin(map("{0[0]}={0[2]}".format, workflow_params))
+
+        # when there are any workflow parameters, create_branch_map must be a classmethod since
+        # there is no way of accessing this map before instantiation
+        if not is_classmethod(cls.create_branch_map, cls):
+            raise Exception(
+                "{}.create_branch_map must be a classmethod accepting a single parameter (dict "
+                "of parameter names and values) in case workflows use WorkflowParameter "
+                "objects in order to perform branch value lookups prior to any task "
+                "instantiation; found workflow parameter(s) {}".format(
+                    cls.__name__, wparams_repr(),
+                ),
+            )
+
+        # helper to extract an entry from branch data (usually a dict)
+        def get_branch_value(branch, branch_data, key):
+            if isinstance(branch_data, dict):
+                if key in branch_data:
+                    return branch_data[key]
+            elif getattr(branch_data, key, no_value) != no_value:
+                return getattr(branch_data, key)
+            raise AttributeError(
+                "attribute or item '{}' unknown to branch data at branch {}: {}".format(
+                    key, branch, branch_data,
+                ),
+            )
+
+        # get the branch map, potentially from a cache
+        try:
+            # create a hash of all significant parameters to store the map
+            h = hash((cls.task_family, tuple(params.items())))
+        except TypeError:
+            # some parameter is not hashable
+            h = None
+
+        # recreate the maps if needed
+        branch_map, branch_map_reversed = (
+            cls._cls_branch_map_cache[h]
+            if h and h in cls._cls_branch_map_cache
+            else (None, None)
+        )
+        if branch_map is None:
+            # get the map and sanitize it
+            branch_map = cls.create_branch_map(params)
+            branch_map = cls._sanitize_branch_map(branch_map, cls.force_contiguous_branches)
+            # create the reversed map, using workflow parameter value tuples as keys
+            branch_map_reversed = OrderedDict()
+            for b, branch_data in branch_map.items():
+                key = tuple(
+                    get_branch_value(b, branch_data, name)
+                    for name, _, _ in workflow_params
+                )
+                if key not in branch_map_reversed:
+                    branch_map_reversed[key] = []
+                branch_map_reversed[key].append(b)
+            # cache
+            if h:
+                cls._cls_branch_map_cache[h] = (branch_map, branch_map_reversed)
+
+        # get parameters
+        branch = params.get("branch", -1)
+        branches = params.get("branches", ())
+
+        # check if any or all workflow parameters are set, and if any of them is a sequence
+        set_idxs = [i for i, (_, _, value) in enumerate(workflow_params) if value != no_value]
+        any_set = len(set_idxs) > 0
+        all_set = len(set_idxs) == len(workflow_params)
+        any_seq = any(isinstance(value, (tuple, list, set)) for _, _, value in workflow_params)
+
+        # when all are set and none of them is a sequence, the workflow parameters can refer to
+        # no branch (-> exception), one branch (-> assign it), or multiple branches (-> workflow)
+        _branches = []
+        if all_set and not any_seq:
+            values = tuple(value for _, _, value in workflow_params)
+            _branches = branch_map_reversed.get(values, [])
+            if len(_branches) == 0:
+                raise ValueError(
+                    "workflow parameters {} do not match any branch in {}".format(
+                        wparams_repr(), cls.__name__,
+                    ),
+                )
+
+        if all_set and not any_seq and _branches and len(_branches) == 1:
+            # when all are set and do not refer to any sequence,
+            # lookup the branch value and verify that workflow parameter values match
+            _branch = _branches[0]
+            if branch != -1 and branch != _branch:
+                raise ValueError(
+                    "workflow parameters {} in {} refer to branch {}, but branch {} "
+                    "requested".format(wparams_repr(), cls.__name__, _branch, branch),
+                )
+
+            # always overwrite
+            params["branch"] = branch = _branch
+
+        elif any_set:
+            # at least one parameter is not set or is a sequence, resulting in a workflow,
+            # and in both cases we can filter the branch map to determine matching branches
+            # branch should not be set
+            if branch != -1:
+                raise ValueError(
+                    "workflow parameters {} will lead to {} being a workflow, but branch "
+                    "{} requested".format(wparams_repr(), cls.__name__, branch),
+                )
+
+            if not _branches:
+                # create a version of the reversed branch map where workflow parameters that are
+                # not given are removed and corresponding branch values are merged
+                branch_map_reversed_collapsed = defaultdict(list)
+                for values, b in branch_map_reversed.items():
+                    collapsed_values = tuple(values[i] for i in set_idxs)
+                    branch_map_reversed_collapsed[collapsed_values].extend(b)
+
+                # lookup all branches matched by parameters
+                _branches = []
+                names = [name for name, _, _ in workflow_params]
+                sequences = (make_list(value) for _, _, value in workflow_params)
+                for values in itertools.product(*sequences):
+                    collapsed_values = tuple(values[i] for i in set_idxs)
+                    if collapsed_values not in branch_map_reversed_collapsed:
+                        param_repr = cjoin(map("{0[0]}={0[1]}".format, zip(names, values)))
+                        raise Exception(
+                            "workflow parameter combination {} not found in branch map of "
+                            "{}".format(param_repr, cls.__name__),
+                        )
+                    _branches.extend(branch_map_reversed_collapsed[collapsed_values])
+
+            # check if _branches match branches when set
+            if branches:
+                branches = range_expand(list(branches), include_end=True, min_value=0,
+                    max_value=max(branch_map))
+                if set(branches) != set(_branches):
+                    raise ValueError(
+                        "workflow parameters {} expanded in {} to branches ({}) do not match "
+                        "passed branches ({})".format(
+                            wparams_repr(), cls.__name__, cjoin(_branches), cjoin(branches),
+                        ),
+                    )
+
+            # always overwrite
+            params["branches"] = tuple(range_join(_branches))
+
+        elif branch != -1:
+            # set all workflow parameters according to the data in the branch map at "branch"
+            if branch not in branch_map:
+                raise KeyError(
+                    "branch map of task class {} does not contain branch {}".format(
+                        cls.__name__, branch,
+                    ),
+                )
+
+            branch_data = branch_map[branch]
+            for name, _, _ in workflow_params:
+                params[name] = get_branch_value(branch, branch_data, name)
+
         return params
 
     @classmethod
@@ -449,7 +661,7 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
                 continue
             if not workflow_cls._defined_workflow_proxy:
                 continue
-            if name in [workflow_cls.workflow_proxy_cls.workflow_type, None, NO_STR]:
+            if name in (workflow_cls.workflow_proxy_cls.workflow_type, None, NO_STR):
                 return workflow_cls
             if first_cls is None:
                 first_cls = workflow_cls
@@ -517,6 +729,13 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         # attribute for cached requirements if enabled
         self._cached_workflow_requirements = no_value
 
+        # store a list of workflow parameter names
+        self._workflow_param_names = [
+            name
+            for name, param in self.get_params()
+            if isinstance(param, WorkflowParameter)
+        ]
+
     def _initialize_workflow(self, force=False):
         if self._workflow_initialized and not force:
             return
@@ -556,6 +775,9 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         # exclude certain branch/workflow parameters
         exclude |= self.exclude_params_branch if self.is_branch() else self.exclude_params_workflow
 
+        # always exclude workflow parameters
+        exclude |= set(self._workflow_param_names)
+
         return super(BaseWorkflow, self).cli_args(exclude=exclude, replace=replace)
 
     def _repr_params(self, *args, **kwargs):
@@ -589,7 +811,7 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
 
         # default kwargs
         kwargs.setdefault("_skip_task_excludes", True)
-        kwargs["_exclude"] = make_set(kwargs.get("_exclude", ()))
+        kwargs["_exclude"] = make_set(kwargs.get("_exclude", ())) | set(self._workflow_param_names)
         if self.is_workflow():
             kwargs["_exclude"] |= set(self.exclude_params_branch)
 
@@ -604,7 +826,7 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
     def req_workflow(self, **kwargs):
         # default kwargs
         kwargs.setdefault("_skip_task_excludes", True)
-        kwargs["_exclude"] = make_set(kwargs.get("_exclude", ()))
+        kwargs["_exclude"] = make_set(kwargs.get("_exclude", ())) | set(self._workflow_param_names)
         if self.is_branch():
             kwargs["_exclude"] |= set(self.exclude_params_workflow)
 
@@ -723,7 +945,14 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         branch_map = self._branch_map
         if branch_map is None:
             # create a new branch map
-            branch_map = self.create_branch_map()
+            args = ()
+            if is_classmethod(self.create_branch_map, self.__class__):
+                params = OrderedDict([
+                    (param_name, getattr(self, param_name))
+                    for param_name, _ in self.get_params()
+                ])
+                args = (params,)
+            branch_map = self.create_branch_map(*args)
 
             # some type and sanity checks
             branch_map = self._sanitize_branch_map(branch_map, self.force_contiguous_branches)
