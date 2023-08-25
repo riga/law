@@ -31,7 +31,7 @@ class MyWorkflow(law.LocalWorkflow):
         pass  # ... implementation
 ```
 
-the dictionary returned py `create_branch_map` defines `MyWorkflow`'s branches.
+the dictionary returned by `create_branch_map` defines `MyWorkflow`'s branches.
 
 If we were to execute a single branch, say `0`, we could run
 
@@ -47,7 +47,7 @@ To run multiple branches simultaneously, you would usually
   - omit the `--branch` parameter or set it to `--branch -1` to trigger the *workflow* instead of a specific branch, **and optionally**
   - add `--branches SELECTION` to select a subset of possible branches (`SELECTION` can be a comma-separated list of branches or pythonic slices, e.g. `0,3,5:9`).
 
-The workflow then determines which branches it needs to run and handles their execution depending on its workflow type (`law.LocalWorkflow` runs them locally, whereas remote workflows such as `law.htcondor.HTCondorWorlflow` submits them as HTCondor jobs).
+The workflow then determines which branches it needs to run and handles their execution depending on its workflow type (`law.LocalWorkflow` runs them locally, whereas remote workflows such as `law.htcondor.HTCondorWorlflow` submit them as HTCondor jobs).
 
 This mechanism is generic, but in case you are dealing with complex branch maps, triggering a specific single branch or a specific subset of branches requires you to know their branch values which you then use on the command line with either `--branch` or `--branches`.
 
@@ -99,7 +99,7 @@ class MyWorkflow(law.LocalWorkflow):
 `option_a` and `option_b` are `law.WorkflowParameter`s that can optionally define a `cls` (or `inst`) of a other parameter object that is used for parameter parsing and serialization (as always).
 
 The second change is that `create_branch_map` is now a `@classmethod` and receives all task parameters in a dictionary *params*.
-This is necessary since, internally, the automatic lookup of branches based on the values of workflow parameters must happen before the task is actually instantiated.
+This is necessary since the automatic lookup of branches based on the values of workflow parameters, internally, must happen before the task is actually instantiated.
 
 As a result, parameters can be defined verbosely on the command line, translate to branch values, and configure which branches are run by the workflow:
 
