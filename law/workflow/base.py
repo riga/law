@@ -4,7 +4,7 @@
 Workflow and workflow proxy base class definitions.
 """
 
-__all__ = ["BaseWorkflow", "WorkflowParameter", "workflow_property", "cached_workflow_property"]
+__all__ = ["BaseWorkflow", "WorkflowParameter", "workflow_property"]
 
 
 import re
@@ -158,65 +158,36 @@ class BaseWorkflowProxy(ProxyTask):
             self.task.branches = self.task._initial_branches
 
 
-def workflow_property(func):
+def workflow_property(func=None, attr=None, setter=True, cache=False, empty_value=no_value):
     """
-    Decorator to declare a property that is stored only on a workflow but makes it also accessible
-    from branch tasks. Internally, branch tasks are re-instantiated with ``branch=-1``, and its
-    decorated property is invoked. You might want to use this decorator in case of a property that
-    is common (and mutable) to a workflow and all its branch tasks, e.g. for static data. Example:
+    Decorator to declare an attribute that is stored only on a workflow and optionally cached for
+    subsequent calls. Therefore, the decorated method is expected to (lazily) provide the value to
+    cache if enabled. When the value is equal to *empty_value*, it is not cached and the next access
+    to the property will invoke the decorated method again. The resulting value is stored as either
+    ``_workflow_<func.__name__>`` or ``_workflow_cached_<func.__name__>`` on the workflow. By
+    default, a setter is provded to overwrite the the attribute. Set *setter* to *False* to disable
+    this feature. Example:
 
     .. code-block:: python
 
         class MyTask(Workflow):
-
-            def __init__(self, *args, **kwargs):
-                super(MyTask, self).__init__(*args, **kwargs)
-
-                if self.is_workflow():
-                    self._common_data = some_demanding_computation()
 
             @workflow_property
-            def common_data(self):
-                # this method is always called with *self* is the *workflow*
-                return self._common_data
-    """
-    @functools.wraps(func)
-    def getter(self):
-        return func(self.as_workflow())
-
-    return property(getter)
-
-
-def cached_workflow_property(func=None, attr=None, setter=True, empty_value=no_value):
-    """
-    Decorator to declare an attribute that is stored only on a workflow and also cached for
-    subsequent calls. Therefore, the decorated method is expected to (lazily) provide the value to
-    cache. When the value is equal to *empty_value*, it is not cached and the next access to the
-    property will invoke the decorated method again. The resulting value is stored as
-    ``_workflow_cached_<func.__name__>`` on the workflow, which can be overwritten by setting the
-    *attr* argument. By default, a setter is provded to overwrite the cache value. Set *setter* to
-    *False* to disable this feature. Example:
-
-    .. code-block:: python
-
-        class MyTask(Workflow):
-
-            @cached_workflow_property
             def common_data(self):
                 # this method is always called with *self* being the *workflow*
                 return some_demanding_computation()
 
-            @cached_workflow_property(attr="my_own_property", setter=False)
+            @workflow_property(attr="my_own_property", setter=False, cache=True)
             def common_data2(self):
                 return some_other_computation()
     """
     def decorator(func):
-        _attr = attr or "_workflow_cached_{}".format(func.__name__)
+        _attr = attr or "_workflow_{}{}".format("cached_" if cache else "", func.__name__)
 
         @functools.wraps(func)
         def getter(self):
             wf = self.as_workflow()
-            if getattr(wf, _attr, empty_value) == empty_value:
+            if getattr(wf, _attr, empty_value) == empty_value or not cache:
                 setattr(wf, _attr, func(wf))
             return getattr(wf, _attr)
 
@@ -230,7 +201,7 @@ def cached_workflow_property(func=None, attr=None, setter=True, empty_value=no_v
 
         return property(fget=getter, fset=_setter)
 
-    return decorator if not func else decorator(func)
+    return decorator if func is None else decorator(func)
 
 
 class WorkflowParameter(CSVParameter):
@@ -442,9 +413,6 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
     cache_workflow_requirements = False
     passthrough_requested_workflow = True
 
-    # accessible properties
-    workflow_property = None
-    cached_workflow_property = None
 
     # caches
     _cls_branch_map_cache = {}
@@ -1179,7 +1147,3 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
 
         msg.respond("task cannot handle scheduler message: {}".format(msg))
         return False
-
-
-BaseWorkflow.workflow_property = workflow_property
-BaseWorkflow.cached_workflow_property = cached_workflow_property
