@@ -68,6 +68,16 @@
       "contributions": [
         "code"
       ]
+    },
+    {
+      "login": "tgy",
+      "name": "Valentin Iovene",
+      "avatar_url": "https://avatars.githubusercontent.com/u/694873?v=4",
+      "profile": "https://too.gy",
+      "contributions": [
+        "code"
+      ]
     }
-  ]
+  ],
+  "commitType": "docs"
 }
