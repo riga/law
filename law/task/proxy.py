@@ -9,7 +9,9 @@ __all__ = ["ProxyTask", "ProxyCommand", "get_proxy_attribute"]
 
 import shlex
 
-from law.task.base import BaseTask, Task
+import six
+
+from law.task.base import BaseRegister, BaseTask, Task
 from law.parameter import TaskInstanceParameter
 from law.parser import global_cmdline_args
 from law.util import quote_cmd
@@ -20,15 +22,21 @@ _forward_workflow_attributes = {"requires", "output", "complete", "run"}
 _forward_sandbox_attributes = {"input", "output", "run"}
 
 
-class ProxyTask(BaseTask):
+class ProxyRegister(BaseRegister):
+    """
+    Meta class for proxy tasks with the sole purpose of disabling instance caching.
+    """
+
+
+# disable instance caching
+ProxyRegister.disable_instance_cache()
+
+
+class ProxyTask(six.with_metaclass(ProxyRegister, BaseTask)):
 
     task = TaskInstanceParameter()
 
     exclude_params_req = {"task"}
-
-
-# disable instance caching
-ProxyTask.disable_instance_cache()
 
 
 class ProxyCommand(object):
