@@ -316,17 +316,20 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         Flag that denotes whether the branch map should be created (if not already done) before the
         task representation is created via :py:meth:`repr`.
 
-    .. py:classattribute:: workflow_property
+    .. py:classattribute:: cache_workflow_requirements
 
-        type: function
+        type: bool
 
-        Reference to :py:func:`workflow_property`.
+        Whether workflow requirements should be evaluated only cached and cached afterwards in the
+        :py:attr:`_cached_workflow_requirements` attribute. Defaults to *False*.
 
-    .. py:classattribute:: cached_workflow_property
+    .. py:classattribute:: cache_branch_map_default
 
-        type: function
+        type: bool
 
-        Reference to :py:func:`cached_workflow_property`.
+        The initial default value of the :py:attr:`cache_branch_map` attribute that decides whether
+        the branch map be created only once and then cached in the :py:attr:`_branch_map` attribute.
+        Defaults to *True*.
 
     .. py:classattribute:: workflow_run_decorators
 
@@ -409,16 +412,18 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
     force_contiguous_branches = False
     reset_branch_map_before_run = False
     create_branch_map_before_repr = False
-    workflow_run_decorators = None
     cache_workflow_requirements = False
+    cache_branch_map_default = True
     passthrough_requested_workflow = True
-
+    workflow_run_decorators = None
 
     # caches
     _cls_branch_map_cache = {}
 
+    # skip from indexing
     exclude_index = True
 
+    # parameter exclusions
     exclude_params_req = {"effective_workflow"}
     exclude_params_index = {"effective_workflow"}
     exclude_params_repr = {"workflow"}
@@ -677,26 +682,6 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
     def __init__(self, *args, **kwargs):
         super(BaseWorkflow, self).__init__(*args, **kwargs)
 
-        # cached attributes for the workflow
-        self._branch_map = None
-        self._branch_tasks = None
-        self._cache_branches = True
-
-        # cached attributes for branches
-        self._workflow_task = None
-
-        # store originally selected branches
-        self._initial_branches = tuple(self.branches)
-
-        # store whether workflow objects have been setup, which is done lazily,
-        # and predefine all attributes that are set by it
-        self._workflow_initialized = False
-        self._workflow_cls = None
-        self._workflow_proxy = None
-
-        # attribute for cached requirements if enabled
-        self._cached_workflow_requirements = no_value
-
         # store a list of workflow parameter names
         self._workflow_param_names = [
             name
@@ -704,29 +689,74 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
             if isinstance(param, WorkflowParameter)
         ]
 
+        # workflow and branch specific attributes
+        if self.is_workflow():
+            # caches
+            self._branch_map = None
+            self._branch_tasks = None
+            self._cache_branch_map = self.__class__.cache_branch_map_default
+            self._cached_workflow_requirements = no_value
+
+            # store whether workflow objects have been setup, which is done lazily,
+            # and predefine all attributes that are set by it
+            self._workflow_initialized = False
+            self._workflow_cls = None
+            self._workflow_proxy = None
+
+            # initially set branches
+            self._initial_branches = tuple(self.branches)
+
+        else:
+            # caches
+            self._workflow_task = None
+
+    @workflow_property(attr="_cache_branch_map")
+    def cache_branch_map(self):
+        return self._cache_branch_map
+
+    @property
+    def _cache_branches(self):
+        # deprecation warning until v0.1
+        logger.warning(
+            "accessing {0}._cache_branches is deprecated, use {0}.cache_branch_map instead".format(
+                self.__class.__name,
+            ),
+        )
+        return self._cache_branch_map
+
+    @_cache_branches.setter
+    def _cache_branches(self, cache_branches):
+        logger.warning(
+            "setting {0}._cache_branches is deprecated, use {0}.cache_branch_map instead".format(
+                self.__class.__name,
+            ),
+        )
+        self._cache_branch_map = cache_branches
+
     def _initialize_workflow(self, force=False):
+        if self.is_branch():
+            return
+
         if self._workflow_initialized and not force:
             return
-        self._workflow_initialized = True
 
-        if self.is_workflow():
-            self._workflow_cls = self.find_workflow_cls(self.effective_workflow)
-            self._workflow_proxy = self._workflow_cls.workflow_proxy_cls(task=self)
-            logger.debug(
-                "created workflow proxy instance of type '{}'".format(self.effective_workflow),
-            )
+        self._workflow_cls = self.find_workflow_cls(self.effective_workflow)
+        self._workflow_proxy = self._workflow_cls.workflow_proxy_cls(task=self)
+        logger.debug(
+            "created workflow proxy instance of type '{}'".format(self.effective_workflow),
+        )
 
         self._workflow_initialized = True
 
     @property
     def workflow_cls(self):
         self._initialize_workflow()
-        return self._workflow_cls
+        return self.as_workflow()._workflow_cls
 
     @property
     def workflow_proxy(self):
         self._initialize_workflow()
-        return self._workflow_proxy
+        return self.as_workflow()._workflow_proxy
 
     def __getattribute__(self, attr, proxy=True):
         return get_proxy_attribute(self, attr, proxy=proxy, super_cls=Task)
@@ -787,7 +817,8 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         task = self.req(self, branch=branch, **kwargs)
 
         # set the _workflow_task attribute if known
-        task._workflow_task = self if self.is_workflow() else self._workflow_task
+        if task._workflow_task is None:
+            task._workflow_task = self if self.is_workflow() else self._workflow_task
 
         return task
 
@@ -932,7 +963,7 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
                 self._reduce_branch_map(branch_map)
 
             # cache it
-            if self._cache_branches:
+            if self.cache_branch_map:
                 self._branch_map = branch_map
 
         return branch_map
@@ -967,7 +998,7 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
                 branch_tasks[b] = self.as_branch(branch=b)
 
             # return the task when we are not going to cache it
-            if not self._cache_branches:
+            if not self.cache_branch_map:
                 return branch_tasks
 
             # cache it
@@ -1019,13 +1050,13 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         if self.is_branch():
             return self.as_workflow().get_all_branch_chunks(chunk_size, **kwargs)
 
-        # create a new instance
+        # create a new workflow instance
         kwargs["_exclude"] = set(kwargs.get("_exclude", set())) | {"branches"}
         kwargs["_skip_task_excludes"] = True
-        inst = self.req(self, **kwargs)
+        wf = self.req_workflow(self, **kwargs)
 
         # return its branch chunks
-        return inst.get_branch_chunks(chunk_size)
+        return wf.get_branch_chunks(chunk_size)
 
     def get_branches_repr(self, max_ranges=10):
         """
