@@ -517,7 +517,7 @@
 ; Description: A boolean flag that decides whether existing files should by overwritten by
 ; operations that would recreate them.
 ; Type: boolean
-; Default: overwrite
+; Default: True
 
 ; gfal_transfer_create_parent
 ; Description: A boolean flag that decides whether intermediate, missing directories should be
