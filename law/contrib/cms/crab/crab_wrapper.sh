@@ -208,14 +208,32 @@ open('${input_file_render_base}', 'w').write(content);\
         done | tail -n 1
     }
 
+    # helper to print a banner
+    banner() {
+        local msg="$1"
+
+        echo
+        echo "================================================================================"
+        echo "=== ${msg}"
+        echo "================================================================================"
+        echo
+    }
+
     # remove cmssw related variables from paths
     local NEW_PATH="$( filter_path_var "${PATH}" "^/cvmfs/cms\.cern\.ch/" "^${CMSSW_BASE:-NOT_SET}" )"
     local NEW_PYTHONPATH="$( filter_path_var "${PYTHONPATH}" "^/cvmfs/cms\.cern\.ch/" "python2\.7/site-packages" )"
     local NEW_LD_LIBRARY_PATH="$( filter_path_var "${LD_LIBRARY_PATH}" "^/cvmfs/cms\.cern\.ch/" "^${CMSSW_BASE:-NOT_SET}" )"
 
     # run it
-    echo "run actual job file"
+    banner "Start of law job"
+
+    local job_ret
     PATH="${NEW_PATH}" PYTHONPATH="${NEW_PYTHONPATH}" LD_LIBRARY_PATH="${NEW_LD_LIBRARY_PATH}" bash "${job_file}" ${crab_job_arguments}
+    job_ret="$?"
+
+    banner "End of law job"
+
+    return "${job_ret}"
 }
 
 action "$@"
