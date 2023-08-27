@@ -10,6 +10,7 @@ __all__ = ["BaseWorkflow", "WorkflowParameter", "workflow_property"]
 import re
 import functools
 import itertools
+import inspect
 from collections import OrderedDict, defaultdict
 from abc import abstractmethod
 
@@ -629,7 +630,7 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
     def find_workflow_cls(cls, name=None, fallback_to_first=False):
         first_cls = None
 
-        for workflow_cls in cls.mro():
+        for workflow_cls in inspect.getmro(cls):
             if not issubclass(workflow_cls, BaseWorkflow):
                 continue
             if not workflow_cls._defined_workflow_proxy:

@@ -44,6 +44,7 @@ import random
 import threading
 import io
 import shlex
+import inspect
 import logging
 
 import six
@@ -256,10 +257,20 @@ def is_classmethod(func, cls=None):
     if not _hasattr("__name__"):
         raise AttributeError("func '{}' has not attribute __name__".format(func))
 
+    # func must be the class attribute with that name
+    if getattr(cls, func.__name__, None) != func:
+        return False
+
+    # finally, find the attribute in the __dict__ of cls or its super classes and check the type
     try:
-        return cls.__dict__[func.__name__].__class__.__name__ == "classmethod"
+        for _cls in inspect.getmro(cls):
+            if func.__name__ not in _cls.__dict__:
+                continue
+            return cls.__dict__[func.__name__].__class__.__name__ == "classmethod"
     except AttributeError:
         return False
+
+    return False
 
 
 def is_number(n):
