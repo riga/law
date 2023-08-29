@@ -80,15 +80,19 @@ Key features:
 
 ### Installation and dependencies
 
-Install via [pip](https://pypi.python.org/pypi/law):
+Install via [pip](https://pypi.python.org/pypi/law)
 
 ```shell
 pip install law
 ```
 
-This command also installs [luigi](https://pypi.python.org/pypi/luigi) and [six](https://pypi.python.org/pypi/six) (Python 2 support will be dropped soon).
+or [conda / (micro)mamba](https://anaconda.org/conda-forge/law)
 
-If you plan to use remote targets, the (default) implementation also requires [gfal2](https://dmc-docs.web.cern.ch/dmc-docs/gfal2/gfal2.html) and [gfal2-python](https://pypi.python.org/pypi/gfal2-python) (optional) to be installed, either via pip or conda.
+```shel
+conda install -c conda-forge law
+```
+
+If you plan to use remote targets, the (default) implementation also requires [gfal2](https://dmc-docs.web.cern.ch/dmc-docs/gfal2/gfal2.html) and [gfal2-python](https://pypi.python.org/pypi/gfal2-python) (optional) to be installed, either via pip or conda / (micro)mamba.
 
 ```shell
 conda install -c conda-forge gfal2 gfal2-util
