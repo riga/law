@@ -114,6 +114,9 @@ See [law.cfg.example](https://github.com/riga/law/tree/master/law.cfg.example).
 - CMS Di-Higgs Inference Tools:
   - Basis for statistical analysis for all Di-Higgs searches in CMS, starting at datacard-level
   - [repo](https://gitlab.cern.ch/hh/tools/inference), [docs](https://cms-hh.web.cern.ch/cms-hh/tools/inference/index.html)
+- columnflow ([+ all analyses using it](https://github.com/columnflow/columnflow#projects-using-columnflow)):
+  - Python based, fully automated, columnar framework, including job submission, resolution of systematics and ML pipelines, starting at NanoAOD-level with an optimized multi-threaded column reader
+  - [repo](https://github.com/columnflow/columnflow), [docs](http://columnflow.readthedocs.io), [task structure](https://github.com/columnflow/columnflow/wiki#default-task-graph)
 - CMS B-Tag SF Measurement:
   - Automated workflow for deriving shape-calibrating b-tag scale factors, starting at MiniAOD-level
   - [repo](https://github.com/cms-btv-pog/jet-tagging-sf)
@@ -123,9 +126,6 @@ See [law.cfg.example](https://github.com/riga/law/tree/master/law.cfg.example).
 - CMS HLT Config Parser:
   - Collects information from various databases (HLT, bril, etc.) and shows menus, triggers paths, filter names for configurable MC datasets or data runs
   - [repo](https://github.com/riga/cms-hlt-parser)
-- UHH-CMS Analysis Framework:
-  - Python based, fully automated, columnar framework, including job submission, resolution of systematics and ML pipelines, starting at NanoAOD-level with an optimized multi-threaded column reader
-  - [repo](https://github.com/uhh-cms/analysis_playground), [docs](http://analysis_playground.readthedocs.io), [task structure](https://github.com/uhh-cms/analysis_playground/issues/25)
 - RWTH-CMS Analysis Framework:
   - Basis for multiple CMS analyses ranging from Di-Higgs, to single Higgs and b-tag SF measurements, starting at NanoAOD-level and based on coffea processors
   - [repo](https://git.rwth-aachen.de/3pia/cms_analyses/common/-/tree/master/)
