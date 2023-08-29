@@ -67,9 +67,9 @@ Key features:
 - [Examples](#examples)
 - [Further topics](#further-topics)
    - [Auto completion on the command-line](#auto-completion-on-the-command-line)
+- [Development](#development)
    - [Tests](#tests)
    - [Contributors](#contributors)
-   - [Development](#development)
 
 <!-- marker-after-contents -->
 
