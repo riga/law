@@ -1,20 +1,39 @@
-<center>
+<!-- marker-before-logo -->
+
+<p align="center">
   <a href="https://github.com/riga/law">
     <img src="https://media.githubusercontent.com/media/riga/law/master/assets/logo.png" />
   </a>
-</center>
-
+</p>
 
 <!-- marker-after-logo -->
 
+<!-- marker-before-badges -->
 
-[![Build status](https://github.com/riga/law/workflows/Lint%20and%20test/badge.svg)](https://github.com/riga/law/actions?query=workflow%3A%22Lint+and+test%22)
-[![Docker images](https://github.com/riga/law/workflows/Deploy%20images/badge.svg)](https://github.com/riga/law/actions?query=workflow%3A%22Deploy+images%22)
-[![Documentation status](https://readthedocs.org/projects/law/badge/?version=latest)](http://law.readthedocs.io/en/latest)
-[![Package version](https://img.shields.io/pypi/v/law.svg?style=flat)](https://pypi.python.org/pypi/law)
-[![License](https://img.shields.io/github/license/riga/law.svg)](https://github.com/riga/law/blob/master/LICENSE)
-[![DOI](https://zenodo.org/badge/75482295.svg)](https://zenodo.org/badge/latestdoi/75482295)
+<p align="center">
+  <a href="https://github.com/riga/law/actions?query=workflow%3A%22Lint+and+test%22">
+    <img alt="Build status" src="https://github.com/riga/law/workflows/Lint%20and%20test/badge.svg" />
+  </a>
+  <a href="https://github.com/riga/law/actions?query=workflow%3A%22Deploy+images%22">
+    <img alt="Docker images" src="https://github.com/riga/law/workflows/Deploy%20images/badge.svg" />
+  </a>
+  <a href="http://law.readthedocs.io/en/latest">
+    <img alt="Documentation status" src="https://readthedocs.org/projects/law/badge/?version=latest" />
+  </a>
+  <a href="https://pypi.python.org/pypi/law">
+    <img alt="Package version" src="https://img.shields.io/pypi/v/law.svg?style=flat" />
+  </a>
+  <a href="https://github.com/riga/law/blob/master/LICENSE">
+    <img alt="License" src="https://img.shields.io/github/license/riga/law.svg" />
+  </a>
+  <a href="https://zenodo.org/badge/latestdoi/75482295">
+    <img alt="DOI" src="https://zenodo.org/badge/75482295.svg" />
+  </a>
+</p>
 
+<!-- marker-after-badges -->
+
+<!-- marker-before-header -->
 
 **Note**: This project is currently under development.
 Version 1.0.0 will be the first, fully documented beta release, targetted for fall 2023.
@@ -33,13 +52,12 @@ Key features:
 - Environment sandboxing, configurable on task level
   - Docker, Singularity, Sub-Shells, Virutal envs
 
-
 <!-- marker-after-header -->
 
 
 ## Contents
 
-<!-- marker-after-contents-heading -->
+<!-- marker-before-contents -->
 
 - [First steps](#first-steps)
    - [Installation and dependencies](#installation-and-dependencies)
@@ -53,9 +71,10 @@ Key features:
    - [Contributors](#contributors)
    - [Development](#development)
 
+<!-- marker-after-contents -->
+
 
 <!-- marker-before-body -->
-
 
 ## First steps
 
@@ -193,6 +212,12 @@ source "$( law completion )"
 ```
 
 
+## Development
+
+- Source hosted at [GitHub](https://github.com/riga/law)
+- Report issues, questions, feature requests on [GitHub Issues](https://github.com/riga/law/issues)
+
+
 ### Tests
 
 To run and test law, there are various docker `riga/law` images available on the [DockerHub](https://cloud.docker.com/u/riga/repository/docker/riga/law), corresponding to different OS and Python versions (based on [micromamba](https://mamba.readthedocs.io/en/latest/user_guide/micromamba.html)).
@@ -242,12 +267,5 @@ docker run -ti riga/law:<the_tag>
 <!-- ALL-CONTRIBUTORS-LIST:END -->
 
 This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification.
-
-
-### Development
-
-- Source hosted at [GitHub](https://github.com/riga/law)
-- Report issues, questions, feature requests on [GitHub Issues](https://github.com/riga/law/issues)
-
 
 <!-- marker-after-body -->
