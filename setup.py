@@ -4,6 +4,8 @@
 import os
 import sys
 import re
+import glob
+import json
 from setuptools import setup, find_packages
 
 
@@ -28,6 +30,7 @@ classifiers = [
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
     "Development Status :: 4 - Beta",
     "Operating System :: OS Independent",
     "License :: OSI Approved :: BSD License",
@@ -82,6 +85,27 @@ if executable:
     options["build_scripts"] = {"executable": executable}
 
 
+# prepare console scripts from contrib packages
+console_scripts = []
+for contrib_init in glob.glob(os.path.join(this_dir, "law", "contrib", "*", "__init__.py")):
+    # get the path of the scripts json file
+    json_path = os.path.join(os.path.dirname(contrib_init), "console_scripts.json")
+    if not os.path.exists(json_path):
+        continue
+    # read contents
+    with open(json_path, "r") as f:
+        _console_scripts = json.load(f)
+    # store them
+    for script_name, entry_point in _console_scripts.items():
+        # adjust script name and entry point
+        if not script_name.startswith("law_cms_"):
+            script_name = "law_cms_" + script_name
+        if not entry_point.startswith("law.contrib.cms."):
+            entry_point = "law.contrib.cms." + entry_point
+        # store
+        console_scripts.append("{}={}".format(script_name, entry_point))
+
+
 setup(
     name="law",
     version=pkg["__version__"],
@@ -103,5 +127,6 @@ setup(
     packages=find_packages(exclude=["tests"]),
     include_package_data=True,
     scripts=["bin/law", "bin/law2", "bin/law3"],
+    entry_points={"console_scripts": console_scripts},
     options=options,
 )

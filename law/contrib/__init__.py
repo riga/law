@@ -22,8 +22,8 @@ available_packages = [
     for contrib_init in glob.glob(os.path.join(thisdir, "*", "__init__.py"))
 ]
 
-#: List of names of already loaded contrib packages.
-loaded_packages = []
+#: Dictionary of names to modules of already loaded contrib packages.
+loaded_packages = {}
 
 
 def load(*packages):
@@ -53,7 +53,7 @@ def load(*packages):
         mod = __import__("law.contrib.{}".format(pkg), globals(), locals(), [pkg])
         setattr(law, pkg, mod)
         law.__all__.append(pkg)
-        loaded_packages.append(pkg)
+        loaded_packages[pkg] = mod
         logger.debug("loaded contrib package '{}'".format(pkg))
 
         # optionally call its auto_load hook when existing
@@ -61,6 +61,10 @@ def load(*packages):
         if callable(auto_load):
             auto_load()
             logger.debug("invoked auto_load hook of contrib package '{}'".format(pkg))
+
+    modules = [loaded_packages[pkg] for pkg in packages]
+
+    return modules[0] if len(packages) == 1 else modules
 
 
 def load_all():

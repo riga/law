@@ -1,0 +1,3 @@
+{
+    "delegate_myproxy": "scripts.delegate_myproxy:main"
+}
