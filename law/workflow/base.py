@@ -720,7 +720,7 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
         # deprecation warning until v0.1
         logger.warning(
             "accessing {0}._cache_branches is deprecated, use {0}.cache_branch_map instead".format(
-                self.__class.__name,
+                self.__class__.__name__,
             ),
         )
         return self._cache_branch_map
@@ -729,7 +729,7 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
     def _cache_branches(self, cache_branches):
         logger.warning(
             "setting {0}._cache_branches is deprecated, use {0}.cache_branch_map instead".format(
-                self.__class.__name,
+                self.__class__.__name__,
             ),
         )
         self._cache_branch_map = cache_branches
