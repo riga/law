@@ -187,7 +187,8 @@ open('${input_file_render_base}', 'w').write(content);\
         # get arguments
         local old_val="$1"
         shift
-        local regexps=${@}
+        local regexps
+        regexps=( ${@} )
 
         # loop through paths and set the new variable if no expression matched
         local new_val=""
