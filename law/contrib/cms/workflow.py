@@ -130,7 +130,7 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
         c.work_area = get_path(task.crab_work_area())
 
         # add the request name
-        c.request_name = task.crab_request_name(submit_jobs)
+        c.request_name = task.crab_request_name(submit_jobs).replace(".", "_")
 
         # add the storage site and output base
         stageout_location = task.crab_stageout_location()

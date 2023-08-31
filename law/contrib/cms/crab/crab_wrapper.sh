@@ -157,22 +157,8 @@ open('${input_file_render_base}', 'w').write(content);\
 
 
     #
-    # run the actual job file
+    # update env variables
     #
-
-    # check the job file
-    local job_file="{{job_file}}"
-    if [ ! -f "${job_file}" ]; then
-        >&2 echo "job file '${job_file}' does not exist"
-        return "5"
-    fi
-
-    # debugging: print its contents
-    # echo "=== content of job file '${job_file}'"
-    # echo
-    # cat "${job_file}"
-    # echo
-    # echo "=== end of job file content"
 
     # debugging: pretty print path variables
     # log_path_var() {
@@ -209,6 +195,50 @@ open('${input_file_render_base}', 'w').write(content);\
         done | tail -n 1
     }
 
+    # remove cmssw related variables from paths
+    local NEW_PATH="$( filter_path_var "${PATH}" "^/cvmfs/cms\.cern\.ch/" "^${CMSSW_BASE:-NOT_SET}" )"
+    local NEW_PYTHONPATH="$( filter_path_var "${PYTHONPATH}" "^/cvmfs/cms\.cern\.ch/" "python2\.7/site-packages" )"
+    local NEW_LD_LIBRARY_PATH="$( filter_path_var "${LD_LIBRARY_PATH}" "^/cvmfs/cms\.cern\.ch/" "^${CMSSW_BASE:-NOT_SET}" )"
+
+    # store original paths
+    export LAW_CRAB_ORIGINAL_PATH="${PATH}"
+    export LAW_CRAB_ORIGINAL_PYTHONPATH="${PYTHONPATH}"
+    export LAW_CRAB_ORIGINAL_LD_LIBRARY_PATH="${LD_LIBRARY_PATH}"
+
+    # unset other variables, but store their values
+    local v
+    for v in \
+        CMSSW_BASE \
+        CMSSW_DATA_PATH \
+        CMSSW_FWLITE_INCLUDE_PATH \
+        CMSSW_GIT_HASH \
+        CMSSW_RELEASE_BASE \
+        CMSSW_SEARCH_PATH \
+        CMSSW_VERSION \
+        SRT_CMSSW_BASE_SCRAMRTDEL \
+        SRT_CMSSW_DATA_PATH_SCRAMRTDEL \
+        SRT_CMSSW_FWLITE_INCLUDE_PATH_SCRAMRTDEL \
+        SRT_CMSSW_GIT_HASH_SCRAMRTDEL \
+        SRT_CMSSW_RELEASE_BASE_SCRAMRTDEL \
+        SRT_CMSSW_SEARCH_PATH_SCRAMRTDEL \
+        SRT_CMSSW_VERSION_SCRAMRTDEL \
+    ; do
+        export "LAW_CRAB_ORIGINAL_${v}"="$( eval "echo \$$v" )"
+        unset "${v}"
+    done
+
+
+    #
+    # run the actual job file
+    #
+
+    # check the job file
+    local job_file="{{job_file}}"
+    if [ ! -f "${job_file}" ]; then
+        >&2 echo "job file '${job_file}' does not exist"
+        return "5"
+    fi
+
     # helper to print a banner
     banner() {
         local msg="$1"
@@ -220,10 +250,12 @@ open('${input_file_render_base}', 'w').write(content);\
         echo
     }
 
-    # remove cmssw related variables from paths
-    local NEW_PATH="$( filter_path_var "${PATH}" "^/cvmfs/cms\.cern\.ch/" "^${CMSSW_BASE:-NOT_SET}" )"
-    local NEW_PYTHONPATH="$( filter_path_var "${PYTHONPATH}" "^/cvmfs/cms\.cern\.ch/" "python2\.7/site-packages" )"
-    local NEW_LD_LIBRARY_PATH="$( filter_path_var "${LD_LIBRARY_PATH}" "^/cvmfs/cms\.cern\.ch/" "^${CMSSW_BASE:-NOT_SET}" )"
+    # debugging: print its contents
+    # echo "=== content of job file '${job_file}'"
+    # echo
+    # cat "${job_file}"
+    # echo
+    # echo "=== end of job file content"
 
     # run it
     banner "Start of law job"

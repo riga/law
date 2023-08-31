@@ -599,6 +599,8 @@ class CrabJobFileFactory(BaseJobFileFactory):
             raise ValueError("executable must not be empty")
         if not c.request_name:
             raise ValueError("request_name must not be empty")
+        if "." in c.request_name:
+            raise ValueError("request_name should not contain '.', got {}".format(c.request_name))
         if len(c.request_name) > 100:
             raise ValueError(
                 "request_name must be less then 100 characters long, got {}: {}".format(
