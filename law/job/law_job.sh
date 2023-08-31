@@ -201,7 +201,7 @@ law_job() {
         local stageout_ret="$?"
 
         if [ "${stageout_ret}" != "0" ]; then
-            >&2 echo "stageout file failed with code ${stageout_ret}, stop job"
+            >&2 echo "stageout file failed (exit code ${stageout_ret}), stop job"
             _law_job_call_hook law_hook_job_failed "70" "${stageout_ret}"
             return "70"
         fi
@@ -222,7 +222,7 @@ law_job() {
         stageout_ret="$?"
 
         if [ "${stageout_ret}" != "0" ]; then
-            >&2 echo "stageout command failed with code ${stageout_ret}, stop job"
+            >&2 echo "stageout command failed (exit code ${stageout_ret}), stop job"
             _law_job_call_hook law_hook_job_failed "80" "${stageout_ret}"
             return "80"
         fi
@@ -287,7 +287,7 @@ law_job() {
         local bootstrap_ret="$?"
 
         if [ "${bootstrap_ret}" != "0" ]; then
-            >&2 echo "bootstrap file failed with code ${bootstrap_ret}, stop job"
+            >&2 echo "bootstrap file failed (exit code ${bootstrap_ret}), stop job"
             _law_job_finalize "20"
             return "$?"
         fi
@@ -308,7 +308,7 @@ law_job() {
         bootstrap_ret="$?"
 
         if [ "${bootstrap_ret}" != "0" ]; then
-            >&2 echo "bootstrap command failed with code ${bootstrap_ret}, stop job"
+            >&2 echo "bootstrap command failed (exit code ${bootstrap_ret}), stop job"
             _law_job_finalize "30"
             return "$?"
         fi
@@ -323,7 +323,7 @@ law_job() {
         local law_ret="$?"
 
         if [ "${law_ret}" != "0" ] || [ -z "${LAW_SRC_PATH}" ] || [ ! -d "${LAW_SRC_PATH}" ]; then
-            >&2 echo "law not found with code ${law_ret}, should be made available in bootstrap file, stop job"
+            >&2 echo "law not found (exit code ${law_ret}), should be made available in bootstrap file, stop job"
             _law_job_finalize "40"
             return "$?"
         fi
@@ -347,7 +347,7 @@ law_job() {
         local dashboard_ret="$?"
 
         if [ "${dashboard_ret}" != "0" ]; then
-            >&2 echo "dashboard file failed with code ${dashboard_ret} stop job"
+            >&2 echo "dashboard file failed (exit code ${dashboard_ret}), stop job"
             _law_job_finalize "10"
             return "$?"
         fi
@@ -473,7 +473,7 @@ open('${input_file_render_base}', 'w').write(content);\
             render_ret="$?"
             # handle rendering errors
             if [ "${render_ret}" != "0" ]; then
-                >&2 echo "input file rendering failed with code ${render_ret}, stop job"
+                >&2 echo "input file rendering failed (exit code ${render_ret}), stop job"
                 _law_job_finalize "5"
                 return "$?"
             fi
@@ -534,7 +534,7 @@ open('${input_file_render_base}', 'w').write(content);\
     eval "LAW_LOG_LEVEL=INFO ${cmd} --print-deps=${deps_depth}"
     local law_ret="$?"
     if [ "${law_ret}" != "0" ]; then
-        >&2 echo "dependency tree for ${branch_param} ${LAW_JOB_TASK_BRANCHES_CSV} failed with code ${law_ret}, stop job"
+        >&2 echo "dependency tree for ${branch_param} ${LAW_JOB_TASK_BRANCHES_CSV} failed (exit code ${law_ret}), stop job"
         _law_job_call_hook law_hook_job_failed "50" "${law_ret}"
         _law_job_finalize "50" "${law_ret}"
         return "$?"
@@ -559,7 +559,7 @@ open('${input_file_render_base}', 'w').write(content);\
     fi
 
     if [ "${law_ret}" != "0" ]; then
-        >&2 echo "execution of ${branch_param} ${LAW_JOB_TASK_BRANCHES_CSV} failed with code ${law_ret}, stop job"
+        >&2 echo "execution of ${branch_param} ${LAW_JOB_TASK_BRANCHES_CSV} failed (exit code ${law_ret}), stop job"
         _law_job_call_hook law_hook_job_failed "60" "${law_ret}"
         _law_job_finalize "60" "${law_ret}"
         return "$?"
