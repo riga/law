@@ -411,7 +411,7 @@ def get_myproxy_info(endpoint="myproxy.cern.ch", username=None, encode_username=
     """
     # prepare arguments
     if not username:
-        username = get_usercert_subject()
+        username = get_vomsproxy_identity(silent=True) or get_usercert_subject()
     if encode_username:
         username = hashlib.sha1(username.encode("utf-8")).hexdigest()
 
