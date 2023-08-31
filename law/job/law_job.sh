@@ -116,8 +116,10 @@ law_job() {
     local bootstrap_file="{{bootstrap_file}}"
     local bootstrap_command="{{bootstrap_command}}"
     local dashboard_file="{{dashboard_file}}"
-    local input_files="{{input_files}}"
-    local input_files_render=( {{input_files_render}} )
+    local input_files
+    input_files=( {{input_files}} )
+    local input_files_render
+    input_files_render=( {{input_files_render}} )
     local render_variables="{{render_variables}}"
 
     mkdir -p "${LAW_JOB_HOME}"
@@ -427,12 +429,12 @@ law_job() {
     cd "${LAW_JOB_HOME}"
 
     # handle input files
-    if [ ! -z "${input_files}" ]; then
+    if [ "${#input_files[@]}" != "0" ]; then
         echo
         _law_job_subsection "link input files"
 
         # symlink relative input files into the job home directory
-        for input_file in ${input_files}; do
+        for input_file in ${input_files[@]}; do
             # skip if the file refers to _this_ one
             local input_file_base="$( basename "${input_file}" )"
             [ "${input_file_base}" = "${this_file}" ] && continue
@@ -453,7 +455,7 @@ law_job() {
         _law_job_subsection "render input files"
 
         # render files
-        for input_file_render in ${input_files_render}; do
+        for input_file_render in ${input_files_render[@]}; do
             # skip if the file refers to _this_ one
             local input_file_render_base="$( basename "${input_file_render}" )"
             [ "${input_file_render_base}" = "${this_file}" ] && continue

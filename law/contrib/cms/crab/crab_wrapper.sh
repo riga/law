@@ -206,7 +206,6 @@ open('${input_file_render_base}', 'w').write(content);\
     export LAW_CRAB_ORIGINAL_LD_LIBRARY_PATH="${LD_LIBRARY_PATH}"
 
     # unset other variables, but store their values
-    local v
     for v in \
         CMSSW_BASE \
         CMSSW_DATA_PATH \
@@ -226,6 +225,7 @@ open('${input_file_render_base}', 'w').write(content);\
         export "LAW_CRAB_ORIGINAL_${v}"="$( eval "echo \$$v" )"
         unset "${v}"
     done
+    unset v
 
 
     #
