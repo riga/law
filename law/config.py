@@ -15,13 +15,17 @@ __all__ = [  # noqa
 
 import os
 import re
+import glob
 import tempfile
 
 import luigi
 import six
 from six.moves.configparser import ConfigParser
 
-from law.util import no_value, brace_expand, str_to_int
+from law.util import no_value, brace_expand, str_to_int, merge_dicts
+
+
+this_dir = os.path.dirname(os.path.abspath(__file__))
 
 
 def law_home_path(*paths):
@@ -80,6 +84,7 @@ class Config(ConfigParser):
             # same string repr for all instances to identify them as deferred objects
             return self.str_repr
 
+    # default config values, extended by those of contrib packages below this class
     _default_config = {
         "core": {
             "law_home": law_home_path(),
@@ -92,7 +97,6 @@ class Config(ConfigParser):
         },
         "logging": {
             "law": os.getenv("LAW_LOG_LEVEL") or "WARNING",
-            "gfal2": "WARNING",
         },
         "modules": {},
         "task": {
@@ -111,9 +115,6 @@ class Config(ConfigParser):
             "tmp_dir": os.getenv("LAW_TARGET_TMP_DIR") or tempfile.gettempdir(),
             "tmp_dir_perm": 0o0770,
             "default_local_fs": "local_fs",
-            # contrib
-            "default_wlcg_fs": "wlcg_fs",
-            "default_dropbox_fs": "dropbox_fs",
         },
         "local_fs": {
             "base": "/",
@@ -123,146 +124,16 @@ class Config(ConfigParser):
             "default_dir_perm": None,
             "create_file_dir": True,
         },
-        "wlcg_fs": {
-            # defined by FileSystem
-            "has_permissions": False,
-            "default_file_perm": None,
-            "default_dir_perm": None,
-            "create_file_dir": False,  # requires gfal_transfer_create_parent to be True
-            # defined by RemoteFileInterface
-            "base": None,
-            "base_stat": None,
-            "base_exists": None,
-            "base_chmod": None,
-            "base_unlink": None,
-            "base_rmdir": None,
-            "base_mkdir": None,
-            "base_listdir": None,
-            "base_filecopy": None,
-            "retries": 1,
-            "retry_delay": "5s",
-            "random_base": True,
-            # defined by RemoteFileSystem
-            "validate_copy": False,
-            "use_cache": False,
-            # define by RemoteCache
-            "cache_root": None,
-            "cache_cleanup": None,
-            "cache_max_size": "0MB",
-            "cache_mtime_patience": 1.0,
-            "cache_file_perm": 0o0660,
-            "cache_dir_perm": 0o0770,
-            "cache_wait_delay": "5s",
-            "cache_max_waits": 120,
-            "cache_global_lock": False,
-            # defined by GFALFileInterface
-            "gfal_atomic_contexts": False,
-            "gfal_transfer_timeout": 3600,
-            "gfal_transfer_checksum_check": False,
-            "gfal_transfer_nbstreams": 1,
-            "gfal_transfer_overwrite": True,
-            "gfal_transfer_create_parent": True,
-            "gfal_transfer_strict_copy": False,
-            # defined by WLCGFileSystem
-            # no dedicated configs
-        },
-        "dropbox_fs": {
-            # defined by FileSystem
-            "has_permissions": False,
-            "default_file_perm": None,
-            "default_dir_perm": None,
-            "create_file_dir": False,  # requires gfal_transfer_create_parent to be True
-            # defined by RemoteFileInterface
-            "base": None,
-            "base_stat": None,
-            "base_exists": None,
-            "base_chmod": None,
-            "base_unlink": None,
-            "base_rmdir": None,
-            "base_mkdir": None,
-            "base_listdir": None,
-            "base_filecopy": None,
-            "retries": 1,
-            "retry_delay": "5s",
-            "random_base": True,
-            # defined by RemoteFileSystem
-            "validate_copy": False,
-            "use_cache": False,
-            # define by RemoteCache
-            "cache_root": None,
-            "cache_cleanup": None,
-            "cache_max_size": "0MB",
-            "cache_mtime_patience": 1.0,
-            "cache_file_perm": 0o0660,
-            "cache_dir_perm": 0o0770,
-            "cache_wait_delay": "5s",
-            "cache_max_waits": 120,
-            "cache_global_lock": False,
-            # defined by GFALFileInterface
-            "gfal_atomic_contexts": False,
-            "gfal_transfer_timeout": 3600,
-            "gfal_transfer_checksum_check": False,
-            "gfal_transfer_nbstreams": 1,
-            "gfal_transfer_overwrite": True,
-            "gfal_transfer_create_parent": True,
-            "gfal_transfer_strict_copy": False,
-            # defined by DropboxFileSystem
-            "dropbox_app_key": None,
-            "dropbox_app_secret": None,
-            "dropbox_access_token": None,
-        },
         "job": {
             "job_file_dir": os.getenv("LAW_JOB_FILE_DIR") or tempfile.gettempdir(),
             "job_file_dir_mkdtemp": True,
             "job_file_dir_cleanup": True,
-            # contrib
-            "arc_job_file_dir": None,
-            "arc_job_file_dir_mkdtemp": None,
-            "arc_job_file_dir_cleanup": None,
-            "arc_chunk_size_submit": 25,
-            "arc_chunk_size_cancel": 25,
-            "arc_chunk_size_cleanup": 25,
-            "arc_chunk_size_query": 20,
-            "glite_job_file_dir": None,
-            "glite_job_file_dir_mkdtemp": None,
-            "glite_job_file_dir_cleanup": None,
-            "glite_chunk_size_cancel": 25,
-            "glite_chunk_size_cleanup": 25,
-            "glite_chunk_size_query": 25,
-            "htcondor_job_file_dir": None,
-            "htcondor_job_file_dir_mkdtemp": None,
-            "htcondor_job_file_dir_cleanup": False,
-            "htcondor_chunk_size_submit": 25,
-            "htcondor_chunk_size_cancel": 25,
-            "htcondor_chunk_size_query": 25,
-            "htcondor_merge_job_files": True,
-            "lsf_job_file_dir": None,
-            "lsf_job_file_dir_mkdtemp": None,
-            "lsf_job_file_dir_cleanup": False,
-            "lsf_chunk_size_cancel": 25,
-            "lsf_chunk_size_query": 25,
-            "slurm_job_file_dir": None,
-            "slurm_job_file_dir_mkdtemp": None,
-            "slurm_job_file_dir_cleanup": False,
-            "slurm_chunk_size_cancel": 25,
-            "slurm_chunk_size_query": 25,
-            "crab_job_file_dir": None,
-            "crab_job_file_dir_cleanup": False,
-            "crab_sandbox_name": "CMSSW_10_6_30",
-            "crab_password_file": None,
         },
         "notifications": {
             "mail_recipient": None,
             "mail_sender": None,
             "mail_smtp_host": "127.0.0.1",
             "mail_smtp_port": 25,
-            # contrib
-            "slack_token": None,
-            "slack_channel": None,
-            "slack_mention_user": None,
-            "telegram_token": None,
-            "telegram_chat": None,
-            "telegram_mention_user": None,
         },
         "bash_sandbox": {
             "stagein_dir_name": "stagein",
@@ -277,39 +148,6 @@ class Config(ConfigParser):
             "law_executable": "law",
         },
         "venv_sandbox_env": {},
-        "docker_sandbox": {
-            "stagein_dir_name": "stagein",
-            "stageout_dir_name": "stageout",
-            "law_executable": "law",
-            "uid": None,
-            "gid": None,
-            "forward_dir": "/law_forward",
-            "python_dir": "py",
-            "bin_dir": "bin",
-        },
-        "docker_sandbox_env": {},
-        "docker_sandbox_volumes": {},
-        "singularity_sandbox": {
-            "stagein_dir_name": "stagein",
-            "stageout_dir_name": "stageout",
-            "law_executable": "law",
-            "uid": None,
-            "gid": None,
-            "forward_dir": "/law_forward",
-            "python_dir": "py",
-            "bin_dir": "bin",
-            "allow_binds": True,
-            "forward_law": True,
-        },
-        "singularity_sandbox_env": {},
-        "singularity_sandbox_volumes": {},
-        "cmssw_sandbox": {
-            "stagein_dir_name": "stagein",
-            "stageout_dir_name": "stageout",
-            "law_executable": "law",
-            "login": False,
-        },
-        "cmssw_sandbox_env": {},
     }
 
     _config_files = ["$LAW_CONFIG_FILE", "law.cfg", law_home_path("config"), "etc/law/config"]
@@ -735,6 +573,36 @@ class Config(ConfigParser):
                     value = self._default_config.get(section, {}).get(option, value)
                 if isinstance(value, self.Deferred):
                     self.set(section, option, str(value(self)))
+
+
+# add configs exposed by contrib packages to the default config
+contrib_defaults = []
+for contrib_init in glob.glob(os.path.join(this_dir, "contrib", "*", "__init__.py")):
+    # get the path of the config file
+    path = os.path.join(os.path.dirname(contrib_init), "config.py")
+    if not os.path.exists(path):
+        continue
+    # load its content (not via import!)
+    mod = {}
+    with open(path, "r") as f:
+        exec(f.read(), mod)
+    defaults_func = mod.get("config_defaults")
+    if not callable(defaults_func):
+        raise AttributeError(
+            "contrib config file {} does not contain callable 'config_defaults'".format(path),
+        )
+    defaults = defaults_func(Config._default_config)
+    if not isinstance(defaults, dict):
+        raise TypeError(
+            "callable 'config_defaults' of {} did not return dictionary, but got {}".format(
+                path, defaults,
+            ),
+        )
+    contrib_defaults.append(defaults)
+
+# merge
+if contrib_defaults:
+    merge_dicts(Config._default_config, *contrib_defaults, deep=True, inplace=True)
 
 
 # register convenience functions on module-level

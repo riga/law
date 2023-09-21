@@ -13,13 +13,13 @@ from law.logger import get_logger
 
 logger = get_logger(__name__)
 
-thisdir = os.path.dirname(os.path.abspath(__file__))
+this_dir = os.path.dirname(os.path.abspath(__file__))
 
 
 #: List of names of available contrib packages.
 available_packages = [
     os.path.basename(os.path.dirname(contrib_init))
-    for contrib_init in glob.glob(os.path.join(thisdir, "*", "__init__.py"))
+    for contrib_init in glob.glob(os.path.join(this_dir, "*", "__init__.py"))
 ]
 
 #: Dictionary of names to modules of already loaded contrib packages.
