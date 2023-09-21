@@ -18,8 +18,22 @@ action() {
     local this_file="$( ${shell_is_zsh} && echo "${(%):-%x}" || echo "${BASH_SOURCE[0]}" )"
     local this_file_base="$( basename "${this_file}" )"
 
+    # get the job number
     export LAW_CRAB_JOB_NUMBER="$( ls -1 | grep -Po "jobReport\.json\.\K\d+" | head -n 1 )"
+    if [ -z "${LAW_CRAB_JOB_NUMBER}" ]; then
+        2>&1 echo "could not determine crab job number"
+        return "1"
+    fi
     echo "running ${this_file_base} for job number ${LAW_CRAB_JOB_NUMBER}"
+
+    # get the comma-separated list of input files
+    export LAW_CRAB_INPUT_FILES="$( python -c "from PSet import process; print(','.join(list(getattr(process.source, 'fileNames', []))))" )"
+    if [ -z "${LAW_CRAB_INPUT_FILES}" ]; then
+        2>&1 echo "could not determine crab input files"
+        # do not consider this an error for now
+        # return "2"
+    fi
+    echo "detected crab input files ${LAW_CRAB_INPUT_FILES}"
 
 
     #
@@ -106,7 +120,7 @@ EOF
     local crab_job_arguments="${crab_job_arguments_map[${LAW_CRAB_JOB_NUMBER}]}"
     if [ -z "${crab_job_arguments}" ]; then
         >&2 echo "empty crab job arguments for LAW_CRAB_JOB_NUMBER ${LAW_CRAB_JOB_NUMBER}"
-        return "1"
+        return "3"
     fi
 
 
@@ -118,7 +132,7 @@ EOF
     local render_variables="{{render_variables}}"
     if [ -z "${render_variables}" ]; then
         >&2 echo "empty render variables"
-        return "2"
+        return "4"
     fi
 
     # decode
@@ -128,7 +142,7 @@ EOF
     local input_files_render=( {{input_files_render}} )
     if [ "${#input_files_render[@]}" == "0" ]; then
         >&2 echo "received empty input files for rendering for LAW_CRAB_JOB_NUMBER ${LAW_CRAB_JOB_NUMBER}"
-        return "3"
+        return "5"
     fi
 
     # render files
@@ -151,7 +165,7 @@ open('${input_file_render_base}', 'w').write(content);\
         # handle rendering errors
         if [ "${render_ret}" != "0" ]; then
             >&2 echo "input file rendering failed with code ${render_ret}"
-            return "4"
+            return "6"
         fi
     done
 
@@ -236,7 +250,7 @@ open('${input_file_render_base}', 'w').write(content);\
     local job_file="{{job_file}}"
     if [ ! -f "${job_file}" ]; then
         >&2 echo "job file '${job_file}' does not exist"
-        return "5"
+        return "7"
     fi
 
     # helper to print a banner

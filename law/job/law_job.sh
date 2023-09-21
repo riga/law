@@ -514,7 +514,6 @@ open('${input_file_render_base}', 'w').write(content);\
     # run the task(s)
     #
 
-
     # determine some settings depending on whether there is one or more branches to run
     local branch_param="branch"
     local workflow_param=""
@@ -528,7 +527,7 @@ open('${input_file_render_base}', 'w').write(content);\
     _law_job_section "run task ${branch_param} ${LAW_JOB_TASK_BRANCHES_CSV}"
 
     # build the full command
-    local cmd="law run ${LAW_JOB_TASK_MODULE}.${LAW_JOB_TASK_CLASS} ${LAW_JOB_TASK_PARAMS} --${branch_param}=${LAW_JOB_TASK_BRANCHES_CSV} ${workflow_param} --workers ${LAW_JOB_WORKERS}"
+    local cmd="law run ${LAW_JOB_TASK_MODULE}.${LAW_JOB_TASK_CLASS} ${LAW_JOB_TASK_PARAMS} --${branch_param}=${LAW_JOB_TASK_BRANCHES_CSV} ${workflow_param} --workers=${LAW_JOB_WORKERS}"
     echo "cmd: ${cmd}"
     echo
 
