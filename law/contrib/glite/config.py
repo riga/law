@@ -1,7 +1,7 @@
 # coding: utf-8
 
 """
-Function returning the config defaults of the arc package.
+Function returning the config defaults of the glite package.
 """
 
 
