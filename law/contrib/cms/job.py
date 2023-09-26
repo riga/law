@@ -67,7 +67,11 @@ class CrabJobManager(BaseJobManager):
             sandbox_name = cfg.get_expanded("job", "crab_sandbox_name")
 
         # create the cmssw sandbox
-        self.cmssw_sandbox = Sandbox.new("cmssw::{}".format(sandbox_name))
+        self.cmssw_sandbox = Sandbox.new(
+            sandbox_name
+            if sandbox_name.startswith("cmssw::")
+            else "cmssw::{}".format(sandbox_name),
+        )
 
         # store attributes
         self.proxy = proxy

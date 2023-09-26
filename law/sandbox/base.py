@@ -94,30 +94,38 @@ class Sandbox(six.with_metaclass(ABCMeta, object)):
     # cached envs
     _envs = {}
 
-    @staticmethod
-    def check_key(key, silent=False):
+    @classmethod
+    def check_key(cls, key, silent=False):
         # commas are not allowed since the LAW_SANDBOX env variable is allowed to contain multiple
         # comma-separated sandbox keys that need to be separated
-        valid = "," not in key
-
-        if not valid and not silent:
+        if "," in key:
+            if silent:
+                return False
             raise ValueError("invalid sandbox key format '{}'".format(key))
 
-        return valid
+        return True
 
-    @staticmethod
-    def split_key(key):
-        parts = str(key).split(Sandbox.delimiter, 1)
+    @classmethod
+    def split_key(cls, key):
+        parts = str(key).split(cls.delimiter, 1)
         if len(parts) != 2 or any(not p.strip() for p in parts):
             raise ValueError("invalid sandbox key '{}'".format(key))
 
         return tuple(parts)
 
-    @staticmethod
-    def join_key(_type, name):
+    @classmethod
+    def remove_type(cls, key):
+        # check for key format
+        cls.check_key(key)
+
+        # remove leading type if present
+        return key.split(cls.delimiter, 1)[-1]
+
+    @classmethod
+    def join_key(cls, _type, name):
         """ join_key(type, name)
         """
-        return str(_type) + Sandbox.delimiter + str(name)
+        return str(_type) + cls.delimiter + str(name)
 
     @classmethod
     def new(cls, key, *args, **kwargs):
