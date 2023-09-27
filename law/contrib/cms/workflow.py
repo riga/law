@@ -169,7 +169,7 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
 
         # return job and log file entry
         # (the latter is None but will be synced from query data)
-        return {"job": job_file, "log": None}
+        return {"job": job_file, "config": c, "log": None}
 
     def _status_error_pairs(self, job_num, job_data):
         pairs = super(CrabWorkflowProxy, self)._status_error_pairs(job_num, job_data)

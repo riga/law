@@ -128,15 +128,15 @@ class ARCWorkflowProxy(BaseRemoteWorkflowProxy):
         c = task.arc_job_config(c, job_num, branches)
 
         # build the job file and get the sanitized config
-        job_file, config = self.job_file_factory(postfix=postfix, **c.__dict__)
+        job_file, c = self.job_file_factory(postfix=postfix, **c.__dict__)
 
         # determine the custom log file uri if set
         abs_log_file = None
-        if config.custom_log_file:
-            abs_log_file = os.path.join(config.output_uri, config.custom_log_file)
+        if c.custom_log_file:
+            abs_log_file = os.path.join(c.output_uri, c.custom_log_file)
 
         # return job and log files
-        return {"job": job_file, "log": abs_log_file}
+        return {"job": job_file, "config": c, "log": abs_log_file}
 
     def destination_info(self):
         info = super(ARCWorkflowProxy, self).destination_info()

@@ -152,7 +152,7 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
             abs_log_file = os.path.join(c.output_uri, c.custom_log_file)
 
         # return job and log files
-        return {"job": job_file, "log": abs_log_file}
+        return {"job": job_file, "config": c, "log": abs_log_file}
 
     def destination_info(self):
         info = super(GLiteWorkflowProxy, self).destination_info()

@@ -306,6 +306,16 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             dst_info = ", {}".format(dst_info)
         return dst_info
 
+    def get_extra_submission_data(self, job_file, config, log=None):
+        """
+        Hook that is called after job submission with the *job_file*, the submission *config* and
+        an optional *log* file to return extra data that is saved in the central job data.
+        """
+        extra = {}
+        if log:
+            extra["log"] = log
+        return extra
+
     @property
     def tracking_url(self):
         return self._tracking_url
@@ -405,9 +415,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             ("code", job_data["code"]),
             ("error", job_data.get("error")),
             ("job script error", self.job_error_messages.get(job_data["code"], no_value)),
-            # ("log", job_data["extra"].get("log_file", no_value)),
+            # ("log", job_data["extra"].get("log", no_value)),
             # backwards compatibility for some limited time
-            ("log", job_data.get("extra", {}).get("log_file", no_value)),
+            ("log", job_data.get("extra", {}).get("log", no_value)),
         ])
 
     def _print_status_errors(self, failed_jobs):
@@ -451,13 +461,13 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             for job_num, data in six.iteritems(failed_jobs):
                 key = (data["code"], data["status"])
                 if key not in groups:
-                    groups[key] = {"n_jobs": 0, "n_branches": 0, "log_file": None, "error": None}
+                    groups[key] = {"n_jobs": 0, "n_branches": 0, "log": None, "error": None}
                 groups[key]["n_jobs"] += 1
                 groups[key]["n_branches"] += len(data["branches"])
                 if not groups[key]["error"]:
                     groups[key]["error"] = data["error"]
-                if not groups[key]["log_file"]:
-                    groups[key]["log_file"] = data["extra"].get("log_file")
+                if not groups[key]["log"]:
+                    groups[key]["log"] = data["extra"].get("log")
 
             # show the summary
             print(colored("error summary:", color="red", style="bright"))
@@ -473,8 +483,8 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                     ("example error", stats.get("error")),
                 ]
                 # add an example log file
-                if stats["log_file"]:
-                    summary_pairs.append(("example log", stats["log_file"]))
+                if stats["log"]:
+                    summary_pairs.append(("example log", stats["log"]))
                 # print the line
                 summary_line = ", ".join([
                     "{} {}".format(colored("{}:".format(key), style="bright"), value)
@@ -794,13 +804,13 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
         # job file preparation and submission
         if self.job_manager.job_grouping:
-            job_ids, job_files = self._submit_group(submit_jobs)
+            job_ids, submission_data = self._submit_group(submit_jobs)
         else:
-            job_ids, job_files = self._submit_batch(submit_jobs)
+            job_ids, submission_data = self._submit_batch(submit_jobs)
 
         # store submission data
         errors = []
-        for job_num, job_id, files in six.moves.zip(submit_jobs, job_ids, job_files.values()):
+        for job_num, job_id, data in six.moves.zip(submit_jobs, job_ids, submission_data.values()):
             # handle errors
             if isinstance(job_id, Exception):
                 errors.append((job_num, job_id))
@@ -809,7 +819,8 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             # set the job id in the job data
             job_data = self.job_data.jobs[job_num]
             job_data["job_id"] = job_id
-            job_data["extra"]["log_file"] = files.get("log")
+            extra = self.get_extra_submission_data(data["job"], data["config"], log=data.get("log"))
+            job_data["extra"].update(extra)
             new_submission_data[job_num] = copy.deepcopy(job_data)
 
             # inform the dashboard
@@ -881,14 +892,17 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             if dump_freq and (i + 1) % dump_freq == 0:
                 self.dump_job_data()
 
+        # submit
+        job_ids = self.job_manager.submit_batch(
+            job_files,
+            retries=3,
+            threads=task.submission_threads,
+            callback=progress_callback,
+            **submit_kwargs  # noqa
+        )
+
         return (
-            self.job_manager.submit_batch(
-                job_files,
-                retries=3,
-                threads=task.submission_threads,
-                callback=progress_callback,
-                **submit_kwargs  # noqa
-            ),
+            job_ids,
             all_job_files,
         )
 
@@ -1014,15 +1028,15 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 extra = state_or_error.get("extra")
                 if not isinstance(extra, dict):
                     continue
-                self.job_data.jobs[job_num]["extra"] = extra
+                self.job_data.jobs[job_num]["extra"].update(extra)
 
                 # set tracking url on the workflow proxy
                 if not self.tracking_url and "tracking_url" in extra:
                     self.tracking_url = extra["tracking_url"]
 
                 # print the first log file
-                if not self._printed_first_log and extra.get("log_file"):
-                    task.publish_message("first log file: {}".format(extra["log_file"]))
+                if not self._printed_first_log and extra.get("log"):
+                    task.publish_message("first log file: {}".format(extra["log"]))
                     self._printed_first_log = True
             del query_data
 

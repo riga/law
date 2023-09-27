@@ -144,7 +144,7 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
             abs_log_file = os.path.join(output_dir.abspath, c.custom_log_file)
 
         # return job and log files
-        return {"job": job_file, "log": abs_log_file}
+        return {"job": job_file, "config": c, "log": abs_log_file}
 
     def destination_info(self):
         info = super(LSFWorkflowProxy, self).destination_info()
