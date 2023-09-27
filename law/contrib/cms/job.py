@@ -50,6 +50,7 @@ class CrabJobManager(BaseJobManager):
     query_monitoring_url_cre = re.compile(r"^Dashboard\s+monitoring\s+URL\s*\:\s+([^\s].*)$")
     query_json_line_cre = re.compile(r"^\s*(\{.+\})\s*$")
     log_n_jobs_cre = re.compile(r"^config\.Data\.totalUnits\s+\=\s+(\d+)\s*$")
+    log_disable_output_collection_cre = re.compile(r"^config\.JobType\.disableAutomaticOutputCollection\s+\=\s+([^\s]+)\s*$")  # noqa
     log_task_name_cre = re.compile(r"^.+\s+Task\s+name\s*\:\s+([^\s]+)\s*$")
 
     log_file_pattern = "https://cmsweb.cern.ch:8443/scheddmon/{scheduler_id}/{user}/{task_name}/job_out.{crab_num}.{attempt}.txt"  # noqa
@@ -259,9 +260,14 @@ class CrabJobManager(BaseJobManager):
         return {job_id: None for job_id in job_ids}
 
     def query(self, proj_dir, job_ids=None, proxy=None, instance=None, myproxy_username=None,
-            silent=False):
+            skip_transfers=None, silent=False):
+        log_data = self._parse_log_file(os.path.join(proj_dir, "crab.log"))
         if job_ids is None:
-            job_ids = self._job_ids_from_proj_dir(proj_dir)
+            job_ids = self._job_ids_from_proj_dir(proj_dir, log_data=log_data)
+
+        # when output collection is disabled, we can consider all "transferring" states as finished
+        if skip_transfers is None:
+            skip_transfers = str(log_data.get("disable_output_collection")).lower() == "true"
 
         # build the command
         cmd = ["crab", "status", "--dir", proj_dir, "--json"]
@@ -287,7 +293,7 @@ class CrabJobManager(BaseJobManager):
             )
 
         # parse the output and extract the status per job
-        query_data = self.parse_query_output(out, proj_dir, job_ids)
+        query_data = self.parse_query_output(out, proj_dir, job_ids, skip_transfers=skip_transfers)
 
         # compare to the requested job ids and perform some checks
         for job_id in job_ids:
@@ -301,7 +307,7 @@ class CrabJobManager(BaseJobManager):
         return query_data
 
     @classmethod
-    def parse_query_output(cls, out, proj_dir, job_ids):
+    def parse_query_output(cls, out, proj_dir, job_ids, skip_transfers=False):
         # parse values using compiled regexps
         cres = [
             cls.query_user_cre,
@@ -392,7 +398,7 @@ class CrabJobManager(BaseJobManager):
             # fill query data
             query_data[job_id] = cls.job_status_dict(
                 job_id=job_id,
-                status=cls.map_status(data["State"]),
+                status=cls.map_status(data["State"], skip_transfers=skip_transfers),
                 code=code,
                 error=error,
                 extra=_extra,
@@ -455,8 +461,8 @@ print(join(cfg.General.workArea, "crab_" + cfg.General.requestName))'""".format(
         if not os.path.exists(log_file):
             return None
 
-        cres = [cls.log_n_jobs_cre, cls.log_task_name_cre]
-        names = ["n_jobs", "task_name"]
+        cres = [cls.log_n_jobs_cre, cls.log_task_name_cre, cls.log_disable_output_collection_cre]
+        names = ["n_jobs", "task_name", "disable_output_collection"]
         values = len(cres) * [None]
 
         with open(log_file, "r") as f:
@@ -473,9 +479,10 @@ print(join(cfg.General.workArea, "crab_" + cfg.General.requestName))'""".format(
         return dict(zip(names, values))
 
     @classmethod
-    def _job_ids_from_proj_dir(cls, proj_dir):
+    def _job_ids_from_proj_dir(cls, proj_dir, log_data=None):
         # read log data
-        log_data = cls._parse_log_file(os.path.join(proj_dir, "crab.log"))
+        if not log_data:
+            log_data = cls._parse_log_file(os.path.join(proj_dir, "crab.log"))
         if not log_data or "n_jobs" not in log_data or "task_name" not in log_data:
             return None
 
@@ -486,12 +493,14 @@ print(join(cfg.General.workArea, "crab_" + cfg.General.requestName))'""".format(
         ]
 
     @classmethod
-    def map_status(cls, status):
+    def map_status(cls, status, skip_transfers=False):
         # see https://twiki.cern.ch/twiki/bin/view/CMSPublic/Crab3HtcondorStates
         if status in ("cooloff", "unsubmitted", "idle"):
             return cls.PENDING
-        if status in ("running", "transferring", "transferred"):
+        if status in ("running",):
             return cls.RUNNING
+        if status in ("transferring", "transferred"):
+            return cls.FINISHED if skip_transfers else cls.RUNNING
         if status in ("finished",):
             return cls.FINISHED
         if status in ("killing", "failed", "held"):
@@ -578,6 +587,8 @@ class CrabJobFileFactory(BaseJobFileFactory):
                 ("splitting", "FileBased"),
                 ("unitsPerJob", 1),
                 ("totalUnits", no_value),
+                ("inputDataset", None),
+                ("userInputFiles", None),
                 ("allowNonValidInputDataset", True),
                 ("outLFNDirBase", no_value),
                 ("publication", False),
@@ -587,8 +598,8 @@ class CrabJobFileFactory(BaseJobFileFactory):
                 ("storageSite", no_value),
             ])),
             ("User", DotDict([
-                ("vo_group", None),
-                ("vo_role", None),
+                ("voGroup", None),
+                ("voRole", None),
             ])),
         ])
 
@@ -751,10 +762,13 @@ class CrabJobFileFactory(BaseJobFileFactory):
         # Data
         c.crab.Data.totalUnits = len(c.arguments)
         c.crab.Data.outLFNDirBase = c.output_lfn_base
-        c.crab.Data.userInputFiles = [
-            "input_{}.root".format(i + 1)
-            for i in range(c.crab.Data.totalUnits)
-        ]
+        # define custom input files when no inputDataset is given
+        # note: they don't have to exist but crab requires a list of length totalUnits
+        if not c.crab.Data.inputDataset:
+            c.crab.Data.userInputFiles = [
+                "input_{}.root".format(i + 1)
+                for i in range(c.crab.Data.totalUnits)
+            ]
 
         # Site
         c.crab.Site.storageSite = c.storage_site
@@ -763,7 +777,7 @@ class CrabJobFileFactory(BaseJobFileFactory):
         if c.vo_group:
             c.crab.User.voGroup = c.vo_group
         if c.vo_role:
-            c.crab.role.voRole = c.vo_role
+            c.crab.User.voRole = c.vo_role
 
         # write the job file
         self.write_crab_config(job_file, c.crab, custom_content=c.custom_content)
