@@ -775,7 +775,7 @@
 ; all jobs files to be present as long as jobs are running, or in case you want to debug the files
 ; later on.
 ; Type: boolean
-; Default: True
+; Default: False
 
 
 ; --- Options of contrib packages

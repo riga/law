@@ -21,7 +21,7 @@ action() {
     # get the job number
     export LAW_CRAB_JOB_NUMBER="$( ls -1 | grep -Po "jobReport\.json\.\K\d+" | head -n 1 )"
     if [ -z "${LAW_CRAB_JOB_NUMBER}" ]; then
-        2>&1 echo "could not determine crab job number"
+        >&2 echo "could not determine crab job number"
         return "1"
     fi
     echo "running ${this_file_base} for job number ${LAW_CRAB_JOB_NUMBER}"
@@ -29,7 +29,7 @@ action() {
     # get the comma-separated list of input files
     export LAW_CRAB_INPUT_FILES="$( python -c "from PSet import process; print(','.join(list(getattr(process.source, 'fileNames', []))))" )"
     if [ -z "${LAW_CRAB_INPUT_FILES}" ]; then
-        2>&1 echo "could not determine crab input files"
+        >&2 echo "could not determine crab input files"
         # do not consider this an error for now
         # return "2"
     fi

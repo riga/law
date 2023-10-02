@@ -6,7 +6,7 @@ action() {
 
     # valid example?
     if [ ! -d "${example_dir}" ]; then
-        2>&1 echo "'${example_name}' is not a valid law example"
+        >&2 echo "'${example_name}' is not a valid law example"
         return "1"
     fi
     export LAW_DOCKER_EXAMPLE="${example_name}"

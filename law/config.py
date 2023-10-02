@@ -127,7 +127,7 @@ class Config(ConfigParser):
         "job": {
             "job_file_dir": os.getenv("LAW_JOB_FILE_DIR") or tempfile.gettempdir(),
             "job_file_dir_mkdtemp": True,
-            "job_file_dir_cleanup": True,
+            "job_file_dir_cleanup": False,
         },
         "notifications": {
             "mail_recipient": None,

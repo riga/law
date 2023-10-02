@@ -12,7 +12,7 @@ from argparse import ArgumentParser
 import law
 
 
-progs = ["run", "index", "config", "software", "completion", "location"]
+progs = ["run", "index", "config", "software", "completion", "location", "quickstart"]
 
 
 def run(argv=None):

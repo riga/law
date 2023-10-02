@@ -26,8 +26,7 @@ _law_complete() {
     local index_file="${LAW_INDEX_FILE:-${law_home}/index}"
 
     # common parameters
-    local common_params="run index config software completion location --help --version"
-    local common_run_params="workers assistant local-scheduler scheduler-host scheduler-port log-level help"
+    local common_params="run index config software completion location quickstart --help --version"
 
     # the current word
     local cur="${COMP_WORDS[COMP_CWORD]}"
@@ -62,6 +61,7 @@ _law_complete() {
         local task_family="${COMP_WORDS[2]}"
 
         # complete parameters of the root task and if parameters were found, stop
+        local common_run_params="workers assistant local-scheduler scheduler-host scheduler-port log-level help"
         local inp="${cur##-}"
         inp="${inp##-}"
         COMPREPLY=( $( compgen -W "$( _law_grep_Po "[^\:]+\:${task_family}\:\K.+" "${index_file}" ) ${common_run_params}" -P "--" -- "${inp}" ) )
@@ -195,6 +195,15 @@ _law_complete() {
         inp="${inp##-}"
         COMPREPLY=( $( compgen -W "$( echo ${words} )" -P "--" -- "${inp}" ) $( compgen -W "$( echo ${contribs} )" -- "${inp}" ) )
         return "0"
+
+    # complete the "quickstart" subcommand
+    elif [ "${sub_cmd}" = "quickstart" ]; then
+        local words="help directory no-tasks no-config no-setup"
+        local inp="${cur##-}"
+        inp="${inp##-}"
+        COMPREPLY=( $( compgen -W "$( echo ${words} )" -P "--" -- "${inp}" ) )
+        return "0"
+
     fi
 }
 
