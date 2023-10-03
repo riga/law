@@ -35,7 +35,7 @@ class FormatterRegister(type):
 
         if cls.name in metacls.formatters:
             raise ValueError("duplicate formatter name '{}' for class {}".format(cls.name, cls))
-        elif cls.name == AUTO_FORMATTER:
+        if cls.name == AUTO_FORMATTER:
             raise ValueError("formatter class {} must not be named '{}'".format(
                 cls, AUTO_FORMATTER))
 
@@ -55,8 +55,7 @@ def get_formatter(name, silent=False):
     formatter = FormatterRegister.formatters.get(name)
     if formatter or silent:
         return formatter
-    else:
-        raise Exception("cannot find formatter '{}'".format(name))
+    raise Exception("cannot find formatter '{}'".format(name))
 
 
 def find_formatters(path, mode, silent=True):
@@ -69,8 +68,7 @@ def find_formatters(path, mode, silent=True):
     formatters = [f for f in six.itervalues(FormatterRegister.formatters) if f.accepts(path, mode)]
     if formatters or silent:
         return formatters
-    else:
-        raise Exception("cannot find any '{}' formatter for {}".format(mode, path))
+    raise Exception("cannot find any '{}' formatter for {}".format(mode, path))
 
 
 def find_formatter(path, mode, name=AUTO_FORMATTER):
@@ -81,8 +79,7 @@ def find_formatter(path, mode, name=AUTO_FORMATTER):
     """
     if name == AUTO_FORMATTER:
         return find_formatters(path, mode, silent=False)[0]
-    else:
-        return get_formatter(name, silent=False)
+    return get_formatter(name, silent=False)
 
 
 class Formatter(six.with_metaclass(FormatterRegister, object)):
@@ -290,12 +287,11 @@ class TarFormatter(Formatter):
         path = get_path(path)
         if path.endswith((".tar.gz", ".tgz")):
             return "gz"
-        elif path.endswith((".tar.bz2", ".tbz2", ".bz2")):
+        if path.endswith((".tar.bz2", ".tbz2", ".bz2")):
             return "bz2"
-        elif path.endswith((".tar.xz", ".txz", ".lzma")):
+        if path.endswith((".tar.xz", ".txz", ".lzma")):
             return "xz"
-        else:
-            return None
+        return None
 
     @classmethod
     def accepts(cls, path, mode):
@@ -360,13 +356,11 @@ class PythonFormatter(Formatter):
 
     @classmethod
     def accepts(cls, path, mode):
-        path = get_path(path)
-        return path.endswith(".py")
+        return get_path(path).endswith(".py")
 
     @classmethod
     def load(cls, path, *args, **kwargs):
-        path = get_path(path)
-        return import_file(path, *args, **kwargs)
+        return import_file(get_path(path), *args, **kwargs)
 
 
 # trailing imports

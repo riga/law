@@ -265,6 +265,8 @@ def log(fn, opts, task, *args, **kwargs):
     """
     _task = get_task(task)
     log = get_param(_task.log_file, _task.default_log_file)
+    if log and not isinstance(log, LocalFileTarget):
+        log = str(log)
 
     if log == "-" or not log:
         return fn(task, *args, **kwargs)

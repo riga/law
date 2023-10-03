@@ -30,6 +30,7 @@ class AwkwardFormatter(Formatter):
         if path.endswith((".parquet", ".parq")):
             import awkward as ak
             return ak.from_parquet(path, *args, **kwargs)
+
         if path.endswith(".json"):
             import awkward as ak
             return ak.from_json(path, *args, **kwargs)
@@ -44,6 +45,7 @@ class AwkwardFormatter(Formatter):
         if path.endswith((".parquet", ".parq")):
             import awkward as ak
             return ak.to_parquet(obj, path, *args, **kwargs)
+
         if path.endswith(".json"):
             import awkward as ak
             return ak.to_json(obj, path, *args, **kwargs)

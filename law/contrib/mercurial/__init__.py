@@ -59,7 +59,7 @@ class BundleMercurialRepository(Task):
             if self._checksum is None:
                 cmd = quote_cmd([
                     rel_path(__file__, "scripts", "repository_checksum.sh"),
-                    self.get_repo_path(),
+                    get_path(self.get_repo_path()),
                 ])
 
                 code, out, _ = interruptable_popen(
@@ -76,7 +76,7 @@ class BundleMercurialRepository(Task):
         return self._checksum
 
     def output(self):
-        repo_base = os.path.basename(self.get_repo_path())
+        repo_base = os.path.basename(get_path(self.get_repo_path()))
         repo_base = os.path.abspath(os.path.expandvars(os.path.expanduser(repo_base)))
         return LocalFileTarget("{}_{}.tgz".format(repo_base, self.checksum))
 
@@ -87,7 +87,7 @@ class BundleMercurialRepository(Task):
 
     def bundle(self, dst_path):
         bundle_script = rel_path(__file__, "scripts", "bundle_repository.sh")
-        cmd = [bundle_script, self.get_repo_path(), get_path(dst_path)]
+        cmd = [bundle_script, get_path(self.get_repo_path()), get_path(dst_path)]
         cmd += [" ".join(self.exclude_files)]
         cmd += [" ".join(self.include_files)]
 

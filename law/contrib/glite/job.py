@@ -16,6 +16,7 @@ import subprocess
 
 from law.config import Config
 from law.job.base import BaseJobManager, BaseJobFileFactory, JobInputFile, DeprecatedInputFiles
+from law.target.file import get_path
 from law.util import interruptable_popen, make_list, make_unique, quote_cmd
 from law.logger import get_logger
 
@@ -63,7 +64,7 @@ class GLiteJobManager(BaseJobManager):
                     len(ce), len(delegation_id)))
 
         # get the job file location as the submission command is run it the same directory
-        job_file_dir, job_file_name = os.path.split(os.path.abspath(job_file))
+        job_file_dir, job_file_name = os.path.split(os.path.abspath(str(job_file)))
 
         # define the actual submission in a loop to simplify retries
         while True:
@@ -310,6 +311,7 @@ class GLiteJobFileFactory(BaseJobFileFactory):
                 c.output_files.append(c[attr])
 
         # postfix certain output files
+        c.output_files = list(map(str, c.output_files))
         if c.postfix_output_files:
             c.output_files = [
                 self.postfix_output_file(path, postfix)
@@ -327,7 +329,11 @@ class GLiteJobFileFactory(BaseJobFileFactory):
 
         # ensure that the executable is an input file, remember the key to access it
         if c.executable:
-            executable_keys = [k for k, v in c.input_files.items() if v == c.executable]
+            executable_keys = [
+                k
+                for k, v in c.input_files.items()
+                if get_path(v) == get_path(c.executable)
+            ]
             if executable_keys:
                 executable_key = executable_keys[0]
             else:
@@ -410,7 +416,7 @@ class GLiteJobFileFactory(BaseJobFileFactory):
         render_variables = self.linearize_render_variables(c.render_variables)
 
         # prepare the job file
-        job_file = self.postfix_input_file(os.path.join(c.dir, c.file_name), postfix)
+        job_file = self.postfix_input_file(os.path.join(c.dir, str(c.file_name)), postfix)
 
         # render copied input files
         for key, f in c.input_files.items():
@@ -425,7 +431,7 @@ class GLiteJobFileFactory(BaseJobFileFactory):
 
         # prepare the executable when given
         if c.executable:
-            c.executable = c.input_files[executable_key].path_job_post_render
+            c.executable = get_path(c.input_files[executable_key].path_job_post_render)
             # make the file executable for the user and group
             path = os.path.join(c.dir, os.path.basename(c.executable))
             if os.path.exists(path):

@@ -59,10 +59,10 @@ class FileSystem(shims.FileSystem):
         return "{}(name={}, {})".format(self.__class__.__name__, self.name, hex(id(self)))
 
     def dirname(self, path):
-        return os.path.dirname(path) if path != "/" else None
+        return os.path.dirname(str(path)) if path != "/" else None
 
     def basename(self, path):
-        return os.path.basename(path) if path != "/" else "/"
+        return os.path.basename(str(path)) if path != "/" else "/"
 
     def ext(self, path, n=1):
         # split the path
@@ -483,13 +483,21 @@ def get_path(target):
         path = getattr(target, "abspath", no_value)
         if path != no_value:
             return path
+
+    path = getattr(target, "path", no_value)
+    if path != no_value:
+        return path
+
+    if target:
+        return str(target)
+
     return target
 
 
 def get_scheme(uri):
     # ftp://path/to/file -> ftp
     # /path/to/file -> None
-    m = re.match(r"^(\w+)\:\/\/.*$", uri)
+    m = re.match(r"^(\w+)\:\/\/.*$", str(uri))
     return m.group(1) if m else None
 
 
@@ -499,13 +507,14 @@ def has_scheme(uri):
 
 def add_scheme(path, scheme):
     # adds a scheme to a path, if it does not already contain one
+    path = str(path)
     return "{}://{}".format(scheme.rstrip(":/"), path) if not has_scheme(path) else path
 
 
 def remove_scheme(uri):
     # ftp://path/to/file -> /path/to/file
     # /path/to/file -> /path/to/file
-    return re.sub(r"^(\w+\:\/\/)", "", uri)
+    return re.sub(r"^(\w+\:\/\/)", "", str(uri))
 
 
 @contextmanager
@@ -523,8 +532,8 @@ def localize_file_targets(struct, *args, **kwargs):
             manager = target.localize(*args, **kwargs)
             managers.append(manager)
             return manager.__enter__()
-        else:
-            return target
+
+        return target
 
     # localize all targets, maintain the structure
     localized_targets = map_struct(enter, struct)

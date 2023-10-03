@@ -57,7 +57,10 @@ class BundleCMSSW(Task):
             return self.custom_checksum
 
         if self._checksum is None:
-            cmd = [rel_path(__file__, "scripts", "cmssw_checksum.sh"), self.get_cmssw_path()]
+            cmd = [
+                rel_path(__file__, "scripts", "cmssw_checksum.sh"),
+                get_path(self.get_cmssw_path()),
+            ]
             if self.exclude != NO_STR:
                 cmd += [self.exclude]
             cmd = quote_cmd(cmd)
@@ -72,7 +75,7 @@ class BundleCMSSW(Task):
         return self._checksum
 
     def output(self):
-        base = os.path.basename(self.get_cmssw_path())
+        base = os.path.basename(get_path(self.get_cmssw_path()))
         if self.checksum:
             base += "{}.".format(self.checksum)
         base = os.path.abspath(os.path.expandvars(os.path.expanduser(base)))
@@ -87,7 +90,7 @@ class BundleCMSSW(Task):
     def bundle(self, dst_path):
         cmd = [
             rel_path(__file__, "scripts", "bundle_cmssw.sh"),
-            self.get_cmssw_path(),
+            get_path(self.get_cmssw_path()),
             get_path(dst_path),
         ]
         if self.exclude != NO_STR:

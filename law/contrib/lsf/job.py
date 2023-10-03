@@ -17,6 +17,7 @@ import six
 
 from law.config import Config
 from law.job.base import BaseJobManager, BaseJobFileFactory, JobInputFile, DeprecatedInputFiles
+from law.target.file import get_path
 from law.util import interruptable_popen, make_list, make_unique, quote_cmd
 from law.logger import get_logger
 
@@ -64,7 +65,7 @@ class LSFJobManager(BaseJobManager):
             emails = self.emails
 
         # get the job file location as the submission command is run it the same directory
-        job_file_dir, job_file_name = os.path.split(os.path.abspath(job_file))
+        job_file_dir, job_file_name = os.path.split(os.path.abspath(str(job_file)))
 
         # build the command
         cmd = "LSB_JOB_REPORT_MAIL={} bsub".format("Y" if emails else "N")
@@ -282,9 +283,10 @@ class LSFJobFileFactory(BaseJobFileFactory):
             c.output_files.append(c.custom_log_file)
 
         # postfix certain output files
+        c.output_files = list(map(str, c.output_files))
         if c.postfix_output_files:
             skip_postfix_cre = re.compile(r"^(/dev/).*$")
-            skip_postfix = lambda s: bool(skip_postfix_cre.match(s))
+            skip_postfix = lambda s: bool(skip_postfix_cre.match(str(s)))
             c.output_files = [
                 path if skip_postfix(path) else self.postfix_output_file(path, postfix)
                 for path in c.output_files
@@ -301,7 +303,11 @@ class LSFJobFileFactory(BaseJobFileFactory):
 
         # ensure that the executable is an input file, remember the key to access it
         if c.executable:
-            executable_keys = [k for k, v in c.input_files.items() if v == c.executable]
+            executable_keys = [
+                k
+                for k, v in c.input_files.items()
+                if get_path(v) == get_path(c.executable)
+            ]
             if executable_keys:
                 executable_key = executable_keys[0]
             else:
@@ -382,7 +388,7 @@ class LSFJobFileFactory(BaseJobFileFactory):
         render_variables = self.linearize_render_variables(c.render_variables)
 
         # prepare the job description file
-        job_file = self.postfix_input_file(os.path.join(c.dir, c.file_name), postfix)
+        job_file = self.postfix_input_file(os.path.join(c.dir, str(c.file_name)), postfix)
 
         # render copied, non-forwarded input files
         for key, f in c.input_files.items():
@@ -397,7 +403,7 @@ class LSFJobFileFactory(BaseJobFileFactory):
 
         # prepare the executable when given
         if c.executable:
-            c.executable = c.input_files[executable_key].path_job_post_render
+            c.executable = get_path(c.input_files[executable_key].path_job_post_render)
             # make the file executable for the user and group
             path = os.path.join(c.dir, os.path.basename(c.executable))
             if os.path.exists(path):

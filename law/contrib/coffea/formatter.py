@@ -43,5 +43,4 @@ class CoffeaFormatter(Formatter):
     def dump(cls, path, out, *args, **kwargs):
         from coffea.util import save
 
-        path = get_path(path)
-        save(out, path, *args, **kwargs)
+        save(out, get_path(path), *args, **kwargs)

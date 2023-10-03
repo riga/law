@@ -59,6 +59,7 @@ def get_usercert_subject(usercert=None):
     # get the user certificate file
     if usercert is None:
         usercert = get_usercert()
+    usercert = str(usercert)
     if not os.path.exists(usercert):
         raise Exception("usercert does not exist at '{}'".format(usercert))
 
@@ -90,7 +91,7 @@ def _vomsproxy_info(args=None, proxy_file=None, silent=False):
     if proxy_file is None:
         proxy_file = get_vomsproxy_file()
     if proxy_file:
-        proxy_file = os.path.expandvars(os.path.expanduser(proxy_file))
+        proxy_file = os.path.expandvars(os.path.expanduser(str(proxy_file)))
         cmd.extend(["--file", proxy_file])
 
     code, out, err = interruptable_popen(quote_cmd(cmd), shell=True, executable="/bin/bash",
@@ -201,6 +202,7 @@ def renew_vomsproxy(
     # when proxy_file is None, get the default
     if proxy_file is None:
         proxy_file = get_vomsproxy_file()
+    proxy_file = str(proxy_file)
 
     # build the command
     cmd = [
@@ -216,7 +218,7 @@ def renew_vomsproxy(
     # run it, depending on whether a password file is given
     silent_pipe = subprocess.PIPE if silent else None
     if password_file:
-        password_file = os.path.expandvars(os.path.expanduser(password_file))
+        password_file = os.path.expandvars(os.path.expanduser(str(password_file)))
         cmd = "cat \"{}\" | {}".format(password_file, quote_cmd(cmd))
         code = interruptable_popen(cmd, shell=True, executable="/bin/bash", stdout=silent_pipe,
             stderr=silent_pipe)[0]
@@ -249,7 +251,7 @@ def delegate_vomsproxy_glite(endpoint, proxy_file=None, stdout=None, stderr=None
     # get the proxy file
     if not proxy_file:
         proxy_file = get_vomsproxy_file()
-    proxy_file = os.path.expandvars(os.path.expanduser(proxy_file))
+    proxy_file = os.path.expandvars(os.path.expanduser(str(proxy_file)))
     if not os.path.exists(proxy_file):
         raise Exception("proxy file '{}' does not exist".format(proxy_file))
 
@@ -347,8 +349,10 @@ def delegate_myproxy(
     # prepare arguments
     if not userkey:
         userkey = get_userkey()
+    userkey = str(userkey)
     if not usercert:
         usercert = get_usercert()
+    usercert = str(usercert)
     if not username:
         username = get_vomsproxy_identity(silent=True) or get_usercert_subject()
     if encode_username:
@@ -378,7 +382,7 @@ def delegate_myproxy(
     # run it, depending on whether a password file is given
     silent_pipe = subprocess.PIPE if silent else None
     if password_file:
-        password_file = os.path.expandvars(os.path.expanduser(password_file))
+        password_file = os.path.expandvars(os.path.expanduser(str(password_file)))
         cmd = "{}cat \"{}\" | {} -S".format(rfc_export, password_file, quote_cmd(cmd))
         code = interruptable_popen(cmd, shell=True, executable="/bin/bash", stdout=silent_pipe,
             stderr=silent_pipe)[0]

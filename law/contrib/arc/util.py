@@ -48,7 +48,7 @@ def _arcproxy_info(args=None, proxy_file=None, silent=False):
     if proxy_file is None:
         proxy_file = get_arcproxy_file()
     if proxy_file:
-        proxy_file = os.path.expandvars(os.path.expanduser(proxy_file))
+        proxy_file = os.path.expandvars(os.path.expanduser(str(proxy_file)))
         cmd.extend(["--proxy", proxy_file])
 
     code, out, err = interruptable_popen(quote_cmd(cmd), shell=True, executable="/bin/bash",
@@ -138,7 +138,7 @@ def renew_arcproxy(password="", lifetime="8 days", proxy_file=None):
 
     args = "--constraint=validityPeriod={}".format(lifetime_seconds)
     if proxy_file:
-        proxy_file = os.path.expandvars(os.path.expanduser(proxy_file))
+        proxy_file = os.path.expandvars(os.path.expanduser(str(proxy_file)))
         args += " --proxy={}".format(proxy_file)
 
     with tmp_file() as (_, tmp):

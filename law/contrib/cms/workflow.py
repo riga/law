@@ -12,13 +12,11 @@ import uuid
 from abc import abstractmethod
 from collections import OrderedDict
 
-import six
-
 import law
 from law.config import Config
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments, JobInputFile
-from law.target.file import get_path
+from law.target.file import get_path, get_scheme, remove_scheme, FileSystemDirectoryTarget
 from law.target.local import LocalDirectoryTarget
 from law.task.proxy import ProxyCommand
 from law.util import no_value, law_src_path, merge_dicts, DotDict, human_duration
@@ -242,8 +240,15 @@ class CrabWorkflow(BaseRemoteWorkflow):
         # when job files are cleaned, try to use the output directory when local
         if self.workflow_proxy.job_file_factory and self.workflow_proxy.job_file_factory.cleanup:
             out_dir = self.crab_output_directory()
-            if isinstance(out_dir, six.string_types) or isinstance(out_dir, LocalDirectoryTarget):
+            # when local, return the directory
+            if isinstance(out_dir, LocalDirectoryTarget):
                 return out_dir
+            # when not a target and no remote scheme, return the directory
+            if (
+                not isinstance(out_dir, FileSystemDirectoryTarget) and
+                get_scheme(out_dir) in (None, "file")
+            ):
+                return remove_scheme(out_dir)
 
         # relative to the job file directory
         return ""

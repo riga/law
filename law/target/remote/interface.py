@@ -158,8 +158,9 @@ class RemoteFileInterface(six.with_metaclass(abc.ABCMeta, object)):
                 self.__class__.__name__))
 
         # expand variables in base and bases
-        self.base = list(map(os.path.expandvars, base))
-        self.bases = {k: list(map(os.path.expandvars, b)) for k, b in six.iteritems(bases)}
+        expand = lambda p: os.path.expandvars(str(p))
+        self.base = list(map(expand, base))
+        self.bases = {k: list(map(expand, b)) for k, b in six.iteritems(bases)}
 
         # store other attributes
         self.retries = retries

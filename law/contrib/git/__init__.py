@@ -59,7 +59,7 @@ class BundleGitRepository(Task):
             if self._checksum is None:
                 cmd = quote_cmd([
                     rel_path(__file__, "scripts", "repository_checksum.sh"),
-                    self.get_repo_path(),
+                    get_path(self.get_repo_path()),
                 ])
 
                 code, out, _ = interruptable_popen(
@@ -76,7 +76,7 @@ class BundleGitRepository(Task):
         return self._checksum
 
     def output(self):
-        repo_base = os.path.basename(self.get_repo_path())
+        repo_base = os.path.basename(get_path(self.get_repo_path()))
         repo_base = os.path.abspath(os.path.expandvars(os.path.expanduser(repo_base)))
         return LocalFileTarget("{}.{}.tgz".format(repo_base, self.checksum))
 
@@ -89,7 +89,7 @@ class BundleGitRepository(Task):
     def bundle(self, dst_path):
         cmd = [
             rel_path(__file__, "scripts", "bundle_repository.sh"),
-            self.get_repo_path(),
+            get_path(self.get_repo_path()),
             get_path(dst_path),
             " ".join(self.exclude_files),
             " ".join(self.include_files),

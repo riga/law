@@ -166,6 +166,7 @@ class RemoteFileSystem(FileSystem):
     def abspath(self, path):
         # due to the dynamic definition of remote bases, path is supposed to be already absolute,
         # so just handle leading and trailing slashes when there is no scheme scheme
+        path = str(path)
         return ("/" + path.strip("/")) if not get_scheme(path) else path
 
     def uri(self, path, **kwargs):
@@ -250,6 +251,7 @@ class RemoteFileSystem(FileSystem):
 
     def listdir(self, path, pattern=None, type=None, **kwargs):
         # forward to local_fs
+        path = str(path)
         if self.is_local(path):
             return self.local_fs.listdir(path, pattern=pattern, type=type)
 
@@ -300,6 +302,7 @@ class RemoteFileSystem(FileSystem):
 
     def glob(self, pattern, cwd=None, **kwargs):
         # forward to local_fs
+        pattern = str(pattern)
         if self.is_local(pattern):
             return self.local_fs.glob(pattern, cwd=cwd)
 
@@ -584,7 +587,7 @@ class RemoteTarget(FileSystemTarget):
 
     @path.setter
     def path(self, path):
-        if os.path.normpath(path).startswith(".."):
+        if os.path.normpath(str(path)).startswith(".."):
             raise ValueError("path {} forbidden, surpasses file system root".format(path))
 
         path = self.fs.abspath(path)

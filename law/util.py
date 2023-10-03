@@ -101,17 +101,17 @@ def rel_path(anchor, *paths):
     Returns a path made of framgment *paths* relativ to an *anchor* path. When *anchor* is a file,
     its absolute directory is used instead.
     """
-    anchor = os.path.abspath(os.path.expandvars(os.path.expanduser(anchor)))
+    anchor = os.path.abspath(os.path.expandvars(os.path.expanduser(str(anchor))))
     if os.path.exists(anchor) and os.path.isfile(anchor):
         anchor = os.path.dirname(anchor)
-    return os.path.normpath(os.path.join(anchor, *paths))
+    return os.path.normpath(os.path.join(anchor, *map(str, paths)))
 
 
 def law_src_path(*paths):
     """
     Returns the law installation directory, optionally joined with *paths*.
     """
-    return rel_path(__file__, *paths)
+    return rel_path(__file__, *map(str, paths))
 
 
 def law_home_path(*paths):
@@ -205,7 +205,7 @@ def import_file(path, attr=None):
     custom code must be loaded.
     """
     # load the package contents
-    path = os.path.expandvars(os.path.expanduser(path))
+    path = os.path.expandvars(os.path.expanduser(str(path)))
     pkg = DotDict()
     with open(path, "r") as f:
         exec(f.read(), pkg)
@@ -1047,9 +1047,9 @@ def which(prog):
     executable = lambda path: os.path.isfile(path) and os.access(path, os.X_OK)
 
     # prog can also be a path
-    dirname, _ = os.path.split(prog)
+    dirname, _ = os.path.split(str(prog))
     if dirname:
-        if executable(prog):
+        if executable(str(prog)):
             return prog
     elif "PATH" in os.environ:
         for search_path in os.environ["PATH"].split(os.pathsep):
@@ -1449,6 +1449,7 @@ def copy_no_perm(src, dst):
     """
     Copies a file from *src* to *dst* including meta data except for permission bits.
     """
+    src, dst = str(src), str(dst)
     shutil.copyfile(src, dst)
     perm = os.stat(dst).st_mode
     shutil.copystat(src, dst)
@@ -1462,6 +1463,7 @@ def makedirs(path, perm=None):
     to this value.
     """
     # nothing to do when the directory already exists
+    path = str(path)
     if os.path.isdir(path):
         return
 
@@ -1494,7 +1496,7 @@ def user_owns_file(path, uid=None):
     """
     if uid is None:
         uid = os.getuid()
-    path = os.path.expandvars(os.path.expanduser(path))
+    path = os.path.expandvars(os.path.expanduser(str(path)))
     return os.stat(path).st_uid == uid
 
 
@@ -2125,30 +2127,31 @@ class InsertableDict(collections.OrderedDict):
         self._insert(after_key, key, value, 1)
 
 
-def open_compat(*args, **kwargs):
+def open_compat(path, *args, **kwargs):
     """
     Polyfill for python's ``open`` factory, returning the plain ``open`` in python 3, and
     ``io.open`` in python 2 with a patched ``write`` method that internally handles unicode
     conversion of its first argument. All *args* and *kwargs* are forwarded.
     """
+    path = str(path)
+
     if six.PY3:
-        return open(*args, **kwargs)
+        return open(path, *args, **kwargs)
 
-    else:
-        f = io.open(*args, **kwargs)
+    f = io.open(path, *args, **kwargs)
 
-        if f.encoding and f.encoding.lower().replace("-", "") == "utf8":
-            write_orig = f.write
+    if f.encoding and f.encoding.lower().replace("-", "") == "utf8":
+        write_orig = f.write
 
-            def write(data, *args, **kwargs):
-                u = unicode  # noqa: F821
-                if not isinstance(data, u):
-                    data = u(data)
-                return write_orig(data, *args, **kwargs)
+        def write(data, *args, **kwargs):
+            u = unicode  # noqa: F821
+            if not isinstance(data, u):
+                data = u(data)
+            return write_orig(data, *args, **kwargs)
 
-            f.write = write
+        f.write = write
 
-        return f
+    return f
 
 
 @contextlib.contextmanager

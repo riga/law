@@ -31,11 +31,15 @@ class KerasModelFormatter(Formatter):
         if path.endswith(".json"):
             with open(path, "w") as f:
                 f.write(model.to_json(*args, **kwargs))
-        elif path.endswith((".yml", ".yaml")):
+            return
+
+        if path.endswith((".yml", ".yaml")):
             with open(path, "w") as f:
                 f.write(model.to_yaml(*args, **kwargs))
-        else:  # .hdf5, .h5, bundle
-            return model.save(path, *args, **kwargs)
+            return
+
+        # .hdf5, .h5, bundle
+        return model.save(path, *args, **kwargs)
 
     @classmethod
     def load(cls, path, *args, **kwargs):
@@ -47,11 +51,13 @@ class KerasModelFormatter(Formatter):
         if path.endswith(".json"):
             with open(path, "r") as f:
                 return keras.models.model_from_json(f.read(), *args, **kwargs)
-        elif path.endswith((".yml", ".yaml")):
+
+        if path.endswith((".yml", ".yaml")):
             with open(path, "r") as f:
                 return keras.models.model_from_yaml(f.read(), *args, **kwargs)
-        else:  # .hdf5, .h5, bundle
-            return keras.models.load_model(path, *args, **kwargs)
+
+        # .hdf5, .h5, bundle
+        return keras.models.load_model(path, *args, **kwargs)
 
 
 class KerasWeightsFormatter(Formatter):

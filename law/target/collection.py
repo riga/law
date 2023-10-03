@@ -252,6 +252,8 @@ class FileCollection(TargetCollection):
         tmp_dir = kwargs.get("tmp_dir")
         if not tmp_dir:
             tmp_dir = LocalDirectoryTarget(is_tmp=True)
+        elif not isinstance(tmp_dir, LocalDirectoryTarget):
+            tmp_dir = LocalDirectoryTarget(str(tmp_dir))
         kwargs["tmp_dir"] = tmp_dir
 
         # enter localize contexts of all targets
@@ -287,10 +289,10 @@ class SiblingFileCollection(SiblingFileCollectionBase):
     def from_directory(cls, directory, **kwargs):
         # dir should be a FileSystemDirectoryTarget or a string, in which case it is interpreted as
         # a local path
-        if isinstance(directory, six.string_types):
-            d = LocalDirectoryTarget(directory)
-        elif isinstance(d, FileSystemDirectoryTarget):
+        if isinstance(directory, FileSystemDirectoryTarget):
             d = directory
+        elif directory:
+            d = LocalDirectoryTarget(str(directory))
         else:
             raise TypeError("directory must either be a string or a FileSystemDirectoryTarget "
                 "object, got '{}'".format(directory))

@@ -74,13 +74,14 @@ class BashSandbox(Sandbox):
 
         # use the cache path if set
         if self.env_cache_path:
+            env_cache_path = str(self.env_cache_path)
             # write it if it does not exist yet
-            if not os.path.exists(self.env_cache_path):
-                makedirs(os.path.dirname(self.env_cache_path))
-                write_env(self.env_cache_path)
+            if not os.path.exists(env_cache_path):
+                makedirs(os.path.dirname(env_cache_path))
+                write_env(env_cache_path)
 
             # load it
-            env = load_env(self.env_cache_path)
+            env = load_env(env_cache_path)
 
         else:
             # use a temp file

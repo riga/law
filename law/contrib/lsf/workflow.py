@@ -12,12 +12,11 @@ from abc import abstractmethod
 from collections import OrderedDict
 
 import luigi
-import six
 
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments, JobInputFile, DeprecatedInputFiles
 from law.task.proxy import ProxyCommand
-from law.target.file import get_path, get_scheme
+from law.target.file import get_path, get_scheme, FileSystemDirectoryTarget
 from law.target.local import LocalDirectoryTarget
 from law.parameter import NO_STR
 from law.util import law_src_path, merge_dicts, DotDict
@@ -118,8 +117,10 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
         # we can use lsf's file stageout only when the output directory is local
         # otherwise, one should use the stageout_file and stageout manually
         output_dir = task.lsf_output_directory()
-        if isinstance(output_dir, six.string_types) and get_scheme(output_dir) in (None, "file"):
-            output_dir = LocalDirectoryTarget(output_dir)
+        if not isinstance(output_dir, FileSystemDirectoryTarget):
+            output_dir = get_path(output_dir)
+            if get_scheme(output_dir) in (None, "file"):
+                output_dir = LocalDirectoryTarget(output_dir)
         output_dir_is_local = isinstance(output_dir, LocalDirectoryTarget)
         if output_dir_is_local:
             c.absolute_paths = True

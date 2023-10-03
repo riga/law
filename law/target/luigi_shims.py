@@ -22,7 +22,7 @@ class FileSystem(luigi.target.FileSystem):
 class FileSystemTarget(luigi.target.FileSystemTarget, Target):
 
     def __init__(self, *args, **kwargs):
-        path = args[0] if args else kwargs["path"]
+        path = str(args[0] if args else kwargs["path"])
         super(FileSystemTarget, self).__init__(path)
 
 

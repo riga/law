@@ -27,8 +27,7 @@ class ParquetFormatter(Formatter):
     def load(cls, path, *args, **kwargs):
         import pyarrow.parquet as pq
 
-        path = get_path(path)
-        return pq.ParquetFile(path, *args, **kwargs)
+        return pq.ParquetFile(get_path(path), *args, **kwargs)
 
 
 class ParquetTableFormatter(Formatter):
@@ -43,12 +42,10 @@ class ParquetTableFormatter(Formatter):
     def load(cls, path, *args, **kwargs):
         import pyarrow.parquet as pq
 
-        path = get_path(path)
-        return pq.read_table(path, *args, **kwargs)
+        return pq.read_table(get_path(path), *args, **kwargs)
 
     @classmethod
     def dump(cls, path, obj, *args, **kwargs):
         import pyarrow.parquet as pq
 
-        path = get_path(path)
-        return pq.write_table(obj, path, *args, **kwargs)
+        return pq.write_table(obj, get_path(path), *args, **kwargs)

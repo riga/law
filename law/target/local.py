@@ -95,18 +95,19 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
                 )
 
         # set the base
-        self.base = os.path.abspath(base)
+        self.base = os.path.abspath(str(base))
 
         super(LocalFileSystem, self).__init__(**kwargs)
 
     def _unscheme(self, path):
+        path = str(path)
         return remove_scheme(path) if get_scheme(path) == "file" else path
 
     def abspath(self, path):
         path = os.path.expandvars(os.path.expanduser(self._unscheme(path)))
 
         # join with the base path
-        base = os.path.expandvars(os.path.expanduser(self.base))
+        base = os.path.expandvars(os.path.expanduser(str(self.base)))
         path = os.path.join(base, path)
 
         return os.path.abspath(path)
@@ -198,7 +199,7 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
 
     def walk(self, path, max_depth=-1, **kwargs):
         # mimic os.walk with a max_depth and yield the current depth
-        search_dirs = [(path, 0)]
+        search_dirs = [(str(path), 0)]
         while search_dirs:
             (search_dir, depth) = search_dirs.pop(0)
 
@@ -247,6 +248,7 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
         created when :py:attr:`create_file_dir` is *True*, using *perm* to set the directory
         permission. The absolute path to *dst* is returned.
         """
+        dst, src = str(dst), src and str(src)
         if self.isdir(dst):
             full_dst = os.path.join(dst, os.path.basename(src)) if src else dst
 
@@ -324,7 +326,7 @@ class LocalTarget(FileSystemTarget, shims.LocalTarget):
         if not path:
             if not is_tmp:
                 raise Exception("when no target path is defined, is_tmp must be set")
-            if fs.base != "/":
+            if str(fs.base) != "/":
                 raise Exception(
                     "when is_tmp is set, the base of the underlying file system must be '/', but "
                     "found '{}'".format(fs.base),

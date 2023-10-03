@@ -57,10 +57,9 @@ fmt_chars["fancy_compact"] = merge_dicts(fmt_chars["fancy"], {"free": 0})
 def _flatten_output(output, depth):
     if isinstance(output, (list, tuple, set)) or is_lazy_iterable(output):
         return [(outp, depth, "{}: ".format(i)) for i, outp in enumerate(output)]
-    elif isinstance(output, dict):
+    if isinstance(output, dict):
         return [(outp, depth, "{}: ".format(k)) for k, outp in six.iteritems(output)]
-    else:
-        return [(outp, depth, "") for outp in flatten(output)]
+    return [(outp, depth, "") for outp in flatten(output)]
 
 
 def _iter_output(output, offset, ind="  "):
@@ -448,7 +447,7 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
     max_depth = int(max_depth)
     print("fetch task output with max_depth {}".format(max_depth))
 
-    target_dir = os.path.normpath(os.path.abspath(target_dir))
+    target_dir = os.path.normpath(os.path.abspath(str(target_dir)))
     print("target directory is {}".format(target_dir))
     makedirs(target_dir)
 

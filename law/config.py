@@ -30,7 +30,7 @@ this_dir = os.path.dirname(os.path.abspath(__file__))
 
 def law_home_path(*paths):
     home = os.getenv("LAW_HOME") or os.path.expandvars(os.path.expanduser("$HOME/.law"))
-    return os.path.normpath(os.path.join(home, *(str(path) for path in paths)))
+    return os.path.normpath(os.path.join(home, *map(str, paths)))
 
 
 class Config(ConfigParser):
@@ -186,7 +186,7 @@ class Config(ConfigParser):
         if not skip_fallbacks:
             config_files += self._config_files
         for cf in config_files:
-            cf = os.path.expandvars(os.path.expanduser(cf))
+            cf = os.path.expandvars(os.path.expanduser(str(cf)))
             cf = os.path.normpath(os.path.abspath(cf))
             if os.path.isfile(cf):
                 self.config_file = cf

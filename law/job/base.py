@@ -24,7 +24,8 @@ from abc import ABCMeta, abstractmethod
 import six
 
 from law.config import Config
-from law.target.file import get_scheme
+from law.target.file import get_scheme, get_path
+from law.target.remote.base import RemoteTarget
 from law.util import (
     colored, make_list, make_tuple, iter_chunks, makedirs, create_hash, empty_context,
 )
@@ -752,7 +753,7 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
             mkdtemp = True
 
         # store the directory, default to the job.job_file_dir config
-        self.dir = dir or cfg.get_expanded("job", "job_file_dir")
+        self.dir = str(dir or cfg.get_expanded("job", "job_file_dir"))
         self.dir = os.path.expandvars(os.path.expanduser(self.dir))
 
         # create the directory
@@ -800,6 +801,7 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
         pattern matches the base name of the file, the associated postfix is applied and the path is
         returned. You might want to use an ordered dictionary to control the first match.
         """
+        path = str(path)
         dirname, basename = os.path.split(path)
 
         # get the actual postfix
@@ -843,7 +845,7 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
         """
         Renders a string *s* by replacing ``{{key}}`` with *value* and returns it.
         """
-        return s.replace("{{" + key + "}}", value)
+        return s.replace("{{" + key + "}}", str(value))
 
     @classmethod
     def linearize_render_variables(cls, render_variables):
@@ -909,6 +911,7 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
         In case the file content is not readable, the method returns unless *silent* is *False* in
         which case an exception is raised.
         """
+        src, dst = str(src), str(dst)
         if not os.path.isfile(src):
             raise IOError("source file for rendering does not exist: {}".format(src))
 
@@ -946,6 +949,7 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
         *True*.
         """
         # create the destination path
+        src, dir = str(src), dir and str(dir)
         postfixed_src = self.postfix_input_file(src, postfix=postfix)
         dst = os.path.join(os.path.realpath(dir or self.dir), os.path.basename(postfixed_src))
 
@@ -1222,6 +1226,11 @@ class JobInputFile(object):
             render_job = path.render_job
             path = path.path
 
+        # path must not be a remote file target
+        if isinstance(path, RemoteTarget):
+            raise ValueError("{}.path should not point to a remote target: {}".format(
+                self.__class__.__name__, path))
+
         # convenience
         if render is not None and render_local is None and render_job is None:
             render_local = bool(render)
@@ -1259,7 +1268,7 @@ class JobInputFile(object):
 
         # store attributes, apply residual defaults
         # TODO: move to job rendering by default
-        self.path = str(path)
+        self.path = os.path.abspath(os.path.expandvars(os.path.expanduser(get_path(path))))
         self.copy = True if copy is None else bool(copy)
         self.share = False if share is None else bool(share)
         self.forward = False if forward is None else bool(forward)
@@ -1321,7 +1330,7 @@ class JobInputFile(object):
         # check equality via path comparison
         if isinstance(other, JobInputFile):
             return self.path == other.path
-        return self.path == other
+        return self.path == str(other)
 
     @property
     def is_remote(self):
@@ -1357,6 +1366,7 @@ class DeprecatedInputFiles(dict):
 
     def _append(self, path):
         # generate a key by taking the basename of the path and strip the file extension
+        path = str(path)
         key = os.path.basename(path).split(".", 1)[0]
         while key in self:
             key += "_"

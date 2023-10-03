@@ -9,8 +9,7 @@ __all__ = ["merge_parquet_files", "merge_parquet_task"]
 import os
 import shutil
 
-import six
-
+from law.target.file import FileSystemFileTarget
 from law.target.local import LocalFileTarget, LocalDirectoryTarget
 from law.util import map_verbose, human_bytes
 
@@ -39,7 +38,7 @@ def merge_parquet_files(src_paths, dst_path, force=True, callback=None, writer_o
         callback = lambda i: None
 
     # prepare paths
-    abspath = lambda p: os.path.abspath(os.path.expandvars(os.path.expanduser(p)))
+    abspath = lambda p: os.path.abspath(os.path.expandvars(os.path.expanduser(str(p))))
     src_paths = list(map(abspath, src_paths))
     dst_path = abspath(dst_path)
 
@@ -93,16 +92,16 @@ def merge_parquet_task(task, inputs, output, local=False, cwd=None, force=True, 
     *writer_opts* and *copy_single* are forwarded to :py:func:`merge_parquet_files` which is used
     internally for the actual merging.
     """
-    abspath = lambda path: os.path.abspath(os.path.expandvars(os.path.expanduser(path)))
+    abspath = lambda path: os.path.abspath(os.path.expandvars(os.path.expanduser(str(path))))
 
     # ensure inputs are targets
     inputs = [
-        LocalFileTarget(abspath(inp)) if isinstance(inp, six.string_types) else inp
+        inp if isinstance(inp, FileSystemFileTarget) else LocalFileTarget(abspath(inp))
         for inp in inputs
     ]
 
     # ensure output is a target
-    if isinstance(output, six.string_types):
+    if not isinstance(output, FileSystemFileTarget):
         output = LocalFileTarget(abspath(output))
 
     def merge(inputs, output):

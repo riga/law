@@ -313,7 +313,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         """
         extra = {}
         if log:
-            extra["log"] = log
+            extra["log"] = str(log)
         return extra
 
     @property

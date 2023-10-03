@@ -11,6 +11,7 @@ import os
 
 import six
 
+from law.target.file import FileSystemFileTarget
 from law.target.local import LocalFileTarget, LocalDirectoryTarget
 from law.util import map_verbose, make_list, interruptable_popen, human_bytes, quote_cmd
 
@@ -57,16 +58,20 @@ def hadd_task(task, inputs, output, cwd=None, local=False, force=True, hadd_args
     localized. When *force* is *True*, any existing output file is overwritten. *hadd_args* can be a
     sequence of additional arguments that are added to the hadd command.
     """
-    abspath = lambda path: os.path.abspath(os.path.expandvars(os.path.expanduser(path)))
+    abspath = lambda path: os.path.abspath(os.path.expandvars(os.path.expanduser(str(path))))
 
     # ensure inputs are targets
+    inputs = [
+        inp if isinstance(inp, FileSystemFileTarget) else LocalFileTarget(abspath(inp))
+        for inp in inputs
+    ]
     inputs = [
         LocalFileTarget(abspath(inp)) if isinstance(inp, six.string_types) else inp
         for inp in inputs
     ]
 
     # ensure output is a target
-    if isinstance(output, six.string_types):
+    if not isinstance(output, FileSystemFileTarget):
         output = LocalFileTarget(abspath(output))
 
     # default cwd

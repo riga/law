@@ -152,10 +152,10 @@ class Sandbox(six.with_metaclass(ABCMeta, object)):
         if task and not isinstance(task, SandboxTask):
             raise TypeError("sandbox task must be a SandboxTask instance, got {}".format(task))
 
-        self.name = name
+        self.name = str(name)
         self.task = task
         self.env_cache_path = (
-            os.path.abspath(os.path.expandvars(os.path.expanduser(env_cache_path)))
+            os.path.abspath(os.path.expandvars(os.path.expanduser(str(env_cache_path))))
             if env_cache_path
             else None
         )
@@ -289,9 +289,9 @@ class Sandbox(six.with_metaclass(ABCMeta, object)):
             return vol
 
         if bin_dir:
-            vol = replace(vol, "BIN", bin_dir)
+            vol = replace(vol, "BIN", str(bin_dir))
         if python_dir:
-            vol = replace(vol, "PY", python_dir)
+            vol = replace(vol, "PY", str(python_dir))
 
         return vol
 
@@ -692,6 +692,6 @@ def create_staged_target_struct(stage_dir, struct):
 
 def create_staged_target(stage_dir, target):
     if not isinstance(stage_dir, LocalDirectoryTarget):
-        stage_dir = LocalDirectoryTarget(stage_dir)
+        stage_dir = LocalDirectoryTarget(str(stage_dir))
 
     return stage_dir.child(target.unique_basename, type=target.type, **target._copy_kwargs())

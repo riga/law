@@ -50,8 +50,10 @@ class SingularitySandbox(Sandbox):
                 )
 
         # load the env when the cache file is configured and existing
-        if self.env_cache_path and self.env_cache_path:
-            return load_env(LocalFileTarget(self.env_cache_path))
+        if self.env_cache_path:
+            env_cache_target = LocalFileTarget(self.env_cache_path)
+            if env_cache_target.exists():
+                return load_env(env_cache_target)
 
         # create tmp dir and file
         tmp_dir = LocalDirectoryTarget(is_tmp=True)
@@ -101,7 +103,7 @@ class SingularitySandbox(Sandbox):
 
         # copy to the cache path when configured
         if self.env_cache_path:
-            tmp.copy_to_local(self.env_cache_path)
+            tmp.copy_to_local(env_cache_target)
 
         # load the env
         env = load_env(tmp)

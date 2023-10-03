@@ -25,6 +25,7 @@ from law.config import Config
 from law.sandbox.base import Sandbox
 from law.job.base import BaseJobManager, BaseJobFileFactory, JobInputFile, DeprecatedInputFiles
 from law.job.dashboard import BaseJobDashboard
+from law.target.file import get_path
 from law.util import (
     DotDict, interruptable_popen, make_list, make_unique, quote_cmd, no_value, rel_path,
 )
@@ -143,7 +144,7 @@ class CrabJobManager(BaseJobManager):
             instance = self.instance
 
         # get the job file location as the submission command is run it the same directory
-        job_file_dir, job_file_name = os.path.split(os.path.abspath(job_file))
+        job_file_dir, job_file_name = os.path.split(os.path.abspath(str(job_file)))
 
         # define the actual submission in a loop to simplify retries
         while True:
@@ -226,7 +227,7 @@ class CrabJobManager(BaseJobManager):
             job_ids = self._job_ids_from_proj_dir(proj_dir)
 
         # build the command
-        cmd = ["crab", "kill", "--dir", proj_dir]
+        cmd = ["crab", "kill", "--dir", str(proj_dir)]
         if proxy:
             cmd += ["--proxy", proxy]
         if instance:
@@ -254,6 +255,7 @@ class CrabJobManager(BaseJobManager):
             job_ids = self._job_ids_from_proj_dir(proj_dir)
 
         # just delete the project directory
+        proj_dir = str(proj_dir)
         if os.path.isdir(proj_dir):
             shutil.rmtree(proj_dir)
 
@@ -261,6 +263,7 @@ class CrabJobManager(BaseJobManager):
 
     def query(self, proj_dir, job_ids=None, proxy=None, instance=None, myproxy_username=None,
             skip_transfers=None, silent=False):
+        proj_dir = str(proj_dir)
         log_data = self._parse_log_file(os.path.join(proj_dir, "crab.log"))
         if job_ids is None:
             job_ids = self._job_ids_from_proj_dir(proj_dir, log_data=log_data)
@@ -411,6 +414,7 @@ class CrabJobManager(BaseJobManager):
         work_area = None
         request_name = None
 
+        job_file = str(job_file)
         with open(job_file, "r") as f:
             # fast approach: parse the job file
             for line in f.readlines():
@@ -457,7 +461,7 @@ print(join(cfg.General.workArea, "crab_" + cfg.General.requestName))'""".format(
 
     @classmethod
     def _parse_log_file(cls, log_file):
-        log_file = os.path.expandvars(os.path.expanduser(log_file))
+        log_file = os.path.expandvars(os.path.expanduser(str(log_file)))
         if not os.path.exists(log_file):
             return None
 
@@ -481,6 +485,7 @@ print(join(cfg.General.workArea, "crab_" + cfg.General.requestName))'""".format(
     @classmethod
     def _job_ids_from_proj_dir(cls, proj_dir, log_data=None):
         # read log data
+        proj_dir = str(proj_dir)
         if not log_data:
             log_data = cls._parse_log_file(os.path.join(proj_dir, "crab.log"))
         if not log_data or "n_jobs" not in log_data or "task_name" not in log_data:
@@ -634,6 +639,7 @@ class CrabJobFileFactory(BaseJobFileFactory):
         for attr in ["custom_log_file"]:
             if c[attr] and c[attr] not in c.output_files:
                 c.output_files.append(c[attr])
+        c.output_files = list(map(str, c.output_files))
 
         # ensure that all input files are JobInputFile's
         c.input_files = {
@@ -643,7 +649,11 @@ class CrabJobFileFactory(BaseJobFileFactory):
 
         # ensure that the executable is an input file, remember the key to access it
         if c.executable:
-            executable_keys = [k for k, v in c.input_files.items() if v == c.executable]
+            executable_keys = [
+                k
+                for k, v in c.input_files.items()
+                if get_path(v) == get_path(c.executable)
+            ]
             if executable_keys:
                 executable_key = executable_keys[0]
             else:
@@ -720,7 +730,7 @@ class CrabJobFileFactory(BaseJobFileFactory):
         render_variables = self.linearize_render_variables(c.render_variables)
 
         # prepare the job file
-        job_file = self.postfix_input_file(os.path.join(c.dir, c.file_name))
+        job_file = self.postfix_input_file(os.path.join(c.dir, str(c.file_name)))
 
         # render copied input files
         for key, f in c.input_files.items():
@@ -734,17 +744,18 @@ class CrabJobFileFactory(BaseJobFileFactory):
 
         # prepare the executable when given
         if c.executable:
-            c.executable = c.input_files[executable_key].path_job_post_render
+            c.executable = get_path(c.input_files[executable_key].path_job_post_render)
             # make the file executable for the user and group
             path = os.path.join(c.dir, os.path.basename(c.executable))
             if os.path.exists(path):
                 os.chmod(path, os.stat(path).st_mode | stat.S_IXUSR | stat.S_IXGRP)
 
         # resolve work_area relative to self.dir
-        if not c.work_area:
-            c.work_area = self.dir
+        if c.work_area:
+            work_area = os.path.expandvars(os.path.expanduser(str(c.work_area)))
+            c.work_area = os.path.join(self.dir, work_area)
         else:
-            c.work_area = os.path.join(self.dir, os.path.expandvars(os.path.expanduser(c.work_area)))
+            c.work_area = self.dir
 
         # General
         c.crab.General.requestName = c.request_name

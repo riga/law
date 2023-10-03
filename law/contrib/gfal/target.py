@@ -270,6 +270,7 @@ class GFALFileInterface(RemoteFileInterface):
 
         # the directory is not empty, so there is no other way than deleting contents recursively
         # first, and then removing the directory itself
+        path = str(path)
         for elem in self.listdir(path, base=base, retries=0):
             self.remove(os.path.join(path, elem), base=base, silent=silent, retries=0)
 
@@ -363,7 +364,7 @@ class GFALOperationError(RetryException):
 
     def __init__(self, uri, exc=None):
         # store uri and scheme
-        self.uri = uri
+        self.uri = str(uri)
         self.scheme = get_scheme(uri)
 
         # get the original error objects and find the error reason
@@ -561,8 +562,8 @@ class GFALError_filecopy(GFALOperationError):
 
     def __init__(self, src_uri, dst_uri, exc=None):
         # store uri and scheme
-        self.src_uri = src_uri
-        self.dst_uri = dst_uri
+        self.src_uri = str(src_uri)
+        self.dst_uri = str(dst_uri)
         self.src_scheme = get_scheme(src_uri)
         self.dst_scheme = get_scheme(dst_uri)
 
@@ -691,8 +692,8 @@ class GFALError_filecopy(GFALOperationError):
         elif (src_scheme, dst_scheme) in (("dav", "root"), ("davs", "root")):
             # it appears that there is a bug in gfal when copying via davix to xrootd in that
             # the full dst path is repeated, e.g. "root://url.tld:1090/pnfs/.../root://url..."
-            # which causes weird behavior, and until this issue persists, there should be no error
-            # parsing in law
+            # which causes weird behavior, and as long as this issue persists, there should be no
+            # error parsing in law
             pass
 
         elif (src_scheme, dst_scheme) in (("dav", "srm"), ("davs", "srm")):

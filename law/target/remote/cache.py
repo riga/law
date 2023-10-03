@@ -101,7 +101,7 @@ class RemoteCache(object):
         name = "{}_{}".format(fs.__class__.__name__, create_hash(fs.base[0]))
 
         # create the root dir, handle tmp
-        root = os.path.expandvars(os.path.expanduser(root)) or self.TMP
+        root = os.path.expandvars(os.path.expanduser(str(root))) or self.TMP
         if not os.path.exists(root) and root == self.TMP:
             cfg = Config.instance()
             tmp_dir = cfg.get_expanded("target", "tmp_dir")
@@ -163,11 +163,12 @@ class RemoteCache(object):
         logger.debug("cleanup RemoteCache at '{}'".format(self.base))
 
     def cache_path(self, rpath):
+        rpath = str(rpath)
         basename = "{}_{}".format(create_hash(rpath), os.path.basename(rpath))
         return os.path.join(self.base, basename)
 
     def _lock_path(self, cpath):
-        return cpath + self.lock_postfix
+        return str(cpath) + self.lock_postfix
 
     def is_locked_global(self):
         return os.path.exists(self._global_lock_path)
@@ -208,6 +209,7 @@ class RemoteCache(object):
         return True
 
     def _await(self, cpath, delay=None, max_waits=None, silent=False, global_lock=None):
+        cpath = str(cpath)
         delay = delay if delay is not None else self.wait_delay
         max_waits = max_waits if max_waits is not None else self.max_waits
         _max_waits = max_waits
@@ -253,6 +255,7 @@ class RemoteCache(object):
 
     @contextmanager
     def _lock(self, cpath, **kwargs):
+        cpath = str(cpath)
         lock_path = self._lock_path(cpath)
 
         self._await(cpath, **kwargs)
@@ -329,6 +332,7 @@ class RemoteCache(object):
         return False
 
     def _touch(self, cpath, times=None):
+        cpath = str(cpath)
         if os.path.exists(cpath):
             if user_owns_file(cpath):
                 os.chmod(cpath, self.file_perm)
@@ -338,7 +342,7 @@ class RemoteCache(object):
         self._touch(self.cache_path(rpath), times=times)
 
     def _mtime(self, cpath):
-        return os.stat(cpath).st_mtime
+        return os.stat(str(cpath)).st_mtime
 
     def mtime(self, rpath):
         return self._mtime(self.cache_path(rpath))
@@ -352,7 +356,7 @@ class RemoteCache(object):
     def _remove(self, cpath, lock=True):
         def remove():
             try:
-                os.remove(cpath)
+                os.remove(str(cpath))
             except OSError:
                 pass
 

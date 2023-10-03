@@ -149,7 +149,7 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
         # determine the custom log file uri if set
         abs_log_file = None
         if c.custom_log_file:
-            abs_log_file = os.path.join(c.output_uri, c.custom_log_file)
+            abs_log_file = os.path.join(str(c.output_uri), c.custom_log_file)
 
         # return job and log files
         return {"job": job_file, "config": c, "log": abs_log_file}
