@@ -88,6 +88,17 @@ class StageInfo(object):
 
 
 class Sandbox(six.with_metaclass(ABCMeta, object)):
+    """
+    Sandbox definition.
+
+    The config section used by instances if this or inheriting classes constructed using
+    :py:attr:`config_section_prefix` followed by ``"_sandbox"`` and optional postifxes. The minimal
+    set of options in the main section are:
+
+        - ``"stagein_dir_name"`` (usually ``"stagein"``)
+        - ``"stageout_dir_name"`` (usually ``"stageout"``)
+        - ``"law_executable"`` (usually ``"law"``)
+    """
 
     delimiter = "::"
 
@@ -179,6 +190,10 @@ class Sandbox(six.with_metaclass(ABCMeta, object)):
         return False
 
     @abstractproperty
+    def config_section_prefix(self):
+        return
+
+    @abstractproperty
     def env_cache_key(self):
         return
 
@@ -218,7 +233,7 @@ class Sandbox(six.with_metaclass(ABCMeta, object)):
         return self.name
 
     def get_config_section(self, postfix=None):
-        section = self.sandbox_type + "_sandbox"
+        section = self.config_section_prefix + "_sandbox"
         if postfix:
             section += "_" + postfix
 

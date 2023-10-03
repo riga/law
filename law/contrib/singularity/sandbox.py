@@ -24,6 +24,8 @@ class SingularitySandbox(Sandbox):
 
     sandbox_type = "singularity"
 
+    config_section_prefix = sandbox_type
+
     @property
     def image(self):
         return self.name

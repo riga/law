@@ -354,16 +354,16 @@ class Config(ConfigParser):
             skip_luigi_sync=True)
         self.update(p._sections, *args, **kwargs)
 
-    def get_default(self, section, option, default=None, type=None, expand_vars=False,
+    def get_default(self, section, option, default=no_value, type=None, expand_vars=False,
             expand_user=False, split_csv=False, dereference=True, default_when_none=True,
             _skip_refs=None):
-        """ get_default(section, option, default=None, type=None, expand_vars=False, expand_user=False, split_csv=False, dereference=True, default_when_none=True)
+        """ get_default(section, option, default=no_value, type=None, expand_vars=False, expand_user=False, split_csv=False, dereference=True, default_when_none=True)
         Returns the config value defined by *section* and *option*. When either the section or the
-        option does not exist, the *default* value is returned instead. When *type* is set, it must
-        be either `"str"`, `"int"`, `"float"`, or `"boolean"`. When *expand_vars* is *True*,
-        environment variables are expanded. When *expand_user* is *True*, user variables are
-        expanded as well. Sequences of values can be identified, split by comma and returned as a
-        list when *split_csv* is *True*, which will also trigger brace expansion.
+        option do not exist and a *default* value is provided, this value returned instead. When
+        *type* is set, it must be either `"str"`, `"int"`, `"float"`, or `"boolean"`. When
+        *expand_vars* is *True*, environment variables are expanded. When *expand_user* is *True*,
+        user variables are expanded as well. Sequences of values can be identified, split by comma
+        and returned as a list when *split_csv* is *True*, which will also trigger brace expansion.
 
         Also, options retrieved by this method are allowed to refer to values of other options
         within the config, even to those in other sections. The syntax for config references is
@@ -382,11 +382,12 @@ class Config(ConfigParser):
         This behavior is the default and, if desired, can be disabled by setting *dereference* to
         *False*. When the reference is not resolvable, the default value is returned.
 
-        When *default_when_none* is *True* and the option was found but its value is *None* or
-        ``"None"`` (case-insensitive), the *default* is returned.
+        When *default_when_none* is *True*, a *default* value is provided, and the option was found
+        but its value is *None* or ``"None"`` (case-insensitive), the *default* is returned.
         """  # noqa
         # return the default when either the section or the option does not exist
-        if not self.has_section(section) or not self.has_option(section, option):
+        default_set = default != no_value
+        if (not self.has_section(section) or not self.has_option(section, option)) and default_set:
             return default
 
         # get the value
@@ -418,10 +419,10 @@ class Config(ConfigParser):
                         default_when_none=default_when_none, _skip_refs=_skip_refs)
 
         # interpret None and "None" as missing?
-        if default_when_none:
+        if default_when_none and default_set:
             if value is None:
                 return default
-            elif isinstance(value, six.string_types) and value.lower() == "none":
+            if isinstance(value, six.string_types) and value.lower() == "none":
                 return default
 
         # helper for optional type conversion

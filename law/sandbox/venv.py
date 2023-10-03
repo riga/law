@@ -20,6 +20,8 @@ class VenvSandbox(Sandbox):
 
     sandbox_type = "venv"
 
+    config_section_prefix = sandbox_type
+
     @property
     def venv_dir(self):
         return os.path.expandvars(os.path.expanduser(self.name))

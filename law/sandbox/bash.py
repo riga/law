@@ -21,6 +21,8 @@ class BashSandbox(Sandbox):
 
     sandbox_type = "bash"
 
+    config_section_prefix = sandbox_type
+
     @property
     def script(self):
         return os.path.expandvars(os.path.expanduser(self.name))

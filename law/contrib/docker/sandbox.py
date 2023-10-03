@@ -27,6 +27,8 @@ class DockerSandbox(Sandbox):
 
     sandbox_type = "docker"
 
+    config_section_prefix = sandbox_type
+
     @property
     def image(self):
         return self.name

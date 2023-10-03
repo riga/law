@@ -48,10 +48,10 @@
 ; information. The law home directory defaults to "$LAW_HOME" or "$HOME/.law".
 
 ; --- Configuration file resolution order ----------------------------------------------------------
-; Law configuration files (like the one you are just reading) are looked up in a certain order:
-; $LAW_CONFIG_FILE, ./law.cfg, "config" in the law home directory, or "etc/law/config". The config
-; parser only reads the first existing file. Please also note the optional synchronization with
-; environment variables described below.
+; Law configuration files are looked up in a certain order: "$LAW_CONFIG_FILE", "./law.cfg",
+; "config" in the law home directory, or "etc/law/config". The config parser only reads the first
+; existing file. Please also note the optional synchronization with environment variables described
+; below.
 
 ; --- Inheritance and extensions -------------------------------------------------------------------
 ; The law configuration can inherit from or can be extended by additional configuration files. See
@@ -1043,7 +1043,7 @@
 ; Note:
 ; Here you can define environment variables via key-value pairs that are accessible in a bash
 ; sandbox. When an option has no value, i.e., when only a key is given, the value of the variable of
-; the current environment is used.
+; the host environment is used.
 ; The environment variables defined in this section are applied to all bash sandboxes. To configure
 ; variables per bash initialization file, create a section "bash_sandbox_env_<init_file>" with the
 ; desired values.
@@ -1087,7 +1087,7 @@
 ; Note:
 ; Here you can define environment variables via key-value pairs that are accessible in a venv
 ; sandbox. When an option has no value, i.e., when only a key is given, the value of the variable of
-; the current environment is used.
+; the host environment is used.
 ; The environment variables defined in this section are applied to all venv sandboxes. To configure
 ; variables per venv directory, create a section "venv_sandbox_env_<venv_dir>" with the desired
 ; values.
@@ -1160,7 +1160,7 @@
 ; Note:
 ; Here you can define environment variables via key-value pairs that are accessible in a docker
 ; sandbox. When an option has no value, i.e., when only a key is given, the value of the variable of
-; the current environment is used.
+; the host environment is used.
 ; The environment variables defined in this section are applied to all docker sandboxes. To
 ; configure variables per image, create a section "docker_sandbox_env_<image_name>" with the desired
 ; values.
@@ -1255,7 +1255,7 @@
 ; Note:
 ; Here you can define environment variables via key-value pairs that are accessible in a singularity
 ; sandbox. When an option has no value, i.e., when only a key is given, the value of the variable of
-; the current environment is used.
+; the host environment is used.
 ; The environment variables defined in this section are applied to all singularity sandboxes. To
 ; configure variables per image, create a section "singularity_sandbox_env_<image_name>" with the
 ; desired values.
@@ -1316,7 +1316,7 @@
 ; Note:
 ; Here you can define environment variables via key-value pairs that are accessible in a cmssw
 ; sandbox. When an option has no value, i.e., when only a key is given, the value of the variable of
-; the current environment is used.
+; the host environment is used.
 ; The environment variables defined in this section are applied to all cmssw sandboxes. To
 ; configure variables per cmssw version, create a section "cmssw_sandbox_env_<cmssw_version>" with
 ; the desired values.

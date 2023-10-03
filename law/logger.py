@@ -105,7 +105,7 @@ def setup_logger(logger, level=None, add_console_handler=None, clear=False, forc
     # sanitize the level
     if level is None:
         from law.config import Config
-        level = Config.instance().get_expanded("logging", name)
+        level = Config.instance().get_expanded("logging", name, None)
     if isinstance(level, six.string_types):
         level = getattr(logging, level.upper(), None)
     if level is None:
