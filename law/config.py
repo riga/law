@@ -27,6 +27,8 @@ from law.util import no_value, brace_expand, str_to_int, merge_dicts, is_lazy_it
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
 
+_set = set
+
 
 def law_home_path(*paths):
     home = os.getenv("LAW_HOME") or os.path.expandvars(os.path.expanduser("$HOME/.law"))
@@ -238,7 +240,7 @@ class Config(ConfigParser):
                     "INFO: the 'core.extend_configs' option is deprecated and will be removed in a "
                     "future release of law; please use 'core.extend' instead",
                 )
-            include_configs(self.get_expanded("core", opt))
+            include_configs(self.get_expanded("core", opt, None))
 
         # sync with environment variables
         if not skip_env_sync and self.get_expanded_bool("core", "sync_env"):
@@ -326,7 +328,7 @@ class Config(ConfigParser):
         """
         # serialize the value to a string representation
         if value is not None:
-            if isinstance(value, (list, tuple, set)) or is_lazy_iterable(value):
+            if isinstance(value, (list, tuple, _set)) or is_lazy_iterable(value):
                 value = ",".join(map(str, value))
             else:
                 value = str(value)
@@ -510,7 +512,7 @@ class Config(ConfigParser):
         value = self.get_expanded(section, option, default=no_value)
         if isinstance(value, six.string_types):
             value = value.lower()
-        return value in ("none", no_value)
+        return value in ("none", None, no_value)
 
     def find_option(self, section, *options):
         """

@@ -51,7 +51,7 @@ class RemoteFileInterface(six.with_metaclass(abc.ABCMeta, object)):
 
         def get_expanded_list(section, option):
             # get config value, run brace expansion taking into account csv splitting
-            value = cfg.get_expanded(section, option)
+            value = cfg.get_expanded(section, option, None)
             return value and [v.strip() for v in brace_expand(value.strip(), split_csv=True)]
 
         def get_time(section, option):

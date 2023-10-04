@@ -57,9 +57,9 @@ if _sandbox_switched:
         raise Exception("LAW_SANDBOX must not be empty in a sandbox")
     if not _sandbox_task_id:
         raise Exception("LAW_SANDBOX_TASK_ID must not be empty in a sandbox")
-    elif not _sandbox_worker_id:
+    if not _sandbox_worker_id:
         raise Exception("LAW_SANDBOX_WORKER_ID must not be empty in a sandbox")
-    elif not _sandbox_worker_first_task_id:
+    if not _sandbox_worker_first_task_id:
         raise Exception("LAW_SANDBOX_WORKER_FIRST_TASK_ID must not be empty in a sandbox")
 
 

@@ -57,7 +57,11 @@ class ProxyCommand(object):
             exclude_task_args=exclude_task_args,
             exclude_global_args=exclude_global_args,
         )
-        self.executable = shlex.split(str(executable)) if executable else None
+        self.executable = None
+        if isinstance(executable, (list, tuple)):
+            self.executable = list(executable)
+        elif executable:
+            self.executable = shlex.split(str(executable))
 
     def load_args(self, exclude_task_args=None, exclude_global_args=None):
         args = []
@@ -86,7 +90,11 @@ class ProxyCommand(object):
         self.args.append((key, value))
 
     def build_run_cmd(self, executable=None):
-        exe = shlex.split(str(executable)) if executable else self.executable
+        exe = self.executable
+        if isinstance(executable, (list, tuple)):
+            exe = list(executable)
+        elif executable:
+            exe = shlex.split(str(executable))
         return exe + ["run", "{}.{}".format(self.task.__module__, self.task.__class__.__name__)]
 
     def build(self, skip_run=False, executable=None):
