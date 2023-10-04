@@ -260,9 +260,10 @@
 ; Default: "$LAW_TARGET_TMP_DIR", "tempfile.gettempdir()"
 
 ; tmp_dir_perm
-; Description: When the tmp_dir does not exist, it is created with this permission. The value can be
-; expressed by an octal number.
-; Type: integer
+; Description: When the tmp_dir does not exist, it is created with this permission. When "None" or
+; when "has_permissions" is "False", the current umask is used. The value can be expressed by an
+; octal number.
+; Type: integer, None
 ; Default: 0o0770
 
 
@@ -303,17 +304,16 @@
 ; Default: True
 
 ; default_file_perm
-; Description: The default permission of newly created files. When "None" or empty, or when
-; "has_permissions" is "False", the current umask is used. The value can be expressed by an octal
-; number.
-; Type: integer
+; Description: The default permission of newly created files. When "None", or when "has_permissions"
+; is "False", the current umask is used. The value can be expressed by an octal number.
+; Type: integer, None
 ; Default: None
 
 ; default_dir_perm
-; Description: The default permission of newly created directories. When "None" or empty, or when
+; Description: The default permission of newly created directories. When "None" or when
 ; "has_permissions" is "False", the current umask is used. The value can be expressed by an octal
 ; number.
-; Type: integer
+; Type: integer, None
 ; Default: None
 
 ; create_file_dir
@@ -340,17 +340,16 @@
 ; Default: True
 
 ; default_file_perm
-; Description: The default permission of newly created files. When "None" or empty, or when
-; "has_permissions" is "False", the current umask is used. The value can be expressed by an octal
-; number.
-; Type: integer
+; Description: The default permission of newly created files. When "None" or when "has_permissions"
+; is "False", the current umask is used. The value can be expressed by an octal number.
+; Type: integer, None
 ; Default: None
 
 ; default_dir_perm
-; Description: The default permission of newly created directories. When "None" or empty, or when
+; Description: The default permission of newly created directories. When "None" or when
 ; "has_permissions" is "False", the current umask is used. The value can be expressed by an octal
 ; number.
-; Type: integer
+; Type: integer, None
 ; Default: None
 
 ; create_file_dir

@@ -22,7 +22,7 @@ import luigi
 import six
 from six.moves.configparser import ConfigParser
 
-from law.util import no_value, brace_expand, str_to_int, merge_dicts
+from law.util import no_value, brace_expand, str_to_int, merge_dicts, is_lazy_iterable
 
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
@@ -222,7 +222,7 @@ class Config(ConfigParser):
                     "INFO: the 'core.inherit_configs' option is deprecated and will be removed in a "
                     "future release of law; please use 'core.inherit' instead",
                 )
-            include_configs(c.get_expanded("core", opt))
+            include_configs(c.get_expanded("core", opt, None))
 
         # load the actual config file if given
         if self.config_file:
@@ -320,6 +320,19 @@ class Config(ConfigParser):
             for opt in options
         ]
 
+    def set(self, section, option, value=None):
+        """
+        Sets an *option* of an existing *section* to *value*. When *value* is *None*.
+        """
+        # serialize the value to a string representation
+        if value is not None:
+            if isinstance(value, (list, tuple, set)) or is_lazy_iterable(value):
+                value = ",".join(map(str, value))
+            else:
+                value = str(value)
+
+        return ConfigParser.set(self, section, option, value)
+
     def update(self, data, overwrite=True, overwrite_sections=None, overwrite_options=None):
         """
         Updates the currently stored configuration with new *data*, given as a dictionary. When
@@ -342,8 +355,8 @@ class Config(ConfigParser):
 
             for option, value in six.iteritems(_data):
                 # set the option when overwriting anyway, or when it does not exist
-                if overwrite_options or not self.has_option(section, option):
-                    self.set(section, option, str(value))
+                if not self.has_option(section, option) or overwrite_options:
+                    self.set(section, option, value)
 
     def include(self, filename, *args, **kwargs):
         """

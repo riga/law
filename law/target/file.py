@@ -14,6 +14,7 @@ import os
 import sys
 import re
 from abc import abstractmethod, abstractproperty
+from functools import partial
 from contextlib import contextmanager
 
 from law.config import Config
@@ -38,9 +39,10 @@ class FileSystem(shims.FileSystem):
                 config[option] = func(section, option)
 
         # read configs
+        int_or_none = partial(cfg.get_expanded_int, default=None)
         add("has_permissions", cfg.get_expanded_bool)
-        add("default_file_perm", cfg.get_expanded_int)
-        add("default_dir_perm", cfg.get_expanded_int)
+        add("default_file_perm", int_or_none)
+        add("default_dir_perm", int_or_none)
         add("create_file_dir", cfg.get_expanded_bool)
 
         return config
