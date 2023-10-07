@@ -23,6 +23,6 @@ Class ``BaseWorkflowProxy``
 Functions
 ---------
 
-.. autofunction:: workflow_property
+.. autofunction:: dynamic_workflow_condition
 
-.. autofunction:: cached_workflow_property
+.. autofunction:: workflow_property

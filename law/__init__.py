@@ -5,6 +5,7 @@ __all__ = [
     "Register", "Task", "WrapperTask", "ExternalTask",
     "SandboxTask",
     "BaseWorkflow", "WorkflowParameter", "LocalWorkflow", "workflow_property",
+    "dynamic_workflow_condition",
     "FileSystemTarget", "FileSystemFileTarget", "FileSystemDirectoryTarget",
     "LocalFileSystem", "LocalTarget", "LocalFileTarget", "LocalDirectoryTarget",
     "TargetCollection", "FileCollection", "SiblingFileCollection", "NestedSiblingFileCollection",
@@ -76,7 +77,9 @@ from law.target.collection import (
 )
 import law.decorator
 from law.task.base import Register, Task, WrapperTask, ExternalTask
-from law.workflow.base import BaseWorkflow, WorkflowParameter, workflow_property
+from law.workflow.base import (
+    BaseWorkflow, WorkflowParameter, workflow_property, dynamic_workflow_condition,
+)
 from law.workflow.local import LocalWorkflow
 from law.sandbox.base import Sandbox, SandboxTask
 from law.sandbox.bash import BashSandbox
