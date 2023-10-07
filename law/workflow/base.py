@@ -244,7 +244,7 @@ class dynamic_workflow_condition(object):
 
     Example:
 
-    :: code-block:: python
+    .. code-block:: python
 
         class MyWorkflow(law.LocalWorkflow):
 
