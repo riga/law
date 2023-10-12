@@ -75,7 +75,6 @@ law_job() {
     echo "${_law_job_start_time}"
 
 
-
     #
     # store arguments
     #
