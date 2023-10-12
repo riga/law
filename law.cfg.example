@@ -68,7 +68,8 @@
 
 ; --- Environment variable expansion ---------------------------------------------------------------
 ; Configuration values that contain environment variables are automatically expanded by most getters
-; of the law configuration parser, such as "get_expanded", "get_expanded_int", etc.
+; of the law configuration parser, such as "get_expanded", "get_expanded_int", etc. If desired, you
+; can avoid this expanion by backslash-escaping characters such as "$" or "~" to "\$" or "\~".
 
 ; --- The "None" value -----------------------------------------------------------------------------
 ; Getters of the law configuration parser such as "get_default", get_expanded", "get_expanded_int",
@@ -1042,7 +1043,8 @@
 ; Note:
 ; Here you can define environment variables via key-value pairs that are accessible in a bash
 ; sandbox. When an option has no value, i.e., when only a key is given, the value of the variable of
-; the host environment is used.
+; the host environment is used. Also note that, unless escaped with a blackslach, "$" and "~" are
+; expanded with variables of the outer task environment.
 ; The environment variables defined in this section are applied to all bash sandboxes. To configure
 ; variables per bash initialization file, create a section "bash_sandbox_env_<init_file>" with the
 ; desired values.
@@ -1086,7 +1088,8 @@
 ; Note:
 ; Here you can define environment variables via key-value pairs that are accessible in a venv
 ; sandbox. When an option has no value, i.e., when only a key is given, the value of the variable of
-; the host environment is used.
+; the host environment is used. Also note that, unless escaped with a blackslach, "$" and "~" are
+; expanded with variables of the outer task environment.
 ; The environment variables defined in this section are applied to all venv sandboxes. To configure
 ; variables per venv directory, create a section "venv_sandbox_env_<venv_dir>" with the desired
 ; values.
@@ -1159,7 +1162,8 @@
 ; Note:
 ; Here you can define environment variables via key-value pairs that are accessible in a docker
 ; sandbox. When an option has no value, i.e., when only a key is given, the value of the variable of
-; the host environment is used.
+; the host environment is used. Also note that, unless escaped with a blackslach, "$" and "~" are
+; expanded with variables of the outer task environment.
 ; The environment variables defined in this section are applied to all docker sandboxes. To
 ; configure variables per image, create a section "docker_sandbox_env_<image_name>" with the desired
 ; values.
@@ -1254,7 +1258,8 @@
 ; Note:
 ; Here you can define environment variables via key-value pairs that are accessible in a singularity
 ; sandbox. When an option has no value, i.e., when only a key is given, the value of the variable of
-; the host environment is used.
+; the host environment is used. Also note that, unless escaped with a blackslach, "$" and "~" are
+; expanded with variables of the outer task environment.
 ; The environment variables defined in this section are applied to all singularity sandboxes. To
 ; configure variables per image, create a section "singularity_sandbox_env_<image_name>" with the
 ; desired values.
@@ -1315,7 +1320,8 @@
 ; Note:
 ; Here you can define environment variables via key-value pairs that are accessible in a cmssw
 ; sandbox. When an option has no value, i.e., when only a key is given, the value of the variable of
-; the host environment is used.
+; the host environment is used. Also note that, unless escaped with a blackslach, "$" and "~" are
+; expanded with variables of the outer task environment.
 ; The environment variables defined in this section are applied to all cmssw sandboxes. To
 ; configure variables per cmssw version, create a section "cmssw_sandbox_env_<cmssw_version>" with
 ; the desired values.

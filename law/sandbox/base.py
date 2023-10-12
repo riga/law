@@ -285,8 +285,8 @@ class Sandbox(six.with_metaclass(ABCMeta, object)):
         # extend by volumes from the config file
         cfg = Config.instance()
         section = self.get_config_section(postfix="volumes")
-        for hdir, cdir in cfg.items(section, expand_vars=False, expand_user=False):
-            volumes[os.path.expandvars(os.path.expanduser(hdir))] = cdir
+        for hdir, cdir in cfg.items(section):
+            volumes[hdir] = cdir
 
         # extend by volumes defined on task level
         if self.task:
@@ -314,8 +314,8 @@ class Sandbox(six.with_metaclass(ABCMeta, object)):
         # commands that are used to setup the env and actual run commands
         setup_cmds = []
 
-        for tpl in six.iteritems(env):
-            setup_cmds.append("export {}=\"{}\"".format(*tpl))
+        for key, value in env.items():
+            setup_cmds.append("export {}=\"{}\"".format(key, value))
 
         if self.task:
             setup_cmds.extend(self.task.sandbox_setup_cmds())
@@ -500,7 +500,7 @@ class SandboxProxy(ProxyTask):
 
         # log the command
         if cmd:
-            self.task.logger.debug("sandbox command:\n{}".format(cmd))
+            logger.debug("sandbox command:\n{}".format(cmd))
         sys.stdout.flush()
 
         try:

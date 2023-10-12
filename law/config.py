@@ -176,6 +176,22 @@ class Config(ConfigParser):
             return None
         return (m.group("section") or default_section, m.group("option"))
 
+    @classmethod
+    def _expand_path(cls, path, expand_vars=True, expand_user=True):
+        if expand_vars:
+            ph = "__law_tilde__"
+            path = path.replace(r"\~", ph)
+            path = os.path.expanduser(path)
+            path = path.replace(ph, "~")
+
+        if expand_user:
+            ph = "__law_dollar__"
+            path = path.replace(r"\$", ph)
+            path = os.path.expandvars(path)
+            path = path.replace(ph, "$")
+
+        return path
+
     def __init__(self, config_file="", skip_defaults=False, skip_fallbacks=False,
             skip_includes=False, skip_env_sync=False, skip_luigi_sync=False):
         ConfigParser.__init__(self, allow_no_value=True)
@@ -260,6 +276,7 @@ class Config(ConfigParser):
 
         if value.lower() not in self._boolean_states:
             raise ValueError("Not a boolean: {}".format(value))
+
         return self._boolean_states[value.lower()]
 
     def _get_type_converter(self, type, value):
@@ -267,16 +284,15 @@ class Config(ConfigParser):
             return str
         if type in (int, "int", "i"):
             return str_to_int
-        elif type in (float, "float", "f"):
+        if type in (float, "float", "f"):
             return float
-        elif type in (bool, "bool", "boolean", "b"):
+        if type in (bool, "bool", "boolean", "b"):
             if isinstance(value, six.string_types):
                 return self._convert_to_boolean
-            else:
-                return bool
-        else:
-            raise ValueError("unknown 'type' argument ({}), must be 'str', 'int', 'float', or "
-                "'bool'".format(type))
+            return bool
+
+        raise ValueError("unknown 'type' argument ({}), must be 'str', 'int', 'float', or "
+            "'bool'".format(type))
 
     def optionxform(self, option):
         """"""
@@ -292,10 +308,7 @@ class Config(ConfigParser):
         for option in ConfigParser.options(self, section):
             if prefix and not option.startswith(prefix):
                 continue
-            if expand_vars:
-                option = os.path.expandvars(option)
-            if expand_user:
-                option = os.path.expanduser(option)
+            option = self._expand_path(option, expand_vars=expand_vars, expand_user=expand_user)
             options.append(option)
         return options
 
@@ -412,10 +425,7 @@ class Config(ConfigParser):
         # (which should always be the case, but subclasses might overwrite get())
         if isinstance(value, six.string_types):
             # expand
-            if expand_vars:
-                value = os.path.expandvars(value)
-            if expand_user:
-                value = os.path.expanduser(value)
+            value = self._expand_path(value, expand_vars=expand_vars, expand_user=expand_user)
 
             # resolve references
             if dereference:
