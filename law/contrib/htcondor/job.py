@@ -300,10 +300,15 @@ class HTCondorJobManager(BaseJobManager):
             # get the exit code
             code = int(data.get("ExitCode") or data.get("ExitStatus") or "0")
 
-            # get the error message (if any)
-            error = data.get("HoldReason")
-            remove_error = data.get("RemoveReason")
-            if not error or (error.lower() == "undefined" and remove_error):
+            # get the error message, undefined counts as None
+            error = data.get("HoldReason", "undefined")
+            if error.lower() == "undefined":
+                error = None
+            remove_error = data.get("RemoveReason", "undefined")
+            if remove_error.lower() == "undefined":
+                remove_error = None
+            # prefer remove error
+            if remove_error:
                 error = remove_error
 
             # handle inconsistencies between status, code and the presence of an error message
