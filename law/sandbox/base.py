@@ -605,6 +605,8 @@ class SandboxTask(Task):
         return is_root and _sandbox_is_root_task
 
     def _staged_input(self):
+        from law.decorator import _is_patched_localized_method
+
         if not _sandbox_stagein_dir:
             raise Exception(
                 "LAW_SANDBOX_STAGEIN_DIR must not be empty in a sandbox when target "
@@ -612,15 +614,21 @@ class SandboxTask(Task):
             )
 
         # get the original inputs
-        inputs = self.__getattribute__("input", proxy=False)()
+        input_func = self.__getattribute__("input", proxy=False)
+        inputs = input_func()
 
-        # create the struct of staged inputs
+        # when input_func is a patched method from a localization decorator, just return the inputs
+        # since the decorator already triggered the stage-in
+        if _is_patched_localized_method(input_func):
+            return inputs
+
+        # create the struct of staged inputs and apply the stage-in mask
         staged_inputs = create_staged_target_struct(_sandbox_stagein_dir, inputs)
-
-        # apply the stage-in mask
         return mask_struct(self.sandbox_stagein(), staged_inputs, inputs)
 
     def _staged_output(self):
+        from law.decorator import _is_patched_localized_method
+
         if not _sandbox_stageout_dir:
             raise Exception(
                 "LAW_SANDBOX_STAGEOUT_DIR must not be empty in a sandbox when target "
@@ -628,12 +636,16 @@ class SandboxTask(Task):
             )
 
         # get the original outputs
-        outputs = self.__getattribute__("output", proxy=False)()
+        output_func = self.__getattribute__("output", proxy=False)
+        outputs = output_func()
 
-        # create the struct of staged outputs
+        # when output_func is a patched method from a localization decorator, just return the
+        # outputs since the decorator already triggered the stage-out
+        if _is_patched_localized_method(output_func):
+            return outputs
+
+        # create the struct of staged outputs and apply the stage-out mask
         staged_outputs = create_staged_target_struct(_sandbox_stageout_dir, outputs)
-
-        # apply the stage-out mask
         return mask_struct(self.sandbox_stageout(), staged_outputs, outputs)
 
     @property

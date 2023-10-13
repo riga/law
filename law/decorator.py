@@ -44,7 +44,7 @@ from law.target.file import localize_file_targets
 from law.target.local import LocalFileTarget
 from law.util import (
     no_value, uncolored, make_list, multi_match, human_duration, open_compat, join_generators,
-    TeeStream, perf_counter,
+    TeeStream, perf_counter, empty_context,
 )
 from law.logger import get_logger
 
@@ -486,44 +486,65 @@ def localize(fn, opts, task, *args, **kwargs):
     that are passed as keyword arguments to the respective localization method. Does **not** accept
     generator functions.
     """
-    # get actual input and outputs
-    input_struct = task.input() if opts["input"] else None
-    output_struct = task.output() if opts["output"] else None
-
     # store original input and output methods
-    input_orig = task.input
-    output_orig = task.output
+    input_orig = task.__getattribute__("input", proxy=False) if opts["input"] else None
+    output_orig = task.__getattribute__("output", proxy=False) if opts["output"] else None
 
-    # input and output kwargs
-    input_kwargs = opts["input_kwargs"] or {}
-    output_kwargs = opts["output_kwargs"] or {}
+    # wrap input context
+    input_context = empty_context
+    if opts["input"]:
+        def input_context():
+            input_struct = task.input()
+            input_kwargs = opts["input_kwargs"] or {}
+            input_kwargs.setdefault("mode", "r")
+            return localize_file_targets(input_struct, **input_kwargs)
 
-    # default modes
-    input_kwargs.setdefault("mode", "r")
-    output_kwargs.setdefault("mode", "w")
+    # wrap output context
+    output_context = empty_context
+    if opts["output"]:
+        def output_context():
+            output_struct = task.output()
+            output_kwargs = opts["output_kwargs"] or {}
+            output_kwargs.setdefault("mode", "w")
+            return localize_file_targets(output_struct, **output_kwargs)
 
     try:
-        # localize both target structs
-        with localize_file_targets(input_struct, **input_kwargs) as localized_inputs, \
-                localize_file_targets(output_struct, **output_kwargs) as localized_outputs:
+        # localize both target contexts
+        with input_context() as localized_inputs, output_context() as localized_outputs:
             # patch the input method to always return the localized inputs
             if opts["input"]:
                 def input_patched(self):
                     return localized_inputs
-                task.input = input_patched.__get__(task)
+
+                task.input = _patch_localized_method(task, input_patched)
 
             # patch the output method to always return the localized outputs
             if opts["output"]:
                 def output_patched(self):
                     return localized_outputs
-                task.output = output_patched.__get__(task)
+
+                task.output = _patch_localized_method(task, output_patched)
 
             return fn(task, *args, **kwargs)
 
     finally:
         # restore the methods
-        task.input = input_orig
-        task.output = output_orig
+        if input_orig is not None:
+            task.input = input_orig
+        if output_orig is not None:
+            task.output = output_orig
+
+
+def _patch_localized_method(task, func):
+    # add a flag to func
+    func._patched_localized_method = True
+
+    # bind to task
+    return func.__get__(task)
+
+
+def _is_patched_localized_method(func):
+    return getattr(func, "_patched_localized_method", False) is True
 
 
 @factory(sandbox=None, accept_generator=True)
