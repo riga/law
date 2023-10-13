@@ -354,9 +354,12 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 for b in branches
             )
 
-            # when the job is skipped, write a dummy entry into submission data
+            # when the job is skipped, ensure that a job data entry exists and set the status
             if self.skip_jobs[job_num]:
-                self.job_data.jobs[job_num] = self.job_data_cls.job_data(branches=branches)
+                if job_num not in self.job_data.jobs:
+                    self.job_data.jobs[job_num] = self.job_data_cls.job_data(branches=branches)
+                if not self.job_data.jobs[job_num]["status"]:
+                    self.job_data.jobs[job_num]["status"] = self.job_manager.FINISHED
 
         return self.skip_jobs[job_num]
 
