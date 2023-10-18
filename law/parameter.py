@@ -224,7 +224,8 @@ class BytesParameter(luigi.Parameter):
 
 class CSVParameter(luigi.Parameter):
     r""" __init__(*args, cls=luigi.Parameter, inst=None, unique=False, sort=False, min_len=None, \
-        max_len=None, choices=None, brace_expand=False, escape_sep=True, force_tuple=True, **kwargs)
+        max_len=None, choices=None, brace_expand=False, escape_sep=True, force_tuple=True, \
+        parse_empty=False, **kwargs)
     Parameter that parses a comma-separated value (CSV) and produces a tuple. *cls* (*inst*) can
     refer to an other parameter class (instance) that will be used to parse and serialize the
     particular items.
@@ -247,6 +248,10 @@ class CSVParameter(luigi.Parameter):
     However, when *force_tuple* is *False*, single values that do not end with a comma are not
     wrapped by a tuple. Likewise, during serialization they are converted to a string as is, whereas
     tuple containing only a single item will end with a trailing comma.
+
+    As per luigi's default behavior, passing empty strings on the command line for a parameter leads
+    to its default value and parsing is not triggered. When *parse_empty* is *True*, the parser is
+    still called and should implement a custom behavior.
 
     Example:
 
@@ -329,6 +334,7 @@ class CSVParameter(luigi.Parameter):
         self._brace_expand = kwargs.pop("brace_expand", False)
         self._escape_sep = kwargs.pop("escape_sep", True)
         self._force_tuple = kwargs.pop("force_tuple", True)
+        self.parse_empty = kwargs.pop("parse_empty", False)
 
         # ensure that the default value is a tuple
         if "default" in kwargs:
@@ -447,7 +453,8 @@ class CSVParameter(luigi.Parameter):
 
 class MultiCSVParameter(CSVParameter):
     r""" __init__(*args, cls=luigi.Parameter, inst=None, unique=False, sort=False, min_len=None, \
-        max_len=None, choices=None, brace_expand=False, escape_sep=True, force_tuple=True, **kwargs)
+        max_len=None, choices=None, brace_expand=False, escape_sep=True, force_tuple=True, \
+        parse_empty=False, **kwargs)
     Parameter that parses several comma-separated values (CSV), separated by colons, and produces a
     nested tuple. *cls* (*inst*) can refer to an other parameter class (instance) that will be used
     to parse and serialize the particular items.
@@ -461,6 +468,10 @@ class MultiCSVParameter(CSVParameter):
     be quoted in csv-style with double quotes, but they should rather be backslash-escaped instead.
     Unless *escape_sep* is *False*, escaped separators (colon) are not split when parsing strings
     and, likewise, separators contained in values to serialze are escaped.
+
+    As per luigi's default behavior, passing empty strings on the command line for a parameter leads
+    to its default value and parsing is not triggered. When *parse_empty* is *True*, the parser is
+    still called and should implement a custom behavior.
 
     Example:
 
@@ -554,7 +565,8 @@ class MultiCSVParameter(CSVParameter):
 
 
 class RangeParameter(luigi.Parameter):
-    """ __init__(*args, require_start=True, require_end=True, single_value=False, **kwargs)
+    """ __init__(*args, require_start=True, require_end=True, single_value=False, \
+        parse_empty=False, **kwargs)
     Parameter that parses a range in the format ``start:stop`` and returns a tuple with two integer
     elements.
 
@@ -564,6 +576,10 @@ class RangeParameter(luigi.Parameter):
 
     When *single_value* is *True*, single integer values are accepted and lead to a tuple with one
     element.
+
+    As per luigi's default behavior, passing empty strings on the command line for a parameter leads
+    to its default value and parsing is not triggered. When *parse_empty* is *True*, the parser is
+    still called and should implement a custom behavior.
 
     .. code-block:: python
 
@@ -616,6 +632,7 @@ class RangeParameter(luigi.Parameter):
         self._require_start = kwargs.pop("require_start", True)
         self._require_end = kwargs.pop("require_end", True)
         self._single_value = kwargs.pop("single_value", False)
+        self.parse_empty = kwargs.pop("parse_empty", False)
 
         # ensure that the default value is a tuple
         if "default" in kwargs:
@@ -682,14 +699,21 @@ class RangeParameter(luigi.Parameter):
 
 
 class MultiRangeParameter(RangeParameter):
-    """ __init__(*args, require_start=True, require_end=True, single_value=False, **kwargs)
+    """ __init__(*args, require_start=True, require_end=True, single_value=False, \
+        parse_empty=False, **kwargs)
     Parameter that parses several integer ranges (each in the format ``start-end``), separated by
     comma, and produces a nested tuple.
 
     Except for the additional support for multiple ranges, the parsing and serialization
     implementation is based on :py:class:`RangeParameter`, which also handles the control of open
     edges with *require_start* and *require_end*, and the acceptance of single integer values with
-    *single_value*. Example:
+    *single_value*.
+
+    As per luigi's default behavior, passing empty strings on the command line for a parameter leads
+    to its default value and parsing is not triggered. When *parse_empty* is *True*, the parser is
+    still called and should implement a custom behavior.
+
+    Example:
 
     .. code-block:: python
 

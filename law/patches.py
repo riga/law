@@ -279,7 +279,8 @@ def patch_luigi_run_result():
 def patch_cmdline_parser():
     """
     Patches the ``luigi.cmdline_parser.CmdlineParser`` to store the original command line arguments
-    for later processing in the :py:class:`law.config.Config`.
+    for later processing in the :py:class:`law.config.Config`, and to update the way that parameter
+    objects are called to parse empty strings.
     """
     __init__orig = luigi.cmdline_parser.CmdlineParser.__init__
 
@@ -289,8 +290,22 @@ def patch_cmdline_parser():
         self.cmdline_args = cmdline_args
 
     luigi.cmdline_parser.CmdlineParser.__init__ = __init__
-
     logger.debug("patched luigi.cmdline_parser.CmdlineParser.__init__")
+
+    _get_task_kwargs_orig = luigi.cmdline_parser.CmdlineParser._get_task_kwargs
+
+    @functools.wraps(_get_task_kwargs_orig)
+    def _get_task_kwargs(self):
+        res = {}
+        for (param_name, param_obj) in self._get_task_cls().get_params():
+            attr = getattr(self.known_args, param_name)
+            if attr or getattr(param_obj, "parse_empty", False):
+                res.update(((param_name, param_obj.parse(attr)),))
+
+        return res
+
+    luigi.cmdline_parser.CmdlineParser._get_task_kwargs = _get_task_kwargs
+    logger.debug("patched luigi.cmdline_parser.CmdlineParser._get_task_kwargs")
 
 
 def patch_interface_logging():
