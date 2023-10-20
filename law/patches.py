@@ -299,8 +299,14 @@ def patch_cmdline_parser():
         res = {}
         for (param_name, param_obj) in self._get_task_cls().get_params():
             attr = getattr(self.known_args, param_name)
-            if attr or getattr(param_obj, "parse_empty", False):
-                res.update(((param_name, param_obj.parse(attr)),))
+            # always skip None
+            if attr is None:
+                continue
+            # skip other empty values unless the parameter has parse_empty set
+            if not attr and not getattr(param_obj, "parse_empty", False):
+                continue
+            # parse the value
+            res.update(((param_name, param_obj.parse(attr)),))
 
         return res
 
