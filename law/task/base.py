@@ -652,14 +652,21 @@ class Task(six.with_metaclass(Register, BaseTask)):
     def _law_run_inst(cls, inst, _exclude=None, _replace=None, _global=None, _run_kwargs=None):
         # get the cli arguments
         args = inst.cli_args(exclude=_exclude, replace=_replace)
-        args = sum((make_list(tpl) for tpl in args.items()), [])
+
+        # prepend a space to values starting with "-"
+        for key, value in args.items():
+            if value.startswith("-"):
+                args[key] = f" {value}"
+
+        # flatten them
+        flat_args = sum((make_list(tpl) for tpl in args.items()), [])
 
         # add global parameters when given
         if _global:
-            args.extend([str(arg) for arg in make_list(_global)])
+            flat_args.extend([str(arg) for arg in make_list(_global)])
 
         # build the full command
-        cmd = [cls.get_task_family()] + args
+        cmd = [cls.get_task_family()] + flat_args
 
         # run it
         return law_run(cmd, **(_run_kwargs or {}))
