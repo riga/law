@@ -487,8 +487,20 @@ def localize(fn, opts, task, *args, **kwargs):
     generator functions.
     """
     # store original input and output methods
-    input_orig = task.__getattribute__("input", proxy=False) if opts["input"] else None
-    output_orig = task.__getattribute__("output", proxy=False) if opts["output"] else None
+    input_orig = None
+    output_orig = None
+    if opts["input"]:
+        input_orig = (
+            task.__getattribute__("input", proxy=False)
+            if isinstance(task, SandboxTask)
+            else task.input
+        )
+    if opts["output"]:
+        output_orig = (
+            task.__getattribute__("output", proxy=False)
+            if isinstance(task, SandboxTask)
+            else task.output
+        )
 
     # wrap input context
     input_context = empty_context
