@@ -9,11 +9,11 @@ on:
         default: false
 
       specific_job:
-        description: "Run a specific job?"
+        description: "Specific job to run"
         type: choice
-        default: "no"
+        default: "none"
         options:
-          - "no"
+          - "none"
           - py37
           - py38
           - py39
@@ -23,7 +23,7 @@ on:
 
 jobs:
   a9-py37:
-    if: ${{ github.event.inputs.specific_job == 'no' || contains(github.event.inputs.specific_job, 'py37') }}
+    if: ${{ github.event.inputs.specific_job == 'none' || contains(github.event.inputs.specific_job, 'py37') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -32,7 +32,7 @@ jobs:
           persist-credentials: false
 
       - name: Build and deploy image 🐳
-        if: ${{ github.event.inputs.push_image }}
+        if: ${{ github.event.inputs.push_image == 'true' }}
         uses: ./.github/actions/build-image
         with:
           dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -42,7 +42,7 @@ jobs:
           push_image: ${{ github.event.inputs.push_image == 'true' }}
 
   a9-py38:
-    if: ${{ github.event.inputs.specific_job == 'no' || contains(github.event.inputs.specific_job, 'py38') }}
+    if: ${{ github.event.inputs.specific_job == 'none' || contains(github.event.inputs.specific_job, 'py38') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -60,7 +60,7 @@ jobs:
           push_image: ${{ github.event.inputs.push_image == 'true' }}
 
   a9-py39:
-    if: ${{ github.event.inputs.specific_job == 'no' || contains(github.event.inputs.specific_job, 'py39') }}
+    if: ${{ github.event.inputs.specific_job == 'none' || contains(github.event.inputs.specific_job, 'py39') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -78,7 +78,7 @@ jobs:
           push_image: ${{ github.event.inputs.push_image == 'true' }}
 
   a9-py310:
-    if: ${{ github.event.inputs.specific_job == 'no' || contains(github.event.inputs.specific_job, 'py310') }}
+    if: ${{ github.event.inputs.specific_job == 'none' || contains(github.event.inputs.specific_job, 'py310') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -96,7 +96,7 @@ jobs:
           push_image: ${{ github.event.inputs.push_image == 'true' }}
 
   a9-py311:
-    if: ${{ github.event.inputs.specific_job == 'no' || contains(github.event.inputs.specific_job, 'py311') }}
+    if: ${{ github.event.inputs.specific_job == 'none' || contains(github.event.inputs.specific_job, 'py311') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -114,7 +114,7 @@ jobs:
           push_image: ${{ github.event.inputs.push_image == 'true' }}
 
   example:
-    if: ${{ github.event.inputs.push_image == 'true' && (github.event.inputs.specific_job == 'no' || contains(github.event.inputs.specific_job, 'example')) }}
+    if: ${{ github.event.inputs.push_image == 'true' && (github.event.inputs.specific_job == 'none' || contains(github.event.inputs.specific_job, 'example')) }}
     needs: a9-py311
     runs-on: ubuntu-latest
     steps:
