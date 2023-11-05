@@ -61,7 +61,7 @@ jobs:
         run: docker pull riga/law:py${{ matrix.python }}
 
       - name: Test 🎢
-        run: ./tests/docker.sh riga/law:py${{ matrix.python }}
+        run: ./tests/docker.sh riga/law:py${{ matrix.python }} bash -c './tests/run.sh "python -m unittest tests"'
 
   test:
     runs-on: ubuntu-latest
