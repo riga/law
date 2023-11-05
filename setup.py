@@ -59,11 +59,6 @@ with open(os.path.join(this_dir, "requirements.txt"), "r") as f:
     install_requires = list(readlines(f))
 
 
-# load docs requirements
-with open(os.path.join(this_dir, "requirements_docs.txt"), "r") as f:
-    docs_requires = [line for line in readlines(f) if line not in install_requires]
-
-
 # load package infos
 pkg = {}
 with open(os.path.join(this_dir, "law", "__version__.py"), "r") as f:
@@ -120,9 +115,6 @@ setup(
     long_description_content_type="text/markdown",
     install_requires=install_requires,
     python_requires=">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*, <4",
-    extras_require={
-        "docs": docs_requires,
-    },
     zip_safe=False,
     packages=find_packages(exclude=["tests"]),
     include_package_data=True,
