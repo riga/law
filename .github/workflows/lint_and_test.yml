@@ -43,26 +43,6 @@ jobs:
       - name: Check setup 🚦
         run: twine check "dist/$( python setup.py --fullname ).tar.gz"
 
-  # removed soon
-  test_legacy:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python: ["27", "36"]
-    name: test (python ${{ matrix.python }})
-    steps:
-      - name: Checkout 🛎️
-        uses: actions/checkout@v3
-        with:
-          persist-credentials: false
-
-      - name: Pull docker image 🐳
-        run: docker pull riga/law:py${{ matrix.python }}
-
-      - name: Test 🎢
-        run: ./tests/docker.sh riga/law:py${{ matrix.python }} bash -c './tests/run.sh "python -m unittest tests"'
-
   test:
     runs-on: ubuntu-latest
     strategy:
