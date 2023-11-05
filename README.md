@@ -231,19 +231,24 @@ Start them via
 docker run -ti riga/law:<the_tag>
 ```
 
-|    OS    | Python |                   Tags                    |
-| -------- | ------ | ----------------------------------------- |
-| Centos 8 |   3.11 | c8-py311, py311                           |
-| Centos 8 |   3.10 | c8-py310, c8-py3, c8, py310, py3, latest  |
-| Centos 8 |    3.9 | c8-py39, py39                             |
-| Centos 8 |    3.8 | c8-py38, py38                             |
-| Centos 8 |    3.7 | c8-py37, py37                             |
-| Centos 7 |   3.10 | c7-py310                                  |
-| Centos 7 |    3.9 | c7-py39, c7-py3, c7                       |
-| Centos 7 |    3.8 | c7-py38                                   |
-| Centos 7 |    3.7 | c7-py37                                   |
-| Centos 7 |    3.6 | c7-py36, py36 (removed soon)              |
-| Centos 7 |    2.7 | c7-py27, c7-py2, py27, py2 (removed soon) |
+|      OS     | Python |                    Tags                   |
+| ----------- | ------ | ----------------------------------------- |
+| AlmaLinux 9 |   3.11 | a9-py311, a9-py3, a9, py311, py3, latest  |
+| AlmaLinux 9 |   3.10 | a9-py310, py310                           |
+| AlmaLinux 9 |    3.9 | a9-py39, py39                             |
+| AlmaLinux 9 |    3.8 | a9-py38, py38                             |
+| AlmaLinux 9 |    3.7 | a9-py37, py37                             |
+| CentOS 8    |   3.11 | c8-py311, c8-py3, c8                      |
+| CentOS 8    |   3.10 | c8-py310                                  |
+| CentOS 8    |    3.9 | c8-py39                                   |
+| CentOS 8    |    3.8 | c8-py38                                   |
+| CentOS 8    |    3.7 | c8-py37                                   |
+| CentOS 7    |   3.10 | c7-py310, c7-py3, c7                      |
+| CentOS 7    |    3.9 | c7-py39                                   |
+| CentOS 7    |    3.8 | c7-py38                                   |
+| CentOS 7    |    3.7 | c7-py37                                   |
+| CentOS 7    |    3.6 | c7-py36, py36 (removed soon)              |
+| CentOS 7    |    2.7 | c7-py27, c7-py2, py27, py2 (removed soon) |
 
 
 ### Contributors

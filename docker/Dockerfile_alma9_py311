@@ -19,7 +19,7 @@ ENV LAW_IMAGE_PYTHON_MAJOR 3
 ENV LAW_IMAGE_PYTHON_MINOR 11
 ENV LAW_IMAGE_PYTHON ${LAW_IMAGE_PYTHON_MAJOR}.${LAW_IMAGE_PYTHON_MINOR}
 ENV LAW_MAMBA_ROOT /root/mamba
-ENV LAW_SANDBOX docker::riga/law:a9-py311
+ENV LAW_SANDBOX docker::riga/law:a9-py311,docker::riga/law:a9-py3,docker::riga/law:a9,docker::riga/law:py311,docker::riga/law:py3,docker::riga/law:latest,docker::riga/law
 
 # exposed ports
 EXPOSE 8082

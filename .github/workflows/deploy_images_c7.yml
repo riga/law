@@ -173,4 +173,4 @@ jobs:
           file: docker/Dockerfile_centos7_py310
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event.inputs.build_only != 'true' }}
-          tags: riga/law:c7-py310
+          tags: riga/law:c7-py310,riga/law:c7-py3,riga/law:c7
