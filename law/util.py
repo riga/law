@@ -1071,14 +1071,14 @@ def map_verbose(func, seq, msg="{}", every=25, start=True, end=True, offset=0, c
 
     .. code-block:: python
 
-       func = lambda x: x ** 2
-       msg = "computing square of {}"
-       squares = map_verbose(func, range(7), msg, every=3)
-       # ->
-       # computing square of 0
-       # computing square of 2
-       # computing square of 5
-       # computing square of 6
+        func = lambda x: x ** 2
+        msg = "computing square of {}"
+        squares = map_verbose(func, range(7), msg, every=3)
+        # ->
+        # computing square of 0
+        # computing square of 2
+        # computing square of 5
+        # computing square of 6
     """
     # default callable
     if not callable(callback):
@@ -1954,20 +1954,20 @@ class DotDict(collections.OrderedDict):
 
     .. code-block:: python
 
-       d = DotDict()
-       d["foo"] = 1
+        d = DotDict()
+        d["foo"] = 1
 
-       print(d["foo"])
-       # => 1
+        print(d["foo"])
+        # => 1
 
-       print(d.foo)
-       # => 1
+        print(d.foo)
+        # => 1
 
-       print(d["bar"])
-       # => KeyError
+        print(d["bar"])
+        # => KeyError
 
-       print(d.bar)
-       # => AttributeError
+        print(d.bar)
+        # => AttributeError
     """
 
     # forward certain attributes to the super class in python 2
