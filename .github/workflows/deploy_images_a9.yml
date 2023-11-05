@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       push_image:
-        description: "Push image to DockerHub?"
+        description: "Push image to DockerHub"
         type: boolean
         default: false
 
@@ -32,7 +32,6 @@ jobs:
           persist-credentials: false
 
       - name: Build and deploy image 🐳
-        if: ${{ github.event.inputs.push_image == 'true' }}
         uses: ./.github/actions/build-image
         with:
           dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
