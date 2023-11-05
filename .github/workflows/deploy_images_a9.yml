@@ -4,22 +4,31 @@ on:
   workflow_dispatch:
     inputs:
       push_image:
-        description: "Push to DockerHub"
+        description: Push to DockerHub
         type: boolean
         default: false
 
       specific_job:
-        description: "Specific job to run"
+        description: Specific job to run
         type: choice
-        default: "none"
+        default: none
         options:
-          - "none"
+          - none
           - py37
           - py38
           - py39
           - py310
           - py311
           - example
+
+      platforms:
+        description: Platforms to build for
+        type: choice
+        default: linux/amd64,linux/arm64
+        options:
+          - linux/amd64,linux/arm64
+          - linux/amd64
+          - linux/arm64
 
 jobs:
   a9-py37:
@@ -37,6 +46,7 @@ jobs:
           dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
           dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
           docker_file: docker/Dockerfile_alma9_py37
+          platforms: ${{ github.event.inputs.platforms }}
           tags: riga/law:a9-py37,riga/law:py37
           push_image: ${{ github.event.inputs.push_image == 'true' }}
 
@@ -55,6 +65,7 @@ jobs:
           dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
           dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
           docker_file: docker/Dockerfile_alma9_py38
+          platforms: ${{ github.event.inputs.platforms }}
           tags: riga/law:a9-py38,riga/law:py38
           push_image: ${{ github.event.inputs.push_image == 'true' }}
 
@@ -73,6 +84,7 @@ jobs:
           dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
           dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
           docker_file: docker/Dockerfile_alma9_py39
+          platforms: ${{ github.event.inputs.platforms }}
           tags: riga/law:a9-py39,riga/law:py39
           push_image: ${{ github.event.inputs.push_image == 'true' }}
 
@@ -91,6 +103,7 @@ jobs:
           dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
           dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
           docker_file: docker/Dockerfile_alma9_py310
+          platforms: ${{ github.event.inputs.platforms }}
           tags: riga/law:a9-py310,riga/law:py310
           push_image: ${{ github.event.inputs.push_image == 'true' }}
 
@@ -109,6 +122,7 @@ jobs:
           dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
           dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
           docker_file: docker/Dockerfile_alma9_py311
+          platforms: ${{ github.event.inputs.platforms }}
           tags: riga/law:a9-py311,riga/law:a9-py3,riga/law:a9,riga/law:py311,riga/law:py3,riga/law:latest
           push_image: ${{ github.event.inputs.push_image == 'true' }}
 
@@ -128,5 +142,6 @@ jobs:
           dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
           dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
           docker_file: docker/Dockerfile_example
+          platforms: ${{ github.event.inputs.platforms }}
           tags: riga/law:example
           push_image: true

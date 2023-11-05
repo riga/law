@@ -11,15 +11,24 @@ on:
       specific_job:
         description: "Specific job to run"
         type: choice
-        default: "none"
+        default: none
         options:
-          - "none"
+          - none
           - py27
           - py36
           - py37
           - py38
           - py39
           - py310
+
+      platforms:
+        description: Platforms to build for
+        type: choice
+        default: linux/amd64,linux/arm64
+        options:
+          - linux/amd64,linux/arm64
+          - linux/amd64
+          - linux/arm64
 
 jobs:
   # still existing for legacy support, to be removed soon
@@ -79,6 +88,7 @@ jobs:
           dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
           dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
           docker_file: docker/Dockerfile_centos7_py37
+          platforms: ${{ github.event.inputs.platforms }}
           tags: riga/law:c7-py37
           push_image: ${{ github.event.inputs.push_image == 'true' }}
 
@@ -97,6 +107,7 @@ jobs:
           dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
           dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
           docker_file: docker/Dockerfile_centos7_py38
+          platforms: ${{ github.event.inputs.platforms }}
           tags: riga/law:c7-py38
           push_image: ${{ github.event.inputs.push_image == 'true' }}
 
@@ -115,6 +126,7 @@ jobs:
           dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
           dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
           docker_file: docker/Dockerfile_centos7_py39
+          platforms: ${{ github.event.inputs.platforms }}
           tags: riga/law:c7-py39
           push_image: ${{ github.event.inputs.push_image == 'true' }}
 
@@ -133,5 +145,6 @@ jobs:
           dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
           dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
           docker_file: docker/Dockerfile_centos7_py310
+          platforms: ${{ github.event.inputs.platforms }}
           tags: riga/law:c7-py310,riga/law:c7-py3,riga/law:c7
           push_image: ${{ github.event.inputs.push_image == 'true' }}
