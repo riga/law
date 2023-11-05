@@ -19,7 +19,7 @@ ENV LAW_IMAGE_PYTHON_MAJOR 3
 ENV LAW_IMAGE_PYTHON_MINOR 7
 ENV LAW_IMAGE_PYTHON ${LAW_IMAGE_PYTHON_MAJOR}.${LAW_IMAGE_PYTHON_MINOR}
 ENV LAW_MAMBA_ROOT /root/mamba
-ENV LAW_SANDBOX docker::riga/law:a9-py37
+ENV LAW_SANDBOX docker::riga/law:a9-py37,docker::riga/law:py37
 
 # exposed ports
 EXPOSE 8082
@@ -33,7 +33,7 @@ WORKDIR /root/install
 
 # prepare yum
 RUN yum -y update; yum clean all
-RUN yum -y install yum-utils epel-release curl wget bzip2 --allowerasing; yum clean all
+RUN yum -y install --allowerasing yum-utils epel-release curl wget bzip2; yum clean all
 
 # setup mamba
 ENV MAMBA_ROOT_PREFIX "${LAW_MAMBA_ROOT}"

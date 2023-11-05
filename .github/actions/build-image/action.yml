@@ -1,0 +1,48 @@
+inputs:
+  dockerhub_username:
+    description: "The DockerHub username."
+    required: true
+
+  dockerhub_token:
+    description: "The DockerHub login token."
+    required: true
+
+  docker_file:
+    description: "The docker file."
+    required: true
+
+  tags:
+    description: "Image tags (csv)."
+    required: true
+
+  platforms:
+    description: "Platforms to build for (csv)."
+    default: "linux/amd64,linux/arm64"
+
+  push_image:
+    description: "Whether to push to DockerHub."
+    default: false
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up QEMU 🌈
+      uses: docker/setup-qemu-action@v3
+
+    - name: Set up Docker Buildx ✨
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to Docker Hub 🎪
+      uses: docker/login-action@v3
+      with:
+        username: ${{ inputs.dockerhub_username }}
+        password: ${{ inputs.dockerhub_token }}
+
+    - name: Build and deploy image 🐳
+      uses: docker/build-push-action@v5
+      with:
+        context: docker
+        file: ${{ inputs.docker_file }}
+        platforms: ${{ inputs.platforms }}
+        push: ${{ inputs.push_image }}
+        tags: ${{ inputs.tags }}
