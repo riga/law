@@ -17,6 +17,11 @@ jobs:
     if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'a9-py37') }}
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
       - uses: ./.github/actions/build-image
         with:
           docker_file: docker/Dockerfile_alma9_py37
