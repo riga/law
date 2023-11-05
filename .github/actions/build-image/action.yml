@@ -1,29 +1,27 @@
-name: Build image
-
 inputs:
   dockerhub_username:
     description: "The DockerHub username."
-    required: True
+    required: true
 
   dockerhub_token:
     description: "The DockerHub login token."
-    required: True
+    required: true
 
   docker_file:
     description: "The docker file."
-    required: True
+    required: true
+
+  tags:
+    description: "Image tags (csv)."
+    required: true
 
   platforms:
     description: "Platforms to build for (csv)."
     default: "linux/amd64,linux/arm64"
 
-  tags:
-    description: "Image tags (csv)."
-    required: True
-
-  build_only:
-    description: "'true' or 'false'."
-    default: "false"
+  push_image:
+    description: "Whether to push to DockerHub."
+    default: false
 
 runs:
   using: "composite"
@@ -46,5 +44,5 @@ runs:
         context: docker
         file: ${{ inputs.docker_file }}
         platforms: ${{ inputs.platforms }}
-        push: ${{ inputs.build_only != 'true' }}
+        push: ${{ inputs.push_image }}
         tags: ${{ inputs.tags }}

@@ -3,18 +3,19 @@ name: Deploy images AlmaLinux9
 on:
   workflow_dispatch:
     inputs:
-      build_only:
-        description: Build only? (true|false)
+      push_image:
+        description: "Push image to DockerHub? (true|false)"
         required: false
-        default: 'false'
+        default: "false"
+
       specific_job:
-        description: Run a specific job? (a9-py37|a9-py38|a9-py39|a9-py310|a9-py311)
+        description: "Run a specific job? (py37|py38|py39|py310|py311)"
         required: false
-        default: ''
+        default: ""
 
 jobs:
   a9-py37:
-    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'a9-py37') }}
+    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'py37') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -22,42 +23,17 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: ./.github/actions/build-image
+      - name: Build and deploy image 🐳
+        uses: ./.github/actions/build-image
         with:
           dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
           dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
           docker_file: docker/Dockerfile_alma9_py37
           tags: riga/law:a9-py37,riga/law:py37
-          build_only: ${{ github.event.inputs.build_only }}
-
-      # - name: Checkout 🛎️
-      #   uses: actions/checkout@v4
-      #   with:
-      #     persist-credentials: false
-
-      # - name: Set up QEMU 🌈
-      #   uses: docker/setup-qemu-action@v3
-
-      # - name: Set up Docker Buildx ✨
-      #   uses: docker/setup-buildx-action@v3
-
-      # - name: Login to Docker Hub 🎪
-      #   uses: docker/login-action@v3
-      #   with:
-      #     username: ${{ secrets.DOCKERHUB_USERNAME }}
-      #     password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      # - name: Build and deploy image 🐳
-      #   uses: docker/build-push-action@v5
-      #   with:
-      #     context: docker
-      #     file: docker/Dockerfile_alma9_py37
-      #     platforms: linux/amd64,linux/arm64
-      #     push: ${{ github.event.inputs.build_only != 'true' }}
-      #     tags: riga/law:a9-py37,riga/law:py37
+          push_image: ${{ github.event.inputs.push_image == 'true' }}
 
   a9-py38:
-    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'a9-py38') }}
+    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'py38') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -65,29 +41,17 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Set up QEMU 🌈
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx ✨
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to Docker Hub 🎪
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
       - name: Build and deploy image 🐳
-        uses: docker/build-push-action@v5
+        uses: ./.github/actions/build-image
         with:
-          context: docker
-          file: docker/Dockerfile_alma9_py38
-          platforms: linux/amd64,linux/arm64
-          push: ${{ github.event.inputs.build_only != 'true' }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
+          docker_file: docker/Dockerfile_alma9_py38
           tags: riga/law:a9-py38,riga/law:py38
+          push_image: ${{ github.event.inputs.push_image == 'true' }}
 
   a9-py39:
-    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'a9-py39') }}
+    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'py39') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -95,29 +59,17 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Set up QEMU 🌈
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx ✨
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to Docker Hub 🎪
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
       - name: Build and deploy image 🐳
-        uses: docker/build-push-action@v5
+        uses: ./.github/actions/build-image
         with:
-          context: docker
-          file: docker/Dockerfile_alma9_py39
-          platforms: linux/amd64,linux/arm64
-          push: ${{ github.event.inputs.build_only != 'true' }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
+          docker_file: docker/Dockerfile_alma9_py39
           tags: riga/law:a9-py39,riga/law:py39
+          push_image: ${{ github.event.inputs.push_image == 'true' }}
 
   a9-py310:
-    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'a9-py310') }}
+    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'py310') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -125,29 +77,17 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Set up QEMU 🌈
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx ✨
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to Docker Hub 🎪
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
       - name: Build and deploy image 🐳
-        uses: docker/build-push-action@v5
+        uses: ./.github/actions/build-image
         with:
-          context: docker
-          file: docker/Dockerfile_alma9_py310
-          platforms: linux/amd64,linux/arm64
-          push: ${{ github.event.inputs.build_only != 'true' }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
+          docker_file: docker/Dockerfile_alma9_py310
           tags: riga/law:a9-py310,riga/law:py310
+          push_image: ${{ github.event.inputs.push_image == 'true' }}
 
   a9-py311:
-    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'a9-py311') }}
+    if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'py311') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -155,29 +95,17 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Set up QEMU 🌈
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx ✨
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to Docker Hub 🎪
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
       - name: Build and deploy image 🐳
-        uses: docker/build-push-action@v5
+        uses: ./.github/actions/build-image
         with:
-          context: docker
-          file: docker/Dockerfile_alma9_py311
-          platforms: linux/amd64,linux/arm64
-          push: ${{ github.event.inputs.build_only != 'true' }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
+          docker_file: docker/Dockerfile_alma9_py311
           tags: riga/law:a9-py311,riga/law:a9-py3,riga/law:a9,riga/law:py311,riga/law:py3,riga/law:latest
+          push_image: ${{ github.event.inputs.push_image == 'true' }}
 
   example:
-    if: ${{ github.event.inputs.build_only != 'true' && (github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'example')) }}
+    if: ${{ github.event.inputs.push_image == 'true' && (github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'example')) }}
     needs: a9-py311
     runs-on: ubuntu-latest
     steps:
@@ -186,23 +114,11 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Set up QEMU 🌈
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx ✨
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to Docker Hub 🎪
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
       - name: Build and deploy image 🐳
-        uses: docker/build-push-action@v5
+        uses: ./.github/actions/build-image
         with:
-          context: docker
-          file: docker/Dockerfile_example
-          platforms: linux/amd64,linux/arm64
-          push: true
+          dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
+          docker_file: docker/Dockerfile_example
           tags: riga/law:example
+          push_image: true
