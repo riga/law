@@ -1,4 +1,4 @@
-name: Deploy images AlmaLinux 9
+name: Deploy images AlmaLinux9
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ on:
         required: false
         default: 'false'
       specific_job:
-        description: Run a specific job? (c8-py37)
+        description: Run a specific job? (a9-py37)
         required: false
         default: ''
 
@@ -18,24 +18,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
 
       - name: Set up QEMU 🌈
-        uses: docker/setup-qemu-action@v2
+        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx ✨
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
 
       - name: Login to Docker Hub 🎪
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and deploy image 🐳
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v5
         with:
           context: docker
           file: docker/Dockerfile_alma9_py37
