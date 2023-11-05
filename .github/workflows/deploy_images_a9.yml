@@ -24,6 +24,8 @@ jobs:
 
       - uses: ./.github/actions/build-image
         with:
+          dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
           docker_file: docker/Dockerfile_alma9_py37
           tags: riga/law:a9-py37,riga/law:py37
           build_only: ${{ github.event.inputs.build_only }}
