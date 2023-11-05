@@ -5,21 +5,21 @@ ARG TARGETPLATFORM
 # labels
 LABEL law.version="0.1.14"
 LABEL law.image-name="riga/law"
-LABEL law.image-tag="a9-py37"
+LABEL law.image-tag="a9-py311"
 LABEL law.image-os="almalinux9"
 LABEL law.image-python-major="3"
-LABEL law.image-python-minor="7"
-LABEL law.image-python="3.7"
+LABEL law.image-python-minor="11"
+LABEL law.image-python="3.11"
 
 # law specific environment variables
 ENV LAW_IMAGE_ROOT /root/law
 ENV LAW_IMAGE_NAME riga/law
-ENV LAW_IMAGE_TAG a9-py37
+ENV LAW_IMAGE_TAG a9-py311
 ENV LAW_IMAGE_PYTHON_MAJOR 3
-ENV LAW_IMAGE_PYTHON_MINOR 7
+ENV LAW_IMAGE_PYTHON_MINOR 11
 ENV LAW_IMAGE_PYTHON ${LAW_IMAGE_PYTHON_MAJOR}.${LAW_IMAGE_PYTHON_MINOR}
 ENV LAW_MAMBA_ROOT /root/mamba
-ENV LAW_SANDBOX docker::riga/law:a9-py37
+ENV LAW_SANDBOX docker::riga/law:a9-py311
 
 # exposed ports
 EXPOSE 8082
