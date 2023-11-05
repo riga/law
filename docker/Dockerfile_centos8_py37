@@ -39,8 +39,8 @@ RUN yum -y update; yum clean all
 RUN yum -y install yum-utils epel-release curl wget bzip2; yum clean all
 
 # setup mamba
-env MAMBA_ROOT_PREFIX "${LAW_MAMBA_ROOT}"
-env MAMBA_EXE "${MAMBA_ROOT_PREFIX}/bin/micromamba"
+ENV MAMBA_ROOT_PREFIX "${LAW_MAMBA_ROOT}"
+ENV MAMBA_EXE "${MAMBA_ROOT_PREFIX}/bin/micromamba"
 ENV PATH "${MAMBA_ROOT_PREFIX}/bin:${PATH}"
 RUN case "${TARGETPLATFORM}" in \
         "linux/amd64") MAMBA_PLATFORM="linux-64" ;; \
