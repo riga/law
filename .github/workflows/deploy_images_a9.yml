@@ -4,9 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       push_image:
-        description: "Push image to DockerHub? (true|false)"
-        required: false
+        description: "Push image to DockerHub?"
+        type: choice
+        required: true
         default: "false"
+        options:
+          - "true"
+          - "false"
 
       specific_job:
         description: "Run a specific job? (py37|py38|py39|py310|py311)"
