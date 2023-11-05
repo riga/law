@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       push_image:
-        description: "Push image to DockerHub"
+        description: "Push to DockerHub"
         type: boolean
         default: false
 

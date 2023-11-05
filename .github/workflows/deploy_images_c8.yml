@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       push_image:
-        description: "Push image to DockerHub"
+        description: "Push to DockerHub"
         type: boolean
         default: false
 
@@ -22,7 +22,7 @@ on:
 
 jobs:
   c8-py37:
-    if: ${{ github.event.inputs.specific_job == 'none' || contains(github.event.inputs.specific_job, 'c8-py37') }}
+    if: ${{ github.event.inputs.specific_job == 'none' || contains(github.event.inputs.specific_job, 'py37') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
