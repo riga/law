@@ -37,8 +37,8 @@ RUN yum -y update; yum clean all
 RUN yum -y install yum-utils epel-release curl wget bzip2; yum clean all
 
 # setup mamba
-env MAMBA_ROOT_PREFIX "${LAW_MAMBA_ROOT}"
-env MAMBA_EXE "${MAMBA_ROOT_PREFIX}/bin/micromamba"
+ENV MAMBA_ROOT_PREFIX "${LAW_MAMBA_ROOT}"
+ENV MAMBA_EXE "${MAMBA_ROOT_PREFIX}/bin/micromamba"
 ENV PATH "${MAMBA_ROOT_PREFIX}/bin:${PATH}"
 RUN case "${TARGETPLATFORM}" in \
         "linux/amd64") MAMBA_PLATFORM="linux-64" ;; \
@@ -66,8 +66,6 @@ RUN micromamba install gfal2 gfal2-util python-gfal2 && \
 # python packages
 RUN pip install --no-cache-dir --upgrade pip
 RUN pip install --no-cache-dir --upgrade setuptools
-RUN pip install --no-cache-dir slackclient python-telegram-bot
-RUN pip install --no-cache-dir "flake8<6" flake8-quotes flake8-commas pytest-cov
 
 # cleanup installation workdir
 WORKDIR /root
@@ -76,6 +74,7 @@ RUN rm -rf /root/install
 # install law master
 RUN git clone --recursive https://github.com/riga/law "${LAW_IMAGE_ROOT}" && \
     cd "${LAW_IMAGE_ROOT}" && \
+    pip install --no-cache-dir -r requirements.txt -r requirements_dev.txt && \
     pip install --no-cache-dir .
 WORKDIR ${LAW_IMAGE_ROOT}
 

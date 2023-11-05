@@ -68,8 +68,6 @@ RUN micromamba install gfal2 gfal2-util python-gfal2 && \
 # python packages
 RUN pip install --no-cache-dir --upgrade pip
 RUN pip install --no-cache-dir --upgrade setuptools
-RUN pip install --no-cache-dir slackclient python-telegram-bot
-RUN pip install --no-cache-dir "flake8<6" flake8-quotes flake8-commas pytest-cov
 
 # cleanup installation workdir
 WORKDIR /root
@@ -78,6 +76,7 @@ RUN rm -rf /root/install
 # install law master
 RUN git clone --recursive https://github.com/riga/law "${LAW_IMAGE_ROOT}" && \
     cd "${LAW_IMAGE_ROOT}" && \
+    pip install --no-cache-dir -r requirements.txt -r requirements_dev.txt && \
     pip install --no-cache-dir .
 WORKDIR ${LAW_IMAGE_ROOT}
 

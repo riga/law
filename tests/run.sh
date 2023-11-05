@@ -2,8 +2,7 @@
 
 # Script to run all tests.
 # Arguments:
-#   1. The test command. Defaults to "python3 -m unittest tests" when Python 3 is detected, and to
-#      "python -m unittest tests" otherwise.
+#   1. The test command. Defaults to "python -m pytest tests".
 
 action() {
     local shell_is_zsh="$( [ -z "${ZSH_VERSION}" ] && echo "false" || echo "true" )"
@@ -11,16 +10,8 @@ action() {
     local this_dir="$( cd "$( dirname "${this_file}" )" && pwd )"
     local repo_dir="$( dirname "${this_dir}" )"
 
-    # detect python
-    local python_exe="python"
-    if [ "${LAW_IMAGE_PYTHON_MAJOR}" = "3" ]; then
-        python_exe="python3"
-    elif [ "${LAW_IMAGE_PYTHON_MAJOR}" != "2" ] && type python3 &> /dev/null; then
-        python_exe="python3"
-    fi
-
     # default test command
-    local cmd="${1:-${python_exe} -m unittest tests}"
+    local cmd="${1:-python -m pytest tests}"
 
     # execute it
     echo "command: ${cmd}"
