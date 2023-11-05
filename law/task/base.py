@@ -656,7 +656,7 @@ class Task(six.with_metaclass(Register, BaseTask)):
         # prepend a space to values starting with "-"
         for key, value in args.items():
             if value.startswith("-"):
-                args[key] = f" {value}"
+                args[key] = " {}".format(value)
 
         # flatten them
         flat_args = sum((make_list(tpl) for tpl in args.items()), [])
