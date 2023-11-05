@@ -17,7 +17,7 @@ jobs:
     if: ${{ github.event.inputs.specific_job == '' || contains(github.event.inputs.specific_job, 'a9-py37') }}
     runs-on: ubuntu-latest
     steps:
-      - uses: law/build-image
+      - uses: ./github/actions/build-image
         with:
           docker_file: docker/Dockerfile_alma9_py37
           tags: riga/law:a9-py37,riga/law:py37
