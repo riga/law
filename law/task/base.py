@@ -362,14 +362,18 @@ class Register(BaseRegister):
         for param in inst.interactive_params:
             value = getattr(inst, param)
             if value:
+                # reset the interactive parameter
+                setattr(inst, param, ())
+
+                # at this point, inst must be the root task so set the global value
+                root_task(inst)
+
                 skip_abort = False
                 try:
                     logger.debug("evaluating interactive parameter '{}' with value {}".format(
                         param, value))
-                    skip_abort = getattr(inst, "_" + param)(value)
 
-                    # reset the interactive parameter
-                    setattr(inst, param, ())
+                    skip_abort = getattr(inst, "_" + param)(value)
 
                 except KeyboardInterrupt:
                     print("\naborted")
