@@ -114,6 +114,7 @@ def patch_task_process_run():
         if (
             isinstance(self.task, law.LocalWorkflow) and
             self.task.is_workflow() and
+            isinstance(self.task.workflow_proxy, law.workflow.local.LocalWorkflowProxy) and
             not self.task.local_workflow_require_branches and
             self.task.workflow_proxy._local_workflow_has_yielded
         ):
