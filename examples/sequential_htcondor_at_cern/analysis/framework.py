@@ -84,8 +84,9 @@ class HTCondorWorkflow(law.htcondor.HTCondorWorkflow):
         # render_variables are rendered into all files sent with a job
         config.render_variables["analysis_path"] = os.getenv("ANALYSIS_PATH")
 
-        # force to run on CC7, http://batchdocs.web.cern.ch/batchdocs/local/submit.html#os-choice
-        config.custom_content.append(("requirements", "(OpSysAndVer =?= \"CentOS7\")"))
+        # configure to run in a "el7" container
+        # https://batchdocs.web.cern.ch/local/submit.html#os-selection-via-containers
+        config.custom_content.append(("MY.WantOS", "el7"))
 
         # maximum runtime
         config.custom_content.append(("+MaxRuntime", int(math.floor(self.max_runtime * 3600)) - 1))
