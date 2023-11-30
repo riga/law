@@ -195,7 +195,7 @@ def workflow_property(func=None, attr=None, setter=True, cache=False, empty_valu
 
         _setter = None
         if setter:
-            def _setter(self, value):
+            def _setter(self, value):  # noqa: F811
                 wf = self.as_workflow()
                 setattr(wf, _attr, value)
 
