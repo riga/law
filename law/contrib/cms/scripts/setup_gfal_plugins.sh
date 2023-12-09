@@ -101,6 +101,10 @@ for line in s.getvalue().split('\\\\n'):\n\
     print(plugin_dir)\n\
     break\n\
 "
-    GFAL_PLUGIN_DIR= echo -e "${pycmd}" | python
+    if command -v python &> /dev/null; then
+        GFAL_PLUGIN_DIR= echo -e "${pycmd}" | python
+    else
+        GFAL_PLUGIN_DIR= echo -e "${pycmd}" | python3
+    fi
 }
 action "$@"

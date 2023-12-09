@@ -22,9 +22,13 @@ law_cms_job_id() {
 }
 
 law_cms_apmon() {
+    _law_python() {
+        command -v python &> /dev/null && python "$@" || python3 "$@"
+    }
+
     local job_id="$( law_cms_job_id )"
     if [ ! -z "${job_id}" ]; then
-        python "${LAW_SRC_PATH}/contrib/cms/bin/apmon" job_id="${job_id}" $LAW_JOB_DASHBOARD_DATA "$@"
+        _law_python "${LAW_SRC_PATH}/contrib/cms/bin/apmon" job_id="${job_id}" $LAW_JOB_DASHBOARD_DATA "$@"
     else
         >&2 echo "skip apmon interaction as job id is empty"
     fi

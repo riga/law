@@ -10,6 +10,11 @@ set +e
 set +v
 
 action() {
+    # helper to select the correct python executable
+    _law_python() {
+        command -v python &> /dev/null && python "$@" || python3 "$@"
+    }
+
     #
     # detect variables
     #
@@ -27,7 +32,7 @@ action() {
     echo "running ${this_file_base} for job number ${LAW_CRAB_JOB_NUMBER}"
 
     # get the comma-separated list of input files
-    export LAW_CRAB_INPUT_FILES="$( python -c "from PSet import process; print(','.join(list(getattr(process.source, 'fileNames', []))))" )"
+    export LAW_CRAB_INPUT_FILES="$( _law_python -c "from PSet import process; print(','.join(list(getattr(process.source, 'fileNames', []))))" )"
     if [ -z "${LAW_CRAB_INPUT_FILES}" ]; then
         >&2 echo "could not determine crab input files"
         # do not consider this an error for now
@@ -153,7 +158,7 @@ EOF
         [ "${input_file_render_base}" = "${this_file_base}" ] && continue
         # render
         echo "render ${input_file_render}"
-        python -c "\
+        _law_python -c "\
 import re;\
 repl = ${render_variables};\
 repl['input_files_render'] = '';\
@@ -176,7 +181,7 @@ open('${input_file_render_base}', 'w').write(content);\
 
     # debugging: pretty print path variables
     # log_path_var() {
-    #     python2 -c "import os; print('$1:\n  ' + '\n  '.join(os.getenv('$1', '').split(':')))"
+    #     _law_python -c "import os; print('$1:\n  ' + '\n  '.join(os.getenv('$1', '').split(':')))"
     # }
     # log_path_var PATH
     # log_path_var PYTHONPATH
