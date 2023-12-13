@@ -337,7 +337,6 @@ class SlurmJobFileFactory(BaseJobFileFactory):
             raise ValueError("shell must not be empty")
 
         # postfix certain output files
-        c.output_files = list(map(str, c.output_files))
         if c.postfix_output_files:
             skip_postfix_cre = re.compile(r"^(/dev/).*$")
             skip_postfix = lambda s: bool(skip_postfix_cre.match(s))
