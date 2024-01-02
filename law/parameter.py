@@ -11,6 +11,7 @@ __all__ = [
     "NotifyMultiParameter", "NotifyMailParameter",
 ]
 
+import functools
 import csv
 
 import luigi
@@ -19,7 +20,8 @@ import six
 from law.notification import notify_mail
 from law.util import (
     human_duration, parse_duration, time_units, time_unit_aliases, human_bytes, parse_bytes,
-    byte_units, is_lazy_iterable, make_tuple, make_unique, brace_expand, try_int, no_value,
+    byte_units, is_lazy_iterable, make_tuple, make_unique, brace_expand, range_expand, try_int,
+    no_value,
 )
 from law.logger import get_logger
 
@@ -636,6 +638,19 @@ class RangeParameter(Parameter):
     RANGE_SEP = ":"
     OPEN = None
 
+    @classmethod
+    def expand(cls, range, **kwargs):
+        """
+        Expands *range* (as returned by :py:meth:`parse`) to a sorted list of unique integers.
+        Additional *kwargs* are forwarded to :py:func:`law.util.range_expand`.
+
+        .. code-block:: python
+
+            RangeParameter.expand((4, 8))
+            # -> [4, 5, 6, 7]
+        """
+        return sorted(set(range_expand(range, **kwargs)))
+
     def __init__(self, *args, **kwargs):
         self._require_start = kwargs.pop("require_start", True)
         self._require_end = kwargs.pop("require_end", True)
@@ -734,6 +749,19 @@ class MultiRangeParameter(RangeParameter):
     """
 
     MULTI_RANGE_SEP = ","
+
+    @classmethod
+    def expand(cls, ranges, **kwargs):
+        """
+        Expands *ranges* (as returned by :py:meth:`parse`) to a sorted list of unique integers.
+        Additional *kwargs* are forwarded to :py:func:`law.util.range_expand`.
+
+        .. code-block:: python
+
+            MultiRangeParameter.expand(((4, 8), (12, 14)))
+            # -> [4, 5, 6, 7, 8, 12, 13, 14]
+        """
+        return sorted(set.union(*map(set, map(functools.partial(range_expand, **kwargs), ranges))))
 
     def parse(self, inp):
         """"""
