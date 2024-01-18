@@ -8,6 +8,7 @@ __all__ = ["BaseWorkflow", "WorkflowParameter", "workflow_property", "dynamic_wo
 
 
 import re
+import copy
 import functools
 import itertools
 import inspect
@@ -417,6 +418,9 @@ class dynamic_workflow_condition(object):
 
         if self._output_fn is not None:
             yield "output", self._wrap_output(bound_condition_fn)
+
+    def copy(self):
+        return copy.deepcopy(self)
 
 
 class WorkflowRegister(Register):
