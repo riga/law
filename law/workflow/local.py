@@ -6,6 +6,8 @@ Local workflow implementation.
 
 __all__ = ["LocalWorkflow"]
 
+from collections.abc import Generator
+
 import luigi
 
 from law import luigi_version_info
@@ -43,6 +45,10 @@ class LocalWorkflowProxy(BaseWorkflowProxy):
         When *local_workflow_require_branches* of the task was set to *False*, starts all branch
         tasks via dynamic dependencies by yielding them in a list, or simply does nothing otherwise.
         """
+        pre_run_gen = self.task.local_workflow_pre_run()
+        if isinstance(pre_run_gen, Generator):
+            yield pre_run_gen
+
         super(LocalWorkflowProxy, self).run()
 
         if not self.task.local_workflow_require_branches and not self._local_workflow_has_yielded:
@@ -92,3 +98,6 @@ class LocalWorkflow(BaseWorkflow):
 
     def local_workflow_requires(self):
         return DotDict()
+
+    def local_workflow_pre_run(self):
+        return
