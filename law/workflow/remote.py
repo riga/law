@@ -13,6 +13,7 @@ import re
 import copy
 import random
 import threading
+import contextlib
 from collections import OrderedDict, defaultdict
 from abc import abstractmethod
 
@@ -559,13 +560,19 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
         logger.debug("job data dumped")
 
+    def get_run_context(self):
+        return self._get_task_attribute("workflow_run_context", fallback=True)()
+
     def run(self):
+        with self.get_run_context():
+            super(BaseRemoteWorkflowProxy, self).run()
+            return self._run_impl()
+
+    def _run_impl(self):
         """
         Actual run method that starts the processing of jobs and initiates the status polling, or
         performs job cancelling or cleaning, depending on the task parameters.
         """
-        super(BaseRemoteWorkflowProxy, self).run()
-
         task = self.task
         self._outputs = self.output()
 
@@ -1447,6 +1454,15 @@ class BaseRemoteWorkflow(BaseWorkflow):
     exclude_params_repr = {"cancel_jobs", "cleanup_jobs"}
 
     exclude_params_remote_workflow = set()
+
+    @contextlib.contextmanager
+    def workflow_run_context(self):
+        """
+        Hook to provide a context manager in which the workflow run implementation is placed. This
+        can be helpful in situations where resurces should be acquired before and released after
+        running a workflow.
+        """
+        yield
 
     def is_controlling_remote_jobs(self):
         """
