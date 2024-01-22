@@ -4,9 +4,9 @@
 "law quickstart" cli subprogram.
 """
 
-
 import os
 import shutil
+import argparse
 
 from law.config import Config
 from law.util import law_src_path
@@ -15,7 +15,7 @@ from law.util import law_src_path
 _cfg = Config.instance()
 
 
-def setup_parser(sub_parsers):
+def setup_parser(sub_parsers: argparse._SubParsersAction) -> None:
     """
     Sets up the command line parser for the *quickstart* subprogram and adds it to *sub_parsers*.
     """
@@ -47,7 +47,7 @@ def setup_parser(sub_parsers):
     )
 
 
-def execute(args):
+def execute(args: argparse.Namespace) -> int:
     """
     Executes the *quickstart* subprogram with parsed commandline *args*.
     """
@@ -63,14 +63,16 @@ def execute(args):
     if not args.no_tasks:
         dst = os.path.join(out_dir, "my_package")
         shutil.copytree(os.path.join(qs_dir, "my_package"), dst)
-        print("created {}".format(dst))
+        print(f"created {dst}")
 
     # copy config
     if not args.no_config:
         shutil.copy2(os.path.join(qs_dir, "law.cfg"), out_dir)
-        print("created {}".format(os.path.join(out_dir, "law.cfg")))
+        print(f"created {os.path.join(out_dir, 'law.cfg')}")
 
     # copy setup
     if not args.no_setup:
         shutil.copy2(os.path.join(qs_dir, "setup.sh"), out_dir)
-        print("created {}".format(os.path.join(out_dir, "setup.sh")))
+        print(f"created {os.path.join(out_dir, 'setup.sh')}")
+
+    return 0

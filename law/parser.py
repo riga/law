@@ -4,29 +4,31 @@
 Helpers to extract useful information from the luigi command line parser.
 """
 
-__all__ = []
+from __future__ import annotations
 
+__all__: list[str] = []
 
 from collections import OrderedDict
 from argparse import ArgumentParser
 
-import luigi
+import luigi  # type: ignore[import-untyped]
 
 from law.logger import get_logger
+from law._types import Sequence, Any
 
 
 logger = get_logger(__name__)
 
 
 # cached objects
-_root_task = None
-_full_parser = None
-_root_task_parser = None
-_global_cmdline_args = None
-_global_cmdline_values = None
+_root_task: luigi.Task | None = None
+_full_parser: luigi.cmdline_parser.CmdlineParser | None = None
+_root_task_parser: ArgumentParser | None = None
+_global_cmdline_args: dict[str, str] | None = None
+_global_cmdline_values: dict[str, Any] | None = None
 
 
-def root_task(task=None):
+def root_task(task: luigi.Task | None = None) -> luigi.Task | None:
     """
     Returns the instance of the task that was triggered on the command line. The returned instance
     is cached. When *task* is define and no root task was cached yet, this methods acts as a setter.
@@ -39,7 +41,7 @@ def root_task(task=None):
             logger.debug("set root task to externally passed instance")
         else:
             luigi_parser = luigi.cmdline_parser.CmdlineParser.get_instance()
-            if not luigi_parser:
+            if luigi_parser is None:
                 return None
 
             _root_task = luigi_parser.get_task_obj()
@@ -49,7 +51,7 @@ def root_task(task=None):
     return _root_task
 
 
-def full_parser():
+def full_parser() -> luigi.cmdline_parser.CmdlineParser | None:
     """
     Returns the full *ArgumentParser* used by the luigi ``CmdlineParser``. The returned instance is
     cached.
@@ -58,7 +60,7 @@ def full_parser():
 
     if not _full_parser:
         luigi_parser = luigi.cmdline_parser.CmdlineParser.get_instance()
-        if not luigi_parser:
+        if luigi_parser is None:
             return None
 
         # build the full argument parser with luigi helpers
@@ -70,7 +72,7 @@ def full_parser():
     return _full_parser
 
 
-def root_task_parser():
+def root_task_parser() -> ArgumentParser | None:
     """
     Returns a new *ArgumentParser* instance that only contains parameter actions of the root task.
     The returned instance is cached.
@@ -79,7 +81,11 @@ def root_task_parser():
 
     if not _root_task_parser:
         luigi_parser = luigi.cmdline_parser.CmdlineParser.get_instance()
-        if not luigi_parser:
+        if luigi_parser is None:
+            return None
+
+        _full_parser = full_parser()
+        if _full_parser is None:
             return None
 
         root_task = luigi_parser.known_args.root_task
@@ -92,16 +98,16 @@ def root_task_parser():
 
         # create a new parser and add all root actions
         _root_task_parser = ArgumentParser(add_help=False)
-        for action in list(full_parser()._actions):
+        for action in list(_full_parser._actions):
             if not action.option_strings or action.dest in root_dests:
                 _root_task_parser._add_action(action)
 
-        logger.debug("built luigi argument parser for root task {}".format(root_task))
+        logger.debug(f"built luigi argument parser for root task {root_task}")
 
     return _root_task_parser
 
 
-def global_cmdline_args(exclude=None):
+def global_cmdline_args(exclude: Sequence[str] | None = None) -> dict[str, str] | None:
     """
     Returns a dictionary with keys and string values of command line arguments that do not belong to
     the root task. For bool parameters, such as ``--local-scheduler``, ``"True"`` is assumed if they
@@ -118,14 +124,17 @@ def global_cmdline_args(exclude=None):
     """
     global _global_cmdline_args
 
-    if not _global_cmdline_args:
+    if _global_cmdline_args is None:
         luigi_parser = luigi.cmdline_parser.CmdlineParser.get_instance()
-        if not luigi_parser:
+        if luigi_parser is None:
+            return None
+
+        _root_task_parser = root_task_parser()
+        if _root_task_parser is None:
             return None
 
         _global_cmdline_args = OrderedDict()
-
-        args = list(root_task_parser().parse_known_args(luigi_parser.cmdline_args)[1])
+        args: list[str] = list(_root_task_parser.parse_known_args(luigi_parser.cmdline_args)[1])
 
         # expand bool flags
         while args:
@@ -133,7 +142,7 @@ def global_cmdline_args(exclude=None):
 
             # the argument must start with "--"
             if not arg.startswith("--"):
-                raise Exception("global argument must start with '--', found '{}'".format(arg))
+                raise Exception(f"global argument must start with '--', found '{arg}'")
 
             # get the corresponding value which is either part of the argument itself in the format
             # "--arg=value" or passed in the next argument which must not start with "--" (in this
@@ -147,20 +156,20 @@ def global_cmdline_args(exclude=None):
 
             _global_cmdline_args[arg] = value
 
-    args = _global_cmdline_args
+    global_args = _global_cmdline_args
 
     if exclude:
-        args = OrderedDict(args)
-
+        # create a copy and remove excluded keys
+        global_args = OrderedDict(global_args)
         for key in exclude:
             if not key.startswith("--"):
                 key = "--" + key.lstrip("-")
-            args.pop(key, None)
+            global_args.pop(key, None)
 
-    return args
+    return global_args
 
 
-def global_cmdline_values():
+def global_cmdline_values() -> dict[str, Any] | None:
     """
     Returns a dictionary of global command line arguments (computed with
     :py:func:`global_cmdline_args`) to their current values. The returnd dictionary is cached.
@@ -173,24 +182,29 @@ def global_cmdline_values():
     """
     global _global_cmdline_values
 
-    if not _global_cmdline_values:
+    if _global_cmdline_values is None:
         luigi_parser = luigi.cmdline_parser.CmdlineParser.get_instance()
-        if not luigi_parser:
+        if luigi_parser is None:
             return None
 
-        # go through all actions of the full luigi parser and compare option strings
-        # with the global cmdline args
-        parser = full_parser()
+        _full_parser = full_parser()
+        if _full_parser is None:
+            return None
+
         global_args = global_cmdline_args()
+        if global_args is None:
+            return None
+
+        # go through all actions of the luigi parser and compare options with global cmdline args
         _global_cmdline_values = {}
-        for action in parser._actions:
+        for action in _full_parser._actions:
             if any(arg in action.option_strings for arg in global_args):
                 _global_cmdline_values[action.dest] = getattr(luigi_parser.known_args, action.dest)
 
     return _global_cmdline_values
 
 
-def _reset():
+def _reset() -> None:
     """
     Resets all singletons defined by the parser functions above.
     """

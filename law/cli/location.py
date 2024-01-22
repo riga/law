@@ -4,15 +4,13 @@
 "law location" cli subprogram.
 """
 
-
 import os
-
-import six
+import argparse
 
 from law.util import law_src_path
 
 
-def setup_parser(sub_parsers):
+def setup_parser(sub_parsers: argparse._SubParsersAction) -> None:
     """
     Sets up the command line parser for the *location* subprogram and adds it to *sub_parsers*.
     """
@@ -28,7 +26,7 @@ def setup_parser(sub_parsers):
     )
 
 
-def execute(args):
+def execute(args: argparse.Namespace) -> int:
     """
     Executes the *location* subprogram with parsed commandline *args*.
     """
@@ -38,7 +36,8 @@ def execute(args):
     if args.contrib:
         path = os.path.join(path, "contrib", args.contrib)
         if not os.path.exists(path):
-            cls = FileNotFoundError if six.PY3 else IOError
-            raise cls("contrib package '{}' does not exist".format(args.contrib))
+            raise FileNotFoundError(f"contrib package '{args.contrib}' does not exist")
 
     print(path)
+
+    return 0

@@ -4,11 +4,12 @@
 "law completion" cli subprogram.
 """
 
+import argparse
 
 from law.util import law_src_path
 
 
-def setup_parser(sub_parsers):
+def setup_parser(sub_parsers: argparse._SubParsersAction) -> None:
     """
     Sets up the command line parser for the *completion* subprogram and adds it to *sub_parsers*.
     """
@@ -20,8 +21,9 @@ def setup_parser(sub_parsers):
     )
 
 
-def execute(args):
+def execute(args: argparse.Namespace) -> int:
     """
     Executes the *completion* subprogram with parsed commandline *args*.
     """
     print(law_src_path("cli", "completion.sh"))
+    return 0

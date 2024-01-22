@@ -4,25 +4,34 @@
 Helpful utility functions.
 """
 
-__all__ = [
-    "default_lock", "io_lock", "console_lock", "no_value", "rel_path", "law_src_path",
-    "law_home_path", "law_run", "print_err", "abort", "import_file", "get_terminal_width",
-    "is_classmethod", "is_number", "is_float", "try_int", "round_discrete", "str_to_int",
-    "flag_to_bool", "empty_context", "common_task_params", "colored", "uncolored", "query_choice",
-    "is_pattern", "brace_expand", "range_expand", "range_join", "multi_match", "is_iterable",
-    "is_lazy_iterable", "make_list", "make_tuple", "make_set", "make_unique", "is_nested",
-    "flatten", "merge_dicts", "unzip", "which", "map_verbose", "map_struct", "mask_struct",
-    "tmp_file", "perf_counter", "interruptable_popen", "readable_popen", "create_hash",
-    "create_random_string", "copy_no_perm", "makedirs", "user_owns_file", "iter_chunks",
-    "human_bytes", "parse_bytes", "human_duration", "parse_duration", "is_file_exists_error",
-    "send_mail", "DotDict", "ShorthandDict", "open_compat", "patch_object", "join_generators",
-    "quote_cmd", "escape_markdown", "classproperty", "BaseStream", "TeeStream", "FilteredStream",
-]
+from __future__ import annotations
 
+__all__ = [
+    # singleton values
+    "default_lock", "io_lock", "console_lock", "no_value",
+    # path and task helpers
+    "rel_path", "law_src_path", "law_home_path", "law_run", "common_task_params",
+    # generic helpers
+    "abort", "import_file", "get_terminal_width", "empty_context", "which", "create_hash",
+    "create_random_string", "iter_chunks", "quote_cmd", "escape_markdown", "send_mail",
+    "patch_object", "join_generators",
+    # value identification and conversion
+    "is_classmethod", "is_number", "is_float", "try_int", "round_discrete", "str_to_int",
+    "flag_to_bool", "colored", "uncolored", "query_choice", "is_pattern",
+    "human_bytes", "parse_bytes", "human_duration", "parse_duration",
+    # sequence helpers
+    "brace_expand", "range_expand", "range_join", "multi_match", "is_iterable",
+    "is_lazy_iterable", "make_list", "make_tuple", "make_set", "make_unique", "is_nested",
+    "flatten", "merge_dicts", "unzip", "map_verbose", "map_struct", "mask_struct",
+    # io helpers
+    "tmp_file", "interruptable_popen", "readable_popen", "copy_no_perm", "makedirs",
+    "user_owns_file",
+    # classes
+    "DotDict", "ShorthandDict", "classproperty", "BaseStream", "TeeStream", "FilteredStream",
+]
 
 import os
 import sys
-import types
 import re
 import math
 import fnmatch
@@ -34,29 +43,32 @@ import signal
 import hashlib
 import uuid
 import shutil
+import pathlib
 import copy
-import collections
 import contextlib
 import smtplib
 import time
 import datetime
 import random
 import threading
-import io
 import shlex
 import inspect
 import logging
 
-import six
+from law._types import (
+    ModuleType, Any, Sequence, Callable, Iterable, GeneratorType, MappingView, T, Iterator,
+    Generator, Hashable, AbstractContextManager, TracebackType,
+)
 
+ipykernel: ModuleType | None = None
 try:
     import ipykernel
     import ipykernel.iostream
 except ImportError:
-    ipykernel = None
+    pass
 
 try:
-    import google.colab  # noqa
+    import google.colab  # type: ignore[import-untyped, import-not-found] # noqa
     ON_COLAB = True
 except ImportError:
     ON_COLAB = False
@@ -72,23 +84,26 @@ console_lock = threading.Lock()
 
 class NoValue(object):
 
-    _instance = None
+    _instance: NoValue | None = None
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, *args, **kwargs) -> NoValue:
         if cls._instance is None:
-            cls._instance = super(NoValue, cls).__new__(cls, *args, **kwargs)
+            cls._instance = super().__new__(cls, *args, **kwargs)
         return cls._instance
 
-    def __bool__(self):
+    def __eq__(self, other: Any) -> bool:
+        return isinstance(other, NoValue)
+
+    def __bool__(self) -> bool:
         return False
 
-    def __nonzero__(self):
+    def __nonzero__(self) -> bool:
         return False
 
-    def __repr__(self):
-        return "{}.no_value".format(self.__module__)
+    def __repr__(self) -> str:
+        return f"{self.__module__}.no_value"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "no_value"
 
 
@@ -96,7 +111,7 @@ class NoValue(object):
 no_value = NoValue()
 
 
-def rel_path(anchor, *paths):
+def rel_path(anchor: str, *paths: Any) -> str:
     """
     Returns a path made of framgment *paths* relativ to an *anchor* path. When *anchor* is a file,
     its absolute directory is used instead.
@@ -107,14 +122,14 @@ def rel_path(anchor, *paths):
     return os.path.normpath(os.path.join(anchor, *map(str, paths)))
 
 
-def law_src_path(*paths):
+def law_src_path(*paths: Any) -> str:
     """
     Returns the law installation directory, optionally joined with *paths*.
     """
-    return rel_path(__file__, *map(str, paths))
+    return rel_path(__file__, paths)
 
 
-def law_home_path(*paths):
+def law_home_path(*paths: Any) -> str:
     """
     Returns the law home directory, optionally joined with *paths*.
     """
@@ -122,7 +137,7 @@ def law_home_path(*paths):
     return law_home_path(*paths)
 
 
-def law_run(argv, **kwargs):
+def law_run(argv: Sequence[str], **kwargs) -> int:
     """
     Runs a task with certain parameters as defined in *argv*, which can be a string or a list of
     strings. It must start with the family of the task to run, followed by the desired parameters.
@@ -133,12 +148,12 @@ def law_run(argv, **kwargs):
         law_run(["MyTask", "--param", "value"])
         law_run("MyTask --param value")
     """
-    from luigi.interface import run as luigi_run
-    from luigi.cmdline_parser import CmdlineParser
+    from luigi.interface import run as luigi_run  # type: ignore[import-untyped]
+    from luigi.cmdline_parser import CmdlineParser  # type: ignore[import-untyped]
     from law.parser import _reset as reset_parser
 
     # ensure that argv is a list of strings
-    if isinstance(argv, six.string_types):
+    if isinstance(argv, str):
         argv = shlex.split(argv)
     else:
         argv = [str(arg) for arg in argv]
@@ -149,7 +164,7 @@ def law_run(argv, **kwargs):
     # run with a patch to the ArgumentParser to overwrite the prog default
     _build_parser_orig = CmdlineParser._build_parser
     @functools.wraps(_build_parser_orig)
-    def _build_parser(*args, **kwargs):
+    def _build_parser(*args, **kwargs) -> CmdlineParser:
         parser = _build_parser_orig(*args, **kwargs)
         parser.prog = "law run"
         return parser
@@ -170,16 +185,7 @@ def law_run(argv, **kwargs):
     return ret
 
 
-def print_err(*args, **kwargs):
-    """ print_err(*args, flush=False)
-    Same as *print*, but outputs to stderr. If *flush* is *True*, stderr is flushed after printing.
-    """
-    sys.stderr.write(" ".join(str(arg) for arg in args) + "\n")
-    if kwargs.get("flush", False):
-        sys.stderr.flush()
-
-
-def abort(msg=None, exitcode=1, color=True):
+def abort(msg: str | None = None, exitcode: int = 1, color: bool = True) -> int:
     """
     Aborts the process (*sys.exit*) with an *exitcode*. If *msg* is not *None*, it is printed first
     to stdout if *exitcode* is 0 or *None*, and to stderr otherwise. When *color* is *True* and
@@ -191,11 +197,12 @@ def abort(msg=None, exitcode=1, color=True):
         else:
             if color:
                 msg = colored(msg, color="red")
-            print_err(msg)
+            print(msg, file=sys.stderr)
     sys.exit(exitcode)
+    return exitcode
 
 
-def import_file(path, attr=None):
+def import_file(path: str | pathlib.Path, attr: str | None = None) -> ModuleType | Any:
     """
     Loads the content of a python file located at *path* and returns its package content as a
     dictionary. When *attr* is set, only the attribute with that name is returned.
@@ -213,13 +220,13 @@ def import_file(path, attr=None):
     # extract a particular attribute
     if attr:
         if attr not in pkg:
-            raise AttributeError("no local member '{}' found in file {}".format(attr, path))
+            raise AttributeError(f"no local member '{attr}' found in file {path}")
         return pkg[attr]
 
     return pkg
 
 
-def get_terminal_width(fallback=False):
+def get_terminal_width(fallback: bool = False) -> int | None:
     """
     Returns the terminal width when possible, and *None* otherwise. By default, the width is
     obtained through ``os.get_terminal_size``, querying the *sys.__stdout__* which might fail in
@@ -237,7 +244,7 @@ def get_terminal_width(fallback=False):
     return width
 
 
-def is_classmethod(func, cls=None):
+def is_classmethod(func: Any, cls: type | None = None) -> bool:
     """
     Returns *True* if *func* is a classmethod of *cls*, and *False* otherwise. When *cls* is *None*,
     it is extracted from the function's qualified name and module name.
@@ -255,7 +262,7 @@ def is_classmethod(func, cls=None):
 
     # func requires a __name__
     if not _hasattr("__name__"):
-        raise AttributeError("func '{}' has not attribute __name__".format(func))
+        raise AttributeError(f"func '{func}' has not attribute __name__")
 
     # func must be the class attribute with that name
     if getattr(cls, func.__name__, None) != func:
@@ -273,14 +280,14 @@ def is_classmethod(func, cls=None):
     return False
 
 
-def is_number(n):
+def is_number(n: Any) -> bool:
     """
     Returns *True* if *n* is a number, i.e., integer or float, and in particular no boolean.
     """
-    return isinstance(n, six.integer_types + (float,)) and not isinstance(n, bool)
+    return isinstance(n, (int, float)) and not isinstance(n, bool)
 
 
-def is_float(v):
+def is_float(v: Any) -> bool:
     """
     Takes any value *v* and tries to convert it to a float. Returns *True* success, and *False*
     otherwise.
@@ -292,7 +299,7 @@ def is_float(v):
         return False
 
 
-def try_int(n):
+def try_int(n: int | float) -> int | float:
     """
     Takes a number *n* and tries to convert it to an integer. When *n* has no decimals, an integer
     is returned with the same value as *n*. Otherwise, a float is returned.
@@ -301,7 +308,11 @@ def try_int(n):
     return n_int if n == n_int else n
 
 
-def round_discrete(n, base=1.0, round_fn=round):
+def round_discrete(
+    n: int | float,
+    base: int | float = 1.0,
+    round_fn: Callable[[int | float], float] | str = round,
+) -> float:
     """ round_discrete(n, base=1.0, round_fn="round")
     Rounds a number *n* to a discrete *base*. *round_fn* can be a function used for rounding and
     defaults to the built-in ``round`` function. It also accepts string values ``"round"``,
@@ -322,7 +333,7 @@ def round_discrete(n, base=1.0, round_fn=round):
         round_discrete(17, 2.5, "floor")
         # -> 15.0
     """
-    if isinstance(round_fn, six.string_types):
+    if isinstance(round_fn, str):
         if round_fn == "round":
             round_fn = round
         elif round_fn == "floor":
@@ -335,7 +346,7 @@ def round_discrete(n, base=1.0, round_fn=round):
     return base * round_fn(float(n) / base)
 
 
-def str_to_int(s):
+def str_to_int(s: str) -> int:
     """
     Converts a string *s* into an integer under consideration of binary, octal, decimal and
     hexadecimal representations, such as ``"0o0660"``.
@@ -346,7 +357,7 @@ def str_to_int(s):
     return int(s, base=base)
 
 
-def flag_to_bool(s, silent=False):
+def flag_to_bool(s: str, silent: bool = False) -> bool | None:
     """
     Takes a string flag *s* and returns whether it evaluates to *True* (values ``"1"``, ``"true"``
     ``"yes"``, ``"y"``, ``"on"``, case-insensitive) or *False* (values ``"0"``, ``"false"``,
@@ -356,20 +367,21 @@ def flag_to_bool(s, silent=False):
     """
     if isinstance(s, bool):
         return s
-    elif isinstance(s, six.string_types):
+
+    if isinstance(s, str):
         if s.lower() in ("true", "1", "yes", "y", "on"):
             return True
-        elif s.lower() in ("false", "0", "no", "n", "off"):
+        if s.lower() in ("false", "0", "no", "n", "off"):
             return False
 
     if silent:
         return None
-    else:
-        raise ValueError("cannot convert to bool: {}".format(s))
+
+    raise ValueError(f"cannot convert to bool: {s}")
 
 
 @contextlib.contextmanager
-def empty_context():
+def empty_context() -> Iterator[None]:
     """
     Yields an empty context that can be used in case of dynamically choosing context managers while
     maintaining code structure.
@@ -377,22 +389,23 @@ def empty_context():
     yield
 
 
-def common_task_params(task_instance, task_cls):
+def common_task_params(task_instance, task_cls) -> dict[str, Any]:
     """
     Returns the parameters that are common between a *task_instance* and a *task_cls* in a
     dictionary with values taken directly from the task instance. The difference with respect to
     ``luigi.util.common_params`` is that the values are not parsed using the parameter objects of
     the task class, which might be faster for some purposes.
     """
-    task_cls_param_names = [name for name, _ in task_cls.get_params()]
+    task_cls_param_names = set(name for name, _ in task_cls.get_params())
     common_param_names = [
-        name for name, _ in task_instance.get_params()
+        name
+        for name, _ in task_instance.get_params()
         if name in task_cls_param_names
     ]
     return {name: getattr(task_instance, name) for name in common_param_names}
 
 
-colors = {
+colors: dict[str, int] = {
     "default": 39,
     "black": 30,
     "red": 31,
@@ -412,7 +425,7 @@ colors = {
     "white": 97,
 }
 
-backgrounds = {
+backgrounds: dict[str, int] = {
     "default": 49,
     "black": 40,
     "red": 41,
@@ -432,7 +445,7 @@ backgrounds = {
     "white": 107,
 }
 
-styles = {
+styles: dict[str, int] = {
     "default": 0,
     "bright": 1,
     "dim": 2,
@@ -445,13 +458,22 @@ styles = {
 uncolor_cre = re.compile(r"(\x1B\[[0-?]*[ -/]*[@-~])")
 
 
-def colored(msg, color=None, background=None, style=None, force=False):
+def colored(
+    msg: Any,
+    color: str | int | None = None,
+    background: str | int | None = None,
+    style: str | int | Sequence[str | int] | None = None,
+    force: bool = False,
+) -> str:
     """
     Return the colored version of a string *msg*. For *color*, *background* and *style* options, see
     https://misc.flogisoft.com/bash/tip_colors_and_formatting. They can also be explicitely set to
-    ``"random"`` to get a random value. Unless *force* is *True*, the *msg* string is returned
-    unchanged in case the output is neither a tty nor an IPython output stream.
+    ``"random"`` to get a random value. *style* also accepts a sequence of styles that will be
+    stacked. Unless *force* is *True*, the *msg* string is returned unchanged in case the output is
+    neither a tty nor an IPython output stream.
     """
+    msg = str(msg)
+
     if not force:
         tty = False
         ipy = False
@@ -467,44 +489,59 @@ def colored(msg, color=None, background=None, style=None, force=False):
         if not tty and not ipy:
             return msg
 
-    if color == "random":
-        color = random.choice(list(colors.values()))
-    else:
-        color = colors.get(color, colors["default"])
+    if isinstance(color, str):
+        if color == "random":
+            color = random.choice(list(colors.values()))
+        else:
+            colors.get(color, colors["default"])
+    elif not isinstance(color, int):
+        color = colors["default"]
 
-    if background == "random":
-        background = random.choice(list(backgrounds.values()))
-    else:
-        background = backgrounds.get(background, backgrounds["default"])
+    if isinstance(background, str):
+        if background == "random":
+            background = random.choice(list(backgrounds.values()))
+        else:
+            background = backgrounds.get(background, backgrounds["default"])
+    elif not isinstance(background, int):
+        background = backgrounds["default"]
 
-    if not isinstance(style, (tuple, list, set)):
-        style = (style,)
-    style_values = list(styles.values())
-    style = ";".join(
-        str(random.choice(style_values) if s == "random" else styles.get(s, styles["default"]))
-        for s in style
-    )
+    _styles = []
+    for s in make_list(style):
+        if isinstance(s, str):
+            if s == "random":
+                s = random.choice(list(styles.values()))
+            else:
+                s = styles.get(s, styles["default"])
+        elif not isinstance(s, int):
+            s = styles["default"]
+        _styles.append(s)
+    style = ";".join(map(str, _styles))
 
-    return "\033[{};{};{}m{}\033[0m".format(style, background, color, msg)
+    return f"\033[{style};{background};{color}m{msg}\033[0m"
 
 
-def uncolored(s):
+def uncolored(s: str) -> str:
     """
     Removes all color codes from a string *s* and returns it.
     """
     return uncolor_cre.sub("", s)
 
 
-def query_choice(msg, choices, default=None, descriptions=None, lower=True):
+def query_choice(
+    msg: str,
+    choices: Sequence[Any],
+    default: str | None = None,
+    descriptions: Sequence[str] | None = None,
+    lower: bool = True,
+) -> str:
     """
     Interactively query a choice from the prompt until the input matches one of the *choices*. The
     prompt can be configured using *msg* and *descriptions*, which, if set, must have the same
     length as *choices*. When *default* is not *None* it must be one of the choices and is used when
     the input is empty. When *lower* is *True*, the input is compared to the choices in lower case.
     """
-    choices = _choices = [str(c) for c in choices]
-    if lower:
-        _choices = [c.lower() for c in choices]
+    choices: list[str] = [str(c) for c in choices]
+    _choices = [c.lower() for c in choices] if lower else choices
 
     if default is not None:
         if default not in choices:
@@ -514,14 +551,15 @@ def query_choice(msg, choices, default=None, descriptions=None, lower=True):
     if descriptions is not None:
         if len(descriptions) != len(choices):
             raise ValueError("length of descriptions must match length of choices")
-        hints = ["{}({})".format(*tpl) for tpl in zip(hints, descriptions)]
-    msg += " [{}] ".format(", ".join(hints))
+        hints = [f"{h}({d})" for h, d in zip(hints, descriptions)]
+    msg += f" [{', '.join(hints)}] "
 
-    choice = None
+    not_set = "__law_str_not_str__"
+    choice = not_set
     while choice not in _choices:
-        if choice is not None:
-            print("invalid choice: '{}'".format(choice))
-        choice = six.moves.input(msg)
+        if choice != not_set:
+            print(f"invalid choice: '{choice}'")
+        choice = input(msg)
         if default is not None and choice == "":
             choice = default
         if lower:
@@ -530,7 +568,7 @@ def query_choice(msg, choices, default=None, descriptions=None, lower=True):
     return choice
 
 
-def is_pattern(s):
+def is_pattern(s: str) -> bool:
     """
     Returns *True* if the string *s* represents a pattern, i.e., if it contains characters such as
     ``"*"`` or ``"?"``.
@@ -538,7 +576,7 @@ def is_pattern(s):
     return "*" in s or "?" in s
 
 
-def brace_expand(s, split_csv=False, escape_csv_sep=True):
+def brace_expand(s: str, split_csv: bool = False, escape_csv_sep: bool = True) -> list[str]:
     """
     Expands brace statements in a string *s* and returns a list containing all possible string
     combinations. When *split_csv* is *True*, the input string is split by all comma characters
@@ -597,8 +635,10 @@ def brace_expand(s, split_csv=False, escape_csv_sep=True):
     sequences = cre.findall(s)
     entities = cre.split(s)
     if len(sequences) + 1 != len(entities):
-        raise ValueError("the number of sequences ({}) and the number of fixed entities ({}) are "
-            "not compatible".format(",".join(sequences), ",".join(entities)))
+        raise ValueError(
+            f"the number of sequences ({','.join(sequences)}) and the number of fixed entities "
+            f"({','.join(entities)}) are not compatible",
+        )
 
     # split each sequence by comma
     sequences = [seq[1:-1].split(",") for seq in sequences]
@@ -619,11 +659,17 @@ def brace_expand(s, split_csv=False, escape_csv_sep=True):
     return res
 
 
-def range_expand(s, include_end=False, min_value=None, max_value=None, sep=":"):
+def range_expand(
+    s: str | Sequence[str] | Sequence[tuple[int] | tuple[int, int]],
+    include_end: bool = False,
+    min_value: int | None = None,
+    max_value: int | None = None,
+    sep: str = ":",
+) -> list[int]:
     """
-    Takes a string, or a sequence of strings in the format ``"1:3"``, or a tuple or a sequence of
-    tuples containing start and stop values of a range and returns a list of all intermediate
-    values. When *include_end* is *True*, the end value is included.
+    Takes a string, or a sequence of strings in the format ``"1:3"``, or a sequence of tuples
+    containing start and stop values of a range and returns a list of all intermediate values. When
+    *include_end* is *True*, the end value is included.
 
     One sided range expressions such as ``":4"`` or ``"4:"`` for strings and ``(None, 4)`` or
     ``(4, None)`` for tuples are also expanded but they require *min_value* and *max_value* to be
@@ -658,30 +704,27 @@ def range_expand(s, include_end=False, min_value=None, max_value=None, sep=":"):
         range_expand(["5-8", "10-"], max_value=12, include_end=True)
         # -> [5, 6, 7, 8, 10, 11, 12]
     """
-    def to_int(v, s=None):
+    def to_int(v: Any, s: Any | None = None) -> int:
         try:
             return int(v)
         except ValueError:
-            raise ValueError("invalid number or range '{}'".format(v if s is None else s))
+            raise ValueError(f"invalid number or range '{v if s is None else s}'")
 
     # make_list is used below, but we need to distinguish between lists and tuples
-    if isinstance(s, tuple):
-        s = [s]
-
     numbers = []
-    for s in make_list(s):
+    for v in ([s] if isinstance(s, tuple) else make_list(s)):
         start, stop, value = None, None, None
         single_value = False
 
-        if isinstance(s, (tuple, list)):
+        if isinstance(v, (tuple, list)):
             # parse tuple
-            if len(s) == 1:
-                value = s[0]
+            if len(v) == 1:
+                value = v[0]
                 single_value = True
-            elif len(s) == 2:
-                start, stop = s
+            elif len(v) == 2:
+                start, stop = v
             else:
-                raise ValueError("invalid range tuple length: {}".format(s))
+                raise ValueError(f"invalid range tuple length: {v}")
 
         else:
             # parse as string
@@ -702,13 +745,15 @@ def range_expand(s, include_end=False, min_value=None, max_value=None, sep=":"):
             # build the range
             if start is None:
                 if min_value is None:
-                    raise Exception("range '{}' with missing start value requires min_value to be "
-                        "set".format(s))
+                    raise Exception(
+                        f"range '{s}' with missing start value requires min_value to be set",
+                    )
                 start = min_value
             if stop is None:
                 if max_value is None:
-                    raise Exception("range '{}' with missing stop value requires max_value to be "
-                        "set".format(s))
+                    raise Exception(
+                        f"range '{s}' with missing stop value requires max_value to be set",
+                    )
                 stop = max_value
 
             # convert to integers and potentially swap
@@ -721,19 +766,26 @@ def range_expand(s, include_end=False, min_value=None, max_value=None, sep=":"):
             numbers.extend(range(start, stop + int(bool(include_end))))
 
     # remove duplicates preserving the order
-    numbers = make_unique(numbers)
+    unique_numbers = list(make_unique(numbers))
+    del numbers
 
     # apply limits
     if min_value is not None:
-        numbers = [num for num in numbers if num >= min_value]
+        unique_numbers = [num for num in unique_numbers if num >= min_value]
     if max_value is not None:
         py_max_value = (max_value + 1) if include_end else max_value
-        numbers = [num for num in numbers if num < py_max_value]
+        unique_numbers = [num for num in unique_numbers if num < py_max_value]
 
-    return numbers
+    return unique_numbers
 
 
-def range_join(numbers, to_str=False, include_end=False, sep=",", range_sep=":"):
+def range_join(
+    numbers: Sequence[int | str],
+    to_str: bool = False,
+    include_end: bool = False,
+    sep: str = ",",
+    range_sep: str = ":",
+) -> list[tuple[int] | tuple[int, int]] | str:
     """
     Takes a sequence of positive integer numbers given either as integer or string types, and
     returns a sequence 1- and 2-tuples, denoting either single numbers or start and end values of
@@ -759,23 +811,23 @@ def range_join(numbers, to_str=False, include_end=False, sep=",", range_sep=":")
         return "" if to_str else []
 
     # check type, convert, make unique and sort
-    _numbers = []
+    _numbers: list[int] = []
     for n in numbers:
-        if isinstance(n, six.string_types):
+        if isinstance(n, str):
             try:
                 n = int(n)
             except ValueError:
-                raise ValueError("invalid number format '{}'".format(n))
-        if isinstance(n, six.integer_types):
-            _numbers.append(n)
-        else:
-            raise TypeError("cannot handle non-integer value '{}' in numbers to join".format(n))
-    numbers = sorted(set(_numbers))
+                raise ValueError(f"invalid number format '{n}'")
+        if not isinstance(n, int):
+            raise TypeError(f"cannot handle non-integer value '{n}' in numbers to join")
+        _numbers.append(n)
+    del numbers
+    _numbers = sorted(set(_numbers))
 
     # iterate through numbers, keep track of last starts and stops and fill a list of range tuples
-    ranges = []
-    start = stop = numbers[0]
-    for n in numbers[1:]:
+    ranges: list[tuple[int] | tuple[int, int]] = []
+    start = stop = _numbers[0]
+    for n in _numbers[1:]:
         if n == stop + 1:
             stop += 1
         else:
@@ -784,57 +836,62 @@ def range_join(numbers, to_str=False, include_end=False, sep=",", range_sep=":")
     # add the last one
     ranges.append((start,) if start == stop else (start, stop + int(bool(not include_end))))
 
+    # return if not converting to string
+    if not to_str:
+        return ranges
+
     # convert to string representation
-    if to_str:
-        ranges = sep.join(
-            (str(r[0]) if len(r) == 1 else "{1}{0}{2}".format(range_sep, *r))
-            for r in ranges
-        )
-
-    return ranges
+    return sep.join(
+        str(r[0]) if len(r) == 1 else "{1}{0}{2}".format(range_sep, *r)
+        for r in ranges
+    )
 
 
-def multi_match(name, patterns, mode=any, regex=False):
+def multi_match(
+    name: str,
+    patterns: str | Iterable[str],
+    mode: Callable[[Iterable], bool] = any,
+    regex: bool = False,
+) -> bool:
     """
     Compares *name* to multiple *patterns* and returns *True* in case of at least one match (*mode*
     = *any*, the default), or in case all patterns match (*mode* = *all*). Otherwise, *False* is
     returned. When *regex* is *True*, *re.match* is used instead of *fnmatch.fnmatch*.
     """
     patterns = make_list(patterns)
-    if not regex:
-        return mode(fnmatch.fnmatch(name, pattern) for pattern in patterns)
-    else:
+    if regex:
         return mode(re.match(pattern, name) for pattern in patterns)
+    return mode(fnmatch.fnmatch(name, pattern) for pattern in patterns)
 
 
-def is_iterable(obj):
+def is_iterable(obj: Any) -> bool:
     """
     Returns *True* when an object *obj* is iterable and *False* otherwise.
     """
     try:
         iter(obj)
+        return True
     except Exception:
         return False
-    return True
 
 
 lazy_iter_types = (
-    types.GeneratorType,
-    six.moves.collections_abc.MappingView,
-    six.moves.range,
-    six.moves.map,
+    GeneratorType,
+    MappingView,
+    range,
+    map,
     enumerate,
 )
 
 
-def is_lazy_iterable(obj):
+def is_lazy_iterable(obj: Any) -> bool:
     """
     Returns whether *obj* is iterable lazily, such as generators, range objects, maps, etc.
     """
     return isinstance(obj, lazy_iter_types)
 
 
-def make_list(obj, cast=True):
+def make_list(obj: Any, cast: bool = True) -> list[Any]:
     """
     Converts an object *obj* to a list and returns it. Objects of types *tuple* and *set* are
     converted if *cast* is *True*. Otherwise, and for all other types, *obj* is put in a new list.
@@ -848,7 +905,7 @@ def make_list(obj, cast=True):
     return [obj]
 
 
-def make_tuple(obj, cast=True):
+def make_tuple(obj: Any, cast: bool = True) -> tuple[Any]:
     """
     Converts an object *obj* to a tuple and returns it. Objects of types *list* and *set* are
     converted if *cast* is *True*. Otherwise, and for all other types, *obj* is put in a new tuple.
@@ -862,7 +919,7 @@ def make_tuple(obj, cast=True):
     return (obj,)
 
 
-def make_set(obj, cast=True):
+def make_set(obj: Any, cast: bool = True) -> set[Any]:
     """
     Converts an object *obj* to a set and returns it. Objects of types *list* and *tuple* are
     converted if *cast* is *True*. Otherwise, and for all other types, *obj* is put in a new set.
@@ -876,7 +933,7 @@ def make_set(obj, cast=True):
     return {obj}
 
 
-def make_unique(obj):
+def make_unique(obj: Iterable[T]) -> Iterable[T]:
     """
     Takes a list or tuple *obj*, removes duplicate elements in order of their appearance and returns
     the sequence of remaining, unique elements. The sequence type is preserved. When *obj* is
@@ -893,14 +950,20 @@ def make_unique(obj):
     return obj.__class__(ret) if isinstance(obj, tuple) else ret
 
 
-def is_nested(obj):
+def is_nested(obj: Any) -> bool:
     """
     Takes a list or tuple *obj* and checks whether it only contains items of types list and tuple.
     """
     return isinstance(obj, (list, tuple)) and all(isinstance(item, (list, tuple)) for item in obj)
 
 
-def flatten(*structs, **kwargs):
+def flatten(
+    *structs: Any,
+    flatten_dict: bool = True,
+    flatten_list: bool = True,
+    flatten_tuple: bool = True,
+    flatten_set: bool = True,
+) -> list[Any]:
     """ flatten(*structs, flatten_dict=True, flatten_list=True, flatten_tuple=True, flatten_set=True)
     Takes one or multiple complex structured objects *structs*, flattens them, and returns a single
     list. *flatten_dict*, *flatten_list*, *flatten_tuple* and *flatten_set* configure if objects of
@@ -909,6 +972,12 @@ def flatten(*structs, **kwargs):
     if len(structs) == 0:
         return []
 
+    kwargs = dict(
+        flatten_dict=flatten_dict,
+        flatten_list=flatten_list,
+        flatten_tuple=flatten_tuple,
+        flatten_set=flatten_set,
+    )
     if len(structs) > 1:
         return flatten(structs, **kwargs)
 
@@ -916,16 +985,16 @@ def flatten(*structs, **kwargs):
 
     flatten_seq = lambda seq: sum((flatten(obj, **kwargs) for obj in seq), [])
     if isinstance(struct, dict):
-        if kwargs.get("flatten_dict", True):
+        if flatten_dict:
             return flatten_seq(struct.values())
     elif isinstance(struct, list):
-        if kwargs.get("flatten_list", True):
+        if flatten_list:
             return flatten_seq(struct)
     elif isinstance(struct, tuple):
-        if kwargs.get("flatten_tuple", True):
+        if flatten_tuple:
             return flatten_seq(struct)
     elif isinstance(struct, set):
-        if kwargs.get("flatten_set", True):
+        if flatten_set:
             return flatten_seq(struct)
     elif is_lazy_iterable(struct):
         return flatten_seq(struct)
@@ -999,7 +1068,7 @@ def merge_dicts(*dicts, **kwargs):
     return merged_dict
 
 
-def unzip(struct, fill_none=False):
+def unzip(struct: Iterable, fill_none: bool = False) -> tuple[list[Any], ...] | None:
     """
     Unzips a *struct* consisting of sequences with equal lengths and returns lists with 1st, 2nd,
     etc elements. This function can be thought of as the opposite of the ``zip`` builtin.
@@ -1019,7 +1088,7 @@ def unzip(struct, fill_none=False):
         unzip([(1, 2), (3,)], fill_none=True)
         # -> ([1, 3], [2, None])
     """
-    lists = None
+    lists: tuple | None = None
     for i, obj in enumerate(struct):
         # determine the number of lists to return
         if lists is None:
@@ -1033,13 +1102,13 @@ def unzip(struct, fill_none=False):
                 l.append(None)
             else:
                 raise ValueError(
-                    "insufficient length {} of sequence at index {} to unzip".format(j, len(lists)),
+                    f"insufficient length {j} of sequence at index {len(lists)} to unzip",
                 )
 
     return lists
 
 
-def which(prog):
+def which(prog: str) -> str | None:
     """
     Pythonic ``which`` implementation. Returns the path to an executable *prog* by searching in
     *PATH*, or *None* when it could not be found.
@@ -1051,6 +1120,7 @@ def which(prog):
     if dirname:
         if executable(str(prog)):
             return prog
+
     elif "PATH" in os.environ:
         for search_path in os.environ["PATH"].split(os.pathsep):
             path = os.path.join(search_path.strip('"'), prog)
@@ -1060,7 +1130,16 @@ def which(prog):
     return None
 
 
-def map_verbose(func, seq, msg="{}", every=25, start=True, end=True, offset=0, callback=None):
+def map_verbose(
+    func: Callable[[T], Any],
+    seq: Iterable[T],
+    msg: str = "{}",
+    every: int = 25,
+    start: bool = True,
+    end: bool = True,
+    offset: int = 0,
+    callback: Callable[[int], Any] | None = None,
+) -> list[T]:
     """
     Same as the built-in map function but prints a *msg* after chunks of size *every* iterations.
     When *start* (*stop*) is *True*, the *msg* is also printed after the first (last) iteration.
@@ -1098,8 +1177,16 @@ def map_verbose(func, seq, msg="{}", every=25, start=True, end=True, offset=0, c
     return results
 
 
-def map_struct(func, struct, map_dict=True, map_list=True, map_tuple=False, map_set=False,
-        cls=None, custom_mappings=None):
+def map_struct(
+    func: Callable[[Any], Any],
+    struct: Any,
+    map_dict: int | bool = True,
+    map_list: int | bool = True,
+    map_tuple: int | bool = False,
+    map_set: int | bool = False,
+    cls=None,
+    custom_mappings: dict[type | tuple[type, ...], Callable[..., Any]] | None = None,
+) -> Any:
     """
     Applies a function *func* to each value of a complex structured object *struct* and returns the
     output in the same structure. Example:
@@ -1133,7 +1220,7 @@ def map_struct(func, struct, map_dict=True, map_list=True, map_tuple=False, map_
         struct = list(struct)
 
     # determine valid types for struct traversal
-    valid_types = tuple()
+    valid_types: tuple[type, ...] = tuple()
     if map_dict:
         valid_types += (dict,)
         if is_number(map_dict):
@@ -1158,12 +1245,19 @@ def map_struct(func, struct, map_dict=True, map_list=True, map_tuple=False, map_
     # custom mapping?
     if custom_mappings and isinstance(struct, tuple(flatten(custom_mappings.keys()))):
         # get the mapping function
-        for mapping_types, mapping_func in six.iteritems(custom_mappings):
+        for mapping_types, mapping_func in custom_mappings.items():
             if isinstance(struct, mapping_types):
-                return mapping_func(func, struct, map_dict=map_dict, map_list=map_list,
-                    map_tuple=map_tuple, map_set=map_set, cls=cls, custom_mappings=custom_mappings)
-        # this point should never be reached
-        return struct
+                return mapping_func(
+                    func,
+                    struct,
+                    map_dict=map_dict,
+                    map_list=map_list,
+                    map_tuple=map_tuple,
+                    map_set=map_set,
+                    cls=cls,
+                    custom_mappings=custom_mappings,
+                )
+        raise RuntimeError(f"no custom mapping function found for struct '{struct}'")
 
     # traverse?
     if isinstance(struct, valid_types):
@@ -1173,23 +1267,33 @@ def map_struct(func, struct, map_dict=True, map_list=True, map_tuple=False, map_
         # create type-dependent generator and addition callback
         if isinstance(struct, (list, tuple)):
             gen = enumerate(struct)
-            add = lambda _, value: new_struct.append(value)
+            add = lambda _, value: new_struct.append(value)  # type: ignore
         elif isinstance(struct, set):
             gen = enumerate(struct)
-            add = lambda _, value: new_struct.add(value)
-        else:  # dict
-            gen = six.iteritems(struct)
-            add = lambda key, value: new_struct.__setitem__(key, value)
+            add = lambda _, value: new_struct.add(value)  # type: ignore
+        elif isinstance(struct, dict):
+            gen = struct.items()  # type: ignore
+            add = lambda key, value: new_struct.__setitem__(key, value)  # type: ignore
+        else:
+            raise TypeError(f"invalid struct type '{type(struct)}'")
 
         # recursively fill the new struct
         for key, value in gen:
-            value = map_struct(func, value, map_dict=map_dict, map_list=map_list,
-                map_tuple=map_tuple, map_set=map_set, cls=cls, custom_mappings=custom_mappings)
+            value = map_struct(
+                func,
+                value,
+                map_dict=map_dict,
+                map_list=map_list,
+                map_tuple=map_tuple,
+                map_set=map_set,
+                cls=cls,
+                custom_mappings=custom_mappings,
+            )
             add(key, value)
 
         # convert tuples
         if isinstance(struct, tuple):
-            new_struct = struct.__class__(new_struct)
+            new_struct = struct.__class__(new_struct)  # type: ignore
 
         return new_struct
 
@@ -1197,7 +1301,12 @@ def map_struct(func, struct, map_dict=True, map_list=True, map_tuple=False, map_
     return func(struct)
 
 
-def mask_struct(mask, struct, replace=no_value, convert_types=None):
+def mask_struct(
+    mask: bool | Iterable[bool],
+    struct: T | Iterable[T],
+    replace: Any | NoValue = no_value,
+    convert_types: dict[type | tuple[type, ...], Callable[[Any], Any]] | None = None,
+):
     """
     Masks a complex structured object *struct* with a *mask* and returns the remaining values. When
     *replace* is set, masked values are replaced with that value instead of being removed. The
@@ -1222,12 +1331,12 @@ def mask_struct(mask, struct, replace=no_value, convert_types=None):
     """
     # interpret lazy iterables lists
     if is_lazy_iterable(struct):
-        struct = list(struct)
+        struct = list(struct)  # type: ignore
 
     # cast convert types
     if convert_types and isinstance(struct, tuple(flatten(convert_types.keys()))):
         # get the mapping function
-        for _types, convert in six.iteritems(convert_types):
+        for _types, convert in convert_types.items():
             if isinstance(struct, _types):
                 struct = convert(struct)
                 break
@@ -1254,8 +1363,8 @@ def mask_struct(mask, struct, replace=no_value, convert_types=None):
 
     # check dict types
     if isinstance(struct, dict) and isinstance(mask, dict):
-        new_struct = struct.__class__()
-        for key, val in six.iteritems(struct):
+        new_struct: dict = struct.__class__()
+        for key, val in struct.items():
             if key not in mask:
                 new_struct[key] = val
             else:
@@ -1269,13 +1378,12 @@ def mask_struct(mask, struct, replace=no_value, convert_types=None):
 
     # when this point is reached, mask and struct have incompatible types
     raise TypeError(
-        "mask and struct must have the same type, got '{}' and '{}'".format(
-            type(mask), type(struct)),
+        f"mask and struct must have the same type, got '{type(mask)}' and '{type(struct)}'",
     )
 
 
 @contextlib.contextmanager
-def tmp_file(*args, **kwargs):
+def tmp_file(*args, **kwargs) -> Iterator[tuple[int, str]]:
     """
     Context manager that creates an empty, temporary file, yields the file descriptor number and
     temporary path, and eventually removes it. All *args* and *kwargs* are passed to
@@ -1296,15 +1404,15 @@ def tmp_file(*args, **kwargs):
             os.remove(path)
 
 
-def perf_counter():
+def interruptable_popen(
+    *args,
+    stdin_callback: Callable[[], Any] | None = None,
+    stdin_delay: int | float = 0,
+    interrupt_callback: Callable[[subprocess.Popen], Any] | None = None,
+    kill_timeout: int | float | None = None,
+    **kwargs,
+) -> tuple[int, str | None, str | None]:
     """
-    Returns ``time.perf_counter()`` for python 3 and ``time.time()`` for python 2.
-    """
-    return time.time() if six.PY2 else time.perf_counter()
-
-
-def interruptable_popen(*args, **kwargs):
-    """ interruptable_popen(*args, stdin_callback=None, stdin_delay=0, interrupt_callback=None, kill_timeout=None, **kwargs)  # noqa
     Shorthand to :py:class:`Popen` followed by :py:meth:`Popen.communicate` which can be interrupted
     by *KeyboardInterrupt*. The return code, standard output and standard error are returned in a
     3-tuple.
@@ -1321,12 +1429,6 @@ def interruptable_popen(*args, **kwargs):
 
     All other *args* and *kwargs* are forwarded to the :py:class:`Popen` constructor.
     """
-    # get kwargs not being passed to Popen
-    stdin_callback = kwargs.pop("stdin_callback", None)
-    stdin_delay = kwargs.pop("stdin_delay", 0)
-    interrupt_callback = kwargs.pop("interrupt_callback", None)
-    kill_timeout = kwargs.pop("kill_timeout", None)
-
     # start the subprocess in a new process group
     kwargs["preexec_fn"] = os.setsid
     p = subprocess.Popen(*args, **kwargs)
@@ -1337,7 +1439,7 @@ def interruptable_popen(*args, **kwargs):
         if stdin_delay > 0:
             time.sleep(stdin_delay)
         stdin_data = stdin_callback()
-        if isinstance(stdin_data, six.string_types):
+        if isinstance(stdin_data, str):
             stdin_data = (stdin_data + "\n").encode("utf-8")
 
     # handle interrupts
@@ -1356,8 +1458,8 @@ def interruptable_popen(*args, **kwargs):
         # when a kill_timeout is set, and the process is still running after that period,
         # send SIGKILL to force its termination
         if kill_timeout is not None:
-            target_time = perf_counter() + kill_timeout
-            while target_time > perf_counter():
+            target_time = time.perf_counter() + kill_timeout
+            while target_time > time.perf_counter():
                 time.sleep(0.05)
                 if p.poll() is not None:
                     # the process terminated, exit the loop
@@ -1370,16 +1472,16 @@ def interruptable_popen(*args, **kwargs):
         # transparently reraise
         raise
 
-    if six.PY3:
-        if out is not None:
-            out = out.decode("utf-8")
-        if err is not None:
-            err = err.decode("utf-8")
+    # decode
+    if out is not None:
+        out = out.decode("utf-8")
+    if err is not None:
+        err = err.decode("utf-8")
 
     return p.returncode, out, err
 
 
-def readable_popen(*args, **kwargs):
+def readable_popen(*args, **kwargs) -> tuple[subprocess.Popen, Iterable[str]]:
     """
     Creates a :py:class:`Popen` object and a generator function yielding the output line-by-line as
     it comes in. All *args* and *kwargs* are forwarded to the :py:class:`Popen` constructor.
@@ -1407,12 +1509,8 @@ def readable_popen(*args, **kwargs):
     p = subprocess.Popen(*args, **kwargs)
 
     def line_gen():
-        if six.PY2:
-            for line in iter(lambda: p.stdout.readline(), ""):
-                yield line.rstrip()
-        else:
-            for line in p.stdout:
-                yield line.decode("utf-8").rstrip()
+        for line in p.stdout:
+            yield line.decode("utf-8").rstrip()
 
         # communicate in the end
         p.communicate()
@@ -1420,18 +1518,18 @@ def readable_popen(*args, **kwargs):
     return p, line_gen()
 
 
-def create_hash(inp, l=10, algo="sha256", to_int=False):
+def create_hash(inp: Any, l: int = 10, algo: str = "sha256", to_int: bool = False) -> str | int:
     """
     Takes an arbitrary input *inp* and creates a hexadecimal string hash based on an algorithm
     *algo*. For valid algorithms, see python's hashlib. *l* corresponds to the maximum length of the
     returned hash and is limited by the length of the hexadecimal representation produced by the
     hashing algorithm. When *to_int* is *True*, the decimal integer representation is returned.
     """
-    h = getattr(hashlib, algo)(six.b(str(inp))).hexdigest()[:l]
+    h = getattr(hashlib, algo)(str(inp).encode("utf-8")).hexdigest()[:l]
     return int(h, 16) if to_int else h
 
 
-def create_random_string(prefix="", l=10):
+def create_random_string(prefix: str = "", l: int = 10) -> str:
     """
     Creates and returns a random string consisting of *l* characters using a uuid4 hash. When
     *prefix* is given, the string will have the format ``<prefix>_<random_string>``.
@@ -1441,11 +1539,11 @@ def create_random_string(prefix="", l=10):
         s += uuid.uuid4().hex
     s = s[:l]
     if prefix:
-        s = "{}_{}".format(prefix, s)
+        s = f"{prefix}_{s}"
     return s
 
 
-def copy_no_perm(src, dst):
+def copy_no_perm(src: str | pathlib.Path, dst: str | pathlib.Path) -> None:
     """
     Copies a file from *src* to *dst* including meta data except for permission bits.
     """
@@ -1456,7 +1554,7 @@ def copy_no_perm(src, dst):
     os.chmod(dst, perm)
 
 
-def makedirs(path, perm=None):
+def makedirs(path: str | pathlib.Path, perm: int | None = None) -> None:
     """
     Recursively creates directories up to *path*. No exception is raised if *path* refers to an
     existing directory. If *perm* is set, the permissions of all newly created directories are set
@@ -1469,14 +1567,14 @@ def makedirs(path, perm=None):
 
     # helper to silently create the directory, catching exceptions if it exists by now
     # (when dropping py2, just use the exist_ok flag of os.makedirs)
-    def makedirs_safe(path, perm=None):
+    def makedirs_safe(path: str, perm: int | None = None) -> None:
         try:
             if perm is None:
                 os.makedirs(path)
             else:
                 os.makedirs(path, perm)
         except Exception as e:
-            if not is_file_exists_error(e):
+            if not isinstance(e, FileExistsError):
                 raise
 
     if perm is None:
@@ -1489,7 +1587,7 @@ def makedirs(path, perm=None):
             os.umask(umask)
 
 
-def user_owns_file(path, uid=None):
+def user_owns_file(path: str | pathlib.Path, uid: int | None = None) -> bool:
     """
     Returns whether a file located at *path* is owned by the user with *uid*. When *uid* is *None*,
     the user id of the current process is used.
@@ -1500,42 +1598,49 @@ def user_owns_file(path, uid=None):
     return os.stat(path).st_uid == uid
 
 
-def iter_chunks(l, size):
+def iter_chunks(l: int | Iterable[T], size: int) -> Iterator[list[int | T]]:
     """
     Returns a generator containing chunks of *size* of a list, integer or generator *l*. A *size*
     smaller than 1 results in no chunking at all.
     """
-    if isinstance(l, six.integer_types):
-        l = six.moves.range(l)
+    _l: Iterable = range(l) if isinstance(l, int) else l
 
-    if is_lazy_iterable(l):
+    if is_lazy_iterable(_l):
+        # non-positive size means no chunking
         if size < 1:
-            yield list(l)
-        else:
-            chunk = []
-            for elem in l:
-                if len(chunk) < size:
-                    chunk.append(elem)
-                else:
-                    yield chunk
-                    chunk = [elem]
+            yield list(_l)
+            return
+
+        # traverse and divide into chunks
+        chunk: list = []
+        for elem in _l:
+            if len(chunk) < size:
+                chunk.append(elem)
             else:
-                if chunk:
-                    yield chunk
+                yield chunk
+                chunk = [elem]
+        if chunk:
+            yield chunk
+        return
 
-    else:
-        if size < 1:
-            yield l
-        else:
-            for i in six.moves.range(0, len(l), size):
-                yield l[i:i + size]
+    _l = list(_l)
+    if size < 1:
+        yield _l
+        return
+
+    for i in range(0, len(_l), size):
+        yield _l[i:i + size]
 
 
 byte_units = ["bytes", "kB", "MB", "GB", "TB", "PB", "EB"]
 byte_units_lower = [u.lower() for u in byte_units]
 
 
-def human_bytes(n, unit=None, fmt=False):
+def human_bytes(
+    n: int | float,
+    unit: str | None = None,
+    fmt: Callable[[str, str], str] | Any = None,
+) -> tuple[float, str] | str:
     """
     Takes a number of bytes *n*, assigns the best matching unit and returns the respective number
     and unit string in a tuple. When *unit* is set, that unit is used. When *fmt* is set, it is
@@ -1558,7 +1663,7 @@ def human_bytes(n, unit=None, fmt=False):
     """
     # check if the unit exists
     if unit and unit not in byte_units:
-        raise ValueError("unknown unit '{}', valid values are {}".format(unit, byte_units))
+        raise ValueError(f"unknown unit '{unit}', valid values are {byte_units}")
 
     if n == 0:
         idx = 0
@@ -1577,14 +1682,14 @@ def human_bytes(n, unit=None, fmt=False):
         value = int(round(value))
 
     if fmt:
-        if not isinstance(fmt, six.string_types):
+        if not isinstance(fmt, str):
             fmt = "{} {}" if idx == 0 else "{:.1f} {}"
         return fmt.format(value, unit)
 
     return value, unit
 
 
-def parse_bytes(s, input_unit="bytes", unit="bytes"):
+def parse_bytes(s: str | int | float, input_unit: str = "bytes", unit: str = "bytes") -> float:
     """
     Takes a string *s*, interprets it as a size with an optional unit, and returns a float that
     represents that size in a given *unit*. When no unit is found in *s*, *input_unit* is used as a
@@ -1612,23 +1717,21 @@ def parse_bytes(s, input_unit="bytes", unit="bytes"):
     """
     # check if the units exists
     if input_unit.lower() not in byte_units_lower:
-        raise ValueError("unknown input_unit '{}', valid values are {}".format(
-            input_unit, byte_units))
+        raise ValueError(f"unknown input_unit '{input_unit}', valid values are {byte_units}")
     if unit.lower() not in byte_units_lower:
-        raise ValueError("unknown unit '{}', valid values are {}".format(
-            unit, byte_units))
+        raise ValueError(f"unknown unit '{unit}', valid values are {byte_units}")
 
     # when s is a number, interpret it as bytes right away
     # otherwise parse it
-    if isinstance(s, (float, six.integer_types)):
+    if isinstance(s, int):
         input_value = float(s)
-    else:
+    elif not isinstance(s, float):
         m = re.match(r"^\s*(-?\d+\.?\d*)\s*(|{})\s*$".format("|".join(byte_units_lower)), s.lower())
         if not m:
             raise ValueError("cannot parse bytes from string '{}'".format(s))
 
-        input_value, _input_unit = m.groups()
-        input_value = float(input_value)
+        input_value = float(m.group(1))
+        _input_unit = m.group(2)
         if _input_unit:
             input_unit = _input_unit
 
@@ -1637,10 +1740,10 @@ def parse_bytes(s, input_unit="bytes", unit="bytes"):
     size_bytes = input_value * 1024.0 ** idx
 
     # use human_bytes to convert the size
-    return human_bytes(size_bytes, unit)[0]
+    return human_bytes(size_bytes, unit=unit)[0]  # type: ignore
 
 
-time_units = collections.OrderedDict([
+time_units: dict[str, int] = dict([
     ("week", 7 * 24 * 60 * 60),
     ("day", 24 * 60 * 60),
     ("hour", 60 * 60),
@@ -1648,7 +1751,7 @@ time_units = collections.OrderedDict([
     ("second", 1),
 ])
 
-time_unit_aliases = {
+time_unit_aliases: dict[str, str] = {
     "w": "week",
     "weeks": "week",
     "d": "day",
@@ -1666,8 +1769,8 @@ time_unit_aliases = {
 }
 
 
-def human_duration(colon_format=False, plural=True, **kwargs):
-    """ human_duration
+def human_duration(colon_format: bool | str = False, plural: bool = True, **kwargs) -> str:
+    """
     Returns a human readable duration. The largest unit is days. When *colon_format* is *True*, the
     return value has the format ``"[d-][hh:]mm:ss[.ms]"``. *colon_format* can also be a string value
     referring to a limiting  unit. In that case, the returned time string has no field above that
@@ -1675,8 +1778,11 @@ def human_duration(colon_format=False, plural=True, **kwargs):
     potentially larger than 60. Passing ``"s"`` is a special case. Since the colon format always has
     a minute field (to mark it as colon format in the first place), the returned string will have
     the format ``"00:ss[.ms]"``. Unless *plural* is *False*, units corresponding to values other
-    than **exactly** one are used in plural e.g. ``"1 second"`` but ``"1.5 seconds"``. All other
-    *kwargs* are passed to ``datetime.timedelta`` to get the total duration in seconds. Example:
+    than **exactly** one are used in plural e.g. ``"1 second"`` but ``"1.5 seconds"``.
+
+    All other *kwargs* are passed to ``datetime.timedelta`` to get the total duration in seconds.
+
+    Example:
 
     .. code-block:: python
 
@@ -1721,11 +1827,13 @@ def human_duration(colon_format=False, plural=True, **kwargs):
 
     # when using colon_format, check if a limiting unit is set
     colon_unit_limit = None
-    if isinstance(colon_format, six.string_types):
+    if isinstance(colon_format, str):
         colon_unit_limit = time_unit_aliases.get(colon_format, colon_format)
         if colon_unit_limit not in _time_units:
-            raise ValueError("unknown colon_format unit '{}', valid values are {}".format(
-                colon_unit_limit, ",".join(_time_units)))
+            raise ValueError(
+                f"unknown colon_format unit '{colon_unit_limit}', valid values are "
+                f"{','.join(_time_units)}",
+            )
         colon_unit_index = _time_units.index(colon_unit_limit)
 
     # start building the human readable string
@@ -1749,7 +1857,7 @@ def human_duration(colon_format=False, plural=True, **kwargs):
         # keep zeros under certain conditions
         if value == 0:
             if colon_format:
-                keep_zero = human_str or unit == "second" or colon_unit_limit
+                keep_zero = bool(human_str) or unit == "second" or bool(colon_unit_limit)
             else:
                 keep_zero = not human_str and unit == "second"
             if not keep_zero:
@@ -1771,7 +1879,7 @@ def human_duration(colon_format=False, plural=True, **kwargs):
         else:
             if human_str:
                 human_str += ", "
-            human_str += "{} {}{}".format(value, unit, "" if (value == 1 or not plural) else "s")
+            human_str += f"{value} {unit}{'' if (value == 1 or not plural) else 's'}"
 
     # sign
     if sign == -1:
@@ -1780,7 +1888,7 @@ def human_duration(colon_format=False, plural=True, **kwargs):
     return human_str
 
 
-def parse_duration(s, input_unit="s", unit="s"):
+def parse_duration(s: int | float | str, input_unit: str = "s", unit: str = "s") -> float:
     """
     Takes a string *s*, interprets it as a duration with an optional unit, and returns a float that
     represents that size in a given *unit*. When no unit is found in *s*, *input_unit* is used as a
@@ -1844,25 +1952,25 @@ def parse_duration(s, input_unit="s", unit="s"):
 
     # check units
     if input_unit not in time_units:
-        raise ValueError("unknown input_unit '{}', valid values are {}".format(
-            input_unit, ",".join(time_units)))
+        raise ValueError(
+            f"unknown input_unit '{input_unit}', valid values are {','.join(time_units)}",
+        )
     if unit not in time_units:
-        raise ValueError("unknown unit '{}', valid values are {}".format(
-            unit, ",".join(time_units)))
+        raise ValueError(f"unknown unit '{unit}', valid values are {','.join(time_units)}")
 
     sign = 1
     duration_seconds = 0.0
 
     # number or string?
-    if isinstance(s, six.integer_types + (float,)) or is_float(s):
+    if isinstance(s, (int, float)) or is_float(s):
         duration_seconds += float(s) * time_units[input_unit]
     else:
         s = s.strip()
 
         # identify the format "[d-][h:][m:]s[.ms]" first
-        m = re.match(r"^([+-])?((((((\d+)-)?(\d+)):)?(\d+)):)?(\d+)(\.(\d*))?$", s)
-        if m:
-            sgn, d, h, m, s, ms = [m.group(i) for i in [1, 7, 8, 9, 10, 11]]
+        _m = re.match(r"^([+-])?((((((\d+)-)?(\d+)):)?(\d+)):)?(\d+)(\.(\d*))?$", s)
+        if _m:
+            sgn, d, h, m, s, ms = [_m.group(i) for i in [1, 7, 8, 9, 10, 11]]
 
             # interpret leading "-" or "+" as the sign of the duration
             if sgn == "-":
@@ -1902,7 +2010,7 @@ def parse_duration(s, input_unit="s", unit="s"):
 
                 m = cre.match(part)
                 if not m:
-                    raise ValueError("cannot parse duration string '{}'".format(s))
+                    raise ValueError(f"cannot parse duration string '{s}'")
 
                 d, u = m.groups()
                 d = float(d)
@@ -1918,17 +2026,14 @@ def parse_duration(s, input_unit="s", unit="s"):
     return duration
 
 
-def is_file_exists_error(e):
-    """
-    Returns whether the exception *e* was raised due to an already existing file or directory.
-    """
-    if six.PY3:
-        return isinstance(e, FileExistsError)  # noqa: F821
-    else:
-        return isinstance(e, OSError) and e.errno == 17
-
-
-def send_mail(recipient, sender, subject="", content="", smtp_host="127.0.0.1", smtp_port=25):
+def send_mail(
+    recipient: str,
+    sender: str,
+    subject: str = "",
+    content: str = "",
+    smtp_host: str = "127.0.0.1",
+    smtp_port: int = 25,
+) -> bool:
     """
     Lightweight mail functionality. Sends an mail from *sender* to *recipient* with *subject* and
     *content*. *smtp_host* and *smtp_port* are forwarded to the ``smtplib.SMTP`` constructor. *True*
@@ -1937,18 +2042,18 @@ def send_mail(recipient, sender, subject="", content="", smtp_host="127.0.0.1", 
     try:
         server = smtplib.SMTP(smtp_host, smtp_port)
     except Exception as e:
-        logger.warning("cannot create SMTP server: {}".format(e))
+        logger.warning(f"cannot create SMTP server: {e}")
         return False
 
-    header = "From: {}\r\nTo: {}\r\nSubject: {}\r\n\r\n".format(sender, recipient, subject)
+    header = f"From: {sender}\r\nTo: {recipient}\r\nSubject: {subject}\r\n\r\n"
     server.sendmail(sender, recipient, header + content)
 
     return True
 
 
-class DotDict(collections.OrderedDict):
+class DotDict(dict):
     """
-    Subclass of *OrderedDict* that provides read access for items via attributes by implementing
+    Dictionary subclass that provides read access for items via attributes by implementing
     ``__getattr__``. In case a item is accessed via attribute and it does not exist, an
     *AttriuteError* is raised rather than a *KeyError*. Example:
 
@@ -1970,43 +2075,33 @@ class DotDict(collections.OrderedDict):
         # => AttributeError
     """
 
-    # forward certain attributes to the super class in python 2
-    FORWARD_SUPER = ("_OrderedDict__root", "_OrderedDict__map")
-
-    def __getattr__(self, attr):
-        if six.PY2 and attr in self.FORWARD_SUPER:
-            return super(DotDict, self).__getattr__(attr)
-
-        try:
-            return self[attr]
-        except KeyError:
-            raise AttributeError("'{}' object has no attribute '{}'".format(
-                self.__class__.__name__, attr))
-
-    def __setattr__(self, attr, value):
-        if six.PY2 and attr in self.FORWARD_SUPER:
-            return super(DotDict, self).__setattr__(attr, value)
-
-        self[attr] = value
-
-    def copy(self):
-        """"""
-        return self.__class__(self)
-
     @classmethod
-    def wrap(cls, *args, **kwargs):
+    def wrap(cls, *args, **kwargs) -> DotDict:
         """
         Takes a dictionary *d* and recursively replaces it and all other nested dictionary types
         with :py:class:`DotDict`'s for deep attribute-style access.
         """
-        wrap = lambda d: cls((k, wrap(v)) for k, v in d.items()) if isinstance(d, dict) else d
-        return wrap(collections.OrderedDict(*args, **kwargs))
+        wrap = lambda d: cls((k, wrap(v)) for k, v in d.items()) if isinstance(d, dict) else d  # type: ignore # noqa
+        return wrap(dict(*args, **kwargs))
+
+    def __getattr__(self, attr: str) -> Any:
+        try:
+            return self[attr]
+        except KeyError:
+            raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{attr}'")
+
+    def __setattr__(self, attr: str, value: Any) -> None:
+        self[attr] = value
+
+    def copy(self) -> DotDict:
+        """"""
+        return copy.deepcopy(self)
 
 
-class ShorthandDict(collections.OrderedDict):
+class ShorthandDict(dict):
     """
-    Subclass of *OrderedDict* that implements ``__getattr__`` and ``__setattr__`` for a configurable
-    list of attributes. Example:
+    Dictionary subclass that implements ``__getattr__`` and ``__setattr__`` for a configurable list
+    of attributes. Example:
 
     .. code-block:: python
 
@@ -2033,37 +2128,36 @@ class ShorthandDict(collections.OrderedDict):
         provided for these attributes.
     """
 
-    attributes = {}
+    attributes: dict[str, Any] = {}
 
-    def __init__(self, **kwargs):
-        super(ShorthandDict, self).__init__()
+    def __init__(self, **kwargs) -> None:
+        super().__init__()
 
-        for attr, default in six.iteritems(self.attributes):
+        for attr, default in self.attributes.items():
             self[attr] = kwargs.pop(attr, copy.deepcopy(default))
 
         self.update(kwargs)
 
-    def copy(self):
+    def copy(self) -> ShorthandDict:
         """"""
-        kwargs = {key: copy.deepcopy(value) for key, value in six.iteritems(self)}
+        kwargs = {key: copy.deepcopy(value) for key, value in self.items()}
         return self.__class__(**kwargs)
 
-    def __getattr__(self, attr):
+    def __getattr__(self, attr: str) -> Any:
         if attr in self.attributes:
             return self[attr]
-        else:
-            return super(ShorthandDict, self).__getattr__(attr)
+        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{attr}'")
 
-    def __setattr__(self, attr, value):
+    def __setattr__(self, attr: str, value: Any) -> None:
         if attr in self.attributes:
             self[attr] = value
         else:
-            super(ShorthandDict, self).__setattr__(attr, value)
+            super().__setattr__(attr, value)
 
 
-class InsertableDict(collections.OrderedDict):
+class InsertableDict(dict):
     """
-    Subclass of *OrderedDict* that supports inserting elements before or after certain keys.
+    Dictionary subclass that supports inserting elements before or after certain keys.
     Example:
 
     .. code-block:: python
@@ -2077,7 +2171,7 @@ class InsertableDict(collections.OrderedDict):
         print(d)  # -> InsertableDict([('test', 999), ('foo', 'new_value'), ('bar', 456)])
     """
 
-    def _insert(self, search_key, key, value, offset):
+    def _insert(self, search_key: Hashable, key: Hashable, value: Any, offset: int) -> None:
         # when key is a list or dict and value is None, assume key refers to key-value pairs
         if isinstance(key, (list, dict)) and value is None:
             new_items = key.items() if isinstance(key, dict) else key
@@ -2110,7 +2204,7 @@ class InsertableDict(collections.OrderedDict):
         self.clear()
         self.update(items)
 
-    def insert_before(self, before_key, key, value=None):
+    def insert_before(self, before_key: Hashable, key: Hashable, value: Any = None) -> None:
         """
         Inserts a *key* - *value* pair before the key *before_key*. When this key does not exist,
         the new pair is added to the end. When *key* is list or dictionary and value is *None*,
@@ -2118,7 +2212,7 @@ class InsertableDict(collections.OrderedDict):
         """
         self._insert(before_key, key, value, 0)
 
-    def insert_after(self, after_key, key, value=None):
+    def insert_after(self, after_key: Hashable, key: Hashable, value: Any = None) -> None:
         """
         Inserts a *key* - *value* pair after the key *after_key*. When this key does not exist, the
         new pair is added to the end. When *key* is list or dictionary and value is *None*,
@@ -2127,35 +2221,15 @@ class InsertableDict(collections.OrderedDict):
         self._insert(after_key, key, value, 1)
 
 
-def open_compat(path, *args, **kwargs):
-    """
-    Polyfill for python's ``open`` factory, returning the plain ``open`` in python 3, and
-    ``io.open`` in python 2 with a patched ``write`` method that internally handles unicode
-    conversion of its first argument. All *args* and *kwargs* are forwarded.
-    """
-    path = str(path)
-
-    if six.PY3:
-        return open(path, *args, **kwargs)
-
-    f = io.open(path, *args, **kwargs)
-
-    if f.encoding and f.encoding.lower().replace("-", "") == "utf8":
-        write_orig = f.write
-
-        def write(data, *args, **kwargs):
-            u = unicode  # noqa: F821
-            if not isinstance(data, u):
-                data = u(data)
-            return write_orig(data, *args, **kwargs)
-
-        f.write = write
-
-    return f
-
-
 @contextlib.contextmanager
-def patch_object(obj, attr, value, reset=True, orig=no_value, lock=False):
+def patch_object(
+    obj: T,
+    attr: str,
+    value: Any,
+    reset: bool = True,
+    orig: Any | NoValue = no_value,
+    lock: bool | AbstractContextManager = False,
+) -> Generator[T, None, None]:
     """
     Context manager that temporarily patches an object *obj* by replacing its attribute *attr* with
     *value*. The original value is set again when the context is closed unless *reset* is *False*.
@@ -2190,21 +2264,23 @@ def patch_object(obj, attr, value, reset=True, orig=no_value, lock=False):
                 pass
 
 
-def join_generators(*generators, **kwargs):
-    """ join_generators(*generators, on_error=None)
+def join_generators(
+    *generators: GeneratorType,
+    on_error: Callable[[Exception | KeyboardInterrupt], None] | None = None,
+) -> GeneratorType:
+    """
     Joins multiple *generators* and returns a single generator for simplified iteration. Yielded
     objects are transparently sent back to ``yield`` assignments of the same generator. When
     *on_error* is callable, it is invoked in case an exception is raised while iterating, including
     *KeyboardInterrupt*'s. If its return value evaluates to *True*, the state is reset and
     iterations continue. Otherwise, the exception is raised.
     """
-    on_error = kwargs.get("on_error")
     for gen in generators:
         last_result = no_value
         while True:
             try:
                 if last_result == no_value:
-                    last_result = yield six.next(gen)
+                    last_result = yield next(gen)
                 else:
                     last_result = yield gen.send(last_result)
             except StopIteration:
@@ -2216,7 +2292,7 @@ def join_generators(*generators, **kwargs):
                     raise
 
 
-def quote_cmd(cmd):
+def quote_cmd(cmd: str | Sequence[str]) -> str:
     """
     Takes a shell command *cmd* given as a list and returns a single string representation of that
     command with proper quoting. To denote nested commands (such as shown below), *cmd* can also
@@ -2231,16 +2307,16 @@ def quote_cmd(cmd):
         # -> "bash -c 'echo foobar'"
     """
     # expand lists recursively
-    cmd = [
+    parts = (
         (quote_cmd(part) if isinstance(part, (list, tuple)) else str(part))
         for part in cmd
-    ]
+    )
 
     # quote all parts and join
-    return " ".join(six.moves.shlex_quote(part) for part in cmd)
+    return " ".join(shlex.quote(part) for part in parts)
 
 
-def escape_markdown(s):
+def escape_markdown(s: str) -> str:
     """
     Escapes all characters in a string *s* that coupld be confused for markdown formatting strings
     and returns it.
@@ -2254,17 +2330,19 @@ class ClassPropertyDescriptor(object):
     supported.
     """
 
-    def __init__(self, fget, fset=None):
+    def __init__(self, fget: Callable, fset: Callable | None = None) -> None:
+        super().__init__()
+
         self.fget = fget
         self.fset = fset
 
-    def __get__(self, obj, cls=None):
+    def __get__(self, obj: object, cls: type | None = None) -> Any:
         if cls is None:
             cls = type(obj)
 
         return self.fget.__get__(obj, cls)()
 
-    def __set__(self, obj, value):
+    def __set__(self, obj: object, value: Any) -> Any:
         if not self.fset:
             raise AttributeError("can't set attribute")
 
@@ -2273,69 +2351,71 @@ class ClassPropertyDescriptor(object):
         return self.fset.__get__(obj, type_)(value)
 
 
-def classproperty(func):
+def classproperty(func: Callable) -> ClassPropertyDescriptor:
     """
     Propety decorator for class-level methods.
     """
     if not isinstance(func, (classmethod, staticmethod)):
-        func = classmethod(func)
+        func = classmethod(func)  # type: ignore
 
     return ClassPropertyDescriptor(func)
 
 
 class BaseStream(object):
 
-    FLUSH_AFTER_WRITE = True
+    FLUSH_AFTER_WRITE: bool = True
 
-    def __init__(self, flush_after_write=None):
-        super(BaseStream, self).__init__()
+    def __init__(self, flush_after_write: bool | None = None) -> None:
+        super().__init__()
 
         self.closed = False
         self.flush_after_write = flush_after_write
 
     @property
-    def _flush_after_write(self):
+    def _flush_after_write(self) -> bool:
         return self.FLUSH_AFTER_WRITE if self.flush_after_write is None else self.flush_after_write
 
-    def __del__(self):
+    def __del__(self) -> None:
         self.close()
 
-    def __enter__(self):
+    def __enter__(self) -> BaseStream:
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, exc_type: type, exc_value: BaseException, traceback: TracebackType) -> None:
         self.close()
 
-    def close(self):
-        if not self.closed:
+    def close(self) -> None:
+        if self.closed:
+            return
+        self.flush()
+        self._close()
+        self.closed = True
+
+    def flush(self) -> None:
+        if self.closed:
+            return
+        self._flush()
+
+    def write(self, *args, **kwargs) -> None:
+        if self.closed:
+            return
+
+        self._write(*args, **kwargs)
+        if self._flush_after_write:
             self.flush()
 
-            self._close()
-            self.closed = True
-
-    def flush(self):
-        if not self.closed:
-            self._flush()
-
-    def write(self, *args, **kwargs):
-        if not self.closed:
-            self._write(*args, **kwargs)
-
-            if self._flush_after_write:
-                self.flush()
-
-    def _close(self):
+    def _close(self) -> None:
         return
 
-    def _flush(self):
+    def _flush(self) -> None:
         return
 
-    def _write(self, *args, **kwargs):
+    def _write(self, *args, **kwargs) -> None:
         return
 
 
 class TeeStream(BaseStream):
-    """ __init__(*consumers, mode="w", **kwargs)
+    """
     Multi-stream object that forwards calls to :py:meth:`write` and :py:meth:`flush` to all
     registered *consumer* streams. When a *consumer* is a string, it is interpreted as a file which
     is opened for writing (similar to *tee* in bash). All *kwargs* are forwarded to the
@@ -2349,29 +2429,27 @@ class TeeStream(BaseStream):
         sys.stdout = tee
     """
 
-    def __init__(self, *consumers, **kwargs):
-        mode = kwargs.pop("mode", "w")
-
-        super(TeeStream, self).__init__(**kwargs)
+    def __init__(self, *consumers, mode="w", **kwargs) -> None:
+        super().__init__(**kwargs)
 
         self.consumers = []
         self.open_files = []
 
         for consumer in consumers:
             # interpret strings as file paths
-            if isinstance(consumer, six.string_types):
-                consumer = open_compat(consumer, mode)
+            if isinstance(consumer, str):
+                consumer = open(consumer, mode)
                 self.open_files.append(consumer)
             self.consumers.append(consumer)
 
-    def _close(self):
+    def _close(self) -> None:
         """
         Closes opened files.
         """
         for f in self.open_files:
             f.close()
 
-    def _flush(self):
+    def _flush(self) -> None:
         """
         Flushes all registered consumer streams.
         """
@@ -2379,7 +2457,7 @@ class TeeStream(BaseStream):
             if not getattr(consumer, "closed", False):
                 consumer.flush()
 
-    def _write(self, *args, **kwargs):
+    def _write(self, *args, **kwargs) -> None:
         """
         Writes to all registered consumer streams, passing *args* and *kwargs*.
         """
@@ -2394,25 +2472,27 @@ class FilteredStream(BaseStream):
     *True*. All *kwargs* are forwarded to the :py:class:`BaseStream` constructor.
     """
 
-    def __init__(self, stream, filter_fn, **kwargs):
-        super(FilteredStream, self).__init__(**kwargs)
+    def __init__(self, stream: Any, filter_fn: Callable[..., bool], **kwargs) -> None:
+        super().__init__(**kwargs)
+
         self.stream = stream
         self.filter_fn = filter_fn
 
-    def _close(self):
+    def _close(self) -> None:
         """
         Closes the consumer stream.
         """
         self.stream.close()
 
-    def _flush(self):
+    def _flush(self) -> None:
         """
         Flushes the consumer stream.
         """
-        if not getattr(self.stream, "closed", False):
-            self.stream.flush()
+        if getattr(self.stream, "closed", False):
+            return
+        self.stream.flush()
 
-    def _write(self, *args, **kwargs):
+    def _write(self, *args, **kwargs) -> None:
         """
         Writes to the consumer stream when *filter_fn* evaluates to *True*, passing *args* and
         *kwargs*.

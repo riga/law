@@ -4,25 +4,27 @@
 law config parser implementation.
 """
 
-__all__ = [  # noqa
-    "Config", "sections", "options", "keys", "items", "update", "include", "get", "getint",
-    "getfloat", "getboolean", "get_default", "get_expanded", "get_expanded_int",
-    "get_expanded_float", "get_expanded_bool", "get_expanded_boolean", "is_missing_or_none",
-    "find_option", "add_section", "has_section", "remove_section", "set", "has_option",
-    "remove_option",
-]
+from __future__ import annotations
 
+__all__ = [  # noqa
+    "Config",
+    "sections", "options", "keys", "items", "update", "include", "get", "getint", "getfloat",
+    "getboolean", "get_default", "get_expanded", "get_expanded_int", "get_expanded_float",
+    "get_expanded_bool", "is_missing_or_none", "find_option", "add_section", "has_section",
+    "remove_section", "set", "has_option", "remove_option",
+]
 
 import os
 import re
 import glob
+import pathlib
 import tempfile
+from configparser import ConfigParser
 
-import luigi
-import six
-from six.moves.configparser import ConfigParser
+import luigi  # type: ignore[import-untyped]
 
-from law.util import no_value, brace_expand, str_to_int, merge_dicts, is_lazy_iterable
+from law.util import NoValue, no_value, brace_expand, str_to_int, merge_dicts, is_lazy_iterable
+from law._types import Callable, Any
 
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
@@ -30,7 +32,7 @@ this_dir = os.path.dirname(os.path.abspath(__file__))
 _set = set
 
 
-def law_home_path(*paths):
+def law_home_path(*paths: Any) -> str:
     home = os.getenv("LAW_HOME") or os.path.expandvars(os.path.expanduser("$HOME/.law"))
     return os.path.normpath(os.path.join(home, *map(str, paths)))
 
@@ -76,13 +78,13 @@ class Config(ConfigParser):
 
         str_repr = str(object())
 
-        def __init__(self, func):
+        def __init__(self, func: Callable) -> None:
             self.func = func
 
-        def __call__(self, *args, **kwargs):
+        def __call__(self, *args, **kwargs) -> Any:
             return self.func(*args, **kwargs)
 
-        def __str__(self):
+        def __str__(self) -> str:
             # same string repr for all instances to identify them as deferred objects
             return self.str_repr
 
@@ -152,14 +154,19 @@ class Config(ConfigParser):
         "venv_sandbox_env": {},
     }
 
-    _config_files = ["$LAW_CONFIG_FILE", "law.cfg", law_home_path("config"), "etc/law/config"]
+    _config_files = [
+        "$LAW_CONFIG_FILE",
+        "law.cfg",
+        law_home_path("config"),
+        "etc/law/config",
+    ]
 
     _option_ref_regex = re.compile(r"^\&(::(?P<section>[^\:]+))?::(?P<option>.+)$")
 
     _env_option_regex = re.compile(r"^LAW__([a-zA-Z0-9_]+)__([a-zA-Z0-9_]+)$")
 
     @classmethod
-    def instance(cls, *args, **kwargs):
+    def instance(cls, *args, **kwargs) -> Config:
         """
         Creates an instance of this class with all *args* and *kwargs*, saves it in
         :py:attr:`_instance`, and returns it. When :py:attr:`_instance` was already set before, no
@@ -170,14 +177,24 @@ class Config(ConfigParser):
         return cls._instance
 
     @classmethod
-    def _parse_option_ref(cls, value, default_section=None):
+    def _parse_option_ref(
+        cls,
+        value: str,
+        default_section: str,
+    ) -> tuple[str, str] | None:
         m = cls._option_ref_regex.match(value)
         if not m:
             return None
-        return (m.group("section") or default_section, m.group("option"))
+        return (m.group("section") or default_section), m.group("option")
 
     @classmethod
-    def _expand_path(cls, path, expand_vars=True, expand_user=True):
+    def _expand_path(
+        cls,
+        path: str | pathlib.Path,
+        expand_vars: bool = True,
+        expand_user: bool = True,
+    ) -> str:
+        path = str(path)
         if expand_vars:
             ph = "__law_tilde__"
             path = path.replace(r"\~", ph)
@@ -192,15 +209,22 @@ class Config(ConfigParser):
 
         return path
 
-    def __init__(self, config_file="", skip_defaults=False, skip_fallbacks=False,
-            skip_includes=False, skip_env_sync=False, skip_luigi_sync=False):
-        ConfigParser.__init__(self, allow_no_value=True)
+    def __init__(
+        self,
+        config_file: str | pathlib.Path = "",
+        skip_defaults: bool = False,
+        skip_fallbacks: bool = False,
+        skip_includes: bool = False,
+        skip_env_sync: bool = False,
+        skip_luigi_sync: bool = False,
+    ) -> None:
+        super().__init__(allow_no_value=True)
 
         # lookup to correct config file
         self.config_file = None
         config_files = []
         if config_file:
-            config_files.append(config_file)
+            config_files.append(str(config_file))
         if not skip_fallbacks:
             config_files += self._config_files
         for cf in config_files:
@@ -212,7 +236,7 @@ class Config(ConfigParser):
 
         # helper to include additional configs
         def include_configs(filenames):
-            if isinstance(filenames, six.string_types):
+            if isinstance(filenames, str):
                 filenames = [f.strip() for f in brace_expand(filenames.strip(), split_csv=True)]
             for filename in filenames or []:
                 if not filename:
@@ -230,17 +254,15 @@ class Config(ConfigParser):
         # load the content of inherited configs
         if not skip_includes and self.config_file:
             # eagerly read the config file to get a glimpse of the files to inherit from
-            c = self.__class__(self.config_file, skip_defaults=True, skip_fallbacks=True,
-                skip_includes=True, skip_env_sync=True, skip_luigi_sync=True)
-            opt = "inherit"
-            if c.has_option("core", "inherit_configs") and not c.get_expanded("core", "inherit"):
-                # print a warning, not using the logger yet since it's not initialized at this point
-                opt = "inherit_configs"
-                print(
-                    "INFO: the 'core.inherit_configs' option is deprecated and will be removed in a "
-                    "future release of law; please use 'core.inherit' instead",
-                )
-            include_configs(c.get_expanded("core", opt, None))
+            c = self.__class__(
+                self.config_file,
+                skip_defaults=True,
+                skip_fallbacks=True,
+                skip_includes=True,
+                skip_env_sync=True,
+                skip_luigi_sync=True,
+            )
+            include_configs(c.get_expanded("core", "extend", None))
 
         # load the actual config file if given
         if self.config_file:
@@ -248,15 +270,7 @@ class Config(ConfigParser):
 
         # load the content of extended configs
         if not skip_includes:
-            opt = "extend"
-            if self.has_option("core", "extend_configs") and not self.get_expanded("core", "extend"):
-                # print a warning, not using the logger yet since it's not initialized at this point
-                opt = "extend_configs"
-                print(
-                    "INFO: the 'core.extend_configs' option is deprecated and will be removed in a "
-                    "future release of law; please use 'core.extend' instead",
-                )
-            include_configs(self.get_expanded("core", opt, None))
+            include_configs(self.get_expanded("core", "extend", None))
 
         # sync with environment variables
         if not skip_env_sync and self.get_expanded_bool("core", "sync_env"):
@@ -269,17 +283,7 @@ class Config(ConfigParser):
         # resolve deferred default values
         self.resolve_deferred_defaults()
 
-    def _convert_to_boolean(self, value):
-        # py2 backport
-        if six.PY3:
-            return super(Config, self)._convert_to_boolean(value)
-
-        if value.lower() not in self._boolean_states:
-            raise ValueError("Not a boolean: {}".format(value))
-
-        return self._boolean_states[value.lower()]
-
-    def _get_type_converter(self, type, value):
+    def _get_type_converter(self, type: type | str, value: Any) -> type | Callable[[Any], Any]:
         if type in (str, "str", "s"):
             return str
         if type in (int, "int", "i"):
@@ -287,18 +291,25 @@ class Config(ConfigParser):
         if type in (float, "float", "f"):
             return float
         if type in (bool, "bool", "boolean", "b"):
-            if isinstance(value, six.string_types):
-                return self._convert_to_boolean
+            if isinstance(value, str):
+                return self._convert_to_boolean  # type: ignore[attr-defined]
             return bool
 
-        raise ValueError("unknown 'type' argument ({}), must be 'str', 'int', 'float', or "
-            "'bool'".format(type))
+        raise ValueError(
+            f"unknown 'type' argument ({type}), must be 'str', 'int', 'float', or 'bool'",
+        )
 
-    def optionxform(self, option):
+    def optionxform(self, option: str) -> str:
         """"""
         return option
 
-    def options(self, section, prefix=None, expand_vars=True, expand_user=True):
+    def options(
+        self,
+        section: str,
+        prefix: str | None = None,
+        expand_vars: bool = True,
+        expand_user: bool = True,
+    ) -> list[str]:
         """
         Returns all options of a *section* in a list. When *prefix* is set, only options starting
         with that prefix are considered. Environment variable expansion is performed on every
@@ -312,14 +323,14 @@ class Config(ConfigParser):
             options.append(option)
         return options
 
-    def keys(self, *args, **kwargs):
-        # deprecation warning until v0.1 (also remove the entry in __all__ above)
-        logger.warning("the use of {0}.keys() is deprecated, please use {0}.options() "
-            "instead".format(self.__class__.__name__))
-
-        return self.options(*args, **kwargs)
-
-    def items(self, section, prefix=None, expand_vars=True, expand_user=True, **kwargs):
+    def items(  # type: ignore[override]
+        self,
+        section: str,
+        prefix: str | None = None,
+        expand_vars: bool = True,
+        expand_user: bool = True,
+        **kwargs,
+    ) -> list[tuple[str, Any]]:
         """
         Returns a dictionary of key-value pairs for the given *section*. When *prefix* is set, only
         options starting with that prefix are considered. Environment variable expansion is
@@ -327,15 +338,27 @@ class Config(ConfigParser):
         *expand_vars* and *expand_user* are *True*. Internally, py:meth:`get_expanded` is used
         to perform value expansion and type interpolation, and is passed all *kwargs*.
         """
-        options = self.options(section, prefix=prefix, expand_vars=expand_vars,
-            expand_user=expand_user)
+        options = self.options(
+            section,
+            prefix=prefix,
+            expand_vars=expand_vars,
+            expand_user=expand_user,
+        )
         return [
-            (opt, self.get_expanded(section, opt, expand_vars=expand_vars,
-                expand_user=expand_user, **kwargs))
+            (
+                opt,
+                self.get_expanded(
+                    section,
+                    opt,
+                    expand_vars=expand_vars,
+                    expand_user=expand_user,
+                    **kwargs,
+                ),
+            )
             for opt in options
         ]
 
-    def set(self, section, option, value=None):
+    def set(self, section: str, option: str, value: Any = None) -> None:
         """
         Sets an *option* of an existing *section* to *value*. When *value* is *None*.
         """
@@ -346,9 +369,15 @@ class Config(ConfigParser):
             else:
                 value = str(value)
 
-        return ConfigParser.set(self, section, option, value)
+        ConfigParser.set(self, section, option, value)
 
-    def update(self, data, overwrite=True, overwrite_sections=None, overwrite_options=None):
+    def update(  # type: ignore[override]
+        self,
+        data: dict[str, Any],
+        overwrite: bool = True,
+        overwrite_sections: bool | None = None,
+        overwrite_options: bool | None = None,
+    ) -> None:
         """
         Updates the currently stored configuration with new *data*, given as a dictionary. When
         *overwrite_sections* is *False*, sections in *data* that are already present in the current
@@ -361,31 +390,46 @@ class Config(ConfigParser):
         if overwrite_options is None:
             overwrite_options = overwrite
 
-        for section, _data in six.iteritems(data):
+        for section, _data in data.items():
             # add the section when it does not exist, and continue when it does but not overwriting
             if not self.has_section(section):
                 self.add_section(section)
             elif not overwrite_sections:
                 continue
 
-            for option, value in six.iteritems(_data):
+            for option, value in _data.items():
                 # set the option when overwriting anyway, or when it does not exist
                 if not self.has_option(section, option) or overwrite_options:
                     self.set(section, option, value)
 
-    def include(self, filename, *args, **kwargs):
+    def include(self, filename: str | pathlib.Path, *args, **kwargs) -> None:
         """
         Updates the current config by that found in *filename*. All *args* and *kwargs* are
         forwarded to :py:meth:`update`.
         """
-        p = self.__class__(filename, skip_defaults=True, skip_fallbacks=True, skip_env_sync=True,
-            skip_luigi_sync=True)
-        self.update(p._sections, *args, **kwargs)
+        p = self.__class__(
+            filename,
+            skip_defaults=True,
+            skip_fallbacks=True,
+            skip_env_sync=True,
+            skip_luigi_sync=True,
+        )
+        self.update(p._sections, *args, **kwargs)  # type: ignore[attr-defined]
 
-    def get_default(self, section, option, default=no_value, type=None, expand_vars=False,
-            expand_user=False, split_csv=False, dereference=True, default_when_none=True,
-            _skip_refs=None):
-        """ get_default(section, option, default=no_value, type=None, expand_vars=False, expand_user=False, split_csv=False, dereference=True, default_when_none=True)
+    def get_default(
+        self,
+        section: str,
+        option: str,
+        default: Any | NoValue = no_value,
+        type: str | type | None = None,
+        expand_vars: bool = False,
+        expand_user: bool = False,
+        split_csv: bool = False,
+        dereference: bool = True,
+        default_when_none: bool = True,
+        _skip_refs: list[tuple[str | None, str]] | None = None,
+    ):
+        """
         Returns the config value defined by *section* and *option*. When either the section or the
         option do not exist and a *default* value is provided, this value returned instead. When
         *type* is set, it must be either `"str"`, `"int"`, `"float"`, or `"boolean"`. When
@@ -423,14 +467,14 @@ class Config(ConfigParser):
 
         # handle variable expansion and dereferencing when value is a string
         # (which should always be the case, but subclasses might overwrite get())
-        if isinstance(value, six.string_types):
+        if isinstance(value, str):
             # expand
             value = self._expand_path(value, expand_vars=expand_vars, expand_user=expand_user)
 
             # resolve references
             if dereference:
-                ref = self._parse_option_ref(value, default_section=section)
-                if ref:
+                ref = self._parse_option_ref(value, section)
+                if ref is not None:
                     # to avoid circular references, keep track of already resolved ones
                     if _skip_refs is None:
                         _skip_refs = []
@@ -439,15 +483,22 @@ class Config(ConfigParser):
                     _skip_refs.append(ref)
 
                     # return the referenced value
-                    return self.get_default(*ref, default=default, type=type,
-                        expand_vars=expand_vars, expand_user=expand_user, dereference=dereference,
-                        default_when_none=default_when_none, _skip_refs=_skip_refs)
+                    return self.get_default(
+                        *ref,
+                        default=default,
+                        type=type,
+                        expand_vars=expand_vars,
+                        expand_user=expand_user,
+                        dereference=dereference,
+                        default_when_none=default_when_none,
+                        _skip_refs=_skip_refs,
+                    )
 
         # interpret None and "None" as missing?
         if default_when_none and default_set:
             if value is None:
                 return default
-            if isinstance(value, six.string_types) and value.lower() == "none":
+            if isinstance(value, str) and value.lower() == "none":
                 return default
 
         # helper for optional type conversion
@@ -459,7 +510,7 @@ class Config(ConfigParser):
 
         return cast_type(value)
 
-    def get_expanded(self, *args, **kwargs):
+    def get_expanded(self, *args, **kwargs) -> Any:
         """
         Same as :py:meth:`get_default`, but *expandvars* and *expanduser* arguments are set to
         *True* by default.
@@ -468,34 +519,28 @@ class Config(ConfigParser):
         kwargs.setdefault("expand_user", True)
         return self.get_default(*args, **kwargs)
 
-    def get_expanded_int(self, *args, **kwargs):
+    def get_expanded_int(self, *args, **kwargs) -> int:
         """
         Same as :py:meth:`get_expanded` with *type* set to ``int``.
         """
         kwargs["type"] = int
         return self.get_expanded(*args, **kwargs)
 
-    def get_expanded_float(self, *args, **kwargs):
+    def get_expanded_float(self, *args, **kwargs) -> float:
         """
         Same as :py:meth:`get_expanded` with *type* set to ``float``.
         """
         kwargs["type"] = float
         return self.get_expanded(*args, **kwargs)
 
-    def get_expanded_bool(self, *args, **kwargs):
+    def get_expanded_bool(self, *args, **kwargs) -> bool:
         """
         Same as :py:meth:`get_expanded` with *type* set to ``bool``.
         """
         kwargs["type"] = bool
         return self.get_expanded(*args, **kwargs)
 
-    def get_expanded_boolean(self, *args, **kwargs):
-        """
-        Alias for :py:meth:`get_expanded_bool` for backwards compatibility.
-        """
-        return self.get_expanded_bool(*args, **kwargs)
-
-    def is_missing_or_none(self, section, option):
+    def is_missing_or_none(self, section: str, option: str) -> bool:
         """
         Returns *True* if the value defined by *section* and *option* is missing or ``"None"``
         (case-insensitive), and *False* otherwise. Options without values and those pointing to
@@ -520,11 +565,11 @@ class Config(ConfigParser):
             is_missing_or_none("my_section", "f")  # True
         """
         value = self.get_expanded(section, option, default=no_value)
-        if isinstance(value, six.string_types):
+        if isinstance(value, str):
             value = value.lower()
         return value in ("none", None, no_value)
 
-    def find_option(self, section, *options):
+    def find_option(self, section: str, *options: str) -> str | None:
         """
         Returns the name of the first existing *option* for a given *section*.
         :py:meth:`is_missing_or_none` is used to check the existence. When none of the selected
@@ -535,7 +580,7 @@ class Config(ConfigParser):
                 return option
         return None
 
-    def sync_env(self):
+    def sync_env(self) -> None:
         """
         Synchronizes options defined via environment variables in the format
         ``LAW__<section>__<option>``. The synchronization only works in case neither the section nor
@@ -551,7 +596,7 @@ class Config(ConfigParser):
                 self.add_section(section)
             self.set(section, option, value)
 
-    def sync_luigi_config(self, push=True, pull=True):
+    def sync_luigi_config(self, push: bool = True, pull: bool = True) -> None:
         """
         Synchronizes sections starting with ``"luigi_"`` with the luigi configuration parser. First,
         when *push* is *True*, (variable-expanded and dereferenced) options that exist in law but
@@ -587,7 +632,7 @@ class Config(ConfigParser):
                 for option, value in lparser.items(lsection):
                     self.set(section, option, value)
 
-    def resolve_deferred_defaults(self):
+    def resolve_deferred_defaults(self) -> None:
         """
         Traverses all options, checks whether they are deferred callables and if so, resolves and
         sets them.
@@ -596,7 +641,7 @@ class Config(ConfigParser):
         for section in self.sections():
             for option, value in self.items(section):
                 if value == self.Deferred.str_repr:
-                    value = self._default_config.get(section, {}).get(option, value)
+                    value = self._default_config.get(section, {}).get(option, value)  # type: ignore[attr-defined] # noqa
                 if isinstance(value, self.Deferred):
                     self.set(section, option, str(value(self)))
 
@@ -609,20 +654,18 @@ for contrib_init in glob.glob(os.path.join(this_dir, "contrib", "*", "__init__.p
     if not os.path.exists(path):
         continue
     # load its content (not via import!)
-    mod = {}
+    mod: dict[str, Any] = {}
     with open(path, "r") as f:
         exec(f.read(), mod)
     defaults_func = mod.get("config_defaults")
     if not callable(defaults_func):
         raise AttributeError(
-            "contrib config file {} does not contain callable 'config_defaults'".format(path),
+            f"contrib config file {path} does not contain callable 'config_defaults'",
         )
     defaults = defaults_func(Config._default_config)
     if not isinstance(defaults, dict):
         raise TypeError(
-            "callable 'config_defaults' of {} did not return dictionary, but got {}".format(
-                path, defaults,
-            ),
+            f"callable 'config_defaults' of {path} did not return dictionary, but got {defaults}",
         )
     contrib_defaults.append(defaults)
 

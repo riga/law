@@ -8,6 +8,7 @@ __all__ = ["Task", "WrapperTask", "ExternalTask"]
 
 
 import sys
+import time
 import socket
 import logging
 from collections import OrderedDict
@@ -25,7 +26,7 @@ from law.parser import root_task, global_cmdline_values
 from law.logger import setup_logger
 from law.util import (
     no_value, abort, law_run, common_task_params, colored, uncolored, make_list, multi_match,
-    flatten, BaseStream, human_duration, patch_object, round_discrete, empty_context, perf_counter,
+    flatten, BaseStream, human_duration, patch_object, round_discrete, empty_context,
 )
 from law.logger import get_logger
 
@@ -518,14 +519,14 @@ class Task(six.with_metaclass(Register, BaseTask)):
             scheduler=True, flush_cache=False):
         self.publish_message(msg, scheduler=scheduler, flush_cache=flush_cache)
         success = False
-        t0 = perf_counter()
+        t0 = time.perf_counter()
         try:
             yield
             success = True
         finally:
             msg = success_message if success else fail_message
             if runtime:
-                diff = perf_counter() - t0
+                diff = time.perf_counter() - t0
                 msg = "{} (took {})".format(msg, human_duration(seconds=diff))
             self.publish_message(msg, scheduler=scheduler, flush_cache=flush_cache)
 

@@ -4,6 +4,7 @@
 Law command line interface entry point.
 """
 
+from __future__ import annotations
 
 import sys
 from importlib import import_module
@@ -15,7 +16,7 @@ import law
 progs = ["run", "index", "config", "software", "completion", "location", "quickstart"]
 
 
-def run(argv=None):
+def run(argv: list[str] | None = None) -> int:
     """
     Entry point to the law cli. Sets up all parsers, parses all arguments given by *argv*, and
     executes the requested subprogram. When *None*, *argv* defaults to ``sys.argv[1:]``.
@@ -41,7 +42,7 @@ def run(argv=None):
     # setup all progs
     mods = {}
     for prog in progs:
-        mods[prog] = import_module("law.cli." + prog)
+        mods[prog] = import_module(f"law.cli.{prog}")
         mods[prog].setup_parser(sub_parsers)
 
     # default argv
@@ -52,10 +53,10 @@ def run(argv=None):
     prog_argv = None
 
     # parse args and dispatch execution, with "run" being a special case
-    prog = argv[0] if argv else None
+    prog: str | None = argv[0] if argv else None
     if prog == "run":
         # only pass the prog and the task family to the parser
-        # and let luigi's parsing handle the rest downstream in execute
+        # and let luigi's parsing handle the rest downstream during execute
         args = parser.parse_args(argv[:2])
         prog_argv = ["law run"] + argv
     else:
@@ -67,7 +68,7 @@ def run(argv=None):
         parser.print_help()
         return 0
 
-    exec_args = (args,)
+    exec_args: tuple = (args,)
     if prog_argv is not None:
         exec_args += (prog_argv,)
 

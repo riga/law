@@ -20,6 +20,7 @@
   <a href="http://law.readthedocs.io/en/latest">
     <img alt="Documentation status" src="https://readthedocs.org/projects/law/badge/?version=latest" />
   </a>
+  <img alt="Python version" src="https://img.shields.io/badge/Python-%E2%89%A53.8-blue" />
   <a href="https://pypi.python.org/pypi/law">
     <img alt="Package version" src="https://img.shields.io/pypi/v/law.svg?style=flat" />
   </a>
@@ -34,9 +35,6 @@
 <!-- marker-after-badges -->
 
 <!-- marker-before-header -->
-
-**Note**: This project is currently under development.
-Version 1.0.0 will be the first, fully documented beta release, targetted for fall 2023.
 
 Use law to build complex and large-scale task workflows.
 It is build on top of [luigi](https://github.com/spotify/luigi) and adds abstractions for **run locations**, **storage locations** and **software environments**.
@@ -59,17 +57,19 @@ Key features:
 
 <!-- marker-before-contents -->
 
+- [Contents](#contents)
 - [First steps](#first-steps)
-   - [Installation and dependencies](#installation-and-dependencies)
-   - [Usage at CERN](#usage-at-cern)
-   - [Overcomplete example config](#overcomplete-example-config)
+  - [Installation and dependencies](#installation-and-dependencies)
+  - [Usage at CERN](#usage-at-cern)
+  - [Overcomplete example config](#overcomplete-example-config)
 - [Projects using law](#projects-using-law)
 - [Examples](#examples)
 - [Further topics](#further-topics)
-   - [Auto completion on the command-line](#auto-completion-on-the-command-line)
+  - [Auto completion on the command-line](#auto-completion-on-the-command-line)
 - [Development](#development)
-   - [Tests](#tests)
-   - [Contributors](#contributors)
+  - [Tests](#tests)
+  - [Docker images](#docker-images)
+  - [Contributors](#contributors)
 
 <!-- marker-after-contents -->
 
@@ -224,12 +224,26 @@ source "$( law completion )"
 
 ### Tests
 
-To run and test law, there are various docker `riga/law` images available on the [DockerHub](https://cloud.docker.com/u/riga/repository/docker/riga/law), corresponding to different OS and Python versions (based on [micromamba](https://mamba.readthedocs.io/en/latest/user_guide/micromamba.html)).
-Start them via
+The test pipeline consists of unit tests, linting, and type checking.
+Each of these steps be run in a local environment or via docker.
 
-```shell
-docker run -ti riga/law:<the_tag>
-```
+- Unit tests:
+  - Local: `./tests/unittest.sh`
+  - Docker: `./tests/docker.sh riga/law ./tests/unittest.sh`
+- Linting:
+  - Local: `./tests/linting.sh`
+  - Docker: `./tests/docker.sh riga/law ./tests/linting.sh`
+- Type checks:
+  - Local: `./tests/typecheck.sh`
+  - Docker: `./tests/docker.sh riga/law ./tests/typecheck.sh`
+- All of the above:
+  - Local: `./tests/all.sh`
+  - Docker: `./tests/docker.sh riga/law ./tests/all.sh`
+
+
+### Docker images
+
+There are various docker `riga/law` images available on the [DockerHub](https://cloud.docker.com/u/riga/repository/docker/riga/law), corresponding to different OS and Python versions (based on [micromamba](https://mamba.readthedocs.io/en/latest/user_guide/micromamba.html)).
 
 |      OS     | Python |                    Tags                   |
 | ----------- | ------ | ----------------------------------------- |
@@ -237,19 +251,16 @@ docker run -ti riga/law:<the_tag>
 | AlmaLinux 9 |   3.10 | a9-py310, py310                           |
 | AlmaLinux 9 |    3.9 | a9-py39, py39                             |
 | AlmaLinux 9 |    3.8 | a9-py38, py38                             |
-| AlmaLinux 9 |    3.7 | a9-py37, py37                             |
 | CentOS 8    |   3.11 | c8-py311, c8-py3, c8                      |
 | CentOS 8    |   3.10 | c8-py310                                  |
 | CentOS 8    |    3.9 | c8-py39                                   |
 | CentOS 8    |    3.8 | c8-py38                                   |
-| CentOS 8    |    3.7 | c8-py37                                   |
-| CentOS 7    |   3.10 | c7-py310, c7-py3, c7                      |
-| CentOS 7    |    3.9 | c7-py39                                   |
-| CentOS 7    |    3.8 | c7-py38                                   |
-| CentOS 7    |    3.7 | c7-py37                                   |
-| CentOS 7    |    3.6 | c7-py36, py36 (removed soon)              |
-| CentOS 7    |    2.7 | c7-py27, c7-py2, py27, py2 (removed soon) |
 
+Start them via
+
+```shell
+docker run -ti riga/law:<the_tag>
+```
 
 ### Contributors
 

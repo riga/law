@@ -4,8 +4,9 @@
 Base classes for implementing remote job management and job file creation.
 """
 
-__all__ = ["BaseJobManager", "BaseJobFileFactory", "JobArguments", "JobInputFile"]
+from __future__ import annotations
 
+__all__ = ["BaseJobManager", "BaseJobFileFactory", "JobArguments", "JobInputFile"]
 
 import os
 import time
@@ -16,26 +17,27 @@ import base64
 import copy
 import re
 import json
+import pathlib
 from collections import defaultdict
-from multiprocessing.pool import ThreadPool
+from multiprocessing.pool import ThreadPool, AsyncResult
 from threading import Lock
 from abc import ABCMeta, abstractmethod
 
-import six
-
-from law.config import Config
+from law.task.base import Register
 from law.target.file import get_scheme, get_path
 from law.target.remote.base import RemoteTarget
+from law.config import Config
 from law.util import (
     colored, make_list, make_tuple, iter_chunks, makedirs, create_hash, empty_context,
 )
 from law.logger import get_logger
+from law._types import Any, Callable, Hashable, Sequence, TracebackType
 
 
 logger = get_logger(__name__)
 
 
-def get_async_result_silent(result, timeout=None):
+def get_async_result_silent(result: AsyncResult, timeout: int | float | None = None) -> Any:
     """
     Calls the ``get([timeout])`` method of an `AsyncResult
     <https://docs.python.org/latest/library/multiprocessing.html#multiprocessing.pool.AsyncResult>`__
@@ -49,7 +51,7 @@ def get_async_result_silent(result, timeout=None):
         return e
 
 
-class BaseJobManager(six.with_metaclass(ABCMeta, object)):
+class BaseJobManager(object, metaclass=ABCMeta):
     """
     Base class that defines how remote jobs are submitted, queried, cancelled and cleaned up. It
     also defines the most common job states:
@@ -157,7 +159,7 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
     default_status_names = [PENDING, RUNNING, FINISHED, RETRY, FAILED]
 
     # color styles per status when job count decreases / stagnates / increases
-    default_status_diff_styles = {
+    default_status_diff_styles: dict[str, tuple[dict, dict, dict]] = {
         PENDING: ({}, {}, {"color": "green"}),
         RUNNING: ({}, {}, {"color": "green"}),
         FINISHED: ({}, {}, {"color": "green"}),
@@ -176,7 +178,14 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
     chunk_size_query = 0
 
     @classmethod
-    def job_status_dict(cls, job_id=None, status=None, code=None, error=None, extra=None):
+    def job_status_dict(
+        cls,
+        job_id: str | None = None,
+        status: str | None = None,
+        code: int | None = None,
+        error: str | None = None,
+        extra: Any | None = None,
+    ) -> dict[str, Any]:
         """
         Returns a dictionay that describes the status of a job given its *job_id*, *status*, return
         *code*, *error*, and additional *extra* data.
@@ -184,14 +193,19 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
         return dict(job_id=job_id, status=status, code=code, error=error, extra=extra)
 
     @classmethod
-    def cast_job_id(cls, job_id):
+    def cast_job_id(cls, job_id: Any) -> str:
         """
         Hook for casting an input *job_id*, for instance, after loading serialized data from json.
         """
         return job_id
 
-    def __init__(self, status_names=None, status_diff_styles=None, threads=1):
-        super(BaseJobManager, self).__init__()
+    def __init__(
+        self,
+        status_names: list[str] | None = None,
+        status_diff_styles: dict[str, tuple[dict, dict, dict]] | None = None,
+        threads: int = 1,
+    ) -> None:
+        super().__init__()
 
         self.status_names = status_names or list(self.default_status_names)
         self.status_diff_styles = status_diff_styles or self.default_status_diff_styles.copy()
@@ -200,42 +214,42 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
         self.last_counts = [0] * len(self.status_names)
 
     @abstractmethod
-    def submit(self):
+    def submit(self) -> list[str]:
         """
         Abstract atomic or group job submission.
         Can throw exceptions.
         Should return a list of job ids.
         """
-        return
+        ...
 
     @abstractmethod
-    def cancel(self):
+    def cancel(self) -> dict[str, Any]:
         """
         Abstract atomic or group job cancellation.
         Can throw exceptions.
         Should return a dictionary mapping job ids to per-job return values.
         """
-        return
+        ...
 
     @abstractmethod
-    def cleanup(self):
+    def cleanup(self) -> dict[str, Any]:
         """
         Abstract atomic or group job cleanup.
         Can throw exceptions.
         Should return a dictionary mapping job ids to per-job return values.
         """
-        return
+        ...
 
     @abstractmethod
-    def query(self):
+    def query(self) -> dict[str, Any]:
         """
         Abstract atomic or group job status query.
         Can throw exceptions.
         Should return a dictionary mapping job ids to per-job return values.
         """
-        return
+        ...
 
-    def group_job_ids(self, job_ids):
+    def group_job_ids(self, job_ids: list[Any]) -> dict[Any, list[Any]]:
         """
         Hook that needs to be implemented if the job mananger supports grouping of jobs, i.e., when
         :py:attr:`job_grouping` is *True*, and potentially used during status queries, job
@@ -244,20 +258,20 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
         original job ids, with an arbitrary grouping mechanism.
         """
         raise NotImplementedError(
-            "internal error, {}.group_job_ids not implemented".format(self.__class__.__name__),
+            f"internal error, {self.__class__.__name__}.group_job_ids not implemented",
         )
 
     def _apply_batch(
         self,
-        func,
-        result_type,
-        job_objs,
-        default_chunk_size,
-        threads=None,
-        chunk_size=None,
-        callback=None,
-        **kwargs  # noqa
-    ):
+        func: Callable,
+        result_type: type,
+        job_objs: list[Any],
+        default_chunk_size: int,
+        threads: int | None = None,
+        chunk_size: int | None = None,
+        callback: Callable[[int, Any], Any] | None = None,
+        **kwargs,
+    ) -> Any:
         # default arguments
         threads = max(threads or self.threads or 1, 1)
 
@@ -266,11 +280,11 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
         chunking = chunk_size > 0
 
         # build chunks if needed
-        job_objs = make_list(job_objs)
+        job_objs: list[Any] | list[list[Any]] = make_list(job_objs)
         job_objs = list(iter_chunks(job_objs, chunk_size)) if chunking else job_objs
 
         # factory to call the passed callback for each job file even when chunking
-        def cb_factory(i):
+        def cb_factory(i: int) -> Callable | None:
             if not callable(callback):
                 return None
 
@@ -298,7 +312,7 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
         # store result data or an exception
         result_data = result_type()
         if chunking:
-            for _job_objs, res in six.moves.zip(job_objs, results):
+            for _job_objs, res in zip(job_objs, results):
                 data = get_async_result_silent(res)
                 for i, job_obj in enumerate(_job_objs):
                     if isinstance(result_data, list):
@@ -306,7 +320,7 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
                     else:
                         result_data[job_obj] = data if isinstance(data, Exception) else data[job_obj]
         else:
-            for job_obj, res in six.moves.zip(job_objs, results):
+            for job_obj, res in zip(job_objs, results):
                 data = get_async_result_silent(res)
                 if isinstance(result_data, list):
                     result_data.append(data)
@@ -315,7 +329,14 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
 
         return result_data
 
-    def submit_batch(self, job_files, threads=None, chunk_size=None, callback=None, **kwargs):
+    def submit_batch(
+        self,
+        job_files: list[Any],
+        threads: int | None = None,
+        chunk_size: int | None = None,
+        callback: Callable[[int, Any], Any] | None = None,
+        **kwargs,
+    ) -> list[Any]:
         """
         Submits a batch of jobs given by *job_files* via a thread pool of size *threads* which
         defaults to its instance attribute. When *chunk_size*, which defaults to
@@ -339,10 +360,17 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
             threads=threads,
             chunk_size=chunk_size,
             callback=callback,
-            **kwargs  # noqa
+            **kwargs,
         )
 
-    def cancel_batch(self, job_ids, threads=None, chunk_size=None, callback=None, **kwargs):
+    def cancel_batch(
+        self,
+        job_ids: list[Hashable],
+        threads: int | None = None,
+        chunk_size: int | None = None,
+        callback: Callable[[int, Any], Any] | None = None,
+        **kwargs,
+    ) -> list[Exception]:
         """
         Cancels a batch of jobs given by *job_ids* via a thread pool of size *threads* which
         defaults to its instance attribute. When *chunk_size*, which defaults to
@@ -364,13 +392,20 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
             threads=threads,
             chunk_size=chunk_size,
             callback=callback,
-            **kwargs  # noqa
+            **kwargs,
         )
 
         # return only errors
         return [error for error in results.values() if isinstance(error, Exception)]
 
-    def cleanup_batch(self, job_ids, threads=None, chunk_size=None, callback=None, **kwargs):
+    def cleanup_batch(
+        self,
+        job_ids: list[Hashable],
+        threads: int | None = None,
+        chunk_size: int | None = None,
+        callback: Callable[[int, Any], Any] | None = None,
+        **kwargs,
+    ) -> list[Exception]:
         """
         Cleans up a batch of jobs given by *job_ids* via a thread pool of size *threads* which
         defaults to its instance attribute. When *chunk_size*, which defaults to
@@ -393,13 +428,20 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
             threads=threads,
             chunk_size=chunk_size,
             callback=callback,
-            **kwargs  # noqa
+            **kwargs,
         )
 
         # return only errors
         return [error for error in results.values() if isinstance(error, Exception)]
 
-    def query_batch(self, job_ids, threads=None, chunk_size=None, callback=None, **kwargs):
+    def query_batch(
+        self,
+        job_ids: list[Hashable],
+        threads: int | None = None,
+        chunk_size: int | None = None,
+        callback: Callable[[int, Any], Any] | None = None,
+        **kwargs,
+    ) -> dict[Hashable, Any]:
         """
         Queries the status of a batch of jobs given by *job_ids* via a thread pool of size *threads*
         which defaults to its instance attribute. When *chunk_size*, which defaults to
@@ -421,33 +463,33 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
             threads=threads,
             chunk_size=chunk_size,
             callback=callback,
-            **kwargs  # noqa
+            **kwargs,
         )
 
     def _apply_group(
         self,
-        func,
-        result_type,
+        func: Callable,
+        result_type: type,
         group_func,
-        job_objs,
-        threads=None,
-        callback=None,
-        **kwargs  # noqa
-    ):
+        job_objs: list[Any],
+        threads: int | None = None,
+        callback: Callable[[int, Any], Any] | None = None,
+        **kwargs,
+    ) -> Any:
         # default arguments
         threads = max(threads or self.threads or 1, 1)
 
         # group objects
-        job_objs = group_func(make_list(job_objs))
+        job_obj_groups: dict[Any, list[Any]] = group_func(make_list(job_objs))
 
         # factory to call the passed callback for each job file even when chunking
-        def cb_factory(i):
+        def cb_factory(i: int) -> Callable | None:
             if not callable(callback):
                 return None
 
-            def wrapper(result_data):
-                offset = sum(map(len, list(job_objs.values())[:i]))
-                for j in range(len(list(job_objs.values())[i])):
+            def wrapper(result_data: Any) -> None:
+                offset = sum(map(len, list(job_obj_groups.values())[:i]))
+                for j in range(len(list(job_obj_groups.values())[i])):
                     data = result_data if isinstance(result_data, Exception) else result_data[j]
                     callback(offset + j, data)
 
@@ -457,14 +499,14 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
         pool = ThreadPool(threads)
         results = [
             pool.apply_async(func, make_tuple(arg), kwargs, callback=cb_factory(i))
-            for i, arg in enumerate(job_objs.items())
+            for i, arg in enumerate(job_obj_groups.items())
         ]
         pool.close()
         pool.join()
 
         # store result data or an exception
         result_data = result_type()
-        for _job_objs, res in six.moves.zip(job_objs.values(), results):
+        for _job_objs, res in zip(job_obj_groups.values(), results):
             data = get_async_result_silent(res)
             for i, job_obj in enumerate(_job_objs):
                 if isinstance(result_data, list):
@@ -474,7 +516,13 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
 
         return result_data
 
-    def submit_group(self, job_files, threads=None, callback=None, **kwargs):
+    def submit_group(
+        self,
+        job_files: list[Any],
+        threads: int | None = None,
+        callback: Callable[[int, Any], Any] | None = None,
+        **kwargs,
+    ) -> list[Any]:
         """
         Submits several job groups given by *job_files* via a thread pool of size *threads* which
         defaults to its instance attribute. As per the definition of a job group, a single job file
@@ -490,7 +538,7 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
         added to the returned list.
         """
         # in order to use the generic grouping mechanism in _apply_group create a trivial group_func
-        def group_func(job_files):
+        def group_func(job_files: list[Any]) -> dict[Any, list[Any]]:
             groups = defaultdict(list)
             for job_file in job_files:
                 groups[job_file].append(job_file)
@@ -503,10 +551,16 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
             job_objs=job_files,
             threads=threads,
             callback=callback,
-            **kwargs  # noqa
+            **kwargs,
         )
 
-    def cancel_group(self, job_ids, threads=None, callback=None, **kwargs):
+    def cancel_group(
+        self,
+        job_ids: list[Hashable],
+        threads: int | None = None,
+        callback: Callable[[int, Any], Any] | None = None,
+        **kwargs,
+    ) -> list[Exception]:
         """
         Takes several *job_ids*, groups them according to :py:meth:`group_job_ids`, and cancels all
         groups simultaneously via a thread pool of size *threads* which defaults to its instance
@@ -532,7 +586,13 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
         # return only errors
         return [error for error in results.values() if isinstance(error, Exception)]
 
-    def cleanup_group(self, job_ids, threads=None, callback=None, **kwargs):
+    def cleanup_group(
+        self,
+        job_ids: list[Hashable],
+        threads: int | None = None,
+        callback: Callable[[int, Any], Any] | None = None,
+        **kwargs,
+    ) -> list[Exception]:
         """
         Takes several *job_ids*, groups them according to :py:meth:`group_job_ids`, and cleans up
         all groups simultaneously via a thread pool of size *threads* which defaults to its instance
@@ -552,13 +612,19 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
             job_objs=job_ids,
             threads=threads,
             callback=callback,
-            **kwargs  # noqa
+            **kwargs,
         )
 
         # return only errors
         return [error for error in results.values() if isinstance(error, Exception)]
 
-    def query_group(self, job_ids, threads=None, callback=None, **kwargs):
+    def query_group(
+        self,
+        job_ids: list[Hashable],
+        threads: int | None = None,
+        callback: Callable[[int, Any], Any] | None = None,
+        **kwargs,
+    ) -> dict[Hashable, Any]:
         """
         Takes several *job_ids*, groups them according to :py:meth:`group_job_ids`, and queries the
         status of all groups simultaneously via a thread pool of size *threads* which defaults to
@@ -578,11 +644,18 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
             job_objs=job_ids,
             threads=threads,
             callback=callback,
-            **kwargs  # noqa
+            **kwargs,
         )
 
-    def status_line(self, counts, last_counts=None, sum_counts=None, timestamp=True, align=False,
-            color=False):
+    def status_line(
+        self,
+        counts: Sequence[int],
+        last_counts: Sequence[int] | bool | None = None,
+        sum_counts: int | None = None,
+        timestamp: bool = True,
+        align: bool | int = False,
+        color: bool = False,
+    ):
         """
         Returns a job status line containing job counts per status. When *last_counts* is *True*,
         the status line also contains the differences in job counts with respect to the counts from
@@ -611,49 +684,53 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
             # all: 2, pending: 0 (-2), running: 2 (+2), finished: 2 (+0), failed: 0 (+0)
         """
         # check and or set last counts
-        use_last_counts = bool(last_counts)
-        if use_last_counts and not isinstance(last_counts, (list, tuple)):
-            last_counts = self.last_counts or ([0] * len(self.status_names))
-        if last_counts and len(last_counts) != len(self.status_names):
-            raise Exception("{} last status counts expected, got {}".format(len(self.status_names),
-                len(last_counts)))
+        _last_counts: Sequence[int] = []
+        if last_counts:
+            _last_counts = (
+                last_counts
+                if isinstance(last_counts, (list, tuple))
+                else (self.last_counts or ([0] * len(self.status_names)))
+            )
+        if _last_counts and len(_last_counts) != len(self.status_names):
+            raise Exception(
+                f"{len(self.status_names)} last status counts expected, got {len(_last_counts)}",
+            )
 
         # check current counts
         if len(counts) != len(self.status_names):
-            raise Exception("{} status counts expected, got {}".format(len(self.status_names),
-                len(counts)))
+            raise Exception(f"{len(self.status_names)} status counts expected, got {len(counts)}")
 
         # calculate differences
-        if last_counts:
-            diffs = tuple(n - m for n, m in zip(counts, last_counts))
+        if _last_counts:
+            diffs = tuple(n - m for n, m in zip(counts, _last_counts))
 
         # number formatting
-        if isinstance(align, bool) or not isinstance(align, six.integer_types):
+        if isinstance(align, bool) or not isinstance(align, int):
             align = 4 if align else 0
-        count_fmt = "%d" if not align else "%{}d".format(align)
-        diff_fmt = "%+d" if not align else "%+{}d".format(align)
+        count_fmt = "%d" if not align else f"%{align}d"
+        diff_fmt = "%+d" if not align else f"%+{align}d"
 
         # build the status line
         line = ""
         if timestamp:
-            time_format = timestamp if isinstance(timestamp, six.string_types) else "%H:%M:%S"
-            line += "{}: ".format(time.strftime(time_format))
+            time_format = timestamp if isinstance(timestamp, str) else "%H:%M:%S"
+            line += f"{time.strftime(time_format)}: "
         if sum_counts is None:
             sum_counts = sum(counts)
         line += "all: " + count_fmt % (sum_counts,)
         for i, (status, count) in enumerate(zip(self.status_names, counts)):
-            count = count_fmt % count
+            count_str = count_fmt % count
             if color:
-                count = colored(count, style="bright")
-            line += ", {}: {}".format(status, count)
+                count_str = colored(count_str, style="bright")
+            line += f", {status}: {count_str}"
 
             if diffs:
-                diff = diff_fmt % diffs[i]
+                diff_str = diff_fmt % diffs[i]
                 if color:
                     # 0 if negative, 1 if zero, 2 if positive
                     style_idx = (diffs[i] > 0) + (diffs[i] >= 0)
-                    diff = colored(diff, **self.status_diff_styles[status][style_idx])
-                line += " ({})".format(diff)
+                    diff_str = colored(diff_str, **self.status_diff_styles[status][style_idx])
+                line += f" ({diff_str})"
 
         # store current counts for next call
         self.last_counts = list(counts)
@@ -661,7 +738,7 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
         return line
 
 
-class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
+class BaseJobFileFactory(object, metaclass=ABCMeta):
     """
     Base class that handles the creation of job files. It is likely that inheriting classes only
     need to implement the :py:meth:`create` method as well as extend the constructor to handle
@@ -715,27 +792,33 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
 
     class Config(object):
 
-        def __repr__(self):
+        def __repr__(self) -> str:
             return repr(self.__dict__)
 
-        def __getattr__(self, attr):
+        def __getattr__(self, attr: str) -> Any:
             return self.__dict__[attr]
 
-        def __setattr__(self, attr, value):
+        def __setattr__(self, attr: str, value: Any) -> None:
             self.__dict__[attr] = value
 
-        def __getitem__(self, attr):
+        def __getitem__(self, attr: str) -> Any:
             return self.__dict__[attr]
 
-        def __setitem__(self, attr, value):
+        def __setitem__(self, attr: str, value: Any) -> None:
             self.__dict__[attr] = value
 
-        def __contains__(self, attr):
+        def __contains__(self, attr: str) -> bool:
             return attr in self.__dict__
 
-    def __init__(self, dir=None, render_variables=None, custom_log_file=None, mkdtemp=None,
-            cleanup=None):
-        super(BaseJobFileFactory, self).__init__()
+    def __init__(
+        self,
+        dir: str | pathlib.Path | None = None,
+        render_variables: dict[str, Any] | None = None,
+        custom_log_file: str | pathlib.Path | None = None,
+        mkdtemp: bool | None = None,
+        cleanup: bool | None = None,
+    ) -> None:
+        super().__init__()
 
         cfg = Config.instance()
 
@@ -765,25 +848,30 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
 
         # store attributes
         self.render_variables = render_variables or {}
-        self.custom_log_file = custom_log_file
+        self.custom_log_file = str(custom_log_file) if custom_log_file else None
 
         # locks for thread-safe file operations
-        self.file_locks = defaultdict(Lock)
+        self.file_locks: dict[str, Lock] = defaultdict(Lock)
 
-    def __del__(self):
+    def __del__(self) -> None:
         self.cleanup_dir(force=False)
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args, **kwargs) -> tuple[str, Config]:
         return self.create(*args, **kwargs)
 
-    def __enter__(self):
+    def __enter__(self) -> BaseJobFileFactory:
         return self
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(self, exc_type: type, exc_value: BaseException, traceback: TracebackType) -> None:
         return
 
     @classmethod
-    def postfix_file(cls, path, postfix=None, add_hash=False):
+    def postfix_file(
+        cls,
+        path: str | pathlib.Path,
+        postfix: str | dict[str, str] | None = None,
+        add_hash: bool = False,
+    ) -> str:
         """
         Adds a *postfix* to a file *path*, right before the first file extension in the base name.
         When *add_hash* is *True*, a hash based on the full source path is added before the postfix.
@@ -805,18 +893,16 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
         dirname, basename = os.path.split(path)
 
         # get the actual postfix
-        _postfix = postfix
+        _postfix = postfix if isinstance(postfix, str) else ""
         if isinstance(postfix, dict):
-            for pattern, _postfix in six.iteritems(postfix):
+            for pattern, _postfix in postfix.items():
                 if fnmatch.fnmatch(basename, pattern):
                     break
-            else:
-                _postfix = ""
 
         # optionally add a hash of the full path
         if add_hash:
             full_path = os.path.realpath(os.path.expandvars(os.path.expanduser(path)))
-            _postfix = "_" + create_hash(full_path) + (_postfix or "")
+            _postfix = f"_{create_hash(full_path)}{_postfix}"
 
         # add the postfix
         if _postfix:
@@ -827,28 +913,36 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
         return path
 
     @classmethod
-    def postfix_input_file(cls, path, postfix=None):
+    def postfix_input_file(
+        cls,
+        path: str | pathlib.Path,
+        postfix: str | dict[str, str] | None = None,
+    ) -> str:
         """
         Shorthand for :py:meth:`postfix_file` with *add_hash* set to *True*.
         """
         return cls.postfix_file(path, postfix=postfix, add_hash=True)
 
     @classmethod
-    def postfix_output_file(cls, path, postfix=None):
+    def postfix_output_file(
+        cls,
+        path: str | pathlib.Path,
+        postfix: str | dict[str, str] | None = None,
+    ) -> str:
         """
         Shorthand for :py:meth:`postfix_file` with *add_hash* set to *False*.
         """
         return cls.postfix_file(path, postfix=postfix, add_hash=False)
 
     @classmethod
-    def render_string(cls, s, key, value):
+    def render_string(cls, s: str, key: str, value: Any) -> str:
         """
         Renders a string *s* by replacing ``{{key}}`` with *value* and returns it.
         """
         return s.replace("{{" + key + "}}", str(value))
 
     @classmethod
-    def linearize_render_variables(cls, render_variables):
+    def linearize_render_variables(cls, render_variables: dict[str, str]) -> dict[str, str]:
         """
         Linearizes variables contained in the dictionary *render_variables*. In some use cases,
         variables may contain render expressions pointing to other variables, e.g.:
@@ -874,8 +968,10 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
         linearized = {}
         for key, value in render_variables.items():
             if not isinstance(value, str):
-                raise Exception("render variables must be strings, found '{}' for key '{}'".format(
-                    value, key))
+                raise Exception(
+                    f"render variables must be strings, but found '{type(value)}' for key '{key}': "
+                    f"{value}",
+                )
 
             while True:
                 m = cls.render_key_cre.search(value)
@@ -886,15 +982,20 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
             linearized[key] = value
 
         # add base64 encoded render variables themselves
-        vars_str = base64.b64encode(six.b(json.dumps(linearized) or "-"))
-        if six.PY3:
-            vars_str = vars_str.decode("utf-8")
-        linearized["render_variables"] = vars_str
+        vars_str = base64.b64encode((json.dumps(linearized) or "-").encode("utf-8"))
+        linearized["render_variables"] = vars_str.decode("utf-8")
 
         return linearized
 
     @classmethod
-    def render_file(cls, src, dst, render_variables, postfix=None, silent=True):
+    def render_file(
+        cls,
+        src: str | pathlib.Path,
+        dst: str | pathlib.Path,
+        render_variables: dict[str, Any],
+        postfix: str | dict[str, str] | None = None,
+        silent: bool = True,
+    ) -> None:
         """
         Renders a source file *src* with *render_variables* and copies it to a new location *dst*.
         In some cases, a render variable value might contain a path that should be subject to file
@@ -911,9 +1012,10 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
         In case the file content is not readable, the method returns unless *silent* is *False* in
         which case an exception is raised.
         """
-        src, dst = str(src), str(dst)
+        src = str(src)
+        dst = str(src)
         if not os.path.isfile(src):
-            raise IOError("source file for rendering does not exist: {}".format(src))
+            raise IOError(f"source file for rendering does not exist: {src}")
 
         with open(src, "r") as f:
             try:
@@ -923,10 +1025,10 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
                     return
                 raise
 
-        def postfix_fn(m):
+        def postfix_fn(m: re.Match) -> str:
             return cls.postfix_input_file(m.group(1), postfix=postfix)
 
-        for key, value in six.iteritems(render_variables):
+        for key, value in render_variables.items():
             # value might contain paths to be postfixed, denoted by "__law_job_postfix__:..."
             if postfix:
                 value = re.sub(r"\_\_law\_job\_postfix\_\_:([^\s]+)", postfix_fn, value)
@@ -938,8 +1040,14 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
         with open(dst, "w") as f:
             f.write(content)
 
-    def provide_input(self, src, postfix=None, dir=None, render_variables=None,
-            skip_existing=False):
+    def provide_input(
+        self,
+        src: str | pathlib.Path,
+        postfix: str | dict[str, str] | None = None,
+        dir: str | pathlib.Path | None = None,
+        render_variables: dict[str, Any] | None = None,
+        skip_existing: bool = False,
+    ) -> str:
         """
         Convenience method that copies an input file to a target directory *dir* which defaults to
         the :py:attr:`dir` attribute of this instance. The provided file has the same basename,
@@ -949,13 +1057,14 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
         *True*.
         """
         # create the destination path
-        src, dir = str(src), dir and str(dir)
+        src = str(src)
+        dir = str(dir or self.dir)
         postfixed_src = self.postfix_input_file(src, postfix=postfix)
-        dst = os.path.join(os.path.realpath(dir or self.dir), os.path.basename(postfixed_src))
+        dst = os.path.join(os.path.realpath(dir), os.path.basename(postfixed_src))
 
         # thread-safe check for the existince of the file in a thread-safe
         context = self.file_locks[dst] if skip_existing else empty_context()
-        with context:
+        with context:  # type: ignore[attr-defined]
             # create if not existing or if overwriting
             if not skip_existing or not os.path.exists(dst):
                 # provide the file
@@ -966,7 +1075,7 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
 
         return dst
 
-    def get_config(self, **kwargs):
+    def get_config(self, **kwargs) -> Config:
         """
         The :py:meth:`create` method potentially takes a lot of keywork arguments for configuring
         the content of job files. It is useful if some of these configuration values default to
@@ -1003,22 +1112,22 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
             cfg[attr] = copy.deepcopy(kwargs.get(attr, getattr(self, attr)))
         return cfg
 
-    def cleanup_dir(self, force=True):
+    def cleanup_dir(self, force: bool = True) -> None:
         """
         Removes the directory that is held by this instance. When *force* is *False*, the directory
         is only removed when :py:attr:`cleanup` is *True*.
         """
         if not self.cleanup and not force:
             return
-        if isinstance(self.dir, six.string_types) and os.path.exists(self.dir):
+        if isinstance(self.dir, str) and os.path.exists(self.dir):
             shutil.rmtree(self.dir)
 
     @abstractmethod
-    def create(self, **kwargs):
+    def create(self, **kwargs) -> tuple[str, Config]:
         """
         Abstract job file creation method that must be implemented by inheriting classes.
         """
-        return
+        ...
 
 
 class JobArguments(object):
@@ -1042,7 +1151,7 @@ class JobArguments(object):
 
     .. py:attribute:: branches
 
-       type: list
+        type: list
 
         The list of branch numbers covered by the task.
 
@@ -1066,41 +1175,48 @@ class JobArguments(object):
         :py:meth:`law.job.dashboard.BaseJobDashboard.remote_hook_data`.
     """
 
-    def __init__(self, task_cls, task_params, branches, workers=1, auto_retry=False,
-            dashboard_data=None):
-        super(JobArguments, self).__init__()
+    def __init__(
+        self,
+        task_cls: Register,
+        task_params: str,
+        branches: list[int],
+        workers: int = 1,
+        auto_retry: bool = False,
+        dashboard_data: list[str] | None = None,
+    ):
+        super().__init__()
 
         self.task_cls = task_cls
         self.task_params = task_params
         self.branches = branches
         self.workers = max(workers, 1)
         self.auto_retry = auto_retry
-        self.dashboard_data = dashboard_data or []
+        self.dashboard_data: list[str] = dashboard_data or []
 
     @classmethod
-    def encode_bool(cls, b):
+    def encode_bool(cls, b: bool) -> str:
         """
         Encodes a boolean *b* into a string (``"yes"`` or ``"no"``).
         """
         return "yes" if b else "no"
 
     @classmethod
-    def encode_string(cls, s):
+    def encode_string(cls, s: str) -> str:
         """
         Encodes a string *s* via base64 encoding.
         """
-        encoded = base64.b64encode(six.b(s or "-"))
-        return encoded.decode("utf-8") if six.PY3 else encoded
+        encoded = base64.b64encode((s or "-").encode("utf-8"))
+        return encoded.decode("utf-8")
 
     @classmethod
-    def encode_list(cls, l):
+    def encode_list(cls, l: list) -> str:
         """
         Encodes a list *l* into a string via base64 encoding.
         """
-        encoded = base64.b64encode(six.b(" ".join(str(v) for v in l) or "-"))
-        return encoded.decode("utf-8") if six.PY3 else encoded
+        encoded = base64.b64encode((" ".join(map(str, l)) or "-").encode("utf-8"))
+        return encoded.decode("utf-8")
 
-    def get_args(self):
+    def get_args(self) -> list[str]:
         """
         Returns the list of encoded job arguments. The order of this list corresponds to the
         arguments expected by the job wrapper script.
@@ -1110,17 +1226,17 @@ class JobArguments(object):
             self.task_cls.__name__,
             self.encode_string(self.task_params),
             self.encode_list(self.branches),
-            self.workers,
+            str(self.workers),
             self.encode_bool(self.auto_retry),
             self.encode_list(self.dashboard_data),
         ]
 
-    def join(self):
+    def join(self) -> str:
         """
         Returns the list of job arguments from :py:meth:`get_args`, joined into a single string
         using a single space character.
         """
-        return " ".join(str(arg) for arg in self.get_args())
+        return " ".join(map(str, self.get_args()))
 
 
 class JobInputFile(object):
@@ -1212,9 +1328,18 @@ class JobInputFile(object):
         basename otherwise. Set only during job file creation.
     """
 
-    def __init__(self, path, copy=None, share=None, forward=None, postfix=None, render=None,
-            render_local=None, render_job=None):
-        super(JobInputFile, self).__init__()
+    def __init__(
+        self,
+        path: str | pathlib.Path | JobInputFile,
+        copy: bool | None = None,
+        share: bool | None = None,
+        forward: bool | None = None,
+        postfix: bool | None = None,
+        render: bool | None = None,
+        render_local: bool | None = None,
+        render_job: bool | None = None,
+    ):
+        super().__init__()
 
         # when path is a job file instance itself, use its values instead
         if isinstance(path, JobInputFile):
@@ -1228,8 +1353,9 @@ class JobInputFile(object):
 
         # path must not be a remote file target
         if isinstance(path, RemoteTarget):
-            raise ValueError("{}.path should not point to a remote target: {}".format(
-                self.__class__.__name__, path))
+            raise ValueError(
+                f"{self.__class__.__name__}.path should not point to a remote target: {path}",
+            )
 
         # convenience
         if render is not None and render_local is None and render_job is None:
@@ -1237,9 +1363,10 @@ class JobInputFile(object):
             render_job = False
 
         # set some attributes if undefined, based on most common use cases
-        maybe_set = lambda current, default: default if current is None else current
+        def maybe_set(current: bool | None, default: bool) -> bool:
+            return default if current is None else current
+
         if copy is not None and not copy:
-            # share = maybe_set(share, False)
             share = maybe_set(share, False)
             postfix = maybe_set(postfix, False)
             render_local = maybe_set(render_local, False)
@@ -1279,117 +1406,55 @@ class JobInputFile(object):
         # some residual attribute checks
         if not self.copy and self.postfix:
             logger.warning(
-                "input file at {} is configured not to be copied into the submission directory, "
-                "but postfixing is enabled which has no effect".format(self.path),
+                f"input file at {self.path} is configured not to be copied into the submission "
+                "directory, but postfixing is enabled which has no effect",
             )
         if not self.copy and self.share:
             logger.warning(
-                "input file at {} is configured not to be copied into the submission directory, "
-                "but sharing is enabled which has no effect".format(self.path),
+                f"input file at {self.path} is configured not to be copied into the submission "
+                "directory, but sharing is enabled which has no effect",
             )
         if self.copy and self.forward:
             logger.warning(
-                "input file at {} is configured to be copied into the submission directory, but "
-                "but forwarding is enabled which has no effect".format(self.path),
+                f"input file at {self.path} is configured to be copied into the submission "
+                "directory, but but forwarding is enabled which has no effect",
             )
         if not self.copy and self.render_local:
             logger.warning(
-                "input file at {} is configured not to be copied into the submission directory, "
-                "but rendering is enabled which has no effect".format(self.path),
+                f"input file at {self.path} is configured not to be copied into the submission "
+                "directory, but rendering is enabled which has no effect",
             )
         if self.share and self.render_local:
             logger.warning(
-                "input file at {} is configured to be shared across jobs but local rendering is "
-                "active, potentially resulting in wrong file content".format(self.path),
+                f"input file at {self.path} is configured to be shared across jobs but local "
+                "rendering is active, potentially resulting in wrong file content",
             )
         if self.render_local and self.render_job:
             logger.warning(
-                "input file at {} is configured to be rendered locally and within the job, which "
-                "is likely unnecessary".format(self.path),
+                f"input file at {self.path} is configured to be rendered locally and within the "
+                "job, which is likely unnecessary",
             )
 
         # different path variants as seen by jobs
-        self.path_sub_abs = None
-        self.path_sub_rel = None
-        self.path_job_pre_render = None
-        self.path_job_post_render = None
+        self.path_sub_abs: str | None = None
+        self.path_sub_rel: str | None = None
+        self.path_job_pre_render: str | None = None
+        self.path_job_post_render: str | None = None
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.path
 
-    def __repr__(self):
-        return "<{}({}) at {}>".format(
-            self.__class__.__name__,
-            ", ".join("{}={}".format(attr, getattr(self, attr)) for attr in [
-                "path", "copy", "share", "forward", "postfix", "render_local", "render_job",
-            ]),
-            hex(id(self)),
-        )
+    def __repr__(self) -> str:
+        attrs = ["path", "copy", "share", "forward", "postfix", "render_local", "render_job"]
+        attr_str = ", ".join(f"{attr}={getattr(self, attr)}" for attr in attrs)
+        return f"<{self.__class__.__name__}({attr_str}) at {hex(id(self))}>"
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         # check equality via path comparison
         if isinstance(other, JobInputFile):
             return self.path == other.path
         return self.path == str(other)
 
     @property
-    def is_remote(self):
+    def is_remote(self) -> bool:
         return get_scheme(self.path) not in ("file", None)
-
-
-class DeprecatedInputFiles(dict):
-    """
-    Class to keep track of input files for remote jobs that is only used to show a deprecation
-    warning for users still relying on lists. Therefore, this class emulates the most used list
-    methods and internally fills input files using dict methods. To be removed in version 1.0.
-    """
-
-    @classmethod
-    def _log_warning(cls, method):
-        logger.warning_once(
-            "the use of input_files.{} is deprecated, please consider updating your code towards "
-            "using dictionaries instead, e.g., 'input_files[key] = path'; by doing so, law "
-            "automatically adds a render variable 'key' that will refer to the postfixed path of "
-            "the input file for immediate use in remote jobs".format(method),
-        )
-
-    def __init__(self, *args, **kwargs):
-        paths = None
-        if not kwargs and len(args) == 1 and isinstance(args[0], list):
-            paths = args[0]
-            args = ()
-
-        super(DeprecatedInputFiles, self).__init__(*args, **kwargs)
-
-        if paths:
-            self.extend(paths)
-
-    def _append(self, path):
-        # generate a key by taking the basename of the path and strip the file extension
-        path = str(path)
-        key = os.path.basename(path).split(".", 1)[0]
-        while key in self:
-            key += "_"
-
-        self[key] = path
-
-    def append(self, path):
-        # deprecation warning until v0.1
-        self._log_warning("append(path)")
-        self._append(path)
-
-    def extend(self, paths):
-        # deprecation warning until v0.1
-        self._log_warning("extend([path, ...])")
-        for path in paths:
-            self._append(path)
-
-    def __add__(self, paths):
-        # type-preserving shallow copy
-        self_ = self.__class__(self)
-        self_.extend(paths)
-        return self_
-
-    def __iadd__(self, paths):
-        self.extend(paths)
-        return self

@@ -4,11 +4,14 @@
 "law run" cli subprogram.
 """
 
+from __future__ import annotations
 
 import os
 import sys
+import pathlib
+import argparse
 
-from luigi.cmdline import luigi_run
+from luigi.cmdline import luigi_run  # type: ignore[import-untyped]
 
 from law.config import Config
 from law.task.base import Task
@@ -19,7 +22,7 @@ from law.logger import get_logger
 logger = get_logger(__name__)
 
 
-def setup_parser(sub_parsers):
+def setup_parser(sub_parsers: argparse._SubParsersAction) -> None:
     """
     Sets up the command line parser for the *run* subprogram and adds it to *sub_parsers*.
     """
@@ -42,7 +45,7 @@ def setup_parser(sub_parsers):
     )
 
 
-def execute(args, argv):
+def execute(args: argparse.Namespace, argv: list[str]) -> int:
     """
     Executes the *run* subprogram with parsed commandline *args*.
     """
@@ -58,19 +61,15 @@ def execute(args, argv):
             task_cls = getattr(mod, cls_name, None)
             if task_cls is not None:
                 if not issubclass(task_cls, Task):
-                    abort("object '{}' is not a Task".format(args.task_family))
+                    return abort(f"object '{args.task_family}' is not a Task")
                 task_family = task_cls.get_task_family()
         except ImportError as e:
             # distinguish import errors resulting from an unknown modid from all other cases
-            modid_unknown = str(e) in (
-                "No module named {}".format(modid),  # py 2
-                "No module named '{}'".format(modid),  # py 3
-            )
-            if modid_unknown:
-                # keep the error in case the task family cannot be inferred from the index file
-                error = e
-            else:
+            modid_unknown = str(e).lower() == f"no module named '{modid}'"
+            if not modid_unknown:
                 raise
+            # keep the error in case the task family cannot be inferred from the index file
+            error = e
 
     # read task info from the index file and import it
     if task_family is None:
@@ -78,8 +77,8 @@ def execute(args, argv):
         index_file = cfg.get_expanded("core", "index_file")
         if os.path.exists(index_file):
             info = read_task_from_index(args.task_family, index_file)
-            if not info:
-                abort("task family '{}' not found in index".format(args.task_family))
+            if info is None:
+                return abort(f"task family '{args.task_family}' not found in index")
             modid, task_family, _ = info
             __import__(modid, globals(), locals())
 
@@ -87,14 +86,19 @@ def execute(args, argv):
     if task_family is None:
         if error:
             raise error
-        abort("task '{}' not found".format(args.task_family))
+        return abort(f"task '{args.task_family}' not found")
 
     # run luigi
     sys.argv[0] += " run"
-    luigi_run([task_family] + argv[3:])
+    success = luigi_run([task_family] + argv[3:])
+
+    return 0 if success else 1
 
 
-def read_task_from_index(task_family, index_file=None):
+def read_task_from_index(
+    task_family: str,
+    index_file: str | pathlib.Path | None = None,
+) -> tuple[str, str, str] | None:
     """
     Returns module id, task family and space-separated parameters in a tuple for a task given by
     *task_family* from the *index_file*. When *None*, the *index_file* refers to the default as

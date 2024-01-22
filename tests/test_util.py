@@ -2,14 +2,14 @@
 
 __all__ = ["TestUtil"]
 
-import unittest
+from .base import TestCase
 
 import law
 
 
-class TestUtil(unittest.TestCase):
+class TestUtil(TestCase):
 
-    def test_brace_expand(self):
+    def test_brace_expand(self) -> None:
         self.assertEqual(
             law.util.brace_expand("A{1,2}B"),
             ["A1B", "A2B"],

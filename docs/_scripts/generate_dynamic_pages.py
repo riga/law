@@ -5,6 +5,8 @@
 Script for creating dynamic documentation pages.
 """
 
+from __future__ import annotations
+
 import os
 import re
 import sys
@@ -18,17 +20,18 @@ basedir = os.path.dirname(docsdir)
 sys.path.insert(0, basedir)
 
 import law
+from law._types import Sequence, Any
 
 
-def create_py_ref(s):
+def create_py_ref(s: str) -> str:
     ref_text = s
     identifier = s
     ref_type = "class"
     try:
         obj = None
         parent_obj = None
-        exec("obj = {}".format(s))
-        exec("parent_obj = {}".format(s.rsplit(".", 1)[0]))
+        exec(f"obj = {s}")
+        exec(f"parent_obj = {s.rsplit('.', 1)[0]}")
 
         if getattr(obj, "__file__", None):
             ref_type = "mod"
@@ -38,48 +41,57 @@ def create_py_ref(s):
             ref_type = "class"
     except:
         pass
-    return ":py:{}:`{} <{}>`".format(ref_type, ref_text, identifier)
+    return f":py:{ref_type}:`{ref_text} <{identifier}>`"
 
 
-def replace_py_refs(text):
+def replace_py_refs(text: str) -> str:
     return re.sub(r"\"(law\.[^\"]+)\"", (lambda m: create_py_ref(m.group(1))), text)
 
 
-def create_slug(text):
+def create_slug(text: str) -> str:
     slug = re.sub(r"(\"|\[|\])", "", text)
     slug = slug.strip().lower()
     slug = re.sub(r"(\s+|_)", "-", slug)
     return slug
 
 
-def create_heading(text, delim, slug_text=None, no_slug=False):
+def create_heading(
+    text: str,
+    delim: str,
+    slug_text: str | None = None,
+    no_slug: bool = False,
+) -> str:
     slug = create_slug(slug_text or text)
     text = replace_py_refs(text)
     underline = len(text) * delim
     if no_slug:
-        heading = "\n\n{}\n{}\n".format(text, underline)
+        heading = f"\n\n{text}\n{underline}\n"
     else:
-        heading = "\n.. _{}:\n\n{}\n{}\n".format(slug, text, underline)
+        heading = f"\n.. _{slug}:\n\n{text}\n{underline}\n"
     return heading
 
 
-def create_note(text):
-    # return ".. note::\n\n   {}".format(text)
-    return "**Note:** {}".format(text)
+def create_note(text: str) -> str:
+    return f"**Note:** {text}"
 
 
-def create_option(name, description, type=None, default=None):
+def create_option(
+    name: str,
+    description: str,
+    type: str | Sequence[str] | None = None,
+    default: str | Sequence[str] | None = None,
+) -> str:
     opt = ""
     opt += ", ".join(law.util.make_list(name)) + "\n"
-    opt += "   - **Description:** {}\n".format(" ".join(law.util.make_list(description)))
+    opt += f"   - **Description:** {' '.join(law.util.make_list(description))}\n"
     if type is not None:
-        opt += "   - **Type:** {}\n".format(" ".join(law.util.make_list(type)))
+        opt += f"   - **Type:** {' '.join(law.util.make_list(type))}\n"
     if default is not None:
-        opt += "   - **Default:** {}\n".format(" ".join(law.util.make_list(default)))
+        opt += f"   - **Default:** {' '.join(law.util.make_list(default))}\n"
     return opt
 
 
-def create_config_page():
+def create_config_page() -> None:
     """
     Reads the configuration example in law.cfg.example, parses it and creates config.rst.
     """
@@ -124,10 +136,9 @@ def create_config_page():
             continue
 
         if not started:
-            if line == "Table of contents:":
-                started = True
-            else:
+            if line != "Table of contents:":
                 continue
+            started = True
 
         # line identification
         h2_match = re.match(r"^===\s(.+)\s=+$", line)
@@ -142,7 +153,7 @@ def create_config_page():
         if not within_toc and line == "Table of contents:":
             within_toc = True
             continue
-        elif within_toc and line and not listing_match:
+        if within_toc and line and not listing_match:
             within_toc = False
         if not within_options and h2_match and h2_match.group(1) == "law configuration":
             within_options = True
@@ -154,7 +165,7 @@ def create_config_page():
             text = h3_match.group(1)
             # highlight section headings
             if within_options and section_heading_match:
-                text = "[{}]".format(section_heading_match.group(1))
+                text = f"[{section_heading_match.group(1)}]"
             line = create_heading(text, "^", slug_text=h3_match.group(1))
         elif h4_match:
             line = create_heading(h4_match.group(1), "-", no_slug=within_options)
@@ -163,8 +174,8 @@ def create_config_page():
         if listing_match:
             n_indent = len(listing_match.group(1))
             if n_indent % 2 != 0:
-                raise Exception("uneven indentation found in line {}".format(i + 1))
-            line = "{}- {}".format("   " * int(n_indent / 2), listing_match.group(2))
+                raise Exception(f"uneven indentation found in line {i + 1}")
+            line = f"{'   ' * int(n_indent / 2)}- {listing_match.group(2)}"
 
         # handle toc links
         if within_toc and listing_match:
@@ -172,7 +183,7 @@ def create_config_page():
             link_target = create_slug(link_text)
             if link_text.startswith("[") and link_text.endswith("]"):
                 link_target += "-section"
-            line = "{}- :ref:`{}<{}>`".format(line[:line.index("-")], link_text, link_target)
+            line = f"{line[:line.index('-')]}- :ref:`{link_text}<{link_target}>`"
 
         # skip section markers
         if section_marker_match:
@@ -184,15 +195,14 @@ def create_config_page():
             if current_note is None and note_match:
                 current_note = ""
                 continue
-            elif current_note is not None:
+            if current_note is not None:
                 if not line:
                     output_lines.append(create_note(current_note))
                     current_note = None
-                    continue
                 else:
                     line = replace_py_refs(line)
                     current_note = line if not current_note else (current_note + " " + line)
-                    continue
+                continue
 
             # handle actual options
             if line:
@@ -200,7 +210,7 @@ def create_config_page():
                 next_lines = get_next_lines(i)
                 if any(next_line.startswith("Description: ") for next_line in next_lines):
                     skip_lines.extend(list(range(i + 1, i + 1 + len(next_lines))))
-                    option = OrderedDict()
+                    option: dict[str, Any] = OrderedDict()
                     for _line in [line] + next_lines:
                         _line = replace_py_refs(_line)
                         if _line.startswith("Description: "):
@@ -223,7 +233,7 @@ def create_config_page():
             f.write(str(line) + "\n")
 
 
-def main():
+def main() -> None:
     create_config_page()
 
 

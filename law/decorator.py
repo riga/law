@@ -19,10 +19,11 @@ invocation (``@log()``), for law to distuinguish between the two cases **always*
 arguments when configuring decorators. Default arguments are applied in either case.
 """
 
+from __future__ import annotations
+
 __all__ = [
     "factory", "log", "safe_output", "delay", "notify", "timeit", "localize", "require_sandbox",
 ]
-
 
 import sys
 import time
@@ -34,19 +35,20 @@ import socket
 import collections
 import uuid
 
-import luigi
-import six
+import luigi  # type: ignore[import-untyped]
 
+from law.task.base import Task
 from law.task.proxy import ProxyTask
 from law.sandbox.base import SandboxTask
 from law.parameter import get_param, NotifyParameter
 from law.target.file import localize_file_targets
 from law.target.local import LocalFileTarget
 from law.util import (
-    no_value, uncolored, make_list, multi_match, human_duration, open_compat, join_generators,
-    TeeStream, perf_counter, empty_context,
+    NoValue, no_value, uncolored, make_list, multi_match, human_duration, join_generators,
+    empty_context, TeeStream,
 )
 from law.logger import get_logger
+from law._types import Callable, Any, T
 
 
 logger = get_logger(__name__)
@@ -54,14 +56,14 @@ logger = get_logger(__name__)
 
 class _CompleteTask(luigi.Task):
 
-    def complete(self):
+    def complete(self) -> bool:
         return True
 
-    def output(self):
+    def output(self) -> None:
         return None
 
 
-def factory(**default_opts):
+def factory(**default_opts) -> Callable:
     """
     Factory function to create decorators for tasks' run methods. Default options for the decorator
     function can be given in *default_opts*. The returned decorator can be used with or without
@@ -138,13 +140,13 @@ def factory(**default_opts):
     ``skip_decorators`` set to *True* to directly call the originally wrapped function without the
     stack of decorators.
     """
-    def wrapper(decorator):
+    def wrapper(decorator: Callable) -> Callable:
         @functools.wraps(decorator)
-        def wrapper(fn=None, **opts):
+        def wrapper(fn: Callable | None = None, **opts) -> Callable:
             _opts = default_opts.copy()
             _opts.update(opts)
 
-            def wrapper(fn):
+            def wrapper(fn: Callable) -> Callable:
                 # get some default options
                 accept_generator = _opts.setdefault("accept_generator", False)
                 decorate_run = _opts.setdefault("decorate_run", None)
@@ -152,16 +154,18 @@ def factory(**default_opts):
                 # get the originally wrapper function
                 # the attribute exists when fn is already a wrapper created by another decorator
                 orig_attr = "__law_decorator_original_fn"
-                orig_fn = getattr(fn, orig_attr, no_value)
-                if orig_fn == no_value:
+                orig_fn: Callable | NoValue = getattr(fn, orig_attr, no_value)
+                if isinstance(orig_fn, NoValue):
                     orig_fn = fn
 
                 # when the orignal, wrapped function is a generator, check if the decorator is
                 # configured to handle them, and raise a exception if not
                 is_gen = inspect.isgeneratorfunction(orig_fn)
                 if is_gen and not accept_generator:
-                    raise Exception("decorator {} is not configured to decorate a generator "
-                        "function {}".format(decorator, orig_fn))
+                    raise Exception(
+                        f"decorator {decorator} is not configured to decorate a generator "
+                        "function {orig_fn}",
+                    )
 
                 # when decorator_run is None, guess the decision based on the name of the wrapped fn
                 if decorate_run is None:
@@ -169,10 +173,13 @@ def factory(**default_opts):
 
                 # define a unique attribute to store the result of before_call() (see below)
                 state_attr = "__law_decorator_{}_{}_before_call_result_{}".format(
-                    decorator.__module__.replace(".", "_"), decorator.__name__, uuid.uuid4().hex)
+                    decorator.__module__.replace(".", "_"),
+                    decorator.__name__,
+                    uuid.uuid4().hex,
+                )
 
                 @functools.wraps(fn)
-                def wrapper(*args, **kwargs):
+                def wrapper(*args, **kwargs) -> Any:
                     # check if the decorator stack is to be skipped entirey
                     if kwargs.pop("skip_decorators", False):
                         # args[0] is the task
@@ -184,8 +191,10 @@ def factory(**default_opts):
                         # the latter two take the return value of the first one as a single argument
                         callbacks = tuple(decorator(fn, _opts, *args, **kwargs))
                         if len(callbacks) not in (3, 4):
-                            raise Exception("decorators accepting generator functions must return "
-                                "3 or 4 callbacks, got {}".format(len(callbacks)))
+                            raise Exception(
+                                "decorators accepting generator functions must return 3 or 4 "
+                                f"callbacks, got {len(callbacks)}",
+                            )
 
                         # extract the callbacks
                         before_call, call, after_call = callbacks[:3]
@@ -219,8 +228,12 @@ def factory(**default_opts):
                                 return on_error(error, state)
 
                             # join the generators, pass the result of before_call
-                            return join_generators(call(state), after_call_gen(state), reset(),
-                                on_error=_on_error)
+                            return join_generators(
+                                call(state),
+                                after_call_gen(state),
+                                reset(),
+                                on_error=_on_error,
+                            )
 
                         else:
                             # although configured to handle it, the wrapped function is not a
@@ -230,10 +243,9 @@ def factory(**default_opts):
                             try:
                                 result = call(state)
                             except (Exception, KeyboardInterrupt) as error:
-                                if on_error(error, state):
-                                    result = None
-                                else:
+                                if not on_error(error, state):
                                     raise
+                                result = None
 
                             after_call(state)
 
@@ -247,17 +259,23 @@ def factory(**default_opts):
                 setattr(wrapper, orig_attr, orig_fn)
 
                 return wrapper
-            return wrapper if fn is None else wrapper(fn)
+            return wrapper if fn is None else wrapper(fn)  # type: ignore[return-value]
         return wrapper
     return wrapper
 
 
-def get_task(task):
-    return task if not isinstance(task, ProxyTask) else task.task
+def get_task(task: Task | ProxyTask) -> Task:
+    return task.task if isinstance(task, ProxyTask) else task  # type: ignore[return-value]
 
 
 @factory(accept_generator=False)
-def log(fn, opts, task, *args, **kwargs):
+def log(
+    fn: Callable[..., T],
+    opts: dict[str, Any],
+    task: Task,
+    *args,
+    **kwargs,
+) -> T:
     """ log()
     Wraps a bound method of a task and redirects output of both stdout and stderr to the file
     defined by the tasks's *log_file* parameter or *default_log_file* attribute. If its value is
@@ -270,42 +288,48 @@ def log(fn, opts, task, *args, **kwargs):
 
     if log == "-" or not log:
         return fn(task, *args, **kwargs)
-    else:
-        # use the local target functionality to create the parent directory
-        LocalFileTarget(log).parent.touch()
-        with open_compat(log, "a", 1) as f:
-            tee = TeeStream(f, sys.__stdout__)
-            sys.stdout = tee
-            sys.stderr = tee
-            try:
-                ret = fn(task, *args, **kwargs)
-            except:
-                traceback.print_exc(file=tee)
-                raise
-            finally:
-                sys.stdout = sys.__stdout__
-                sys.stderr = sys.__stderr__
-                tee.flush()
-        return ret
+
+    # use the local target functionality to create the parent directory
+    LocalFileTarget(log).parent.touch()
+    with open(log, "a", 1) as f:
+        tee = TeeStream(f, sys.__stdout__)
+        sys.stdout = tee  # type: ignore[assignment]
+        sys.stderr = tee  # type: ignore[assignment]
+        try:
+            ret = fn(task, *args, **kwargs)
+        except:
+            traceback.print_exc(file=tee)
+            raise
+        finally:
+            sys.stdout = sys.__stdout__
+            sys.stderr = sys.__stderr__
+            tee.flush()
+    return ret
 
 
 @factory(skip=None, accept_generator=True)
-def safe_output(fn, opts, task, *args, **kwargs):
+def safe_output(
+    fn: Callable,
+    opts: dict[str, Any],
+    task: Task,
+    *args,
+    **kwargs,
+) -> tuple[Callable, Callable, Callable, Callable]:
     """ safe_output(skip=None)
     Wraps a bound method of a task and guards its execution. If an exception occurs, and it is not
     an instance of *skip*, the task's output is removed prior to the actual raising. Accepts
     generator functions.
     """
-    def before_call():
+    def before_call() -> None:
         return None
 
-    def call(state):
+    def call(state: None) -> Any:
         return fn(task, *args, **kwargs)
 
-    def after_call(state):
+    def after_call(state: None) -> None:
         return
 
-    def on_error(error, state):
+    def on_error(error: Exception, state: None) -> None:
         if opts["skip"] is None or not isinstance(error, opts["skip"]):
             for outp in luigi.task.flatten(task.output()):
                 outp.remove()
@@ -314,15 +338,21 @@ def safe_output(fn, opts, task, *args, **kwargs):
 
 
 @factory(t=5.0, stddev=0.0, pdf="gauss", accept_generator=True)
-def delay(fn, opts, task, *args, **kwargs):
+def delay(
+    fn: Callable,
+    opts: dict[str, Any],
+    task: Task,
+    *args,
+    **kwargs,
+) -> tuple[Callable, Callable, Callable]:
     """ delay(t=5.0, stddev=0.0, pdf="gauss")
     Wraps a bound method of a task and delays its execution by *t* seconds. Accepts generator
     functions.
     """
-    def before_call():
+    def before_call() -> None:
         return None
 
-    def call(state):
+    def call(state: None) -> Any:
         if opts["stddev"] <= 0:
             t = opts["t"]
         elif opts["pdf"] == "gauss":
@@ -330,20 +360,26 @@ def delay(fn, opts, task, *args, **kwargs):
         elif opts["pdf"] == "uniform":
             t = random.uniform(opts["t"], opts["stddev"])
         else:
-            raise ValueError("unknown delay decorator pdf '{}'".format(opts["pdf"]))
+            raise ValueError(f"unknown delay decorator pdf '{opts['pdf']}'")
 
         time.sleep(max(t, 0))
 
         return fn(task, *args, **kwargs)
 
-    def after_call(state):
+    def after_call(state: None) -> None:
         return
 
     return before_call, call, after_call
 
 
 @factory(on_success=True, on_failure=True, accept_generator=True)
-def notify(fn, opts, task, *args, **kwargs):
+def notify(
+    fn: Callable,
+    opts: dict[str, Any],
+    task: Task,
+    *args,
+    **kwargs,
+) -> tuple[Callable, Callable, Callable, Callable]:
     """ notify(on_success=True, on_failure=True)
     Wraps a bound method of a task and guards its execution. Information about the execution (task
     name, duration, etc) is collected and dispatched to all notification transports registered on
@@ -366,7 +402,7 @@ def notify(fn, opts, task, *args, **kwargs):
     """
     _task = get_task(task)
 
-    def before_call():
+    def before_call() -> tuple[list[dict], float]:
         # prepare notification transports
         transports = []
         for param_name, param in _task.get_params():
@@ -376,18 +412,17 @@ def notify(fn, opts, task, *args, **kwargs):
                     if transport:
                         transports += make_list(transport)
                 except Exception as e:
-                    logger.warning("get_transport() failed for '{}' parameter: {}".format(
-                        param_name, e))
+                    logger.warning(f"get_transport() failed for '{param_name}' parameter: {e}")
 
         # get a timestamp
-        t0 = perf_counter()
+        t0 = time.perf_counter()
 
         return transports, t0
 
-    def call(state):
+    def call(state: tuple[list[dict], float]) -> Any:
         return fn(task, *args, **kwargs)
 
-    def send(error, transports, t0):
+    def send(error: Exception | None, transports: list[dict], t0: float) -> None:
         # do nothing when there are no transports
         if not transports:
             return
@@ -396,13 +431,13 @@ def notify(fn, opts, task, *args, **kwargs):
         success = error is None
         if isinstance(error, KeyboardInterrupt):
             return
-        elif success and not opts["on_success"]:
+        if success and not opts["on_success"]:
             return
-        elif not success and not opts["on_failure"]:
+        if not success and not opts["on_failure"]:
             return
 
         # prepare message content
-        duration = human_duration(seconds=round(perf_counter() - t0, 1))
+        duration = human_duration(seconds=round(time.perf_counter() - t0, 1))
         status_string = "succeeded" if success else "failed"
         title = "Task {} {}!".format(_task.get_task_family(), status_string)
         parts = collections.OrderedDict([
@@ -422,11 +457,12 @@ def notify(fn, opts, task, *args, **kwargs):
             colored = transport.get("colored", False)
 
             # remove color commands if necessary
+            _content: dict[str, Any] | str
             if not colored:
                 _title = uncolored(title)
                 if raw:
                     _content = {
-                        k: (uncolored(v) if isinstance(v, six.string_types) else v)
+                        k: (uncolored(v) if isinstance(v, str) else v)
                         for k, v in parts.items()
                     }
                 else:
@@ -440,45 +476,57 @@ def notify(fn, opts, task, *args, **kwargs):
                 fn(success, _title, _content, **opts)
             except Exception as e:
                 t = traceback.format_exc()
-                logger.warning("notification via transport '{}' failed: {}\n{}".format(fn, e, t))
+                logger.warning(f"notification via transport '{fn}' failed: {e}\n{t}")
 
-    def after_call(state):
+    def after_call(state: tuple[list[dict], float]) -> None:
         return send(None, *state)
 
-    def on_error(error, state):
+    def on_error(error: Exception, state: tuple[list[dict], float]) -> None:
         return send(error, *state)
 
     return before_call, call, after_call, on_error
 
 
 @factory(accept_generator=True)
-def timeit(fn, opts, task, *args, **kwargs):
+def timeit(
+    fn: Callable,
+    opts: dict[str, Any],
+    task: Task,
+    *args,
+    **kwargs,
+) -> tuple[Callable, Callable, Callable, Callable]:
     """ timeit()
     Wraps a bound method of a task and logs its execution time in a human readable format using the
     task's logger instance in info mode. Accepts generator functions.
     """
-    def before_call():
-        t0 = perf_counter()
+    def before_call() -> float:
+        t0 = time.perf_counter()
         return t0
 
-    def call(t0):
+    def call(t0: float) -> Any:
         return fn(task, *args, **kwargs)
 
-    def log_duration(t0):
-        duration = human_duration(seconds=round(perf_counter() - t0, 1))
+    def log_duration(t0: float) -> None:
+        duration = human_duration(seconds=round(time.perf_counter() - t0, 1))
         task.logger.info("runtime: {}".format(duration))
 
-    def after_call(t0):
+    def after_call(t0: float) -> None:
         log_duration(t0)
 
-    def on_error(error, t0):
+    def on_error(error: Exception, t0: float) -> None:
         log_duration(t0)
 
     return before_call, call, after_call, on_error
 
 
 @factory(input=True, output=True, input_kwargs=None, output_kwargs=None, accept_generator=False)
-def localize(fn, opts, task, *args, **kwargs):
+def localize(
+    fn: Callable[..., T],
+    opts: dict[str, Any],
+    task: Task,
+    *args,
+    **kwargs,
+) -> T:
     """ localize(input=True, output=True, input_kwargs=None, output_kwargs=None)
     Wraps a bound method of a task and temporarily changes the input and output methods to return
     localized targets. When *input* (*output*) is *True*, :py:meth:`Task.input`
@@ -491,13 +539,13 @@ def localize(fn, opts, task, *args, **kwargs):
     output_orig = None
     if opts["input"]:
         input_orig = (
-            task.__getattribute__("input", proxy=False)
+            task.__getattribute__("input", proxy=False)  # type: ignore[call-arg]
             if isinstance(task, SandboxTask)
             else task.input
         )
     if opts["output"]:
         output_orig = (
-            task.__getattribute__("output", proxy=False)
+            task.__getattribute__("output", proxy=False)  # type: ignore[call-arg]
             if isinstance(task, SandboxTask)
             else task.output
         )
@@ -547,20 +595,26 @@ def localize(fn, opts, task, *args, **kwargs):
             task.output = output_orig
 
 
-def _patch_localized_method(task, func):
+def _patch_localized_method(task: Task, func: Callable) -> Callable:
     # add a flag to func
-    func._patched_localized_method = True
+    func._patched_localized_method = True  # type: ignore[attr-defined]
 
     # bind to task
     return func.__get__(task)
 
 
-def _is_patched_localized_method(func):
+def _is_patched_localized_method(func: Callable) -> bool:
     return getattr(func, "_patched_localized_method", False) is True
 
 
 @factory(sandbox=None, accept_generator=True)
-def require_sandbox(fn, opts, task, *args, **kwargs):
+def require_sandbox(
+    fn: Callable,
+    opts: dict[str, Any],
+    task: Task,
+    *args,
+    **kwargs,
+) -> tuple[Callable, Callable, Callable]:
     """ require_sandbox(sandbox=None)
     Wraps a bound method of a sandbox task and throws an exception when the method is called while
     the task is not sandboxed yet. This is intended to prevent undesired results or non-verbose
@@ -568,25 +622,30 @@ def require_sandbox(fn, opts, task, *args, **kwargs):
     it can be a (list of) pattern(s) to compare against the task's effective sandbox and in error is
     raised if they don't match. Accepts generator functions.
     """
-    def before_call():
+    def before_call() -> None:
         if not isinstance(task, SandboxTask):
-            raise TypeError("require_sandbox can only be used to decorate methods of tasks that "
-                "inherit from SandboxTask, got '{!r}'".format(task))
+            raise TypeError(
+                "require_sandbox can only be used to decorate methods of tasks that inherit from "
+                f"SandboxTask, got '{task!r}'",
+            )
 
         if not task.is_sandboxed():
-            raise Exception("the invocation of method {} requires task {!r} to be sandboxed".format(
-                fn.__name__, task))
+            raise Exception(
+                f"the invocation of method {fn.__name__} requires task {task!r} to be sandboxed",
+            )
 
         if opts["sandbox"] and not multi_match(task.effective_sandbox, make_list(opts["sandbox"])):
-            raise Exception("the invocation of method {} requires the sandbox of task {!r} to "
-                "match '{}'" .format(fn.__name__, task, opts["sandbox"]))
+            raise Exception(
+                f"the invocation of method {fn.__name__} requires the sandbox of task {task!r} to "
+                f"match '{opts['sandbox']}'",
+            )
 
         return None
 
-    def call(state):
+    def call(state: Any) -> None:
         return fn(task, *args, **kwargs)
 
-    def after_call(state):
+    def after_call(state: None) -> None:
         return
 
     return before_call, call, after_call

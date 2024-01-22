@@ -4,18 +4,20 @@
 Custom luigi parameters.
 """
 
+from __future__ import annotations
+
 __all__ = [
-    "NO_STR", "NO_INT", "NO_FLOAT", "is_no_param", "get_param", "Parameter",
-    "TaskInstanceParameter", "OptionalBoolParameter", "DurationParameter", "BytesParameter",
-    "CSVParameter", "MultiCSVParameter", "RangeParameter", "MultiRangeParameter", "NotifyParameter",
-    "NotifyMultiParameter", "NotifyMailParameter",
+    "NO_STR", "NO_INT", "NO_FLOAT",
+    "is_no_param", "get_param",
+    "Parameter", "TaskInstanceParameter", "OptionalBoolParameter", "DurationParameter",
+    "BytesParameter", "CSVParameter", "MultiCSVParameter", "RangeParameter", "MultiRangeParameter",
+    "NotifyParameter", "NotifyMultiParameter", "NotifyMailParameter",
 ]
 
 import functools
 import csv
 
-import luigi
-import six
+import luigi  # type: ignore[import-untyped]
 
 from law.notification import notify_mail
 from law.util import (
@@ -24,6 +26,7 @@ from law.util import (
     no_value,
 )
 from law.logger import get_logger
+from law._types import Any, Sequence, T
 
 
 logger = get_logger(__name__)
@@ -48,7 +51,7 @@ NO_INT = -1
 NO_FLOAT = -1.0
 
 
-def is_no_param(value):
+def is_no_param(value: Any) -> bool:
     """
     Checks whether a parameter *value* denotes an empty parameter, i.e., if the value is either
     :py:attr:`NO_STR`, :py:attr:`NO_INT`, or :py:attr:`NO_FLOAT`.
@@ -56,7 +59,7 @@ def is_no_param(value):
     return value in (NO_STR, NO_INT, NO_FLOAT, no_value)
 
 
-def get_param(value, default=None):
+def get_param(value: Any, default: Any = None) -> Any:
     """
     Returns the passed *value* when it does not refer to an empty parameter value, checked with
     :py:func:`is_no_param`. Otherwise, *default* is returned, which defaults to *None*.
@@ -82,10 +85,10 @@ class Parameter(luigi.Parameter):
         empty strings, but not for *None*s).
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         self.parse_empty = kwargs.pop("parse_empty", False)
 
-        super(Parameter, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
 
 class TaskInstanceParameter(Parameter):
@@ -94,10 +97,11 @@ class TaskInstanceParameter(Parameter):
     parameter value parsing.
     """
 
-    def serialize(self, x):
+    # TODO: more precise x
+    def serialize(self, x: Any) -> str:
         """"""
         if isinstance(x, Task):
-            return getattr(x, "live_task_id", x.task_id)
+            return getattr(x, "live_task_id", x.task_id)  # type: ignore[return-value]
         return str(x)
 
 
@@ -107,7 +111,8 @@ class OptionalBoolParameter(luigi.BoolParameter, Parameter):
     serializes ``"None"`` strings transparently to *None* values and vice-versa.
     """
 
-    def parse(self, inp):
+    # TODO: more precise inp
+    def parse(self, inp: Any) -> bool | None:
         """"""
         if isinstance(inp, bool) or inp is None:
             return inp
@@ -120,7 +125,7 @@ class OptionalBoolParameter(luigi.BoolParameter, Parameter):
         if s == "none":
             return None
 
-        raise ValueError("cannot interpret '{}' as boolean".format(inp))
+        raise ValueError(f"cannot interpret '{inp}' as boolean")
 
 
 class DurationParameter(Parameter):
@@ -152,34 +157,35 @@ class DurationParameter(Parameter):
     For more info, see :py:func:`law.util.parse_duration` and :py:func:`law.util.human_duration`.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         # validate and set the unit
-        self._unit = None
+        self._unit: str
         self.unit = kwargs.pop("unit", "s")
 
-        super(DurationParameter, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     @property
-    def unit(self):
+    def unit(self) -> str:
         return self._unit
 
     @unit.setter
-    def unit(self, unit):
+    def unit(self, unit: str) -> None:
         unit = time_unit_aliases.get(unit, unit)
         if unit not in time_units:
-            raise ValueError("unknown unit '{}', valid values are {}".format(
-                unit, time_units.keys()))
+            raise ValueError(f"unknown unit '{unit}', valid values are {','.join(time_units)}")
 
         self._unit = unit
 
-    def parse(self, inp):
+    # TODO: more precise inp
+    def parse(self, inp: Any) -> float:
         """"""
         if inp in (None, "", NO_STR, no_value):
             inp = "0"
 
         return parse_duration(inp, input_unit=self.unit, unit=self.unit)
 
-    def serialize(self, value):
+    # TODO: more precise value
+    def serialize(self, value: Any) -> str:
         """"""
         if not value:
             value = 0
@@ -212,40 +218,42 @@ class BytesParameter(Parameter):
     For more info, see :py:func:`law.util.parse_bytes` and :py:func:`law.util.human_bytes`.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         # validate and set the unit
-        self._unit = None
+        self._unit: str
         self.unit = kwargs.pop("unit", "MB")
 
-        super(BytesParameter, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     @property
-    def unit(self):
+    def unit(self) -> str:
         return self._unit
 
     @unit.setter
-    def unit(self, unit):
+    def unit(self, unit: str) -> None:
         if unit not in byte_units:
-            raise ValueError("unknown unit '{}', valid values are {}".format(unit, byte_units))
+            raise ValueError(f"unknown unit '{unit}', valid values are {','.join(byte_units)}")
 
         self._unit = unit
 
-    def parse(self, inp):
+    # TODO: more precise inp
+    def parse(self, inp: Any) -> float:
         """"""
         if inp in (None, "", NO_STR, no_value):
             inp = "0"
 
         return parse_bytes(inp, input_unit=self.unit, unit=self.unit)
 
-    def serialize(self, value):
+    # TODO: more precise value
+    def serialize(self, value: Any) -> str:
         """"""
         if not value:
             value = 0
 
         value_bytes = parse_bytes(value, input_unit=self.unit, unit="bytes")
-        v, u = human_bytes(value_bytes, unit=self.unit)
+        v, u = human_bytes(value_bytes, unit=self.unit)  # type: ignore
 
-        return "{}{}".format(try_int(v), u)
+        return f"{try_int(v)}{u}"
 
 
 class CSVParameter(Parameter):
@@ -344,7 +352,7 @@ class CSVParameter(Parameter):
         parameter parsing and serialization.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         self._cls = kwargs.pop("cls", luigi.Parameter)
         self._inst = kwargs.pop("inst", None)
         self._unique = kwargs.pop("unique", False)
@@ -366,36 +374,38 @@ class CSVParameter(Parameter):
         else:
             self._cls = self._inst.__class__
 
-        super(CSVParameter, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
-    def _check_unique(self, value):
+    def _check_unique(self, value: tuple[T]) -> tuple[T]:
         if not self._unique:
             return value
 
-        return make_unique(value)
+        return make_unique(value)  # type: ignore[return-value]
 
-    def _check_sort(self, value):
+    def _check_sort(self, value: tuple[T]) -> tuple[T]:
         if not self._sort:
             return value
 
         key = self._sort if callable(self._sort) else None
-        value = sorted(value, key=key)
+        return tuple(sorted(value, key=key))  # type: ignore[return-value]
 
-        return tuple(value)
-
-    def _check_len(self, value):
+    def _check_len(self, value: tuple[Any]) -> None:
         str_repr = lambda: ",".join(str(v) for v in value)
 
         if self._min_len is not None and len(value) < self._min_len:
-            raise ValueError("'{}' contains {} value(s), a minimum of {} is required".format(
-                str_repr(), len(value), self._min_len))
+            raise ValueError(
+                f"'{str_repr()}' contains {len(value)} value(s), a minimum of {self._min_len} is "
+                "required",
+            )
 
         # check max_len
         if self._max_len is not None and len(value) > self._max_len:
-            raise ValueError("'{}' contains {} value(s), a maximum of {} is required".format(
-                str_repr(), len(value), self._max_len))
+            raise ValueError(
+                f"'{str_repr()}' contains {len(value)} value(s), a maximum of {self._max_len} is "
+                "required",
+            )
 
-    def _check_choices(self, value):
+    def _check_choices(self, value: tuple[Any]) -> None:
         if not self._choices:
             return
 
@@ -406,17 +416,20 @@ class CSVParameter(Parameter):
 
         if unknown:
             str_repr = lambda value: ",".join(str(v) for v in value)
-            raise ValueError("invalid parameter value(s) '{}', valid choices are '{}'".format(
-                str_repr(make_unique(unknown)), str_repr(self._choices)))
+            raise ValueError(
+                f"invalid parameter value(s) '{str_repr(make_unique(unknown))}', valid choices are "
+                f"'{str_repr(self._choices)}'",
+            )
 
-    def parse(self, inp):
+    # TODO: more precise inp
+    def parse(self, inp: Any) -> tuple[T] | T:
         """"""
         return_single_value = False
         if inp in (None, "", NO_STR, no_value):
-            value = tuple()
+            value: tuple = tuple()
         elif isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
             value = make_tuple(inp)
-        elif isinstance(inp, six.string_types):
+        elif isinstance(inp, str):
             if self._brace_expand:
                 elems = brace_expand(inp, split_csv=True, escape_csv_sep=self._escape_sep)
             else:
@@ -446,7 +459,8 @@ class CSVParameter(Parameter):
 
         return value[0] if return_single_value else value
 
-    def serialize(self, value):
+    # TODO: more precise value
+    def serialize(self, value: Any) -> str:
         """"""
         if value in (None, NO_STR, no_value):
             value = tuple()
@@ -549,13 +563,13 @@ class MultiCSVParameter(CSVParameter):
 
     _dialect = _Dialect()
 
-    def parse(self, inp):
+    def parse(self, inp: Any) -> tuple[tuple[T]] | tuple[T] | T:  # type: ignore[override]
         """"""
         if not inp or inp == NO_STR:
-            value = tuple()
+            value: tuple = tuple()
         elif isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
-            value = tuple(super(MultiCSVParameter, self).parse(v) for v in inp)
-        elif isinstance(inp, six.string_types):
+            value = tuple(super().parse(v) for v in inp)
+        elif isinstance(inp, str):
             # replace escaped separators
             if self._escape_sep:
                 escaped_sep = "__law_escaped_multi_csv_sep__"
@@ -565,18 +579,19 @@ class MultiCSVParameter(CSVParameter):
             # add back escaped separators per element
             if self._escape_sep:
                 elems = [elem.replace(escaped_sep, ":") for elem in elems]
-            value = tuple(super(MultiCSVParameter, self).parse(e) for e in elems)
+            value = tuple(super().parse(e) for e in elems)
         else:
-            value = (super(MultiCSVParameter, self).parse(inp),)
+            value = (super().parse(inp),)
 
         return value
 
-    def serialize(self, value):
+    # TODO: more precise value
+    def serialize(self, value: Any) -> str:
         """"""
         if not value:
             return ""
 
-        return ":".join(super(MultiCSVParameter, self).serialize(v) for v in make_tuple(value))
+        return ":".join(super().serialize(v) for v in make_tuple(value))
 
 
 class RangeParameter(Parameter):
@@ -639,7 +654,11 @@ class RangeParameter(Parameter):
     OPEN = None
 
     @classmethod
-    def expand(cls, range, **kwargs):
+    def expand(
+        cls,
+        range: str | Sequence[str] | Sequence[tuple[int] | tuple[int, int]],
+        **kwargs,
+    ) -> list[int]:
         """
         Expands *range* (as returned by :py:meth:`parse`) to a sorted list of unique integers.
         Additional *kwargs* are forwarded to :py:func:`law.util.range_expand`.
@@ -651,7 +670,7 @@ class RangeParameter(Parameter):
         """
         return sorted(set(range_expand(range, **kwargs)))
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         self._require_start = kwargs.pop("require_start", True)
         self._require_end = kwargs.pop("require_end", True)
         self._single_value = kwargs.pop("single_value", False)
@@ -660,48 +679,50 @@ class RangeParameter(Parameter):
         if "default" in kwargs:
             kwargs["default"] = make_tuple(kwargs["default"])
 
-        super(RangeParameter, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
-    def _check(self, value):
+    def _check(self, value: tuple) -> None:
         if not isinstance(value, tuple):
-            raise TypeError("invalid type of range {}, must be a tuple".format(value))
+            raise TypeError(f"invalid type of range {value}, must be a tuple")
 
         elif len(value) == 1 and self._single_value:
-            if not isinstance(value[0], six.integer_types):
-                raise TypeError("invalid type of single value in range {}".format(value))
+            if not isinstance(value[0], int):
+                raise TypeError(f"invalid type of single value in range {value}")
 
         elif len(value) == 2:
             start, end = value
             if start == self.OPEN:
                 if self._require_start:
-                    raise ValueError("range {} lacks start value which is required".format(value))
-            elif not isinstance(start, six.integer_types):
-                raise TypeError("invalid type of start value in range {}".format(value))
+                    raise ValueError(f"range {value} lacks start value which is required")
+            elif not isinstance(start, int):
+                raise TypeError(f"invalid type of start value in range {value}")
             if end == self.OPEN:
                 if self._require_end:
-                    raise ValueError("range {} lacks end value which is required".format(value))
-            elif not isinstance(end, six.integer_types):
-                raise TypeError("invalid type of end value in range {}".format(value))
+                    raise ValueError(f"range {value} lacks end value which is required")
+            elif not isinstance(end, int):
+                raise TypeError(f"invalid type of end value in range {value}")
 
         elif value:
-            raise ValueError("cannot interpret {} with {} elements as {}".format(
-                value, len(value), self.__class__.__name__))
+            raise ValueError(
+                f"cannot interpret {value} with {len(value)} elements as {self.__class__.__name__}",
+            )
 
-    def parse(self, inp):
+    # TODO: more precise inp
+    def parse(self, inp: Any) -> tuple[int]:
         """"""
         if inp in (None, "", NO_STR, no_value):
-            value = tuple()
+            value: tuple = tuple()
         elif isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
             value = make_tuple(inp)
-        elif isinstance(inp, six.integer_types):
+        elif isinstance(inp, int):
             value = (inp,)
-        elif isinstance(inp, six.string_types):
+        elif isinstance(inp, str):
             parts = inp.split(self.RANGE_SEP)
             # convert integers
             try:
                 value = tuple((int(p) if p else self.OPEN) for p in parts)
             except ValueError:
-                raise ValueError("range '{}' contains non-integer elements".format(inp))
+                raise ValueError(f"range '{inp}' contains non-integer elements")
         else:
             value = (inp,)
 
@@ -709,7 +730,8 @@ class RangeParameter(Parameter):
 
         return value
 
-    def serialize(self, value):
+    # TODO: more precise value
+    def serialize(self, value: Any) -> str:
         """"""
         if not value:
             value = tuple()
@@ -751,7 +773,11 @@ class MultiRangeParameter(RangeParameter):
     MULTI_RANGE_SEP = ","
 
     @classmethod
-    def expand(cls, ranges, **kwargs):
+    def expand(  # type: ignore[override]
+        cls,
+        ranges: str | Sequence[str] | Sequence[tuple[int] | tuple[int, int]],
+        **kwargs,
+    ) -> list[int]:
         """
         Expands *ranges* (as returned by :py:meth:`parse`) to a sorted list of unique integers.
         Additional *kwargs* are forwarded to :py:func:`law.util.range_expand`.
@@ -763,21 +789,23 @@ class MultiRangeParameter(RangeParameter):
         """
         return sorted(set.union(*map(set, map(functools.partial(range_expand, **kwargs), ranges))))
 
-    def parse(self, inp):
+    # TODO: more precise inp
+    def parse(self, inp: Any) -> tuple[tuple[int]]:  # type: ignore[override]
         """"""
         if inp in (None, "", NO_STR, no_value):
-            value = tuple()
+            value: tuple = tuple()
         elif isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
-            value = tuple(super(MultiRangeParameter, self).parse(v) for v in inp)
-        elif isinstance(inp, six.string_types):
+            value = tuple(super().parse(v) for v in inp)
+        elif isinstance(inp, str):
             elems = inp.split(self.MULTI_RANGE_SEP)
-            value = tuple(super(MultiRangeParameter, self).parse(e) for e in elems)
+            value = tuple(super().parse(e) for e in elems)
         else:
-            value = (super(MultiRangeParameter, self).parse(inp),)
+            value = (super().parse(inp),)
 
         return value
 
-    def serialize(self, value):
+    # TODO: more precise value
+    def serialize(self, value: Any) -> str:
         """"""
         if not value:
             return ""
@@ -785,8 +813,7 @@ class MultiRangeParameter(RangeParameter):
         # ensure that value is a nested tuple
         value = tuple(map(make_tuple, make_tuple(value)))
 
-        return self.MULTI_RANGE_SEP.join(
-            super(MultiRangeParameter, self).serialize(v) for v in value)
+        return self.MULTI_RANGE_SEP.join(super().serialize(v) for v in value)
 
 
 class NotifyParameter(luigi.BoolParameter, Parameter):
@@ -811,7 +838,7 @@ class NotifyParameter(luigi.BoolParameter, Parameter):
     :py:func:`law.decorator.notify` are forwarded to *notification_func* as optional arguments.
     """
 
-    def get_transport(self):
+    def get_transport(self) -> dict[str, Any] | None:
         """
         Method to configure the transport that is toggled by this parameter. Should return a
         dictionary with ``"func"`` and ``"raw"`` (optional) fields.
@@ -834,12 +861,12 @@ class NotifyMultiParameter(NotifyParameter):
             ])
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         self.parameters = kwargs.pop("parameters", [])
 
-        super(NotifyMultiParameter, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
-    def get_transport(self):
+    def get_transport(self) -> list[dict[str, Any] | None]:  # type: ignore[override]
         """"""
         return [param.get_transport() for param in self.parameters]
 
@@ -850,19 +877,22 @@ class NotifyMailParameter(NotifyParameter):
     :py:meth:`law.notification.notify_mail` internally.
     """
 
-    def __init__(self, *args, **kwargs):
-        super(NotifyMailParameter, self).__init__(*args, **kwargs)
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
 
+        self.description: str | None
         if not self.description:
-            self.description = "when true, and the task's run method is decorated with " \
-                "law.decorator.notify, an email notification is sent once the task finishes"
+            self.description = (
+                "when true, and the task's run method is decorated with law.decorator.notify, an "
+                "email notification is sent once the task finishes"
+            )
 
     @classmethod
-    def notify(success, *args, **kwargs):
+    def notify(cls, *args, **kwargs) -> bool:
         """"""
         return notify_mail(*args, **kwargs)
 
-    def get_transport(self):
+    def get_transport(self) -> dict[str, Any]:
         """"""
         return {
             "func": self.notify,

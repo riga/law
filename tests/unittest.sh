@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
-# Script to run linting checks.
+# Script to run all tests.
 # Arguments:
-#   1. The linting command. Defaults to "flake8 law setup.py docs/_scripts/*".
+#   1. The test command. Defaults to "python -m pytest tests".
 
 action() {
     local shell_is_zsh="$( [ -z "${ZSH_VERSION}" ] && echo "false" || echo "true" )"
@@ -11,10 +11,10 @@ action() {
     local repo_dir="$( dirname "${this_dir}" )"
 
     # default test command
-    local cmd="${1:-flake8 law setup.py docs/_scripts/*}"
+    local cmd="${1:-python -m pytest tests}"
 
     # execute it
-    echo "command: ${cmd}"
+    echo -e "command: \x1b[1;49;39m${cmd}\x1b[0m"
     (
         cd "${repo_dir}"
         eval "${cmd}"

@@ -4,27 +4,28 @@
 Definition of the job dashboard interface.
 """
 
-__all__ = ["BaseJobDashboard", "NoJobDashboard", "cache_by_status"]
+from __future__ import annotations
 
+__all__ = ["BaseJobDashboard", "NoJobDashboard", "cache_by_status"]
 
 import time
 import functools
 from contextlib import contextmanager
 from abc import ABCMeta, abstractmethod
 
-import six
-
-from law.util import perf_counter
+from law._types import Callable, Any, Iterator
 
 
-def cache_by_status(func):
+def cache_by_status(
+    func: Callable[[Any, dict, str, int, ...], Any],
+) -> Callable[[dict, str, int, ...], Any]:
     """
     Decorator for :py:meth:`BaseJobDashboard.publish` (and inheriting classes) that caches the last
     published status to decide if the a new publication is necessary or not. When the status did not
     change since the last call, the actual publish method is not invoked and *None* is returned.
     """
     @functools.wraps(func)
-    def wrapper(self, job_data, event, job_num, *args, **kwargs):
+    def wrapper(self, job_data: dict, event: str, job_num: int, *args, **kwargs):
         job_id = job_data["job_id"]
         dashboard_status = self.map_status(job_data.get("status"), event)
 
@@ -37,10 +38,13 @@ def cache_by_status(func):
 
         return func(self, job_data, event, job_num, *args, **kwargs)
 
-    return wrapper
+    return wrapper  # type: ignore[return-value]
 
 
-class BaseJobDashboard(six.with_metaclass(ABCMeta, object)):
+_cache_by_status_impl = cache_by_status
+
+
+class BaseJobDashboard(object, metaclass=ABCMeta):
     """
     Base class of a minimal job dashboard interface that is used from within
     :py:class:`law.workflow.remote.BaseRemoteWorkflow`'s.
@@ -63,10 +67,12 @@ class BaseJobDashboard(six.with_metaclass(ABCMeta, object)):
 
     cache_by_status = None
 
-    persistent_attributes = []
+    persistent_attributes: list[str] = []
 
-    def __init__(self, max_rate=0):
-        super(BaseJobDashboard, self).__init__()
+    cache_by_status = staticmethod(_cache_by_status_impl)
+
+    def __init__(self, max_rate: int = 0) -> None:
+        super().__init__()
 
         # maximum number of events per second
         self.max_rate = max_rate
@@ -76,25 +82,25 @@ class BaseJobDashboard(six.with_metaclass(ABCMeta, object)):
 
         # last dashboard status per job_id, used to prevent subsequent requests for jobs
         # without any status change
-        self._last_states = {}
+        self._last_states: dict[str, Any] = {}
 
-    def get_persistent_config(self):
+    def get_persistent_config(self) -> dict[str, Any]:
         """
         Returns the values of all :py:attr:`persistent_attributes` of this instance in a dictionary.
         """
         return {attr: getattr(self, attr) for attr in self.persistent_attributes}
 
-    def apply_config(self, config):
+    def apply_config(self, config: dict[str, Any]) -> None:
         """
         Sets all attributes in a dictionary *config* to this instance. This can be understand as the
         counterpart of :py:meth:`get_persistent_config`.
         """
-        for attr, value in six.iteritems(config):
+        for attr, value in config.items():
             if hasattr(self, attr):
                 setattr(self, attr, value)
 
     @contextmanager
-    def rate_guard(self):
+    def rate_guard(self) -> Iterator[None]:
         """
         Context guard that ensures that decorated contexts are delayed in order to limit the number
         of status publications per second, defined by :py:attr:`max_rate`. Example:
@@ -109,7 +115,7 @@ class BaseJobDashboard(six.with_metaclass(ABCMeta, object)):
         now = 0.0
 
         if self.max_rate > 0:
-            now = perf_counter()
+            now = time.perf_counter()
             diff = self._last_event_time + 1.0 / self.max_rate - now
             if diff > 0:
                 time.sleep(diff)
@@ -119,7 +125,7 @@ class BaseJobDashboard(six.with_metaclass(ABCMeta, object)):
         finally:
             self._last_event_time = now
 
-    def remote_hook_file(self):
+    def remote_hook_file(self) -> str | None:
         """
         This method can return the path to a file that is considered as an input file to remote
         jobs. This file can contain bash functions, environment variables, etc., that are necessary
@@ -127,7 +133,7 @@ class BaseJobDashboard(six.with_metaclass(ABCMeta, object)):
         """
         return None
 
-    def remote_hook_data(self, job_num, attempt):
+    def remote_hook_data(self, job_num: int, attempt: int) -> dict[str, Any] | None:
         """
         This method can return a dictionary that is sent with remote jobs in the format
         ``key1=value1 key2=value2 ...``. The returned dictionary should (but does not have to)
@@ -135,7 +141,7 @@ class BaseJobDashboard(six.with_metaclass(ABCMeta, object)):
         """
         return None
 
-    def create_tracking_url(self):
+    def create_tracking_url(self) -> str | None:
         """
         This method can return a tracking url that refers to a web page that visualizes jobs. When
         set, the url is shown in the central luigi scheduler.
@@ -143,7 +149,7 @@ class BaseJobDashboard(six.with_metaclass(ABCMeta, object)):
         return None
 
     @abstractmethod
-    def map_status(self, job_status, event):
+    def map_status(self, job_status: str, event: str) -> str | None:
         """
         Maps the *job_status* (see :py:class:`law.job.base.BaseJobManager`) for a particular *event*
         to the status name that is accepted by the implemented job dashobard. Possible events are:
@@ -156,19 +162,16 @@ class BaseJobDashboard(six.with_metaclass(ABCMeta, object)):
             - status.retry
             - status.failed
         """
-        return
+        ...
 
     @abstractmethod
-    def publish(self, job_data, event, job_num, *args, **kwargs):
+    def publish(self, job_data: dict, event: str, job_num: int, *args, **kwargs) -> None:
         """
         Publishes the status of a job to the implemented job dashboard. *job_data* is a dictionary
         that contains a *job_id* and a *status* string (see
         :py:meth:`law.workflow.remote.StatusData.job_data`).
         """
-        return
-
-
-BaseJobDashboard.cache_by_status = staticmethod(cache_by_status)
+        ...
 
 
 class NoJobDashboard(BaseJobDashboard):
@@ -178,10 +181,10 @@ class NoJobDashboard(BaseJobDashboard):
     such as in :py:class:`law.workflow.remote.BaseRemoteWorkflow`.
     """
 
-    def map_status(self, *args, **kwargs):
+    def map_status(self, *args, **kwargs) -> str | None:
         """"""
-        return
+        return None
 
-    def publish(self, *args, **kwargs):
+    def publish(self, *args, **kwargs) -> None:
         """"""
         return

@@ -23,7 +23,6 @@ from law.target.file import (
     get_scheme, add_scheme, remove_scheme,
 )
 from law.target.formatter import AUTO_FORMATTER, find_formatter
-from law.util import is_file_exists_error
 from law.logger import get_logger
 
 
@@ -172,7 +171,7 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
             try:
                 func(*args)
             except Exception as e:
-                if not silent or not is_file_exists_error(e):
+                if not silent or not isinstance(e, FileExistsError):
                     raise
             self.chmod(path, perm)
         finally:

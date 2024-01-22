@@ -7,15 +7,15 @@ law, rather than changing default luigi behavior.
 
 __all__ = ["before_run", "patch_all"]
 
-
 import re
 import functools
 import copy
 import logging
 
-import luigi
+import luigi  # type: ignore[import-untyped]
 import law
 from law.logger import get_logger
+from law._types import Callable
 
 
 logger = get_logger(__name__)
@@ -25,7 +25,7 @@ _patched = False
 _before_run_funcs = []
 
 
-def before_run(func, force=False):
+def before_run(func: Callable, force: bool = False) -> bool:
     """
     Adds a function *func* to the list of callbacks that are invoked right before luigi starts
     running scheduled tasks. Unless *force* is *True*, a function that is already registered is not
@@ -38,7 +38,7 @@ def before_run(func, force=False):
     return False
 
 
-def patch_all():
+def patch_all() -> None:
     """
     Runs all patches. This function ensures that a second invocation has no effect.
     """
@@ -65,7 +65,7 @@ def patch_all():
     logger.debug("applied all law-specific luigi patches")
 
 
-def patch_schedule_and_run():
+def patch_schedule_and_run() -> None:
     """
     Patches ``luigi.interface._schedule_and_run`` to invoke all callbacks registered via
     :py:func:`before_run` right before luigi starts running scheduled tasks. This is achieved by
@@ -82,10 +82,10 @@ def patch_schedule_and_run():
             # invoke all registered before_run functions
             for func in _before_run_funcs:
                 if callable(func):
-                    logger.debug("calling before_run function {}".format(func))
+                    logger.debug(f"calling before_run function {func}")
                     func()
                 else:
-                    logger.warning("registered before_run function {} is not callable".format(func))
+                    logger.warning(f"registered before_run function {func} is not callable")
 
             return run_orig(self)
 
@@ -97,7 +97,7 @@ def patch_schedule_and_run():
     logger.debug("patched luigi.interface._schedule_and_run")
 
 
-def patch_task_process_run():
+def patch_task_process_run() -> None:
     """
     Patches ``luigi.worker.TaskProcess.run`` to increase the severity of luigi's interface logger
     when running local workflows that already yielded their branch tasks as dynamic dependencies.
@@ -130,7 +130,7 @@ def patch_task_process_run():
     logger.debug("patched luigi.worker.TaskProcess.run")
 
 
-def patch_default_retcodes():
+def patch_default_retcodes() -> None:
     """
     Sets the default luigi return codes in ``luigi.retcodes.retcode`` to:
 
@@ -141,7 +141,7 @@ def patch_default_retcodes():
         - scheduling_error: 50
         - unhandled_exception: 60
     """
-    import luigi.retcodes
+    import luigi.retcodes  # type: ignore[import-untyped]
 
     retcode = luigi.retcodes.retcode
 
@@ -155,7 +155,7 @@ def patch_default_retcodes():
     logger.debug("patched luigis default return codes")
 
 
-def patch_worker_add_task():
+def patch_worker_add_task() -> None:
     """
     Patches the ``luigi.worker.Worker._add_task`` method to skip dependencies of the triggered task
     when running in a sandbox, as dependencies are already controlled from outside the sandbox.
@@ -187,7 +187,7 @@ def patch_worker_add_task():
     logger.debug("patched luigi.worker.Worker._add_task")
 
 
-def patch_worker_add():
+def patch_worker_add() -> None:
     """
     Patches the ``luigi.worker.Worker._add`` method to make sure that no dependencies are yielded
     when the triggered task is added to the worker when running in a sandbox and that the task is
@@ -212,7 +212,7 @@ def patch_worker_add():
     logger.debug("patched luigi.worker.Worker._add")
 
 
-def patch_worker_run_task():
+def patch_worker_run_task() -> None:
     """
     Patches the ``luigi.worker.Worker._run_task`` method to store the worker id and the id of its
     first task in the task. This information is required by the sandboxing mechanism.
@@ -241,7 +241,7 @@ def patch_worker_run_task():
     logger.debug("patched luigi.worker.Worker._run_task")
 
 
-def patch_worker_get_work():
+def patch_worker_get_work() -> None:
     """
     Patches the ``luigi.worker.Worker._get_work`` method to only return information of the sandboxed
     task when running in a sandbox. This way, actual (outer) task and the sandboxed (inner) task
@@ -272,14 +272,18 @@ def patch_worker_get_work():
     logger.debug("patched luigi.worker.Worker._get_work")
 
 
-def patch_worker_factory():
+def patch_worker_factory() -> None:
     """
     Patches the ``luigi.interface._WorkerSchedulerFactory`` to include sandboxing information when
     creating a worker instance.
     """
     def create_worker(self, scheduler, worker_processes, assistant=False):
-        worker = luigi.worker.Worker(scheduler=scheduler, worker_processes=worker_processes,
-            assistant=assistant, worker_id=law.sandbox.base._sandbox_worker_id or None)
+        worker = luigi.worker.Worker(
+            scheduler=scheduler,
+            worker_processes=worker_processes,
+            assistant=assistant,
+            worker_id=law.sandbox.base._sandbox_worker_id or None,
+        )
         worker._first_task = law.sandbox.base._sandbox_worker_first_task_id or None
         return worker
 
@@ -288,7 +292,7 @@ def patch_worker_factory():
     logger.debug("patched luigi.interface._WorkerSchedulerFactory.create_worker")
 
 
-def patch_keepalive_run():
+def patch_keepalive_run() -> None:
     """
     Patches the ``luigi.worker.KeepAliveThread.run`` to immediately stop the keep-alive thread when
     running within a sandbox.
@@ -308,7 +312,7 @@ def patch_keepalive_run():
     logger.debug("patched luigi.worker.KeepAliveThread.run")
 
 
-def patch_luigi_run_result():
+def patch_luigi_run_result() -> None:
     __init__orig = luigi.execution_summary.LuigiRunResult.__init__
 
     @functools.wraps(__init__orig)
@@ -324,7 +328,7 @@ def patch_luigi_run_result():
     logger.debug("patched luigi.execution_summary.LuigiRunResult.__init__")
 
 
-def patch_cmdline_parser():
+def patch_cmdline_parser() -> None:
     """
     Patches the ``luigi.cmdline_parser.CmdlineParser`` to store the original command line arguments
     for later processing in the :py:class:`law.config.Config`, and to update the way that parameter
@@ -362,7 +366,7 @@ def patch_cmdline_parser():
     logger.debug("patched luigi.cmdline_parser.CmdlineParser._get_task_kwargs")
 
 
-def patch_interface_logging():
+def patch_interface_logging() -> None:
     """
     Patches ``luigi.setup_logging.InterfaceLogging._default`` to avoid adding multiple tty stream
     handlers to the logger named "luigi-interface" and to preserve any previously set log level.
@@ -388,36 +392,36 @@ def patch_interface_logging():
     worker_task_style = sched_task_style
 
     # precompiled expressions
-    cre_sched_action = r"^(Informed scheduler that task\s+)([^\s]+)(\s+has\sstatus\s+)({})(.*)$"
-    cre_sched_action = re.compile(cre_sched_action.format("|".join(sched_action_colors.keys())))
+    re_sched_action = r"^(Informed scheduler that task\s+)([^\s]+)(\s+has\sstatus\s+)({})(.*)$"
+    cre_sched_action = re.compile(re_sched_action.format("|".join(sched_action_colors.keys())))
     cre_sched_done = re.compile("^(Done scheduling tasks)$")
-    cre_worker_action = r"^(\[pid \d+\] Worker Worker\(.+\)\s+)({})(\s+)([^\(]+)(\(.+)$"
-    cre_worker_action = re.compile(cre_worker_action.format("|".join(worker_action_colors.keys())))
+    re_worker_action = r"^(\[pid \d+\] Worker Worker\(.+\)\s+)({})(\s+)([^\(]+)(\(.+)$"
+    cre_worker_action = re.compile(re_worker_action.format("|".join(worker_action_colors.keys())))
 
     # log message formatter to partially colorize some luigi logs
-    def colorize_luigi_logs(record):
+    def colorize_luigi_logs(record: logging.LogRecord) -> str:
         msg = record.getMessage()
 
         # worker task messages
         m = cre_worker_action.match(msg)
         if m:
             s1, action, s2, task, s3 = m.groups()
-            task = law.util.colored(task, **worker_task_style)
-            action = law.util.colored(action, **worker_action_colors[action])
+            task = law.util.colored(task, **worker_task_style)  # type: ignore[arg-type]
+            action = law.util.colored(action, **worker_action_colors[action])  # type: ignore[arg-type] # noqa
             return s1 + action + s2 + task + s3
 
         # scheduler task registration messages
         m = cre_sched_action.match(msg)
         if m:
             s1, task, s2, action, s3 = m.groups()
-            task = law.util.colored(task, **sched_task_style)
-            action = law.util.colored(action, **sched_action_colors[action])
+            task = law.util.colored(task, **sched_task_style)  # type: ignore[arg-type]
+            action = law.util.colored(action, **sched_action_colors[action])  # type: ignore[arg-type] # noqa
             return s1 + task + s2 + action + s3
 
         # scheduler done building tree
         m = cre_sched_done.match(msg)
         if m:
-            msg = law.util.colored(m.group(1), **sched_done_style)
+            msg = law.util.colored(m.group(1), **sched_done_style)  # type: ignore[arg-type]
             return msg
 
         return msg
@@ -453,7 +457,7 @@ def patch_interface_logging():
     logger.debug("patched luigi.setup_logging.InterfaceLogging._default")
 
 
-def patch_parameter_copy():
+def patch_parameter_copy() -> None:
     """
     Patches ``luigi.parameter.Parameter`` to add a convenience methods that allows to copy parameter
     instances and assigning new attributes such as descriptions or default values. This same
@@ -477,7 +481,7 @@ def patch_parameter_copy():
         # amend the description
         if add_default_to_description:
             prefix = "; " if inst.description else ""
-            inst.description += "{}default: {}".format(prefix, inst._default)
+            inst.description += f"{prefix}default: {inst._default}"
 
         return inst
 
@@ -486,7 +490,7 @@ def patch_parameter_copy():
     logger.debug("patched luigi.parameter.Parameter.copy")
 
 
-def patch_parameter_parse_or_no_value():
+def patch_parameter_parse_or_no_value() -> None:
     """
     Patches ``luigi.parameter.Parameter`` to properly accept empty values such as empty strings for
     normal parameters or zeros for integer parameters instead of treating them as missing and to be

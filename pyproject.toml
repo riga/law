@@ -1,0 +1,84 @@
+[build-system]
+
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+
+name = "law"
+description = "Build large-scale task workflows using luigi, remote job submission, remote targets, and environment sandboxing."
+authors = [
+    {name = "Marcel Rieger", email = "github.riga@icloud.com"},
+]
+keywords = [
+    "luigi",
+    "workflow",
+    "pipeline",
+    "remote",
+    "gfal",
+    "submission",
+    "cluster",
+    "grid",
+    "condor",
+    "lsf",
+    "glite",
+    "arc",
+    "sandboxing",
+    "docker",
+    "singularity",
+    "apptainer"
+]
+classifiers = [
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Development Status :: 4 - Beta",
+    "Operating System :: OS Independent",
+    "License :: OSI Approved :: BSD License",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Information Technology",
+]
+license = {file = "LICENSE"}
+requires-python = ">=3.8"
+dynamic = ["version", "readme", "dependencies", "optional-dependencies"]
+
+
+[project.urls]
+
+Homepage = "https://github.com/riga/law"
+Documentation = "https://law.readthedocs.io"
+Repository = "https://github.com/riga/law.git"
+
+
+[tool.setuptools.dynamic]
+
+version = {attr = "law.__meta__.__version__"}
+readme = {file = ["README.md"], content-type = "text/markdown"}
+dependencies = {file = ["requirements.txt"]}
+optional-dependencies = {dev = {file = ["requirements_dev.txt"]}}
+
+
+[project.scripts]
+
+# main executable
+law = "law.__main__:main"
+
+# contrib
+law_cms_delegate_myproxy = "law.contrib.cms.scripts.delegate_myproxy:main"
+
+
+[tool.setuptools]
+
+include-package-data = false
+
+
+[tool.setuptools.packages.find]
+
+include = ["law"]
+exclude = ["tests/*"]

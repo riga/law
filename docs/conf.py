@@ -1,16 +1,17 @@
 # coding: utf-8
 
+from __future__ import annotations
 
 import sys
 import os
 import subprocess
-
 
 thisdir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(thisdir, "_extensions"))
 sys.path.insert(0, os.path.dirname(thisdir))
 
 import law
+from law._types import Any
 
 
 # load all contrib packages
@@ -29,7 +30,7 @@ templates_path = ["_templates"]
 html_static_path = ["_static"]
 master_doc = "index"
 source_suffix = ".rst"
-exclude_patterns = []
+exclude_patterns: list[str] = []
 pygments_style = "sphinx"
 add_module_names = False
 
@@ -37,7 +38,7 @@ html_title = "{} v{}".format(project, version)
 html_logo = "../assets/logo.png"
 html_favicon = "../assets/favicon.ico"
 html_theme = "sphinx_book_theme"
-html_theme_options = {}
+html_theme_options: dict[str, Any] = {}
 if html_theme == "sphinx_rtd_theme":
     html_theme_options.update({
         "logo_only": True,
@@ -53,7 +54,6 @@ elif html_theme == "alabaster":
 elif html_theme == "sphinx_book_theme":
     copyright = copyright.split(",", 1)[0]
     html_theme_options.update({
-        "logo_only": True,
         "home_page_in_toc": True,
         "show_navbar_depth": 2,
         "repository_url": "https://github.com/riga/law",

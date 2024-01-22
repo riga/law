@@ -4,20 +4,21 @@
 "law index" cli subprogram.
 """
 
+from __future__ import annotations
 
 import os
 import sys
 import traceback
-from importlib import import_module
-from collections import OrderedDict
+import importlib
+import argparse
 
-import luigi
-import six
+import luigi  # type: ignore[import-untyped]
 
 from law.config import Config
-from law.task.base import Task, ExternalTask
+from law.task.base import Register, Task, ExternalTask
 from law.util import multi_match, colored, abort, makedirs, brace_expand
 from law.logger import get_logger
+from law._types import Sequence
 
 
 logger = get_logger(__name__)
@@ -25,15 +26,16 @@ logger = get_logger(__name__)
 _cfg = Config.instance()
 
 
-def setup_parser(sub_parsers):
+def setup_parser(sub_parsers: argparse._SubParsersAction) -> None:
     """
     Sets up the command line parser for the *index* subprogram and adds it to *sub_parsers*.
     """
+    index_file = _cfg.get_expanded("core", "index_file")
     parser = sub_parsers.add_parser(
         "index",
         prog="law index",
-        description="Create or update the (human-readable) law task index file ({}). This is only "
-        "required for the shell auto-completion.".format(_cfg.get_expanded("core", "index_file")),
+        description=f"Create or update the (human-readable) law task index file ({index_file}). "
+        "This is only required for the shell auto-completion.",
     )
 
     parser.add_argument(
@@ -80,7 +82,7 @@ def setup_parser(sub_parsers):
     )
 
 
-def execute(args):
+def execute(args: argparse.Namespace) -> int:
     """
     Executes the *index* subprogram with parsed commandline *args*.
     """
@@ -94,23 +96,22 @@ def execute(args):
     # just print the file location?
     if args.location:
         print(index_file)
-        return
+        return 0
 
     # just show the file content?
     if args.show:
         if os.path.exists(index_file):
             with open(index_file, "r") as f:
                 print(f.read())
-            return
-        else:
-            abort("index file {} does not exist".format(index_file))
+            return 0
+        return abort(f"index file {index_file} does not exist")
 
     # just remove the index file?
     if args.remove:
         if os.path.exists(index_file):
             os.remove(index_file)
-            print("removed index file {}".format(index_file))
-        return
+            print(f"removed index file {index_file}")
+        return 0
 
     # get modules to lookup
     lookup = [m.strip() for m in cfg.options("modules")]
@@ -121,7 +122,7 @@ def execute(args):
     lookup = sum(map(brace_expand, lookup), [])
 
     if not args.quiet:
-        print("indexing tasks in {} module(s)".format(len(lookup)))
+        print(f"indexing tasks in {len(lookup)} module(s)")
 
     exit_code = 0
 
@@ -131,28 +132,28 @@ def execute(args):
             continue
 
         if args.verbose:
-            sys.stdout.write("loading module '{}'".format(modid))
+            sys.stdout.write(f"loading module '{modid}'")
 
         try:
-            import_module(modid)
+            importlib.import_module(modid)
         except Exception as e:
             exit_code += 1
             if not args.verbose:
-                print("error in module '{}': {}".format(colored(modid, "red"), str(e)))
+                print(f"error in module '{colored(modid, 'red')}': {e}")
             else:
-                print("\n\nerror in module '{}':".format(colored(modid, "red")))
+                print(f"\n\nerror in module '{colored(modid, 'red')}':")
                 traceback.print_exc()
             continue
 
         if args.verbose:
-            print(", {}".format(colored("done", style="bright")))
+            print(f", {colored('done', style='bright')}")
 
     # determine tasks to write into the index file
     seen_families = []
     task_classes = []
-    lookup = [Task]
+    lookup: list[Register] = [Task]
     while lookup:
-        cls = lookup.pop(0)
+        cls: Register = lookup.pop(0)  # type: ignore
         lookup.extend(cls.__subclasses__())
 
         # skip tasks in __main__ module in interactive sessions
@@ -180,8 +181,8 @@ def execute(args):
         task_family = cls.get_task_family()
         if "-" in task_family:
             logger.critical(
-                "skipping task '{}' as its family '{}' contains a '-' which cannot be interpreted "
-                "by luigi's command line parser, please use '_' or alike".format(cls, task_family),
+                f"skipping task '{cls}' as its family '{task_family}' contains a '-' which cannot "
+                "be interpreted by luigi's command line parser, please use '_' or alike",
             )
             continue
 
@@ -191,9 +192,9 @@ def execute(args):
         # skip the task
         if "_" in task_family.rsplit(".", 1)[-1]:
             logger.error(
-                "skipping task '{}' as its family '{}' contains a '_' after the namespace "
-                "definition which would lead to ambiguities between task families and task-level "
-                "parameters in the law shell autocompletion".format(cls, task_family),
+                f"skipping task '{cls}' as its family '{task_family}' contains a '_' after the "
+                "namespace definition which would lead to ambiguities between task families and "
+                "task-level parameters in the law shell autocompletion",
             )
             continue
 
@@ -203,31 +204,30 @@ def execute(args):
         if task_family in seen_families:
             if cls not in task_classes:
                 logger.error(
-                    "skipping task '{}' as a task with the same family '{}' but a different "
-                    "different address was already seen; this is likely due to multiple imports of "
-                    "the same physical file through different module ids and since it is no longer "
-                    "unique, luigi's task lookup will probably fail".format(cls, task_family),
+                    f"skipping task '{cls}' as a task with the same family '{task_family}' but a "
+                    "different different address was already seen; this is likely due to multiple "
+                    "imports of the same physical file through different module ids and since it "
+                    "is no longer unique, luigi's task lookup will probably fail",
                 )
             continue
         seen_families.append(task_family)
 
         task_classes.append(cls)
 
-    def get_task_params(cls):
+    def get_task_params(cls: Register) -> list[str]:
         params = []
         for attr in dir(cls):
             member = getattr(cls, attr)
             if isinstance(member, luigi.Parameter):
-                exclude = getattr(cls, "exclude_params_index", set())
+                exclude: set[str] = getattr(cls, "exclude_params_index", set())
                 if not multi_match(attr, exclude, any):
                     params.append(attr.replace("_", "-"))
         return params
 
     def index_line(cls, params):
-        # format: "module_id:task_family:param param ..."
-        return "{}:{}:{}".format(cls.__module__, cls.get_task_family(), " ".join(params))
+        return f"{cls.__module__}:{cls.get_task_family()}:{' '.join(params)}"
 
-    stats = OrderedDict()
+    stats: dict[str, list[tuple[str, list[str]]]] = dict()
 
     # write the index file
     makedirs(os.path.dirname(index_file))
@@ -246,19 +246,21 @@ def execute(args):
 
     # print stats
     if args.verbose:
-        for mod, data in six.iteritems(stats):
-            print("\nmodule '{}', {} task(s):".format(colored(mod, style="bright"), len(data)))
+        for mod, data in stats.items():
+            print(f"\nmodule '{colored(mod, style='bright')}', {len(data)} task(s):")
             for task_family, _ in data:
-                print("    - {}".format(colored(task_family, "green")))
+                print(f"    - {colored(task_family, 'green')}")
         print("")
 
     if not args.quiet:
-        print("written {} task(s) to index file '{}'".format(len(task_classes), index_file))
+        print(f"written {len(task_classes)} task(s) to index file '{index_file}'")
 
     return exit_code
 
 
-def get_global_parameters(config_names=("core", "scheduler", "worker", "retcode")):
+def get_global_parameters(
+    config_names: Sequence[str] = ("core", "scheduler", "worker", "retcode"),
+) -> list[tuple[type, luigi.Parameter, str, str]]:
     """
     Returns a list of global, luigi-internal configuration parameters. Each list item is a 4-tuple
     containing the configuration class, the parameter instance, the parameter name, and the full
@@ -277,7 +279,7 @@ def get_global_parameters(config_names=("core", "scheduler", "worker", "retcode"
 
             full_name = attr.replace("_", "-")
             if getattr(cls, "use_cmdline_section", True):
-                full_name = "{}-{}".format(cls.__name__.replace("_", "-"), full_name)
+                full_name = f"{cls.__name__.replace('_', '-')}-{full_name}"
 
             params.append((cls, param, attr, full_name))
 

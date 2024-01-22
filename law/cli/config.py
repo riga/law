@@ -4,6 +4,7 @@
 "law config" cli subprogram.
 """
 
+import argparse
 
 from law.config import Config
 from law.util import abort
@@ -12,7 +13,7 @@ from law.util import abort
 _cfg = Config.instance()
 
 
-def setup_parser(sub_parsers):
+def setup_parser(sub_parsers: argparse._SubParsersAction) -> None:
     """
     Sets up the command line parser for the *config* subprogram and adds it to *sub_parsers*.
     """
@@ -20,7 +21,7 @@ def setup_parser(sub_parsers):
         "config",
         prog="law config",
         description="Configuration helper to get, set or remove a value from the law configuration "
-        "file ({}).".format(_cfg.config_file),
+        f"file ({_cfg.config_file}).",
     )
 
     parser.add_argument(
@@ -54,7 +55,7 @@ def setup_parser(sub_parsers):
     )
 
 
-def execute(args):
+def execute(args: argparse.Namespace) -> int:
     """
     Executes the *config* subprogram with parsed commandline *args*.
     """
@@ -63,26 +64,28 @@ def execute(args):
     # just print the file location?
     if args.location:
         print(cfg.config_file)
-        return
+        return 0
 
     # print sections when none is given
     if not args.name:
         print("\n".join(cfg.sections()))
-        return
+        return 0
 
     # print section options when none is given
     section, option = args.name.split(".", 1) if "." in args.name else (args.name, None)
     if not option:
         print("\n".join(cfg.options(section)))
-        return
+        return 0
 
     # removal
     if args.remove:
-        abort("config removal not yet implemented")
+        return abort("config removal not yet implemented")
 
     # setting
     if args.value:
-        abort("config setting not yet implemented")
+        return abort("config setting not yet implemented")
 
     # getting
     print(cfg.get_default(section, option, expand_vars=args.expand, expand_user=args.expand))
+
+    return 0

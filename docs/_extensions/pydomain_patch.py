@@ -28,14 +28,9 @@ class PyClassAttribute(PyAttribute):
         if "." in name:
             clsname, attrname = name.rsplit(".", 1)
             if modname and add_modules:
-                return _("{} ({}.{} class attribute)").format(attrname, modname, clsname)
-            else:
-                return _("{} ({} class attribute)").format(attrname, clsname)
-        else:
-            if modname:
-                return _("{} (in module {})").format(name, modname)
-            else:
-                return name
+                return _(f"{attrname} ({modname}.{clsname} class attribute)")
+            return _(f"{attrname} ({clsname} class attribute)")
+        return _(f"{name} (in module {modname})") if modname else name
 
 
 def setup(app):

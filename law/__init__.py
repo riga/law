@@ -21,42 +21,39 @@ __all__ = [
     "luigi_version", "luigi_version_info",
 ]
 
-
 import os
+import re
+
+import luigi  # type: ignore[import-untyped]
 
 # package infos
-from law.__version__ import (
+from law.__meta__ import (
     __doc__, __author__, __email__, __copyright__, __credits__, __contact__, __license__,
     __status__, __version__,
 )
 
 # luigi version infos
-import re
-import luigi
-
-# __version__ was introduced in 2.8.11
-luigi_version = getattr(luigi, "__version__", "2.8.10")
+luigi_version = getattr(luigi, "__version__")
+version_match = re.match(r"^(\d+)\.(\d+)\.(\d+)(.*)$", luigi_version)
+if version_match is None:
+    raise RuntimeError(f"could not parse luigi version '{luigi_version}'")
 luigi_version_info = tuple(
     int(part) if i < 3 else part
-    for i, part in enumerate(re.match(r"^(\d+)\.(\d+)\.(\d+)(.*)$", luigi_version).groups())
+    for i, part in enumerate(version_match.groups())
 )
-
 
 # setup logging
 import law.logger
 law.logger.setup_logging()
-
 
 # prefer cached software
 if os.getenv("LAW_USE_SOFTWARE_CACHE", "1").lower() in ("1", "yes", "true"):
     from law.cli.software import use_software_cache
     use_software_cache(reload_deps=True)
 
-
 # luigi patches
 import law.patches
 law.patches.patch_all()
-
 
 # provisioning imports
 import law.util
