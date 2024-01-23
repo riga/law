@@ -267,12 +267,12 @@ def get_logger(*args, skip_setup: bool = False, **kwargs) -> logging.Logger:
 
 
 def setup_logger(
-    logger: logging.Logger,
+    logger: logging.Logger | str,
     level: str | int | None = None,
     add_console_handler: bool | dict[str, Any] | None = None,
     clear: bool = False,
     force: bool = False,
-):
+) -> logging.Logger:
     """
     Sets up a *logger*, optionally given by its name, configures it to have a certain *level* and
     adds a preconfigured console handler when *add_console_handler* is *True*. When
@@ -366,7 +366,7 @@ def is_tty_handler(handler: logging.Handler) -> bool:
     return False
 
 
-def get_tty_handlers(logger):
+def get_tty_handlers(logger: str | logging.Logger) -> list[logging.Handler]:
     """
     Returns a list of all handlers of a *logger* that log to a tty.
     """

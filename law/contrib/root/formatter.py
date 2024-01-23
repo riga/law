@@ -4,17 +4,18 @@
 ROOT target formatters.
 """
 
+from __future__ import annotations
+
 __all__ = [
     "GuardedTFile", "ROOTFormatter", "ROOTNumpyFormatter", "ROOTPandasFormatter", "UprootFormatter",
 ]
 
-
+import pathlib
 from contextlib import contextmanager
 
-import six
-
 from law.target.formatter import Formatter
-from law.target.file import get_path
+from law.target.file import FileSystemFileTarget, get_path
+from law._types import Any, TracebackType, Iterator
 
 from law.contrib.root.util import import_ROOT
 
@@ -22,12 +23,12 @@ from law.contrib.root.util import import_ROOT
 class GuardedTFile(object):
 
     @classmethod
-    def Open(cls, *args, **kwargs):
+    def Open(cls, *args, **kwargs) -> Any:
         ROOT = import_ROOT()
         return cls(ROOT.TFile.Open(*args, **kwargs))
 
-    def __init__(self, *args, **kwargs):
-        super(GuardedTFile, self).__init__()
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__()
 
         self._guarded_tfile = None
 
@@ -37,25 +38,23 @@ class GuardedTFile(object):
         elif args or kwargs:
             self._guarded_tfile = ROOT.TFile(*args, **kwargs)
 
-    def __enter__(self):
+    def __enter__(self) -> Any:
         return self._guarded_tfile
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, exc_type: type, exc_value: BaseException, traceback: TracebackType) -> None:
         if self.IsOpen():
             self.Close()
 
-    def __getattr__(self, attr):
+    def __getattr__(self, attr: str) -> Any:
         if self._guarded_tfile is not None:
             return getattr(self._guarded_tfile, attr)
-        else:
-            raise AttributeError("cannot forward attribute '{}' to undefined guarded tfile".format(
-                attr))
+        raise AttributeError(f"cannot forward attribute '{attr}' to undefined guarded tfile")
 
-    def __setattr__(self, attr, value):
+    def __setattr__(self, attr: str, value: Any) -> None:
         if attr != "_guarded_tfile":
             setattr(self._guarded_tfile, attr, value)
         else:
-            super(GuardedTFile, self).__setattr__(attr, value)
+            super().__setattr__(attr, value)
 
 
 class ROOTFormatter(Formatter):
@@ -63,15 +62,15 @@ class ROOTFormatter(Formatter):
     name = "root"
 
     @classmethod
-    def accepts(cls, path, mode):
-        return get_path(path).endswith(".root")
+    def accepts(cls, path: str | pathlib.Path | FileSystemFileTarget, mode: str) -> bool:
+        return str(get_path(path)).endswith(".root")
 
     @classmethod
-    def load(cls, path, *args, **kwargs):
+    def load(cls, path: str | pathlib.Path | FileSystemFileTarget, *args, **kwargs) -> GuardedTFile:
         return GuardedTFile(get_path(path), *args, **kwargs)
 
     @classmethod
-    def dump(cls, path, *args, **kwargs):
+    def dump(cls, path: str | pathlib.Path | FileSystemFileTarget, *args, **kwargs) -> GuardedTFile:
         return GuardedTFile(get_path(path), *args, **kwargs)
 
 
@@ -80,20 +79,26 @@ class ROOTNumpyFormatter(Formatter):
     name = "root_numpy"
 
     @classmethod
-    def accepts(cls, path, mode):
-        return get_path(path).endswith(".root")
+    def accepts(cls, path: str | pathlib.Path | FileSystemFileTarget, mode: str) -> bool:
+        return str(get_path(path)).endswith(".root")
 
     @classmethod
-    def load(cls, path, *args, **kwargs):
+    def load(cls, path: str | pathlib.Path | FileSystemFileTarget, *args, **kwargs) -> Any:
         ROOT = import_ROOT()  # noqa: F841
-        import root_numpy
+        import root_numpy  # type: ignore[import-untyped, import-not-found]
 
         return root_numpy.root2array(get_path(path), *args, **kwargs)
 
     @classmethod
-    def dump(cls, path, arr, *args, **kwargs):
+    def dump(
+        cls,
+        path: str | pathlib.Path | FileSystemFileTarget,
+        arr: Any,
+        *args,
+        **kwargs,
+    ) -> Any:
         ROOT = import_ROOT()  # noqa: F841
-        import root_numpy
+        import root_numpy  # type: ignore[import-untyped, import-not-found]
 
         return root_numpy.array2root(arr, get_path(path), *args, **kwargs)
 
@@ -103,21 +108,21 @@ class ROOTPandasFormatter(Formatter):
     name = "root_pandas"
 
     @classmethod
-    def accepts(cls, path, mode):
-        return get_path(path).endswith(".root")
+    def accepts(cls, path: str | pathlib.Path | FileSystemFileTarget, mode: str) -> bool:
+        return str(get_path(path)).endswith(".root")
 
     @classmethod
-    def load(cls, path, *args, **kwargs):
+    def load(cls, path: str | pathlib.Path | FileSystemFileTarget, *args, **kwargs) -> Any:
         ROOT = import_ROOT()  # noqa: F841
-        import root_pandas
+        import root_pandas  # type: ignore[import-untyped, import-not-found]
 
         return root_pandas.read_root(get_path(path), *args, **kwargs)
 
     @classmethod
-    def dump(cls, path, df, *args, **kwargs):
+    def dump(cls, path: str | pathlib.Path | FileSystemFileTarget, df: Any, *args, **kwargs) -> Any:
         ROOT = import_ROOT()  # noqa: F841
         # importing root_pandas adds the to_root() method to data frames
-        import root_pandas  # noqa: F401
+        import root_pandas  # type: ignore[import-untyped, import-not-found] # noqa
 
         return df.to_root(get_path(path), *args, **kwargs)
 
@@ -127,24 +132,29 @@ class UprootFormatter(Formatter):
     name = "uproot"
 
     @classmethod
-    def accepts(cls, path, mode):
-        return get_path(path).endswith(".root")
+    def accepts(cls, path: str | pathlib.Path | FileSystemFileTarget, mode: str) -> bool:
+        return str(get_path(path)).endswith(".root")
 
     @classmethod
-    def load(cls, path, *args, **kwargs):
-        import uproot
+    def load(cls, path: str | pathlib.Path | FileSystemFileTarget, *args, **kwargs) -> Any:
+        import uproot  # type: ignore[import-untyped, import-not-found]
 
         return uproot.open(get_path(path), *args, **kwargs)
 
     @classmethod
     @contextmanager
-    def dump(cls, path, mode="recreate", **kwargs):
-        import uproot
+    def dump(
+        cls,
+        path: str | pathlib.Path | FileSystemFileTarget,
+        mode: str = "recreate",
+        **kwargs,
+    ) -> Iterator[Any]:
+        import uproot  # type: ignore[import-untyped, import-not-found]
 
         # check the mode and get the saving function
         allowed_modes = ["create", "recreate", "update"]
-        if not isinstance(mode, six.string_types) or mode.lower() not in allowed_modes:
-            raise ValueError("unknown uproot writing mode: {}".format(mode))
+        if not isinstance(mode, str) or mode.lower() not in allowed_modes:
+            raise ValueError(f"unknown uproot writing mode: {mode}")
         fn = getattr(uproot, mode.lower())
 
         # create the file object and yield it

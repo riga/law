@@ -6,7 +6,6 @@ Simple gLite job manager. See https://wiki.italiangrid.it/twiki/bin/view/CREAM/U
 
 __all__ = ["GLiteJobManager", "GLiteJobFileFactory"]
 
-
 import os
 import stat
 import time

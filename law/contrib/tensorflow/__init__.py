@@ -9,7 +9,6 @@ __all__ = [
     "TFGraphFormatter", "TFSavedModelFormatter", "TFKerasModelFormatter", "TFKerasWeightsFormatter",
 ]
 
-
 # provisioning imports
 from law.contrib.tensorflow.formatter import (
     TFGraphFormatter, TFSavedModelFormatter, TFKerasModelFormatter, TFKerasWeightsFormatter,

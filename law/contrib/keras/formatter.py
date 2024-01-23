@@ -4,12 +4,16 @@
 Keras target formatters.
 """
 
-__all__ = ["KerasModelFormatter", "KerasWeightsFormatter", "TFKerasModelFormatter"]
+from __future__ import annotations
 
+__all__ = ["KerasModelFormatter", "KerasWeightsFormatter"]
+
+import pathlib
 
 from law.target.formatter import Formatter
-from law.target.file import get_path
+from law.target.file import FileSystemFileTarget, get_path
 from law.logger import get_logger
+from law._types import Any
 
 
 logger = get_logger(__name__)
@@ -20,12 +24,12 @@ class KerasModelFormatter(Formatter):
     name = "keras_model"
 
     @classmethod
-    def accepts(cls, path, mode):
-        return get_path(path).endswith((".hdf5", ".h5", ".json", ".yaml", ".yml"))
+    def accepts(cls, path: str | pathlib.Path | FileSystemFileTarget, mode: str) -> bool:
+        return str(get_path(path)).endswith((".hdf5", ".h5", ".json", ".yaml", ".yml"))
 
     @classmethod
-    def dump(cls, path, model, *args, **kwargs):
-        path = get_path(path)
+    def dump(cls, path: str | pathlib.Path | FileSystemFileTarget, model, *args, **kwargs) -> Any:
+        path = str(get_path(path))
 
         # the method for saving the model depends on the file extension
         if path.endswith(".json"):
@@ -42,10 +46,10 @@ class KerasModelFormatter(Formatter):
         return model.save(path, *args, **kwargs)
 
     @classmethod
-    def load(cls, path, *args, **kwargs):
-        import keras
+    def load(cls, path: str | pathlib.Path | FileSystemFileTarget, *args, **kwargs) -> Any:
+        import keras  # type: ignore[import-untyped, import-not-found]
 
-        path = get_path(path)
+        path = str(get_path(path))
 
         # the method for loading the model depends on the file extension
         if path.endswith(".json"):
@@ -65,39 +69,25 @@ class KerasWeightsFormatter(Formatter):
     name = "keras_weights"
 
     @classmethod
-    def accepts(cls, path, mode):
-        return get_path(path).endswith((".hdf5", ".h5"))
+    def accepts(cls, path: str | pathlib.Path | FileSystemFileTarget, mode: str) -> bool:
+        return str(get_path(path)).endswith((".hdf5", ".h5"))
 
     @classmethod
-    def dump(cls, path, model, *args, **kwargs):
+    def dump(
+        cls,
+        path: str | pathlib.Path | FileSystemFileTarget,
+        model: Any,
+        *args,
+        **kwargs,
+    ) -> Any:
         return model.save_weights(get_path(path), *args, **kwargs)
 
     @classmethod
-    def load(cls, path, model, *args, **kwargs):
+    def load(
+        cls,
+        path: str | pathlib.Path | FileSystemFileTarget,
+        model: Any,
+        *args,
+        **kwargs,
+    ) -> Any:
         return model.load_weights(get_path(path), *args, **kwargs)
-
-
-class TFKerasModelFormatter(Formatter):
-
-    name = "tf_keras"
-
-    @classmethod
-    def accepts(cls, path, mode):
-        return False
-
-    @classmethod
-    def dump(cls, path, model, *args, **kwargs):
-        # deprecation warning until v0.1
-        logger.warning_once("law.contrib.keras.TFKerasModelFormatter is deprecated, please use "
-            "law.contrib.tensorflow.TFKerasModelFormatter (named 'tf_keras_model') instead")
-
-        model.save(get_path(path), *args, **kwargs)
-
-    @classmethod
-    def load(cls, path, *args, **kwargs):
-        # deprecation warning until v0.1
-        logger.warning_once("law.contrib.keras.TFKerasModelFormatter is deprecated, please use "
-            "law.contrib.tensorflow.TFKerasModelFormatter (named 'tf_keras_model') instead")
-
-        import tensorflow as tf
-        return tf.keras.models.load_model(get_path(path), *args, **kwargs)

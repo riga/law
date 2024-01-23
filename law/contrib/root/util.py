@@ -4,22 +4,24 @@
 ROOT-related utilities.
 """
 
+from __future__ import annotations
+
 __all__ = ["import_ROOT", "hadd_task"]
 
-
 import os
+import pathlib
 
-import six
-
-from law.target.file import FileSystemFileTarget
+from law.task.base import Task
+from law.target.file import FileSystemFileTarget, get_path
 from law.target.local import LocalFileTarget, LocalDirectoryTarget
 from law.util import map_verbose, make_list, interruptable_popen, human_bytes, quote_cmd
+from law._types import ModuleType, Sequence
 
 
 _ROOT = None
 
 
-def import_ROOT(batch=True, ignore_cli=True, reset=False):
+def import_ROOT(batch: bool = True, ignore_cli: bool = True, reset: bool = False) -> ModuleType:
     """
     Imports, caches and returns the ROOT module and sets certain flags when it was not already
     cached. When *batch* is *True*, the module is loaded in batch mode. When *ignore_cli* is *True*,
@@ -32,19 +34,27 @@ def import_ROOT(batch=True, ignore_cli=True, reset=False):
     was_empty = _ROOT is None
 
     if was_empty:
-        import ROOT
-        _ROOT = ROOT
+        import ROOT  # type: ignore[import-untyped, import-not-found]
+        _ROOT: ModuleType = ROOT
 
     if was_empty or reset:
-        _ROOT.gROOT.SetBatch(batch)
+        _ROOT.gROOT.SetBatch(batch)  # type: ignore[attr-defined]
 
     if was_empty or reset:
-        _ROOT.PyConfig.IgnoreCommandLineOptions = ignore_cli
+        _ROOT.PyConfig.IgnoreCommandLineOptions = ignore_cli  # type: ignore[attr-defined]
 
-    return _ROOT
+    return _ROOT  # type: ignore[return-value]
 
 
-def hadd_task(task, inputs, output, cwd=None, local=False, force=True, hadd_args=None):
+def hadd_task(
+    task: Task,
+    inputs: Sequence[str | pathlib.Path | FileSystemFileTarget],
+    output: str | pathlib.Path | FileSystemFileTarget,
+    local: bool = False,
+    cwd: str | pathlib.Path | LocalDirectoryTarget | None = None,
+    force: bool = True,
+    hadd_args: str | Sequence[str] | None = None,
+):
     """
     This method is intended to be used by tasks that are supposed to merge root files, e.g. when
     inheriting from :py:class:`law.contrib.tasks.ForestMerge`. *inputs* should be a sequence of
@@ -58,31 +68,28 @@ def hadd_task(task, inputs, output, cwd=None, local=False, force=True, hadd_args
     localized. When *force* is *True*, any existing output file is overwritten. *hadd_args* can be a
     sequence of additional arguments that are added to the hadd command.
     """
-    abspath = lambda path: os.path.abspath(os.path.expandvars(os.path.expanduser(str(path))))
+    abspath = lambda p: os.path.abspath(os.path.expandvars(os.path.expanduser(str(get_path(p)))))
 
     # ensure inputs are targets
-    inputs = [
+    _inputs = [
         inp if isinstance(inp, FileSystemFileTarget) else LocalFileTarget(abspath(inp))
         for inp in inputs
     ]
-    inputs = [
-        LocalFileTarget(abspath(inp)) if isinstance(inp, six.string_types) else inp
-        for inp in inputs
-    ]
+    inputs = _inputs
 
     # ensure output is a target
     if not isinstance(output, FileSystemFileTarget):
         output = LocalFileTarget(abspath(output))
 
     # default cwd
-    if not cwd:
-        cwd = LocalDirectoryTarget(is_tmp=True)
-    elif isinstance(cwd, six.string_types):
+    if isinstance(cwd, str):
         cwd = LocalDirectoryTarget(abspath(cwd))
+    elif not isinstance(cwd, LocalDirectoryTarget):
+        cwd = LocalDirectoryTarget(is_tmp=True)
     cwd.touch()
 
     # helper to create the hadd cmd
-    def hadd_cmd(input_paths, output_path):
+    def hadd_cmd(input_paths: list[str], output_path: str) -> str:
         cmd = ["hadd", "-n", "0"]
         cmd.extend(["-d", cwd.path])
         if hadd_args:
@@ -111,23 +118,23 @@ def hadd_task(task, inputs, output, cwd=None, local=False, force=True, hadd_args
 
         stat = output.exists(stat=True)
         if not stat:
-            raise Exception("output '{}' not creating during merging".format(output.path))
+            raise Exception(f"output '{output.path}' not creating during merging")
 
         # print the size
         output_size = human_bytes(stat.st_size, fmt=True)
-        task.publish_message("merged file size: {}".format(output_size))
+        task.publish_message(f"merged file size: {output_size}")
 
     else:
         # when not local, we need to fetch files first into the cwd
         with task.publish_step("fetching inputs ...", runtime=True):
-            def fetch(inp):
+            def fetch(inp: FileSystemFileTarget) -> str:
                 inp.copy_to_local(cwd.child(inp.unique_basename, type="f"), cache=False)
                 return inp.unique_basename
 
-            def callback(i):
-                task.publish_message("fetch file {} / {}".format(i + 1, len(inputs)))
+            def callback(i: int) -> None:
+                task.publish_message(f"fetch file {i + 1} / {len(inputs)}")
 
-            bases = map_verbose(fetch, inputs, every=5, callback=callback)
+            bases: list[str] = map_verbose(fetch, inputs, every=5, callback=callback)  # type: ignore[arg-type] # noqa
 
         # start merging into the localized output
         with output.localize("w", cache=False) as tmp_out:
@@ -137,15 +144,19 @@ def hadd_task(task, inputs, output, cwd=None, local=False, force=True, hadd_args
                 else:
                     # merge using hadd
                     cmd = hadd_cmd(bases, tmp_out.path)
-                    code = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-                        cwd=cwd.path)[0]
+                    code = interruptable_popen(
+                        cmd,
+                        shell=True,
+                        executable="/bin/bash",
+                        cwd=cwd.path,
+                    )[0]
                     if code != 0:
                         raise Exception("hadd failed")
 
             stat = tmp_out.exists(stat=True)
             if not stat:
-                raise Exception("output '{}' not creating during merging".format(tmp_out.path))
+                raise Exception(f"output '{tmp_out.path}' not creating during merging")
 
             # print the size
             output_size = human_bytes(stat.st_size, fmt=True)
-            task.publish_message("merged file size: {}".format(output_size))
+            task.publish_message(f"merged file size: {output_size}")

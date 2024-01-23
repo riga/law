@@ -1,7 +1,12 @@
 # coding: utf-8
 
-__all__ = ["available_packages", "loaded_packages", "load", "load_all"]
+"""
+Main entry point and dynamic loading of contrib packages.
+"""
 
+from __future__ import annotations
+
+__all__ = ["available_packages", "loaded_packages", "load", "load_all"]
 
 import os
 import glob
@@ -9,6 +14,7 @@ import glob
 import law
 from law.util import law_src_path, flatten
 from law.logger import get_logger
+from law._types import ModuleType
 
 
 logger = get_logger(__name__)
@@ -26,7 +32,7 @@ available_packages = [
 loaded_packages = {}
 
 
-def load(*packages):
+def load(*packages: str) -> ModuleType | list[ModuleType]:
     """
     Loads contrib *packages* and adds them to the law namespace. Example:
 
@@ -41,33 +47,35 @@ def load(*packages):
     """
     for pkg in flatten(packages):
         if pkg in loaded_packages:
-            logger.debug("skip contrib package '{}', already loaded".format(pkg))
+            logger.debug(f"skip contrib package '{pkg}', already loaded")
             continue
         if not os.path.exists(law_src_path("contrib", pkg, "__init__.py")):
-            raise Exception("contrib package '{}' does not exist".format(pkg))
+            raise Exception(f"contrib package '{pkg}' does not exist")
         if getattr(law, pkg, None):
-            raise Exception("cannot load contrib package '{}', attribute with that name already "
-                "exists in the law module".format(pkg))
+            raise Exception(
+                f"cannot load contrib package '{pkg}', attribute with that name already exists in "
+                "the law module",
+            )
 
         # load the module
-        mod = __import__("law.contrib.{}".format(pkg), globals(), locals(), [pkg])
+        mod = __import__(f"law.contrib.{pkg}", globals(), locals(), [pkg])
         setattr(law, pkg, mod)
         law.__all__.append(pkg)
         loaded_packages[pkg] = mod
-        logger.debug("loaded contrib package '{}'".format(pkg))
+        logger.debug(f"loaded contrib package '{pkg}'")
 
         # optionally call its auto_load hook when existing
         auto_load = getattr(mod, "auto_load", None)
         if callable(auto_load):
             auto_load()
-            logger.debug("invoked auto_load hook of contrib package '{}'".format(pkg))
+            logger.debug(f"invoked auto_load hook of contrib package '{pkg}'")
 
     modules = [loaded_packages[pkg] for pkg in packages]
 
     return modules[0] if len(packages) == 1 else modules
 
 
-def load_all():
+def load_all() -> list[str]:
     """
     Loads all available contrib packages via :py:func:`load`. A package is skipped when an
     ImportError was raised. The list of names of loaded packages is returned.

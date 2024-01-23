@@ -4,20 +4,25 @@
 Logging optimization using rich.
 """
 
-__all__ = ["replace_console_handlers"]
+from __future__ import annotations
 
+__all__ = ["replace_console_handlers"]
 
 import logging
 
-import six
-
 from law.config import Config
-from law.logger import is_tty_handler
+from law.logger import is_tty_handler, Logger
 from law.util import make_list, multi_match
+from law._types import Sequence, Callable
 
 
-def replace_console_handlers(loggers=("luigi", "luigi.*", "luigi-*", "law", "law.*"), level=None,
-        force_add=False, check_fn=None, **kwargs):
+def replace_console_handlers(
+    loggers: Sequence[str] = ("luigi", "luigi.*", "luigi-*", "law", "law.*"),
+    level: str | int | None = None,
+    force_add: bool = False,
+    check_fn: Callable[[logging.Logger, logging.Handler], bool] | None = None,
+    **kwargs,
+) -> list[tuple[logging.Logger, list[logging.Handler]]]:
     """
     Removes all tty stream handlers (i.e. those logging to *stdout* or *stderr*) from certain
     *loggers* and adds a new ``rich.logging.RichHandler`` instance with a specified *level* and all
@@ -34,7 +39,7 @@ def replace_console_handlers(loggers=("luigi", "luigi.*", "luigi-*", "law", "law
 
     The removed handlers are returned in a list of 2-tuples (*logger*, *removed_handlers*).
     """
-    from rich import logging as rich_logging
+    from rich import logging as rich_logging  # type: ignore[import-untyped, import-not-found]
 
     # prepare the return value
     ret = []
@@ -45,11 +50,12 @@ def replace_console_handlers(loggers=("luigi", "luigi.*", "luigi-*", "law", "law
 
     loggers = make_list(loggers)
     for name, logger in logging.root.manager.loggerDict.items():
+        if not isinstance(logger, logging.Logger):
+            continue
+
         # check if the logger is selected
         for l in loggers:
-            if logger == l:
-                break
-            elif isinstance(l, six.string_types) and multi_match(name, l):
+            if logger == l or (isinstance(l, str) and multi_match(name, l)):
                 break
         else:
             # when this point is reached, the logger was not selected
@@ -79,14 +85,14 @@ def replace_console_handlers(loggers=("luigi", "luigi.*", "luigi-*", "law", "law
             # emit warning for colored_* configs
             cfg = Config.instance()
             opts = [(s, o) for s in ["task", "target"] for o in ["colored_str", "colored_repr"]]
-            if any(cfg.get_expanded_bool(*opt) for opt in opts):
+            if isinstance(logger, Logger) and any(cfg.get_expanded_bool(*opt) for opt in opts):
                 logger.warning_once(
                     "interfering_colors_in_rich_handler",
                     "law is currently configured to colorize string representations of tasks and "
                     "targets which might lead to malformed logs of the RichHandler; to avoid this, "
-                    "consider updating your law configuration file ({}) to:\n"
+                    f"consider updating your law configuration file ({cfg.config_file}) to:\n"
                     "[task]\ncolored_repr: False\ncolored_str: False\n\n"
-                    "[target]\ncolored_repr: False\ncolored_str: False".format(cfg.config_file),
+                    "[target]\ncolored_repr: False\ncolored_str: False",
                 )
 
         # add the removed handlers to the returned list

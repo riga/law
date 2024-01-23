@@ -4,8 +4,12 @@
 Function returning the config defaults of the htcondor package.
 """
 
+from __future__ import annotations
 
-def config_defaults(default_config):
+from law._types import Any
+
+
+def config_defaults(default_config: dict) -> dict[str, dict[str, Any]]:
     return {
         "job": {
             "htcondor_job_file_dir": None,

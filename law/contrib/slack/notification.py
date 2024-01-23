@@ -4,23 +4,34 @@
 Slack notifications.
 """
 
+from __future__ import annotations
+
 __all__ = ["notify_slack"]
 
-
+import os
+import json
+import pathlib
 import threading
-
-import six
+import traceback
 
 from law.config import Config
 from law.util import escape_markdown
 from law.logger import get_logger
-
+from law._types import Any, ModuleType
 
 logger = get_logger(__name__)
 
 
-def notify_slack(title, content, attachment_color="#4bb543", short_threshold=40, token=None,
-        channel=None, mention_user=None, **kwargs):
+def notify_slack(
+    title: str,
+    content: str | dict[str, str],
+    attachment_color: str = "#4bb543",
+    short_threshold: int = 40,
+    token: str | pathlib.Path | None = None,
+    channel: str | None = None,
+    mention_user: str | None = None,
+    **kwargs,
+) -> bool:
     """
     Sends a slack notification and returns *True* on success. The communication with the slack API
     might have some delays and is therefore handled by a thread. The format of the notification
@@ -40,8 +51,9 @@ def notify_slack(title, content, attachment_color="#4bb543", short_threshold=40,
         channel = cfg.get_expanded("notifications", "slack_channel")
 
     if not token or not channel:
-        logger.warning("cannot send Slack notification, token ({}) or channel ({}) empty".format(
-            token, channel))
+        logger.warning(
+            f"cannot send Slack notification, token ({token}) or channel ({channel}) empty",
+        )
         return False
 
     # append the user to mention to the title
@@ -50,7 +62,7 @@ def notify_slack(title, content, attachment_color="#4bb543", short_threshold=40,
     if mention_user is None:
         mention_user = cfg.get_expanded("notifications", "slack_mention_user")
     if mention_user:
-        mention_text = " (@{})".format(escape_markdown(mention_user))
+        mention_text = f" (@{escape_markdown(mention_user)})"
 
     # request data for the API call
     request = {
@@ -60,25 +72,25 @@ def notify_slack(title, content, attachment_color="#4bb543", short_threshold=40,
     }
 
     # standard or attachment content?
-    if isinstance(content, six.string_types):
-        request["text"] = "{}{}\n\n{}".format(title, mention_text, content)
+    if isinstance(content, str):
+        request["text"] = f"{title}{mention_text}\n\n{content}"
     else:
         # content is a dict, send its data as an attachment
-        request["text"] = "{} {}".format(title, mention_text)
+        request["text"] = f"{title} {mention_text}"
         request["attachments"] = at = {
             "color": attachment_color,
             "fields": [],
-            "fallback": "{}{}\n\n".format(title, mention_text),
+            "fallback": f"{title}{mention_text}\n\n",
         }
 
         # fill the attachment fields and extend the fallback
         for key, value in content.items():
-            at["fields"].append({
+            at["fields"].append({  # type: ignore[attr-defined]
                 "title": key,
                 "value": value,
                 "short": len(value) <= short_threshold,
             })
-            at["fallback"] += "_{}_: {}\n".format(key, value)
+            at["fallback"] += f"_{key}_: {value}\n"  # type: ignore[operator]
 
     # extend by arbitrary kwargs
     request.update(kwargs)
@@ -90,11 +102,7 @@ def notify_slack(title, content, attachment_color="#4bb543", short_threshold=40,
     return True
 
 
-def _notify_slack(token, request):
-    import os
-    import json
-    import traceback
-
+def _notify_slack(token: str | pathlib.Path, request: dict[str, Any]) -> None:
     slack, vslack = import_slack()
 
     try:
@@ -104,7 +112,7 @@ def _notify_slack(token, request):
             with open(token_file, "r") as f:
                 token = f.read().strip()
 
-        if "attachments" in request and not isinstance(request["attachments"], six.string_types):
+        if "attachments" in request and not isinstance(request["attachments"], str):
             request["attachments"] = json.dumps([request["attachments"]])
 
         if vslack == 1:
@@ -115,23 +123,25 @@ def _notify_slack(token, request):
             res = wc.chat_postMessage(**request)
 
         if not res["ok"]:
-            logger.warning("unsuccessful Slack API call: {}".format(res))
+            logger.warning(f"unsuccessful Slack API call: {res}")
     except Exception as e:
         t = traceback.format_exc()
-        logger.warning("could not send Slack notification: {}\n{}".format(e, t))
+        logger.warning(f"could not send Slack notification: {e}\n{t}")
 
 
-def import_slack():
+def import_slack() -> tuple[ModuleType, int]:
     try:
         # slackclient 1.x
-        import slackclient  # noqa: F401
+        import slackclient  # type: ignore[import-untyped, import-not-found] # noqa
         return slackclient, 1
     except ImportError:
         try:
             # slackclient 2.x
-            import slack  # noqa: F401
+            import slack  # type: ignore[import-untyped, import-not-found] # noqa
             return slack, 2
         except ImportError as e:
-            e.msg = "neither module 'slackclient' nor 'slack' found, " \
-                "run 'pip install slackclient' to install them"
+            e.msg = (
+                "neither module 'slackclient' nor 'slack' found, run 'pip install slackclient' to "
+                "install them"
+            )
             raise

@@ -623,7 +623,7 @@ class Task(six.with_metaclass(Register, BaseTask)):
     def _repr_flags(self):
         return []
 
-    def _repr_family(self, family, color=False, **kwargs):
+    def _repr_family(self, family: str, color: bool = False, **kwargs) -> str:
         return colored(family, "green") if color else family
 
     def _repr_param(self, name, value, color=False, serialize=True, **kwargs):
