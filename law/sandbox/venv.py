@@ -4,41 +4,42 @@
 Virtualenv / venv sandbox implementation.
 """
 
+from __future__ import annotations
+
 __all__ = ["VenvSandbox"]
 
-
 import os
-import collections
-
-import six
+import pickle
 
 from law.sandbox.base import Sandbox
+from law.task.proxy import ProxyCommand
 from law.util import tmp_file, interruptable_popen, quote_cmd, makedirs
+from law._types import Any
 
 
 class VenvSandbox(Sandbox):
 
-    sandbox_type = "venv"
+    sandbox_type: str = "venv"  # type: ignore[assignment]
 
     config_section_prefix = sandbox_type
 
     @property
-    def venv_dir(self):
-        return os.path.expandvars(os.path.expanduser(self.name))
+    def venv_dir(self) -> str:
+        return os.path.expandvars(os.path.expanduser(str(self.name)))
 
     @property
-    def env_cache_key(self):
+    def env_cache_key(self) -> str:
         return self.venv_dir
 
-    def get_custom_config_section_postfix(self):
+    def get_custom_config_section_postfix(self) -> str:
         return self.name
 
-    def create_env(self):
+    def create_env(self) -> dict[str, Any]:
         # strategy: create a tempfile, let python dump its full env in a subprocess and load the
         # env file again afterwards
 
         # helper to write the env
-        def write_env(path):
+        def write_env(path: str) -> None:
             # get the activation command
             venv_cmd = self._venv_cmd()
 
@@ -46,8 +47,10 @@ class VenvSandbox(Sandbox):
             setup_cmds = self._build_setup_cmds(self._get_env())
 
             # build the python command that dumps the environment
-            py_cmd = "import os,pickle;" \
-                + "pickle.dump(dict(os.environ),open('{}','wb'),protocol=2)".format(path)
+            py_cmd = (
+                "import os,pickle;"
+                f"pickle.dump(dict(os.environ),open('{path}','wb'),protocol=2)"
+            )
 
             # build the full command
             cmd = " && ".join(
@@ -59,19 +62,15 @@ class VenvSandbox(Sandbox):
             # run it
             returncode = interruptable_popen(cmd, shell=True, executable="/bin/bash")[0]
             if returncode != 0:
-                raise Exception("venv sandbox env loading failed with exit code {}".format(
-                    returncode))
+                raise Exception(f"venv sandbox env loading failed with exit code {returncode}")
 
         # helper to load the env
         def load_env(path):
-            pickle_kwargs = {"encoding": "utf-8"} if six.PY3 else {}
             with open(path, "rb") as f:
                 try:
-                    return collections.OrderedDict(six.moves.cPickle.load(f, **pickle_kwargs))
+                    return dict(pickle.load(f, encoding="utf-8"))
                 except Exception as e:
-                    raise Exception(
-                        "env deserialization of sandbox {} failed: {}".format(self, e),
-                    )
+                    raise Exception(f"env deserialization of sandbox {self} failed: {e}")
 
         # use the cache path if set
         if self.env_cache_path:
@@ -95,10 +94,10 @@ class VenvSandbox(Sandbox):
 
         return env
 
-    def _venv_cmd(self):
+    def _venv_cmd(self) -> list[str]:
         return ["source", os.path.join(self.venv_dir, "bin", "activate"), ""]
 
-    def cmd(self, proxy_cmd):
+    def cmd(self, proxy_cmd: ProxyCommand) -> str:
         # environment variables to set
         env = self._get_env()
 
