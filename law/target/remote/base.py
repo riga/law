@@ -4,8 +4,9 @@
 Remote filesystem and targets, using a configurable remote file interface for atomic operations.
 """
 
-__all__ = ["RemoteFileSystem", "RemoteTarget", "RemoteFileTarget", "RemoteDirectoryTarget"]
+from __future__ import annotations
 
+__all__ = ["RemoteFileSystem", "RemoteTarget", "RemoteFileTarget", "RemoteDirectoryTarget"]
 
 import os
 import time
@@ -20,6 +21,7 @@ from law.target.file import (
     get_scheme, add_scheme, remove_scheme,
 )
 from law.target.local import LocalFileSystem, LocalFileTarget, LocalDirectoryTarget
+from law.target.remote.interface import RemoteFileInterface
 from law.target.remote.cache import RemoteCache
 from law.util import make_list, merge_dicts
 from law.logger import get_logger
@@ -32,8 +34,8 @@ _local_fs = LocalFileSystem.default_instance
 
 class RemoteFileSystem(FileSystem):
 
-    default_instance = None
-    file_interface_cls = None
+    default_instance: RemoteFileSystem | None = None
+    file_interface_cls: RemoteFileInterface | None = None
     local_fs = _local_fs
     _updated_sections = set()
 

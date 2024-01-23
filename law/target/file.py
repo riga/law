@@ -4,11 +4,12 @@
 Custom luigi file system and target objects.
 """
 
+from __future__ import annotations
+
 __all__ = [
     "FileSystem", "FileSystemTarget", "FileSystemFileTarget", "FileSystemDirectoryTarget",
     "get_path", "get_scheme", "has_scheme", "add_scheme", "remove_scheme", "localize_file_targets",
 ]
-
 
 import os
 import sys
@@ -140,8 +141,8 @@ class FileSystem(shims.FileSystem):
 
 class FileSystemTarget(Target, shims.FileSystemTarget):
 
-    file_class = None
-    directory_class = None
+    file_class: FileSystemFileTarget | None = None
+    directory_class: FileSystemDirectoryTarget | None = None
 
     def __init__(self, path, fs=None, **kwargs):
         if fs:

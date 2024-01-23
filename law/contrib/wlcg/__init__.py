@@ -14,7 +14,6 @@ __all__ = [
     "ensure_vomsproxy",
 ]
 
-
 # provisioning imports
 from law.contrib.wlcg.util import (
     get_userkey, get_usercert, get_usercert_subject,

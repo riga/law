@@ -4,6 +4,8 @@
 Helpers for working with the WLCG.
 """
 
+from __future__ import annotations
+
 __all__ = [
     "get_userkey", "get_usercert", "get_usercert_subject",
     "get_vomsproxy_file", "get_vomsproxy_identity", "get_vomsproxy_lifetime", "get_vomsproxy_vo",
@@ -12,17 +14,16 @@ __all__ = [
     "get_ce_endpoint",
 ]
 
-
 import os
 import re
+import io
 import subprocess
 import uuid
 import json
 import hashlib
+import pathlib
 import getpass
 import functools
-
-import six
 
 from law.util import (
     interruptable_popen, create_hash, human_duration, parse_duration, quote_cmd,
@@ -33,7 +34,7 @@ from law.logger import get_logger
 logger = get_logger(__name__)
 
 
-def get_userkey():
+def get_userkey() -> str:
     """
     Returns the expanded path to the globus user key, reading from "$X509_USER_KEY" and defaulting
     to "$HOME/.globus/userkey.pem".
@@ -42,7 +43,7 @@ def get_userkey():
     return os.path.expandvars(os.path.expanduser(path))
 
 
-def get_usercert():
+def get_usercert() -> str:
     """
     Returns the expanded path to the globus user certificate, reading from "$X509_USER_CERT" and
     defaulting to "$HOME/.globus/usercert.pem".
@@ -51,7 +52,7 @@ def get_usercert():
     return os.path.expandvars(os.path.expanduser(path))
 
 
-def get_usercert_subject(usercert=None):
+def get_usercert_subject(usercert: str | pathlib.Path | None = None) -> str:
     """
     Returns the user "subject" string of the certificate at *usercert*, which defaults to the
     return value of :py:func:`get_usercert`.
@@ -61,29 +62,38 @@ def get_usercert_subject(usercert=None):
         usercert = get_usercert()
     usercert = str(usercert)
     if not os.path.exists(usercert):
-        raise Exception("usercert does not exist at '{}'".format(usercert))
+        raise Exception(f"usercert does not exist at '{usercert}'")
 
     # extract the subject via openssl
     cmd = ["openssl", "x509", "-in", usercert, "-noout", "-subject"]
-    code, out, err = interruptable_popen(quote_cmd(cmd), shell=True, executable="/bin/bash",
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    code, out, err = interruptable_popen(
+        quote_cmd(cmd),
+        shell=True,
+        executable="/bin/bash",
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
     if code != 0:
-        raise Exception("subject extraction from usercert failed: {}".format(err))
+        raise Exception(f"subject extraction from usercert failed: {err}")
 
-    return re.sub(r"^subject\s*=\s*", "", out.strip())
+    return re.sub(r"^subject\s*=\s*", "", str(out).strip())
 
 
-def get_vomsproxy_file():
+def get_vomsproxy_file() -> str:
     """
     Returns the path to the voms proxy file.
     """
     if "X509_USER_PROXY" in os.environ:
         return os.environ["X509_USER_PROXY"]
 
-    return "/tmp/x509up_u{}".format(os.getuid())
+    return f"/tmp/x509up_u{os.getuid()}"
 
 
-def _vomsproxy_info(args=None, proxy_file=None, silent=False):
+def _vomsproxy_info(
+    args: list[str] | None = None,
+    proxy_file: str | pathlib.Path | None = None,
+    silent: bool = False,
+):
     cmd = ["voms-proxy-info"] + (args or [])
 
     # when proxy_file is None, get the default
@@ -94,16 +104,24 @@ def _vomsproxy_info(args=None, proxy_file=None, silent=False):
         proxy_file = os.path.expandvars(os.path.expanduser(str(proxy_file)))
         cmd.extend(["--file", proxy_file])
 
-    code, out, err = interruptable_popen(quote_cmd(cmd), shell=True, executable="/bin/bash",
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    code, out, err = interruptable_popen(
+        quote_cmd(cmd),
+        shell=True,
+        executable="/bin/bash",
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
 
     if not silent and code != 0:
-        raise Exception("voms-proxy-info failed: {}".format(err))
+        raise Exception(f"voms-proxy-info failed: {err}")
 
     return code, out, err
 
 
-def get_vomsproxy_identity(proxy_file=None, silent=False):
+def get_vomsproxy_identity(
+    proxy_file: str | pathlib.Path | None = None,
+    silent: bool = False,
+) -> str | None:
     """
     Returns the identity information of the voms proxy. When *proxy_file* is *None*, it defaults to
     the result of :py:func:`get_vomsproxy_file`. Otherwise, when it evaluates to *False*,
@@ -113,7 +131,10 @@ def get_vomsproxy_identity(proxy_file=None, silent=False):
     return out.strip() if code == 0 else None
 
 
-def get_vomsproxy_lifetime(proxy_file=None, silent=False):
+def get_vomsproxy_lifetime(
+    proxy_file: str | pathlib.Path | None = None,
+    silent: bool = False,
+) -> int | None:
     """
     Returns the remaining lifetime of the voms proxy in seconds. When *proxy_file* is *None*, it
     defaults to the result of :py:func:`get_vomsproxy_file`. Otherwise, when it evaluates to
@@ -129,10 +150,13 @@ def get_vomsproxy_lifetime(proxy_file=None, silent=False):
     except:
         if silent:
             return None
-        raise Exception("no valid lifetime found in voms proxy: {}".format(out))
+        raise Exception(f"no valid lifetime found in voms proxy: {out}")
 
 
-def get_vomsproxy_vo(proxy_file=None, silent=False):
+def get_vomsproxy_vo(
+    proxy_file: str | pathlib.Path | None = None,
+    silent: bool = False,
+) -> str | None:
     """
     Returns the virtual organization name of the voms proxy. When *proxy_file* is *None*, it
     defaults to the result of :py:func:`get_vomsproxy_file`. Otherwise, when it evaluates to
@@ -142,7 +166,10 @@ def get_vomsproxy_vo(proxy_file=None, silent=False):
     return out.strip() if code == 0 else None
 
 
-def check_vomsproxy_validity(return_rfc=False, proxy_file=None):
+def check_vomsproxy_validity(
+    return_rfc: bool = False,
+    proxy_file: str | pathlib.Path | None = None,
+) -> bool | tuple[bool, bool]:
     """
     Returns *True* if a valid voms proxy exists (positive lifetime), and *False* otherwise. When
     *return_rfc* is *True*, The return value will be a 2-tuple, containing also whether the proxy
@@ -152,11 +179,14 @@ def check_vomsproxy_validity(return_rfc=False, proxy_file=None):
     Otherwise, when it evaluates to *False*, ``voms-proxy-info`` is ueried without a custom proxy
     file.
     """
+    if proxy_file is None:
+        proxy_file = get_vomsproxy_file()
+
     code, _, err = _vomsproxy_info(args=["--exists"], proxy_file=proxy_file, silent=True)
 
     rfc = False
     if code == 0:
-        valid = get_vomsproxy_lifetime(proxy_file=proxy_file) > 0
+        valid = get_vomsproxy_lifetime(proxy_file=proxy_file) > 0  # type: ignore[operator]
 
         if valid and return_rfc:
             out = _vomsproxy_info(args=["--type"], proxy_file=proxy_file, silent=True)[1]
@@ -166,20 +196,20 @@ def check_vomsproxy_validity(return_rfc=False, proxy_file=None):
         valid = False
 
     else:
-        raise Exception("voms-proxy-info failed: {}".format(err))
+        raise Exception(f"voms-proxy-info failed: {err}")
 
     return (valid, rfc) if return_rfc else valid
 
 
 def renew_vomsproxy(
-    proxy_file=None,
-    vo=None,
-    rfc=True,
-    lifetime="8 days",
-    password=None,
-    password_file=None,
-    silent=False,
-):
+    proxy_file: str | pathlib.Path | None = None,
+    vo: str | None = None,
+    rfc: bool = True,
+    lifetime: str | float = "8 days",
+    password: str | None = None,
+    password_file: str | pathlib.Path | None = None,
+    silent: bool = False,
+) -> str | None:
     """
     Renews a voms proxy at *proxy_file* using an optional virtual organization name *vo*, and a
     default *lifetime* of 8 days, which is internally parsed by :py:func:`law.util.parse_duration`
@@ -219,15 +249,27 @@ def renew_vomsproxy(
     silent_pipe = subprocess.PIPE if silent else None
     if password_file:
         password_file = os.path.expandvars(os.path.expanduser(str(password_file)))
-        cmd = "cat \"{}\" | {}".format(password_file, quote_cmd(cmd))
-        code = interruptable_popen(cmd, shell=True, executable="/bin/bash", stdout=silent_pipe,
-            stderr=silent_pipe)[0]
+        cmd_str = f"cat \"{password_file}\" | {quote_cmd(cmd)}"
+        code = interruptable_popen(
+            cmd_str,
+            shell=True,
+            executable="/bin/bash",
+            stdout=silent_pipe,
+            stderr=silent_pipe,
+        )[0]
     else:
-        cmd = quote_cmd(cmd)
         stdin_callback = (lambda: password) if password else functools.partial(getpass.getpass, "")
-        code = interruptable_popen(cmd, shell=True, executable="/bin/bash", stdout=silent_pipe,
-            stderr=silent_pipe, stdin=subprocess.PIPE, stdin_callback=stdin_callback,
-            stdin_delay=0.2)[0]
+        cmd_str = quote_cmd(cmd)
+        code = interruptable_popen(
+            cmd_str,
+            shell=True,
+            executable="/bin/bash",
+            stdout=silent_pipe,
+            stderr=silent_pipe,
+            stdin=subprocess.PIPE,
+            stdin_callback=stdin_callback,  # type: ignore[arg-type]
+            stdin_delay=0.2,
+        )[0]
 
     if code == 0:
         return proxy_file
@@ -235,10 +277,16 @@ def renew_vomsproxy(
     if silent:
         return None
 
-    raise Exception("voms-proxy-init failed with code {}".format(code))
+    raise Exception(f"voms-proxy-init failed with code {code}")
 
 
-def delegate_vomsproxy_glite(endpoint, proxy_file=None, stdout=None, stderr=None, cache=True):
+def delegate_vomsproxy_glite(
+    endpoint: str,
+    proxy_file: str | pathlib.Path | None = None,
+    stdout: int | io.TextIO | None = None,
+    stderr: int | io.TextIO | None = None,
+    cache: bool | str | pathlib.Path = True,
+):
     """
     Delegates the voms proxy via gLite to an *endpoint*, e.g.
     ``grid-ce.physik.rwth-aachen.de:8443``. When *proxy_file* is *None*, it defaults to the result
@@ -253,15 +301,12 @@ def delegate_vomsproxy_glite(endpoint, proxy_file=None, stdout=None, stderr=None
         proxy_file = get_vomsproxy_file()
     proxy_file = os.path.expandvars(os.path.expanduser(str(proxy_file)))
     if not os.path.exists(proxy_file):
-        raise Exception("proxy file '{}' does not exist".format(proxy_file))
+        raise Exception(f"proxy file '{proxy_file}' does not exist")
 
     if cache:
-        if isinstance(cache, six.string_types):
-            cache_file = cache
-        else:
-            cache_file = proxy_file + "_delegation_cache.json"
+        cache_file = f"{proxy_file}_delegation_cache.json" if isinstance(cache, bool) else str(cache)
 
-        def remove_cache():
+        def remove_cache() -> None:
             try:
                 if os.path.exists(cache_file):
                     os.remove(cache_file)
@@ -295,7 +340,7 @@ def delegate_vomsproxy_glite(endpoint, proxy_file=None, stdout=None, stderr=None
     cmd = ["glite-ce-delegate-proxy", "-e", endpoint, delegation_id]
     code = interruptable_popen(cmd, stdout=stdout, stderr=stderr)[0]
     if code != 0:
-        raise Exception("glite proxy delegation to endpoint {} failed".format(endpoint))
+        raise Exception(f"glite proxy delegation to endpoint {endpoint} failed")
 
     if cache:
         # write the id back to the delegation file
@@ -309,21 +354,21 @@ def delegate_vomsproxy_glite(endpoint, proxy_file=None, stdout=None, stderr=None
 
 
 def delegate_myproxy(
-    endpoint="myproxy.cern.ch",
-    userkey=None,
-    usercert=None,
-    username=None,
-    encode_username=True,
-    cred_lifetime=720,
-    proxy_lifetime=168,
-    retrievers=None,
-    rfc=True,
-    vo=None,
-    create_local=False,
-    password=None,
-    password_file=None,
-    silent=False,
-):
+    endpoint: str = "myproxy.cern.ch",
+    userkey: str | pathlib.Path | None = None,
+    usercert: str | pathlib.Path | None = None,
+    username: str | None = None,
+    encode_username: bool = True,
+    cred_lifetime: int = 720,
+    proxy_lifetime: int = 168,
+    retrievers: str | None = None,
+    rfc: bool = True,
+    vo: str | None = None,
+    create_local: bool = False,
+    password: str | None = None,
+    password_file: str | pathlib.Path | None = None,
+    silent: bool = False,
+) -> str | None:
     """
     Delegates an X509 proxy to a myproxy server *endpoint*.
 
@@ -383,15 +428,27 @@ def delegate_myproxy(
     silent_pipe = subprocess.PIPE if silent else None
     if password_file:
         password_file = os.path.expandvars(os.path.expanduser(str(password_file)))
-        cmd = "{}cat \"{}\" | {} -S".format(rfc_export, password_file, quote_cmd(cmd))
-        code = interruptable_popen(cmd, shell=True, executable="/bin/bash", stdout=silent_pipe,
-            stderr=silent_pipe)[0]
+        cmd_str = f"{rfc_export}cat \"{password_file}\" | {quote_cmd(cmd)} -S"
+        code = interruptable_popen(
+            cmd_str,
+            shell=True,
+            executable="/bin/bash",
+            stdout=silent_pipe,
+            stderr=silent_pipe,
+        )[0]
     else:
-        cmd = "{}{}".format(rfc_export, quote_cmd(cmd))
         stdin_callback = (lambda: password) if password else functools.partial(getpass.getpass, "")
-        code = interruptable_popen(cmd, shell=True, executable="/bin/bash", stdout=silent_pipe,
-            stderr=silent_pipe, stdin=subprocess.PIPE, stdin_callback=stdin_callback,
-            stdin_delay=0.2)[0]
+        cmd_str = f"{rfc_export}{quote_cmd(cmd)}"
+        code = interruptable_popen(
+            cmd_str,
+            shell=True,
+            executable="/bin/bash",
+            stdout=silent_pipe,
+            stderr=silent_pipe,
+            stdin=subprocess.PIPE,
+            stdin_callback=stdin_callback,  # type: ignore[arg-type]
+            stdin_delay=0.2,
+        )[0]
 
     if code == 0:
         return username
@@ -399,10 +456,15 @@ def delegate_myproxy(
     if silent:
         return None
 
-    raise Exception("myproxy-init failed with code {}".format(code))
+    raise Exception(f"myproxy-init failed with code {code}")
 
 
-def get_myproxy_info(endpoint="myproxy.cern.ch", username=None, encode_username=True, silent=False):
+def get_myproxy_info(
+    endpoint: str = "myproxy.cern.ch",
+    username: str | None = None,
+    encode_username: bool = True,
+    silent: bool = False,
+) -> dict[str, str | int] | None:
     """
     Returns information about a previous myproxy delegation to a server *endpoint*. When *username*
     is *None*, the subject string of the certificate is used instead, and sha1 encoded if
@@ -421,16 +483,21 @@ def get_myproxy_info(endpoint="myproxy.cern.ch", username=None, encode_username=
 
     # build and run the command
     cmd = ["myproxy-info", "-s", endpoint, "-l", username]
-    code, out, _ = interruptable_popen(quote_cmd(cmd), shell=True, executable="/bin/bash",
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE if silent else None)
+    code, out, _ = interruptable_popen(
+        quote_cmd(cmd),
+        shell=True,
+        executable="/bin/bash",
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE if silent else None,
+    )
     if code != 0:
         if silent:
-            return
-        raise Exception("myproxy-info failed with code {}".format(code))
+            return None
+        raise Exception(f"myproxy-info failed with code {code}")
 
     # parse the output
-    info = {}
-    for line in out.strip().replace("\r\n", "\n").split("\n"):
+    info: dict[str, str | int] = {}
+    for line in str(out).strip().replace("\r\n", "\n").split("\n"):
         line = line.strip()
         if line.startswith("username: "):
             info["username"] = line[len("username: "):]
@@ -445,7 +512,7 @@ def get_myproxy_info(endpoint="myproxy.cern.ch", username=None, encode_username=
     return info
 
 
-def get_ce_endpoint(ce):
+def get_ce_endpoint(ce: str) -> str:
     """
     Extracts the endpoint from a computing element *ce* and returns it. Example:
 
