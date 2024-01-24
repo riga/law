@@ -4,62 +4,67 @@
 Custom luigi base task definitions.
 """
 
-__all__ = ["Task", "WrapperTask", "ExternalTask"]
+from __future__ import annotations
 
+__all__ = ["Task", "WrapperTask", "ExternalTask"]
 
 import sys
 import time
 import socket
+import pathlib
 import logging
-from collections import OrderedDict
-from contextlib import contextmanager
+import contextlib
 from abc import ABCMeta, abstractmethod
 import inspect
 
-import luigi
-import six
+import luigi  # type: ignore[import-untyped]
 
 from law.config import Config
 from law.parameter import NO_STR, CSVParameter
 from law.target.file import localize_file_targets
+from law.target.local import LocalFileTarget
 from law.parser import root_task, global_cmdline_values
 from law.logger import setup_logger
 from law.util import (
     no_value, abort, law_run, common_task_params, colored, uncolored, make_list, multi_match,
-    flatten, BaseStream, human_duration, patch_object, round_discrete, empty_context,
+    flatten, BaseStream, human_duration, patch_object, round_discrete, empty_context, make_set,
 )
 from law.logger import get_logger
+from law._types import Any, Sequence, Iterator, Generator, Callable, Iterable, T, TextIO
 
 
 logger = get_logger(__name__)
 
-getfullargspec = inspect.getfullargspec if six.PY3 else inspect.getargspec
-
 
 class BaseRegister(luigi.task_register.Register):
 
-    def __new__(metacls, classname, bases, classdict):
+    def __new__(
+        metacls,
+        cls_name: str,
+        bases: tuple[type],
+        cls_dict: dict[str, Any],
+    ) -> BaseRegister:
         # default attributes, irrespective of inheritance
-        classdict.setdefault("exclude_index", False)
+        cls_dict.setdefault("exclude_index", False)
 
         # unite "exclude_params_*" sets with those of all base classes
         for base in bases:
             for attr, base_params in vars(base).items():
                 if attr.startswith("exclude_params_") and isinstance(base_params, set):
-                    params = classdict.setdefault(attr, set())
+                    params = cls_dict.setdefault(attr, set())
                     if isinstance(params, set):
                         params.update(base_params)
 
         # remove those parameter names from "exclude_params_*" sets which are explicitly
         # listed in corresponding "include_params_*" sets defined on the class itself
-        for attr, include_params in classdict.items():
+        for attr, include_params in cls_dict.items():
             if attr.startswith("include_params_") and isinstance(include_params, set):
                 exclude_attr = "exclude" + attr[len("include"):]
-                if exclude_attr in classdict and isinstance(classdict[exclude_attr], set):
-                    classdict[exclude_attr] -= include_params
+                if exclude_attr in cls_dict and isinstance(cls_dict[exclude_attr], set):
+                    cls_dict[exclude_attr] -= include_params
 
-        # create the class
-        cls = ABCMeta.__new__(metacls, classname, bases, classdict)
+        # create the class, bypassing the luigi task register
+        cls = ABCMeta.__new__(metacls, cls_name, bases, cls_dict)
 
         # default attributes, apart from inheritance
         if getattr(cls, "update_register", None) is None:
@@ -76,26 +81,26 @@ class BaseRegister(luigi.task_register.Register):
         return cls
 
 
-class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
+class BaseTask(luigi.Task, metaclass=BaseRegister):
+
+    exclude_index = True
+    exclude_params_index: set[str] = set()
+    exclude_params_req: set[str] = set()
+    exclude_params_req_set: set[str] = set()
+    exclude_params_req_get: set[str] = set()
+    prefer_params_cli: set[str] = set()
 
     # whether to cache the result of requires() for input() and potentially also other calls
     cache_requirements = False
 
-    exclude_index = True
-    exclude_params_index = set()
-    exclude_params_req = set()
-    exclude_params_req_set = set()
-    exclude_params_req_get = set()
-    prefer_params_cli = set()
-
-    @staticmethod
-    def resource_name(name, host=None):
+    @classmethod
+    def resource_name(cls, name: str, host: str | None = None) -> str:
         if host is None:
             host = socket.gethostname().partition(".")[0]
-        return "{}_{}".format(host, name)
+        return f"{host}_{name}"
 
     @classmethod
-    def deregister(cls, task_cls=None):
+    def deregister(cls, task_cls: BaseRegister | None = None) -> bool:
         """
         Removes a task class *task_cls* from the luigi task register. When *None*, *this* class is
         used. Task family strings and patterns are accepted as well. *True* is returned when at
@@ -104,7 +109,7 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
         # always compare task families
         if task_cls is None:
             task_family = cls.get_task_family()
-        elif isinstance(task_cls, six.string_types):
+        elif isinstance(task_cls, str):
             task_family = task_cls
         else:
             task_family = task_cls.get_task_family()
@@ -123,12 +128,17 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
                 Register._reg.pop(i)
                 i -= 1
                 success = True
-                logger.debug("removed task class {} from register".format(registered_cls))
+                logger.debug(f"removed task class {registered_cls} from register")
 
         return success
 
     @classmethod
-    def modify_param_args(cls, params, args, kwargs):
+    def modify_param_args(
+        cls,
+        params: list[tuple[str, luigi.Parameter]],
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
+    ) -> tuple[list[tuple[str, luigi.Parameter]], tuple[Any, ...], dict[str, Any]]:
         """
         Hook to modify command line arguments before they are event created within
         :py:meth:`get_param_values`.
@@ -136,26 +146,28 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
         return params, args, kwargs
 
     @classmethod
-    def modify_param_values(cls, params):
+    def modify_param_values(cls, params: dict[str, Any]) -> dict[str, Any]:
         """
         Hook to modify command line arguments before instances of this class are created.
         """
         return params
 
     @classmethod
-    def get_param_values(cls, params, args, kwargs):
+    def get_param_values(
+        cls,
+        params: list[tuple[str, luigi.Parameter]],
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
+    ) -> list[Any]:
         # call the hook optionally modifying the values before values are assigned
         params, args, kwargs = cls.modify_param_args(params, args, kwargs)
 
         # assign to actual parameters
-        values = super(BaseTask, cls).get_param_values(params, args, kwargs)
+        values = super().get_param_values(params, args, kwargs)
 
         # parse left-over strings in case values were given programmatically, but unencoded
         values = [
-            (
-                name,
-                (getattr(cls, name).parse(value) if isinstance(value, six.string_types) else value),
-            )
+            (name, (getattr(cls, name).parse(value) if isinstance(value, str) else value))
             for name, value in values
         ]
 
@@ -164,24 +176,32 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
         param_names = {name for name, _ in params}
         values = [
             (name, value)
-            for name, value in cls.modify_param_values(OrderedDict(values)).items()
+            for name, value in cls.modify_param_values(dict(values)).items()
             if name in param_names
         ]
 
         return values
 
     @classmethod
-    def req(cls, inst, **kwargs):
+    def req(cls, inst: BaseTask, **kwargs) -> BaseTask:
         return cls(**cls.req_params(inst, **kwargs))
 
     @classmethod
-    def req_params(cls, inst, _exclude=None, _prefer_cli=None, _skip_task_excludes=False,
-            _skip_task_excludes_get=None, _skip_task_excludes_set=None, **kwargs):
+    def req_params(
+        cls,
+        inst: BaseTask,
+        _exclude: str | Sequence[str] | set[str] | None = None,
+        _prefer_cli: str | Sequence[str] | set[str] | None = None,
+        _skip_task_excludes: bool = False,
+        _skip_task_excludes_get: bool | None = None,
+        _skip_task_excludes_set: bool | None = None,
+        **kwargs,
+    ) -> dict[str, Any]:
         # common/intersection params
         params = common_task_params(inst, cls)
 
         # determine parameters to exclude
-        _exclude = set() if _exclude is None else set(make_list(_exclude))
+        _exclude = set() if _exclude is None else make_set(_exclude)
 
         # also use this class' req and req_get sets
         # and the req and req_set sets of the instance's class
@@ -205,12 +225,16 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
         params.update(kwargs)
 
         # remove params that are preferably set via cli class arguments
-        prefer_cli = set(cls.prefer_params_cli or ()) if _prefer_cli is None else set(_prefer_cli)
+        prefer_cli = (
+            make_set(cls.prefer_params_cli or ())
+            if _prefer_cli is None
+            else make_set(_prefer_cli)
+        )
         if prefer_cli:
             cls_args = []
             prefix = cls.get_task_family() + "_"
             if luigi.cmdline_parser.CmdlineParser.get_instance():
-                for key in global_cmdline_values().keys():
+                for key in (global_cmdline_values() or {}).keys():
                     if key.startswith(prefix):
                         cls_args.append(key[len(prefix):])
             for name in prefer_cli:
@@ -219,32 +243,30 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
 
         return params
 
-    def __init__(self, *args, **kwargs):
-        super(BaseTask, self).__init__(*args, **kwargs)
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
 
         # task level logger, created lazily
-        self._task_logger = None
+        self._task_logger: logging.Logger | None = None
 
         # attribute for cached requirements if enabled
         self._cached_requirements = no_value
 
-    def complete(self):
+    def complete(self) -> bool:
         # create a flat list of all outputs
         outputs = flatten(self.output())
 
         if len(outputs) == 0:
-            logger.warning("task {!r} has no outputs or no custom complete() method".format(self))
+            logger.warning(f"task {self!r} has no outputs or no custom complete() method")
             return True
 
         return all(t.complete() for t in outputs)
 
-    def input(self):
+    def input(self) -> Any:
         # get potentially cached requirements
         if self.cache_requirements:
             if self._cached_requirements is no_value:
                 self._cached_requirements = self.requires()
-            else:
-                print("BASETASK.INPUT() TAKING REQS FROM CACHE BITCHES")
             reqs = self._cached_requirements
         else:
             reqs = self.requires()
@@ -252,18 +274,18 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
         return luigi.task.getpaths(reqs)
 
     @abstractmethod
-    def run(self):
-        return
+    def run(self) -> None:
+        ...
 
-    def get_logger_name(self):
+    def get_logger_name(self) -> str:
         return self.task_id
 
-    def _create_logger(self, name, level=None):
+    def _create_logger(self, name: str, level: str | int | None = None) -> logging.Logger:
         return setup_logger(name, level=level)
 
     @property
-    def logger(self):
-        if not self._task_logger:
+    def logger(self) -> logging.Logger:
+        if self._task_logger is None:
             name = self.get_logger_name()
             existing = name in logging.root.manager.loggerDict
             self._task_logger = logging.getLogger(name) if existing else self._create_logger(name)
@@ -271,7 +293,7 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
         return self._task_logger
 
     @property
-    def live_task_id(self):
+    def live_task_id(self) -> str:
         """
         The task id depends on the task family and parameters, and is generated by luigi once in the
         constructor. As the latter may change, this property returns to the id with the current set
@@ -282,7 +304,7 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
         param_kwargs = {attr: getattr(self, attr) for attr in self.param_kwargs}
         # only_public was introduced in luigi 2.8.0, so check if that arg exists
         str_params_kwargs = {"only_significant": True}
-        if "only_public" in getfullargspec(self.to_str_params).args:
+        if "only_public" in inspect.getfullargspec(self.to_str_params).args:
             str_params_kwargs["only_public"] = True
         with patch_object(self, "param_kwargs", param_kwargs):
             str_params = self.to_str_params(**str_params_kwargs)
@@ -292,15 +314,19 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
 
         return task_id
 
-    def walk_deps(self, max_depth=-1, order="level", yield_last_flag=False):
+    def walk_deps(
+        self,
+        max_depth: int = -1,
+        order: str = "level",
+        yield_last_flag: bool = False,
+    ) -> Iterator[tuple[BaseTask, list[BaseTask], int] | tuple[BaseTask, list[BaseTask], int, bool]]:
         # see https://en.wikipedia.org/wiki/Tree_traversal
         if order not in ("level", "pre"):
-            raise ValueError("unknown traversal order '{}', use 'level' or 'pre'".format(order))
+            raise ValueError(f"unknown traversal order '{order}', use 'level' or 'pre'")
 
         # yielding the last flag as well is only available in 'pre' order
         if order != "pre" and yield_last_flag:
-            raise ValueError("yield_last_flag can only be used in 'pre' order, but got '{}'".format(
-                order))
+            raise ValueError(f"yield_last_flag can only be used in 'pre' order, but got '{order}'")
 
         tasks = [(self, 0)]
         while len(tasks):
@@ -314,7 +340,7 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
                 yield tpl
 
             # define the next deps, considering the maximum depth if set
-            deps = (
+            deps_gen = (
                 (d, depth + 1)
                 for d in deps
                 if max_depth < 0 or depth < max_depth
@@ -322,9 +348,9 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
 
             # add to the tasks run process, depending on the traversal order
             if order == "level":
-                tasks[len(tasks):] = deps
+                tasks[len(tasks):] = deps_gen
             elif order == "pre":
-                tasks[:0] = deps
+                tasks[:0] = deps_gen
 
             # when an additional flag should be yielded that denotes whether the object is the last
             # one in its depth, evaluate this decision here and then yield
@@ -333,12 +359,17 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
                 is_last = next_depth is None or next_depth < depth
                 yield tpl + (is_last,)
 
-    def cli_args(self, exclude=None, replace=None, skip_empty_bools=True):
-        exclude = set() if exclude is None else set(make_list(exclude))
+    def cli_args(
+        self,
+        exclude: str | Sequence[str] | set[str] | None = None,
+        replace: dict[str, Any] | None = None,
+        skip_empty_bools: bool = True,
+    ) -> dict[str, str]:
+        exclude = set() if exclude is None else make_set(exclude)
         if replace is None:
             replace = {}
 
-        args = OrderedDict()
+        args = {}
         for name, param in self.get_params():
             # skip excluded parameters
             if multi_match(name, exclude, any):
@@ -356,8 +387,8 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
 
 class Register(BaseRegister):
 
-    def __call__(cls, *args, **kwargs):
-        inst = super(Register, cls).__call__(*args, **kwargs)
+    def __call__(cls, *args, **kwargs) -> Task:
+        inst = super().__call__(*args, **kwargs)
 
         # check for interactive parameters
         for param in inst.interactive_params:
@@ -371,9 +402,7 @@ class Register(BaseRegister):
 
                 skip_abort = False
                 try:
-                    logger.debug("evaluating interactive parameter '{}' with value {}".format(
-                        param, value))
-
+                    logger.debug(f"evaluating interactive parameter '{param}' with value {value}")
                     skip_abort = getattr(inst, "_" + param)(value)
 
                 except KeyboardInterrupt:
@@ -387,7 +416,7 @@ class Register(BaseRegister):
         return inst
 
 
-class Task(six.with_metaclass(Register, BaseTask)):
+class Task(BaseTask, metaclass=Register):
 
     log_file = luigi.Parameter(
         default=NO_STR,
@@ -445,49 +474,60 @@ class Task(six.with_metaclass(Register, BaseTask)):
     skip_output_removal = False
 
     exclude_index = True
-    exclude_params_req = set()
-    exclude_params_repr = set()
-    exclude_params_repr_empty = set()
+    exclude_params_req: set[str] = set()
+    exclude_params_repr: set[str] = set()
+    exclude_params_repr_empty: set[str] = set()
 
     @classmethod
-    def req_params(cls, inst, _exclude=None, _prefer_cli=None, **kwargs):
-        _exclude = set() if _exclude is None else set(make_list(_exclude))
+    def req_params(  # type: ignore[override]
+        cls,
+        inst: Task,
+        _exclude: str | Sequence[str] | set[str] | None = None,
+        _prefer_cli: str | Sequence[str] | set[str] | None = None,
+        **kwargs,
+    ) -> dict[str, Any]:
+        _exclude = set() if _exclude is None else make_set(_exclude)
 
         # always exclude interactive parameters
         _exclude |= set(inst.interactive_params)
 
-        return super(Task, cls).req_params(inst, _exclude=_exclude, _prefer_cli=_prefer_cli,
-            **kwargs)
+        return super().req_params(inst, _exclude=_exclude, _prefer_cli=_prefer_cli, **kwargs)
 
-    def __init__(self, *args, **kwargs):
-        super(Task, self).__init__(*args, **kwargs)
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
 
         # cache for messages published to the scheduler
-        self._message_cache = []
+        self._message_cache: list[str] = []
 
         # cache for the last progress published to the scheduler
-        self._last_progress_percentage = None
+        self._last_progress_percentage: int | None = None
 
     @property
-    def default_log_file(self):
+    def default_log_file(self) -> str | pathlib.Path | LocalFileTarget:
         return "-"
 
-    def is_root_task(self):
+    def is_root_task(self) -> bool:
         return root_task() == self
 
-    def publish_message(self, msg, stdout=sys.stdout, scheduler=True, **kwargs):
+    def publish_message(
+        self,
+        msg: Any,
+        stdout: TextIO = sys.stdout,
+        scheduler: bool = True,
+        **kwargs,
+    ) -> None:
         msg = str(msg)
 
         # write to stdout
         if stdout:
-            stdout.write(msg + "\n")
+            stdout.write(f"{msg}\n")
             stdout.flush()
 
         # publish to the scheduler
         if scheduler:
             self._publish_message(msg, **kwargs)
 
-    def _publish_message(self, msg, flush_cache=False, silent=False):
+    def _publish_message(self, msg: Any, flush_cache: bool = False, silent: bool = False) -> None:
         msg = uncolored(str(msg))
 
         # flush the message cache?
@@ -506,17 +546,28 @@ class Task(six.with_metaclass(Register, BaseTask)):
         elif not silent:
             logger.warning("set_status_message not set, cannot send task message to scheduler")
 
-    def _create_message_stream(self, *args, **kwargs):
+    def _create_message_stream(self, *args, **kwargs) -> TaskMessageStream:
         return TaskMessageStream(self, *args, **kwargs)
 
-    def _create_logger(self, name, level=None, **kwargs):
-        return setup_logger(name, level=level, add_console_handler={
-            "handler_kwargs": {"stream": self._create_message_stream(**kwargs)},
-        })
+    def _create_logger(self, name: str, level: str | int | None = None, **kwargs) -> logging.Logger:
+        return setup_logger(
+            name,
+            level=level,
+            add_console_handler={
+                "handler_kwargs": {"stream": self._create_message_stream(**kwargs)},
+            },
+        )
 
-    @contextmanager
-    def publish_step(self, msg, success_message="done", fail_message="failed", runtime=True,
-            scheduler=True, flush_cache=False):
+    @contextlib.contextmanager
+    def publish_step(
+        self,
+        msg: Any,
+        success_message: str = "done",
+        fail_message: str = "failed",
+        runtime: bool = True,
+        scheduler: bool = True,
+        flush_cache: bool = False,
+    ) -> Iterator[None]:
         self.publish_message(msg, scheduler=scheduler, flush_cache=flush_cache)
         success = False
         t0 = time.perf_counter()
@@ -527,10 +578,10 @@ class Task(six.with_metaclass(Register, BaseTask)):
             msg = success_message if success else fail_message
             if runtime:
                 diff = time.perf_counter() - t0
-                msg = "{} (took {})".format(msg, human_duration(seconds=diff))
+                msg = f"{msg} (took {human_duration(seconds=diff)})"
             self.publish_message(msg, scheduler=scheduler, flush_cache=flush_cache)
 
-    def publish_progress(self, percentage, precision=1):
+    def publish_progress(self, percentage: int | float, precision: int = 1):
         percentage = int(round_discrete(percentage, precision, "floor"))
         if percentage != self._last_progress_percentage:
             self._last_progress_percentage = percentage
@@ -538,12 +589,18 @@ class Task(six.with_metaclass(Register, BaseTask)):
             if callable(getattr(self, "set_progress_percentage", None)):
                 self.set_progress_percentage(percentage)
             else:
-                logger.warning("set_progress_percentage not set, cannot send task progress to "
-                    "scheduler")
+                logger.warning(
+                    "set_progress_percentage not set, cannot send task progress to scheduler",
+                )
 
-    def create_progress_callback(self, n_total, reach=(0, 100), precision=1):
-        def make_callback(n, start, end):
-            def callback(i):
+    def create_progress_callback(
+        self,
+        n_total: int,
+        reach: tuple[int, int] = (0, 100),
+        precision: int = 1,
+    ) -> Callable[[int], None]:
+        def make_callback(n, start, end) -> Callable[[int], None]:
+            def callback(i: int) -> None:
                 self.publish_progress(start + (i + 1) / float(n) * (end - start), precision)
             return callback
 
@@ -551,10 +608,17 @@ class Task(six.with_metaclass(Register, BaseTask)):
             width = 100.0 / len(n_total)
             reaches = [(width * i, width * (i + 1)) for i in range(len(n_total))]
             return n_total.__class__(make_callback(n, *r) for n, r in zip(n_total, reaches))
-        else:
-            return make_callback(n_total, *reach)
 
-    def iter_progress(self, iterable, n_total, reach=(0, 100), precision=1, msg=None):
+        return make_callback(n_total, *reach)
+
+    def iter_progress(
+        self,
+        iterable: Iterable[T],
+        n_total: int,
+        reach: tuple[int, int] = (0, 100),
+        precision: int = 1,
+        msg: Any | None = None,
+    ) -> Iterator[T]:
         # create a progress callback with all arguments
         progress_callback = self.create_progress_callback(n_total, reach=reach, precision=precision)
 
@@ -567,23 +631,33 @@ class Task(six.with_metaclass(Register, BaseTask)):
                 yield val
                 progress_callback(i)
 
-    def cli_args(self, exclude=None, replace=None):
-        exclude = set() if exclude is None else set(make_list(exclude))
+    def cli_args(
+        self,
+        exclude: str | Sequence[str] | set[str] | None = None,
+        replace: dict[str, Any] | None = None,
+        skip_empty_bools: bool = True,
+    ) -> dict[str, str]:
+        exclude = set() if exclude is None else make_set(exclude)
 
         # always exclude interactive parameters
         exclude |= set(self.interactive_params)
 
-        return super(Task, self).cli_args(exclude=exclude, replace=replace)
+        return super().cli_args(exclude=exclude, replace=replace, skip_empty_bools=skip_empty_bools)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         color = Config.instance().get_expanded_bool("task", "colored_repr")
         return self.repr(color=color)
 
-    def __str__(self):
+    def __str__(self) -> str:
         color = Config.instance().get_expanded_bool("task", "colored_str")
         return self.repr(color=color)
 
-    def repr(self, all_params=False, color=None, **kwargs):
+    def repr(
+        self,
+        all_params: bool = False,
+        color: bool | None = None,
+        **kwargs,
+    ) -> str:
         if color is None:
             color = Config.instance().get_expanded_bool("task", "colored_repr")
 
@@ -591,15 +665,15 @@ class Task(six.with_metaclass(Register, BaseTask)):
 
         parts = [
             self._repr_param(name, value, color=color, **kwargs)
-            for name, value in six.iteritems(self._repr_params(all_params=all_params))
+            for name, value in self._repr_params(all_params=all_params).items()
         ] + [
             self._repr_flag(flag, color=color, **kwargs)
             for flag in self._repr_flags()
         ]
 
-        return "{}({})".format(family, ", ".join(parts))
+        return f"{family}({', '.join(parts)})"
 
-    def _repr_params(self, all_params=False):
+    def _repr_params(self, all_params: bool = False) -> dict[str, Any]:
         # determine parameters to exclude
         exclude = set()
         if not all_params:
@@ -607,7 +681,7 @@ class Task(six.with_metaclass(Register, BaseTask)):
             exclude |= set(self.interactive_params)
 
         # build a map "name -> value" for all significant parameters
-        params = OrderedDict()
+        params = {}
         for name, param in self.get_params():
             value = getattr(self, name)
             include = (
@@ -620,55 +694,70 @@ class Task(six.with_metaclass(Register, BaseTask)):
 
         return params
 
-    def _repr_flags(self):
+    def _repr_flags(self) -> list[str]:
         return []
 
     def _repr_family(self, family: str, color: bool = False, **kwargs) -> str:
         return colored(family, "green") if color else family
 
-    def _repr_param(self, name, value, color=False, serialize=True, **kwargs):
+    def _repr_param(
+        self,
+        name: str,
+        value: Any,
+        color: bool = False,
+        serialize: bool = True,
+        **kwargs,
+    ) -> str:
         # try to serialize first unless explicitly disabled
         if serialize:
             param = getattr(self.__class__, name, no_value)
             if param != no_value:
                 value = param.serialize(value) if isinstance(param, luigi.Parameter) else param
 
-        return "{}={}".format(colored(name, color="blue", style="bright") if color else name, value)
+        name_repr = colored(name, color="blue", style="bright") if color else name
+        return f"{name_repr}={value}"
 
-    def _repr_flag(self, name, color=False, **kwargs):
+    def _repr_flag(self, name: str, color: bool = False, **kwargs) -> str:
         return colored(name, color="magenta") if color else name
 
-    def _print_deps(self, args):
+    def _print_deps(self, args: tuple) -> None:
         return print_task_deps(self, *args)
 
-    def _print_status(self, args):
+    def _print_status(self, args: tuple) -> None:
         return print_task_status(self, *args)
 
-    def _print_output(self, args):
+    def _print_output(self, args: tuple) -> None:
         return print_task_output(self, *args)
 
-    def _remove_output(self, args):
+    def _remove_output(self, args: tuple) -> bool:
         return remove_task_output(self, *args)
 
-    def _fetch_output(self, args):
+    def _fetch_output(self, args: tuple) -> None:
         return fetch_task_output(self, *args)
 
     @classmethod
-    def _law_run_inst(cls, inst, _exclude=None, _replace=None, _global=None, _run_kwargs=None):
+    def _law_run_inst(
+        cls,
+        inst: Task,
+        _exclude: str | Sequence[str] | set[str] | None = None,
+        _replace: dict[str, Any] | None = None,
+        _global_args: str | Sequence[str] | set[str] | None = None,
+        _run_kwargs: dict[str, Any] | None = None,
+    ) -> int:
         # get the cli arguments
         args = inst.cli_args(exclude=_exclude, replace=_replace)
 
         # prepend a space to values starting with "-"
         for key, value in args.items():
             if value.startswith("-"):
-                args[key] = " {}".format(value)
+                args[key] = f" {value}"
 
         # flatten them
-        flat_args = sum((make_list(tpl) for tpl in args.items()), [])
+        flat_args = sum(map(make_list, args.items()), [])
 
         # add global parameters when given
-        if _global:
-            flat_args.extend([str(arg) for arg in make_list(_global)])
+        if _global_args:
+            flat_args.extend([str(arg) for arg in make_list(_global_args)])
 
         # build the full command
         cmd = [cls.get_task_family()] + flat_args
@@ -677,25 +766,49 @@ class Task(six.with_metaclass(Register, BaseTask)):
         return law_run(cmd, **(_run_kwargs or {}))
 
     @classmethod
-    def law_run_inst(cls, _exclude=None, _replace=None, _global=None, _run_kwargs=None, **kwargs):
+    def law_run_inst(
+        cls,
+        _exclude: str | Sequence[str] | set[str] | None = None,
+        _replace: dict[str, Any] | None = None,
+        _global_args: str | Sequence[str] | set[str] | None = None,
+        _run_kwargs: dict[str, Any] | None = None,
+        **kwargs,
+    ) -> int:
         # create a new instance
         inst = cls(**kwargs)
 
-        return cls._law_run_inst(inst, _exclude=_exclude, _replace=_replace, _global=_global,
-            _run_kwargs=_run_kwargs)
+        return cls._law_run_inst(
+            inst,
+            _exclude=_exclude,
+            _replace=_replace,
+            _global_args=_global_args,
+            _run_kwargs=_run_kwargs,
+        )
 
-    def law_run(self, _exclude=None, _replace=None, _global=None, _run_kwargs=None, **kwargs):
+    def law_run(
+        self,
+        _exclude: str | Sequence[str] | set[str] | None = None,
+        _replace: dict[str, Any] | None = None,
+        _global_args: str | Sequence[str] | set[str] | None = None,
+        _run_kwargs: dict[str, Any] | None = None,
+        **kwargs,
+    ) -> int:
         # when kwargs are given, create a new instance
         inst = self.req(self, **kwargs) if kwargs else self
 
-        return self._law_run_inst(inst, _exclude=_exclude, _replace=_replace, _global=_global,
-            _run_kwargs=_run_kwargs)
+        return self._law_run_inst(
+            inst,
+            _exclude=_exclude,
+            _replace=_replace,
+            _global_args=_global_args,
+            _run_kwargs=_run_kwargs,
+        )
 
-    def localize_input(self, *args, **kwargs):
-        return localize_file_targets(self.input(), *args, **kwargs)
+    def localize_input(self, *args, **kwargs) -> Generator[Any, None, None]:
+        return localize_file_targets(self.input(), *args, **kwargs)  # type: ignore[return-value]
 
-    def localize_output(self, *args, **kwargs):
-        return localize_file_targets(self.output(), *args, **kwargs)
+    def localize_output(self, *args, **kwargs) -> Generator[Any, None, None]:
+        return localize_file_targets(self.output(), *args, **kwargs)  # type: ignore[return-value]
 
 
 class WrapperTask(Task):
@@ -706,10 +819,10 @@ class WrapperTask(Task):
 
     exclude_index = True
 
-    def _repr_flags(self):
-        return super(WrapperTask, self)._repr_flags() + ["wrapper"]
+    def _repr_flags(self) -> list[str]:
+        return super()._repr_flags() + ["wrapper"]
 
-    def complete(self):
+    def complete(self) -> bool:
         # get potentially cached requirements
         if self.cache_requirements:
             if self._cached_requirements is no_value:
@@ -720,10 +833,10 @@ class WrapperTask(Task):
 
         return all(task.complete() for task in flatten(reqs))
 
-    def output(self):
+    def output(self) -> Any:
         return self.input()
 
-    def run(self):
+    def run(self) -> None:
         return
 
 
@@ -731,26 +844,38 @@ class ExternalTask(Task):
 
     exclude_index = True
 
-    run = None
+    run = None  # type: ignore[assignment]
 
-    def _repr_flags(self):
+    def _repr_flags(self) -> list[str]:
         return super(ExternalTask, self)._repr_flags() + ["external"]
 
 
 class TaskMessageStream(BaseStream):
 
-    def __init__(self, task, stdout=sys.stdout, scheduler=True, flush_cache=False, **kwargs):
-        super(TaskMessageStream, self).__init__(**kwargs)
+    def __init__(
+        self,
+        task: Task,
+        stdout: TextIO = sys.stdout,
+        scheduler: bool = True,
+        flush_cache: bool = False,
+        **kwargs,
+    ) -> None:
+        super().__init__(**kwargs)
 
         self.task = task
         self.stdout = stdout
         self.scheduler = scheduler
         self.flush_cache = flush_cache
 
-    def _write(self, msg):
+    def _write(self, msg: Any) -> None:
         # foward to publish_message
-        self.task.publish_message(msg.rstrip("\n"), stdout=self.stdout, scheduler=self.scheduler,
-            flush_cache=self.flush_cache, silent=True)
+        self.task.publish_message(
+            str(msg).rstrip("\n"),
+            stdout=self.stdout,
+            scheduler=self.scheduler,
+            flush_cache=self.flush_cache,
+            silent=True,
+        )
 
 
 # trailing imports

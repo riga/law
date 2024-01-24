@@ -9,7 +9,6 @@ from __future__ import annotations
 __all__ = ["Sandbox", "SandboxTask"]
 
 import os
-import io
 import pathlib
 import sys
 import shlex
@@ -32,7 +31,7 @@ from law.util import (
     flatten, classproperty,
 )
 from law.logger import get_logger
-from law._types import Any, Hashable, Iterator, MutableMapping
+from law._types import Any, Hashable, Iterator, MutableMapping, TextIO
 
 
 logger = get_logger(__name__)
@@ -234,8 +233,8 @@ class Sandbox(object, metaclass=ABCMeta):
     def run(
         self,
         cmd: str,
-        stdout: int | io.TextIO | None = None,
-        stderr: int | io.TextIO | None = None,
+        stdout: int | TextIO | None = None,
+        stderr: int | TextIO | None = None,
     ):
         if stdout is None:
             stdout = sys.stdout

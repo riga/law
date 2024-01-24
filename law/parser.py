@@ -8,7 +8,6 @@ from __future__ import annotations
 
 __all__: list[str] = []
 
-from collections import OrderedDict
 from argparse import ArgumentParser
 
 import luigi  # type: ignore[import-untyped]
@@ -133,7 +132,7 @@ def global_cmdline_args(exclude: Sequence[str] | None = None) -> dict[str, str] 
         if _root_task_parser is None:
             return None
 
-        _global_cmdline_args = OrderedDict()
+        _global_cmdline_args = {}
         args: list[str] = list(_root_task_parser.parse_known_args(luigi_parser.cmdline_args)[1])
 
         # expand bool flags
@@ -147,6 +146,7 @@ def global_cmdline_args(exclude: Sequence[str] | None = None) -> dict[str, str] 
             # get the corresponding value which is either part of the argument itself in the format
             # "--arg=value" or passed in the next argument which must not start with "--" (in this
             # case it is interpreted as a boolean "True" value)
+            value: str
             if "=" in arg:
                 arg, value = arg.split("=", 1)
             elif args and not args[0].startswith("--"):
@@ -160,7 +160,7 @@ def global_cmdline_args(exclude: Sequence[str] | None = None) -> dict[str, str] 
 
     if exclude:
         # create a copy and remove excluded keys
-        global_args = OrderedDict(global_args)
+        global_args = dict(global_args)
         for key in exclude:
             if not key.startswith("--"):
                 key = "--" + key.lstrip("-")

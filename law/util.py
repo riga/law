@@ -357,7 +357,7 @@ def str_to_int(s: str) -> int:
     return int(s, base=base)
 
 
-def flag_to_bool(s: str, silent: bool = False) -> bool | None:
+def flag_to_bool(s: str | bool, silent: bool = False) -> bool | None:
     """
     Takes a string flag *s* and returns whether it evaluates to *True* (values ``"1"``, ``"true"``
     ``"yes"``, ``"y"``, ``"on"``, case-insensitive) or *False* (values ``"0"``, ``"false"``,
@@ -2267,7 +2267,7 @@ def patch_object(
 def join_generators(
     *generators: GeneratorType,
     on_error: Callable[[Exception | KeyboardInterrupt], None] | None = None,
-) -> GeneratorType:
+) -> Generator[Any, None, None]:
     """
     Joins multiple *generators* and returns a single generator for simplified iteration. Yielded
     objects are transparently sent back to ``yield`` assignments of the same generator. When
@@ -2276,7 +2276,7 @@ def join_generators(
     iterations continue. Otherwise, the exception is raised.
     """
     for gen in generators:
-        last_result = no_value
+        last_result: Any = no_value
         while True:
             try:
                 if last_result == no_value:
@@ -2286,10 +2286,9 @@ def join_generators(
             except StopIteration:
                 break
             except (Exception, KeyboardInterrupt) as error:
-                if callable(on_error) and on_error(error):
-                    last_result = no_value
-                else:
+                if not callable(on_error) or not on_error(error):
                     raise
+                last_result = no_value
 
 
 def quote_cmd(cmd: str | Sequence[str]) -> str:

@@ -576,7 +576,7 @@ def localize(
                 def input_patched(self):
                     return localized_inputs
 
-                task.input = _patch_localized_method(task, input_patched)
+                task.input = _patch_localized_method(task, input_patched)  # type: ignore[method-assign] # noqa
 
             # patch the output method to always return the localized outputs
             if opts["output"]:
@@ -590,7 +590,7 @@ def localize(
     finally:
         # restore the methods
         if input_orig is not None:
-            task.input = input_orig
+            task.input = input_orig  # type: ignore[method-assign]
         if output_orig is not None:
             task.output = output_orig
 

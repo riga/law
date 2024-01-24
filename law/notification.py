@@ -54,4 +54,10 @@ def notify_mail(
     if smtp_port:
         mail_kwargs["smtp_port"] = smtp_port
 
-    return send_mail(recipient, sender, title, uncolored(message), **mail_kwargs)
+    return send_mail(
+        recipient=recipient,
+        sender=sender,
+        subject=title,
+        content=uncolored(message),
+        **mail_kwargs,  # type: ignore[arg-type]
+    )

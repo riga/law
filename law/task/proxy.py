@@ -4,17 +4,17 @@
 Proxy task definition and helpers.
 """
 
+from __future__ import annotations
+
 __all__ = ["ProxyTask", "ProxyCommand", "get_proxy_attribute"]
 
-
 import shlex
-
-import six
 
 from law.task.base import BaseRegister, BaseTask, Task
 from law.parameter import TaskInstanceParameter
 from law.parser import global_cmdline_args
 from law.util import quote_cmd
+from law._types import Any, Sequence
 
 
 _forward_workflow_attributes = {"requires", "output", "complete", "run"}
@@ -32,7 +32,7 @@ class ProxyRegister(BaseRegister):
 ProxyRegister.disable_instance_cache()
 
 
-class ProxyTask(six.with_metaclass(ProxyRegister, BaseTask)):
+class ProxyTask(BaseTask, metaclass=ProxyRegister):
 
     task = TaskInstanceParameter()
 
@@ -45,42 +45,48 @@ class ProxyCommand(object):
 
     def __init__(
         self,
-        task,
-        exclude_task_args=None,
-        exclude_global_args=None,
-        executable="law",
+        task: Task,
+        exclude_task_args: Sequence[str] | None = None,
+        exclude_global_args: Sequence[str] | None = None,
+        executable: str | Sequence[str] = "law",
     ):
-        super(ProxyCommand, self).__init__()
+        super().__init__()
 
         self.task = task
-        self.args = self.load_args(
+        self.args: list[tuple[str, str]] = self.load_args(
             exclude_task_args=exclude_task_args,
             exclude_global_args=exclude_global_args,
         )
-        self.executable = None
+        self.executable: list[str] = []
         if isinstance(executable, (list, tuple)):
             self.executable = list(executable)
         elif executable:
             self.executable = shlex.split(str(executable))
 
-    def load_args(self, exclude_task_args=None, exclude_global_args=None):
-        args = []
+    def load_args(
+        self,
+        exclude_task_args=None,
+        exclude_global_args=None,
+    ) -> list[tuple[str, str]]:
+        args: list[tuple[str, str]] = []
 
         # add cli args as key value tuples
         args.extend(self.task.cli_args(exclude=exclude_task_args).items())
 
         # add global args as key value tuples
-        args.extend(global_cmdline_args(exclude=exclude_global_args).items())
+        global_args = global_cmdline_args(exclude=exclude_global_args)
+        if global_args:
+            args.extend(global_args.items())
 
         return args
 
-    def remove_arg(self, key):
+    def remove_arg(self, key: str) -> None:
         if not key.startswith("--"):
             key = "--" + key.lstrip("-")
 
-        self.args = [tpl for tpl in self.args if tpl[0] != key]
+        self.args = [(k, v) for k, v in self.args if k != key]
 
-    def add_arg(self, key, value, overwrite=False):
+    def add_arg(self, key: str, value: str, overwrite: bool = False) -> None:
         if not key.startswith("--"):
             key = "--" + key.lstrip("-")
 
@@ -89,15 +95,15 @@ class ProxyCommand(object):
 
         self.args.append((key, value))
 
-    def build_run_cmd(self, executable=None):
+    def build_run_cmd(self, executable: str | Sequence[str] | None = None) -> list[str]:
         exe = self.executable
         if isinstance(executable, (list, tuple)):
             exe = list(executable)
         elif executable:
             exe = shlex.split(str(executable))
-        return exe + ["run", "{}.{}".format(self.task.__module__, self.task.__class__.__name__)]
+        return exe + ["run", f"{self.task.__module__}.{self.task.__class__.__name__}"]
 
-    def build(self, skip_run=False, executable=None):
+    def build(self, skip_run: bool = False, executable: str | Sequence[str] | None = None) -> str:
         # start with the run command
         cmd = [] if skip_run else self.build_run_cmd(executable=executable)
 
@@ -105,17 +111,22 @@ class ProxyCommand(object):
         for key, value in self.args:
             cmd.extend([key, self.arg_sep, value])
 
-        cmd = " ".join(quote_cmd([c]) for c in cmd)
-        cmd = cmd.replace(" " + self.arg_sep + " ", "=")
+        cmd_str = " ".join(quote_cmd([c]) for c in cmd)
+        cmd_str = cmd_str.replace(f" {self.arg_sep} ", "=")
 
-        return cmd
+        return cmd_str
 
-    def __str__(self):
+    def __str__(self) -> str:
         # default command
         return self.build()
 
 
-def get_proxy_attribute(task, attr, proxy=True, super_cls=Task):
+def get_proxy_attribute(
+    task: BaseTask,
+    attr: str,
+    proxy: bool = True,
+    super_cls: BaseRegister = BaseTask,
+) -> Any:
     """
     Returns an attribute *attr* of a *task* taking into account possible proxies such as owned by
     workflow (:py:class:`BaseWorkflow`) or sandbox tasks (:py:class:`SandboxTask`). The reason for
@@ -125,8 +136,11 @@ def get_proxy_attribute(task, attr, proxy=True, super_cls=Task):
     """
     if proxy:
         # priority to workflow proxy forwarding, fallback to sandbox proxy or super class
-        if attr in _forward_workflow_attributes and isinstance(task, BaseWorkflow) \
-                and task.is_workflow():
+        if (
+            attr in _forward_workflow_attributes and
+            isinstance(task, BaseWorkflow) and
+            task.is_workflow()
+        ):
             return getattr(task.workflow_proxy, attr)
 
         if attr in _forward_sandbox_attributes and isinstance(task, SandboxTask):
@@ -137,7 +151,7 @@ def get_proxy_attribute(task, attr, proxy=True, super_cls=Task):
             if attr == "output" and _sandbox_stageout_dir and task.is_sandboxed():
                 return task._staged_output
 
-    return super_cls.__getattribute__(task, attr)
+    return super_cls.__getattribute__(task, attr)  # type: ignore[call-arg]
 
 
 # trailing imports

@@ -22,6 +22,7 @@ from law.config import Config
 import law.target.luigi_shims as shims
 from law.target.base import Target
 from law.util import map_struct, create_random_string, human_bytes, no_value
+from law._types import Any, Generator
 
 
 class FileSystem(shims.FileSystem):
@@ -521,7 +522,7 @@ def remove_scheme(uri):
 
 
 @contextmanager
-def localize_file_targets(struct, *args, **kwargs):
+def localize_file_targets(struct, *args, **kwargs) -> Generator[Any, None, None]:
     """
     Takes an arbitrary *struct* of targets, opens the contexts returned by their
     :py:meth:`FileSystemFileTarget.localize` implementations and yields their localized

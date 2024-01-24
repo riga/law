@@ -17,15 +17,15 @@ from law._types import Callable, Any, Iterator
 
 
 def cache_by_status(
-    func: Callable[[Any, dict, str, int, ...], Any],
-) -> Callable[[dict, str, int, ...], Any]:
+    func: Callable[[Any, dict, str, int], Any],
+) -> Callable[[dict, str, int], Any]:
     """
     Decorator for :py:meth:`BaseJobDashboard.publish` (and inheriting classes) that caches the last
     published status to decide if the a new publication is necessary or not. When the status did not
     change since the last call, the actual publish method is not invoked and *None* is returned.
     """
     @functools.wraps(func)
-    def wrapper(self, job_data: dict, event: str, job_num: int, *args, **kwargs):
+    def wrapper(self, job_data: dict, event: str, job_num: int, *args, **kwargs) -> None | Any:
         job_id = job_data["job_id"]
         dashboard_status = self.map_status(job_data.get("status"), event)
 

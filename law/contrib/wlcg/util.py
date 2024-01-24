@@ -16,7 +16,6 @@ __all__ = [
 
 import os
 import re
-import io
 import subprocess
 import uuid
 import json
@@ -29,6 +28,7 @@ from law.util import (
     interruptable_popen, create_hash, human_duration, parse_duration, quote_cmd,
 )
 from law.logger import get_logger
+from law._types import TextIO
 
 
 logger = get_logger(__name__)
@@ -283,8 +283,8 @@ def renew_vomsproxy(
 def delegate_vomsproxy_glite(
     endpoint: str,
     proxy_file: str | pathlib.Path | None = None,
-    stdout: int | io.TextIO | None = None,
-    stderr: int | io.TextIO | None = None,
+    stdout: int | TextIO | None = None,
+    stderr: int | TextIO | None = None,
     cache: bool | str | pathlib.Path = True,
 ):
     """
