@@ -4,15 +4,17 @@
 Local workflow implementation.
 """
 
+from __future__ import annotations
+
 __all__ = ["LocalWorkflow"]
 
 from collections.abc import Generator
 
-import luigi
+import luigi  # type: ignore[import-untyped]
 
-from law import luigi_version_info
 from law.workflow.base import BaseWorkflow, BaseWorkflowProxy
 from law.util import DotDict
+from law._types import Any, Iterator
 
 
 class LocalWorkflowProxy(BaseWorkflowProxy):
@@ -22,13 +24,13 @@ class LocalWorkflowProxy(BaseWorkflowProxy):
 
     workflow_type = "local"
 
-    def __init__(self, *args, **kwargs):
-        super(LocalWorkflowProxy, self).__init__(*args, **kwargs)
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
 
         self._local_workflow_has_yielded = False
 
-    def requires(self):
-        reqs = super(LocalWorkflowProxy, self).requires()
+    def requires(self) -> Any:
+        reqs = super().requires()
 
         local_reqs = self.task.local_workflow_requires()
         if local_reqs:
@@ -40,7 +42,7 @@ class LocalWorkflowProxy(BaseWorkflowProxy):
 
         return reqs
 
-    def run(self):
+    def run(self) -> None | Iterator[Any]:
         """
         When *local_workflow_require_branches* of the task was set to *False*, starts all branch
         tasks via dynamic dependencies by yielding them in a list, or simply does nothing otherwise.
@@ -49,7 +51,7 @@ class LocalWorkflowProxy(BaseWorkflowProxy):
         if isinstance(pre_run_gen, Generator):
             yield pre_run_gen
 
-        super(LocalWorkflowProxy, self).run()
+        super().run()
 
         if not self.task.local_workflow_require_branches and not self._local_workflow_has_yielded:
             self._local_workflow_has_yielded = True
@@ -57,11 +59,8 @@ class LocalWorkflowProxy(BaseWorkflowProxy):
             # use branch tasks as requirements
             reqs = list(self.task.get_branch_tasks().values())
 
-            # wrap into DynamicRequirements when available, otherwise just yield the list
-            if luigi_version_info[:3] >= (3, 1, 2):
-                yield luigi.DynamicRequirements(reqs, lambda complete_fn: complete_fn(self))
-            else:
-                yield reqs
+            # wrap into DynamicRequirements
+            yield luigi.DynamicRequirements(reqs, lambda complete_fn: complete_fn(self))
 
 
 class LocalWorkflow(BaseWorkflow):
@@ -96,8 +95,8 @@ class LocalWorkflow(BaseWorkflow):
 
     exclude_index = True
 
-    def local_workflow_requires(self):
+    def local_workflow_requires(self) -> DotDict:
         return DotDict()
 
-    def local_workflow_pre_run(self):
+    def local_workflow_pre_run(self) -> None:
         return

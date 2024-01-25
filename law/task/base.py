@@ -274,7 +274,7 @@ class BaseTask(luigi.Task, metaclass=BaseRegister):
         return luigi.task.getpaths(reqs)
 
     @abstractmethod
-    def run(self) -> None:
+    def run(self) -> None | Iterator[Any]:
         ...
 
     def get_logger_name(self) -> str:
@@ -836,8 +836,8 @@ class WrapperTask(Task):
     def output(self) -> Any:
         return self.input()
 
-    def run(self) -> None:
-        return
+    def run(self) -> None | Iterator[Any]:
+        return None
 
 
 class ExternalTask(Task):
@@ -847,7 +847,7 @@ class ExternalTask(Task):
     run = None  # type: ignore[assignment]
 
     def _repr_flags(self) -> list[str]:
-        return super(ExternalTask, self)._repr_flags() + ["external"]
+        return super()._repr_flags() + ["external"]
 
 
 class TaskMessageStream(BaseStream):
