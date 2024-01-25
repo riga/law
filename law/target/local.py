@@ -4,17 +4,17 @@
 Local target implementations.
 """
 
-__all__ = ["LocalFileSystem", "LocalTarget", "LocalFileTarget", "LocalDirectoryTarget"]
+from __future__ import annotations
 
+__all__ = ["LocalFileSystem", "LocalTarget", "LocalFileTarget", "LocalDirectoryTarget"]
 
 import os
 import fnmatch
 import shutil
+import pathlib
 import glob
 import random
-from contextlib import contextmanager
-
-import six
+import contextlib
 
 from law.config import Config
 import law.target.luigi_shims as shims
@@ -24,6 +24,7 @@ from law.target.file import (
 )
 from law.target.formatter import AUTO_FORMATTER, find_formatter
 from law.logger import get_logger
+from law._types import Any, Callable, Literal, Iterator, AbstractContextManager, IO, Generator
 
 
 logger = get_logger(__name__)
@@ -31,17 +32,22 @@ logger = get_logger(__name__)
 
 class LocalFileSystem(FileSystem, shims.LocalFileSystem):
 
-    default_instance = None
+    default_instance: LocalFileSystem
 
     @classmethod
-    def parse_config(cls, section, config=None, overwrite=False):
-        config = super(LocalFileSystem, cls).parse_config(section, config=config,
-            overwrite=overwrite)
+    def parse_config(
+        cls,
+        section: str,
+        config: dict[str, Any] | None = None,
+        *,
+        overwrite: bool = False,
+    ) -> dict[str, Any]:
+        config = super().parse_config(section, config=config, overwrite=overwrite)
 
         cfg = Config.instance()
 
         # helper to add a config value if it exists, extracted with a config parser method
-        def add(option, func):
+        def add(option: str, func: Callable[[str, str], Any]) -> None:
             if option not in config or overwrite:
                 config[option] = func(section, option)
 
@@ -50,18 +56,18 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
 
         return config
 
-    def __init__(self, section=None, base=None, **kwargs):
+    def __init__(self, section: str | None = None, *, base: str | None = None, **kwargs) -> None:
         # setting both section and base is ambiguous and not allowed
         if section and base:
             raise Exception(
-                "setting both 'section' and 'base' as {} arguments is ambiguous and therefore not "
-                "supported, but got {} and {}".format(self.__class__.__name__, section, base),
+                f"setting both 'section' and 'base' as {self.__class__.__name__} arguments is "
+                f"ambiguous and therefore not supported, but got {section} and {base}",
             )
 
         # determine the configured default local fs section
         cfg = Config.instance()
         default_section = cfg.get_expanded("target", "default_local_fs")
-        self.config_section = None
+        self.config_section: str | None = None
 
         # when no base is given, evaluate the config section
         if not base:
@@ -71,15 +77,17 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
             elif section != default_section:
                 # check if the section exists
                 if not cfg.has_section(section):
-                    raise Exception("law config has no section '{}' to read {} options".format(
-                        section, self.__class__.__name__))
+                    raise Exception(
+                        f"law config has no section '{section}' to read {self.__class__.__name__} "
+                        "options",
+                    )
                 # extend non-default sections by options of the default one
                 data = dict(cfg.items(default_section, expand_vars=False, expand_user=False))
                 cfg.update({section: data}, overwrite_sections=True, overwrite_options=False)
             self.config_section = section
 
             # parse the config and set fs name and base
-            kwargs = self.parse_config(self.config_section, kwargs)
+            kwargs = self.parse_config(self.config_section, kwargs)  # type: ignore[arg-type]
             kwargs.setdefault("name", self.config_section)
             base = kwargs.pop("base", None) or os.sep
 
@@ -89,20 +97,20 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
             # relative to a base path defined in some config
             if self.config_section == default_section and base != os.sep:
                 raise Exception(
-                    "the default local fs '{}' must not have a base defined, but got {}".format(
-                        default_section, base),
+                    f"the default local fs '{default_section}' must not have a base defined, "
+                    f"but got {base}",
                 )
 
         # set the base
         self.base = os.path.abspath(self._unscheme(str(base)))
 
-        super(LocalFileSystem, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
-    def _unscheme(self, path):
+    def _unscheme(self, path: str | os.PathLike) -> str:
         path = str(path)
         return remove_scheme(path) if get_scheme(path) == "file" else path
 
-    def abspath(self, path):
+    def abspath(self, path: str | pathlib.Path) -> str:
         path = os.path.expandvars(os.path.expanduser(self._unscheme(path)))
 
         # join with the base path
@@ -111,20 +119,26 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
 
         return os.path.abspath(path)
 
-    def stat(self, path, **kwargs):
+    def stat(self, path: str | pathlib.Path, **kwargs) -> os.stat_result:
         return os.stat(self.abspath(path))
 
-    def exists(self, path, stat=False, **kwargs):
+    def exists(
+        self,
+        path: str | pathlib.Path,
+        *,
+        stat: bool = False,
+        **kwargs,
+    ) -> bool | os.stat_result | None:
         exists = os.path.exists(self.abspath(path))
         return (self.stat(path, **kwargs) if exists else None) if stat else exists
 
-    def isdir(self, path, **kwargs):
+    def isdir(self, path: str | pathlib.Path, **kwargs) -> bool:
         return os.path.isdir(self.abspath(path))
 
-    def isfile(self, path, **kwargs):
+    def isfile(self, path: str | pathlib.Path, **kwargs) -> bool:
         return os.path.isfile(self.abspath(path))
 
-    def chmod(self, path, perm, silent=True, **kwargs):
+    def chmod(self, path: str | pathlib.Path, perm: int, *, silent: bool = True, **kwargs) -> bool:
         if not self.has_permissions or perm is None:
             return True
 
@@ -135,7 +149,14 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
 
         return True
 
-    def remove(self, path, recursive=True, silent=True, **kwargs):
+    def remove(
+        self,
+        path: str | pathlib.Path,
+        *,
+        recursive: bool = True,
+        silent: bool = True,
+        **kwargs,
+    ) -> bool:
         abspath = self.abspath(path)
 
         if silent and not self.exists(path):
@@ -151,15 +172,23 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
 
         return True
 
-    def mkdir(self, path, perm=None, recursive=True, silent=True, **kwargs):
+    def mkdir(
+        self,
+        path: str | pathlib.Path,
+        *,
+        perm: int | None = None,
+        recursive: bool = True,
+        silent: bool = True,
+        **kwargs,
+    ) -> bool:
         if silent and self.exists(path):
             return False
 
         if perm is None:
-            perm = self.default_dir_perm
+            perm: int = self.default_dir_perm
 
         # prepare arguments passed to makedirs or mkdir
-        args = (self.abspath(path),)
+        args: tuple[Any, ...] = (self.abspath(path),)
         if perm is not None:
             args += (perm,)
 
@@ -173,14 +202,21 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
             except Exception as e:
                 if not silent or not isinstance(e, FileExistsError):
                     raise
-            self.chmod(path, perm)
+            self.chmod(path, perm)  # type: ignore[arg-type]
         finally:
             if orig is not None:
                 os.umask(orig)
 
         return True
 
-    def listdir(self, path, pattern=None, type=None, **kwargs):
+    def listdir(
+        self,
+        path: str | pathlib.Path,
+        *,
+        pattern: str | None = None,
+        type: Literal["f", "d"] | None = None,
+        **kwargs,
+    ) -> list[str]:
         abspath = self.abspath(path)
         elems = os.listdir(abspath)
 
@@ -196,7 +232,13 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
 
         return elems
 
-    def walk(self, path, max_depth=-1, **kwargs):
+    def walk(
+        self,
+        path: str | pathlib.Path,
+        *,
+        max_depth: int = -1,
+        **kwargs,
+    ) -> Iterator[tuple[str, list[str], list[str], int]]:
         # mimic os.walk with a max_depth and yield the current depth
         search_dirs = [(str(path), 0)]
         while search_dirs:
@@ -221,7 +263,13 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
             # use dirs to update search dirs
             search_dirs.extend((os.path.join(search_dir, d), depth + 1) for d in dirs)
 
-    def glob(self, pattern, cwd=None, **kwargs):
+    def glob(
+        self,
+        pattern: str | pathlib.Path,
+        *,
+        cwd: str | pathlib.Path | None = None,
+        **kwargs,
+    ) -> list[str]:
         pattern = self.abspath(pattern)
 
         if cwd is not None:
@@ -236,7 +284,14 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
 
         return elems
 
-    def _prepare_dst_dir(self, dst, src=None, perm=None, **kwargs):
+    def _prepare_dst_dir(
+        self,
+        dst: str | pathlib.Path,
+        *,
+        src: str | pathlib.Path | None = None,
+        perm: int | None = None,
+        **kwargs,
+    ) -> str:
         """
         Prepares the directory of a target located at *dst* for copying and returns its full
         location as specified below. *src* can be the location of a source file target, which is
@@ -247,7 +302,10 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
         created when :py:attr:`create_file_dir` is *True*, using *perm* to set the directory
         permission. The absolute path to *dst* is returned.
         """
-        dst, src = str(dst), src and str(src)
+        dst = str(dst)
+        if src is not None:
+            src = str(src)
+
         if self.isdir(dst):
             full_dst = os.path.join(dst, os.path.basename(src)) if src else dst
 
@@ -263,7 +321,15 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
 
         return full_dst
 
-    def copy(self, src, dst, perm=None, dir_perm=None, **kwargs):
+    def copy(
+        self,
+        src: str | pathlib.Path,
+        dst: str | pathlib.Path,
+        *,
+        perm=None,
+        dir_perm=None,
+        **kwargs,
+    ):
         dst = self._prepare_dst_dir(dst, src=src, perm=dir_perm)
 
         # copy the file
@@ -276,7 +342,14 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
 
         return dst
 
-    def move(self, src, dst, perm=None, dir_perm=None, **kwargs):
+    def move(
+        self,
+        src: str | pathlib.Path,
+        dst: str | pathlib.Path,
+        perm: int | None = None,
+        dir_perm: int | None = None,
+        **kwargs,
+    ) -> str:
         dst = self._prepare_dst_dir(dst, src=src, perm=dir_perm)
 
         # move the file
@@ -285,11 +358,19 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
         # set permissions
         if perm is None:
             perm = self.default_file_perm
-        self.chmod(dst, perm)
+        self.chmod(dst, perm)  # type: ignore[arg-type]
 
         return dst
 
-    def open(self, path, mode, perm=None, dir_perm=None, **kwargs):
+    def open(
+        self,
+        path: str | pathlib.Path,
+        mode: str,
+        *,
+        perm: int | None = None,
+        dir_perm: int | None = None,
+        **kwargs,
+    ) -> AbstractContextManager[IO]:
         abspath = self.abspath(path)
 
         # some preparations in case the file is written or updated
@@ -309,16 +390,23 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
         return open(abspath, mode)
 
 
-LocalFileSystem.default_instance = LocalFileSystem()
+LocalFileSystem.default_instance = LocalFileSystem()  # type: ignore[assignment]
 
 
 class LocalTarget(FileSystemTarget, shims.LocalTarget):
 
-    fs = LocalFileSystem.default_instance
+    fs = LocalFileSystem.default_instance  # type: ignore[assignment]
 
-    def __init__(self, path=None, fs=LocalFileSystem.default_instance, is_tmp=False, tmp_dir=None,
-            **kwargs):
-        if isinstance(fs, six.string_types):
+    def __init__(
+        self,
+        path: str | pathlib.Path | None = None,
+        fs: LocalFileSystem = LocalFileSystem.default_instance,
+        *,
+        is_tmp: bool | str = False,
+        tmp_dir: str | pathlib.Path | LocalDirectoryTarget | None = None,
+        **kwargs,
+    ) -> None:
+        if isinstance(fs, str):
             fs = LocalFileSystem(fs)
 
         # handle tmp paths manually since luigi uses the env tmp dir
@@ -328,78 +416,79 @@ class LocalTarget(FileSystemTarget, shims.LocalTarget):
             if str(fs.base) != "/":
                 raise Exception(
                     "when is_tmp is set, the base of the underlying file system must be '/', but "
-                    "found '{}'".format(fs.base),
+                    f"found '{fs.base}'",
                 )
 
             # if not set, get the tmp dir from the config and ensure that it exists
             cfg = Config.instance()
-            if tmp_dir:
-                tmp_dir = get_path(tmp_dir)
-            else:
-                tmp_dir = os.path.realpath(cfg.get_expanded("target", "tmp_dir"))
-            if not fs.exists(tmp_dir):
+            _tmp_dir = (
+                get_path(tmp_dir)
+                if tmp_dir
+                else os.path.realpath(cfg.get_expanded("target", "tmp_dir"))
+            )
+            if not fs.exists(_tmp_dir):
                 perm = cfg.get_expanded_int("target", "tmp_dir_perm")
-                fs.mkdir(tmp_dir, perm=perm)
+                fs.mkdir(_tmp_dir, perm=perm)
 
             # create a random path
             while True:
                 basename = "luigi-tmp-{:09d}".format(random.randint(0, 999999999))
-                path = os.path.join(tmp_dir, basename)
+                path = os.path.join(_tmp_dir, basename)
                 if not fs.exists(path):
                     break
 
             # is_tmp might be a file extension
-            if isinstance(is_tmp, six.string_types):
+            if isinstance(is_tmp, str):
                 if is_tmp[0] != ".":
                     is_tmp = "." + is_tmp
                 path += is_tmp
-        else:
-            # ensure path is not a target and has no scheme
-            path = fs._unscheme(get_path(path))
 
-        super(LocalTarget, self).__init__(path=path, is_tmp=is_tmp, fs=fs, **kwargs)
+        # ensure path is not a target and has no scheme
+        path = fs._unscheme(get_path(path))
 
-    def __del__(self):
-        # when this destructor is called during shutdown, os.path or os.path.exists might be unset
+        super().__init__(path=path, is_tmp=is_tmp, fs=fs, **kwargs)
+
+    def __del__(self) -> None:
+        # when loosing all references during shutdown, os.path or os.path.exists might be unset
         if getattr(os, "path", None) is None or not callable(os.path.exists):
             return
 
-        super(LocalTarget, self).__del__()
+        super().__del__()
 
-    def _repr_flags(self):
-        flags = super(LocalTarget, self)._repr_flags()
+    def _repr_flags(self) -> list[str]:
+        flags = super()._repr_flags()
         if self.is_tmp:
             flags.append("temporary")
         return flags
 
-    def _parent_args(self):
-        args, kwargs = super(LocalTarget, self)._parent_args()
+    def _parent_args(self) -> tuple[tuple[Any, ...], dict[str, Any]]:
+        args, kwargs = super()._parent_args()
         kwargs["fs"] = self.fs
         return args, kwargs
 
     @property
-    def abspath(self):
-        return self.uri(scheme=False)
+    def abspath(self) -> str:
+        return self.uri(scheme=False, return_all=False)  # type: ignore[return-value]
 
-    def uri(self, scheme=True, return_all=False, **kwargs):
+    def uri(self, *, scheme: bool = True, return_all: bool = False, **kwargs) -> str | list[str]:
         uri = self.fs.abspath(self.path)
         if scheme:
             uri = add_scheme(uri, "file")
         return [uri] if return_all else uri
 
-    def copy_to_local(self, *args, **kwargs):
+    def copy_to_local(self, *args, **kwargs) -> str:
         return self.fs._unscheme(self.copy_to(*args, **kwargs))
 
-    def copy_from_local(self, *args, **kwargs):
+    def copy_from_local(self, *args, **kwargs) -> str:
         return self.fs._unscheme(self.copy_from(*args, **kwargs))
 
-    def move_to_local(self, *args, **kwargs):
+    def move_to_local(self, *args, **kwargs) -> str:
         return self.fs._unscheme(self.move_to(*args, **kwargs))
 
-    def move_from_local(self, *args, **kwargs):
+    def move_from_local(self, *args, **kwargs) -> str:
         return self.fs._unscheme(self.move_from(*args, **kwargs))
 
-    def load(self, *args, **kwargs):
+    def load(self, *args, **kwargs) -> Any:
         # remove kwargs that might be designated for remote files
         kwargs = RemoteFileSystem.split_remote_kwargs(kwargs)[1]
 
@@ -407,7 +496,7 @@ class LocalTarget(FileSystemTarget, shims.LocalTarget):
         formatter = kwargs.pop("_formatter", None) or kwargs.pop("formatter", AUTO_FORMATTER)
         return find_formatter(self.abspath, "load", formatter).load(self.abspath, *args, **kwargs)
 
-    def dump(self, *args, **kwargs):
+    def dump(self, *args, **kwargs) -> Any:
         # remove kwargs that might be designated for remote files
         kwargs = RemoteFileSystem.split_remote_kwargs(kwargs)[1]
 
@@ -416,7 +505,7 @@ class LocalTarget(FileSystemTarget, shims.LocalTarget):
         dir_perm = kwargs.pop("dir_perm", None)
 
         # create intermediate directories
-        self.parent.touch(perm=dir_perm)
+        self.parent.touch(perm=dir_perm)  # type: ignore[union-attr, call-arg]
 
         # invoke the formatter
         formatter = kwargs.pop("_formatter", None) or kwargs.pop("formatter", AUTO_FORMATTER)
@@ -431,12 +520,20 @@ class LocalTarget(FileSystemTarget, shims.LocalTarget):
 
 class LocalFileTarget(FileSystemFileTarget, LocalTarget):
 
-    @contextmanager
-    def localize(self, mode="r", perm=None, dir_perm=None, tmp_dir=None, **kwargs):
+    @contextlib.contextmanager
+    def localize(
+        self,
+        mode: str = "r",
+        *,
+        perm: int | None = None,
+        dir_perm: int | None = None,
+        tmp_dir: str | pathlib.Path | None = None,
+        **kwargs,
+    ) -> Generator[LocalFileTarget, None, None]:
         if mode not in ["r", "w", "a"]:
-            raise Exception("unknown mode '{}', use 'r', 'w' or 'a'".format(mode))
+            raise Exception(f"unknown mode '{mode}', use 'r', 'w' or 'a'")
 
-        logger.debug("localizing {!r} with mode '{}'".format(self, mode))
+        logger.debug(f"localizing {self!r} with mode '{mode}'")
 
         # get additional arguments
         is_tmp = kwargs.pop("is_tmp", mode in ("w", "a"))
@@ -475,13 +572,15 @@ class LocalFileTarget(FileSystemFileTarget, LocalTarget):
                     if tmp.exists():
                         tmp.copy_to_local(self, perm=perm, dir_perm=dir_perm)
                     else:
-                        logger.warning("cannot move non-existing localized target to actual "
-                            "representation {!r}".format(self))
+                        logger.warning(
+                            "cannot move non-existing localized target to actual representation "
+                            f"{self!r}",
+                        )
                 finally:
                     tmp.remove()
             else:
                 # create the parent dir
-                self.parent.touch(perm=dir_perm)
+                self.parent.touch(perm=dir_perm)  # type: ignore[union-attr, call-arg]
 
                 # simply yield
                 yield self
@@ -491,17 +590,25 @@ class LocalFileTarget(FileSystemFileTarget, LocalTarget):
 
 class LocalDirectoryTarget(FileSystemDirectoryTarget, LocalTarget):
 
-    def _child_args(self, path):
+    def _child_args(self, path: str | pathlib.Path) -> tuple[tuple[Any, ...], dict[str, Any]]:
         args, kwargs = super(LocalDirectoryTarget, self)._child_args(path)
         kwargs["fs"] = self.fs
         return args, kwargs
 
-    @contextmanager
-    def localize(self, mode="r", perm=None, dir_perm=None, tmp_dir=None, **kwargs):
+    @contextlib.contextmanager
+    def localize(
+        self,
+        mode: str = "r",
+        *,
+        perm: int | None = None,
+        dir_perm: int | None = None,
+        tmp_dir: str | pathlib.Path | None = None,
+        **kwargs,
+    ) -> Generator[LocalDirectoryTarget, None, None]:
         if mode not in ["r", "w", "a"]:
-            raise Exception("unknown mode '{}', use 'r', 'w' or 'a'".format(mode))
+            raise Exception(f"unknown mode '{mode}', use 'r', 'w' or 'a'")
 
-        logger.debug("localizing {!r} with mode '{}'".format(self, mode))
+        logger.debug(f"localizing {self!r} with mode '{mode}'")
 
         # get additional arguments
         is_tmp = kwargs.pop("is_tmp", mode in ("w", "a"))
@@ -544,21 +651,23 @@ class LocalDirectoryTarget(FileSystemDirectoryTarget, LocalTarget):
                         self.remove()
                         tmp.copy_to_local(self, perm=perm, dir_perm=dir_perm)
                     else:
-                        logger.warning("cannot move non-existing localized target to actual "
-                            "representation {!r}, leaving original contents unchanged".format(self))
+                        logger.warning(
+                            "cannot move non-existing localized target to actual representation "
+                            f"{self!r}, leaving original contents unchanged",
+                        )
                 finally:
                     tmp.remove()
             else:
                 # create the parent dir and the directory itself
-                self.parent.touch(perm=dir_perm)
+                self.parent.touch(perm=dir_perm)  # type: ignore[union-attr, call-arg]
                 self.touch(perm=perm)
 
                 # simply yield, do not differentiate "w" and "a" modes
                 yield self
 
 
-LocalTarget.file_class = LocalFileTarget
-LocalTarget.directory_class = LocalDirectoryTarget
+LocalTarget.file_class = LocalFileTarget  # type: ignore[type-abstract]
+LocalTarget.directory_class = LocalDirectoryTarget  # type: ignore[type-abstract]
 
 
 # trailing imports

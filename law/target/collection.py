@@ -4,24 +4,26 @@
 Collections that wrap multiple targets.
 """
 
+from __future__ import annotations
+
 __all__ = [
     "TargetCollection", "FileCollection", "SiblingFileCollection", "NestedSiblingFileCollection",
 ]
 
-
-import types
 import random
+import pathlib
 from abc import abstractmethod
-from contextlib import contextmanager
-
-import six
+import contextlib
 
 from law.config import Config
 from law.target.base import Target
-from law.target.file import FileSystemTarget, FileSystemDirectoryTarget, localize_file_targets
+from law.target.file import (
+    FileSystemTarget, FileSystemDirectoryTarget, localize_file_targets, get_path,
+)
 from law.target.local import LocalDirectoryTarget
-from law.util import colored, flatten, map_struct
+from law.util import colored, flatten, map_struct, is_lazy_iterable
 from law.logger import get_logger
+from law._types import Any, Iterator, Callable, Sequence, Generator
 
 
 logger = get_logger(__name__)
@@ -32,13 +34,13 @@ class TargetCollection(Target):
     Collection of arbitrary targets.
     """
 
-    def __init__(self, targets, threshold=1.0, **kwargs):
-        if isinstance(targets, types.GeneratorType):
+    def __init__(self, targets: Any, *, threshold: int | float = 1.0, **kwargs) -> None:
+        if is_lazy_iterable(targets):
             targets = list(targets)
         elif not isinstance(targets, (list, tuple, dict)):
             raise TypeError("invalid targets, must be of type: list, tuple, dict")
 
-        super(TargetCollection, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
         # store targets and threshold
         self.targets = targets
@@ -46,51 +48,57 @@ class TargetCollection(Target):
 
         # store flat targets per element in the input structure of targets
         if isinstance(targets, (list, tuple)):
-            gen = (flatten(t) for t in targets)
+            self._flat_targets = targets.__class__(flatten(t) for t in targets)
         else:  # dict
-            gen = ((k, flatten(t)) for k, t in six.iteritems(targets))
-        self._flat_targets = targets.__class__(gen)
+            self._flat_targets = targets.__class__((k, flatten(t)) for k, t in targets.items())
 
         # also store an entirely flat list of targets for simplified iterations
         self._flat_target_list = flatten(targets)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.targets)
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: Any) -> Any:
         return self.targets[key]
 
     def __iter__(self):
         # explicitly disable iterability enabled by __getitem__ as per PEP234
         # to (e.g.) prevent that flatten() applies to collections
-        raise TypeError("'{}' object is not iterable".format(self.__class__.__name__))
+        raise TypeError(f"'{self.__class__.__name__}' object is not iterable")
 
-    def _copy_kwargs(self):
-        kwargs = super(TargetCollection, self)._copy_kwargs()
+    def _copy_kwargs(self) -> dict[str, Any]:
+        kwargs = super()._copy_kwargs()
         kwargs["threshold"] = self.threshold
         return kwargs
 
-    def _repr_pairs(self):
-        return Target._repr_pairs(self) + [("len", len(self)), ("threshold", self.threshold)]
+    def _repr_pairs(self) -> list[tuple[str, Any]]:
+        return super()._repr_pairs() + [("len", len(self)), ("threshold", self.threshold)]
 
-    def _iter_flat(self):
+    def _iter_flat(self) -> Iterator[tuple[Any, Any]]:
         # prepare the generator for looping
         if isinstance(self._flat_targets, (list, tuple)):
             gen = enumerate(self._flat_targets)
         else:  # dict
-            gen = six.iteritems(self._flat_targets)
+            gen = self._flat_targets.items()
 
         # loop and yield
         for key, targets in gen:
             yield (key, targets)
 
-    def _iter_state(self, existing=True, optional_existing=None, keys=False, unpack=True):
+    def _iter_state(
+        self,
+        *,
+        existing: bool = True,
+        optional_existing: bool | None = None,
+        keys: bool = False,
+        unpack: bool = True,
+    ) -> Iterator[tuple[Any, Any] | Any]:
         existing = bool(existing)
         if optional_existing is not None:
             optional_existing = bool(optional_existing)
 
         # helper to check for existence
-        def exists(t):
+        def exists(t: Target) -> bool:
             if optional_existing is not None and t.optional:
                 return optional_existing
             if isinstance(t, TargetCollection):
@@ -105,51 +113,65 @@ class TargetCollection(Target):
                     targets = self.targets[key]
                 yield (key, targets) if keys else targets
 
-    def iter_existing(self, **kwargs):
+    def iter_existing(self, **kwargs) -> Iterator[tuple[Any, Any] | Any]:
         return self._iter_state(existing=True, **kwargs)
 
-    def iter_missing(self, **kwargs):
+    def iter_missing(self, **kwargs) -> Iterator[tuple[Any, Any] | Any]:
         return self._iter_state(existing=False, **kwargs)
 
-    def keys(self):
+    def keys(self) -> list[Any]:
         if isinstance(self._flat_targets, (list, tuple)):
             return list(range(len(self)))
         # dict
         return list(self._flat_targets.keys())
 
-    def uri(self, *args, **kwargs):
+    def uri(self, *args, **kwargs) -> list[str]:
         return flatten(t.uri(*args, **kwargs) for t in self._flat_target_list)
 
     @property
-    def first_target(self):
+    def first_target(self) -> Target | None:
         if not self._flat_target_list:
             return None
 
         return flatten_collections(self._flat_target_list)[0]
 
-    def remove(self, silent=True):
+    def random_target(self) -> Target | None:
+        if not self._flat_target_list:
+            return None
+
+        if isinstance(self.targets, (list, tuple)):
+            return random.choice(self.targets)
+
+        # dict
+        return random.choice(list(self.targets.values()))
+
+    def remove(self, *, silent: bool = True, **kwargs) -> bool:
+        removed_any = False
         for t in self._flat_target_list:
             if silent:
-                t.remove(silent=True)
+                removed_any |= t.remove(silent=True)
             elif t.exists():
-                t.remove()
+                removed_any |= t.remove()
+        return removed_any
 
-    def _abs_threshold(self):
+    def _abs_threshold(self) -> int | float:
         if self.threshold < 0:
             return 0
+
         if self.threshold <= 1:
             return len(self) * self.threshold
+
         return min(len(self), max(self.threshold, 0.0))
 
-    def complete(self, **kwargs):
+    def complete(self, **kwargs) -> bool:
         kwargs["optional_existing"] = True
         return self.optional or self.exists(**kwargs)
 
-    def _exists_fwd(self, **kwargs):
+    def _exists_fwd(self, **kwargs) -> bool:
         fwd = ["optional_existing"]
         return self.exists(**{key: kwargs[key] for key in fwd if key in kwargs})
 
-    def exists(self, **kwargs):
+    def exists(self, **kwargs) -> bool:
         # get the threshold
         threshold = self._abs_threshold()
         if threshold == 0:
@@ -170,7 +192,7 @@ class TargetCollection(Target):
 
         return False
 
-    def count(self, **kwargs):
+    def count(self, **kwargs) -> int | tuple[int, list[Any]]:
         # simple counting of keys
         keys = kwargs.get("keys", False)
         kwargs["keys"] = True
@@ -179,20 +201,21 @@ class TargetCollection(Target):
         n = len(target_keys)
         return n if not keys else (n, target_keys)
 
-    def random_target(self):
-        if isinstance(self.targets, (list, tuple)):
-            return random.choice(self.targets)
-        # dict
-        return random.choice(list(self.targets.values()))
-
-    def map(self, func):
+    def map(self, func: Callable[[Target], Target]) -> TargetCollection:
         """
         Returns a copy of this collection with all targets being transformed by *func*.
         """
         return self.__class__(map_struct(func, self.targets), **self._copy_kwargs())
 
-    def status_text(self, max_depth=0, flags=None, color=False, exists=None):
-        count, existing_keys = self.count(keys=True)
+    def status_text(
+        self,
+        *,
+        max_depth: int = 0,
+        flags: str | Sequence[str] | None = None,
+        color: bool = False,
+        exists: bool | None = None,
+    ) -> str:
+        count, existing_keys = self.count(keys=True)  # type: ignore[misc]
         exists = count >= self._abs_threshold()
 
         if exists:
@@ -203,27 +226,27 @@ class TargetCollection(Target):
             _color = "red" if not self.optional else "dark_grey"
 
         text = colored(text, _color, style="bright") if color else text
-        text += " ({}/{})".format(count, len(self))
+        text += f" ({count}/{len(self)})"
 
         if flags and "missing" in flags and count != len(self):
             missing_keys = [str(key) for key in self.keys() if key not in existing_keys]
-            text += ", missing branches: " + ",".join(missing_keys)
+            text += f", missing branches: {','.join(missing_keys)}"
 
         if max_depth > 0:
             if isinstance(self.targets, (list, tuple)):
                 gen = enumerate(self.targets)
             else:  # dict
-                gen = six.iteritems(self.targets)
+                gen = self.targets.items()
 
             for key, item in gen:
-                text += "\n{}: ".format(key)
+                text += f"\n{key}: "
 
                 if isinstance(item, TargetCollection):
                     t = item.status_text(max_depth=max_depth - 1, color=color)
                     text += "\n  ".join(t.split("\n"))
                 elif isinstance(item, Target):
                     t = item.status_text(color=color, exists=key in existing_keys)
-                    text += "{} ({})".format(t, item.repr(color=color))
+                    text += f"{t} ({item.repr(color=color)})"
                 else:
                     t = self.__class__(item).status_text(max_depth=max_depth - 1, color=color)
                     text += "\n   ".join(t.split("\n"))
@@ -237,16 +260,18 @@ class FileCollection(TargetCollection):
     """
 
     def __init__(self, *args, **kwargs):
-        TargetCollection.__init__(self, *args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         # check if all targets are either FileSystemTarget's or FileCollection's
         for t in self._flat_target_list:
             if not isinstance(t, (FileSystemTarget, FileCollection)):
-                raise TypeError("FileCollection's only wrap FileSystemTarget's and other "
-                    "FileCollection's, got {}".format(t.__class__))
+                raise TypeError(
+                    "FileCollection's only wrap FileSystemTarget's and other FileCollection's, "
+                    f"got {t.__class__}",
+                )
 
-    @contextmanager
-    def localize(self, *args, **kwargs):
+    @contextlib.contextmanager
+    def localize(self, *args, **kwargs) -> Generator[FileCollection, None, None]:
         # when localizing collections using temporary files, it makes sense to put
         # them all in the same temporary directory
         tmp_dir = kwargs.get("tmp_dir")
@@ -267,14 +292,16 @@ class SiblingFileCollectionBase(FileCollection):
     Base class for file collections whose elements are located in the same directory (siblings).
     """
 
-    def remove(self, silent=True):
+    def remove(self, *, silent: bool = True, **kwargs) -> bool:
+        removed_any = False
         for targets in self.iter_existing(unpack=False):
             for t in targets:
-                t.remove(silent=silent)
+                removed_any |= t.remove(silent=silent)
+        return removed_any
 
     @abstractmethod
-    def _exists_fwd(self, **kwargs):
-        return
+    def _exists_fwd(self, **kwargs) -> bool:
+        ...
 
 
 class SiblingFileCollection(SiblingFileCollectionBase):
@@ -286,16 +313,19 @@ class SiblingFileCollection(SiblingFileCollectionBase):
     """
 
     @classmethod
-    def from_directory(cls, directory, **kwargs):
+    def from_directory(
+        cls,
+        path: str | pathlib.Path | FileSystemDirectoryTarget,
+        **kwargs,
+    ) -> SiblingFileCollection:
         # dir should be a FileSystemDirectoryTarget or a string, in which case it is interpreted as
         # a local path
-        if isinstance(directory, FileSystemDirectoryTarget):
-            d = directory
-        elif directory:
-            d = LocalDirectoryTarget(str(directory))
-        else:
-            raise TypeError("directory must either be a string or a FileSystemDirectoryTarget "
-                "object, got '{}'".format(directory))
+        _path = path
+        d = LocalDirectoryTarget(get_path(path))
+        if not d.exists():
+            raise TypeError(
+                f"directory passed to {cls.__name__}.from_directory does not exist: {_path}",
+            )
 
         # find all files, pass kwargs which may filter the result further
         kwargs["type"] = "f"
@@ -306,33 +336,35 @@ class SiblingFileCollection(SiblingFileCollectionBase):
 
         return cls(targets)
 
-    def __init__(self, *args, **kwargs):
-        SiblingFileCollectionBase.__init__(self, *args, **kwargs)
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
 
         # find the first target and store its directory
         if self.first_target is None:
-            raise Exception("{} requires at least one file target".format(self.__class__.__name__))
+            raise Exception(f"{self.__class__.__name__} requires at least one file target")
         self.dir = self.first_target.parent
 
         # check that targets are in fact located in the same directory
         for t in flatten_collections(self._flat_target_list):
             if t.dirname != self.dir.path:
-                raise Exception("{} {} is not located in common directory {}".format(
-                    t.__class__.__name__, t, self.dir))
+                raise Exception(
+                    f"{t.__class__.__name__} {t} is not located in common directory {self.dir}",
+                )
 
-    def _repr_pairs(self):
+    def _repr_pairs(self) -> list[tuple[str, Any]]:
         expand = Config.instance().get_expanded_bool("target", "expand_path_repr")
         dir_path = self.dir.path if expand else self.dir.unexpanded_path
         return TargetCollection._repr_pairs(self) + [("fs", self.dir.fs.name), ("dir", dir_path)]
 
     def _iter_state(
         self,
-        existing=True,
-        optional_existing=None,
-        basenames=None,
-        keys=False,
-        unpack=True,
-    ):
+        *,
+        existing: bool = True,
+        optional_existing: bool | None = None,
+        basenames: Sequence[str] | None = None,
+        keys: bool = False,
+        unpack: bool = True,
+    ) -> Iterator[tuple[Any, Any] | Any]:
         existing = bool(existing)
         if optional_existing is not None:
             optional_existing = bool(optional_existing)
@@ -346,7 +378,7 @@ class SiblingFileCollection(SiblingFileCollectionBase):
             basenames = self.dir.listdir()
 
         # helper to check for existence
-        def exists(t):
+        def exists(t) -> bool:
             if optional_existing is not None and t.optional:
                 return optional_existing
             if isinstance(t, SiblingFileCollectionBase):
@@ -366,7 +398,7 @@ class SiblingFileCollection(SiblingFileCollectionBase):
                     targets = self.targets[key]
                 yield (key, targets) if keys else targets
 
-    def _exists_fwd(self, **kwargs):
+    def _exists_fwd(self, **kwargs) -> bool:
         fwd = ["basenames", "optional_existing"]
         return self.exists(**{key: kwargs[key] for key in fwd if key in kwargs})
 
@@ -383,15 +415,15 @@ class NestedSiblingFileCollection(SiblingFileCollectionBase):
     access, iteration, etc., is identical to the standard :py:class:`FileCollection`.
     """
 
-    def __init__(self, *args, **kwargs):
-        super(NestedSiblingFileCollection, self).__init__(*args, **kwargs)
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
 
         # as per FileCollection's init, targets are already stored in both the _flat_targets and
         # _flat_target_list attributes, but store them again in sibling file collections to speed up
         # some methods by grouping them into targets in the same physical directory
-        self.collections = []
+        self.collections: list[SiblingFileCollection] = []
         self._flat_target_collections = {}
-        grouped_targets = {}
+        grouped_targets: dict[str, list[Target]] = {}
         for t in flatten_collections(self._flat_target_list):
             grouped_targets.setdefault(t.parent.uri(), []).append(t)
         for targets in grouped_targets.values():
@@ -402,8 +434,8 @@ class NestedSiblingFileCollection(SiblingFileCollectionBase):
             for t in targets:
                 self._flat_target_collections[t] = collection
 
-    def _repr_pairs(self):
-        return SiblingFileCollectionBase._repr_pairs(self) + [("collections", len(self.collections))]
+    def _repr_pairs(self) -> list[tuple[str, Any]]:
+        return super()._repr_pairs() + [("collections", len(self.collections))]
 
     def _get_basenames(self):
         return {
@@ -413,12 +445,13 @@ class NestedSiblingFileCollection(SiblingFileCollectionBase):
 
     def _iter_state(
         self,
-        existing=True,
-        optional_existing=None,
-        basenames=None,
-        keys=False,
-        unpack=True,
-    ):
+        *,
+        existing: bool = True,
+        optional_existing: bool | None = None,
+        basenames: Sequence[str] | None = None,
+        keys: bool = False,
+        unpack: bool = True,
+    ) -> Iterator[tuple[Any, Any] | Any]:
         existing = bool(existing)
         if optional_existing is not None:
             optional_existing = bool(optional_existing)
@@ -428,7 +461,7 @@ class NestedSiblingFileCollection(SiblingFileCollectionBase):
             basenames = self._get_basenames()
 
         # helper to check for existence
-        def exists(t, _basenames):
+        def exists(t, _basenames) -> bool:
             if optional_existing is not None and t.optional:
                 return optional_existing
             if isinstance(t, SiblingFileCollectionBase):
@@ -437,7 +470,7 @@ class NestedSiblingFileCollection(SiblingFileCollectionBase):
                     optional_existing=optional_existing,
                 )
             if isinstance(t, TargetCollection):
-                return all(exists(_t for _t in flatten_collections(t)))
+                return all(_t.exists() for _t in flatten_collections(t))
             return t.basename in _basenames
 
         # loop and yield
@@ -448,20 +481,20 @@ class NestedSiblingFileCollection(SiblingFileCollectionBase):
                     targets = self.targets[key]
                 yield (key, targets) if keys else targets
 
-    def _exists_fwd(self, **kwargs):
+    def _exists_fwd(self, **kwargs) -> bool:
         fwd = [("basenames", "basenames_dict"), ("optional_existing", "optional_existing")]
         return self.exists(**{dst: kwargs[src] for dst, src in fwd if src in kwargs})
 
 
-def flatten_collections(*targets):
+def flatten_collections(*targets) -> list[Target]:
     lookup = flatten(targets)
-    targets = []
+    _targets: list[Target] = []
 
     while lookup:
         t = lookup.pop(0)
         if isinstance(t, TargetCollection):
             lookup[:0] = t._flat_target_list
         else:
-            targets.append(t)
+            _targets.append(t)
 
-    return targets
+    return _targets

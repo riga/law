@@ -22,7 +22,7 @@ class MatplotlibFormatter(Formatter):
     @classmethod
     def accepts(cls, path: str | pathlib.Path | FileSystemFileTarget, mode: str) -> bool:
         # only dumping supported
-        return mode == "dump" and str(get_path(path)).endswith((".pdf", ".png"))
+        return mode == "dump" and get_path(path).endswith((".pdf", ".png"))
 
     @classmethod
     def dump(

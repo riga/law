@@ -63,7 +63,7 @@ class ROOTFormatter(Formatter):
 
     @classmethod
     def accepts(cls, path: str | pathlib.Path | FileSystemFileTarget, mode: str) -> bool:
-        return str(get_path(path)).endswith(".root")
+        return get_path(path).endswith(".root")
 
     @classmethod
     def load(cls, path: str | pathlib.Path | FileSystemFileTarget, *args, **kwargs) -> GuardedTFile:
@@ -80,7 +80,7 @@ class ROOTNumpyFormatter(Formatter):
 
     @classmethod
     def accepts(cls, path: str | pathlib.Path | FileSystemFileTarget, mode: str) -> bool:
-        return str(get_path(path)).endswith(".root")
+        return get_path(path).endswith(".root")
 
     @classmethod
     def load(cls, path: str | pathlib.Path | FileSystemFileTarget, *args, **kwargs) -> Any:
@@ -109,7 +109,7 @@ class ROOTPandasFormatter(Formatter):
 
     @classmethod
     def accepts(cls, path: str | pathlib.Path | FileSystemFileTarget, mode: str) -> bool:
-        return str(get_path(path)).endswith(".root")
+        return get_path(path).endswith(".root")
 
     @classmethod
     def load(cls, path: str | pathlib.Path | FileSystemFileTarget, *args, **kwargs) -> Any:
@@ -133,7 +133,7 @@ class UprootFormatter(Formatter):
 
     @classmethod
     def accepts(cls, path: str | pathlib.Path | FileSystemFileTarget, mode: str) -> bool:
-        return str(get_path(path)).endswith(".root")
+        return get_path(path).endswith(".root")
 
     @classmethod
     def load(cls, path: str | pathlib.Path | FileSystemFileTarget, *args, **kwargs) -> Any:

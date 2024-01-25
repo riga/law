@@ -25,11 +25,11 @@ class CoffeaFormatter(Formatter):
 
     @classmethod
     def accepts(cls, path: str | pathlib.Path | FileSystemFileTarget, mode: str) -> bool:
-        return str(get_path(path)).endswith((".coffea", ".root", ".parquet"))
+        return get_path(path).endswith((".coffea", ".root", ".parquet"))
 
     @classmethod
     def load(cls, path: str | pathlib.Path | FileSystemFileTarget, *args, **kwargs) -> Any:
-        path = str(get_path(path))
+        path = get_path(path)
 
         if path.endswith(".root"):
             from coffea.nanoevents import NanoEventsFactory  # type: ignore[import-untyped, import-not-found] # noqa

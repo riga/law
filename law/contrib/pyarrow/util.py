@@ -49,7 +49,7 @@ def merge_parquet_files(
         callback = lambda i: None
 
     # prepare paths
-    abspath = lambda p: os.path.abspath(os.path.expandvars(os.path.expanduser(str(get_path(p)))))
+    abspath = lambda p: os.path.abspath(os.path.expandvars(os.path.expanduser(get_path(p))))
     src_paths = list(map(abspath, src_paths))
     dst_path = abspath(dst_path)
 
@@ -111,7 +111,7 @@ def merge_parquet_task(
     *writer_opts* and *copy_single* are forwarded to :py:func:`merge_parquet_files` which is used
     internally for the actual merging.
     """
-    abspath = lambda p: os.path.abspath(os.path.expandvars(os.path.expanduser(str(get_path(p)))))
+    abspath = lambda p: os.path.abspath(os.path.expandvars(os.path.expanduser(get_path(p))))
 
     # ensure inputs are targets
     inputs = [

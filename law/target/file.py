@@ -14,21 +14,30 @@ __all__ = [
 import os
 import sys
 import re
+import pathlib
+import contextlib
 from abc import abstractmethod, abstractproperty
 from functools import partial
-from contextlib import contextmanager
 
 from law.config import Config
 import law.target.luigi_shims as shims
 from law.target.base import Target
 from law.util import map_struct, create_random_string, human_bytes, no_value
-from law._types import Any, Generator
+from law._types import (
+    Any, Generator, Callable, T, Literal, Iterator, Type, AbstractContextManager, IO,
+)
 
 
 class FileSystem(shims.FileSystem):
 
     @classmethod
-    def parse_config(cls, section, config=None, overwrite=False):
+    def parse_config(
+        cls,
+        section: str,
+        config: dict[str, Any] | None = None,
+        *,
+        overwrite: bool = False,
+    ) -> dict[str, Any]:
         # reads a law config section and returns parsed file system configs
         cfg = Config.instance()
 
@@ -36,7 +45,7 @@ class FileSystem(shims.FileSystem):
             config = {}
 
         # helper to add a config value if it exists, extracted with a config parser method
-        def add(option, func):
+        def add(option: str, func: Callable[[str, str], Any]) -> None:
             if option not in config or overwrite:
                 config[option] = func(section, option)
 
@@ -49,9 +58,17 @@ class FileSystem(shims.FileSystem):
 
         return config
 
-    def __init__(self, name=None, has_permissions=True, default_file_perm=None,
-            default_dir_perm=None, create_file_dir=True, **kwargs):
-        super(FileSystem, self).__init__(**kwargs)
+    def __init__(
+        self,
+        name: str | None = None,
+        *,
+        has_permissions: bool = True,
+        default_file_perm: int | None = None,
+        default_dir_perm: int | None = None,
+        create_file_dir: bool = True,
+        **kwargs,
+    ) -> None:
+        super().__init__(**kwargs)
 
         self.name = name
         self.has_permissions = has_permissions
@@ -59,103 +76,168 @@ class FileSystem(shims.FileSystem):
         self.default_dir_perm = default_dir_perm
         self.create_file_dir = create_file_dir
 
-    def __repr__(self):
-        return "{}(name={}, {})".format(self.__class__.__name__, self.name, hex(id(self)))
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(name={self.name}, {hex(id(self))})"
 
-    def dirname(self, path):
+    def dirname(self, path: str | pathlib.Path) -> str | None:
         return os.path.dirname(str(path)) if path != "/" else None
 
-    def basename(self, path):
+    def basename(self, path: str | pathlib.Path) -> str:
         return os.path.basename(str(path)) if path != "/" else "/"
 
-    def ext(self, path, n=1):
+    def ext(self, path: str | pathlib.Path, n: int = 1) -> str:
         # split the path
         parts = self.basename(path).lstrip(".").split(".")
 
         # empty extension in the trivial case or use the last n parts except for the first one
         return "" if len(parts) == 1 else ".".join(parts[1:][min(-n, 0):])
 
-    def _unscheme(self, path):
+    def _unscheme(self, path: str | pathlib.Path) -> str:
         return remove_scheme(path)
 
     @abstractproperty
-    def default_instance(self):
-        return
+    def default_instance(self) -> FileSystem:
+        ...
 
     @abstractmethod
-    def abspath(self, path):
-        return
+    def abspath(self, path: str | pathlib.Path) -> str:
+        ...
 
     @abstractmethod
-    def stat(self, path, **kwargs):
-        return
+    def stat(self, path: str | pathlib.Path, **kwargs) -> os.stat_result:
+        ...
 
     @abstractmethod
-    def exists(self, path, stat=False, **kwargs):
-        return
+    def exists(
+        self,
+        path: str | pathlib.Path,
+        *,
+        stat: bool = False,
+        **kwargs,
+    ) -> bool | os.stat_result | None:
+        ...
 
     @abstractmethod
-    def isdir(self, path, **kwargs):
-        return
+    def isdir(self, path: str | pathlib.Path, **kwargs) -> bool:
+        ...
 
     @abstractmethod
-    def isfile(self, path, **kwargs):
-        return
+    def isfile(self, path: str | pathlib.Path, **kwargs) -> bool:
+        ...
 
     @abstractmethod
-    def chmod(self, path, perm, silent=True, **kwargs):
-        return
+    def chmod(self, path: str | pathlib.Path, perm: int, *, silent: bool = True, **kwargs) -> bool:
+        ...
 
     @abstractmethod
-    def remove(self, path, recursive=True, silent=True, **kwargs):
-        return
+    def remove(
+        self,
+        path: str | pathlib.Path,
+        *,
+        recursive: bool = True,
+        silent: bool = True,
+        **kwargs,
+    ) -> bool:
+        ...
 
     @abstractmethod
-    def mkdir(self, path, perm=None, recursive=True, silent=True, **kwargs):
-        return
+    def mkdir(
+        self,
+        path: str | pathlib.Path,
+        *,
+        perm: int | None = None,
+        recursive: bool = True,
+        silent: bool = True,
+        **kwargs,
+    ) -> bool:
+        ...
 
     @abstractmethod
-    def listdir(self, path, pattern=None, type=None, **kwargs):
-        return
+    def listdir(
+        self,
+        path: str | pathlib.Path,
+        *,
+        pattern: str | None = None,
+        type: Literal["f", "d"] | None = None,
+        **kwargs,
+    ) -> list[str]:
+        ...
 
     @abstractmethod
-    def walk(self, path, max_depth=-1, **kwargs):
-        return
+    def walk(
+        self,
+        path: str | pathlib.Path,
+        *,
+        max_depth: int = -1,
+        **kwargs,
+    ) -> Iterator[tuple[str, list[str], list[str], int]]:
+        ...
 
     @abstractmethod
-    def glob(self, pattern, cwd=None, **kwargs):
-        return
+    def glob(
+        self,
+        pattern: str | pathlib.Path,
+        *,
+        cwd: str | pathlib.Path | None = None,
+        **kwargs,
+    ) -> list[str]:
+        ...
 
     @abstractmethod
-    def copy(self, src, dst, perm=None, dir_perm=None, **kwargs):
-        return
+    def copy(
+        self,
+        src: str | pathlib.Path,
+        dst: str | pathlib.Path,
+        *,
+        perm: int | None = None,
+        dir_perm: int | None = None,
+        **kwargs,
+    ) -> str:
+        ...
 
     @abstractmethod
-    def move(self, src, dst, perm=None, dir_perm=None, **kwargs):
-        return
+    def move(
+        self,
+        src: str | pathlib.Path,
+        dst: str | pathlib.Path,
+        *,
+        perm: int | None = None,
+        dir_perm: int | None = None,
+        **kwargs,
+    ) -> str:
+        ...
 
     @abstractmethod
-    @contextmanager
-    def open(self, path, mode, perm=None, dir_perm=None, **kwargs):
-        return
+    def open(
+        self,
+        path: str | pathlib.Path,
+        mode: str,
+        *,
+        perm: int | None = None,
+        dir_perm: int | None = None,
+        **kwargs,
+    ) -> AbstractContextManager[IO]:
+        ...
 
 
 class FileSystemTarget(Target, shims.FileSystemTarget):
 
-    file_class: FileSystemFileTarget | None = None
-    directory_class: FileSystemDirectoryTarget | None = None
+    # must be set by subclasses
+    file_class: Type[FileSystemFileTarget]
+    directory_class: Type[FileSystemDirectoryTarget]
 
-    def __init__(self, path, fs=None, **kwargs):
-        if fs:
-            self.fs = fs
+    def __init__(self, path: str | pathlib.Path, fs: FileSystem | None = None, **kwargs) -> None:
+        if fs is not None:
+            self.fs: FileSystem = fs  # type: ignore[misc]
 
-        self._path = None
-        self._unexpanded_path = None
+        # _path and _unexpanded_path are set during super init through properties below
+        self._path: str
+        self._unexpanded_path: str
 
-        super(FileSystemTarget, self).__init__(path=path, **kwargs)
+        super().__init__(path=path, **kwargs)
 
-    def _repr_pairs(self, color=True):
-        pairs = super(FileSystemTarget, self)._repr_pairs()
+    def _repr_pairs(self, color: bool = True) -> list[tuple[str, Any]]:
+        pairs = super()._repr_pairs()
 
         # add the fs name
         if self.fs:
@@ -168,157 +250,238 @@ class FileSystemTarget(Target, shims.FileSystemTarget):
 
         # optionally add the file size
         if cfg.get_expanded_bool("target", "filesize_repr"):
-            stat = self.exists(stat=True)
+            stat: os.stat_result = self.exists(stat=True)  # type: ignore[assignment]
             pairs.append(("size", human_bytes(stat.st_size, fmt="{:.1f}{}") if stat else "-"))
 
         return pairs
 
-    def _parent_args(self):
+    def _parent_args(self) -> tuple[tuple[Any, ...], dict[str, Any]]:
         return (), {}
 
     @property
-    def unexpanded_path(self):
+    def unexpanded_path(self) -> str:
         return self._unexpanded_path
 
     @property
-    def path(self):
+    def path(self) -> str:
         return self._path
 
     @path.setter
-    def path(self, path):
+    def path(self, path: str | pathlib.Path) -> None:
         path = self.fs._unscheme(str(path))
         self._unexpanded_path = path
         self._path = os.path.expandvars(os.path.expanduser(self._unexpanded_path))
 
     @property
-    def dirname(self):
-        return self.fs.dirname(self.path)
+    def dirname(self) -> str:
+        return self.fs.dirname(self.path)  # type: ignore[return-value]
 
     @property
-    def abs_dirname(self):
-        return self.fs.dirname(self.abspath)
+    def abs_dirname(self) -> str:
+        return self.fs.dirname(self.abspath)  # type: ignore[return-value]
 
     @property
-    def basename(self):
+    def basename(self) -> str:
         return self.fs.basename(self.path)
 
     @property
-    def unique_basename(self):
-        return "{}_{}".format(hex(self.hash)[2:], self.basename)
+    def unique_basename(self) -> str:
+        return f"{hex(self.hash)[2:]}_{self.basename}"
 
     @property
-    def parent(self):
+    def parent(self) -> Type[FileSystemDirectoryTarget] | None:
         # get the dirname, but favor the unexpanded one to propagate variables
         dirname = self.dirname
-        unexpanded_dirname = self.fs.dirname(self.unexpanded_path)
+        unexpanded_dirname: str = self.fs.dirname(self.unexpanded_path)  # type: ignore[assignment]
         expanded_dirname = os.path.expandvars(os.path.expanduser(unexpanded_dirname))
         if unexpanded_dirname and self.fs.abspath(dirname) == self.fs.abspath(expanded_dirname):
             dirname = unexpanded_dirname
 
-        args, kwargs = self._parent_args()
-        return self.directory_class(dirname, *args, **kwargs) if dirname is not None else None
+        if dirname is None:
+            return None
 
-    def sibling(self, *args, **kwargs):
+        args, kwargs = self._parent_args()
+        return self.directory_class(dirname, *args, **kwargs)
+
+    def sibling(self, *args, **kwargs) -> FileSystemTarget:
         parent = self.parent
         if not parent:
-            raise Exception("cannot determine parent of {!r}".format(self))
+            raise Exception(f"cannot determine parent of {self!r}")
 
         return parent.child(*args, **kwargs)
 
-    def stat(self, **kwargs):
+    def stat(self, **kwargs) -> os.stat_result:
         return self.fs.stat(self.path, **kwargs)
 
-    def exists(self, **kwargs):
+    def exists(self, **kwargs) -> bool | os.stat_result | None:  # type: ignore[override]
         return self.fs.exists(self.path, **kwargs)
 
-    def remove(self, silent=True, **kwargs):
-        self.fs.remove(self.path, silent=silent, **kwargs)
+    def remove(self, *, silent: bool = True, **kwargs) -> bool:  # type: ignore[override]
+        return self.fs.remove(self.path, silent=silent, **kwargs)
 
-    def chmod(self, perm, silent=False, **kwargs):
-        self.fs.chmod(self.path, perm, silent=silent, **kwargs)
-
-    @abstractproperty
-    def fs(self):
-        return
+    def chmod(self, perm, *, silent: bool = False, **kwargs) -> bool:
+        return self.fs.chmod(self.path, perm, silent=silent, **kwargs)
 
     @abstractproperty
-    def abspath(self):
-        return
+    def fs(self) -> FileSystem:
+        ...
+
+    @abstractproperty
+    def abspath(self) -> str:
+        ...
 
     @abstractmethod
-    def uri(self, return_all=False, scheme=True, **kwargs):
-        return
+    def uri(self, *, return_all: bool = False, scheme: bool = True, **kwargs) -> str | list[str]:
+        ...
 
     @abstractmethod
-    def touch(self, perm=None, dir_perm=None, **kwargs):
-        return
+    def touch(self, perm: int | None = None, *, dir_perm: int | None = None, **kwargs) -> None:
+        ...
 
     @abstractmethod
-    def copy_to(self, dst, perm=None, dir_perm=None, **kwargs):
-        return
+    def copy_to(
+        self,
+        dst: str | pathlib.Path | FileSystemTarget,
+        *,
+        perm: int | None = None,
+        dir_perm: int | None = None,
+        **kwargs,
+    ) -> str:
+        ...
 
     @abstractmethod
-    def copy_from(self, src, perm=None, dir_perm=None, **kwargs):
-        return
+    def copy_from(
+        self,
+        src: str | pathlib.Path | FileSystemTarget,
+        *,
+        perm: int | None = None,
+        dir_perm: int | None = None,
+        **kwargs,
+    ) -> str:
+        ...
 
     @abstractmethod
-    def move_to(self, dst, perm=None, dir_perm=None, **kwargs):
-        return
+    def move_to(
+        self,
+        dst: str | pathlib.Path | FileSystemTarget,
+        *,
+        perm: int | None = None,
+        dir_perm: int | None = None,
+        **kwargs,
+    ) -> str:
+        ...
 
     @abstractmethod
-    def move_from(self, src, perm=None, dir_perm=None, **kwargs):
-        return
+    def move_from(
+        self,
+        src: str | pathlib.Path | FileSystemTarget,
+        *,
+        perm: int | None = None,
+        dir_perm: int | None = None,
+        **kwargs,
+    ) -> str:
+        ...
 
     @abstractmethod
-    def copy_to_local(self, *args, **kwargs):
-        return
+    def copy_to_local(
+        self,
+        dst: str | pathlib.Path | FileSystemTarget,
+        *,
+        perm: int | None = None,
+        dir_perm: int | None = None,
+        **kwargs,
+    ) -> str:
+        ...
 
     @abstractmethod
-    def copy_from_local(self, *args, **kwargs):
-        return
+    def copy_from_local(
+        self,
+        src: str | pathlib.Path | FileSystemTarget,
+        *,
+        perm: int | None = None,
+        dir_perm: int | None = None,
+        **kwargs,
+    ) -> str:
+        ...
 
     @abstractmethod
-    def move_to_local(self, *args, **kwargs):
-        return
+    def move_to_local(
+        self,
+        dst: str | pathlib.Path | FileSystemTarget,
+        *,
+        perm: int | None = None,
+        dir_perm: int | None = None,
+        **kwargs,
+    ) -> str:
+        ...
 
     @abstractmethod
-    def move_from_local(self, *args, **kwargs):
-        return
+    def move_from_local(
+        self,
+        src: str | pathlib.Path | FileSystemTarget,
+        *,
+        perm: int | None = None,
+        dir_perm: int | None = None,
+        **kwargs,
+    ) -> str:
+        ...
 
     @abstractmethod
-    @contextmanager
-    def localize(self, mode="r", perm=None, dir_perm=None, tmp_dir=None, **kwargs):
-        return
+    @contextlib.contextmanager
+    def localize(
+        self,
+        mode: str = "r",
+        *,
+        perm: int | None = None,
+        dir_perm: int | None = None,
+        tmp_dir: str | pathlib.Path | None = None,
+        **kwargs,
+    ) -> Generator[FileSystemTarget, None, None]:
+        ...
 
     @abstractmethod
-    def load(self, *args, **kwargs):
-        return
+    def load(self, *args, **kwargs) -> Any:
+        ...
 
     @abstractmethod
-    def dump(self, *args, **kwargs):
-        return
+    def dump(self, *args, **kwargs) -> Any:
+        ...
 
 
 class FileSystemFileTarget(FileSystemTarget):
 
     type = "f"
 
-    def ext(self, n=1):
+    def ext(self, n: int = 1) -> str:
         return self.fs.ext(self.path, n=n)
 
-    def open(self, mode, **kwargs):
+    def open(self, mode: str, **kwargs) -> AbstractContextManager[IO]:
         return self.fs.open(self.path, mode, **kwargs)
 
-    def touch(self, **kwargs):
+    def touch(self, **kwargs) -> None:  # type: ignore[override]
         # create the file via open without content
         with self.open("w", **kwargs) as f:
             f.write("")
 
-    def copy_to(self, dst, perm=None, dir_perm=None, **kwargs):
+    def copy_to(
+        self,
+        dst: str | pathlib.Path | FileSystemTarget,
+        *,
+        perm: int | None = None,
+        dir_perm: int | None = None,
+        **kwargs,
+    ) -> str:
         # TODO: complain when dst not local? forward to copy_from request depending on protocol?
         return self.fs.copy(self.path, get_path(dst), perm=perm, dir_perm=dir_perm, **kwargs)
 
-    def copy_from(self, src, perm=None, dir_perm=None, **kwargs):
+    def copy_from(
+        self,
+        src: str | pathlib.Path | FileSystemTarget,
+        *,
+        perm: int | None = None,
+        dir_perm: int | None = None,
+        **kwargs,
+    ) -> str:
         if isinstance(src, FileSystemFileTarget):
             return src.copy_to(self.path, perm=perm, dir_perm=dir_perm, **kwargs)
 
@@ -326,11 +489,25 @@ class FileSystemFileTarget(FileSystemTarget):
         # TODO: complain when src not local? forward to copy_to request depending on protocol?
         return self.fs.copy(get_path(src), self.path, perm=perm, dir_perm=dir_perm, **kwargs)
 
-    def move_to(self, dst, perm=None, dir_perm=None, **kwargs):
+    def move_to(
+        self,
+        dst: str | pathlib.Path | FileSystemTarget,
+        *,
+        perm: int | None = None,
+        dir_perm: int | None = None,
+        **kwargs,
+    ) -> str:
         # TODO: complain when dst not local? forward to copy_from request depending on protocol?
         return self.fs.move(self.path, get_path(dst), perm=perm, dir_perm=dir_perm, **kwargs)
 
-    def move_from(self, src, perm=None, dir_perm=None, **kwargs):
+    def move_from(
+        self,
+        src: str | pathlib.Path | FileSystemTarget,
+        *,
+        perm: int | None = None,
+        dir_perm: int | None = None,
+        **kwargs,
+    ) -> str:
         if isinstance(src, FileSystemFileTarget):
             return src.move_from(self.path, perm=perm, dir_perm=dir_perm, **kwargs)
 
@@ -345,10 +522,17 @@ class FileSystemDirectoryTarget(FileSystemTarget):
 
     open = None
 
-    def _child_args(self, path):
+    def _child_args(self, path: str | pathlib.Path) -> tuple[tuple[Any, ...], dict[str, Any]]:
         return (), {}
 
-    def child(self, path, type=None, mktemp_pattern=False, **kwargs):
+    def child(
+        self,
+        path: str | pathlib.Path,
+        type: Literal["f", "d"] | None = None,
+        *,
+        mktemp_pattern: str | None = None,
+        **kwargs,
+    ) -> FileSystemTarget:
         if type not in (None, "f", "d"):
             raise ValueError("invalid child type, use 'f' or 'd'")
 
@@ -365,7 +549,7 @@ class FileSystemDirectoryTarget(FileSystemTarget):
         elif type == "d":
             cls = self.__class__
         elif not self.fs.exists(path):
-            raise Exception("cannot guess type of non-existing path '{}'".format(path))
+            raise Exception(f"cannot guess type of non-existing path '{path}'")
         elif self.fs.isdir(path):
             cls = self.__class__
         else:
@@ -376,20 +560,27 @@ class FileSystemDirectoryTarget(FileSystemTarget):
 
         return cls(unexpanded_path, *args, **_kwargs)
 
-    def listdir(self, **kwargs):
+    def listdir(self, **kwargs) -> list[str]:
         return self.fs.listdir(self.path, **kwargs)
 
-    def glob(self, pattern, **kwargs):
+    def glob(self, pattern: str | pathlib.Path, **kwargs) -> list[str]:
         return self.fs.glob(pattern, cwd=self.path, **kwargs)
 
-    def walk(self, **kwargs):
+    def walk(self, **kwargs) -> Iterator[tuple[str, list[str], list[str], int]]:
         return self.fs.walk(self.path, **kwargs)
 
-    def touch(self, **kwargs):
+    def touch(self, **kwargs) -> bool:  # type: ignore[override]
         kwargs.setdefault("silent", True)
-        self.fs.mkdir(self.path, **kwargs)
+        return self.fs.mkdir(self.path, **kwargs)
 
-    def copy_to(self, dst, perm=None, dir_perm=None, **kwargs):
+    def copy_to(
+        self,
+        dst: str | pathlib.Path | FileSystemTarget,
+        *,
+        perm: int | None = None,
+        dir_perm: int | None = None,
+        **kwargs,
+    ) -> str:
         # create the target dir
         _dst = get_path(dst)
         if isinstance(dst, FileSystemDirectoryTarget):
@@ -403,12 +594,19 @@ class FileSystemDirectoryTarget(FileSystemTarget):
             # recurse through directories and files
             for basenames, type_flag in [(dirs, "d"), [files, "f"]]:
                 for basename in basenames:
-                    t = self.child(basename, type=type_flag)
+                    t = self.child(basename, type=type_flag)  # type: ignore[arg-type]
                     t.copy_to(os.path.join(_dst, basename), perm=perm, dir_perm=dir_perm, **kwargs)
 
         return _dst
 
-    def copy_from(self, src, perm=None, dir_perm=None, **kwargs):
+    def copy_from(
+        self,
+        src: str | pathlib.Path | FileSystemTarget,
+        *,
+        perm: int | None = None,
+        dir_perm: int | None = None,
+        **kwargs,
+    ) -> str:
         # when src is a directory target itself, forward to its copy_to implementation as it might
         # be more performant to use its own directory walking
         if isinstance(src, FileSystemDirectoryTarget):
@@ -425,12 +623,19 @@ class FileSystemDirectoryTarget(FileSystemTarget):
             # recurse through directories and files
             for basenames, type_flag in [(dirs, "d"), [files, "f"]]:
                 for basename in basenames:
-                    t = self.child(basename, type=type_flag)
+                    t = self.child(basename, type=type_flag)  # type: ignore[arg-type]
                     t.copy_from(os.path.join(_src, basename), perm=perm, dir_perm=dir_perm, **kwargs)
 
         return self.abspath
 
-    def move_to(self, dst, perm=None, dir_perm=None, **kwargs):
+    def move_to(
+        self,
+        dst: str | pathlib.Path | FileSystemTarget,
+        *,
+        perm: int | None = None,
+        dir_perm: int | None = None,
+        **kwargs,
+    ) -> str:
         # create the target dir
         _dst = get_path(dst)
         if isinstance(dst, FileSystemDirectoryTarget):
@@ -444,7 +649,7 @@ class FileSystemDirectoryTarget(FileSystemTarget):
             # recurse through directories and files
             for basenames, type_flag in [(dirs, "d"), [files, "f"]]:
                 for basename in basenames:
-                    t = self.child(basename, type=type_flag)
+                    t = self.child(basename, type=type_flag)  # type: ignore[arg-type]
                     t.move_to(os.path.join(_dst, basename), perm=perm, dir_perm=dir_perm, **kwargs)
 
         # finally remove
@@ -452,7 +657,14 @@ class FileSystemDirectoryTarget(FileSystemTarget):
 
         return _dst
 
-    def move_from(self, src, perm=None, dir_perm=None, **kwargs):
+    def move_from(
+        self,
+        src: str | pathlib.Path | FileSystemTarget,
+        *,
+        perm: int | None = None,
+        dir_perm: int | None = None,
+        **kwargs,
+    ) -> str:
         # when src is a directory target itself, forward to its move_to implementation as it might
         # be more performant to use its own directory walking
         if isinstance(src, FileSystemDirectoryTarget):
@@ -469,7 +681,7 @@ class FileSystemDirectoryTarget(FileSystemTarget):
             # recurse through directories and files
             for basenames, type_flag in [(dirs, "d"), [files, "f"]]:
                 for basename in basenames:
-                    t = self.child(basename, type=type_flag)
+                    t = self.child(basename, type=type_flag)  # type: ignore[arg-type]
                     t.copy_from(os.path.join(_src, basename), perm=perm, dir_perm=dir_perm, **kwargs)
 
         # finally remove
@@ -478,50 +690,51 @@ class FileSystemDirectoryTarget(FileSystemTarget):
         return self.abspath
 
 
-FileSystemTarget.file_class = FileSystemFileTarget
-FileSystemTarget.directory_class = FileSystemDirectoryTarget
-
-
-def get_path(target):
+def get_path(target: T) -> str:
+    # file targets
     if isinstance(target, FileSystemTarget):
         path = getattr(target, "abspath", no_value)
         if path != no_value:
-            return path
+            return str(path)
 
+    # objects that have a "path" attribute
     path = getattr(target, "path", no_value)
     if path != no_value:
-        return path
+        return str(path)
 
-    if target:
+    # strings and paths
+    if isinstance(target, (str, pathlib.Path)):
         return str(target)
 
-    return target
+    raise TypeError(f"cannot get path from {target!r}")
 
 
-def get_scheme(uri):
+def get_scheme(uri: str | pathlib.Path) -> str | None:
     # ftp://path/to/file -> ftp
     # /path/to/file -> None
     m = re.match(r"^(\w+)\:\/\/.*$", str(uri))
     return m.group(1) if m else None
 
 
-def has_scheme(uri):
+def has_scheme(uri: str | pathlib.Path) -> bool:
     return get_scheme(uri) is not None
 
 
-def add_scheme(path, scheme):
+def add_scheme(path: str | pathlib.Path, scheme: str) -> str:
     # adds a scheme to a path, if it does not already contain one
     path = str(path)
-    return "{}://{}".format(scheme.rstrip(":/"), path) if not has_scheme(path) else path
+    if has_scheme(path):
+        return path
+    return f"{scheme.rstrip(':/')}://{path}"
 
 
-def remove_scheme(uri):
+def remove_scheme(uri: str | pathlib.Path) -> str:
     # ftp://path/to/file -> /path/to/file
     # /path/to/file -> /path/to/file
     return re.sub(r"^(\w+\:\/\/)", "", str(uri))
 
 
-@contextmanager
+@contextlib.contextmanager
 def localize_file_targets(struct, *args, **kwargs) -> Generator[Any, None, None]:
     """
     Takes an arbitrary *struct* of targets, opens the contexts returned by their
@@ -551,7 +764,7 @@ def localize_file_targets(struct, *args, **kwargs) -> Generator[Any, None, None]
 
     except (Exception, KeyboardInterrupt) as e:
         exc = e
-        exc_info = sys.exc_info()
+        exc_info = sys.exc_info()  # type: ignore[assignment]
         raise
 
     finally:

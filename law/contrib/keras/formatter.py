@@ -25,11 +25,11 @@ class KerasModelFormatter(Formatter):
 
     @classmethod
     def accepts(cls, path: str | pathlib.Path | FileSystemFileTarget, mode: str) -> bool:
-        return str(get_path(path)).endswith((".hdf5", ".h5", ".json", ".yaml", ".yml"))
+        return get_path(path).endswith((".hdf5", ".h5", ".json", ".yaml", ".yml"))
 
     @classmethod
     def dump(cls, path: str | pathlib.Path | FileSystemFileTarget, model, *args, **kwargs) -> Any:
-        path = str(get_path(path))
+        path = get_path(path)
 
         # the method for saving the model depends on the file extension
         if path.endswith(".json"):
@@ -49,7 +49,7 @@ class KerasModelFormatter(Formatter):
     def load(cls, path: str | pathlib.Path | FileSystemFileTarget, *args, **kwargs) -> Any:
         import keras  # type: ignore[import-untyped, import-not-found]
 
-        path = str(get_path(path))
+        path = get_path(path)
 
         # the method for loading the model depends on the file extension
         if path.endswith(".json"):
@@ -70,7 +70,7 @@ class KerasWeightsFormatter(Formatter):
 
     @classmethod
     def accepts(cls, path: str | pathlib.Path | FileSystemFileTarget, mode: str) -> bool:
-        return str(get_path(path)).endswith((".hdf5", ".h5"))
+        return get_path(path).endswith((".hdf5", ".h5"))
 
     @classmethod
     def dump(

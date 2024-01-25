@@ -290,7 +290,7 @@ def log(
         return fn(task, *args, **kwargs)
 
     # use the local target functionality to create the parent directory
-    LocalFileTarget(log).parent.touch()
+    LocalFileTarget(log).parent.touch()  # type: ignore[call-arg, union-attr]
     with open(log, "a", 1) as f:
         tee = TeeStream(f, sys.__stdout__)
         sys.stdout = tee  # type: ignore[assignment]

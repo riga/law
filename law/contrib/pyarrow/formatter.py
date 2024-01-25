@@ -25,7 +25,7 @@ class ParquetFormatter(Formatter):
 
     @classmethod
     def accepts(cls, path: str | pathlib.Path | FileSystemFileTarget, mode: str) -> bool:
-        return str(get_path(path)).endswith((".parquet", ".parq"))
+        return get_path(path).endswith((".parquet", ".parq"))
 
     @classmethod
     def load(cls, path: str | pathlib.Path | FileSystemFileTarget, *args, **kwargs) -> Any:
@@ -40,7 +40,7 @@ class ParquetTableFormatter(Formatter):
 
     @classmethod
     def accepts(cls, path: str | pathlib.Path | FileSystemFileTarget, mode: str) -> bool:
-        return str(get_path(path)).endswith((".parquet", ".parq"))
+        return get_path(path).endswith((".parquet", ".parq"))
 
     @classmethod
     def load(cls, path: str | pathlib.Path | FileSystemFileTarget, *args, **kwargs) -> Any:

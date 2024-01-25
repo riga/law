@@ -13,7 +13,7 @@ action() {
     # default test command
     # local cmd="${1:-mypy law tests docs/_scripts docs/_extensions}"
     # temporary change: use the list of already polished parts
-    local cmd="${1:-mypy law/*.py law/cli law/job law/sandbox law/task law/contrib/awkward law/contrib/coffea law/contrib/git law/contrib/hdf5 law/contrib/ipython law/contrib/keras law/contrib/matplotlib law/contrib/mercurial law/contrib/numpy law/contrib/profiling law/contrib/pyarrow law/contrib/rich law/contrib/root law/contrib/slack law/contrib/telegram law/contrib/tensorflow law/contrib/wlcg tests docs/_scripts docs/_extensions}"
+    local cmd="${1:-mypy law/*.py law/cli law/job law/sandbox law/task law/workflow law/target law/contrib/awkward law/contrib/coffea law/contrib/git law/contrib/hdf5 law/contrib/ipython law/contrib/keras law/contrib/matplotlib law/contrib/mercurial law/contrib/numpy law/contrib/profiling law/contrib/pyarrow law/contrib/rich law/contrib/root law/contrib/slack law/contrib/telegram law/contrib/tensorflow tests docs/_scripts docs/_extensions}"
 
     # execute it
     echo -e "command: \x1b[1;49;39m${cmd}\x1b[0m"

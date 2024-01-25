@@ -4,65 +4,60 @@
 Custom base target definition.
 """
 
-__all__ = ["Target"]
+from __future__ import annotations
 
+__all__ = ["Target"]
 
 from abc import abstractmethod
 
 from law.config import Config
 import law.target.luigi_shims as shims
 from law.util import colored, create_hash
-from law.logger import get_logger
+from law.logger import get_logger, Logger
+from law._types import Any, Sequence
 
 
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)  # type: ignore[assignment]
 
 
 class Target(shims.Target):
 
-    def __init__(self, **kwargs):
-        self.optional = kwargs.pop("optional", False)
-        self.external = kwargs.pop("external", False)
+    def __init__(self, **kwargs) -> None:
+        self.optional: bool = kwargs.pop("optional", False)
+        self.external: bool = kwargs.pop("external", False)
 
-        super(Target, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         color = Config.instance().get_expanded_bool("target", "colored_repr")
         return self.repr(color=color)
 
-    def __str__(self):
+    def __str__(self) -> str:
         color = Config.instance().get_expanded_bool("target", "colored_str")
         return self.repr(color=color)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return self.hash
 
     @property
-    def hash(self):
-        return create_hash(self.uri(), to_int=True)
+    def hash(self) -> int:
+        return create_hash(self.uri(), to_int=True)  # type: ignore[return-value]
 
-    def repr(self, color=None):
+    def repr(self, *, color: None | bool = None) -> str:
         if color is None:
             color = Config.instance().get_expanded_bool("target", "colored_repr")
 
         class_name = self._repr_class_name(self.__class__.__name__, color=color)
 
-        parts = [self._repr_pair(*pair, color=color) for pair in self._repr_pairs()]
+        parts = [self._repr_pair(k, v, color=color) for k, v in self._repr_pairs()]
         parts += [self._repr_flag(flag, color=color) for flag in self._repr_flags()]
 
-        return "{}({})".format(class_name, ", ".join(parts))
+        return f"{class_name}({', '.join(parts)})"
 
-    def colored_repr(self):
-        # deprecation warning until v0.1
-        logger.warning_once("the use of {0}.colored_repr() is deprecated, please use "
-            "{0}.repr(color=True) instead".format(self.__class__.__name__))
-
-        return self.repr(color=True)
-
-    def _repr_pairs(self):
+    def _repr_pairs(self) -> list[tuple[str, Any]]:
         return []
 
-    def _repr_flags(self):
+    def _repr_flags(self) -> list[str]:
         flags = []
         if self.optional:
             flags.append("optional")
@@ -70,19 +65,28 @@ class Target(shims.Target):
             flags.append("external")
         return flags
 
-    def _repr_class_name(self, name, color=False):
+    def _repr_class_name(self, name: str, *, color: bool = False) -> str:
         return colored(name, "cyan") if color else name
 
-    def _repr_pair(self, key, value, color=False):
-        return "{}={}".format(colored(key, color="blue", style="bright") if color else key, value)
+    def _repr_pair(self, key: str, value: Any, *, color: bool = False) -> str:
+        if color:
+            key = colored(key, color="blue", style="bright")
+        return f"{key}={value}"
 
-    def _repr_flag(self, name, color=False):
+    def _repr_flag(self, name: str, *, color: bool = False) -> str:
         return colored(name, color="magenta") if color else name
 
-    def _copy_kwargs(self):
+    def _copy_kwargs(self) -> dict[str, Any]:
         return {"optional": self.optional, "external": self.external}
 
-    def status_text(self, max_depth=0, flags=None, color=False, exists=None):
+    def status_text(
+        self,
+        *,
+        max_depth: int = 0,
+        flags: str | Sequence[str] | None = None,
+        color: bool = False,
+        exists: bool | None = None,
+    ) -> str:
         if exists is None:
             exists = self.exists()
 
@@ -95,7 +99,7 @@ class Target(shims.Target):
 
         return colored(text, _color, style="bright") if color else text
 
-    def complete(self, **kwargs):
+    def complete(self, **kwargs) -> bool:
         """
         Returns almost the same state information as :py:meth:`exists` (called internally), but
         potentially also includes settings such as :py:attr:`optional`. All *kwargs* are forwarded
@@ -107,13 +111,13 @@ class Target(shims.Target):
         return self.optional or self.exists(**kwargs)
 
     @abstractmethod
-    def exists(self):
-        return
+    def exists(self) -> bool:
+        ...
 
     @abstractmethod
-    def remove(self, silent=True):
-        return
+    def remove(self, *, silent: bool = True) -> bool:
+        ...
 
     @abstractmethod
-    def uri(self, return_all=False):
-        return
+    def uri(self, *, return_all: bool = False) -> str | list[str]:
+        ...

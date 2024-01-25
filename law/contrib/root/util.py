@@ -68,7 +68,7 @@ def hadd_task(
     localized. When *force* is *True*, any existing output file is overwritten. *hadd_args* can be a
     sequence of additional arguments that are added to the hadd command.
     """
-    abspath = lambda p: os.path.abspath(os.path.expandvars(os.path.expanduser(str(get_path(p)))))
+    abspath = lambda p: os.path.abspath(os.path.expandvars(os.path.expanduser(get_path(p))))
 
     # ensure inputs are targets
     _inputs = [
@@ -116,7 +116,7 @@ def hadd_task(
                 if code != 0:
                     raise Exception("hadd failed")
 
-        stat = output.exists(stat=True)
+        stat: os.stat_result = output.exists(stat=True)  # type: ignore[assignment]
         if not stat:
             raise Exception(f"output '{output.path}' not creating during merging")
 
@@ -153,7 +153,7 @@ def hadd_task(
                     if code != 0:
                         raise Exception("hadd failed")
 
-            stat = tmp_out.exists(stat=True)
+            stat: os.stat_result = tmp_out.exists(stat=True)  # type: ignore[assignment]
             if not stat:
                 raise Exception(f"output '{tmp_out.path}' not creating during merging")
 
