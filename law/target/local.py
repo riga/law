@@ -32,7 +32,8 @@ logger = get_logger(__name__)
 
 class LocalFileSystem(FileSystem, shims.LocalFileSystem):
 
-    default_instance: LocalFileSystem
+    # instance set right below the class definition
+    default_instance: LocalFileSystem = None  # type: ignore[assignment]
 
     @classmethod
     def parse_config(
@@ -390,7 +391,7 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
         return open(abspath, mode)
 
 
-LocalFileSystem.default_instance = LocalFileSystem()  # type: ignore[assignment]
+LocalFileSystem.default_instance = LocalFileSystem()
 
 
 class LocalTarget(FileSystemTarget, shims.LocalTarget):
@@ -666,6 +667,8 @@ class LocalDirectoryTarget(FileSystemDirectoryTarget, LocalTarget):
                 yield self
 
 
+# TODO: since some abstract methods defined on their superclass are simply overwritten via
+# assignment, the type checker does not recognize them as concrete
 LocalTarget.file_class = LocalFileTarget  # type: ignore[type-abstract]
 LocalTarget.directory_class = LocalDirectoryTarget  # type: ignore[type-abstract]
 

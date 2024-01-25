@@ -29,7 +29,7 @@ class FileSystem(luigi.target.FileSystem):
 
 class FileSystemTarget(luigi.target.FileSystemTarget, Target):
 
-    def __init__(self, *, path: str | pathlib.Path, **kwargs) -> None:
+    def __init__(self, path: str | pathlib.Path, **kwargs) -> None:
         # luigi.target.FileSystemTarget accepts "path"
         # make it a mandatory keyword argument
         super().__init__(path=str(path))
