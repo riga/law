@@ -140,8 +140,8 @@ def import_slack() -> tuple[ModuleType, int]:
             import slack  # type: ignore[import-untyped, import-not-found] # noqa
             return slack, 2
         except ImportError as e:
-            e.msg = (
+            e.args = (
                 "neither module 'slackclient' nor 'slack' found, run 'pip install slackclient' to "
-                "install them"
+                "install them",
             )
-            raise
+            raise e

@@ -16,6 +16,7 @@ out
 local_tests
 .law
 .ipynb_checkpoints
+.vscode
 MANIFEST.in
 law_test.cfg
 *_dev.py

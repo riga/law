@@ -12,9 +12,9 @@ __all__ = [
     # path and task helpers
     "rel_path", "law_src_path", "law_home_path", "law_run", "common_task_params",
     # generic helpers
-    "abort", "import_file", "get_terminal_width", "empty_context", "which", "create_hash",
-    "create_random_string", "iter_chunks", "quote_cmd", "escape_markdown", "send_mail",
-    "patch_object", "join_generators",
+    "abort", "import_file", "get_terminal_width", "custom_context", "empty_context", "which",
+    "create_hash", "create_random_string", "iter_chunks", "quote_cmd", "escape_markdown",
+    "send_mail", "patch_object", "join_generators",
     # value identification and conversion
     "is_classmethod", "is_number", "is_float", "try_int", "round_discrete", "str_to_int",
     "flag_to_bool", "colored", "uncolored", "query_choice", "is_pattern",
@@ -378,6 +378,18 @@ def flag_to_bool(s: str | bool, silent: bool = False) -> bool | None:
         return None
 
     raise ValueError(f"cannot convert to bool: {s}")
+
+
+def custom_context(obj: T) -> Callable[[], AbstractContextManager[T]]:
+    """
+    Yields an empty context that can be used in case of dynamically choosing context managers while
+    maintaining code structure.
+    """
+    @contextlib.contextmanager
+    def context() -> Iterator[T]:
+        yield obj
+
+    return context
 
 
 @contextlib.contextmanager

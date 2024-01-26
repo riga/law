@@ -9,6 +9,7 @@ from __future__ import annotations
 
 __all__: list[str] = []
 
+from io import TextIOWrapper  # noqa
 from collections.abc import KeysView, ValuesView, MappingView  # noqa
 from types import ModuleType, GeneratorType, TracebackType  # noqa
 from typing import (  # noqa

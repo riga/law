@@ -4,22 +4,26 @@
 Cache for remote files on local disk.
 """
 
-__all__ = ["RemoteCache"]
+from __future__ import annotations
 
+__all__ = ["RemoteCache"]
 
 import os
 import shutil
 import time
+import pathlib
 import tempfile
 import weakref
+import contextlib
 import atexit
-from contextlib import contextmanager
 
+from law.target.file import FileSystem
 from law.config import Config
 from law.util import (
     makedirs, human_bytes, parse_bytes, parse_duration, create_hash, user_owns_file, io_lock,
 )
 from law.logger import get_logger
+from law._types import Any, Callable, Iterator, AbstractContextManager
 
 
 logger = get_logger(__name__)
@@ -31,10 +35,10 @@ class RemoteCache(object):
 
     lock_postfix = ".lock"
 
-    _instances = []
+    _instances: list[RemoteCache] = []
 
-    def __new__(cls, *args, **kwargs):
-        inst = object.__new__(cls)
+    def __new__(cls, *args, **kwargs) -> RemoteCache:
+        inst = super().__new__(cls)
 
         # cache instances
         cls._instances.append(inst)
@@ -42,7 +46,7 @@ class RemoteCache(object):
         return inst
 
     @classmethod
-    def cleanup_all(cls):
+    def cleanup_all(cls) -> None:
         # clear all caches
         for inst in cls._instances:
             try:
@@ -51,7 +55,13 @@ class RemoteCache(object):
                 pass
 
     @classmethod
-    def parse_config(cls, section, config=None, overwrite=False):
+    def parse_config(
+        cls,
+        section: str,
+        config: dict[str, Any] | None = None,
+        *,
+        overwrite: bool = False,
+    ) -> dict[str, Any]:
         from law.sandbox.base import _sandbox_switched
 
         # reads a law config section and returns parsed file system configs
@@ -61,7 +71,7 @@ class RemoteCache(object):
             config = {}
 
         # helper to add a config value if it exists, extracted with a config parser method
-        def add(option, func):
+        def add(option: str, func: Callable[[str, str], Any]) -> None:
             cache_option = "cache_" + option
             if cfg.is_missing_or_none(section, cache_option):
                 return
@@ -92,13 +102,25 @@ class RemoteCache(object):
 
         return config
 
-    def __init__(self, fs, root=TMP, cleanup=False, max_size=0, mtime_patience=1.0,
-            file_perm=0o0660, dir_perm=0o0770, wait_delay=5.0, max_waits=120, global_lock=False):
-        object.__init__(self)
+    def __init__(
+        self,
+        fs: FileSystem,
+        *,
+        root: str | pathlib.Path | None = TMP,
+        cleanup: bool = False,
+        max_size: int | float = 0,  # in MB
+        mtime_patience: int | float = 1.0,  # in seconds
+        file_perm: int = 0o0660,
+        dir_perm: int = 0o0770,
+        wait_delay: int | float = 5.0,  # in seconds
+        max_waits: int = 120,
+        global_lock: bool = False,
+    ) -> None:
+        super().__init__()
         # max_size is in MB, wait_delay is in seconds
 
         # create a unique name based on fs attributes
-        name = "{}_{}".format(fs.__class__.__name__, create_hash(fs.base[0]))
+        name = f"{fs.__class__.__name__}_{create_hash(fs.base[0])}"
 
         # create the root dir, handle tmp
         root = os.path.expandvars(os.path.expanduser(str(root))) or self.TMP
@@ -117,11 +139,11 @@ class RemoteCache(object):
         self.base = base
         self.name = name
         self.cleanup = cleanup
-        self.max_size = max_size
-        self.mtime_patience = mtime_patience
+        self.max_size = float(max_size)
+        self.mtime_patience = float(mtime_patience)
         self.dir_perm = dir_perm
         self.file_perm = file_perm
-        self.wait_delay = wait_delay
+        self.wait_delay = float(wait_delay)
         self.max_waits = max_waits
         self.global_lock = global_lock
 
@@ -129,27 +151,27 @@ class RemoteCache(object):
         self._global_lock_path = self._lock_path(os.path.join(base, "global"))
 
         # currently locked cache paths, only used to clean up broken files during cleanup
-        self._locked_cpaths = set()
+        self._locked_cpaths: set[str] = set()
 
-        logger.debug("created {} at '{}'".format(self.__class__.__name__, self.base))
+        logger.debug(f"created {self.__class__.__name__} at '{self.base}'")
 
-    def __del__(self):
+    def __del__(self) -> None:
         try:
             self._cleanup()
         except (OSError, TypeError):
             pass
 
-    def __repr__(self):
-        return "<{} '{}' at {}>".format(self.__class__.__name__, self.base, hex(id(self)))
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__} '{self.base}' at {hex(id(self))}>"
 
-    def __contains__(self, rpath):
+    def __contains__(self, rpath: str | pathlib.Path) -> bool:
         return os.path.exists(self.cache_path(rpath))
 
     @property
-    def fs(self):
-        return self.fs_ref()
+    def fs(self) -> FileSystem:
+        return self.fs_ref()  # type: ignore[return-value]
 
-    def _cleanup(self):
+    def _cleanup(self) -> None:
         # full cleanup or remove open locks
         if getattr(self, "cleanup", False):
             if os.path.exists(self.base):
@@ -160,38 +182,44 @@ class RemoteCache(object):
                 self._remove(cpath)
             self._locked_cpaths.clear()
             self._unlock_global()
-        logger.debug("cleanup RemoteCache at '{}'".format(self.base))
+        logger.debug(f"cleanup RemoteCache at '{self.base}'")
 
-    def cache_path(self, rpath):
+    def cache_path(self, rpath: str | pathlib.Path) -> str:
         rpath = str(rpath)
-        basename = "{}_{}".format(create_hash(rpath), os.path.basename(rpath))
+        basename = f"{create_hash(rpath)}_{os.path.basename(rpath)}"
         return os.path.join(self.base, basename)
 
-    def _lock_path(self, cpath):
-        return str(cpath) + self.lock_postfix
+    def _lock_path(self, cpath: str | pathlib.Path) -> str:
+        return f"{cpath}{self.lock_postfix}"
 
-    def is_locked_global(self):
+    def is_locked_global(self) -> bool:
         return os.path.exists(self._global_lock_path)
 
-    def _is_locked(self, cpath):
+    def _is_locked(self, cpath: str | pathlib.Path) -> bool:
         return os.path.exists(self._lock_path(cpath))
 
-    def is_locked(self, rpath):
+    def is_locked(self, rpath: str | pathlib.Path) -> bool:
         return self._is_locked(self.cache_path(rpath))
 
-    def _unlock_global(self):
+    def _unlock_global(self) -> None:
         try:
             os.remove(self._global_lock_path)
         except OSError:
             pass
 
-    def _unlock(self, cpath):
+    def _unlock(self, cpath: str | pathlib.Path) -> None:
         try:
             os.remove(self._lock_path(cpath))
         except OSError:
             pass
 
-    def _await_global(self, delay=None, max_waits=None, silent=False):
+    def _await_global(
+        self,
+        *,
+        delay: int | float | None = None,
+        max_waits: int | None = None,
+        silent: bool = False,
+    ) -> bool:
         delay = delay if delay is not None else self.wait_delay
         max_waits = max_waits if max_waits is not None else self.max_waits
         _max_waits = max_waits
@@ -199,8 +227,9 @@ class RemoteCache(object):
         while self.is_locked_global():
             if max_waits <= 0:
                 if not silent:
-                    raise Exception("max_waits of {} exceeded while waiting for global lock".format(
-                        _max_waits))
+                    raise Exception(
+                        f"max_waits of {_max_waits} exceeded while waiting for global lock",
+                    )
                 return False
 
             time.sleep(delay)
@@ -208,7 +237,15 @@ class RemoteCache(object):
 
         return True
 
-    def _await(self, cpath, delay=None, max_waits=None, silent=False, global_lock=None):
+    def _await(
+        self,
+        cpath: str | pathlib.Path,
+        *,
+        delay: int | float | None = None,
+        max_waits: int | None = None,
+        silent: bool = False,
+        global_lock: bool | None = None,
+    ) -> bool:
         cpath = str(cpath)
         delay = delay if delay is not None else self.wait_delay
         max_waits = max_waits if max_waits is not None else self.max_waits
@@ -221,8 +258,9 @@ class RemoteCache(object):
         while self._is_locked(cpath) or (global_lock and self.is_locked_global()):
             if max_waits <= 0:
                 if not silent:
-                    raise Exception("max_waits of {} exceeded while waiting for file '{}'".format(
-                        _max_waits, cpath))
+                    raise Exception(
+                        f"max_waits of {_max_waits} exceeded while waiting for file '{cpath}'",
+                    )
                 return False
 
             time.sleep(delay)
@@ -239,8 +277,8 @@ class RemoteCache(object):
 
         return True
 
-    @contextmanager
-    def _lock_global(self, **kwargs):
+    @contextlib.contextmanager
+    def _lock_global(self, **kwargs) -> Iterator[None]:
         self._await_global(**kwargs)
 
         try:
@@ -253,8 +291,8 @@ class RemoteCache(object):
         finally:
             self._unlock_global()
 
-    @contextmanager
-    def _lock(self, cpath, **kwargs):
+    @contextlib.contextmanager
+    def _lock(self, cpath: str | pathlib.Path, **kwargs) -> Iterator[None]:
         cpath = str(cpath)
         lock_path = self._lock_path(cpath)
 
@@ -281,11 +319,14 @@ class RemoteCache(object):
             if cpath in self._locked_cpaths:
                 self._locked_cpaths.remove(cpath)
 
-    def lock(self, rpath):
+    def lock(self, rpath: str | pathlib.Path) -> AbstractContextManager:
         return self._lock(self.cache_path(rpath))
 
-    def allocate(self, size):
-        logger.debug("allocating {0[0]:.2f} {0[1]} in cache '{1}'".format(human_bytes(size), self))
+    def allocate(self, size: int | float) -> bool:
+        def _human_bytes(size: int | float) -> tuple[float, str]:
+            return human_bytes(size)  # type: ignore[return-value]
+
+        logger.debug("allocating {0[0]:.2f} {0[1]} in cache '{1}'".format(_human_bytes(size), self))
 
         # determine stats and current cache size
         file_stats = []
@@ -310,12 +351,18 @@ class RemoteCache(object):
         # determine the size of files that need to be deleted
         delete_size = current_size + size - max_size
         if delete_size <= 0:
-            logger.debug("cache space sufficient, {0[0]:.2f} {0[1]} remaining".format(
-                human_bytes(-delete_size)))
+            logger.debug(
+                "cache space sufficient, {0[0]:.2f} {0[1]} remaining".format(
+                    _human_bytes(-delete_size),
+                ),
+            )
             return True
 
-        logger.info("need to delete {0[0]:.2f} {0[1]} from cache".format(
-            human_bytes(delete_size)))
+        logger.info(
+            "need to delete {0[0]:.2f} {0[1]} from cache".format(
+                _human_bytes(delete_size),
+            ),
+        )
 
         # delete files, ordered by their access time, skip locked ones
         for cpath, cstat in sorted(file_stats, key=lambda tpl: tpl[1].st_atime):
@@ -326,35 +373,46 @@ class RemoteCache(object):
             if delete_size <= 0:
                 return True
 
-        logger.warning("could not allocate remaining {0[0]:.2f} {0[1]} in cache".format(
-            human_bytes(delete_size)))
+        logger.warning(
+            "could not allocate remaining {0[0]:.2f} {0[1]} in cache".format(
+                _human_bytes(delete_size),
+            ),
+        )
 
         return False
 
-    def _touch(self, cpath, times=None):
+    def _touch(
+        self,
+        cpath: str | pathlib.Path,
+        times: tuple[int | float, int | float] | None = None,
+    ) -> None:
         cpath = str(cpath)
         if os.path.exists(cpath):
             if user_owns_file(cpath):
                 os.chmod(cpath, self.file_perm)
             os.utime(cpath, times)
 
-    def touch(self, rpath, times=None):
-        self._touch(self.cache_path(rpath), times=times)
+    def touch(
+        self,
+        rpath: str | pathlib.Path,
+        times: tuple[int | float, int | float] | None = None,
+    ) -> None:
+        return self._touch(self.cache_path(rpath), times=times)
 
-    def _mtime(self, cpath):
+    def _mtime(self, cpath: str | pathlib.Path) -> float:
         return os.stat(str(cpath)).st_mtime
 
-    def mtime(self, rpath):
+    def mtime(self, rpath: str | pathlib.Path) -> float:
         return self._mtime(self.cache_path(rpath))
 
-    def check_mtime(self, rpath, rmtime):
+    def check_mtime(self, rpath: str | pathlib.Path, rmtime: int | float) -> bool:
         if self.mtime_patience < 0:
             return True
 
         return abs(self.mtime(rpath) - rmtime) <= self.mtime_patience
 
-    def _remove(self, cpath, lock=True):
-        def remove():
+    def _remove(self, cpath: str | pathlib.Path, lock: bool = True) -> None:
+        def remove() -> None:
             try:
                 os.remove(str(cpath))
             except OSError:
@@ -366,7 +424,7 @@ class RemoteCache(object):
         else:
             remove()
 
-    def remove(self, rpath, lock=True):
+    def remove(self, rpath: str | pathlib.Path, lock: bool = True) -> None:
         return self._remove(self.cache_path(rpath), lock=lock)
 
 

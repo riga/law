@@ -4,57 +4,69 @@
 Interface for communicating with a remote file service.
 """
 
-__all__ = ["RemoteFileInterface"]
+from __future__ import annotations
 
+__all__ = ["RemoteFileInterface"]
 
 import os
 import sys
 import time
 import abc
+import pathlib
 import functools
 import random as _random
-
-import six
 
 from law.config import Config
 from law.target.file import remove_scheme
 from law.util import make_list, is_lazy_iterable, brace_expand, parse_duration
-from law.logger import get_logger
+from law.logger import get_logger, Logger
+from law._types import Any, TracebackType, Callable, Sequence
 
 
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)  # type: ignore[assignment]
 
 
 class RetryException(Exception):
 
-    def __init__(self, msg="", exc=None):
-        self.exc_type, self.exc_value, self.exc_traceback = exc or sys.exc_info()
-        super(RetryException, self).__init__(msg or str(self.exc_value))
+    def __init__(
+        self,
+        msg: str = "",
+        exc: tuple[type, BaseException, TracebackType] | None = None,
+    ) -> None:
+        _exc = sys.exc_info() if exc is None else exc
+        self.exc_type = _exc[0]
+        self.exc_value = _exc[1]
+        self.exc_traceback = _exc[2]
 
-    def reraise(self):
-        return six.reraise(self.exc_type, self.exc_value, self.exc_traceback)
+        super().__init__(msg or str(self.exc_value))
 
 
-class RemoteFileInterface(six.with_metaclass(abc.ABCMeta, object)):
+class RemoteFileInterface(object, metaclass=abc.ABCMeta):
 
     @classmethod
-    def parse_config(cls, section, config=None, overwrite=False):
+    def parse_config(
+        cls,
+        section: str,
+        config: dict[str, Any] | None = None,
+        *,
+        overwrite: bool = False,
+    ) -> dict[str, Any]:
         cfg = Config.instance()
 
         if config is None:
             config = {}
 
         # helper to add a config value if it exists, extracted with a config parser method
-        def add(option, func):
+        def add(option: str, func: Callable[[str, str], Any]) -> None:
             if option not in config or overwrite:
                 config[option] = func(section, option)
 
-        def get_expanded_list(section, option):
+        def get_expanded_list(section: str, option: str) -> list[str] | None:
             # get config value, run brace expansion taking into account csv splitting
             value = cfg.get_expanded(section, option, None)
             return value and [v.strip() for v in brace_expand(value.strip(), split_csv=True)]
 
-        def get_time(section, option):
+        def get_time(section: str, option: str) -> float:
             value = cfg.get_expanded(section, option)
             return parse_duration(value, input_unit="s", unit="s")
 
@@ -81,19 +93,14 @@ class RemoteFileInterface(six.with_metaclass(abc.ABCMeta, object)):
         return config
 
     @classmethod
-    def retry(cls, func=None, uri_cmd=None, uri_base_name=None):
-        # cmd will be deprecated and fully renamed to base_name, but has priority for now
-        if uri_cmd:
-            logger.warning_once(
-                "deprecate_RemoteFileInterface_retry_uri_cmd",
-                "the argument 'uri_cmd' in {}.retry is deprected, ".format(cls.__name__) +
-                "please use 'uri_base_name' instead",
-            )
-            uri_base_name = uri_cmd
-
-        def decorator(func):
+    def retry(
+        cls,
+        func: Callable | None = None,
+        uri_base_name: str | Sequence[str] | None = None,
+    ) -> Callable:
+        def decorator(func: Callable) -> Callable:
             @functools.wraps(func)
-            def wrapper(self, *args, **kwargs):
+            def wrapper(self, *args, **kwargs) -> Any:
                 # function name for logs
                 func_name = func.__name__
 
@@ -106,98 +113,117 @@ class RemoteFileInterface(six.with_metaclass(abc.ABCMeta, object)):
                 try:
                     base = None
                     base_set = bool(kwargs.get("base"))
-                    skip_indices = []
+                    skip_indices: list[int] = []
                     while True:
                         # when no base was set initially and a uri_base_name is given, get a random
                         # uri base under consideration of bases (given by their indices) to skip
                         if not base_set and uri_base_name:
-                            base, idx = self.get_base(base_name=uri_base_name, random=random_base,
-                                skip_indices=skip_indices, return_index=True)
+                            base, idx = self.get_base(
+                                base_name=uri_base_name,
+                                random=random_base,
+                                skip_indices=skip_indices,
+                                return_index=True,
+                            )
                             kwargs["base"] = base
                             skip_indices.append(idx)
 
                         try:
                             return func(self, *args, **kwargs)
+
                         except RetryException as e:
                             attempt += 1
 
                             # raise to the outer try-except block when there are no attempts left
                             if attempt > retries:
-                                e.reraise()
+                                raise e
 
                             # log and sleep
-                            logger.debug("{}.{}(args: {}, kwargs: {}) failed: {}, retry".format(
-                                self.__class__.__name__, func_name, args, kwargs, e))
+                            logger.debug(
+                                f"{self.__class__.__name__}.{func_name}(args: {args}, kwargs: "
+                                f"{kwargs}) failed: {e}, retry",
+                            )
                             time.sleep(delay)
                 except:
                     # at this point, no more retry attempts are available,
                     # so update the exception to reflect that, then reraise
-                    e_type, e, traceback = sys.exc_info()
-                    msg = str(e)
-                    msg += "\nfunction: {}.{}".format(self.__class__.__name__, func_name)
-                    msg += "\nattempts: {}".format(attempt)
-                    msg += "\nargs    : {}".format(args)
-                    msg += "\nkwargs  : {}".format(kwargs)
-                    msg += "\nerror   : {}: '{}'".format(e_type.__name__, e)
-                    six.reraise(e_type, e_type(msg, *e.args[1:]), traceback)
+                    exc: tuple[type, BaseException, TracebackType] = sys.exc_info()  # type: ignore[assignment] # noqa
+                    exc_type, exc_value, exc_traceback = exc
+                    msg = (
+                        f"{exc_value}\n"
+                        f"function: {self.__class__.__name__}.{func_name}\n"
+                        f"attempts: {attempt}\n"
+                        f"args    : {args}\n"
+                        f"kwargs  : {kwargs}\n"
+                        f"error   : {exc_type.__name__}: '{exc_value}'"
+                    )
+                    exc_value.args = (msg,) + exc_value.args[1:]
+                    raise exc_value
 
             return wrapper
 
-        return decorator(func) if func else decorator
+        return decorator(func) if func else decorator  # type: ignore[return-value]
 
-    def __init__(self, base=None, bases=None, retries=0, retry_delay=0, random_base=True, **kwargs):
-        super(RemoteFileInterface, self).__init__()
+    def __init__(
+        self,
+        base: str | Sequence[str] | None = None,
+        *,
+        bases: dict[str, str | Sequence[str]] | None = None,
+        retries: int = 0,
+        retry_delay: int | float = 0,
+        random_base: bool = True,
+        **kwargs,
+    ) -> None:
+        super().__init__()
 
         # convert base(s) to list for random selection
         base = make_list(base or [])
-        bases = {k: make_list(b) for k, b in six.iteritems(bases)} if bases else {}
+        bases = {k: make_list(b) for k, b in bases.items()} if bases else {}
 
         # at least one base in expected
         if len(base) == 0:
-            raise Exception("{} expected at least one base path, received none".format(
-                self.__class__.__name__))
+            raise Exception(
+                f"{self.__class__.__name__} expected at least one base path, received none",
+            )
 
         # expand variables in base and bases
         expand = lambda p: os.path.expandvars(str(p))
         self.base = list(map(expand, base))
-        self.bases = {k: list(map(expand, b)) for k, b in six.iteritems(bases)}
+        self.bases = {k: list(map(expand, b)) for k, b in bases.items()}
 
         # store other attributes
         self.retries = retries
         self.retry_delay = retry_delay
         self.random_base = random_base
 
-    def sanitize_path(self, p):
+    def sanitize_path(self, p: str | pathlib.Path) -> str:
         return str(p)
 
-    def get_base(self, cmd=None, base_name=None, random=None, skip_indices=None, return_index=False,
-            return_all=False):
+    def get_base(
+        self,
+        base_name: str | Sequence[str] | None = None,
+        *,
+        random: bool | None = None,
+        skip_indices: Sequence[int] | None = None,
+        return_index: bool = False,
+        return_all: bool = False,
+    ):
         if random is None:
             random = self.random_base
-
-        # cmd will be deprecated and fully renamed to base_name, but has priority for now
-        if cmd:
-            logger.warning_once(
-                "deprecate_RemoteFileInterface_get_base_cmd",
-                "the argument 'cmd' in {}.get_base is deprected, ".format(self.__class__.__name__) +
-                "please use 'base_name' instead",
-            )
-            base_name = cmd
 
         # get potential bases for the given base_name
         bases = make_list(self.base)
         if base_name:
-            for base_name in make_list(base_name):
-                if base_name in self.bases:
-                    bases = self.bases[base_name]
+            for _base_name in make_list(base_name):
+                if _base_name in self.bases:
+                    bases = self.bases[_base_name]
                     break
 
         if not bases:
-            raise Exception("no bases available for command '{}'".format(base_name))
+            raise Exception(f"no bases available for command '{base_name}'")
 
         # are there indices to skip?
         all_bases = bases
-        if skip_indices:
+        if skip_indices is not None:
             _bases = [b for i, b in enumerate(bases) if i not in skip_indices]
             if _bases:
                 bases = _bases
@@ -216,7 +242,15 @@ class RemoteFileInterface(six.with_metaclass(abc.ABCMeta, object)):
 
         return base if not return_index else (base, all_bases.index(base))
 
-    def uri(self, path, base=None, return_all=False, scheme=True, **kwargs):
+    def uri(
+        self,
+        path: str | pathlib.Path,
+        *,
+        base: str | Sequence[str] | None = None,
+        return_all: bool = False,
+        scheme: bool = True,
+        **kwargs,
+    ) -> str | list[str]:
         # get a base path when not given
         if not base:
             kwargs["return_index"] = False
@@ -228,7 +262,7 @@ class RemoteFileInterface(six.with_metaclass(abc.ABCMeta, object)):
             return uri if scheme else remove_scheme(uri)
 
         if isinstance(base, (list, tuple)) or is_lazy_iterable(base):
-            return [uri(b) for b in base]
+            return [uri(b) for b in base]  # type: ignore[union-attr]
 
         if return_all:
             return [uri(base)]
@@ -236,97 +270,181 @@ class RemoteFileInterface(six.with_metaclass(abc.ABCMeta, object)):
         return uri(base)
 
     @abc.abstractmethod
-    def exists(self, path, base=None, stat=False, **kwargs):
+    def exists(
+        self,
+        path: str | pathlib.Path,
+        *,
+        base: str | Sequence[str] | None = None,
+        stat: bool = False,
+        **kwargs,
+    ) -> bool | os.stat_result | None:
         """
         Returns *True* when the *path* exists and *False* otherwise. When *stat* is *True*, returns
         the stat object or *None*.
         """
-        return
+        ...
 
     @abc.abstractmethod
-    def stat(self, path, base=None, **kwargs):
+    def stat(
+        self,
+        path: str | pathlib.Path,
+        *,
+        base: str | Sequence[str] | None = None,
+        **kwargs,
+    ) -> os.stat_result:
         """
         Returns a stat object or raises an exception when *path* does not exist.
         """
-        return
+        ...
 
     @abc.abstractmethod
-    def isdir(self, path, stat=None, base=None, **kwargs):
+    def isdir(
+        self,
+        path: str | pathlib.Path,
+        *,
+        stat: os.stat_result | None = None,
+        base: str | Sequence[str] | None = None,
+        **kwargs,
+    ) -> bool:
         """
         Returns *True* when *path* refers to an existing directory, optionally using a precomputed
         stat object instead, and *False* otherwise.
         """
-        return
+        ...
 
     @abc.abstractmethod
-    def isfile(self, path, stat=None, base=None, **kwargs):
+    def isfile(
+        self,
+        path: str | pathlib.Path,
+        *,
+        stat: os.stat_result | None = None,
+        base: str | Sequence[str] | None = None,
+        **kwargs,
+    ) -> bool:
         """
         Returns *True* when *path* refers to a existing file, optionally using a precomputed stat
         object instead, and *False* otherwise.
         """
-        return
+        ...
 
     @abc.abstractmethod
-    def chmod(self, path, perm, base=None, silent=False, **kwargs):
+    def chmod(
+        self,
+        path: str | pathlib.Path,
+        perm: int,
+        *,
+        base: str | Sequence[str] | None = None,
+        silent: bool = False,
+        **kwargs,
+    ) -> bool:
         """
         Changes the permission of a *path* to *perm*. Raises an exception when *path* does not exist
         or returns *False* when *silent* is *True*, and returns *True* on success.
         """
-        return
+        ...
 
     @abc.abstractmethod
-    def unlink(self, path, base=None, silent=True, **kwargs):
+    def unlink(
+        self,
+        path: str | pathlib.Path,
+        *,
+        base: str | Sequence[str] | None = None,
+        silent: bool = True,
+        **kwargs,
+    ) -> bool:
         """
         Removes a file at *path*. Raises an exception when *path* does not exist or returns *False*
         when *silent* is *True*, and returns *True* on success.
         """
-        return
+        ...
 
     @abc.abstractmethod
-    def rmdir(self, path, base=None, silent=True, **kwargs):
+    def rmdir(
+        self,
+        path: str | pathlib.Path,
+        *,
+        base: str | Sequence[str] | None = None,
+        silent: bool = True,
+        **kwargs,
+    ) -> bool:
         """
         Removes a directory at *path*. Raises an exception when *path* does not exist or returns
         *False* when *silent* is *True*, and returns *True* on success.
         """
-        return
+        ...
 
     @abc.abstractmethod
-    def remove(self, path, base=None, silent=True, **kwargs):
+    def remove(
+        self,
+        path: str | pathlib.Path,
+        *,
+        base: str | Sequence[str] | None = None,
+        silent: bool = True,
+        **kwargs,
+    ) -> bool:
         """
         Removes any file or directory at *path*. Directories are removed recursively. Raises an
         exception when *path* does not exist or returns *False* when *silent* is *True*, and returns
         *True* on success.
         """
-        return
+        ...
 
     @abc.abstractmethod
-    def mkdir(self, path, perm, base=None, silent=True, **kwargs):
+    def mkdir(
+        self,
+        path: str | pathlib.Path,
+        perm: int,
+        *,
+        base: str | Sequence[str] | None = None,
+        silent: bool = True,
+        **kwargs,
+    ) -> bool:
         """
         Creates a directory at *path* with permissions *perm*. Raises an exception when *path*
         already exists or returns *False* when *silent* is *True*, and returns *True* on success.
         """
-        return
+        ...
 
     @abc.abstractmethod
-    def mkdir_rec(self, path, perm, base=None, **kwargs):
+    def mkdir_rec(
+        self,
+        path: str | pathlib.Path,
+        perm: int,
+        *,
+        base: str | Sequence[str] | None = None,
+        **kwargs,
+    ) -> bool:
         """
         Recursively creates a directory and intermediate missing directories at *path* with
         permissions *perm*. Raises an exception when *path* already exists or returns *False* when
         *silent* is *True*, and returns *True* on success.
         """
-        return
+        ...
 
     @abc.abstractmethod
-    def listdir(self, path, base=None, **kwargs):
+    def listdir(
+        self,
+        path: str | pathlib.Path,
+        *,
+        base: str | Sequence[str] | None = None,
+        **kwargs,
+    ) -> list[str]:
         """
         Returns a list of elements in and relative to *path*.
         """
-        return
+        ...
 
     @abc.abstractmethod
-    def filecopy(self, src, dst, base=None, **kwargs):
+    def filecopy(
+        self,
+        src: str | pathlib.Path,
+        dst: str | pathlib.Path,
+        *,
+        base: str | Sequence[str] | None = None,
+        **kwargs,
+    ) -> tuple[str, str]:
         """
         Copies a file from *src* to *dst*. Returns the full, schemed *src* and *dst* URIs used for
         copying in a 2-tuple.
         """
-        return
+        ...

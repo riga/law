@@ -9,7 +9,6 @@ __all__ = [
     "RemoteFileInterface", "RemoteCache",
 ]
 
-
 # provisioning imports
 from law.target.remote.base import (
     RemoteFileSystem, RemoteTarget, RemoteFileTarget, RemoteDirectoryTarget,

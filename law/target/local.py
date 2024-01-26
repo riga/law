@@ -32,7 +32,7 @@ logger = get_logger(__name__)
 
 class LocalFileSystem(FileSystem, shims.LocalFileSystem):
 
-    # instance set right below the class definition
+    # set right below the class definition
     default_instance: LocalFileSystem = None  # type: ignore[assignment]
 
     @classmethod
