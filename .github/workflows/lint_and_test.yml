@@ -14,7 +14,7 @@ jobs:
           persist-credentials: false
 
       - name: Pull docker image 🐳
-        run: docker pull riga/law
+        run: docker pull riga/law:py38
 
       - name: Lint 🔍
         run: ./tests/docker.sh riga/law ./tests/linting.sh
@@ -28,7 +28,7 @@ jobs:
           persist-credentials: false
 
       - name: Pull docker image 🐳
-        run: docker pull riga/law
+        run: docker pull riga/law:py38
 
       - name: Typecheck 📋
         run: ./tests/docker.sh riga/law ./tests/typecheck.sh
