@@ -21,6 +21,11 @@ jobs:
 
   typecheck:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["37", "38", "310"]
+    name: typecheck (python ${{ matrix.python }})
     steps:
       - name: Checkout 🛎️
         uses: actions/checkout@v4
@@ -28,10 +33,10 @@ jobs:
           persist-credentials: false
 
       - name: Pull docker image 🐳
-        run: docker pull riga/law:py38
+        run: docker pull riga/law:${{ matrix.python }}
 
       - name: Typecheck 📋
-        run: ./tests/docker.sh riga/law:py38 ./tests/typecheck.sh
+        run: ./tests/docker.sh riga/law:${{ matrix.python }} ./tests/typecheck.sh
 
   unittest:
     runs-on: ubuntu-latest
@@ -39,7 +44,7 @@ jobs:
       fail-fast: false
       matrix:
         python: ["37", "38", "39", "310", "311"]
-    name: test (python ${{ matrix.python }})
+    name: unittest (python ${{ matrix.python }})
     steps:
       - name: Checkout 🛎️
         uses: actions/checkout@v4
