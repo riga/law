@@ -29,7 +29,7 @@ available_packages = [
 ]
 
 #: Dictionary of names to modules of already loaded contrib packages.
-loaded_packages = {}
+loaded_packages: dict[str, ModuleType] = {}
 
 
 def load(*packages: str) -> ModuleType | list[ModuleType]:

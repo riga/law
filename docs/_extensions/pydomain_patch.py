@@ -7,10 +7,10 @@ Patch for the default sphinx python domain that adds:
 """
 
 from docutils import nodes
-from sphinx import addnodes
-from sphinx.locale import _
-from sphinx.domains import ObjType
-from sphinx.domains.python import PyAttribute
+from sphinx import addnodes  # type: ignore[import-untyped]
+from sphinx.locale import _  # type: ignore[import-untyped]
+from sphinx.domains import ObjType  # type: ignore[import-untyped]
+from sphinx.domains.python import PyAttribute  # type: ignore[import-untyped]
 
 
 class PyClassAttribute(PyAttribute):

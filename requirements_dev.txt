@@ -5,3 +5,4 @@ flake8-quotes~=3.3.2
 pytest~=7.4.4
 pytest-cov~=4.1.0
 ipykernel~=6.29.0
+types-docutils~=0.20.0

@@ -17,7 +17,7 @@ jobs:
         run: docker pull riga/law:py38
 
       - name: Lint 🔍
-        run: ./tests/docker.sh riga/law ./tests/linting.sh
+        run: ./tests/docker.sh riga/law:py38 ./tests/linting.sh
 
   typecheck:
     runs-on: ubuntu-latest
@@ -31,7 +31,7 @@ jobs:
         run: docker pull riga/law:py38
 
       - name: Typecheck 📋
-        run: ./tests/docker.sh riga/law ./tests/typecheck.sh
+        run: ./tests/docker.sh riga/law:py38 ./tests/typecheck.sh
 
   unittest:
     runs-on: ubuntu-latest

@@ -13,7 +13,7 @@ action() {
     local repo_dir="$( cd "$( dirname "${this_dir}" )" && pwd )"
 
     local image="${1:-riga/law}"
-    local cmd="${2:-./tests/run.sh}"
+    local cmd="${2:-./tests/all.sh}"
 
     # tty options
     local tty_opts="$( [ -t 0 ] && echo "-ti" || echo "-t" )"
@@ -22,6 +22,8 @@ action() {
     local bash_cmd
     if [ "${cmd}" = "i" ] || [ "${cmd}" = "interactive" ]; then
         bash_cmd="bash"
+    elif [ ! -z "${GITHUB_ACTIONS}" ]; then
+        bash_cmd="bash -c 'pip install .[dev]; ${cmd}'"
     else
         bash_cmd="bash -c '${cmd}'"
     fi

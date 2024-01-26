@@ -552,7 +552,7 @@ def query_choice(
     length as *choices*. When *default* is not *None* it must be one of the choices and is used when
     the input is empty. When *lower* is *True*, the input is compared to the choices in lower case.
     """
-    choices: list[str] = [str(c) for c in choices]
+    choices: list[str] = [str(c) for c in choices]  # type: ignore[assignment]
     _choices = [c.lower() for c in choices] if lower else choices
 
     if default is not None:
