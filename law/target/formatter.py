@@ -227,7 +227,7 @@ class ZipFormatter(Formatter):
         extractall_kwargs = kwargs.pop("extractall_kwargs", None) or {}
 
         # open zip file and extract to dst
-        with zipfile.ZipFile(get_path(path), mode, *args, **kwargs) as f:  # type: ignore[arg-type]
+        with zipfile.ZipFile(get_path(path), mode, *args, **kwargs) as f:  # type: ignore[arg-type, call-overload] # noqa
             f.extractall(get_path(dst), **extractall_kwargs)
 
     @classmethod
@@ -250,7 +250,7 @@ class ZipFormatter(Formatter):
         write_kwargs = kwargs.pop("write_kwargs", None) or {}
 
         # open a new zip file and add all files in src
-        with zipfile.ZipFile(get_path(path), mode, *args, **kwargs) as f:  # type: ignore[arg-type]
+        with zipfile.ZipFile(get_path(path), mode, *args, **kwargs) as f:  # type: ignore[arg-type, call-overload] # noqa
             src = get_path(src)
             if os.path.isfile(src):
                 f.write(src, os.path.basename(src), **write_kwargs)
