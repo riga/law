@@ -22,7 +22,7 @@ from contextlib import AbstractContextManager  # noqa
 from typing_extensions import Annotated, _AnnotatedAlias as AnnotatedType  # noqa
 
 # version dependent imports
-if sys.version_info == (3, 7):
+if sys.version_info[:2] == (3, 7):
     from typing_extensions import Literal  # noqa
 else:
     from typing import Literal  # noqa
