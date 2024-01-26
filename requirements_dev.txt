@@ -1,8 +1,12 @@
-mypy~=1.8.0
-flake8~=7.0.0
+mypy~=1.8.0;python_version>="3.8"
+mypy~=1.4.0;python_version<"3.8"
+flake8~=7.0.0;python_version>="3.8"
+flake8~=5.0.0;python_version<"3.8"
 flake8-commas~=2.1.0
 flake8-quotes~=3.3.2
 pytest~=7.4.4
 pytest-cov~=4.1.0
-ipykernel~=6.29.0
-types-docutils~=0.20.0
+ipykernel~=6.29.0;python_version>="3.8"
+ipykernel~=6.16.0;python_version<"3.8"
+types-docutils~=0.20.0;python_version>="3.8"
+types-docutils~=0.20.0;python_version<"3.8"

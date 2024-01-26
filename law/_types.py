@@ -9,16 +9,23 @@ from __future__ import annotations
 
 __all__: list[str] = []
 
+import sys
 from io import TextIOWrapper  # noqa
 from collections.abc import KeysView, ValuesView, MappingView  # noqa
 from types import ModuleType, GeneratorType, TracebackType  # noqa
 from typing import (  # noqa
     Any, Union, Type, TypeVar, ClassVar, Sequence, Callable, Generator, TextIO, Iterable, Iterator,
-    Hashable, MutableMapping, Literal, IO,
+    Hashable, MutableMapping, IO,
 )
 from contextlib import AbstractContextManager  # noqa
 
 from typing_extensions import Annotated, _AnnotatedAlias as AnnotatedType  # noqa
+
+# version dependent imports
+if sys.version_info == (3, 7):
+    from typing_extensions import Literal  # noqa
+else:
+    from typing import Literal  # noqa
 
 
 #: Generic type variables, more stringent than Any.
