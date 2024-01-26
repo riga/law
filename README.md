@@ -68,6 +68,7 @@ Key features:
   - [Auto completion on the command-line](#auto-completion-on-the-command-line)
 - [Development](#development)
   - [Tests](#tests)
+  - [Git hooks](#git-hooks)
   - [Docker images](#docker-images)
   - [Contributors](#contributors)
 
@@ -239,6 +240,19 @@ Each of these steps be run in a local environment or via docker.
 - All of the above:
   - Local: `./tests/all.sh`
   - Docker: `./tests/docker.sh riga/law ./tests/all.sh`
+
+
+### Git hooks
+
+Linting and type checking can be integrated into the git workflow by setting up the provided hook:
+
+```shell
+# from within the law repo
+( cd .git/hooks && rm -f post-commit && ln -s ../../bin/githooks/post-commit . )
+```
+
+By default, the hook is triggered *after* each commit and *always passes*.
+Use `git commit --amend` to add local changes to the previous commit if needed.
 
 
 ### Docker images

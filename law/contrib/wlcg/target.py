@@ -92,5 +92,5 @@ class WLCGDirectoryTarget(WLCGTarget, RemoteDirectoryTarget):
     pass
 
 
-WLCGTarget.file_class = WLCGFileTarget  # type: ignore[assignment]
-WLCGTarget.directory_class = WLCGDirectoryTarget  # type: ignore[assignment]
+WLCGTarget.file_class = WLCGFileTarget  # type: ignore[type-abstract]
+WLCGTarget.directory_class = WLCGDirectoryTarget  # type: ignore[type-abstract]

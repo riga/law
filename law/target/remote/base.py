@@ -160,7 +160,7 @@ class RemoteFileSystem(FileSystem):
 
     def _init_configs(
         self,
-        section: str,
+        section: str | None,
         default_fs_option: str,
         default_section: str,
         init_kwargs: dict[str, Any],
@@ -168,7 +168,7 @@ class RemoteFileSystem(FileSystem):
         cfg = Config.instance()
 
         # get the proper section
-        if not section:
+        if section is None:
             section = cfg.get_expanded("target", default_fs_option)
 
         # try to read it and fill configs to pass to the file system and the remote file interface

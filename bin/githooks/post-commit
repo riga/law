@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+# Custom post-commit hook that runs linting and type checks.
+
+action() {
+    local shell_is_zsh="$( [ -z "${ZSH_VERSION}" ] && echo "false" || echo "true" )"
+    local this_file="$( ${shell_is_zsh} && echo "${(%):-%x}" || echo "${BASH_SOURCE[0]}" )"
+    local this_dir="$( cd "$( dirname "${this_file}" )" && pwd )"
+
+    # find the project dir which is two levels up when called from law/bin/githooks or
+    # law/.git/hooks
+    local law_dir="$( cd "${this_dir}/../.." && pwd )"
+    if [ ! -f "${law_dir}/tests/linting.sh" ]; then
+        >&2 echo "detected law repository directory '${law_dir}' seems invalid, not running post-commit hook"
+        return "0"
+    fi
+
+    # run linting and type checks
+    bash "${law_dir}/tests/all.sh" "" "linting typecheck"
+    echo
+
+    # always end successfully
+    return "0"
+}
+action "$@"
