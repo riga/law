@@ -24,7 +24,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ["37", "38", "310"]
+        python: ["38", "39", "310", "311"]
     name: typecheck (python ${{ matrix.python }})
     steps:
       - name: Checkout 🛎️

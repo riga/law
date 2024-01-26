@@ -241,6 +241,8 @@ Each of these steps be run in a local environment or via docker.
   - Local: `./tests/all.sh`
   - Docker: `./tests/docker.sh riga/law ./tests/all.sh`
 
+**Note** that, although Python 3.7 is still suppported, type hints are tested only for Python ≥3.8!
+
 
 ### Git hooks
 
