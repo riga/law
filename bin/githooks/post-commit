@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 
 # Custom post-commit hook that runs linting and type checks.
+# In case a variable LAW_GITHOOKS_SKIP is set, the hook is skipped.
 
 action() {
+    [ ! -z "${LAW_GITHOOKS_SKIP}" ] && return "0"
+
     local shell_is_zsh="$( [ -z "${ZSH_VERSION}" ] && echo "false" || echo "true" )"
     local this_file="$( ${shell_is_zsh} && echo "${(%):-%x}" || echo "${BASH_SOURCE[0]}" )"
     local this_dir="$( cd "$( dirname "${this_file}" )" && pwd )"

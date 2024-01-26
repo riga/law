@@ -33,10 +33,10 @@ jobs:
           persist-credentials: false
 
       - name: Pull docker image 🐳
-        run: docker pull riga/law:${{ matrix.python }}
+        run: docker pull riga/law:py${{ matrix.python }}
 
       - name: Typecheck 📋
-        run: ./tests/docker.sh riga/law:${{ matrix.python }} ./tests/typecheck.sh
+        run: ./tests/docker.sh riga/law:py${{ matrix.python }} ./tests/typecheck.sh
 
   unittest:
     runs-on: ubuntu-latest
