@@ -20,7 +20,7 @@
   <a href="http://law.readthedocs.io/en/latest">
     <img alt="Documentation status" src="https://readthedocs.org/projects/law/badge/?version=latest" />
   </a>
-  <img alt="Python version" src="https://img.shields.io/badge/Python-%E2%89%A53.8-blue" />
+  <img alt="Python version" src="https://img.shields.io/badge/Python-%E2%89%A53.7-blue" />
   <a href="https://pypi.python.org/pypi/law">
     <img alt="Package version" src="https://img.shields.io/pypi/v/law.svg?style=flat" />
   </a>
@@ -251,10 +251,12 @@ There are various docker `riga/law` images available on the [DockerHub](https://
 | AlmaLinux 9 |   3.10 | a9-py310, py310                           |
 | AlmaLinux 9 |    3.9 | a9-py39, py39                             |
 | AlmaLinux 9 |    3.8 | a9-py38, py38                             |
+| AlmaLinux 9 |    3.8 | a9-py37, py37                             |
 | CentOS 8    |   3.11 | c8-py311, c8-py3, c8                      |
 | CentOS 8    |   3.10 | c8-py310                                  |
 | CentOS 8    |    3.9 | c8-py39                                   |
 | CentOS 8    |    3.8 | c8-py38                                   |
+| CentOS 8    |    3.7 | c8-py37                                   |
 
 Start them via
 
