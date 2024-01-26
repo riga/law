@@ -37,12 +37,9 @@
 
 > [!NOTE]  
 > This project is currently under development.
-> - Version 1.0.0 will support Python ≥3.7 and is developed in the [drop_py2 branch](https://github.com/riga/law/tree/drop_py2).
+> - Version 1.0.0 will support Python ≥3.7 and is developed in the [release_prep branch](https://github.com/riga/law/tree/release_prep).
 > - There will be a legacy branch with Python 2.7 and ≤3.6 support that, however, won't receive any new features.
 > - The release is targetted for spring 2024.
-
-**Note**: This project is currently under development.
-Version 1.0.0 will be the first, fully documented beta release, targetted for fall 2023.
 
 Use law to build complex and large-scale task workflows.
 It is build on top of [luigi](https://github.com/spotify/luigi) and adds abstractions for **run locations**, **storage locations** and **software environments**.
