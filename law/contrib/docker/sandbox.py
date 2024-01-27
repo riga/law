@@ -4,8 +4,9 @@
 Docker sandbox implementation.
 """
 
-__all__ = ["DockerSandbox"]
+from __future__ import annotations
 
+__all__ = ["DockerSandbox"]
 
 import os
 import sys
@@ -13,49 +14,48 @@ import uuid
 import socket
 import subprocess
 
-import luigi
-import six
+import luigi  # type: ignore[import-untyped]
 
 from law.config import Config
+from law.task.proxy import ProxyCommand
 from law.sandbox.base import Sandbox
 from law.target.local import LocalFileTarget
 from law.cli.software import get_software_deps
 from law.util import make_list, interruptable_popen, quote_cmd, flatten, makedirs
+from law._types import Any
 
 
 class DockerSandbox(Sandbox):
 
-    sandbox_type = "docker"
+    sandbox_type: str = "docker"  # type: ignore[assignment]
 
     config_section_prefix = sandbox_type
 
     @property
-    def image(self):
+    def image(self) -> str:
         return self.name
 
     @property
-    def tag(self):
+    def tag(self) -> str | None:
         return None if ":" not in self.image else self.image.split(":", 1)[1]
 
     @property
-    def env_cache_key(self):
+    def env_cache_key(self) -> str:
         return self.image
 
-    def get_custom_config_section_postfix(self):
+    def get_custom_config_section_postfix(self) -> str:
         return self.image
 
-    def create_env(self):
+    def create_env(self) -> dict[str, Any]:
         # strategy: create a tempfile, forward it to a container, let python dump its full env,
         # close the container and load the env file
 
         # helper to load the env
-        def load_env(target):
+        def load_env(target: LocalFileTarget) -> dict[str, Any]:
             try:
                 return tmp.load(formatter="pickle")
             except Exception as e:
-                raise Exception(
-                    "env deserialization of sandbox {} failed: {}".format(self, e),
-                )
+                raise Exception(f"env deserialization of sandbox {self!r} failed: {e}")
 
         # load the env when the cache file is configured and existing
         if self.env_cache_path:
@@ -72,28 +72,36 @@ class DockerSandbox(Sandbox):
         docker_run_cmd = self._docker_run_cmd()
 
         # mount the env file
-        docker_run_cmd.extend(["-v", "{}:{}".format(tmp.path, env_file)])
+        docker_run_cmd.extend(["-v", f"{tmp.path}:{env_file}"])
 
         # build commands to setup the environment
         setup_cmds = self._build_setup_cmds(self._get_env())
 
         # build the python command that dumps the environment
-        py_cmd = "import os,pickle;" \
-            + "pickle.dump(dict(os.environ),open('{}','wb'),protocol=2)".format(env_file)
+        py_cmd = (
+            "import os,pickle;"
+            f"pickle.dump(dict(os.environ),open('{env_file}','wb'),protocol=2)"
+        )
 
         # build the full command
-        cmd = quote_cmd(docker_run_cmd + [self.image, "bash", "-l", "-c",
+        cmd = quote_cmd(docker_run_cmd + [
+            self.image,
+            "bash",
+            "-l",
+            "-c",
             " && ".join(flatten(setup_cmds, quote_cmd(["python", "-c", py_cmd]))),
         ])
 
         # run it
-        code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        code, out, _ = interruptable_popen(
+            cmd,
+            shell=True,
+            executable="/bin/bash",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
         if code != 0:
-            raise Exception(
-                "docker sandbox env loading failed with exit code {}:\n{}".format(
-                    code, out),
-            )
+            raise Exception(f"docker sandbox env loading failed with exit code {code}:\n{out}")
 
         # copy to the cache path when configured
         if self.env_cache_path:
@@ -104,7 +112,7 @@ class DockerSandbox(Sandbox):
 
         return env
 
-    def _docker_run_cmd(self):
+    def _docker_run_cmd(self) -> list[str]:
         """
         Part of the "docker run" command that is common to env requests and run.
         """
@@ -123,7 +131,7 @@ class DockerSandbox(Sandbox):
             if sandbox_user:
                 if not isinstance(sandbox_user, (tuple, list)) or len(sandbox_user) != 2:
                     raise Exception("sandbox_user() must return 2-tuple")
-                cmd.extend(["-u", "{}:{}".format(*sandbox_user)])
+                cmd.extend(["-u", ":".join(map(str, sandbox_user))])
 
             # add args configured on the task
             args_getter = getattr(self.task, "docker_args", None)
@@ -132,15 +140,15 @@ class DockerSandbox(Sandbox):
 
         return cmd
 
-    def cmd(self, proxy_cmd):
+    def cmd(self, proxy_cmd: ProxyCommand) -> str:
         # docker run command arguments
         args = []
 
         # container name
-        args.extend(["--name", "{}_{}".format(self.task.task_id, str(uuid.uuid4())[:8])])
+        args.extend(["--name", f"{getattr(self.task, 'task_id', None)}_{str(uuid.uuid4())[:8]}"])
 
         # container hostname
-        args.extend(["-h", "{}".format(socket.gethostname())])
+        args.extend(["-h", socket.gethostname()])
 
         # helper to build forwarded paths
         cfg = Config.instance()
@@ -151,13 +159,13 @@ class DockerSandbox(Sandbox):
         stagein_dir_name = cfg.get_expanded(cfg_section, "stagein_dir_name")
         stageout_dir_name = cfg.get_expanded(cfg_section, "stageout_dir_name")
 
-        def dst(*args):
+        def dst(*args) -> str:
             return os.path.join(forward_dir, *(str(arg) for arg in args))
 
         # helper for mounting a volume
         volume_srcs = []
 
-        def mount(*vol):
+        def mount(*vol) -> None:
             src = vol[0]
 
             # make sure, the same source directory is not mounted twice
@@ -192,14 +200,15 @@ class DockerSandbox(Sandbox):
 
         # forward python directories of law and dependencies
         for mod in get_software_deps():
-            path = os.path.dirname(mod.__file__)
-            name, ext = os.path.splitext(os.path.basename(mod.__file__))
+            mod_file: str = mod.__file__  # type: ignore[var-type, assignment]
+            path = os.path.dirname(mod_file)
+            name, ext = os.path.splitext(os.path.basename(mod_file))
             if name == "__init__":
                 vsrc = path
                 vdst = dst(python_dir, os.path.basename(path))
             else:
-                vsrc = os.path.join(path, name + ".py")
-                vdst = dst(python_dir, name + ".py")
+                vsrc = os.path.join(path, f"{name}.py")
+                vdst = dst(python_dir, f"{name}.py")
             mount(vsrc, vdst, "ro")
 
         # forward the law cli dir to bin as it contains a law executable
@@ -219,7 +228,7 @@ class DockerSandbox(Sandbox):
 
         # forward volumes defined in the config and by the task
         vols = self._get_volumes()
-        for hdir, cdir in six.iteritems(vols):
+        for hdir, cdir in vols.items():
             if not cdir:
                 mount(hdir, hdir)
             else:
@@ -242,13 +251,17 @@ class DockerSandbox(Sandbox):
         setup_cmds = self._build_setup_cmds(env)
 
         # build the final command
-        cmd = quote_cmd(docker_run_cmd + [self.image, "bash", "-l", "-c",
+        cmd = quote_cmd(docker_run_cmd + [
+            self.image,
+            "bash",
+            "-l",
+            "-c",
             " && ".join(flatten(setup_cmds, proxy_cmd.build())),
         ])
 
         return cmd
 
-    def get_host_ip(self):
+    def get_host_ip(self) -> str:
         # in host network mode, docker containers can normally be accessed via 127.0.0.1 on Linux
         # or via docker.for.mac.localhost on Mac (as of docker 17.06), however, in some cases it
         # might be required to use a different ip which can be set via an env variable

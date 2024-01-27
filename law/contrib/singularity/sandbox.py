@@ -4,52 +4,52 @@
 Singularity sandbox implementation.
 """
 
-__all__ = ["SingularitySandbox"]
+from __future__ import annotations
 
+__all__ = ["SingularitySandbox"]
 
 import os
 import subprocess
 
-import luigi
-import six
+import luigi  # type: ignore[import-untyped]
 
 from law.config import Config
+from law.task.proxy import ProxyCommand
 from law.sandbox.base import Sandbox
 from law.target.local import LocalDirectoryTarget, LocalFileTarget
 from law.cli.software import get_software_deps
 from law.util import make_list, interruptable_popen, quote_cmd, flatten, law_src_path, makedirs
+from law._types import Any
 
 
 class SingularitySandbox(Sandbox):
 
-    sandbox_type = "singularity"
+    sandbox_type: str = "singularity"  # type: ignore[assignment]
 
     config_section_prefix = sandbox_type
 
     @property
-    def image(self):
+    def image(self) -> str:
         return self.name
 
     @property
-    def env_cache_key(self):
+    def env_cache_key(self) -> str:
         return self.image
 
-    def get_custom_config_section_postfix(self):
+    def get_custom_config_section_postfix(self) -> str:
         return self.image
 
-    def create_env(self):
+    def create_env(self) -> dict[str, Any]:
         # strategy: unlike docker, singularity might not allow binding of paths that do not exist
         # in the container, so create a tmp directory on the host system and bind it as /tmp, let
         # python dump its full env into a file, and read the file again on the host system
 
         # helper to load the env
-        def load_env(target):
+        def load_env(target: LocalFileTarget) -> dict[str, Any]:
             try:
                 return tmp.load(formatter="pickle")
             except Exception as e:
-                raise Exception(
-                    "env deserialization of sandbox {} failed: {}".format(self, e),
-                )
+                raise Exception(f"env deserialization of sandbox {self!r} failed: {e}")
 
         # load the env when the cache file is configured and existing
         if self.env_cache_path:
@@ -74,8 +74,8 @@ class SingularitySandbox(Sandbox):
         # arguments to configure the environment
         args = ["-e"]
         if allow_binds:
-            args.extend(["-B", "{}:/tmp".format(tmp_dir.path)])
-            env_file = "/tmp/{}".format(tmp.basename)
+            args.extend(["-B", f"{tmp_dir.path}:/tmp"])
+            env_file = f"/tmp/{tmp.basename}"
         else:
             env_file = tmp.path
 
@@ -86,22 +86,30 @@ class SingularitySandbox(Sandbox):
         setup_cmds = self._build_setup_cmds(self._get_env())
 
         # build the python command that dumps the environment
-        py_cmd = "import os,pickle;" \
-            + "pickle.dump(dict(os.environ),open('{}','wb'),protocol=2)".format(env_file)
+        py_cmd = (
+            "import os,pickle;"
+            f"pickle.dump(dict(os.environ),open('{env_file}','wb'),protocol=2)"
+        )
 
         # build the full command
-        cmd = quote_cmd(singularity_exec_cmd + [self.image, "bash", "-l", "-c",
+        cmd = quote_cmd(singularity_exec_cmd + [
+            self.image,
+            "bash",
+            "-l",
+            "-c",
             " && ".join(flatten(setup_cmds, quote_cmd(["python", "-c", py_cmd]))),
         ])
 
         # run it
-        code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        code, out, _ = interruptable_popen(
+            cmd,
+            shell=True,
+            executable="/bin/bash",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
         if code != 0:
-            raise Exception(
-                "singularity sandbox env loading failed with exit code {}:\n{}".format(
-                    code, out),
-            )
+            raise Exception(f"singularity sandbox env loading failed with exit code {code}:\n{out}")
 
         # copy to the cache path when configured
         if self.env_cache_path:
@@ -112,7 +120,7 @@ class SingularitySandbox(Sandbox):
 
         return env
 
-    def _singularity_exec_cmd(self):
+    def _singularity_exec_cmd(self) -> list[str]:
         cmd = ["singularity", "exec"]
 
         # task-specific argiments
@@ -124,7 +132,7 @@ class SingularitySandbox(Sandbox):
 
         return cmd
 
-    def cmd(self, proxy_cmd):
+    def cmd(self, proxy_cmd: ProxyCommand) -> str:
         # singularity exec command arguments
         # -e clears the environment
         args = ["-e"]
@@ -138,13 +146,13 @@ class SingularitySandbox(Sandbox):
         stagein_dir_name = cfg.get_expanded(cfg_section, "stagein_dir_name")
         stageout_dir_name = cfg.get_expanded(cfg_section, "stageout_dir_name")
 
-        def dst(*args):
+        def dst(*args) -> str:
             return os.path.join(forward_dir, *(str(arg) for arg in args))
 
         # helper for mounting a volume
         volume_srcs = []
 
-        def mount(*vol):
+        def mount(*vol) -> None:
             src = vol[0]
 
             # make sure, the same source directory is not mounted twice
@@ -190,14 +198,15 @@ class SingularitySandbox(Sandbox):
 
             # forward python directories of law and dependencies
             for mod in get_software_deps():
-                path = os.path.dirname(mod.__file__)
-                name, ext = os.path.splitext(os.path.basename(mod.__file__))
+                mod_file: str = mod.__file__  # type: ignore[type-var, assignment]
+                path: str = os.path.dirname(mod_file)
+                name, ext = os.path.splitext(os.path.basename(mod_file))
                 if name == "__init__":
                     vsrc = path
                     vdst = dst(python_dir, os.path.basename(path))
                 else:
-                    vsrc = os.path.join(path, name + ".py")
-                    vdst = dst(python_dir, name + ".py")
+                    vsrc = os.path.join(path, f"{name}.py")
+                    vdst = dst(python_dir, f"{name}.py")
                 if allow_binds:
                     mount(vsrc, vdst)
                 else:
@@ -245,7 +254,7 @@ class SingularitySandbox(Sandbox):
         if vols and not allow_binds:
             raise Exception("cannot forward volumes to sandbox if binds are not allowed")
 
-        for hdir, cdir in six.iteritems(vols):
+        for hdir, cdir in vols.items():
             if not cdir:
                 mount(hdir)
             else:
@@ -263,7 +272,11 @@ class SingularitySandbox(Sandbox):
         setup_cmds = self._build_setup_cmds(env)
 
         # build the final command
-        cmd = quote_cmd(singularity_exec_cmd + [self.image, "bash", "-l", "-c",
+        cmd = quote_cmd(singularity_exec_cmd + [
+            self.image,
+            "bash",
+            "-l",
+            "-c",
             " && ".join(flatten(setup_cmds, proxy_cmd.build())),
         ])
 

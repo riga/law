@@ -4,21 +4,22 @@
 Implementation of a file interface using GFAL.
 """
 
-__all__ = ["GFALFileInterface"]
+from __future__ import annotations
 
+__all__ = ["GFALFileInterface"]
 
 import os
 import sys
 import gc
+import pathlib
 import contextlib
 import stat as _stat
-
-import six
 
 from law.config import Config
 from law.target.file import has_scheme, get_scheme
 from law.target.remote.interface import RemoteFileInterface, RetryException
 from law.logger import get_logger
+from law._types import Any, Callable, Iterator, Sequence, TracebackType
 
 
 logger = get_logger(__name__)
@@ -26,8 +27,7 @@ logger = get_logger(__name__)
 
 # try to import gfal2
 try:
-    import gfal2
-
+    import gfal2  # type: ignore[import-untyped, import-not-found]
     HAS_GFAL2 = True
 
 except (ImportError, TypeError):
@@ -36,7 +36,7 @@ except (ImportError, TypeError):
     class GFAL2Dummy(object):
 
         def __getattr__(self, attr):
-            raise Exception("trying to access 'gfal2.{}', but gfal2 is not installed".format(attr))
+            raise Exception(f"trying to access 'gfal2.{attr}', but gfal2 is not installed")
 
     gfal2 = GFAL2Dummy()
 
@@ -44,22 +44,32 @@ except (ImportError, TypeError):
 class GFALFileInterface(RemoteFileInterface):
 
     @classmethod
-    def parse_config(cls, section, config=None, overwrite=False):
-        config = super(GFALFileInterface, cls).parse_config(section, config=config,
-            overwrite=overwrite)
+    def parse_config(
+        cls,
+        section: str,
+        config: dict[str, Any] | None = None,
+        *,
+        overwrite: bool = False,
+    ) -> dict[str, Any]:
+        _config = super().parse_config(section, config=config, overwrite=overwrite)
 
         cfg = Config.instance()
 
         # helper to add a config value if it exists, extracted with a config parser method
-        def add(option, func, postfix="gfal_", _config=config):
-            if option not in config or overwrite:
+        def add(
+            option: str,
+            func: Callable[[str, str], Any],
+            postfix: str = "gfal_",
+            _config: dict[str, Any] = _config,
+        ) -> None:
+            if option not in _config or overwrite:
                 _config[option] = func(section, postfix + option)
 
         # use atomic contexts per operation
         add("atomic_contexts", cfg.get_expanded_bool)
 
         # transfer config
-        config.setdefault("transfer_config", {})
+        _config.setdefault("transfer_config", {})
         transfer_specs = [
             ("timeout", cfg.get_expanded_int),
             ("checksum_check", cfg.get_expanded_bool),
@@ -69,16 +79,23 @@ class GFALFileInterface(RemoteFileInterface):
             ("strict_copy", cfg.get_expanded_bool),
         ]
         for name, func in transfer_specs:
-            add(name, func, "gfal_transfer_", config["transfer_config"])
+            add(name, func, "gfal_transfer_", _config["transfer_config"])
 
-        return config
+        return _config
 
-    def __init__(self, atomic_contexts=False, gfal_options=None, transfer_config=None, **kwargs):
+    def __init__(
+        self,
+        *,
+        atomic_contexts: bool = False,
+        gfal_options: dict[str, Any] | None = None,
+        transfer_config: dict[str, Any] | None = None,
+        **kwargs,
+    ) -> None:
         super(GFALFileInterface, self).__init__(**kwargs)
 
         # cache for gfal context objects and transfer parameters per pid for thread safety
-        self._contexts = {}
-        self._transfer_parameters = {}
+        self._contexts: dict[int, gfal2.Gfal2Context] = {}
+        self._transfer_parameters: dict[int, gfal2.TransferParameters] = {}
 
         # store gfal options and transfer configs
         self.gfal_options = gfal_options or {}
@@ -87,20 +104,16 @@ class GFALFileInterface(RemoteFileInterface):
         # other configs
         self.atomic_contexts = atomic_contexts
 
-    def sanitize_path(self, p):
-        # in python 2, the gfal2-bindings do not support unicode but expect strings
-        return str(p) if isinstance(p, six.string_types) else p
-
     @contextlib.contextmanager
-    def context(self):
+    def context(self) -> Iterator[gfal2.Gfal2Context]:
         # context objects are stored per pid, so create one if it does not exist yet
         pid = os.getpid()
 
         if pid not in self._contexts:
             self._contexts[pid] = ctx = gfal2.creat_context()
-            for _type, args_list in six.iteritems(self.gfal_options):
+            for _type, args_list in self.gfal_options.items():
                 for args in args_list:
-                    getattr(ctx, "set_opt_" + _type)(*args)
+                    getattr(ctx, f"set_opt_{_type}")(*args)
 
         # yield and optionally close it which frees potentially open connections
         try:
@@ -111,12 +124,12 @@ class GFALFileInterface(RemoteFileInterface):
             gc.collect()
 
     @contextlib.contextmanager
-    def transfer_parameters(self, ctx):
+    def transfer_parameters(self, ctx: gfal2.Gfal2Context) -> Iterator[gfal2.TransferParameters]:
         pid = os.getpid()
 
         if pid not in self._transfer_parameters:
             self._transfer_parameters[pid] = ctx.transfer_parameters()
-            for key, value in six.iteritems(self.transfer_config):
+            for key, value in self.transfer_config.items():
                 setattr(self._transfer_parameters[pid], key, value)
 
         try:
@@ -125,43 +138,70 @@ class GFALFileInterface(RemoteFileInterface):
             if self.atomic_contexts and pid in self._transfer_parameters:
                 del self._transfer_parameters[pid]
 
-    def exists(self, path, stat=False, base=None, **kwargs):
+    def exists(
+        self,
+        path: str | pathlib.Path,
+        *,
+        stat: bool = False,
+        base: str | Sequence[str] | None = None,
+        **kwargs,
+    ) -> bool | os.stat_result | None:
         uri = self.uri(path, base_name="stat" if stat else ("exists", "stat"), base=base)
         with self.context() as ctx:
             try:
-                logger.debug("invoking gfal2 exists({})".format(uri))
+                logger.debug(f"invoking gfal2 exists({uri})")
                 rstat = ctx.stat(uri)
                 return rstat if stat else True
             except gfal2.GError:
                 return None if stat else False
 
     @RemoteFileInterface.retry(uri_base_name="stat")
-    def stat(self, path, base=None, **kwargs):
+    def stat(
+        self,
+        path: str | pathlib.Path,
+        *,
+        base: str | Sequence[str] | None = None,
+        **kwargs,
+    ) -> os.stat_result:
         uri = self.uri(path, base_name="stat", base=base)
         with self.context() as ctx:
             try:
-                logger.debug("invoking gfal2 stat({})".format(uri))
+                logger.debug(f"invoking gfal2 stat({uri})")
                 return ctx.stat(uri)
 
             except gfal2.GError:
                 raise RetryException()
 
-    def isdir(self, path, stat=None, base=None, **kwargs):
+    def isdir(
+        self,
+        path: str | pathlib.Path,
+        *,
+        stat: os.stat_result | None = None,
+        base: str | Sequence[str] | None = None,
+        **kwargs,
+    ) -> bool:
         if not stat:
-            stat = self.exists(path, stat=True, base=base)
+            stat = self.exists(path, stat=True, base=base)  # type: ignore[assignment]
 
         if not stat:
             return False
 
         # some file protocols do not return standard st_mode values in stat requests,
-        # e.g. srm returns file type bits 0o50000 for directories instead of 0o40000,
+        # e.g. SRM returns file type bits 0o50000 for directories instead of 0o40000,
         # these differences are rather distinct and can be taken into account here,
         # see http://man7.org/linux/man-pages/man7/inode.7.html for info on st_mode values
         return _stat.S_ISDIR(stat.st_mode) or _stat.S_IFMT(stat.st_mode) == 0o50000
 
-    def isfile(self, path, stat=None, base=None, **kwargs):
+    def isfile(
+        self,
+        path: str | pathlib.Path,
+        *,
+        stat: os.stat_result | None = None,
+        base: str | Sequence[str] | None = None,
+        **kwargs,
+    ) -> bool:
         if not stat:
-            stat = self.exists(path, stat=True, base=base)
+            stat = self.exists(path, stat=True, base=base)  # type: ignore[assignment]
 
         if not stat:
             return False
@@ -169,14 +209,22 @@ class GFALFileInterface(RemoteFileInterface):
         return not self.isdir(path, stat=stat, base=base)
 
     @RemoteFileInterface.retry(uri_base_name="chmod")
-    def chmod(self, path, perm, base=None, silent=False, **kwargs):
+    def chmod(
+        self,
+        path: str | pathlib.Path,
+        perm: int,
+        *,
+        base: str | Sequence[str] | None = None,
+        silent: bool = False,
+        **kwargs,
+    ) -> bool:
         if perm is None:
             return True
 
-        uri = self.uri(path, base_name="chmod", base=base)
+        uri: str = self.uri(path, base_name="chmod", base=base, return_all=False)  # type: ignore[assignment] # noqa
         with self.context() as ctx:
             try:
-                logger.debug("invoking gfal2 chmod({}, {})".format(uri, perm))
+                logger.debug(f"invoking gfal2 chmod({uri}, {perm})")
                 ctx.chmod(uri, perm)
                 return True
 
@@ -187,14 +235,21 @@ class GFALFileInterface(RemoteFileInterface):
                     raise e
                 if e.reason in (e.NOT_FOUND, e.NOT_SUPPORTED) and silent:
                     return False
-                e.reraise()
+                raise e
 
     @RemoteFileInterface.retry(uri_base_name="unlink")
-    def unlink(self, path, base=None, silent=True, **kwargs):
-        uri = self.uri(path, base_name="unlink", base=base)
+    def unlink(
+        self,
+        path: str | pathlib.Path,
+        *,
+        base: str | Sequence[str] | None = None,
+        silent: bool = True,
+        **kwargs,
+    ) -> bool:
+        uri: str = self.uri(path, base_name="unlink", base=base, return_all=False)  # type: ignore[assignment] # noqa
         with self.context() as ctx:
             try:
-                logger.debug("invoking gfal2 unlink({})".format(uri))
+                logger.debug(f"invoking gfal2 unlink({uri})")
                 ctx.unlink(uri)
                 return True
 
@@ -205,14 +260,21 @@ class GFALFileInterface(RemoteFileInterface):
                     raise e
                 if e.reason == e.NOT_FOUND and silent:
                     return False
-                e.reraise()
+                raise e
 
     @RemoteFileInterface.retry(uri_base_name="rmdir")
-    def rmdir(self, path, base=None, silent=True, **kwargs):
-        uri = self.uri(path, base_name="rmdir", base=base)
+    def rmdir(
+        self,
+        path: str | pathlib.Path,
+        *,
+        base: str | Sequence[str] | None = None,
+        silent: bool = True,
+        **kwargs,
+    ) -> bool:
+        uri: str = self.uri(path, base_name="rmdir", base=base, return_all=False)  # type: ignore[assignment] # noqa
         with self.context() as ctx:
             try:
-                logger.debug("invoking gfal2 rmdir({})".format(uri))
+                logger.debug(f"invoking gfal2 rmdir({uri})")
                 ctx.rmdir(uri)
                 return True
 
@@ -223,20 +285,27 @@ class GFALFileInterface(RemoteFileInterface):
                     raise e
                 if e.reason == e.NOT_FOUND and silent:
                     return False
-                e.reraise()
+                raise e
 
     @RemoteFileInterface.retry(uri_base_name="unlink")
-    def remove(self, path, base=None, silent=True, **kwargs):
+    def remove(
+        self,
+        path: str | pathlib.Path,
+        *,
+        base: str | Sequence[str] | None = None,
+        silent: bool = True,
+        **kwargs,
+    ) -> bool:
         """
         Recursive removal is potentially expensive in terms of remote file operations, so this
         method is designed to reduce them as much as possible.
         """
         # most common use case is file removal, so try this first and in case there is an error
         # interpret its message to get more info on the object without further operations
-        uri = self.uri(path, base_name="unlink", base=base)
+        uri: str = self.uri(path, base_name="unlink", base=base, return_all=False)  # type: ignore[assignment] # noqa
         with self.context() as ctx:
             try:
-                logger.debug("invoking gfal2 unlink({})".format(uri))
+                logger.debug(f"invoking gfal2 unlink({uri})")
                 ctx.unlink(uri)
                 return True
 
@@ -248,25 +317,25 @@ class GFALFileInterface(RemoteFileInterface):
                         raise e
                     if e.reason == e.NOT_FOUND and silent:
                         return False
-                    e.reraise()
+                    raise e
 
         # at this point, we are dealing with a directory so try to delete it right away
-        uri = self.uri(path, base_name="rmdir", base=base)
+        uri = self.uri(path, base_name="rmdir", base=base, return_all=False)  # type: ignore[assignment] # noqa
         with self.context() as ctx:
             try:
-                logger.debug("invoking gfal2 rmdir({})".format(uri))
+                logger.debug(f"invoking gfal2 rmdir({uri})")
                 ctx.rmdir(uri)
                 return True
 
             except gfal2.GError:
-                e = GFALError_rmdir(uri)
+                e2 = GFALError_rmdir(uri)
                 # handle all cases, except when the directory is not empty
-                if e.reason != e.NOT_EMPTY:
-                    if e.reason == e.UNKNOWN:
+                if e2.reason != e2.NOT_EMPTY:
+                    if e2.reason == e2.UNKNOWN:
                         raise e
-                    if e.reason == e.NOT_FOUND and silent:
+                    if e2.reason == e2.NOT_FOUND and silent:
                         return False
-                    e.reraise()
+                    raise e2
 
         # the directory is not empty, so there is no other way than deleting contents recursively
         # first, and then removing the directory itself
@@ -277,11 +346,19 @@ class GFALFileInterface(RemoteFileInterface):
         return self.rmdir(path, base=base, silent=silent, retries=0)
 
     @RemoteFileInterface.retry(uri_base_name="mkdir")
-    def mkdir(self, path, perm, base=None, silent=True, **kwargs):
-        uri = self.uri(path, base_name="mkdir", base=base)
+    def mkdir(
+        self,
+        path: str | pathlib.Path,
+        perm: int,
+        *,
+        base: str | Sequence[str] | None = None,
+        silent: bool = True,
+        **kwargs,
+    ) -> bool:
+        uri: str = self.uri(path, base_name="mkdir", base=base, return_all=False)  # type: ignore[assignment] # noqa
         with self.context() as ctx:
             try:
-                logger.debug("invoking gfal2 mkdir({}, {})".format(uri, perm))
+                logger.debug(f"invoking gfal2 mkdir({uri}, {perm})")
                 ctx.mkdir(uri, perm)
                 return True
 
@@ -294,14 +371,22 @@ class GFALFileInterface(RemoteFileInterface):
                     # fail silently only when uri is really a dictionary
                     if self.isdir(path, base=base):
                         return False
-                e.reraise()
+                raise e
 
     @RemoteFileInterface.retry(uri_base_name=["mkdir_rec", "mkdir"])
-    def mkdir_rec(self, path, perm, base=None, silent=True, **kwargs):
-        uri = self.uri(path, base_name="mkdir", base=base)
+    def mkdir_rec(
+        self,
+        path: str | pathlib.Path,
+        perm: int,
+        *,
+        base: str | Sequence[str] | None = None,
+        silent: bool = True,
+        **kwargs,
+    ) -> bool:
+        uri: str = self.uri(path, base_name="mkdir", base=base, return_all=False)  # type: ignore[assignment] # noqa
         with self.context() as ctx:
             try:
-                logger.debug("invoking gfal2 mkdir_rec({}, {})".format(uri, perm))
+                logger.debug(f"invoking gfal2 mkdir_rec({uri}, {perm})")
                 ctx.mkdir_rec(uri, perm)
                 return True
 
@@ -314,14 +399,20 @@ class GFALFileInterface(RemoteFileInterface):
                     # fail silently only when uri is really a dictionary
                     if self.isdir(path, base=base):
                         return False
-                e.reraise()
+                raise e
 
     @RemoteFileInterface.retry(uri_base_name="listdir")
-    def listdir(self, path, base=None, **kwargs):
-        uri = self.uri(path, base_name="listdir", base=base)
+    def listdir(
+        self,
+        path: str | pathlib.Path,
+        *,
+        base: str | Sequence[str] | None = None,
+        **kwargs,
+    ) -> list[str]:
+        uri: str = self.uri(path, base_name="listdir", base=base, return_all=False)  # type: ignore[assignment] # noqa
         with self.context() as ctx:
             try:
-                logger.debug("invoking gfal2 listdir({})".format(uri))
+                logger.debug(f"invoking gfal2 listdir({uri})")
                 return ctx.listdir(uri)
 
             except gfal2.GError:
@@ -329,23 +420,29 @@ class GFALFileInterface(RemoteFileInterface):
                 # some protocols throw an error upon listdir on empty directories
                 if e.EMPTY:
                     return []
-                e.reraise()
+                raise e
 
     @RemoteFileInterface.retry(uri_base_name="filecopy")
-    def filecopy(self, src, dst, base=None, **kwargs):
+    def filecopy(
+        self,
+        src: str | pathlib.Path,
+        dst: str | pathlib.Path,
+        base: str | Sequence[str] | None = None,
+        **kwargs,
+    ) -> tuple[str, str]:
         if has_scheme(src):
             src_uri = self.sanitize_path(src)
         else:
-            src_uri = self.uri(src, base_name="filecopy", base=base)
+            src_uri = self.uri(src, base_name="filecopy", base=base, return_all=False)  # type: ignore[assignment] # noqa
 
         if has_scheme(dst):
             dst_uri = self.sanitize_path(dst)
         else:
-            dst_uri = self.uri(dst, base_name="filecopy", base=base)
+            dst_uri = self.uri(dst, base_name="filecopy", base=base, return_all=False)  # type: ignore[assignment] # noqa
 
         with self.context() as ctx, self.transfer_parameters(ctx) as params:
             try:
-                logger.debug("invoking gfal2 filecopy({}, {})".format(src_uri, dst_uri))
+                logger.debug(f"invoking gfal2 filecopy({src_uri}, {dst_uri})")
                 ctx.filecopy(params, src_uri, dst_uri)
 
             except gfal2.GError:
@@ -353,7 +450,7 @@ class GFALFileInterface(RemoteFileInterface):
                 # check if the operation should be retried or raised immediately
                 if e.reason == e.UNKNOWN:
                     raise e
-                e.reraise()
+                raise e
 
         return src_uri, dst_uri
 
@@ -362,22 +459,26 @@ class GFALOperationError(RetryException):
 
     UNKNOWN = "unknown reason"
 
-    def __init__(self, uri, exc=None):
+    def __init__(
+        self,
+        uri: str | pathlib.Path,
+        exc: tuple[type, BaseException, TracebackType] | None = None,
+    ) -> None:
         # store uri and scheme
         self.uri = str(uri)
-        self.scheme = get_scheme(uri)
+        self.scheme = get_scheme(uri) or "file"
 
         # get the original error objects and find the error reason
-        exc = exc or sys.exc_info()
-        self.reason = self._get_reason(str(exc[1]), self.uri, self.scheme)
+        _exc = sys.exc_info() if exc is None else exc
+        self.reason = self._get_reason(str(_exc[1]), self.uri, self.scheme)
 
         # add the error reason to the message
-        msg = "{} ({}: {})".format(exc[1], self.__class__.__name__, self.reason)
+        msg = f"{_exc[1]} ({self.__class__.__name__}: {self.reason})"
 
-        super(GFALOperationError, self).__init__(msg=msg, exc=exc)
+        super().__init__(msg=msg, exc=exc)
 
     @classmethod
-    def _get_reason(cls, msg, uri, scheme):
+    def _get_reason(cls, msg: str, uri: str, scheme: str) -> str:
         raise NotImplementedError()
 
 
@@ -387,7 +488,7 @@ class GFALError_chmod(GFALOperationError):
     NOT_SUPPORTED = "chmod operation not supported"
 
     @classmethod
-    def _get_reason(cls, msg, uri, scheme):
+    def _get_reason(cls, msg: str, uri: str, scheme: str) -> str:
         lmsg = msg.lower()
         if scheme == "root":
             if "no such file or directory" in lmsg:
@@ -412,8 +513,7 @@ class GFALError_chmod(GFALOperationError):
                 return cls.NOT_SUPPORTED
 
         else:
-            logger.warning("scheme '{}' not known to {}, cannot parse '{}'".format(
-                scheme, cls.__name__, msg))
+            logger.warning(f"scheme '{scheme}' not known to {cls.__name__}, cannot parse '{msg}'")
 
         return cls.UNKNOWN
 
@@ -424,7 +524,7 @@ class GFALError_unlink(GFALOperationError):
     IS_DIRECTORY = "target is a directory"
 
     @classmethod
-    def _get_reason(cls, msg, uri, scheme):
+    def _get_reason(cls, msg: str, uri: str, scheme: str) -> str:
         lmsg = msg.lower()
         if scheme == "root":
             if "no such file or directory" in lmsg:
@@ -455,8 +555,7 @@ class GFALError_unlink(GFALOperationError):
                 return cls.NOT_FOUND
 
         else:
-            logger.warning("scheme '{}' not known to {}, cannot parse '{}'".format(
-                scheme, cls.__name__, msg))
+            logger.warning(f"scheme '{scheme}' not known to {cls.__name__}, cannot parse '{msg}'")
 
         return cls.UNKNOWN
 
@@ -468,7 +567,7 @@ class GFALError_rmdir(GFALOperationError):
     NOT_EMPTY = "directory is not empty"
 
     @classmethod
-    def _get_reason(cls, msg, uri, scheme):
+    def _get_reason(cls, msg: str, uri: str, scheme: str) -> str:
         lmsg = msg.lower()
         if scheme == "root":
             if "no such file or directory" in lmsg:
@@ -504,8 +603,7 @@ class GFALError_rmdir(GFALOperationError):
                 return cls.NOT_FOUND
 
         else:
-            logger.warning("scheme '{}' not known to {}, cannot parse '{}'".format(
-                scheme, cls.__name__, msg))
+            logger.warning(f"scheme '{scheme}' not known to {cls.__name__}, cannot parse '{msg}'")
 
         return cls.UNKNOWN
 
@@ -515,7 +613,7 @@ class GFALError_mkdir(GFALOperationError):
     EXISTS = "target already exists"
 
     @classmethod
-    def _get_reason(cls, msg, uri, scheme):
+    def _get_reason(cls, msg: str, uri: str, scheme: str) -> str:
         lmsg = msg.lower()
         if scheme == "root":
             if "file exists" in lmsg:
@@ -534,8 +632,7 @@ class GFALError_mkdir(GFALOperationError):
                 return cls.EXISTS
 
         else:
-            logger.warning("scheme '{}' not known to {}, cannot parse '{}'".format(
-                scheme, cls.__name__, msg))
+            logger.warning(f"scheme '{scheme}' not known to {cls.__name__}, cannot parse '{msg}'")
 
         return cls.UNKNOWN
 
@@ -545,12 +642,15 @@ class GFALError_listdir(GFALOperationError):
     EMPTY = "directory is empty"
 
     @classmethod
-    def _get_reason(cls, msg, uri, scheme):
+    def _get_reason(cls, msg: str, uri: str, scheme: str) -> str:
         lmsg = msg.lower()
         if scheme == "root":
             # xrootd throws an expcetion when a directory is empty
             if lmsg.strip().endswith("invalid response (unknown error 303)"):
                 return cls.EMPTY
+
+        else:
+            logger.warning(f"scheme '{scheme}' not known to {cls.__name__}, cannot parse '{msg}'")
 
         return cls.UNKNOWN
 
@@ -560,26 +660,43 @@ class GFALError_filecopy(GFALOperationError):
     SRC_NOT_FOUND = "source not found"
     DST_EXISTS = "target already exists"
 
-    def __init__(self, src_uri, dst_uri, exc=None):
+    def __init__(
+        self,
+        src_uri: str,
+        dst_uri: str,
+        exc=None,
+    ) -> None:
         # store uri and scheme
         self.src_uri = str(src_uri)
         self.dst_uri = str(dst_uri)
-        self.src_scheme = get_scheme(src_uri)
-        self.dst_scheme = get_scheme(dst_uri)
+        self.src_scheme = get_scheme(src_uri) or "file"
+        self.dst_scheme = get_scheme(dst_uri) or "file"
 
         # get the original error objects and find the error reason
-        exc = exc or sys.exc_info()
-        self.reason = self._get_reason(str(exc[1]), self.src_uri, self.dst_uri, self.src_scheme,
-            self.dst_scheme)
+        _exc = sys.exc_info() if exc is None else exc
+        self.reason = self._get_reason(
+            str(_exc[1]),
+            self.src_uri,
+            self.dst_uri,
+            self.src_scheme,
+            self.dst_scheme,
+        )
 
         # add the error reason to the message
-        msg = "{} ({}: {})".format(exc[1], self.__class__.__name__, self.reason)
+        msg = f"{_exc[1]} ({self.__class__.__name__}: {self.reason})"
 
         # bypass the GFALOperationError init
         RetryException.__init__(self, msg=msg, exc=exc)
 
     @classmethod
-    def _get_reason(cls, msg, src_uri, dst_uri, src_scheme, dst_scheme):
+    def _get_reason(  # type: ignore[override]
+        cls,
+        msg: str,
+        src_uri: str,
+        dst_uri: str,
+        src_scheme: str,
+        dst_scheme: str,
+    ) -> str:
         # in gfal, error messages on missing source files or existing target files depend on both
         # source and destination protocols, so all cases need to be handled separately
         lmsg = msg.lower()
@@ -713,7 +830,9 @@ class GFALError_filecopy(GFALOperationError):
                 return cls.DST_EXISTS
 
         else:
-            logger.warning("combination of source scheme '{}' and target scheme '{}' not known to "
-                "{}, cannot parse '{}'".format(src_scheme, dst_scheme, cls.__name__, msg))
+            logger.warning(
+                f"combination of source scheme '{src_scheme}' and target scheme '{dst_scheme}' not "
+                f"known to {cls.__name__}, cannot parse '{msg}'",
+            )
 
         return cls.UNKNOWN

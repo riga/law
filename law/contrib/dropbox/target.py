@@ -4,10 +4,11 @@
 Dropbox file system and targets based on the GFAL file interface.
 """
 
+from __future__ import annotations
+
 __all__ = ["DropboxFileSystem", "DropboxTarget", "DropboxFileTarget", "DropboxDirectoryTarget"]
 
-
-import six
+import pathlib
 
 import law
 from law.config import Config
@@ -15,6 +16,7 @@ from law.target.remote import (
     RemoteFileSystem, RemoteTarget, RemoteFileTarget, RemoteDirectoryTarget,
 )
 from law.logger import get_logger
+from law._types import Any, Callable
 
 
 logger = get_logger(__name__)
@@ -24,17 +26,22 @@ law.contrib.load("gfal")
 
 class DropboxFileSystem(RemoteFileSystem):
 
-    file_interface_cls = law.gfal.GFALFileInterface
+    file_interface_cls = law.gfal.GFALFileInterface  # type: ignore[attr-defined]
 
     @classmethod
-    def parse_config(cls, section, config=None, overwrite=False):
-        config = super(DropboxFileSystem, cls).parse_config(section, config=config,
-            overwrite=overwrite)
+    def parse_config(
+        cls,
+        section: str,
+        config: dict[str, Any] | None = None,
+        *,
+        overwrite: bool = False,
+    ) -> dict[str, Any]:
+        config = super().parse_config(section, config=config, overwrite=overwrite)
 
         cfg = Config.instance()
 
         # helper to add a config value if it exists, extracted with a config parser method
-        def add(option, func, prefix="dropbox_"):
+        def add(option: str, func: Callable[[str, str], Any], prefix: str = "dropbox_") -> None:
             if option not in config or overwrite:
                 config[option] = func(section, prefix + option)
 
@@ -49,11 +56,23 @@ class DropboxFileSystem(RemoteFileSystem):
 
         return config
 
-    def __init__(self, section=None, app_key=None, app_secret=None, access_token=None, **kwargs):
+    def __init__(
+        self,
+        section: str | None = None,
+        *,
+        app_key: str | None = None,
+        app_secret: str | None = None,
+        access_token: str | None = None,
+        **kwargs,
+    ) -> None:
         # read configs from section and combine them with kwargs to get the file system and
         # file interface configs
-        section, fs_config, fi_config = self._init_configs(section, "default_dropbox_fs",
-            "dropbox_fs", kwargs)
+        section, fs_config, fi_config = self._init_configs(
+            section,
+            "default_dropbox_fs",
+            "dropbox_fs",
+            kwargs,
+        )
 
         # store the config section
         self.config_section = section
@@ -67,14 +86,15 @@ class DropboxFileSystem(RemoteFileSystem):
             fs_config["access_token"] = access_token
 
         # base path, app key, app secret and access token are mandatory
-        msg = ("attribute '{{0}}' must not be empty, set it either directly in the {} constructor, "
-            "or add the option '{{0}}' to your config section '{}'".format(
-                self.__class__.__name__, self.config_section))
+        msg_tmpl = (
+            "attribute '{{0}}' must not be empty, set it either directly in the {} constructor, "
+            "or add the option '{{0}}' to your config section '{}'"
+        ).format(self.__class__.__name__, self.config_section)
         if not fi_config.get("base"):
-            raise Exception(msg.format("base"))
+            raise Exception(msg_tmpl.format("base"))
         for attr in ["app_key", "app_secret", "access_token"]:
             if not fs_config.get(attr):
-                raise Exception(msg.format(attr))
+                raise Exception(msg_tmpl.format(attr))
 
         # enforce some configs
         fs_config["has_permissions"] = False
@@ -92,28 +112,35 @@ class DropboxFileSystem(RemoteFileSystem):
         file_interface = self.file_interface_cls(**fi_config)
 
         # initialize the file system itself
-        super(DropboxFileSystem, self).__init__(file_interface, **fs_config)
+        super().__init__(file_interface, **fs_config)
 
 
 # try to set the default fs instance
 try:
     DropboxFileSystem.default_instance = DropboxFileSystem()
-    logger.debug("created default DropboxFileSystem instance '{}'".format(
-        DropboxFileSystem.default_instance))
+    logger.debug(
+        f"created default DropboxFileSystem instance '{DropboxFileSystem.default_instance}'",
+    )
 except Exception as e:
-    logger.debug("could not create default DropboxFileSystem instance: {}".format(e))
+    logger.debug(f"could not create default DropboxFileSystem instance: {e}")
 
 
 class DropboxTarget(RemoteTarget):
     """ __init__(path, fs=DropboxFileSystem.default_instance, **kwargs)
     """
 
-    def __init__(self, path, fs=DropboxFileSystem.default_instance, **kwargs):
+    def __init__(
+        self,
+        path: str | pathlib.Path,
+        fs: str | pathlib.Path | DropboxFileSystem | None = DropboxFileSystem.default_instance,
+        **kwargs,
+    ) -> None:
         if fs is None:
             fs = DropboxFileSystem.default_instance
-        elif isinstance(fs, six.string_types):
-            fs = DropboxFileSystem(fs)
-        RemoteTarget.__init__(self, path, fs, **kwargs)
+        elif not isinstance(fs, DropboxFileSystem):
+            fs = DropboxFileSystem(str(fs))
+
+        super().__init__(path, fs, **kwargs)
 
 
 class DropboxFileTarget(DropboxTarget, RemoteFileTarget):
@@ -126,5 +153,5 @@ class DropboxDirectoryTarget(DropboxTarget, RemoteDirectoryTarget):
     pass
 
 
-DropboxTarget.file_class = DropboxFileTarget
-DropboxTarget.directory_class = DropboxDirectoryTarget
+DropboxTarget.file_class = DropboxFileTarget  # type: ignore[type-abstract]
+DropboxTarget.directory_class = DropboxDirectoryTarget  # type: ignore[type-abstract]
