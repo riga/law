@@ -27,6 +27,12 @@ if sys.version_info[:2] == (3, 7):
 else:
     from typing import Literal  # noqa
 
+if sys.version_info[:2] >= (3, 9):
+    from types import GenericAlias  # noqa
+
+else:
+    GenericAlias = str
+
 
 #: Generic type variables, more stringent than Any.
 T = TypeVar("T")

@@ -57,7 +57,7 @@ import logging
 
 from law._types import (
     ModuleType, Any, Sequence, Callable, Iterable, GeneratorType, MappingView, T, Iterator,
-    Generator, Hashable, AbstractContextManager, TracebackType,
+    Generator, Hashable, AbstractContextManager, TracebackType, GenericAlias,
 )
 
 ipykernel: ModuleType | None = None
@@ -2087,9 +2087,13 @@ class DotDict(dict):
         # => AttributeError
     """
 
-    def __class_getitem__(cls, types: tuple[type, type]) -> str:
-        key_type, value_type = types
-        return f"{cls.__name__}[{key_type.__name__}, {value_type.__name__}]"
+    def __class_getitem__(cls, types: tuple[type, type]) -> GenericAlias:
+        # python < 3.9
+        if GenericAlias is str:
+            key_type, value_type = types
+            return f"{cls.__name__}[{key_type.__name__}, {value_type.__name__}]"  # type: ignore[return-value] # noqa
+
+        return GenericAlias(cls, types)  # type: ignore[call-overload, return-value]
 
     @classmethod
     def wrap(cls, *args, **kwargs) -> DotDict:
