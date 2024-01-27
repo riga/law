@@ -15,7 +15,7 @@ from collections.abc import KeysView, ValuesView, MappingView  # noqa
 from types import ModuleType, GeneratorType, TracebackType  # noqa
 from typing import (  # noqa
     Any, Union, Type, TypeVar, ClassVar, Sequence, Callable, Generator, TextIO, Iterable, Iterator,
-    Hashable, MutableMapping, IO,
+    Hashable, MutableMapping, IO, Generic,
 )
 from contextlib import AbstractContextManager  # noqa
 
@@ -33,3 +33,4 @@ T = TypeVar("T")
 T1 = TypeVar("T1")
 T2 = TypeVar("T2")
 T3 = TypeVar("T3")
+K = TypeVar("K", bound=Hashable)

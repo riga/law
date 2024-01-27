@@ -4,24 +4,26 @@
 Tasks that provide common and often used functionality.
 """
 
+from __future__ import annotations
+
 __all__ = ["RunOnceTask", "TransferLocalFile", "ForestMerge"]
 
-
 import os
-from abc import abstractmethod
+import pathlib
+import abc
 
-import luigi
-import six
+import luigi  # type: ignore[import-untyped]
 
 from law.task.base import Task
 from law.workflow.local import LocalWorkflow
-from law.target.file import FileSystemTarget
+from law.target.file import FileSystemTarget, FileSystemFileTarget
 from law.target.local import LocalFileTarget
 from law.target.collection import TargetCollection, SiblingFileCollection
 from law.parameter import NO_STR
 from law.decorator import factory
 from law.util import iter_chunks, flatten, map_struct, range_expand, DotDict
 from law.logger import get_logger
+from law._types import Callable, Any, Sequence, Iterator
 
 
 logger = get_logger(__name__)
@@ -31,31 +33,37 @@ class RunOnceTask(Task):
 
     @staticmethod
     @factory(accept_generator=True)
-    def complete_on_success(fn, opts, task, *args, **kwargs):
-        def before_call():
+    def complete_on_success(
+        fn: Callable,
+        opts: dict[str, Any],
+        task: Task,
+        *args,
+        **kwargs,
+    ) -> tuple[Callable, Callable, Callable]:
+        def before_call() -> None:
             return None
 
-        def call(state):
+        def call(state: None):
             return fn(task, *args, **kwargs)
 
-        def after_call(state):
+        def after_call(state: None) -> None:
             task.mark_complete()
 
         return before_call, call, after_call
 
-    def __init__(self, *args, **kwargs):
-        super(RunOnceTask, self).__init__(*args, **kwargs)
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
 
         self._has_run = False
 
     @property
-    def has_run(self):
+    def has_run(self) -> bool:
         return self._has_run
 
-    def mark_complete(self):
+    def mark_complete(self) -> None:
         self._has_run = True
 
-    def complete(self):
+    def complete(self) -> bool:
         return self.has_run
 
 
@@ -74,7 +82,7 @@ class TransferLocalFile(Task):
 
     exclude_index = True
 
-    def get_source_target(self):
+    def get_source_target(self) -> LocalFileTarget:
         # when self.source_path is set, return a target around it
         # otherwise assume self.requires() returns a task with a single local target
         if self.source_path not in (NO_STR, None):
@@ -82,45 +90,45 @@ class TransferLocalFile(Task):
             return LocalFileTarget(os.path.abspath(source_path))
         return self.input()
 
-    @abstractmethod
-    def single_output(self):
-        return
+    @abc.abstractmethod
+    def single_output(self) -> FileSystemFileTarget:
+        ...
 
-    def get_replicated_path(self, basename, i=None):
+    def get_replicated_path(self, basename: str, i: int | None = None) -> str:
         if i is None:
             return basename
 
         name, ext = os.path.splitext(basename)
-        return "{name}.{i}{ext}".format(name=name, ext=ext, i=i)
+        return f"{name}.{i}{ext}"
 
-    def output(self):
+    def output(self) -> SiblingFileCollection:
         output = self.single_output()
         if self.replicas <= 0:
             return output
 
         # return the replicas in a SiblingFileCollection
-        output_dir = output.parent
         return SiblingFileCollection([
-            output_dir.child(self.get_replicated_path(output.basename, i), "f")
-            for i in six.moves.range(self.replicas)
+            output.sibling(self.get_replicated_path(output.basename, i), "f")
+            for i in range(self.replicas)
         ])
 
-    def run(self):
+    def run(self) -> None:
         self.transfer(self.get_source_target())
 
-    def transfer(self, src_path):
+    def transfer(self, src_path: str | pathlib.Path | LocalFileTarget) -> None:
         output = self.output()
 
-        # single output or replicas?
+        # single output
         if not isinstance(output, SiblingFileCollection):
             output.copy_from_local(src_path, cache=False)
-        else:
-            # upload all replicas
-            progress_callback = self.create_progress_callback(self.replicas)
-            for i, replica in enumerate(output.targets):
-                replica.copy_from_local(src_path, cache=False)
-                progress_callback(i)
-                self.publish_message("uploaded {}".format(replica.basename))
+            return
+
+        # upload all replicas
+        progress_callback = self.create_progress_callback(self.replicas)
+        for i, replica in enumerate(output.targets):
+            replica.copy_from_local(src_path, cache=False)
+            progress_callback(i)
+            self.publish_message(f"uploaded {replica.basename}")
 
 
 class ForestMerge(LocalWorkflow):
@@ -153,8 +161,8 @@ class ForestMerge(LocalWorkflow):
     exclude_params_forest_merge = {"tree_index", "tree_depth", "keep_nodes", "branch", "branches"}
 
     @classmethod
-    def modify_param_values(cls, params):
-        params = super(ForestMerge, cls).modify_param_values(params)
+    def modify_param_values(cls, params: dict[str, Any]) -> dict[str, Any]:
+        params = super().modify_param_values(params)
 
         # when tree_index is negative, which refers to the merge forest, make sure this is branch 0
         if "tree_index" in params and "branch" in params and params["tree_index"] < 0:
@@ -163,7 +171,7 @@ class ForestMerge(LocalWorkflow):
         return params
 
     @classmethod
-    def _req_tree(cls, inst, *args, **kwargs):
+    def _req_tree(cls, inst: ForestMerge, *args, **kwargs) -> ForestMerge:
         # amend workflow branch parameters to exclude
         kwargs["_exclude"] = set(kwargs.pop("_exclude", set())) | {"branches"}
 
@@ -187,7 +195,7 @@ class ForestMerge(LocalWorkflow):
         return new_inst
 
     @classmethod
-    def _mark_merge_output_placeholder(cls, target):
+    def _mark_merge_output_placeholder(cls, target: FileSystemTarget) -> FileSystemTarget:
         """
         Marks a *target*, such as the output of :py:meth:`merge_output` as temporary placeholder.
         When such a target is received while building the merge forest, no actual merging structure
@@ -197,18 +205,18 @@ class ForestMerge(LocalWorkflow):
         return target
 
     @classmethod
-    def _check_merge_output_placeholder(cls, target):
+    def _check_merge_output_placeholder(cls, target: FileSystemTarget) -> bool:
         return bool(getattr(target, "_is_merge_output_placeholder", False))
 
-    def __init__(self, *args, **kwargs):
-        super(ForestMerge, self).__init__(*args, **kwargs)
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
 
         # set attributes
-        self._n_leaves = None
+        self._n_leaves: int | None = None
         self._cache_forest = True
         self._merge_forest_built = False
-        self._merge_forest = None
-        self._leaves_per_tree = None
+        self._merge_forest: list[dict[int, list[tuple[int, ...]]]] | None = None
+        self._leaves_per_tree: list[int] | None = None
 
         # the merge factor should not be 1
         if self.merge_factor == 1:
@@ -216,42 +224,42 @@ class ForestMerge(LocalWorkflow):
 
         # modify_param_values prevents the forest from being a workflow, but still check
         if self.is_forest() and self.is_workflow():
-            raise Exception("merge forest must not be a workflow, {} misconfigured".format(self))
+            raise Exception(f"merge forest must not be a workflow, {self} misconfigured")
 
-    def is_forest(self):
+    def is_forest(self) -> bool:
         return self.tree_index < 0
 
-    def is_root(self):
+    def is_root(self) -> bool:
         return not self.is_forest() and self.tree_depth == 0
 
-    def is_leaf(self):
+    def is_leaf(self) -> bool:
         return not self.is_forest() and self.tree_depth == self.max_tree_depth
 
-    def req_workflow(self, **kwargs):
+    def req_workflow(self, **kwargs) -> ForestMerge:
         # since the forest counts as a branch, as_workflow should point the tree_index 0
         # which is only used to compute the overall merge tree
         if self.is_forest():
             kwargs["tree_index"] = 0
             kwargs["_skip_task_excludes"] = False
 
-        return super(ForestMerge, self).req_workflow(**kwargs)
+        return super().req_workflow(**kwargs)
 
     @property
-    def max_tree_depth(self):
+    def max_tree_depth(self) -> int:
         return max(self._get_tree().keys())
 
     @property
-    def merge_forest(self):
+    def merge_forest(self) -> list[dict[int, list[tuple[int, ...]]]]:
         self._build_merge_forest()
-        return self._merge_forest
+        return self._merge_forest  # type: ignore[return-value]
 
     @property
-    def leaves_per_tree(self):
+    def leaves_per_tree(self) -> list[int]:
         self._build_merge_forest()
-        return self._leaves_per_tree
+        return self._leaves_per_tree  # type: ignore[return-value]
 
     @property
-    def leaf_range(self):
+    def leaf_range(self) -> tuple[int, int]:
         if not self.is_leaf():
             raise Exception("leaf_range can only be accessed by leaves")
 
@@ -267,7 +275,7 @@ class ForestMerge(LocalWorkflow):
 
         return start_leaf, end_leaf
 
-    def _get_tree(self):
+    def _get_tree(self) -> dict[int, list[tuple[int, ...]]]:
         if self.is_forest():
             raise Exception(
                 "merge tree cannot be determined for the merge forest, ForestMerge misconfigured",
@@ -277,11 +285,11 @@ class ForestMerge(LocalWorkflow):
             return self.merge_forest[self.tree_index]
         except IndexError:
             raise Exception(
-                "merge tree {} not found, forest only contains {} tree(s)".format(
-                    self.tree_index, len(self.merge_forest)),
+                f"merge tree {self.tree_index} not found, forest only contains "
+                f"{len(self.merge_forest)} tree(s)",
             )
 
-    def _build_merge_forest(self):
+    def _build_merge_forest(self) -> None:
         # a node in the tree can be described by a tuple of integers, where each value denotes the
         # branch path to go down the tree to reach the node (e.g. (2, 0) -> 2nd branch, 0th branch),
         # so the length of the tuple defines the depth of the node via ``depth = len(node) - 1``
@@ -329,13 +337,13 @@ class ForestMerge(LocalWorkflow):
                 # an integer number representing the number of inputs is also valid
                 inputs = luigi.task.getpaths(wf.merge_workflow_requires())
                 inputs = wf.trace_merge_workflow_inputs(inputs)
-                self._n_leaves = inputs if isinstance(inputs, six.integer_types) else len(inputs)
+                self._n_leaves = inputs if isinstance(inputs, int) else len(inputs)
 
         # complain when there are too few leaves for the configured number of trees to create
         if self._n_leaves < n_trees:
             raise Exception(
-                "too few leaves ({}) for number of requested trees ({})".format(
-                    self._n_leaves, n_trees),
+                f"insufficient number of leaves ({self._n_leaves}) for number of requested trees "
+                f"({n_trees})",
             )
 
         # determine the number of leaves per tree
@@ -346,19 +354,19 @@ class ForestMerge(LocalWorkflow):
 
         # when the output is a placeholder, define a one-element tree
         # otherwise, built the forest the normal way
-        forest = []
+        forest: list[dict[int, list[tuple[int, ...]]]] = []
         if is_placeholder:
             forest.append({0: [(0,)]})
         else:
             for i, n_leaves in enumerate(leaves_per_tree):
                 # build a nested list of leaf numbers using the merge factor
                 # e.g. 9 leaves with factor 3 -> [[0, 1, 2], [3, 4, 5], [6, 7, 8]]
-                nested_leaves = list(iter_chunks(n_leaves, merge_factor))
+                nested_leaves: list[list[int]] = list(iter_chunks(n_leaves, merge_factor))
                 while len(nested_leaves) > 1:
                     nested_leaves = list(iter_chunks(nested_leaves, merge_factor))
 
                 # convert the list of nodes to the tree format described above
-                tree = {}
+                tree: dict[int, list[tuple[int, ...]]] = {}
                 for node in nodify(nested_leaves, root_id=i):
                     depth = len(node) - 1
                     tree.setdefault(depth, []).append(node)
@@ -373,8 +381,8 @@ class ForestMerge(LocalWorkflow):
         # complain when the depth is too large
         if not self.is_forest() and self.tree_depth > self.max_tree_depth:
             raise ValueError(
-                "tree_depth {} exceeds maximum depth {} in task {}".format(
-                    self.tree_depth, self.max_tree_depth, self),
+                f"tree_depth {self.tree_depth} exceeds maximum depth {self.max_tree_depth} in task "
+                f"{self}",
             )
 
         # set the final cache decisions
@@ -382,12 +390,12 @@ class ForestMerge(LocalWorkflow):
         if reset_n_leaves:
             self._n_leaves = None
 
-    def create_branch_map(self):
+    def create_branch_map(self) -> dict[int, tuple[int, ...]]:
         tree = self._get_tree()
         nodes = tree[self.tree_depth]
         return dict(enumerate(nodes))
 
-    def trace_merge_workflow_inputs(self, inputs):
+    def trace_merge_workflow_inputs(self, inputs: Any) -> Sequence[Any] | TargetCollection:
         # should convert inputs to an object with a length (e.g. list, tuple, TargetCollection, ...)
 
         # for convenience, check if inputs results from the default workflow output, i.e. a dict
@@ -399,39 +407,39 @@ class ForestMerge(LocalWorkflow):
 
         return inputs
 
-    def trace_merge_inputs(self, inputs):
+    def trace_merge_inputs(self, inputs: Any) -> Sequence[Any]:
         # should convert inputs into an iterable sequence (list, tuple, ...), no TargetCollection!
         return inputs
 
-    @abstractmethod
-    def merge_workflow_requires(self):
+    @abc.abstractmethod
+    def merge_workflow_requires(self) -> Any:
         # should return the requirements of the merge workflow
-        return
+        ...
 
-    @abstractmethod
-    def merge_requires(self, start_leaf, end_leaf):
+    @abc.abstractmethod
+    def merge_requires(self, start_leaf: int, end_leaf: int) -> Any:
         # should return the requirements of a merge task, depending on the leaf range
-        return
+        ...
 
-    @abstractmethod
-    def merge_output(self):
+    @abc.abstractmethod
+    def merge_output(self) -> FileSystemFileTarget:
         # this should return a single target when the output should be a single tree
         # or a target collection, list or tuple with item access through tree indices
-        return
+        ...
 
-    @abstractmethod
-    def merge(self, inputs, output):
-        return
+    @abc.abstractmethod
+    def merge(self, inputs: list[FileSystemFileTarget], output: FileSystemTarget) -> None:
+        ...
 
-    def workflow_requires(self):
+    def workflow_requires(self) -> Any:
         self._build_merge_forest()
 
         reqs = super(ForestMerge, self).workflow_requires()
 
         if self.is_forest():
             raise Exception(
-                "workflow requirements cannot be determined for the merge forest, " +
-                "ForestMerge misconfigured",
+                "workflow requirements cannot be determined for the merge forest, ForestMerge "
+                "misconfigured",
             )
 
         elif self.is_leaf():
@@ -444,14 +452,14 @@ class ForestMerge(LocalWorkflow):
 
         return reqs
 
-    def _forest_requires(self):
+    def _forest_requires(self) -> dict[int, ForestMerge]:
         if not self.is_forest():
             raise Exception(
                 "_forest_requires can only be determined for the forest, ForestMerge misconfigured",
             )
 
         n_trees = len(self.merge_forest)
-        indices = range(n_trees)
+        indices: range | list[int] = range(n_trees)
 
         # interpret branches as tree indices when given
         if self.branches:
@@ -471,7 +479,7 @@ class ForestMerge(LocalWorkflow):
             for i in indices
         }
 
-    def requires(self):
+    def requires(self) -> DotDict:
         reqs = DotDict()
 
         if self.is_forest():
@@ -496,7 +504,7 @@ class ForestMerge(LocalWorkflow):
 
         return reqs
 
-    def output(self):
+    def output(self) -> Any:
         output = self.merge_output()
 
         if self.is_forest():
@@ -515,9 +523,7 @@ class ForestMerge(LocalWorkflow):
             first_output = flatten(output)[0]
             if not isinstance(first_output, FileSystemTarget):
                 raise Exception(
-                    "cannot determine directory for intermediate merged outputs from '{}'".format(
-                        output,
-                    ),
+                    f"cannot determine directory for intermediate merged outputs from '{output}'",
                 )
             intermediate_dir = first_output.parent
 
@@ -538,7 +544,7 @@ class ForestMerge(LocalWorkflow):
             return output.map(get_intermediate_output)
         return map_struct(get_intermediate_output, output)
 
-    def run(self):
+    def run(self) -> None | Iterator[Any]:
         # nothing to do for the forest
         if self.is_forest():
             # yield the forest dependencies again
@@ -550,14 +556,12 @@ class ForestMerge(LocalWorkflow):
         inputs = list(self.trace_merge_inputs(inputs) if self.is_leaf() else inputs.values())
 
         # merge
-        self.publish_message(
-            "start merging {} inputs of node {}".format(len(inputs), self.branch_data),
-        )
+        self.publish_message(f"start merging {len(inputs)} inputs of node {self.branch_data}")
         self.merge(inputs, self.output())
 
         # remove intermediate nodes
         if not self.is_leaf() and not self.keep_nodes:
-            msg = "removing intermediate results of node {}".format(self.branch_data)
+            msg = f"removing intermediate results of node {self.branch_data}"
             with self.publish_step(msg):
                 for inp in flatten(inputs):
                     inp.remove()

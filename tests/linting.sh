@@ -11,13 +11,13 @@ action() {
     local repo_dir="$( dirname "${this_dir}" )"
 
     # default test command
-    local cmd="${1:-flake8 -v law tests docs/_scripts docs/_extensions}"
+    local cmd="${1:-flake8 law tests docs/_scripts docs/_extensions}"
 
     # execute it
     echo -e "command: \x1b[1;49;39m${cmd}\x1b[0m"
     (
         cd "${repo_dir}"
-        eval "${cmd}"
+        eval "${cmd}" && echo -e "\x1b[1;49;32mlinting checks passed\x1b[0m"
     )
 }
 action "$@"

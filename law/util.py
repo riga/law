@@ -1610,7 +1610,7 @@ def user_owns_file(path: str | pathlib.Path, uid: int | None = None) -> bool:
     return os.stat(path).st_uid == uid
 
 
-def iter_chunks(l: int | Iterable[T], size: int) -> Iterator[list[int | T]]:
+def iter_chunks(l: int | Iterable[Any], size: int) -> Iterator[list[int | Any]]:
     """
     Returns a generator containing chunks of *size* of a list, integer or generator *l*. A *size*
     smaller than 1 results in no chunking at all.
@@ -2086,6 +2086,10 @@ class DotDict(dict):
         print(d.bar)
         # => AttributeError
     """
+
+    def __class_getitem__(cls, types: tuple[type, type]) -> str:
+        key_type, value_type = types
+        return f"{cls.__name__}[{key_type.__name__}, {value_type.__name__}]"
 
     @classmethod
     def wrap(cls, *args, **kwargs) -> DotDict:

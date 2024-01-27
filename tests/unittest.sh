@@ -17,7 +17,7 @@ action() {
     echo -e "command: \x1b[1;49;39m${cmd}\x1b[0m"
     (
         cd "${repo_dir}"
-        eval "${cmd}"
+        eval "${cmd}" && echo -e "\x1b[1;49;32munit tests passed\x1b[0m"
     )
 }
 action "$@"
