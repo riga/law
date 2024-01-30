@@ -87,4 +87,5 @@ exclude = ["tests/*"]
 
 [tool.mypy]
 
+exclude = ["law/templates/*"]
 disable_error_code = ["no-redef"]
