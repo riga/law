@@ -4,24 +4,26 @@
 Helpers for working with ARC.
 """
 
+from __future__ import annotations
+
 __all__ = [
     "get_arcproxy_file", "get_arcproxy_user", "get_arcproxy_lifetime", "get_arcproxy_vo",
     "check_arcproxy_validity", "renew_arcproxy",
 ]
 
-
 import os
 import re
+import pathlib
 import subprocess
 
-from law.util import interruptable_popen, tmp_file, parse_duration, quote_cmd
+from law.util import interruptable_popen, tmp_file, parse_duration, quote_cmd, custom_context
 from law.logger import get_logger
 
 
 logger = get_logger(__name__)
 
 
-def get_arcproxy_file():
+def get_arcproxy_file() -> str:
     """
     Returns the path to the arc proxy file.
     """
@@ -35,10 +37,14 @@ def get_arcproxy_file():
             tmp = os.environ[v]
             break
 
-    return os.path.join(tmp, "x509up_u{}".format(os.getuid()))
+    return os.path.join(tmp, f"x509up_u{os.getuid()}")
 
 
-def _arcproxy_info(args=None, proxy_file=None, silent=False):
+def _arcproxy_info(
+    args: list[str] | None = None,
+    proxy_file: str | pathlib.Path | None = None,
+    silent: bool = False,
+) -> tuple[int, str, str]:
     if args is None:
         args = ["--info"]
     cmd = ["arcproxy"] + (args or [])
@@ -51,20 +57,27 @@ def _arcproxy_info(args=None, proxy_file=None, silent=False):
         proxy_file = os.path.expandvars(os.path.expanduser(str(proxy_file)))
         cmd.extend(["--proxy", proxy_file])
 
-    code, out, err = interruptable_popen(quote_cmd(cmd), shell=True, executable="/bin/bash",
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    out: str
+    err: str
+    code, out, err = interruptable_popen(  # type: ignore[assignment]
+        quote_cmd(cmd),
+        shell=True,
+        executable="/bin/bash",
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
 
     # arcproxy does not use proper exit codes but writes into stderr in case of an error
     if err:
         code = 1
 
     if not silent and code != 0:
-        raise Exception("arcproxy failed: {}".format(err))
+        raise Exception(f"arcproxy failed: {err}")
 
     return code, out, err
 
 
-def get_arcproxy_user(proxy_file=None):
+def get_arcproxy_user(proxy_file: str | pathlib.Path | None = None) -> str:
     """
     Returns the owner of the arc proxy. When *proxy_file* is *None*, it defaults to the result of
     :py:func:`get_arcproxy_file`. Otherwise, when it evaluates to *False*, ``arcproxy`` is queried
@@ -72,12 +85,12 @@ def get_arcproxy_user(proxy_file=None):
     """
     out = _arcproxy_info(args=["--infoitem=identity"], proxy_file=proxy_file)[1].strip()
     try:
-        return re.match(r".*\/CN\=([^\/]+).*", out.strip()).group(1)
+        return re.match(r".*\/CN\=([^\/]+).*", out.strip()).group(1)  # type: ignore[union-attr]
     except:
-        raise Exception("no valid identity found in arc proxy: {}".format(out))
+        raise Exception(f"no valid identity found in arc proxy: {out}")
 
 
-def get_arcproxy_lifetime(proxy_file=None):
+def get_arcproxy_lifetime(proxy_file: str | pathlib.Path | None = None) -> int:
     """
     Returns the remaining lifetime of the arc proxy in seconds. When *proxy_file* is *None*, it
     defaults to the result of :py:func:`get_arcproxy_file`. Otherwise, when it evaluates to
@@ -87,10 +100,10 @@ def get_arcproxy_lifetime(proxy_file=None):
     try:
         return int(out)
     except:
-        raise Exception("no valid lifetime found in arc proxy: {}".format(out))
+        raise Exception(f"no valid lifetime found in arc proxy: {out}")
 
 
-def get_arcproxy_vo(proxy_file=None):
+def get_arcproxy_vo(proxy_file: str | pathlib.Path | None = None) -> str:
     """
     Returns the virtual organization name of the arc proxy. When *proxy_file* is *None*, it defaults
     to the result of :py:func:`get_arcproxy_file`. Otherwise, when it evaluates to *False*,
@@ -99,7 +112,7 @@ def get_arcproxy_vo(proxy_file=None):
     return _arcproxy_info(args=["--infoitem=vomsVO"], proxy_file=proxy_file)[1].strip()
 
 
-def check_arcproxy_validity(log=False, proxy_file=None):
+def check_arcproxy_validity(log=False, proxy_file: str | pathlib.Path | None = None) -> bool:
     """
     Returns *True* when a valid arc proxy exists, *False* otherwise. When *log* is *True*, a
     warning will be logged. When *proxy_file* is *None*, it defaults to the result of
@@ -113,7 +126,7 @@ def check_arcproxy_validity(log=False, proxy_file=None):
     elif err.strip().lower().startswith("error: cannot find file at"):
         valid = False
     else:
-        raise Exception("arcproxy failed: {}".format(err))
+        raise Exception(f"arcproxy failed: {err}")
 
     if log and not valid:
         logger.warning("no valid arc proxy found")
@@ -121,14 +134,19 @@ def check_arcproxy_validity(log=False, proxy_file=None):
     return valid
 
 
-def renew_arcproxy(password="", lifetime="8 days", proxy_file=None):
+def renew_arcproxy(
+    password: str | pathlib.Path = "",
+    lifetime="8 days",
+    proxy_file: str | pathlib.Path | None = None,
+) -> None:
     """
     Renews the arc proxy using a password *password* and a default *lifetime* of 8 days, which is
     internally parsed by :py:func:`law.util.parse_duration` where the default input unit is hours.
-    To ensure that the *password* it is not visible in any process listing, it is written to a
-    temporary file first and piped into the ``arcproxy`` command. When *proxy_file* is *None*, it
-    defaults to the result of :py:func:`get_arcproxy_file`. Otherwise, when it evaluates to
-    *False*, ``arcproxy`` is invoked without a custom proxy file.
+    To ensure that the *password*, in case it is not passed as a file, is not visible in any process
+    listing, it is written to a temporary file first and piped into the ``arcproxy`` command.
+
+    When *proxy_file* is *None*, it defaults to the result of :py:func:`get_arcproxy_file`.
+    Otherwise, when it evaluates to *False*, ``arcproxy`` is invoked without a custom proxy file.
     """
     # convert the lifetime to seconds
     lifetime_seconds = int(parse_duration(lifetime, input_unit="h", unit="s"))
@@ -136,18 +154,27 @@ def renew_arcproxy(password="", lifetime="8 days", proxy_file=None):
     if proxy_file is None:
         proxy_file = get_arcproxy_file()
 
-    args = "--constraint=validityPeriod={}".format(lifetime_seconds)
+    args = f"--constraint=validityPeriod={lifetime_seconds}"
     if proxy_file:
         proxy_file = os.path.expandvars(os.path.expanduser(str(proxy_file)))
-        args += " --proxy={}".format(proxy_file)
+        args += f" --proxy={proxy_file}"
 
-    with tmp_file() as (_, tmp):
-        with open(tmp, "w") as f:
-            f.write(password)
+    password = str(password)
+    password_file_given = os.path.exists(password)
+    password_context = custom_context((None, password)) if password_file_given else tmp_file
+    with password_context() as (_, password_file):  # type: ignore[operator]
+        if not password_file_given:
+            with open(password_file, "w") as f:
+                f.write(password)
 
-        cmd = "arcproxy --passwordsource=key=file:{} {}".format(tmp, args)
-        code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        cmd = f"arcproxy --passwordsource=key=file:{password_file} {args}"
+        code, out, _ = interruptable_popen(
+            cmd,
+            shell=True,
+            executable="/bin/bash",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
 
         if code != 0:
-            raise Exception("arcproxy failed: {}".format(out))
+            raise Exception(f"arcproxy failed: {out}")

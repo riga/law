@@ -5,23 +5,25 @@ CMS CRAB remote workflow implementation. See
 https://twiki.cern.ch/twiki/bin/view/CMSPublic/SWGuideCrab.
 """
 
+from __future__ import annotations
+
 __all__ = ["CrabWorkflow"]
 
-
+import pathlib
 import uuid
-from abc import abstractmethod
-from collections import OrderedDict
+import abc
 
-import law
 from law.config import Config
-from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
+from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy, JobData
 from law.job.base import JobArguments, JobInputFile
 from law.target.file import get_path, get_scheme, remove_scheme, FileSystemDirectoryTarget
-from law.target.local import LocalDirectoryTarget
+from law.target.local import LocalDirectoryTarget, LocalFileTarget
 from law.task.proxy import ProxyCommand
-from law.util import no_value, law_src_path, merge_dicts, DotDict, human_duration
+from law.util import no_value, law_src_path, merge_dicts, human_duration, DotDict, InsertableDict
 from law.logger import get_logger
+from law._types import Any, Type
 
+from law.contrib.wlcg import check_vomsproxy_validity, get_myproxy_info
 from law.contrib.cms.job import CrabJobManager, CrabJobFileFactory
 from law.contrib.cms.util import renew_vomsproxy, delegate_myproxy
 
@@ -31,25 +33,25 @@ logger = get_logger(__name__)
 
 class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
 
-    workflow_type = "crab"
+    workflow_type: str = "crab"
 
     # job script error codes are not transferred, so disable them
     job_error_messages = {}
 
-    def create_job_manager(self, **kwargs):
+    def create_job_manager(self, **kwargs) -> CrabJobManager:
         return self.task.crab_create_job_manager(**kwargs)
 
-    def setup_job_manager(self):
+    def setup_job_manager(self) -> dict[str, Any]:
         cfg = Config.instance()
         password_file = cfg.get_expanded("job", "crab_password_file")
 
         # ensure a VOMS proxy exists
-        if not law.wlcg.check_vomsproxy_validity():
+        if not check_vomsproxy_validity():
             print("renew voms-proxy")
             renew_vomsproxy(password_file=password_file)
 
         # ensure that it has been delegated to the myproxy server
-        info = law.wlcg.get_myproxy_info(silent=True)
+        info = get_myproxy_info(silent=True)
         delegate = False
         if not info:
             delegate = True
@@ -59,10 +61,9 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
         elif "timeleft" not in info:
             logger.warning("field 'timeleft' not in myproxy info")
             delegate = True
-        elif info["timeleft"] < 86400:
-            logger.warning("myproxy lifetime below 24h ({})".format(
-                human_duration(seconds=info["timeleft"]),
-            ))
+        elif info["timeleft"] < 86400:  # type: ignore[operator]
+            timeleft = human_duration(seconds=info["timeleft"])
+            logger.warning(f"myproxy lifetime below 24h ({timeleft})")
             delegate = True
 
         # actual delegation
@@ -70,18 +71,21 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
             print("delegate to myproxy server")
             myproxy_username = delegate_myproxy(password_file=password_file)
         else:
-            myproxy_username = info["username"]
+            myproxy_username = info["username"]  # type: ignore[index, assignment]
 
         return {"myproxy_username": myproxy_username}
 
-    def create_job_file_factory(self, **kwargs):
+    def create_job_file_factory(self, **kwargs) -> CrabJobFileFactory:
         return self.task.crab_create_job_file_factory(**kwargs)
 
-    def create_job_file(self, submit_jobs):
+    def create_job_file_group(
+        self,
+        submit_jobs: dict[int, list[int]],
+    ) -> dict[str, str | pathlib.Path | CrabJobFileFactory.Config | None]:
         task = self.task
 
         # create the config
-        c = self.job_file_factory.get_config()
+        c = self.job_file_factory.get_config()  # type: ignore[union-attr]
         c.input_files = {}
         c.output_files = []
         c.render_variables = {}
@@ -107,20 +111,25 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
             exclude_global_args=["workers"],
         )
         proxy_cmd.add_arg("--local-scheduler", "True", overwrite=True)
-        for key, value in OrderedDict(task.crab_cmdline_args()).items():
+        for key, value in dict(task.crab_cmdline_args()).items():
             proxy_cmd.add_arg(key, value, overwrite=True)
 
         # job script arguments per job number
         c.arguments = []
         for job_num, branches in submit_jobs.items():
+            dashboard_data = None
+            if self.dashboard:
+                dashboard_data = self.dashboard.remote_hook_data(
+                    job_num,
+                    self.job_data.attempts.get(job_num, 0),
+                )
             job_args = JobArguments(
                 task_cls=task.__class__,
                 task_params=proxy_cmd.build(skip_run=True),
                 branches=branches,
                 workers=task.job_workers,
                 auto_retry=False,
-                dashboard_data=self.dashboard.remote_hook_data(
-                    job_num, self.job_data.attempts.get(job_num, 0)),
+                dashboard_data=dashboard_data,
             )
             c.arguments.append(job_args.join())
 
@@ -135,7 +144,7 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
         if not isinstance(stageout_location, (list, tuple)) or len(stageout_location) != 2:
             raise ValueError(
                 "the return value of crab_stageout_location() is expected to be a 2-tuple, got "
-                "'{}'".format(stageout_location),
+                f"'{stageout_location}'",
             )
         c.storage_site, c.output_lfn_base = stageout_location
 
@@ -150,7 +159,7 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
             c.input_files["stageout_file"] = stageout_file
 
         # does the dashboard have a hook file?
-        dashboard_file = self.dashboard.remote_hook_file()
+        dashboard_file = self.dashboard.remote_hook_file() if self.dashboard else None
         if dashboard_file:
             c.input_files["dashboard_file"] = dashboard_file
 
@@ -163,22 +172,22 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
         c = task.crab_job_config(c, submit_jobs)
 
         # build the job file and get the sanitized config
-        job_file, c = self.job_file_factory(**c.__dict__)
+        job_file, c = self.job_file_factory(**c.__dict__)  # type: ignore[misc]
 
         # return job and log file entry
         # (the latter is None but will be synced from query data)
         return {"job": job_file, "config": c, "log": None}
 
-    def _status_error_pairs(self, job_num, job_data):
-        pairs = super(CrabWorkflowProxy, self)._status_error_pairs(job_num, job_data)
+    def _status_error_pairs(self, job_num: int, job_data: JobData) -> InsertableDict:
+        pairs = super()._status_error_pairs(job_num, job_data)
 
         # add site history
         pairs.insert_before("log", "site history", job_data["extra"].get("site_history", no_value))
 
         return pairs
 
-    def destination_info(self):
-        info = super(CrabWorkflowProxy, self).destination_info()
+    def destination_info(self) -> InsertableDict:
+        info = super().destination_info()
 
         info = self.task.crab_destination_info(info)
 
@@ -193,19 +202,19 @@ class CrabWorkflow(BaseRemoteWorkflow):
     crab_job_manager_defaults = None
     crab_job_file_factory_defaults = None
 
-    crab_job_kwargs = []
+    crab_job_kwargs: list[str] = []
     crab_job_kwargs_submit = None
     crab_job_kwargs_cancel = None
     crab_job_kwargs_cleanup = None
     crab_job_kwargs_query = None
 
     exclude_params_branch = set()
-    exclude_params_crab_workflow = set()
+    exclude_params_crab_workflow: set[str] = set()
 
     exclude_index = True
 
-    @abstractmethod
-    def crab_stageout_location(self):
+    @abc.abstractmethod
+    def crab_stageout_location(self) -> tuple[str, str]:
         """
         Hook to define both the "Site.storageSite" and "Data.outLFNDirBase" settings in a 2-tuple,
         i.e., the name of the storage site to use and the base directory for crab's own output
@@ -214,24 +223,24 @@ class CrabWorkflow(BaseRemoteWorkflow):
         In case this is not used, the choice of the output base has no affect, but is still required
         for crab's job submission to work.
         """
-        return
+        ...
 
-    @abstractmethod
-    def crab_output_directory(self):
+    @abc.abstractmethod
+    def crab_output_directory(self) -> FileSystemDirectoryTarget:
         """
         Hook to define the location of submission output files, such as the json files containing
         job data. This method should return a :py:class:`FileSystemDirectoryTarget`.
         """
-        return
+        ...
 
-    def crab_request_name(self, submit_jobs):
+    def crab_request_name(self, submit_jobs: dict[int, list[int]]) -> str:
         """
         Returns a random name for a request, i.e., the project directory inside the crab job working
         area.
         """
-        return "{}_{}".format(self.live_task_id, str(uuid.uuid4())[:8])
+        return f"{self.live_task_id}_{str(uuid.uuid4())[:8]}"
 
-    def crab_work_area(self):
+    def crab_work_area(self) -> str | LocalDirectoryTarget:
         """
         Returns the location of the crab working area, defaulting to the value of
         :py:meth:`crab_output_directory` in case it refers to a local directory. When *None*, the
@@ -253,13 +262,13 @@ class CrabWorkflow(BaseRemoteWorkflow):
         # relative to the job file directory
         return ""
 
-    def crab_job_file(self):
+    def crab_job_file(self) -> str | pathlib.Path | LocalFileTarget | JobInputFile:
         """
         Hook to return the location of the job file that is executed on job nodes.
         """
         return JobInputFile(law_src_path("job", "law_job.sh"))
 
-    def crab_bootstrap_file(self):
+    def crab_bootstrap_file(self) -> str | pathlib.Path | LocalFileTarget | JobInputFile | None:
         """
         Hook to define the location of an optional, so-called bootstrap file that is sent alongside
         jobs and called prior to the actual job payload. It is meant to run a custom setup routine
@@ -267,7 +276,7 @@ class CrabWorkflow(BaseRemoteWorkflow):
         """
         return None
 
-    def crab_stageout_file(self):
+    def crab_stageout_file(self) -> str | pathlib.Path | LocalFileTarget | JobInputFile | None:
         """
         Hook to define the location of an optional, so-called stageout file that is sent alongside
         jobs and called after to the actual job payload. It is meant to run a custom output stageout
@@ -275,46 +284,46 @@ class CrabWorkflow(BaseRemoteWorkflow):
         """
         return None
 
-    def crab_workflow_requires(self):
+    def crab_workflow_requires(self) -> DotDict:
         """
         Hook to define requirements for the workflow itself and that need to be resolved before any
         submission can happen.
         """
         return DotDict()
 
-    def crab_output_postfix(self):
+    def crab_output_postfix(self) -> str:
         """
         Hook to define the postfix of outputs, for instance such that workflows with different
         parameters do not write their intermediate job status information into the same json file.
         """
         return ""
 
-    def crab_output_uri(self):
+    def crab_output_uri(self) -> str:
         """
         Hook to return the URI of the remote crab output directory.
         """
-        return self.crab_output_directory().uri()
+        return self.crab_output_directory().uri(return_all=False)  # type: ignore[return-value]
 
-    def crab_job_manager_cls(self):
+    def crab_job_manager_cls(self) -> Type[CrabJobManager]:
         """
         Hook to define a custom job managet class to use.
         """
         return CrabJobManager
 
-    def crab_create_job_manager(self, **kwargs):
+    def crab_create_job_manager(self, **kwargs) -> CrabJobManager:
         """
         Hook to configure how the underlying job manager is instantiated and configured.
         """
         kwargs = merge_dicts(self.crab_job_manager_defaults, kwargs)
         return self.crab_job_manager_cls()(**kwargs)
 
-    def crab_job_file_factory_cls(self):
+    def crab_job_file_factory_cls(self) -> Type[CrabJobFileFactory]:
         """
         Hook to define a custom job file factory class to use.
         """
         return CrabJobFileFactory
 
-    def crab_create_job_file_factory(self, **kwargs):
+    def crab_create_job_file_factory(self, **kwargs) -> CrabJobFileFactory:
         """
         Hook to configure how the underlying job file factory is instantiated and configured.
         """
@@ -322,20 +331,25 @@ class CrabWorkflow(BaseRemoteWorkflow):
         kwargs = merge_dicts({}, self.crab_job_file_factory_defaults, kwargs)
         return self.crab_job_file_factory_cls()(**kwargs)
 
-    def crab_job_config(self, config, submit_jobs):
+    def crab_job_config(
+        self,
+        config: CrabJobFileFactory.Config,
+        submit_jobs: dict[int, list[int]],
+    ) -> CrabJobFileFactory.Config:
         """
         Hook to inject custom settings into the job *config*, which is an instance of the
         :py:attr:`Config` class defined inside the job manager.
         """
         return config
 
-    def crab_check_job_completeness(self):
+    def crab_check_job_completeness(self) -> bool:
         """
-        Hook to define whether
+        Hook to define whether after job report successful completion, the job manager should check
+        the completion status of the branch tasks run by the finished jobs.
         """
         return False
 
-    def crab_check_job_completeness_delay(self):
+    def crab_check_job_completeness_delay(self) -> float | int:
         """
         Grace period before :py:meth:`crab_check_job_completeness` is called to ensure that output
         files are accessible. Especially useful on distributed file systems with possibly
@@ -343,13 +357,13 @@ class CrabWorkflow(BaseRemoteWorkflow):
         """
         return 0.0
 
-    def crab_cmdline_args(self):
+    def crab_cmdline_args(self) -> dict[str, str]:
         """
         Hook to add additional cli parameters to "law run" commands executed on job nodes.
         """
         return {}
 
-    def crab_destination_info(self, info):
+    def crab_destination_info(self, info: InsertableDict) -> InsertableDict:
         """
         Hook to add additional information behind each job status query line by extending an *info*
         dictionary whose values will be shown separated by comma.

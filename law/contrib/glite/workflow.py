@@ -5,23 +5,27 @@ gLite remote workflow implementation. See
 https://wiki.italiangrid.it/twiki/bin/view/CREAM/UserGuide.
 """
 
-__all__ = ["GLiteWorkflow"]
+from __future__ import annotations
 
+__all__ = ["GLiteWorkflow"]
 
 import os
 import sys
-from abc import abstractmethod
-from collections import OrderedDict
+import abc
+import pathlib
 
 import law
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
-from law.job.base import JobArguments, JobInputFile, DeprecatedInputFiles
+from law.job.base import JobArguments, JobInputFile
 from law.task.proxy import ProxyCommand
 from law.target.file import get_path
+from law.target.local import LocalFileTarget
 from law.parameter import CSVParameter
-from law.util import law_src_path, merge_dicts, DotDict
+from law.util import law_src_path, merge_dicts, DotDict, InsertableDict
 from law.logger import get_logger
+from law._types import Type, Any
 
+from law.contrib.wlcg import WLCGDirectoryTarget, delegate_vomsproxy_glite
 from law.contrib.glite.job import GLiteJobManager, GLiteJobFileFactory
 
 
@@ -30,10 +34,10 @@ logger = get_logger(__name__)
 
 class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
 
-    workflow_type = "glite"
+    workflow_type: str = "glite"
 
-    def __init__(self, *args, **kwargs):
-        super(GLiteWorkflowProxy, self).__init__(*args, **kwargs)
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
 
         # check if there is at least one ce
         if not self.task.glite_ce:
@@ -41,34 +45,38 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
 
         self.delegation_ids = None
 
-    def create_job_manager(self, **kwargs):
+    def create_job_manager(self, **kwargs) -> GLiteJobManager:
         return self.task.glite_create_job_manager(**kwargs)
 
-    def setup_job_mananger(self):
+    def setup_job_mananger(self) -> dict[str, Any]:
         kwargs = {}
 
         # delegate the voms proxy to all endpoints
         if callable(self.task.glite_delegate_proxy):
             delegation_ids = []
             for ce in self.task.glite_ce:
-                endpoint = law.wlcg.get_ce_endpoint(ce)
+                endpoint = law.wlcg.get_ce_endpoint(ce)  # type: ignore[attr-defined]
                 delegation_ids.append(self.task.glite_delegate_proxy(endpoint))
             kwargs["delegation_id"] = delegation_ids
 
         return kwargs
 
-    def create_job_file_factory(self, **kwargs):
+    def create_job_file_factory(self, **kwargs) -> GLiteJobFileFactory:
         return self.task.glite_create_job_file_factory(**kwargs)
 
-    def create_job_file(self, job_num, branches):
+    def create_job_file(
+        self,
+        job_num: int,
+        branches: list[int],
+    ) -> dict[str, str | pathlib.Path | GLiteJobFileFactory.Config | None]:
         task = self.task
 
         # the file postfix is pythonic range made from branches, e.g. [0, 1, 2, 4] -> "_0To5"
-        postfix = "_{}To{}".format(branches[0], branches[-1] + 1)
+        postfix = f"_{branches[0]}To{branches[-1] + 1}"
 
         # create the config
-        c = self.job_file_factory.get_config()
-        c.input_files = DeprecatedInputFiles()
+        c = self.job_file_factory.get_config()  # type: ignore[union-attr]
+        c.input_files = {}
         c.output_files = []
         c.render_variables = {}
         c.custom_content = []
@@ -98,18 +106,23 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
         )
         if task.glite_use_local_scheduler():
             proxy_cmd.add_arg("--local-scheduler", "True", overwrite=True)
-        for key, value in OrderedDict(task.glite_cmdline_args()).items():
+        for key, value in dict(task.glite_cmdline_args()).items():
             proxy_cmd.add_arg(key, value, overwrite=True)
 
         # job script arguments
+        dashboard_data = None
+        if self.dashboard is not None:
+            dashboard_data = self.dashboard.remote_hook_data(
+                job_num,
+                self.job_data.attempts.get(job_num, 0),
+            )
         job_args = JobArguments(
             task_cls=task.__class__,
             task_params=proxy_cmd.build(skip_run=True),
             branches=branches,
             workers=task.job_workers,
             auto_retry=False,
-            dashboard_data=self.dashboard.remote_hook_data(
-                job_num, self.job_data.attempts.get(job_num, 0)),
+            dashboard_data=dashboard_data,
         )
         c.arguments = job_args.join()
 
@@ -124,9 +137,10 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
             c.input_files["stageout_file"] = stageout_file
 
         # does the dashboard have a hook file?
-        dashboard_file = self.dashboard.remote_hook_file()
-        if dashboard_file:
-            c.input_files["dashboard_file"] = dashboard_file
+        if self.dashboard is not None:
+            dashboard_file = self.dashboard.remote_hook_file()
+            if dashboard_file:
+                c.input_files["dashboard_file"] = dashboard_file
 
         # log file
         c.stdout = None
@@ -144,7 +158,7 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
         c = task.glite_job_config(c, job_num, branches)
 
         # build the job file and get the sanitized config
-        job_file, c = self.job_file_factory(postfix=postfix, **c.__dict__)
+        job_file, c = self.job_file_factory(postfix=postfix, **c.__dict__)  # type: ignore[misc]
 
         # determine the custom log file uri if set
         abs_log_file = None
@@ -154,10 +168,10 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
         # return job and log files
         return {"job": job_file, "config": c, "log": abs_log_file}
 
-    def destination_info(self):
-        info = super(GLiteWorkflowProxy, self).destination_info()
+    def destination_info(self) -> InsertableDict:
+        info = super().destination_info()
 
-        info["ce"] = "ce: {}".format(",".join(self.task.glite_ce))
+        info["ce"] = f"ce: {','.join(self.task.glite_ce)}"
 
         info = self.task.glite_destination_info(info)
 
@@ -178,7 +192,7 @@ class GLiteWorkflow(BaseRemoteWorkflow):
         description="target glite computing element(s); default: empty",
     )
 
-    glite_job_kwargs = []
+    glite_job_kwargs: list[str] = []
     glite_job_kwargs_submit = ["glite_ce"]
     glite_job_kwargs_cancel = None
     glite_job_kwargs_cleanup = None
@@ -186,51 +200,55 @@ class GLiteWorkflow(BaseRemoteWorkflow):
 
     exclude_params_branch = {"glite_ce"}
 
-    exclude_params_glite_workflow = set()
+    exclude_params_glite_workflow: set[str] = set()
 
     exclude_index = True
 
-    @abstractmethod
-    def glite_output_directory(self):
+    @abc.abstractmethod
+    def glite_output_directory(self) -> WLCGDirectoryTarget:
+        ...
+
+    @abc.abstractmethod
+    def glite_bootstrap_file(self) -> str | pathlib.Path | LocalFileTarget | JobInputFile:
+        ...
+
+    def glite_wrapper_file(self) -> str | pathlib.Path | LocalFileTarget | JobInputFile | None:
         return None
 
-    @abstractmethod
-    def glite_bootstrap_file(self):
-        return None
-
-    def glite_wrapper_file(self):
-        return None
-
-    def glite_job_file(self):
+    def glite_job_file(self) -> str | pathlib.Path | LocalFileTarget | JobInputFile:
         return JobInputFile(law_src_path("job", "law_job.sh"))
 
-    def glite_stageout_file(self):
+    def glite_stageout_file(self) -> str | pathlib.Path | LocalFileTarget | JobInputFile | None:
         return None
 
-    def glite_workflow_requires(self):
+    def glite_workflow_requires(self) -> DotDict:
         return DotDict()
 
-    def glite_output_postfix(self):
+    def glite_output_postfix(self) -> str:
         return ""
 
-    def glite_output_uri(self):
-        return self.glite_output_directory().uri()
+    def glite_output_uri(self) -> str:
+        return self.glite_output_directory().uri(return_all=False)  # type: ignore[return-value]
 
-    def glite_delegate_proxy(self, endpoint):
-        return law.wlcg.delegate_vomsproxy_glite(endpoint, stdout=sys.stdout, stderr=sys.stderr,
-            cache=True)
+    def glite_delegate_proxy(self, endpoint: str) -> str:
+        return delegate_vomsproxy_glite(  # type: ignore[attr-defined]
+            endpoint,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+            cache=True,
+        )
 
-    def glite_job_manager_cls(self):
+    def glite_job_manager_cls(self) -> Type[GLiteJobManager]:
         return GLiteJobManager
 
-    def glite_create_job_manager(self, **kwargs):
+    def glite_create_job_manager(self, **kwargs) -> GLiteJobManager:
         kwargs = merge_dicts(self.glite_job_manager_defaults, kwargs)
         return self.glite_job_manager_cls()(**kwargs)
 
-    def glite_job_file_factory_cls(self):
+    def glite_job_file_factory_cls(self) -> Type[GLiteJobFileFactory]:
         return GLiteJobFileFactory
 
-    def glite_create_job_file_factory(self, **kwargs):
+    def glite_create_job_file_factory(self, **kwargs) -> GLiteJobFileFactory:
         # job file fectory config priority: kwargs > class defaults
         kwargs = merge_dicts({}, self.glite_job_file_factory_defaults, kwargs)
         return self.glite_job_file_factory_cls()(**kwargs)
@@ -238,17 +256,17 @@ class GLiteWorkflow(BaseRemoteWorkflow):
     def glite_job_config(self, config, job_num, branches):
         return config
 
-    def glite_check_job_completeness(self):
+    def glite_check_job_completeness(self) -> bool:
         return False
 
-    def glite_check_job_completeness_delay(self):
+    def glite_check_job_completeness_delay(self) -> float | int:
         return 0.0
 
-    def glite_use_local_scheduler(self):
+    def glite_use_local_scheduler(self) -> bool:
         return True
 
-    def glite_cmdline_args(self):
+    def glite_cmdline_args(self) -> dict[str, str]:
         return {}
 
-    def glite_destination_info(self, info):
+    def glite_destination_info(self, info: InsertableDict) -> InsertableDict:
         return info

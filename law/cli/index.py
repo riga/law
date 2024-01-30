@@ -15,10 +15,10 @@ import argparse
 import luigi  # type: ignore[import-untyped]
 
 from law.config import Config
-from law.task.base import Register, Task, ExternalTask
+from law.task.base import Task, ExternalTask
 from law.util import multi_match, colored, abort, makedirs, brace_expand
 from law.logger import get_logger
-from law._types import Sequence
+from law._types import Sequence, Type
 
 
 logger = get_logger(__name__)
@@ -151,9 +151,9 @@ def execute(args: argparse.Namespace) -> int:
     # determine tasks to write into the index file
     seen_families = []
     task_classes = []
-    lookup: list[Register] = [Task]
+    lookup: list[Type[Task]] = [Task]
     while lookup:
-        cls: Register = lookup.pop(0)  # type: ignore
+        cls: Type[Task] = lookup.pop(0)  # type: ignore
         lookup.extend(cls.__subclasses__())
 
         # skip tasks in __main__ module in interactive sessions
@@ -214,7 +214,7 @@ def execute(args: argparse.Namespace) -> int:
 
         task_classes.append(cls)
 
-    def get_task_params(cls: Register) -> list[str]:
+    def get_task_params(cls) -> list[str]:
         params = []
         for attr in dir(cls):
             member = getattr(cls, attr)

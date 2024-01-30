@@ -5,21 +5,24 @@ Simple ARC job manager. See http://www.nordugrid.org/arc and
 http://www.nordugrid.org/documents/xrsl.pdf.
 """
 
-__all__ = ["ARCJobManager", "ARCJobFileFactory"]
+from __future__ import annotations
 
+__all__ = ["ARCJobManager", "ARCJobFileFactory"]
 
 import os
 import stat
 import time
 import re
 import random
+import pathlib
 import subprocess
 
 from law.config import Config
-from law.job.base import BaseJobManager, BaseJobFileFactory, JobInputFile, DeprecatedInputFiles
+from law.job.base import BaseJobManager, BaseJobFileFactory, JobInputFile
 from law.target.file import get_path
 from law.util import interruptable_popen, make_list, make_unique, quote_cmd
 from law.logger import get_logger
+from law._types import Any, Sequence
 
 
 logger = get_logger(__name__)
@@ -39,16 +42,30 @@ class ARCJobManager(BaseJobManager):
     status_block_cre = re.compile(r"\s*([^:]+): (.*)\n")
     status_invalid_job_cre = re.compile("^.+: Job not found in job list: (.+)$")
     status_missing_job_cre = re.compile(
-        "^.+: Job information not found in the information system: (.+)$")
+        "^.+: Job information not found in the information system: (.+)$",
+    )
 
-    def __init__(self, job_list=None, ce=None, threads=1):
-        super(ARCJobManager, self).__init__()
+    def __init__(
+        self,
+        job_list: str | None = None,
+        ce: str | None = None,
+        threads: int = 1,
+    ) -> None:
+        super().__init__()
 
         self.job_list = job_list
         self.ce = ce
         self.threads = threads
 
-    def submit(self, job_file, job_list=None, ce=None, retries=0, retry_delay=3, silent=False):
+    def submit(  # type: ignore[override]
+        self,
+        job_file: str | pathlib.Path | Sequence[str | pathlib.Path],
+        job_list: str | None = None,
+        ce: str | None = None,
+        retries: int = 0,
+        retry_delay: float | int = 3,
+        silent: bool = False,
+    ) -> str | list[str] | None:
         # default arguments
         if job_list is None:
             job_list = self.job_list
@@ -58,7 +75,7 @@ class ARCJobManager(BaseJobManager):
         # check arguments
         if not ce:
             raise ValueError("ce must not be empty")
-        ce = make_list(ce)
+        _ce = make_list(ce)
 
         # arc supports multiple jobs to be submitted with a single arcsub call,
         # so job_file can be a sequence of files
@@ -72,16 +89,22 @@ class ARCJobManager(BaseJobManager):
         # define the actual submission in a loop to simplify retries
         while True:
             # build the command
-            cmd = ["arcsub", "-c", random.choice(ce)]
+            cmd = ["arcsub", "-c", random.choice(_ce)]
             if job_list:
                 cmd += ["-j", job_list]
             cmd += job_file_names
-            cmd = quote_cmd(cmd)
+            cmd_str = quote_cmd(cmd)
 
             # run the command
-            logger.debug("submit arc job(s) with command '{}'".format(cmd))
-            code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-                stdout=subprocess.PIPE, cwd=job_file_dir)
+            logger.debug(f"submit arc job(s) with command '{cmd_str}'")
+            out: str
+            code, out, _ = interruptable_popen(  # type: ignore[assignment]
+                cmd_str,
+                shell=True,
+                executable="/bin/bash",
+                stdout=subprocess.PIPE,
+                cwd=job_file_dir,
+            )
 
             # in some cases, the return code is 0 but the ce did not respond valid job ids
             job_ids = []
@@ -94,18 +117,18 @@ class ARCJobManager(BaseJobManager):
 
                 if not job_ids:
                     code = 1
-                    out = "cannot find job id(s) in output:\n{}".format(out)
+                    out = f"cannot find job id(s) in output:\n{out}"
                 elif len(job_ids) != len(job_files):
-                    raise Exception("number of job ids in output ({}) does not match number of "
-                        "jobs to submit ({}) in output:\n{}".format(len(job_ids), len(job_files),
-                        out))
+                    raise Exception(
+                        f"number of job ids in output ({len(job_ids)}) does not match number of "
+                        f"jobs to submit ({len(job_files)}) in output:\n{out}",
+                    )
 
             # retry or done?
             if code == 0:
                 return job_ids if chunking else job_ids[0]
 
-            logger.debug("submission of arc job(s) '{}' failed with code {}:\n{}".format(
-                job_files, code, out))
+            logger.debug(f"submission of arc job(s) '{job_files}' failed with code {code}:\n{out}")
 
             if retries > 0:
                 retries -= 1
@@ -115,9 +138,14 @@ class ARCJobManager(BaseJobManager):
             if silent:
                 return None
 
-            raise Exception("submission of arc job(s) '{}' failed:\n{}".format(job_files, out))
+            raise Exception(f"submission of arc job(s) '{job_files}' failed:\n{out}")
 
-    def cancel(self, job_id, job_list=None, silent=False):
+    def cancel(  # type: ignore[override]
+        self,
+        job_id: str | Sequence[str],
+        job_list: str | None = None,
+        silent: bool = False,
+    ) -> dict[str, None] | None:
         # default arguments
         if job_list is None:
             job_list = self.job_list
@@ -130,22 +158,31 @@ class ARCJobManager(BaseJobManager):
         if job_list:
             cmd += ["-j", job_list]
         cmd += job_ids
-        cmd = quote_cmd(cmd)
+        cmd_str = quote_cmd(cmd)
 
         # run it
-        logger.debug("cancel arc job(s) with command '{}'".format(cmd))
-        code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-            stdout=subprocess.PIPE)
+        logger.debug(f"cancel arc job(s) with command '{cmd_str}'")
+        out: str
+        code, out, _ = interruptable_popen(  # type: ignore[assignment]
+            cmd_str,
+            shell=True,
+            executable="/bin/bash",
+            stdout=subprocess.PIPE,
+        )
 
         # check success
         if code != 0 and not silent:
             # arc prints everything to stdout
-            raise Exception("cancellation of arc job(s) '{}' failed with code {}:\n{}".format(
-                job_id, code, out))
+            raise Exception(f"cancellation of arc job(s) '{job_id}' failed with code {code}:\n{out}")
 
         return {job_id: None for job_id in job_ids} if chunking else None
 
-    def cleanup(self, job_id, job_list=None, silent=False):
+    def cleanup(  # type: ignore[override]
+        self,
+        job_id: str | Sequence[str],
+        job_list: str | None = None,
+        silent: bool = False,
+    ) -> dict[str, None] | None:
         # default arguments
         if job_list is None:
             job_list = self.job_list
@@ -158,22 +195,31 @@ class ARCJobManager(BaseJobManager):
         if job_list:
             cmd += ["-j", job_list]
         cmd += job_ids
-        cmd = quote_cmd(cmd)
+        cmd_str = quote_cmd(cmd)
 
         # run it
-        logger.debug("cleanup arc job(s) with command '{}'".format(cmd))
-        code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-            stdout=subprocess.PIPE)
+        logger.debug(f"cleanup arc job(s) with command '{cmd_str}'")
+        out: str
+        code, out, _ = interruptable_popen(  # type: ignore[assignment]
+            cmd_str,
+            shell=True,
+            executable="/bin/bash",
+            stdout=subprocess.PIPE,
+        )
 
         # check success
         if code != 0 and not silent:
             # arc prints everything to stdout
-            raise Exception("cleanup of arc job(s) '{}' failed with code {}:\n{}".format(
-                job_id, code, out))
+            raise Exception(f"cleanup of arc job(s) '{job_id}' failed with code {code}:\n{out}")
 
         return {job_id: None for job_id in job_ids} if chunking else None
 
-    def query(self, job_id, job_list=None, silent=False):
+    def query(  # type: ignore[override]
+        self,
+        job_id: str | Sequence[str],
+        job_list: str | None = None,
+        silent: bool = False,
+    ) -> dict[int, dict[str, Any]] | dict[str, Any] | None:
         # default arguments
         if job_list is None:
             job_list = self.job_list
@@ -186,21 +232,25 @@ class ARCJobManager(BaseJobManager):
         if job_list:
             cmd += ["-j", job_list]
         cmd += job_ids
-        cmd = quote_cmd(cmd)
+        cmd_str = quote_cmd(cmd)
 
         # run it
-        logger.debug("query arc job(s) with command '{}'".format(cmd))
-        code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        logger.debug(f"query arc job(s) with command '{cmd_str}'")
+        out: str
+        code, out, _ = interruptable_popen(  # type: ignore[assignment]
+            cmd_str,
+            shell=True,
+            executable="/bin/bash",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
 
         # handle errors
         if code != 0:
             if silent:
                 return None
-            else:
-                # arc prints everything to stdout
-                raise Exception("status query of arc job(s) '{}' failed with code {}:\n{}".format(
-                    job_id, code, out))
+            # arc prints everything to stdout
+            raise Exception(f"status query of arc job(s) '{job_id}' failed with code {code}:\n{out}")
 
         # parse the output and extract the status per job
         query_data = self.parse_query_output(out)
@@ -211,17 +261,18 @@ class ARCJobManager(BaseJobManager):
                 if not chunking:
                     if silent:
                         return None
-                    else:
-                        raise Exception("arc job(s) '{}' not found in query response".format(
-                            job_id))
+                    raise Exception(f"arc job(s) '{job_id}' not found in query response")
                 else:
-                    query_data[_job_id] = self.job_status_dict(job_id=_job_id, status=self.FAILED,
-                        error="job not found in query response")
+                    query_data[_job_id] = self.job_status_dict(
+                        job_id=_job_id,
+                        status=self.FAILED,
+                        error="job not found in query response",
+                    )
 
-        return query_data if chunking else query_data[job_id]
+        return query_data if chunking else query_data[job_id]  # type: ignore[index]
 
     @classmethod
-    def parse_query_output(cls, out):
+    def parse_query_output(cls, out: str) -> dict[str, dict[str, Any]]:
         query_data = {}
 
         # first, check for invalid and missing jobs
@@ -232,8 +283,12 @@ class ARCJobManager(BaseJobManager):
             m = cls.status_invalid_job_cre.match(line)
             if m:
                 job_id = m.group(1)
-                query_data[job_id] = cls.job_status_dict(job_id=job_id, status=cls.FAILED, code=1,
-                    error="job not found")
+                query_data[job_id] = cls.job_status_dict(
+                    job_id=job_id,
+                    status=cls.FAILED,
+                    code=1,
+                    error="job not found",
+                )
                 continue
 
             # missing job? this means that the job is not yet present in the information system
@@ -252,7 +307,7 @@ class ARCJobManager(BaseJobManager):
 
         blocks = out.split("Job: ", 1)[1].strip().split("\nJob: ")
         for block in blocks:
-            data = dict(cls.status_block_cre.findall("Job: {}\n".format(block)))
+            data = dict(cls.status_block_cre.findall(f"Job: {block}\n"))
             if not data:
                 continue
 
@@ -262,7 +317,7 @@ class ARCJobManager(BaseJobManager):
             job_id = data["Job"]
 
             # interpret data
-            status = cls.map_status(data.get("State") or None)
+            status = cls.map_status(data.get("State"))
             code = data.get("Exit Code") and int(data["Exit Code"])
             error = data.get("Job Error") or None
 
@@ -271,24 +326,29 @@ class ARCJobManager(BaseJobManager):
                 code = 1
 
             # store it
-            query_data[job_id] = cls.job_status_dict(job_id=job_id, status=status, code=code,
-                error=error)
+            query_data[job_id] = cls.job_status_dict(
+                job_id=job_id,
+                status=status,
+                code=code,
+                error=error,
+            )
 
         return query_data
 
     @classmethod
-    def map_status(cls, status):
+    def map_status(cls, status: str | None) -> str:
         # see http://www.nordugrid.org/documents/arc-ui.pdf
         if status in ("Queuing", "Accepted", "Preparing", "Submitting"):
             return cls.PENDING
-        elif status in ("Running", "Finishing"):
+        if status in ("Running", "Finishing"):
             return cls.RUNNING
-        elif status in ("Finished",):
+        if status in ("Finished",):
             return cls.FINISHED
-        elif status in ("Failed", "Deleted"):
+        if status in ("Failed", "Deleted"):
             return cls.FAILED
-        else:
-            return cls.FAILED
+
+        logger.debug(f"unknown arc job state '{status}'")
+        return cls.FAILED
 
 
 class ARCJobFileFactory(BaseJobFileFactory):
@@ -299,29 +359,50 @@ class ARCJobFileFactory(BaseJobFileFactory):
         "stderr", "custom_content", "absolute_paths",
     ]
 
-    def __init__(self, file_name="arc_job.xrsl", command=None, executable=None, arguments=None,
-            input_files=None, output_files=None, postfix_output_files=True, output_uri=None,
-            overwrite_output_files=True, job_name=None, log="log.txt", stdout="stdout.txt",
-            stderr="stderr.txt", custom_content=None, absolute_paths=True, **kwargs):
+    def __init__(
+        self,
+        file_name: str = "arc_job.xrsl",
+        command: str | Sequence[str] | None = None,
+        executable: str | None = None,
+        arguments: str | Sequence[str] | None = None,
+        input_files: dict[str, str | pathlib.Path | JobInputFile] | None = None,
+        output_files: list[str] | None = None,
+        postfix_output_files: bool = True,
+        output_uri: str | None = None,
+        overwrite_output_files: bool = True,
+        job_name: str | None = None,
+        log: str = "log.txt",
+        stdout: str = "stdout.txt",
+        stderr: str = "stderr.txt",
+        custom_content: str | Sequence[str] | None = None,
+        absolute_paths: bool = True,
+        **kwargs,
+    ) -> None:
         # get some default kwargs from the config
         cfg = Config.instance()
         if kwargs.get("dir") is None:
-            kwargs["dir"] = cfg.get_expanded("job", cfg.find_option("job",
-                "arc_job_file_dir", "job_file_dir"))
+            kwargs["dir"] = cfg.get_expanded(
+                "job",
+                cfg.find_option("job", "arc_job_file_dir", "job_file_dir"),
+            )
         if kwargs.get("mkdtemp") is None:
-            kwargs["mkdtemp"] = cfg.get_expanded_bool("job", cfg.find_option("job",
-                "arc_job_file_dir_mkdtemp", "job_file_dir_mkdtemp"))
+            kwargs["mkdtemp"] = cfg.get_expanded_bool(
+                "job",
+                cfg.find_option("job", "arc_job_file_dir_mkdtemp", "job_file_dir_mkdtemp"),
+            )
         if kwargs.get("cleanup") is None:
-            kwargs["cleanup"] = cfg.get_expanded_bool("job", cfg.find_option("job",
-                "arc_job_file_dir_cleanup", "job_file_dir_cleanup"))
+            kwargs["cleanup"] = cfg.get_expanded_bool(
+                "job",
+                cfg.find_option("job", "arc_job_file_dir_cleanup", "job_file_dir_cleanup"),
+            )
 
-        super(ARCJobFileFactory, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
         self.file_name = file_name
         self.command = command
         self.executable = executable
         self.arguments = arguments
-        self.input_files = DeprecatedInputFiles(input_files or {})
+        self.input_files = input_files or {}
         self.output_files = output_files or []
         self.postfix_output_files = postfix_output_files
         self.output_uri = output_uri
@@ -333,7 +414,11 @@ class ARCJobFileFactory(BaseJobFileFactory):
         self.absolute_paths = absolute_paths
         self.custom_content = custom_content
 
-    def create(self, postfix=None, **kwargs):
+    def create(
+        self,
+        postfix: str | None = None,
+        **kwargs,
+    ) -> tuple[str, ARCJobFileFactory.Config]:
         # merge kwargs and instance attributes
         c = self.get_config(**kwargs)
 
@@ -363,7 +448,7 @@ class ARCJobFileFactory(BaseJobFileFactory):
         }
 
         # special case: remote input files must never be copied
-        for f in c.input_files.values:
+        for f in c.input_files.values():
             if f.is_remote:
                 f.copy = False
 
@@ -531,19 +616,18 @@ class ARCJobFileFactory(BaseJobFileFactory):
             f.write("&\n")
             for key, value in content:
                 line = self.create_line(key, value)
-                f.write(line + "\n")
+                f.write(f"{line}\n")
 
-        logger.debug("created arc job file at '{}'".format(job_file))
+        logger.debug(f"created arc job file at '{job_file}'")
 
         return job_file, c
 
     @classmethod
-    def create_line(cls, key, value):
+    def create_line(cls, key: str, value: Any) -> str:
         def flat_value(value):
             if isinstance(value, list):
                 return " ".join(flat_value(v) for v in value)
             if isinstance(value, tuple):
-                return "({})".format(" ".join(flat_value(v) for v in value))
-            else:
-                return "\"{}\"".format(value)
-        return "({} = {})".format(key, flat_value(value))
+                return f"({' '.join(flat_value(v) for v in value)})"
+            return f"\"{value}\""
+        return f"({key} = {flat_value(value)})"

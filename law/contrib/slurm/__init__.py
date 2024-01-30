@@ -11,7 +11,6 @@ __all__ = [
     "SlurmWorkflow",
 ]
 
-
 # provisioning imports
 from law.contrib.slurm.util import get_slurm_version
 from law.contrib.slurm.job import SlurmJobManager, SlurmJobFileFactory

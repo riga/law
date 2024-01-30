@@ -18,7 +18,6 @@ request. Usage:
 Further optional arguments: log_level, site, code, event
 """
 
-
 import sys
 import shlex
 import traceback

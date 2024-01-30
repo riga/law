@@ -4,7 +4,7 @@
 Minimal valid configuration.
 """
 
-import FWCore.ParameterSet.Config as cms
+import FWCore.ParameterSet.Config as cms  # type: ignore[import-untyped, import-not-found]
 
 
 process = cms.Process("LAW")

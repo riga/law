@@ -286,7 +286,7 @@ def delegate_vomsproxy_glite(
     stdout: int | TextIO | None = None,
     stderr: int | TextIO | None = None,
     cache: bool | str | pathlib.Path = True,
-):
+) -> str:
     """
     Delegates the voms proxy via gLite to an *endpoint*, e.g.
     ``grid-ce.physik.rwth-aachen.de:8443``. When *proxy_file* is *None*, it defaults to the result

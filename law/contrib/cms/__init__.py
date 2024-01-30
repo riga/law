@@ -12,6 +12,9 @@ __all__ = [
     "Site", "lfn_to_pfn", "renew_vomsproxy", "delegate_myproxy",
 ]
 
+# dependencies to other contrib modules
+import law
+law.contrib.load("wlcg")
 
 # provisioning imports
 from law.contrib.cms.sandbox import CMSSWSandbox

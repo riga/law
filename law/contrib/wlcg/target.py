@@ -19,8 +19,6 @@ from law.logger import get_logger
 
 logger = get_logger(__name__)
 
-law.contrib.load("gfal")
-
 
 class WLCGFileSystem(RemoteFileSystem):
 

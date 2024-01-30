@@ -12,6 +12,9 @@ __all__ = [
     "ensure_arcproxy",
 ]
 
+# dependencies to other contrib modules
+import law
+law.contrib.load("wlcg")
 
 # provisioning imports
 from law.contrib.arc.util import (

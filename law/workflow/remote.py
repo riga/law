@@ -293,24 +293,33 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         """
         ...
 
-    @abstractmethod
     def create_job_file(
         self,
-        *args,
-        **kwargs,
-    ) -> dict[str, str | pathlib.Path | BaseJobFileFactory.Config]:
+        job_num: int,
+        branches: list[int],
+    ) -> dict[str, str | pathlib.Path | BaseJobFileFactory.Config | None]:
         """
-        Creates a job file using the :py:attr:`job_file_factory`. The expected arguments depend on
-        wether the job manager supports job grouping (:py:attr:`BaseJobManager.job_grouping`). If it
-        does, two arguments containing the job number (*job_num*) and the list of branch numbers
-        (*branches*) covered by the job. If job grouping is supported, a single dictionary mapping
-        job numbers to covered branch values must be passed. In any case, the path(s) of job files
-        are returned.
+        Creates a job file using the :py:attr:`job_file_factory`. The path(s) of job files are
+        returned.
 
         This method must be implemented by inheriting classes.
         """
         # TODO: add TypedDict or similar as return type
-        ...
+        raise NotImplementedError()
+
+    def create_job_file_group(
+        self,
+        submit_jobs: dict[int, list[int]],
+    ) -> dict[str, str | pathlib.Path | BaseJobFileFactory.Config | None]:
+        """
+        Creates a job file using the :py:attr:`job_file_factory` based on a group of *submit_jobs*.
+        This method should be implemented in case the corresponding job manager supports job
+        grouping (:py:attr:`BaseJobManager.job_grouping`). The path(s) of job files are returned.
+
+        This method must be implemented by inheriting classes.
+        """
+        # TODO: add TypedDict or similar as return type
+        raise NotImplementedError()
 
     def destination_info(self) -> InsertableDict:
         """
@@ -956,7 +965,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         task = self.task
 
         # create the single multi submission file, passing the job_num -> branches dict
-        job_file = self.create_job_file(submit_jobs)
+        job_file = self.create_job_file_group(submit_jobs)
 
         # setup the job manager
         job_man_kwargs = self._setup_job_manager()
@@ -1138,7 +1147,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             # get settings from the task for triggering post-finished status checks
             check_completeness = self._get_task_attribute("check_job_completeness")()
             check_completeness_delay = self._get_task_attribute("check_job_completeness_delay")()
-            if check_completeness_delay:
+            if check_completeness and check_completeness_delay > 0:
                 time.sleep(check_completeness_delay)
 
             # store jobs per status and take further actions depending on the status

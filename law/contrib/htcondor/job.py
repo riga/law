@@ -4,21 +4,24 @@
 HTCondor job manager. See https://research.cs.wisc.edu/htcondor.
 """
 
-__all__ = ["HTCondorJobManager", "HTCondorJobFileFactory"]
+from __future__ import annotations
 
+__all__ = ["HTCondorJobManager", "HTCondorJobFileFactory"]
 
 import os
 import stat
 import time
 import re
+import pathlib
 import tempfile
 import subprocess
 
 from law.config import Config
-from law.job.base import BaseJobManager, BaseJobFileFactory, JobInputFile, DeprecatedInputFiles
+from law.job.base import BaseJobManager, BaseJobFileFactory, JobInputFile
 from law.target.file import get_path
 from law.util import interruptable_popen, make_list, make_unique, quote_cmd
 from law.logger import get_logger
+from law._types import Any, Sequence
 
 from law.contrib.htcondor.util import get_htcondor_version
 
@@ -45,8 +48,14 @@ class HTCondorJobManager(BaseJobManager):
     submission_job_id_cre = re.compile(r"^(\d+) job\(s\) submitted to cluster (\d+)\.$")
     long_block_cre = re.compile(r"(\w+) \= \"?([^\"\n]*)\"?\n")
 
-    def __init__(self, pool=None, scheduler=None, user=None, threads=1):
-        super(HTCondorJobManager, self).__init__()
+    def __init__(
+        self,
+        pool: str | None = None,
+        scheduler: str | None = None,
+        user: str | None = None,
+        threads: int = 1,
+    ) -> None:
+        super().__init__()
 
         self.pool = pool
         self.scheduler = scheduler
@@ -60,13 +69,21 @@ class HTCondorJobManager(BaseJobManager):
         self.htcondor_ge_v833 = self.htcondor_version and self.htcondor_version >= (8, 3, 3)
         self.htcondor_ge_v856 = self.htcondor_version and self.htcondor_version >= (8, 5, 6)
 
-    def cleanup(self, *args, **kwargs):
+    def cleanup(self, *args, **kwargs) -> None:  # type: ignore[override]
         raise NotImplementedError("HTCondorJobManager.cleanup is not implemented")
 
-    def cleanup_batch(self, *args, **kwargs):
+    def cleanup_batch(self, *args, **kwargs) -> None:  # type: ignore[override]
         raise NotImplementedError("HTCondorJobManager.cleanup_batch is not implemented")
 
-    def submit(self, job_file, pool=None, scheduler=None, retries=0, retry_delay=3, silent=False):
+    def submit(  # type: ignore[override]
+        self,
+        job_file: str | pathlib.Path | Sequence[str | pathlib.Path],
+        pool: str | None = None,
+        scheduler: str | None = None,
+        retries: int = 0,
+        retry_delay: float | int = 3,
+        silent: bool = False,
+    ) -> str | Sequence[str] | None:
         # default arguments
         if pool is None:
             pool = self.pool
@@ -84,7 +101,7 @@ class HTCondorJobManager(BaseJobManager):
             return False
 
         chunking = isinstance(job_file, (list, tuple))
-        job_files = list(map(str, make_list(job_file)))
+        job_files = list(map(get_path, make_list(job_file)))
         job_file_dir = None
         for i, job_file in enumerate(job_files):
             dirname, basename = os.path.split(job_file)
@@ -94,10 +111,9 @@ class HTCondorJobManager(BaseJobManager):
             elif dirname != job_file_dir:
                 if not has_initialdir(job_file):
                     raise Exception(
-                        "cannot performed chunked submission as job file '{}' is not located in a "
-                        "previously seen directory '{}' and has no initialdir".format(
-                            job_file, job_file_dir,
-                        ),
+                        f"cannot performed chunked submission as job file '{job_file}' is not "
+                        f"located in a previously seen directory '{job_file_dir}' and has no "
+                        "initialdir",
                     )
 
         # define a single, merged job file if necessary
@@ -106,7 +122,7 @@ class HTCondorJobManager(BaseJobManager):
             with open(_job_file, "w") as f:
                 for job_file in job_files:
                     with open(job_file, "r") as _f:
-                        f.write(_f.read() + "\n")
+                        f.write(f"{_f.read()}\n")
             job_files = [_job_file]
 
         # build the command
@@ -116,14 +132,22 @@ class HTCondorJobManager(BaseJobManager):
         if scheduler:
             cmd += ["-name", scheduler]
         cmd += list(map(os.path.basename, job_files))
-        cmd = quote_cmd(cmd)
+        cmd_str = quote_cmd(cmd)
 
         # define the actual submission in a loop to simplify retries
         while True:
             # run the command
-            logger.debug("submit htcondor job with command '{}'".format(cmd))
-            code, out, err = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=os.path.dirname(job_files[0]))
+            logger.debug(f"submit htcondor job with command '{cmd_str}'")
+            out: str
+            err: str
+            code, out, err = interruptable_popen(  # type: ignore[assignment]
+                cmd_str,
+                shell=True,
+                executable="/bin/bash",
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                cwd=os.path.dirname(job_files[0]),
+            )
 
             # get the job id(s)
             if code == 0:
@@ -132,21 +156,19 @@ class HTCondorJobManager(BaseJobManager):
                 for line in out.strip().split("\n"):
                     m = self.submission_job_id_cre.match(line.strip())
                     if m:
-                        job_ids.extend([
-                            "{}.{}".format(m.group(2), i)
-                            for i in range(int(m.group(1)))
-                        ])
+                        job_ids.extend([f"{m.group(2)}.{i}" for i in range(int(m.group(1)))])
                 if not job_ids:
                     code = 1
-                    err = "cannot parse htcondor job id(s) from output:\n{}".format(out)
+                    err = f"cannot parse htcondor job id(s) from output:\n{out}"
 
             # retry or done?
             if code == 0:
                 return job_ids if chunking else job_ids[0]
 
             job_files_repr = ",".join(map(os.path.basename, job_files))
-            logger.debug("submission of htcondor job(s) '{}' failed with code {}:\n{}".format(
-                job_files_repr, code, err))
+            logger.debug(
+                f"submission of htcondor job(s) '{job_files_repr}' failed with code {code}:\n{err}",
+            )
 
             if retries > 0:
                 retries -= 1
@@ -156,10 +178,15 @@ class HTCondorJobManager(BaseJobManager):
             if silent:
                 return None
 
-            raise Exception("submission of htcondor job(s) '{}' failed:\n{}".format(
-                job_files_repr, err))
+            raise Exception(f"submission of htcondor job(s) '{job_files_repr}' failed:\n{err}")
 
-    def cancel(self, job_id, pool=None, scheduler=None, silent=False):
+    def cancel(  # type: ignore[override]
+        self,
+        job_id: str | Sequence[str],
+        pool: str | None = None,
+        scheduler: str | None = None,
+        silent: bool = False,
+    ) -> dict[str, None] | None:
         # default arguments
         if pool is None:
             pool = self.pool
@@ -176,21 +203,36 @@ class HTCondorJobManager(BaseJobManager):
         if scheduler:
             cmd += ["-name", scheduler]
         cmd += job_ids
-        cmd = quote_cmd(cmd)
+        cmd_str = quote_cmd(cmd)
 
         # run it
-        logger.debug("cancel htcondor job(s) with command '{}'".format(cmd))
-        code, out, err = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        logger.debug(f"cancel htcondor job(s) with command '{cmd_str}'")
+        out: str
+        err: str
+        code, out, err = interruptable_popen(  # type: ignore[assignment]
+            cmd_str,
+            shell=True,
+            executable="/bin/bash",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
 
         # check success
         if code != 0 and not silent:
-            raise Exception("cancellation of htcondor job(s) '{}' failed with code {}:\n{}".format(
-                job_id, code, err))
+            raise Exception(
+                f"cancellation of htcondor job(s) '{job_id}' failed with code {code}:\n{err}",
+            )
 
         return {job_id: None for job_id in job_ids} if chunking else None
 
-    def query(self, job_id, pool=None, scheduler=None, user=None, silent=False):
+    def query(  # type: ignore[override]
+        self,
+        job_id: str | Sequence[str],
+        pool: str | None = None,
+        scheduler: str | None = None,
+        user: str | None = None,
+        silent: bool = False,
+    ) -> dict[int, dict[str, Any]] | dict[str, Any] | None:
         # default arguments
         if pool is None:
             pool = self.pool
@@ -218,18 +260,26 @@ class HTCondorJobManager(BaseJobManager):
         # since v8.5.6 one can define the attributes to fetch
         if self.htcondor_ge_v856:
             cmd += ["-attributes", ads]
-        cmd = quote_cmd(cmd)
+        cmd_str = quote_cmd(cmd)
 
-        logger.debug("query htcondor job(s) with command '{}'".format(cmd))
-        code, out, err = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        logger.debug(f"query htcondor job(s) with command '{cmd_str}'")
+        out: str
+        err: str
+        code, out, err = interruptable_popen(  # type: ignore[assignment]
+            cmd_str,
+            shell=True,
+            executable="/bin/bash",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
 
         # handle errors
         if code != 0:
             if silent:
                 return None
-            raise Exception("queue query of htcondor job(s) '{}' failed with code {}:"
-                "\n{}".format(job_id, code, err))
+            raise Exception(
+                f"queue query of htcondor job(s) '{job_id}' failed with code {code}:\n{err}",
+            )
 
         # parse the output and extract the status per job
         query_data = self.parse_long_output(out)
@@ -250,18 +300,24 @@ class HTCondorJobManager(BaseJobManager):
             # since v8.5.6 one can define the attributes to fetch
             if self.htcondor_ge_v856:
                 cmd += ["-attributes", ads]
-            cmd = quote_cmd(cmd)
+            cmd_str = quote_cmd(cmd)
 
-            logger.debug("query htcondor job history with command '{}'".format(cmd))
-            code, out, err = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            logger.debug(f"query htcondor job history with command '{cmd_str}'")
+            code, out, err = interruptable_popen(  # type: ignore[assignment]
+                cmd,
+                shell=True,
+                executable="/bin/bash",
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
 
             # handle errors
             if code != 0:
                 if silent:
                     return None
-                raise Exception("history query of htcondor job(s) '{}' failed with code {}:"
-                    "\n{}".format(job_id, code, err))
+                raise Exception(
+                    f"history query of htcondor job(s) '{job_id}' failed with code {code}:\n{err}",
+                )
 
             # parse the output and update query data
             query_data.update(self.parse_long_output(out))
@@ -272,16 +328,18 @@ class HTCondorJobManager(BaseJobManager):
                 if not chunking:
                     if silent:
                         return None
-                    raise Exception("htcondor job(s) '{}' not found in query response".format(
-                        job_id))
+                    raise Exception(f"htcondor job(s) '{job_id}' not found in query response")
 
-                query_data[_job_id] = self.job_status_dict(job_id=_job_id, status=self.FAILED,
-                    error="job not found in query response")
+                query_data[_job_id] = self.job_status_dict(
+                    job_id=_job_id,
+                    status=self.FAILED,
+                    error="job not found in query response",
+                )
 
-        return query_data if chunking else query_data[job_id]
+        return query_data if chunking else query_data[job_id]  # type: ignore[index]
 
     @classmethod
-    def parse_long_output(cls, out):
+    def parse_long_output(cls, out: str) -> dict[str, dict[str, Any]]:
         # retrieve information per block mapped to the job id
         query_data = {}
         for block in out.strip().split("\n\n"):
@@ -316,28 +374,32 @@ class HTCondorJobManager(BaseJobManager):
                 if status != cls.FAILED:
                     status = cls.FAILED
                     if not error:
-                        error = "job status set to '{}' due to non-zero exit code {}".format(
-                            cls.FAILED, code)
+                        error = f"job status set to '{cls.FAILED}' due to non-zero exit code {code}"
 
             # store it
-            query_data[job_id] = cls.job_status_dict(job_id=job_id, status=status, code=code,
-                error=error)
+            query_data[job_id] = cls.job_status_dict(
+                job_id=job_id,
+                status=status,
+                code=code,
+                error=error,
+            )
 
         return query_data
 
     @classmethod
-    def map_status(cls, status_flag):
+    def map_status(cls, status_flag: str | None) -> str:
         # see http://pages.cs.wisc.edu/~adesmet/status.html
         if status_flag in ("0", "1", "U", "I"):
             return cls.PENDING
-        elif status_flag in ("2", "R"):
+        if status_flag in ("2", "R"):
             return cls.RUNNING
-        elif status_flag in ("4", "C"):
+        if status_flag in ("4", "C"):
             return cls.FINISHED
-        elif status_flag in ("5", "6", "H", "E"):
+        if status_flag in ("5", "6", "H", "E"):
             return cls.FAILED
-        else:
-            return cls.FAILED
+
+        logger.debug(f"unknown htcondor job state '{status_flag}'")
+        return cls.FAILED
 
 
 class HTCondorJobFileFactory(BaseJobFileFactory):
@@ -348,29 +410,49 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
         "absolute_paths",
     ]
 
-    def __init__(self, file_name="htcondor_job.jdl", command=None, executable=None, arguments=None,
-            input_files=None, output_files=None, log="log.txt", stdout="stdout.txt",
-            stderr="stderr.txt", postfix_output_files=True, universe="vanilla",
-            notification="Never", custom_content=None, absolute_paths=False, **kwargs):
+    def __init__(
+        self,
+        file_name: str = "htcondor_job.jdl",
+        command: str | Sequence[str] | None = None,
+        executable: str | None = None,
+        arguments: str | Sequence[str] | None = None,
+        input_files: dict[str, str | pathlib.Path | JobInputFile] | None = None,
+        output_files: Sequence[str] | None = None,
+        log: str = "log.txt",
+        stdout: str = "stdout.txt",
+        stderr: str = "stderr.txt",
+        postfix_output_files: bool = True,
+        universe: str = "vanilla",
+        notification: str = "Never",
+        custom_content: str | Sequence[str] | None = None,
+        absolute_paths: bool = False,
+        **kwargs,
+    ) -> None:
         # get some default kwargs from the config
         cfg = Config.instance()
         if kwargs.get("dir") is None:
-            kwargs["dir"] = cfg.get_expanded("job", cfg.find_option("job",
-                "htcondor_job_file_dir", "job_file_dir"))
+            kwargs["dir"] = cfg.get_expanded(
+                "job",
+                cfg.find_option("job", "htcondor_job_file_dir", "job_file_dir"),
+            )
         if kwargs.get("mkdtemp") is None:
-            kwargs["mkdtemp"] = cfg.get_expanded_bool("job", cfg.find_option("job",
-                "htcondor_job_file_dir_mkdtemp", "job_file_dir_mkdtemp"))
+            kwargs["mkdtemp"] = cfg.get_expanded_bool(
+                "job",
+                cfg.find_option("job", "htcondor_job_file_dir_mkdtemp", "job_file_dir_mkdtemp"),
+            )
         if kwargs.get("cleanup") is None:
-            kwargs["cleanup"] = cfg.get_expanded_bool("job", cfg.find_option("job",
-                "htcondor_job_file_dir_cleanup", "job_file_dir_cleanup"))
+            kwargs["cleanup"] = cfg.get_expanded_bool(
+                "job",
+                cfg.find_option("job", "htcondor_job_file_dir_cleanup", "job_file_dir_cleanup"),
+            )
 
-        super(HTCondorJobFileFactory, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
         self.file_name = file_name
         self.command = command
         self.executable = executable
         self.arguments = arguments
-        self.input_files = DeprecatedInputFiles(input_files or {})
+        self.input_files = input_files or {}
         self.output_files = output_files or []
         self.log = log
         self.stdout = stdout
@@ -381,7 +463,11 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
         self.custom_content = custom_content
         self.absolute_paths = absolute_paths
 
-    def create(self, postfix=None, **kwargs):
+    def create(
+        self,
+        postfix: str | None = None,
+        **kwargs,
+    ) -> tuple[str, HTCondorJobFileFactory.Config]:
         # merge kwargs and instance attributes
         c = self.get_config(**kwargs)
 
@@ -525,7 +611,7 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
                 os.chmod(path, os.stat(path).st_mode | stat.S_IXUSR | stat.S_IXGRP)
 
         # job file content
-        content = []
+        content: list[str | tuple[str, Any]] = []
         content.append(("universe", c.universe))
         if c.command:
             cmd = quote_cmd(c.command) if isinstance(c.command, (list, tuple)) else c.command
@@ -568,17 +654,16 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
         with open(job_file, "w") as f:
             for obj in content:
                 line = self.create_line(*make_list(obj))
-                f.write(line + "\n")
+                f.write(f"{line}\n")
 
-        logger.debug("created htcondor job file at '{}'".format(job_file))
+        logger.debug(f"created htcondor job file at '{job_file}'")
 
         return job_file, c
 
     @classmethod
-    def create_line(cls, key, value=None):
+    def create_line(cls, key: str, value: Any | None = None) -> str:
         if isinstance(value, (list, tuple)):
             value = ",".join(str(v) for v in value)
         if value is None:
             return str(key)
-        else:
-            return "{} = {}".format(key, value)
+        return f"{key} = {value}"

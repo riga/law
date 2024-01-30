@@ -4,6 +4,8 @@
 Simple gLite job manager. See https://wiki.italiangrid.it/twiki/bin/view/CREAM/UserGuide.
 """
 
+from __future__ import annotations
+
 __all__ = ["GLiteJobManager", "GLiteJobFileFactory"]
 
 import os
@@ -11,13 +13,15 @@ import stat
 import time
 import re
 import random
+import pathlib
 import subprocess
 
 from law.config import Config
-from law.job.base import BaseJobManager, BaseJobFileFactory, JobInputFile, DeprecatedInputFiles
+from law.job.base import BaseJobManager, BaseJobFileFactory, JobInputFile
 from law.target.file import get_path
 from law.util import interruptable_popen, make_list, make_unique, quote_cmd
 from law.logger import get_logger
+from law._types import Any, Sequence
 
 
 logger = get_logger(__name__)
@@ -36,14 +40,27 @@ class GLiteJobManager(BaseJobManager):
     submission_job_id_cre = re.compile(r"^https?\:\/\/.+\:\d+\/.+")
     status_block_cre = re.compile(r"(\w+)\s*\=\s*\[([^\]]*)\]")
 
-    def __init__(self, ce=None, delegation_id=None, threads=1):
-        super(GLiteJobManager, self).__init__()
+    def __init__(
+        self,
+        ce: str | None = None,
+        delegation_id: str | None = None,
+        threads: int = 1,
+    ) -> None:
+        super().__init__()
 
         self.ce = ce
         self.delegation_id = delegation_id
         self.threads = threads
 
-    def submit(self, job_file, ce=None, delegation_id=None, retries=0, retry_delay=3, silent=False):
+    def submit(  # type: ignore[override]
+        self,
+        job_file: str | pathlib.Path,
+        ce: str | None = None,
+        delegation_id: str | None = None,
+        retries: int = 0,
+        retry_delay: float | int = 3,
+        silent: bool = False,
+    ) -> str | None:
         # default arguments
         if ce is None:
             ce = self.ce
@@ -55,45 +72,52 @@ class GLiteJobManager(BaseJobManager):
             raise ValueError("ce must not be empty")
 
         # prepare round robin for ces and delegations
-        ce = make_list(ce)
-        if delegation_id:
-            delegation_id = make_list(delegation_id)
-            if len(ce) != len(delegation_id):
-                raise Exception("numbers of CEs ({}) and delegation ids ({}) do not match".format(
-                    len(ce), len(delegation_id)))
+        _ce = make_list(ce)
+        _delegation_id = make_list(delegation_id) if delegation_id else None
+        if _delegation_id:
+            if len(_ce) != len(_delegation_id):
+                raise Exception(
+                    f"numbers of CEs ({len(_ce)}) and delegation ids ({len(_delegation_id)}) "
+                    "do not match",
+                )
 
         # get the job file location as the submission command is run it the same directory
-        job_file_dir, job_file_name = os.path.split(os.path.abspath(str(job_file)))
+        job_file_dir, job_file_name = os.path.split(os.path.abspath(get_path(job_file)))
 
         # define the actual submission in a loop to simplify retries
         while True:
             # build the command
-            i = random.randint(0, len(ce) - 1)
-            cmd = ["glite-ce-job-submit", "-r", ce[i]]
-            if delegation_id:
-                cmd += ["-D", delegation_id[i]]
+            i = random.randint(0, len(_ce) - 1)
+            cmd = ["glite-ce-job-submit", "-r", _ce[i]]
+            if _delegation_id:
+                cmd += ["-D", _delegation_id[i]]
             cmd += [job_file_name]
-            cmd = quote_cmd(cmd)
+            cmd_str = quote_cmd(cmd)
 
             # run the command
             # glite prints everything to stdout
-            logger.debug("submit glite job with command '{}'".format(cmd))
-            code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-                stdout=subprocess.PIPE, cwd=job_file_dir)
+            logger.debug(f"submit glite job with command '{cmd_str}'")
+            out: str
+            code, out, _ = interruptable_popen(  # type: ignore[assignment]
+                cmd_str,
+                shell=True,
+                executable="/bin/bash",
+                stdout=subprocess.PIPE,
+                cwd=job_file_dir,
+            )
 
             # in some cases, the return code is 0 but the ce did not respond with a valid id
             if code == 0:
                 job_id = out.strip().split("\n")[-1].strip()
                 if not self.submission_job_id_cre.match(job_id):
                     code = 1
-                    out = "bad job id '{}' from output:\n{}".format(job_id, out)
+                    out = f"bad job id '{job_id}' from output:\n{out}"
 
             # retry or done?
             if code == 0:
                 return job_id
 
-            logger.debug("submission of glite job '{}' failed with code {}:\n{}".format(
-                job_file, code, out))
+            logger.debug(f"submission of glite job '{job_file}' failed with code {code}:\n{out}")
 
             if retries > 0:
                 retries -= 1
@@ -103,71 +127,98 @@ class GLiteJobManager(BaseJobManager):
             if silent:
                 return None
 
-            raise Exception("submission of glite job '{}' failed:\n{}".format(job_file, out))
+            raise Exception(f"submission of glite job '{job_file}' failed:\n{out}")
 
-    def cancel(self, job_id, silent=False):
+    def cancel(  # type: ignore[override]
+        self,
+        job_id: str | Sequence[str],
+        silent: bool = False,
+    ) -> dict[str, Any] | None:
         chunking = isinstance(job_id, (list, tuple))
         job_ids = make_list(job_id)
 
         # build the command
         cmd = ["glite-ce-job-cancel", "-N"] + job_ids
-        cmd = quote_cmd(cmd)
+        cmd_str = quote_cmd(cmd)
 
         # run it
-        logger.debug("cancel glite job(s) with command '{}'".format(cmd))
-        code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-            stdout=subprocess.PIPE)
+        logger.debug(f"cancel glite job(s) with command '{cmd_str}'")
+        out: str
+        code, out, _ = interruptable_popen(  # type: ignore[assignment]
+            cmd,
+            shell=True,
+            executable="/bin/bash",
+            stdout=subprocess.PIPE,
+        )
 
         # check success
         if code != 0 and not silent:
             # glite prints everything to stdout
-            raise Exception("cancellation of glite job(s) '{}' failed with code {}:\n{}".format(
-                job_id, code, out))
+            raise Exception(
+                f"cancellation of glite job(s) '{job_id}' failed with code {code}:\n{out}",
+            )
 
         return {job_id: None for job_id in job_ids} if chunking else None
 
-    def cleanup(self, job_id, silent=False):
+    def cleanup(  # type: ignore[override]
+        self,
+        job_id: str | Sequence[str],
+        silent: bool = False,
+    ) -> dict[str, Any] | None:
         chunking = isinstance(job_id, (list, tuple))
         job_ids = make_list(job_id)
 
         # build the command
         cmd = ["glite-ce-job-purge", "-N"] + job_ids
-        cmd = quote_cmd(cmd)
+        cmd_str = quote_cmd(cmd)
 
         # run it
-        logger.debug("cleanup glite job(s) with command '{}'".format(cmd))
-        code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-            stdout=subprocess.PIPE)
+        logger.debug(f"cleanup glite job(s) with command '{cmd_str}'")
+        out: str
+        code, out, _ = interruptable_popen(  # type: ignore[assignment]
+            cmd_str,
+            shell=True,
+            executable="/bin/bash",
+            stdout=subprocess.PIPE,
+        )
 
         # check success
         if code != 0 and not silent:
             # glite prints everything to stdout
-            raise Exception("cleanup of glite job(s) '{}' failed with code {}:\n{}".format(
-                job_id, code, out))
+            raise Exception(f"cleanup of glite job(s) '{job_id}' failed with code {code}:\n{out}")
 
         return {job_id: None for job_id in job_ids} if chunking else None
 
-    def query(self, job_id, silent=False):
+    def query(  # type: ignore[override]
+        self,
+        job_id: str | Sequence[str],
+        silent: bool = False,
+    ) -> dict[int, dict[str, Any]] | dict[str, Any] | None:
         chunking = isinstance(job_id, (list, tuple))
         job_ids = make_list(job_id)
 
         # build the command
         cmd = ["glite-ce-job-status", "-n", "-L", "0"] + job_ids
-        cmd = quote_cmd(cmd)
+        cmd_str = quote_cmd(cmd)
 
         # run it
-        logger.debug("query glite job(s) with command '{}'".format(cmd))
-        code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-            stdout=subprocess.PIPE)
+        logger.debug(f"query glite job(s) with command '{cmd_str}'")
+        out: str
+        code, out, _ = interruptable_popen(  # type: ignore[assignment]
+            cmd,
+            shell=True,
+            executable="/bin/bash",
+            stdout=subprocess.PIPE,
+        )
 
         # handle errors
         if code != 0:
             if silent:
                 return None
-            else:
-                # glite prints everything to stdout
-                raise Exception("status query of glite job(s) '{}' failed with code {}:\n{}".format(
-                    job_id, code, out))
+            # glite prints everything to stdout
+            raise Exception(
+                f"status query of glite job(s) '{job_id}' failed with code {code}:\n{out}",
+            )
 
         # parse the output and extract the status per job
         query_data = self.parse_query_output(out)
@@ -178,21 +229,22 @@ class GLiteJobManager(BaseJobManager):
                 if not chunking:
                     if silent:
                         return None
-                    else:
-                        raise Exception("glite job(s) '{}' not found in query response".format(
-                            job_id))
+                    raise Exception(f"glite job(s) '{job_id}' not found in query response")
                 else:
-                    query_data[_job_id] = self.job_status_dict(job_id=_job_id, status=self.FAILED,
-                        error="job not found in query response")
+                    query_data[_job_id] = self.job_status_dict(
+                        job_id=_job_id,
+                        status=self.FAILED,
+                        error="job not found in query response",
+                    )
 
-        return query_data if chunking else query_data[job_id]
+        return query_data if chunking else query_data[job_id]  # type: ignore[index]
 
     @classmethod
-    def parse_query_output(cls, out):
+    def parse_query_output(cls, out: str) -> dict[int, dict[str, Any]]:
         # blocks per job are separated by ******
         blocks = []
-        for block in out.split("******"):
-            block = dict(cls.status_block_cre.findall(block))
+        for block_str in out.split("******"):
+            block = dict(cls.status_block_cre.findall(block_str))
             if block:
                 blocks.append(block)
 
@@ -240,18 +292,19 @@ class GLiteJobManager(BaseJobManager):
         return query_data
 
     @classmethod
-    def map_status(cls, status):
+    def map_status(cls, status: str | None) -> str:
         # see https://wiki.italiangrid.it/twiki/bin/view/CREAM/UserGuide#4_CREAM_job_states
         if status in ("REGISTERED", "PENDING", "IDLE", "HELD"):
             return cls.PENDING
-        elif status in ("RUNNING", "REALLY-RUNNING"):
+        if status in ("RUNNING", "REALLY-RUNNING"):
             return cls.RUNNING
-        elif status in ("DONE-OK",):
+        if status in ("DONE-OK",):
             return cls.FINISHED
-        elif status in ("CANCELLED", "DONE-FAILED", "ABORTED"):
+        if status in ("CANCELLED", "DONE-FAILED", "ABORTED"):
             return cls.FAILED
-        else:
-            return cls.FAILED
+
+        logger.debug(f"unknown glite job state '{status}'")
+        return cls.FAILED
 
 
 class GLiteJobFileFactory(BaseJobFileFactory):
@@ -262,29 +315,49 @@ class GLiteJobFileFactory(BaseJobFileFactory):
         "absolute_paths",
     ]
 
-    def __init__(self, file_name="glite_job.jdl", command=None, executable=None, arguments=None,
-            input_files=None, output_files=None, postfix_output_files=True, output_uri=None,
-            stdout="stdout.txt", stderr="stderr.txt", vo=None, custom_content=None,
-            absolute_paths=False, **kwargs):
+    def __init__(
+        self,
+        *,
+        file_name: str = "glite_job.jdl",
+        command: str | Sequence[str] | None = None,
+        executable: str | None = None,
+        arguments: str | Sequence[str] | None = None,
+        input_files: dict[str, str | pathlib.Path | JobInputFile] | None = None,
+        output_files: list[str] | None = None,
+        postfix_output_files: bool = True,
+        output_uri: str | None = None,
+        stdout: str = "stdout.txt",
+        stderr: str = "stderr.txt",
+        vo: str | None = None,
+        custom_content: str | Sequence[str] | None = None,
+        absolute_paths: bool = False,
+        **kwargs,
+    ) -> None:
         # get some default kwargs from the config
         cfg = Config.instance()
         if kwargs.get("dir") is None:
-            kwargs["dir"] = cfg.get_expanded("job", cfg.find_option("job",
-                "glite_job_file_dir", "job_file_dir"))
+            kwargs["dir"] = cfg.get_expanded(
+                "job",
+                cfg.find_option("job", "glite_job_file_dir", "job_file_dir"),
+            )
         if kwargs.get("mkdtemp") is None:
-            kwargs["mkdtemp"] = cfg.get_expanded_bool("job", cfg.find_option("job",
-                "glite_job_file_dir_mkdtemp", "job_file_dir_mkdtemp"))
+            kwargs["mkdtemp"] = cfg.get_expanded_bool(
+                "job",
+                cfg.find_option("job", "glite_job_file_dir_mkdtemp", "job_file_dir_mkdtemp"),
+            )
         if kwargs.get("cleanup") is None:
-            kwargs["cleanup"] = cfg.get_expanded_bool("job", cfg.find_option("job",
-                "glite_job_file_dir_cleanup", "job_file_dir_cleanup"))
+            kwargs["cleanup"] = cfg.get_expanded_bool(
+                "job",
+                cfg.find_option("job", "glite_job_file_dir_cleanup", "job_file_dir_cleanup"),
+            )
 
-        super(GLiteJobFileFactory, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
         self.file_name = file_name
         self.command = command
         self.executable = executable
         self.arguments = arguments
-        self.input_files = DeprecatedInputFiles(input_files or {})
+        self.input_files = input_files or {}
         self.output_files = output_files or []
         self.postfix_output_files = postfix_output_files
         self.output_uri = output_uri
@@ -294,7 +367,11 @@ class GLiteJobFileFactory(BaseJobFileFactory):
         self.custom_content = custom_content
         self.absolute_paths = absolute_paths
 
-    def create(self, postfix=None, render_variables=None, **kwargs):
+    def create(
+        self,
+        postfix: str | None = None,
+        **kwargs,
+    ) -> tuple[str, GLiteJobFileFactory.Config]:
         # merge kwargs and instance attributes
         c = self.get_config(**kwargs)
 
@@ -468,17 +545,17 @@ class GLiteJobFileFactory(BaseJobFileFactory):
         with open(job_file, "w") as f:
             f.write("[\n")
             for key, value in content:
-                f.write(self.create_line(key, value) + "\n")
+                f.write(f"{self.create_line(key, value)}\n")
             f.write("]\n")
 
-        logger.debug("created glite job file at '{}'".format(job_file))
+        logger.debug(f"created glite job file at '{job_file}'")
 
         return job_file, c
 
     @classmethod
-    def create_line(cls, key, value):
+    def create_line(cls, key: str, value: Any) -> str:
         if isinstance(value, (list, tuple)):
-            value = "{{{}}}".format(", ".join("\"{}\"".format(v) for v in value))
+            value = "{{{}}}".format(", ".join(f"\"{v}\"" for v in value))
         else:
-            value = "\"{}\"".format(value)
-        return "{} = {};".format(key, value)
+            value = f"\"{value}\""
+        return f"{key} = {value};".format(key, value)

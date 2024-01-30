@@ -4,32 +4,36 @@
 Crab job manager and CMS-related job helpers.
 """
 
-__all__ = ["CrabJobManager", "CrabJobFileFactory", "CMSJobDashboard"]
+from __future__ import annotations
 
+__all__ = ["CrabJobManager", "CrabJobFileFactory", "CMSJobDashboard"]
 
 import os
 import stat
 import time
+import pathlib
 import socket
 import threading
+import queue
 import re
 import json
 import subprocess
 import shutil
-from collections import OrderedDict, namedtuple
-
-import six
+import collections
 
 import law
 from law.config import Config
+from law.task.base import Task
 from law.sandbox.base import Sandbox
-from law.job.base import BaseJobManager, BaseJobFileFactory, JobInputFile, DeprecatedInputFiles
+from law.job.base import BaseJobManager, BaseJobFileFactory, JobInputFile
 from law.job.dashboard import BaseJobDashboard
+from law.workflow.remote import JobData
 from law.target.file import get_path
 from law.util import (
     DotDict, interruptable_popen, make_list, make_unique, quote_cmd, no_value, rel_path,
 )
 from law.logger import get_logger
+from law._types import Any, MutableMapping, Callable, Type, Hashable, T, Sequence
 
 import law.contrib.cms.sandbox
 
@@ -58,10 +62,16 @@ class CrabJobManager(BaseJobManager):
 
     job_grouping = True
 
-    JobId = namedtuple("JobId", ["crab_num", "task_name", "proj_dir"])
+    JobId = collections.namedtuple("JobId", ["crab_num", "task_name", "proj_dir"])
 
-    def __init__(self, sandbox_name=None, proxy=None, instance=None, threads=1):
-        super(CrabJobManager, self).__init__()
+    def __init__(
+        self,
+        sandbox_name: str | None = None,
+        proxy: str | None = None,
+        instance: str | None = None,
+        threads: int = 1,
+    ) -> None:
+        super().__init__()
 
         # default sandbox name
         if sandbox_name is None:
@@ -72,7 +82,7 @@ class CrabJobManager(BaseJobManager):
         self.cmssw_sandbox = Sandbox.new(
             sandbox_name
             if sandbox_name.startswith("cmssw::")
-            else "cmssw::{}".format(sandbox_name),
+            else f"cmssw::{sandbox_name}",
         )
 
         # store attributes
@@ -81,19 +91,25 @@ class CrabJobManager(BaseJobManager):
         self.threads = threads
 
     @classmethod
-    def cast_job_id(cls, job_id):
+    def cast_job_id(cls, job_id: tuple[str]) -> CrabJobManager.JobId:
         """
         Converts a *job_id*, for instance after json deserialization, into a :py:class:`JobId`
         object.
         """
-        return cls.JobId(*job_id) if isinstance(job_id, (list, tuple)) else job_id
+        if isinstance(job_id, cls.JobId):
+            return job_id
+
+        if isinstance(job_id, (list, tuple)):
+            return cls.JobId(*job_id)  # type: ignore[call-arg]
+
+        raise ValueError(f"cannot cast to {cls.JobId.__name__}: '{job_id!r}'")
 
     @property
-    def cmssw_env(self):
+    def cmssw_env(self) -> MutableMapping[str, Any]:
         return self.cmssw_sandbox.env
 
-    def group_job_ids(self, job_ids):
-        groups = OrderedDict()
+    def group_job_ids(self, job_ids: list[JobId]) -> dict[str, list[JobId]]:  # type: ignore[override]  # noqa
+        groups: dict[str, list[CrabJobManager.JobId]] = {}
 
         # group by project directory
         for job_id in job_ids:
@@ -103,40 +119,64 @@ class CrabJobManager(BaseJobManager):
 
         return groups
 
-    def _apply_group(self, func, result_type, group_func, job_objs, *args, **kwargs):
+    def _apply_group(
+        self,
+        func: Callable,
+        result_type: Type[T],
+        group_func: Callable[[list[Any]], dict[Hashable, list[Any]]],
+        job_objs: list[Any],
+        threads: int | None = None,
+        callback: Callable[[int, Any], Any] | None = None,
+        **kwargs,
+    ) -> T:
         # when job_objs is a string or a sequence of strings, interpret them as project dirs, read
         # their log files to extract task names, build actual job ids and forward them
         if func != self.submit:
             job_ids = []
             for i, job_id in enumerate(make_list(job_objs)):
-                if not isinstance(job_id, six.string_types):
+                if not isinstance(job_id, (str, pathlib.Path)):
                     job_ids.append(job_id)
                     continue
 
                 # get n_jobs and task_name from log file
                 proj_dir = job_id
                 log_file = os.path.join(proj_dir, "crab.log")
+                if not os.path.exists(log_file):
+                    job_ids.append(job_id)
+                    continue
                 log_data = self._parse_log_file(log_file)
-                if not log_data or "n_jobs" not in log_data or "task_name" not in log_data:
+                if "n_jobs" not in log_data or "task_name" not in log_data:
                     job_ids.append(job_id)
                     continue
 
                 # expand ids
+                log_data: dict[str, str | None]
                 for crab_num in range(1, int(log_data["n_jobs"]) + 1):
                     job_ids.append(self.JobId(crab_num, log_data["task_name"], proj_dir))
             job_objs = job_ids
 
-        return super(CrabJobManager, self)._apply_group(
+        return super()._apply_group(
             func,
             result_type,
             group_func,
             job_objs,
-            *args,
-            **kwargs  # noqa
+            threads=threads,
+            callback=callback,
+            **kwargs,
         )
 
-    def submit(self, job_file, job_files=None, proxy=None, instance=None, myproxy_username=None,
-            retries=0, retry_delay=3, silent=False):
+    def submit(  # type: ignore[override]
+        self,
+        job_file: str | pathlib.Path,
+        *,
+        job_files: Sequence[str | pathlib.Path] | None = None,
+        proxy: str | None = None,
+        instance: str | None = None,
+        myproxy_username: str | None = None,
+        retries: int = 0,
+        retry_delay: int | float = 3,
+        silent: bool = False,
+    ) -> list[JobId] | None:
         # default arguments
         if proxy is None:
             proxy = self.proxy
@@ -144,7 +184,7 @@ class CrabJobManager(BaseJobManager):
             instance = self.instance
 
         # get the job file location as the submission command is run it the same directory
-        job_file_dir, job_file_name = os.path.split(os.path.abspath(str(job_file)))
+        job_file_dir, job_file_name = os.path.split(os.path.abspath(get_path(job_file)))
 
         # define the actual submission in a loop to simplify retries
         while True:
@@ -154,24 +194,29 @@ class CrabJobManager(BaseJobManager):
                 cmd += ["--proxy", proxy]
             if instance:
                 cmd += ["--instance", instance]
-            cmd = quote_cmd(cmd)
+            cmd_str = quote_cmd(cmd)
 
             # run the command
             # crab prints everything to stdout
-            logger.debug("submit crab jobs with command '{}'".format(cmd))
-            code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-                stdout=subprocess.PIPE, cwd=job_file_dir, env=self.cmssw_env)
+            logger.debug(f"submit crab jobs with command '{cmd_str}'")
+            out: str
+            code, out, _ = interruptable_popen(  # type: ignore[assignment]
+                cmd_str,
+                shell=True,
+                executable="/bin/bash",
+                stdout=subprocess.PIPE,
+                cwd=job_file_dir,
+                env=self.cmssw_env,
+            )
 
             # handle errors
             if code != 0:
-                logger.debug("submission of crab job '{}' failed with code {}:\n{}".format(
-                    job_file, code, out))
+                logger.debug(f"submission of crab job '{job_file}' failed with code {code}:\n{out}")
 
                 # remove the project directory
                 proj_dir = self._proj_dir_from_job_file(job_file, self.cmssw_env)
                 if proj_dir and os.path.isdir(proj_dir):
-                    logger.debug("removing crab project '{}' from previous attempt".format(
-                        proj_dir))
+                    logger.debug(f"removing crab project '{proj_dir}' from previous attempt")
                     shutil.rmtree(proj_dir)
 
                 if retries > 0:
@@ -182,8 +227,9 @@ class CrabJobManager(BaseJobManager):
                 if silent:
                     return None
 
-                raise Exception("submission of crab job '{}' failed with code {}:\n{}".format(
-                    job_file, code, out))
+                raise Exception(
+                    f"submission of crab job '{job_file}' failed with code {code}:\n{out}",
+                )
 
             # parse outputs
             task_name, log_file = None, None
@@ -202,27 +248,33 @@ class CrabJobManager(BaseJobManager):
                     break
 
             if not task_name:
-                raise Exception("no valid task name found in submission output:\n\n{}".format(out))
+                raise Exception(f"no valid task name found in submission output:\n\n{out}")
             if not log_file:
-                raise Exception("no valid log file found in submission output:\n\n{}".format(out))
+                raise Exception(f"no valid log file found in submission output:\n\n{out}")
 
             # create job ids with log data
             proj_dir = os.path.dirname(log_file)
             job_ids = self._job_ids_from_proj_dir(proj_dir)
 
             # checks
-            if not job_ids:
-                raise Exception("number of jobs not extractable from log file {}".format(log_file))
             if job_files is not None and len(job_files) != len(job_ids):
                 raise Exception(
-                    "number of submited jobs ({}) does not match number of job files ({})".format(
-                        len(job_ids), len(job_file)),
+                    f"number of submited jobs ({len(job_ids)}) does not match number of job files "
+                    f"({len(job_files)})",
                 )
 
             return job_ids
 
-    def cancel(self, proj_dir, job_ids=None, proxy=None, instance=None, myproxy_username=None,
-            silent=False):
+    def cancel(  # type: ignore[override]
+        self,
+        proj_dir: str | pathlib.Path,
+        *,
+        job_ids: list[JobId] | None = None,
+        proxy: str | None = None,
+        instance: str | None = None,
+        myproxy_username: str | None = None,
+        silent: bool = False,
+    ) -> dict[JobId, None]:
         if job_ids is None:
             job_ids = self._job_ids_from_proj_dir(proj_dir)
 
@@ -232,25 +284,38 @@ class CrabJobManager(BaseJobManager):
             cmd += ["--proxy", proxy]
         if instance:
             cmd += ["--instance", instance]
-        cmd = quote_cmd(cmd)
+        cmd_str = quote_cmd(cmd)
 
         # run it
-        logger.debug("cancel crab job(s) with command '{}'".format(cmd))
-        code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-            stdout=subprocess.PIPE, env=self.cmssw_env)
+        logger.debug(f"cancel crab job(s) with command '{cmd_str}'")
+        code, out, _ = interruptable_popen(
+            cmd_str,
+            shell=True,
+            executable="/bin/bash",
+            stdout=subprocess.PIPE,
+            env=self.cmssw_env,
+        )
 
         # check success
         if code != 0 and not silent:
             # crab prints everything to stdout
             raise Exception(
-                "cancellation of crab jobs from project '{}' failed with code {}:\n{}".format(
-                    proj_dir, code, out),
+                f"cancellation of crab jobs from project '{proj_dir}' failed with code {code}:\n"
+                f"{out}",
             )
 
         return {job_id: None for job_id in job_ids}
 
-    def cleanup(self, proj_dir, job_ids=None, proxy=None, instance=None, myproxy_username=None,
-            silent=False):
+    def cleanup(  # type: ignore[override]
+        self,
+        proj_dir: str | pathlib.Path,
+        *,
+        job_ids: list[JobId] | None = None,
+        proxy: str | None = None,
+        instance: str | None = None,
+        myproxy_username: str | None = None,
+        silent: bool = False,
+    ) -> dict[JobId, None]:
         if job_ids is None:
             job_ids = self._job_ids_from_proj_dir(proj_dir)
 
@@ -261,8 +326,17 @@ class CrabJobManager(BaseJobManager):
 
         return {job_id: None for job_id in job_ids}
 
-    def query(self, proj_dir, job_ids=None, proxy=None, instance=None, myproxy_username=None,
-            skip_transfers=None, silent=False):
+    def query(  # type: ignore[override]
+        self,
+        proj_dir: str | pathlib.Path,
+        *,
+        job_ids: list[JobId] | None = None,
+        proxy: str | None = None,
+        instance: str | None = None,
+        myproxy_username: str | None = None,
+        skip_transfers: bool | None = None,
+        silent: bool = False,
+    ) -> dict[JobId, dict[str, Any]] | None:
         proj_dir = str(proj_dir)
         log_data = self._parse_log_file(os.path.join(proj_dir, "crab.log"))
         if job_ids is None:
@@ -278,12 +352,18 @@ class CrabJobManager(BaseJobManager):
             cmd += ["--proxy", proxy]
         if instance:
             cmd += ["--instance", instance]
-        cmd = quote_cmd(cmd)
+        cmd_str = quote_cmd(cmd)
 
         # run it
-        logger.debug("query crab job(s) with command '{}'".format(cmd))
-        code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-            stdout=subprocess.PIPE, env=self.cmssw_env)
+        logger.debug(f"query crab job(s) with command '{cmd_str}'")
+        out: str
+        code, out, _ = interruptable_popen(  # type: ignore[assignment]
+            cmd_str,
+            shell=True,
+            executable="/bin/bash",
+            stdout=subprocess.PIPE,
+            env=self.cmssw_env,
+        )
 
         # handle errors
         if code != 0:
@@ -291,8 +371,8 @@ class CrabJobManager(BaseJobManager):
                 return None
             # crab prints everything to stdout
             raise Exception(
-                "status query of crab jobs from project '{}' failed with code {}:\n{}".format(
-                    proj_dir, code, out),
+                f"status query of crab jobs from project '{proj_dir}' failed with code {code}:\n"
+                f"{out}",
             )
 
         # parse the output and extract the status per job
@@ -310,7 +390,13 @@ class CrabJobManager(BaseJobManager):
         return query_data
 
     @classmethod
-    def parse_query_output(cls, out, proj_dir, job_ids, skip_transfers=False):
+    def parse_query_output(
+        cls,
+        out: str,
+        proj_dir: str | pathlib.Path,
+        job_ids: list[JobId],
+        skip_transfers: bool = False,
+    ) -> dict[JobId, dict[str, Any]]:
         # parse values using compiled regexps
         cres = [
             cls.query_user_cre,
@@ -320,7 +406,7 @@ class CrabJobManager(BaseJobManager):
             cls.query_json_line_cre,
             cls.query_monitoring_url_cre,
         ]
-        values = len(cres) * [None]
+        values: list[str | None] = len(cres) * [None]  # type: ignore[assignment]
         for line in out.replace("\r", "").split("\n"):
             for i, (cre, value) in enumerate(zip(cres, values)):
                 if value:
@@ -330,12 +416,21 @@ class CrabJobManager(BaseJobManager):
                     values[i] = m.group(1)
             if all(values):
                 break
-
         # unpack
-        username, server_status, scheduler_id, scheduler_status, json_line, monitoring_url = values
+        (
+            username,
+            server_status,
+            scheduler_id,
+            scheduler_status,
+            json_line,
+            monitoring_url,
+        ) = values
 
         # helper to build extra info
-        def extra(job_id, job_data=None):
+        def extra(
+            job_id: CrabJobManager.JobId,
+            job_data: dict[str, Any] | None = None,
+        ) -> dict[str, Any]:
             extra = {}
             if username and scheduler_id and job_data:
                 extra["log_file"] = cls.log_file_pattern.format(
@@ -360,8 +455,8 @@ class CrabJobManager(BaseJobManager):
             if server_status not in accepted_server_states:
                 s = ",".join(map("'{}'".format, accepted_server_states))
                 raise Exception(
-                    "no per-job information available (yet?), which is only accepted if the crab " +
-                    "server status is any of {}, but got '{}'".format(s, server_status),
+                    "no per-job information available (yet?), which is only accepted if the crab "
+                    f"server status is any of {s}, but got '{server_status}'",
                 )
             # interpret all jobs as pending
             return {
@@ -372,8 +467,8 @@ class CrabJobManager(BaseJobManager):
         # parse json data
         if not json_line:
             raise Exception(
-                "no per-job information available in status response, crab server " +
-                "status '{}', scheduler status '{}'".format(server_status, scheduler_status),
+                "no per-job information available in status response, crab server "
+                f"status '{server_status}', scheduler status '{scheduler_status}'",
             )
 
         # map of crab job numbers to full ids for faster lookup
@@ -410,7 +505,11 @@ class CrabJobManager(BaseJobManager):
         return query_data
 
     @classmethod
-    def _proj_dir_from_job_file(cls, job_file, cmssw_env):
+    def _proj_dir_from_job_file(
+        cls,
+        job_file: str | pathlib.Path,
+        cmssw_env: MutableMapping[str, Any],
+    ) -> str | None:
         work_area = None
         request_name = None
 
@@ -442,15 +541,21 @@ class CrabJobManager(BaseJobManager):
             m = re.match(r"^CMSSW(_.+|)_(\d)+_\d+_\d+.*$", cmssw_env["CMSSW_VERSION"])
             cmssw_major = int(m.group(2)) if m else None
             py_exec = "python3" if cmssw_major is None or cmssw_major >= 11 else "python"
-            cmd = """{} -c '
+            cmd = f"""{py_exec} -c '
 from os.path import join
-with open("{}", "r") as f:
+with open("{job_file}", "r") as f:
     mod = dict()
     exec(f.read(), mod)
     cfg = mod["cfg"]
-print(join(cfg.General.workArea, "crab_" + cfg.General.requestName))'""".format(py_exec, job_file)
-            code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-                stdout=subprocess.PIPE, env=cmssw_env)
+print(join(cfg.General.workArea, "crab_" + cfg.General.requestName))'"""
+            out: str
+            code, out, _ = interruptable_popen(  # type: ignore[assignment]
+                cmd,
+                shell=True,
+                executable="/bin/bash",
+                stdout=subprocess.PIPE,
+                env=cmssw_env,
+            )
             if code == 0:
                 path = out.strip().replace("\r\n", "\n").split("\n")[-1]
                 path = os.path.expandvars(os.path.expanduser(path))
@@ -460,36 +565,41 @@ print(join(cfg.General.workArea, "crab_" + cfg.General.requestName))'""".format(
         return None
 
     @classmethod
-    def _parse_log_file(cls, log_file):
+    def _parse_log_file(cls, log_file: str | pathlib.Path) -> dict[str, str | int]:
         log_file = os.path.expandvars(os.path.expanduser(str(log_file)))
         if not os.path.exists(log_file):
-            return None
+            raise FileNotFoundError(f"log file '{log_file}' does not exist")
 
         cres = [cls.log_n_jobs_cre, cls.log_task_name_cre, cls.log_disable_output_collection_cre]
         names = ["n_jobs", "task_name", "disable_output_collection"]
-        values = len(cres) * [None]
+        values: list[str | int | None] = len(cres) * [None]  # type: ignore[assignment]
+        types = [int, str, bool]
 
         with open(log_file, "r") as f:
             for line in f.readlines():
-                for i, (cre, value) in enumerate(zip(cres, values)):
-                    if value:
+                for i, (cre, value, t) in enumerate(zip(cres, values, types)):
+                    if value is not None:
                         continue
                     m = cre.match(line)
                     if m:
-                        values[i] = m.group(1)
+                        values[i] = t(m.group(1))
                 if all(values):
                     break
 
-        return dict(zip(names, values))
+        return {n: v for n, v in zip(names, values) if v is not None}
 
     @classmethod
-    def _job_ids_from_proj_dir(cls, proj_dir, log_data=None):
+    def _job_ids_from_proj_dir(
+        cls,
+        proj_dir: str | pathlib.Path,
+        log_data: dict[str, str | int] | None = None,
+    ) -> list[JobId]:
         # read log data
         proj_dir = str(proj_dir)
-        if not log_data:
+        if log_data is None:
             log_data = cls._parse_log_file(os.path.join(proj_dir, "crab.log"))
-        if not log_data or "n_jobs" not in log_data or "task_name" not in log_data:
-            return None
+        if "n_jobs" not in log_data or "task_name" not in log_data:
+            raise ValueError(f"log data does not contain 'n_jobs' or 'task_name': {log_data}")
 
         # build and return ids
         return [
@@ -498,7 +608,7 @@ print(join(cfg.General.workArea, "crab_" + cfg.General.requestName))'""".format(
         ]
 
     @classmethod
-    def map_status(cls, status, skip_transfers=False):
+    def map_status(cls, status: str | None, skip_transfers: bool = False) -> str:
         # see https://twiki.cern.ch/twiki/bin/view/CMSPublic/Crab3HtcondorStates
         if status in ("cooloff", "unsubmitted", "idle"):
             return cls.PENDING
@@ -510,6 +620,8 @@ print(join(cfg.General.workArea, "crab_" + cfg.General.requestName))'""".format(
             return cls.FINISHED
         if status in ("killing", "failed", "held"):
             return cls.FAILED
+
+        logger.debug(f"unknown crab job state '{status}'")
         return cls.FAILED
 
 
@@ -521,10 +633,24 @@ class CrabJobFileFactory(BaseJobFileFactory):
         "custom_content", "absolute_paths",
     ]
 
-    def __init__(self, file_name="crab_job.py", executable=None, arguments=None, work_area=None,
-            request_name=None, input_files=None, output_files=None, storage_site=None,
-            output_lfn_base=None, vo_group=None, vo_role=None, custom_content=None,
-            absolute_paths=False, **kwargs):
+    def __init__(
+        self,
+        *,
+        file_name: str = "crab_job.py",
+        executable: str | None = None,
+        arguments: Sequence[str] | None = None,
+        work_area: str | None = None,
+        request_name: str | None = None,
+        input_files: dict[str, str | pathlib.Path | JobInputFile] | None = None,
+        output_files: list[str] | None = None,
+        storage_site: str | None = None,
+        output_lfn_base: str | None = None,
+        vo_group: str | None = None,
+        vo_role: str | None = None,
+        custom_content: str | Sequence[str] | None = None,
+        absolute_paths: bool = False,
+        **kwargs,
+    ) -> None:
         # get some default kwargs from the config
         cfg = Config.instance()
         default_dir = cfg.get_expanded(
@@ -547,14 +673,14 @@ class CrabJobFileFactory(BaseJobFileFactory):
                 cfg.find_option("job", "crab_job_file_dir_mkdtemp", "job_file_dir_mkdtemp"),
             )
 
-        super(CrabJobFileFactory, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
         self.file_name = file_name
         self.executable = executable
         self.arguments = arguments
         self.work_area = work_area
         self.request_name = request_name
-        self.input_files = DeprecatedInputFiles(input_files or {})
+        self.input_files = input_files or {}
         self.output_files = output_files or []
         self.storage_site = storage_site
         self.output_lfn_base = output_lfn_base
@@ -608,7 +734,7 @@ class CrabJobFileFactory(BaseJobFileFactory):
             ])),
         ])
 
-    def create(self, **kwargs):
+    def create(self, **kwargs) -> tuple[str, CrabJobFileFactory.Config]:
         # merge kwargs and instance attributes
         c = self.get_config(**kwargs)
 
@@ -620,18 +746,18 @@ class CrabJobFileFactory(BaseJobFileFactory):
         if not c.request_name:
             raise ValueError("request_name must not be empty")
         if "." in c.request_name:
-            raise ValueError("request_name should not contain '.', got {}".format(c.request_name))
+            raise ValueError(f"request_name should not contain '.', got {c.request_name}")
         if len(c.request_name) > 100:
             raise ValueError(
-                "request_name must be less then 100 characters long, got {}: {}".format(
-                    len(c.request_name), c.request_name),
+                f"request_name must be less then 100 characters long, got {len(c.request_name)}: "
+                f"{c.request_name}",
             )
         if not c.output_lfn_base:
             raise ValueError("output_lfn_base must not be empty")
         if not c.storage_site:
             raise ValueError("storage_site must not be empty")
         if not isinstance(c.arguments, (list, tuple)):
-            raise ValueError("arguments must be a list, got '{}'".format(c.arguments))
+            raise ValueError(f"arguments must be a list, got '{c.arguments}'")
         if "job_file" not in c.input_files:
             raise ValueError("an input file with key 'job_file' is required")
 
@@ -722,7 +848,7 @@ class CrabJobFileFactory(BaseJobFileFactory):
 
         # inject arguments into the crab wrapper via render variables
         c.render_variables["crab_job_arguments_map"] = ("\n" + 8 * " ").join(
-            "['{}']=\"{}\"".format(i + 1, str(args))
+            f"['{i + 1}']=\"{args}\""
             for i, args in enumerate(c.arguments)
         )
 
@@ -777,7 +903,7 @@ class CrabJobFileFactory(BaseJobFileFactory):
         # note: they don't have to exist but crab requires a list of length totalUnits
         if not c.crab.Data.inputDataset:
             c.crab.Data.userInputFiles = [
-                "input_{}.root".format(i + 1)
+                f"input_{i + 1}.root"
                 for i in range(c.crab.Data.totalUnits)
             ]
 
@@ -793,13 +919,18 @@ class CrabJobFileFactory(BaseJobFileFactory):
         # write the job file
         self.write_crab_config(job_file, c.crab, custom_content=c.custom_content)
 
-        logger.debug("created crab job file at '{}'".format(job_file))
+        logger.debug(f"created crab job file at '{job_file}'")
 
         return job_file, c
 
     @classmethod
-    def write_crab_config(cls, job_file, crab_config, custom_content=None):
-        fmt_flat = lambda s: "\"{}\"".format(s) if isinstance(s, six.string_types) else str(s)
+    def write_crab_config(
+        cls,
+        job_file: str | pathlib.Path,
+        crab_config: DotDict,
+        custom_content: str | Sequence[str] | None = None,
+    ) -> None:
+        fmt_flat = lambda s: "\"{}\"".format(s) if isinstance(s, str) else str(s)
 
         with open(job_file, "w") as f:
             # header
@@ -812,13 +943,11 @@ class CrabJobFileFactory(BaseJobFileFactory):
 
             # sections
             for section, cfg in crab_config.items():
-                f.write("cfg.section_(\"{}\")\n".format(section))
+                f.write(f"cfg.section_(\"{section}\")\n")
                 # options
                 for option, value in cfg.items():
                     if value == no_value:
-                        raise Exception(
-                            "cannot assign {} to crab config {}.{}".format(value, section, option),
-                        )
+                        raise Exception(f"cannot assign {value} to crab config {section}.{option}")
                     if value is None:
                         continue
                     value_str = (
@@ -826,15 +955,13 @@ class CrabJobFileFactory(BaseJobFileFactory):
                         if isinstance(value, (list, tuple))
                         else fmt_flat(value)
                     )
-                    f.write("cfg.{}.{} = {}\n".format(section, option, value_str))
+                    f.write(f"cfg.{section}.{option} = {value_str}\n")
                 f.write("\n")
 
             # custom content
-            if isinstance(custom_content, six.string_types):
-                f.write(custom_content + "\n")
-            elif isinstance(custom_content, (list, tuple)):
-                for line in custom_content:
-                    f.write(str(line) + "\n")
+            if custom_content is not None:
+                for line in make_list(custom_content or []):
+                    f.write(f"{line}\n")
 
 
 class CMSJobDashboard(BaseJobDashboard):
@@ -851,23 +978,38 @@ class CMSJobDashboard(BaseJobDashboard):
     SUCCESS = "success"
     FAILED = "failed"
 
-    tracking_url = "http://dashb-cms-job.cern.ch/dashboard/templates/task-analysis/#" + \
+    tracking_url = (
+        "http://dashb-cms-job.cern.ch/dashboard/templates/task-analysis/#"
         "table=Jobs&p=1&activemenu=2&refresh=60&tid={dashboard_task_id}"
+    )
 
     persistent_attributes = ["task_id", "cms_user", "voms_user", "init_timestamp"]
 
-    def __init__(self, task, cms_user, voms_user, apmon_config=None, log_level="WARNING",
-            max_rate=20, task_type="analysis", site=None, executable="law", application=None,
-            application_version=None, submission_tool="law", submission_type="direct",
-            submission_ui=None, init_timestamp=None):
-        super(CMSJobDashboard, self).__init__(max_rate=max_rate)
+    def __init__(
+        self,
+        task: Task,
+        cms_user: str,
+        voms_user: str,
+        apmon_config: dict[str, Any] | None = None,
+        log_level: str = "WARNING",
+        max_rate: int = 20,
+        task_type: str = "analysis",
+        site: str | None = None,
+        executable: str = "law",
+        application: str | None = None,
+        application_version: str | int | None = None,
+        submission_tool: str = "law",
+        submission_type: str = "direct",
+        submission_ui: str | None = None,
+        init_timestamp: str | None = None,
+    ) -> None:
+        super().__init__(max_rate=max_rate)
 
         # setup the apmon thread
         try:
             self.apmon = Apmon(apmon_config, self.max_rate, log_level)
         except ImportError as e:
-            e.message += " (required for {})".format(self.__class__.__name__)
-            e.args = (e.message,) + e.args[1:]
+            e.args = (f"{e} (required for {self.__class__.__name__})",) + e.args[1:]
             raise e
 
         # get the task family for use as default application name
@@ -893,49 +1035,56 @@ class CMSJobDashboard(BaseJobDashboard):
         self.apmon.daemon = True
         self.apmon.start()
 
-    def __del__(self):
-        if getattr(self, "apmon", None) and self.apmon.is_alive():
-            self.apmon.stop()
-            self.apmon.join()
+    def __del__(self) -> None:
+        if getattr(self, "apmon", None) is None or not self.apmon.is_alive():
+            return
+
+        self.apmon.stop()
+        self.apmon.join()
 
     @classmethod
-    def create_timestamp(cls):
+    def create_timestamp(cls) -> str:
         return time.strftime("%y%m%d_%H%M%S")
 
     @classmethod
-    def create_dashboard_task_id(cls, task_id, cms_user, timestamp=None):
-        if not timestamp:
+    def create_dashboard_task_id(
+        cls,
+        task_id: str,
+        cms_user: str,
+        timestamp: str | None = None,
+    ) -> str:
+        if timestamp is None:
             timestamp = cls.create_timestamp()
-        return "{}:{}_{}".format(timestamp, cms_user, task_id)
+        return f"{timestamp}:{cms_user}_{task_id}"
 
     @classmethod
-    def create_dashboard_job_id(cls, job_num, job_id, attempt=0):
-        return "{}_{}_{}".format(job_num, job_id, attempt)
+    def create_dashboard_job_id(cls, job_num: str, job_id: str, attempt: int = 0) -> str:
+        return f"{job_num}_{job_id}_{attempt}"
 
     @classmethod
-    def params_from_status(cls, dashboard_status, fail_code=1):
+    def params_from_status(cls, dashboard_status: str, fail_code: int = 1) -> dict[str, Any]:
         if dashboard_status == cls.PENDING:
             return {"StatusValue": "pending", "SyncCE": None}
-        elif dashboard_status == cls.RUNNING:
+        if dashboard_status == cls.RUNNING:
             return {"StatusValue": "running"}
-        elif dashboard_status == cls.CANCELLED:
+        if dashboard_status == cls.CANCELLED:
             return {"StatusValue": "cancelled", "SyncCE": None}
-        elif dashboard_status == cls.POSTPROC:
+        if dashboard_status == cls.POSTPROC:
             return {"StatusValue": "running", "JobExitCode": 0}
-        elif dashboard_status == cls.SUCCESS:
+        if dashboard_status == cls.SUCCESS:
             return {"StatusValue": "success", "JobExitCode": 0}
-        elif dashboard_status == cls.FAILED:
+        if dashboard_status == cls.FAILED:
             return {"StatusValue": "failed", "JobExitCode": fail_code}
-        else:
-            raise ValueError("invalid dashboard status '{}'".format(dashboard_status))
+
+        raise ValueError(f"invalid dashboard status '{dashboard_status}'")
 
     @classmethod
-    def map_status(cls, job_status, event):
+    def map_status(cls, job_status: str, event: str) -> str | None:
         # when starting with "status.", event must end with the job status
         if event.startswith("status.") and event.split(".", 1)[-1] != job_status:
-            raise ValueError("event '{}' does not match job status '{}'".format(event, job_status))
+            raise ValueError(f"event '{event}' does not match job status '{job_status}'")
 
-        status = lambda attr: "status.{}".format(getattr(BaseJobManager, attr))
+        status = lambda attr: f"status.{getattr(BaseJobManager, attr)}"
 
         return {
             "action.submit": cls.PENDING,
@@ -946,47 +1095,61 @@ class CMSJobDashboard(BaseJobDashboard):
             status("FINISHED"): cls.SUCCESS,
         }.get(event)
 
-    def remote_hook_file(self):
+    def remote_hook_file(self) -> str:
         return law.util.rel_path(__file__, "scripts", "cmsdashb_hooks.sh")
 
-    def remote_hook_data(self, job_num, attempt):
-        data = [
-            "task_id='{}'".format(self.task_id),
-            "cms_user='{}'".format(self.cms_user),
-            "voms_user='{}'".format(self.voms_user),
-            "init_timestamp='{}'".format(self.init_timestamp),
-            "job_num={}".format(job_num),
-            "attempt={}".format(attempt),
-        ]
+    def remote_hook_data(self, job_num: int, attempt: int) -> dict[str, Any]:
+        data = {
+            "task_id": self.task_id,
+            "cms_user": self.cms_user,
+            "voms_user": self.voms_user,
+            "init_timestamp": self.init_timestamp,
+            "job_num": job_num,
+            "attempt": attempt,
+        }
         if self.site:
-            data.append("site='{}'".format(self.site))
+            data["site"] = self.site
         return data
 
-    def create_tracking_url(self):
+    def create_tracking_url(self) -> str:
         dashboard_task_id = self.create_dashboard_task_id(self.task_id, self.cms_user,
             self.init_timestamp)
         return self.tracking_url.format(dashboard_task_id=dashboard_task_id)
 
-    def create_message(self, job_data, event, job_num, attempt=0, custom_params=None, **kwargs):
+    def create_message(
+        self,
+        job_data,
+        event,
+        job_num,
+        attempt=0,
+        custom_params=None,
+        **kwargs,
+    ) -> tuple[str, str, dict[str, Any]] | None:
         # we need the voms user, which must start with "/CN="
         voms_user = self.voms_user
         if not voms_user:
-            return
+            return None
         if not voms_user.startswith("/CN="):
             voms_user = "/CN=" + voms_user
 
         # map to job status to a valid dashboard status
         dashboard_status = self.map_status(job_data.get("status"), event)
         if not dashboard_status:
-            return
+            return None
 
         # build the dashboard task id
-        dashboard_task_id = self.create_dashboard_task_id(self.task_id, self.cms_user,
-            self.init_timestamp)
+        dashboard_task_id = self.create_dashboard_task_id(
+            self.task_id,
+            self.cms_user,
+            self.init_timestamp,
+        )
 
         # build the id of the particular job
-        dashboard_job_id = self.create_dashboard_job_id(job_num, job_data["job_id"],
-            attempt=attempt)
+        dashboard_job_id = self.create_dashboard_job_id(
+            job_num,
+            job_data["job_id"],
+            attempt=attempt,
+        )
 
         # build the parameters to send
         params = {
@@ -1017,13 +1180,13 @@ class CMSJobDashboard(BaseJobDashboard):
             params.update(custom_params)
 
         # finally filter None's and convert everything to strings
-        params = {key: str(value) for key, value in six.iteritems(params) if value is not None}
+        params = {key: str(value) for key, value in params.items() if value is not None}
 
         return (dashboard_task_id, dashboard_job_id, params)
 
-    @BaseJobDashboard.cache_by_status
-    def publish(self, *args, **kwargs):
-        message = self.create_message(*args, **kwargs)
+    @BaseJobDashboard.cache_by_status  # type: ignore[misc]
+    def publish(self, job_data: JobData, event: str, job_num: int, *args, **kwargs) -> None:  # type: ignore[override] # noqa
+        message = self.create_message(job_data, event, job_num, *args, **kwargs)
         if message:
             self.apmon.send(*message)
 
@@ -1041,10 +1204,15 @@ class Apmon(threading.Thread):
         },
     }
 
-    def __init__(self, config=None, max_rate=20, log_level="INFO"):
-        super(Apmon, self).__init__()
+    def __init__(
+        self,
+        config: dict[str, dict[str, Any]] | None = None,
+        max_rate: int = 20,
+        log_level: str = "INFO",
+    ) -> None:
+        super().__init__()
 
-        import apmon
+        import apmon  # type: ignore[import-untyped, import-not-found]
         log_level = getattr(apmon.Logger, log_level.upper())
         self._apmon = apmon.ApMon(config or self.default_config, log_level)
         self._apmon.maxMsgRate = int(max_rate * 1.5)
@@ -1054,19 +1222,19 @@ class Apmon(threading.Thread):
             value["INSTANCE_ID"] = value["INSTANCE_ID"] & 0x7fffffff
 
         self._max_rate = max_rate
-        self._queue = six.moves.queue.Queue()
+        self._queue: queue.Queue = queue.Queue()
         self._stop_event = threading.Event()
 
-    def send(self, *args, **kwargs):
+    def send(self, *args, **kwargs) -> None:
         self._queue.put((args, kwargs))
 
-    def _send(self, *args, **kwargs):
+    def _send(self, *args, **kwargs) -> None:
         self._apmon.sendParameters(*args, **kwargs)
 
-    def stop(self):
+    def stop(self) -> None:
         self._stop_event.set()
 
-    def run(self):
+    def run(self) -> None:
         while True:
             # handling stopping
             self._stop_event.wait(0.5)

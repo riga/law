@@ -2088,7 +2088,7 @@ class DotDict(dict):
     """
 
     def __class_getitem__(cls, types: tuple[type, type]) -> GenericAlias:
-        # python < 3.9
+        # python <3.9
         if GenericAlias is str:
             key_type, value_type = types
             return f"{cls.__name__}[{key_type.__name__}, {value_type.__name__}]"  # type: ignore[return-value] # noqa

@@ -4,13 +4,15 @@
 Slurm job manager. See https://slurm.schedmd.com/quickstart.html.
 """
 
-__all__ = ["SlurmJobManager", "SlurmJobFileFactory"]
+from __future__ import annotations
 
+__all__ = ["SlurmJobManager", "SlurmJobFileFactory"]
 
 import os
 import time
 import re
 import stat
+import pathlib
 import subprocess
 
 from law.config import Config
@@ -18,6 +20,7 @@ from law.job.base import BaseJobManager, BaseJobFileFactory, JobInputFile
 from law.target.file import get_path
 from law.util import interruptable_popen, make_list, quote_cmd
 from law.logger import get_logger
+from law._types import Any, Sequence
 
 
 logger = get_logger(__name__)
@@ -40,39 +43,54 @@ class SlurmJobManager(BaseJobManager):
     sacct_format = r"JobID,State,ExitCode,Reason"
     sacct_cre = re.compile(r"^\s*(\d+)\s+([^\s]+)\s+(-?\d+):-?\d+\s+(.+)$")
 
-    def __init__(self, partition=None, threads=1):
-        super(SlurmJobManager, self).__init__()
+    def __init__(self, partition: str | None = None, threads: int = 1) -> None:
+        super().__init__()
 
         self.partition = partition
         self.threads = threads
 
-    def cleanup(self, *args, **kwargs):
+    def cleanup(self, *args, **kwargs) -> None:  # type: ignore[override]
         raise NotImplementedError("SlurmJobManager.cleanup is not implemented")
 
-    def cleanup_batch(self, *args, **kwargs):
+    def cleanup_batch(self, *args, **kwargs) -> None:  # type: ignore[override]
         raise NotImplementedError("SlurmJobManager.cleanup_batch is not implemented")
 
-    def submit(self, job_file, partition=None, retries=0, retry_delay=3, silent=False):
+    def submit(  # type: ignore[override]
+        self,
+        job_file: str | pathlib.Path,
+        partition: str | None = None,
+        retries: int = 0,
+        retry_delay: float | int = 3,
+        silent: bool = False,
+    ) -> int | None:
         # default arguments
         if partition is None:
             partition = self.partition
 
         # get the job file location as the submission command is run it the same directory
-        job_file_dir, job_file_name = os.path.split(os.path.abspath(str(job_file)))
+        job_file_dir, job_file_name = os.path.split(os.path.abspath(get_path(job_file)))
 
         # build the command
         cmd = ["sbatch"]
         if partition:
             cmd += ["--partition", partition]
         cmd += [job_file_name]
-        cmd = quote_cmd(cmd)
+        cmd_str = quote_cmd(cmd)
 
         # define the actual submission in a loop to simplify retries
         while True:
             # run the command
-            logger.debug("submit slurm job with command '{}'".format(cmd))
-            code, out, err = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=job_file_dir)
+            logger.debug(f"submit slurm job with command '{cmd_str}'")
+            out: str
+            err: str
+            code, out, err = interruptable_popen(  # type: ignore[assignment]
+                cmd_str,
+                shell=True,
+                executable="/bin/bash",
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                cwd=job_file_dir,
+            )
 
             # get the job id(s)
             if code == 0:
@@ -84,14 +102,13 @@ class SlurmJobManager(BaseJobManager):
                         break
                 else:
                     code = 1
-                    err = "cannot parse slurm job id(s) from output:\n{}".format(out)
+                    err = f"cannot parse slurm job id(s) from output:\n{out}"
 
             # retry or done?
             if code == 0:
                 return job_id
 
-            logger.debug("submission of slurm job '{}' failed with code {}:\n{}".format(
-                job_file, code, err))
+            logger.debug(f"submission of slurm job '{job_file}' failed with code {code}:\n{err}")
 
             if retries > 0:
                 retries -= 1
@@ -101,10 +118,14 @@ class SlurmJobManager(BaseJobManager):
             if silent:
                 return None
 
-            raise Exception("submission of slurm job '{}' failed:\n{}".format(
-                job_file, err))
+            raise Exception(f"submission of slurm job '{job_file}' failed:\n{err}")
 
-    def cancel(self, job_id, partition=None, silent=False):
+    def cancel(  # type: ignore[override]
+        self,
+        job_id: int | Sequence[int],
+        partition: str | None = None,
+        silent: bool = False,
+    ) -> dict[int, None] | None:
         # default arguments
         if partition is None:
             partition = self.partition
@@ -117,21 +138,34 @@ class SlurmJobManager(BaseJobManager):
         if partition:
             cmd += ["--partition", partition]
         cmd += job_ids
-        cmd = quote_cmd(cmd)
+        cmd_str = quote_cmd(cmd)
 
         # run it
-        logger.debug("cancel slurm job(s) with command '{}'".format(cmd))
-        code, out, err = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        logger.debug(f"cancel slurm job(s) with command '{cmd_str}'")
+        out: str
+        err: str
+        code, out, err = interruptable_popen(  # type: ignore[assignment]
+            cmd_str,
+            shell=True,
+            executable="/bin/bash",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
 
         # check success
         if code != 0 and not silent:
-            raise Exception("cancellation of slurm job(s) '{}' failed with code {}:\n{}".format(
-                job_id, code, err))
+            raise Exception(
+                f"cancellation of slurm job(s) '{job_id}' failed with code {code}:\n{err}",
+            )
 
         return {job_id: None for job_id in job_ids} if chunking else None
 
-    def query(self, job_id, partition=None, silent=False):
+    def query(  # type: ignore[override]
+        self,
+        job_id: int | Sequence[int],
+        partition: str | None = None,
+        silent: bool = False,
+    ) -> dict[int, dict[str, Any]] | dict[str, Any] | None:
         # default arguments
         if partition is None:
             partition = self.partition
@@ -144,11 +178,18 @@ class SlurmJobManager(BaseJobManager):
         if partition:
             cmd += ["--partition", partition]
         cmd += ["--jobs", ",".join(map(str, job_ids))]
-        cmd = quote_cmd(cmd)
+        cmd_str = quote_cmd(cmd)
 
-        logger.debug("query slurm job(s) with command '{}'".format(cmd))
-        code, out, err = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        logger.debug(f"query slurm job(s) with command '{cmd_str}'")
+        out: str
+        err: str
+        code, out, err = interruptable_popen(  # type: ignore[assignment]
+            cmd,
+            shell=True,
+            executable="/bin/bash",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
 
         # special case: when the id of a single yet expired job is queried, squeue responds with an
         # error (exit code != 0), so as a workaround, consider these cases as an empty result
@@ -161,9 +202,9 @@ class SlurmJobManager(BaseJobManager):
             if code != 0:
                 if silent:
                     return None
-                else:
-                    raise Exception("queue query of slurm job(s) '{}' failed with code {}:"
-                        "\n{}".format(job_id, code, err))
+                raise Exception(
+                    f"queue query of slurm job(s) '{job_id}' failed with code {code}:\n{err}",
+                )
 
             # parse the output and extract the status per job
             query_data = self.parse_squeue_output(out)
@@ -176,19 +217,24 @@ class SlurmJobManager(BaseJobManager):
             if partition:
                 cmd += ["--partition", partition]
             cmd += ["--jobs", ",".join(map(str, missing_ids))]
-            cmd = quote_cmd(cmd)
+            cmd_str = quote_cmd(cmd)
 
-            logger.debug("query slurm accounting history with command '{}'".format(cmd))
-            code, out, err = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            logger.debug(f"query slurm accounting history with command '{cmd_str}'")
+            code, out, err = interruptable_popen(  # type: ignore[assignment]
+                cmd,
+                shell=True,
+                executable="/bin/bash",
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
 
             # handle errors
             if code != 0:
                 if silent:
                     return None
-                else:
-                    raise Exception("accounting query of slurm job(s) '{}' failed with code {}:"
-                        "\n{}".format(job_id, code, err))
+                raise Exception(
+                    f"accounting query of slurm job(s) '{job_id}' failed with code {code}:\n{err}",
+                )
 
             # parse the output and update query data
             query_data.update(self.parse_sacct_output(out))
@@ -199,17 +245,18 @@ class SlurmJobManager(BaseJobManager):
                 if not chunking:
                     if silent:
                         return None
-                    else:
-                        raise Exception("slurm job(s) '{}' not found in query response".format(
-                            job_id))
+                    raise Exception(f"slurm job(s) '{job_id}' not found in query response")
                 else:
-                    query_data[_job_id] = self.job_status_dict(job_id=_job_id, status=self.FAILED,
-                        error="job not found in query response")
+                    query_data[_job_id] = self.job_status_dict(
+                        job_id=_job_id,
+                        status=self.FAILED,
+                        error="job not found in query response",
+                    )
 
-        return query_data if chunking else query_data[job_id]
+        return query_data if chunking else query_data[job_id]  # type: ignore[index]
 
     @classmethod
-    def parse_squeue_output(cls, out):
+    def parse_squeue_output(cls, out: str) -> dict[int, dict[str, Any]]:
         # retrieve information per block mapped to the job id
         query_data = {}
         for line in out.strip().split("\n"):
@@ -229,7 +276,7 @@ class SlurmJobManager(BaseJobManager):
         return query_data
 
     @classmethod
-    def parse_sacct_output(cls, out):
+    def parse_sacct_output(cls, out: str) -> dict[int, dict[str, Any]]:
         # retrieve information per block mapped to the job id
         query_data = {}
         for line in out.strip().split("\n"):
@@ -255,34 +302,39 @@ class SlurmJobManager(BaseJobManager):
             if code != 0 and status != cls.FAILED:
                 status = cls.FAILED
                 if not error:
-                    error = "job status set to '{}' due to non-zero exit code {}".format(
-                        cls.FAILED, code)
+                    error = f"job status set to '{cls.FAILED}' due to non-zero exit code {code}"
             if not error and status == cls.FAILED:
                 error = m.group(2)
 
             # store it
-            query_data[job_id] = cls.job_status_dict(job_id=job_id, status=status, code=code,
-                error=error)
+            query_data[job_id] = cls.job_status_dict(
+                job_id=job_id,
+                status=status,
+                code=code,
+                error=error,
+            )
 
         return query_data
 
     @classmethod
-    def map_status(cls, status):
+    def map_status(cls, status: str | None) -> str:
         # see https://slurm.schedmd.com/squeue.html#lbAG
-        status = status.strip("+")
+        if isinstance(status, str):
+            status = status.strip("+")
         if status in ["CONFIGURING", "PENDING", "REQUEUED", "REQUEUE_HOLD", "REQUEUE_FED"]:
             return cls.PENDING
-        elif status in ["RUNNING", "COMPLETING", "STAGE_OUT"]:
+        if status in ["RUNNING", "COMPLETING", "STAGE_OUT"]:
             return cls.RUNNING
-        elif status in ["COMPLETED"]:
+        if status in ["COMPLETED"]:
             return cls.FINISHED
-        elif status in ["BOOT_FAIL", "CANCELLED", "DEADLINE", "FAILED", "NODE_FAIL",
-                "OUT_OF_MEMORY", "PREEMPTED", "REVOKED", "SPECIAL_EXIT", "STOPPED", "SUSPENDED",
-                "TIMEOUT"]:
+        if status in [
+            "BOOT_FAIL", "CANCELLED", "DEADLINE", "FAILED", "NODE_FAIL", "OUT_OF_MEMORY",
+            "PREEMPTED", "REVOKED", "SPECIAL_EXIT", "STOPPED", "SUSPENDED", "TIMEOUT",
+        ]:
             return cls.FAILED
-        else:
-            logger.debug("unknown slurm job state '{}'".format(status))
-            return cls.FAILED
+
+        logger.debug(f"unknown slurm job state '{status}'")
+        return cls.FAILED
 
 
 class SlurmJobFileFactory(BaseJobFileFactory):
@@ -292,23 +344,43 @@ class SlurmJobFileFactory(BaseJobFileFactory):
         "partition", "stdout", "stderr", "postfix_output_files", "custom_content", "absolute_paths",
     ]
 
-    def __init__(self, file_name="slurm_job.sh", command=None, executable=None, arguments=None,
-            shell="bash", input_files=None, job_name=None, partition=None, stdout="stdout.txt",
-            stderr="stderr.txt", postfix_output_files=True, custom_content=None,
-            absolute_paths=False, **kwargs):
+    def __init__(
+        self,
+        *,
+        file_name: str = "slurm_job.sh",
+        command: str | Sequence[str] | None = None,
+        executable: str | None = None,
+        arguments: str | Sequence[str] | None = None,
+        shell: str = "bash",
+        input_files: dict[str, str | pathlib.Path | JobInputFile] | None = None,
+        job_name: str | None = None,
+        partition: str | None = None,
+        stdout: str = "stdout.txt",
+        stderr: str = "stderr.txt",
+        postfix_output_files: bool = True,
+        custom_content: str | Sequence[str] | None = None,
+        absolute_paths: bool = False,
+        **kwargs,
+    ) -> None:
         # get some default kwargs from the config
         cfg = Config.instance()
         if kwargs.get("dir") is None:
-            kwargs["dir"] = cfg.get_expanded("job", cfg.find_option("job",
-                "slurm_job_file_dir", "job_file_dir"))
+            kwargs["dir"] = cfg.get_expanded(
+                "job",
+                cfg.find_option("job", "slurm_job_file_dir", "job_file_dir"),
+            )
         if kwargs.get("mkdtemp") is None:
-            kwargs["mkdtemp"] = cfg.get_expanded_bool("job", cfg.find_option("job",
-                "slurm_job_file_dir_mkdtemp", "job_file_dir_mkdtemp"))
+            kwargs["mkdtemp"] = cfg.get_expanded_bool(
+                "job",
+                cfg.find_option("job", "slurm_job_file_dir_mkdtemp", "job_file_dir_mkdtemp"),
+            )
         if kwargs.get("cleanup") is None:
-            kwargs["cleanup"] = cfg.get_expanded_bool("job", cfg.find_option("job",
-                "slurm_job_file_dir_cleanup", "job_file_dir_cleanup"))
+            kwargs["cleanup"] = cfg.get_expanded_bool(
+                "job",
+                cfg.find_option("job", "slurm_job_file_dir_cleanup", "job_file_dir_cleanup"),
+            )
 
-        super(SlurmJobFileFactory, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
         self.file_name = file_name
         self.command = command
@@ -324,7 +396,11 @@ class SlurmJobFileFactory(BaseJobFileFactory):
         self.custom_content = custom_content
         self.absolute_paths = absolute_paths
 
-    def create(self, postfix=None, **kwargs):
+    def create(
+        self,
+        postfix: str | None = None,
+        **kwargs,
+    ) -> tuple[str, SlurmJobFileFactory.Config]:
         # merge kwargs and instance attributes
         c = self.get_config(**kwargs)
 
@@ -459,8 +535,8 @@ class SlurmJobFileFactory(BaseJobFileFactory):
                 os.chmod(path, os.stat(path).st_mode | stat.S_IXUSR | stat.S_IXGRP)
 
         # job file content
-        content = []
-        content.append("#!/usr/bin/env {}".format(c.shell))
+        content: list[str | tuple[str, Any]] = []
+        content.append(f"#!/usr/bin/env {c.shell}")
         content.append("")
 
         if c.job_name:
@@ -480,7 +556,7 @@ class SlurmJobFileFactory(BaseJobFileFactory):
         with open(job_file, "w") as f:
             for obj in content:
                 line = self.create_line(obj)
-                f.write(line + "\n")
+                f.write(f"{line}\n")
 
             # prepare arguments
             args = c.arguments or ""
@@ -490,17 +566,17 @@ class SlurmJobFileFactory(BaseJobFileFactory):
             # add the command
             if c.command:
                 cmd = quote_cmd(c.command) if isinstance(c.command, (list, tuple)) else c.command
-                f.write("\n{}{}\n".format(cmd.strip(), args))
+                f.write(f"\n{cmd.strip()}{args}\n")
 
             # add the executable
             if c.executable:
                 cmd = c.executable
-                f.write("\n{}{}\n".format(cmd, args))
+                f.write(f"\n{cmd}{args}\n")
 
         # make it executable
         os.chmod(job_file, os.stat(job_file).st_mode | stat.S_IXUSR | stat.S_IXGRP)
 
-        logger.debug("created slurm job file at '{}'".format(job_file))
+        logger.debug(f"created slurm job file at '{job_file}'")
 
         return job_file, c
 
@@ -509,9 +585,9 @@ class SlurmJobFileFactory(BaseJobFileFactory):
         _str = lambda s: str(s).strip()
         if not isinstance(args, (list, tuple)):
             return args.strip()
-        elif len(args) == 1:
-            return "#SBATCH --{}".format(*map(_str, args))
-        elif len(args) == 2:
-            return "#SBATCH --{}={}".format(*map(_str, args))
-        else:
-            raise Exception("cannot create job file line from '{}'".format(args))
+        if len(args) == 1:
+            return f"#SBATCH --{_str(args[0])}"
+        if len(args) == 2:
+            return f"#SBATCH --{_str(args[0])}={_str(args[1])}"
+
+        raise Exception(f"cannot create job file line from '{args}'")

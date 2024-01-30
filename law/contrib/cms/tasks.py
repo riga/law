@@ -5,18 +5,19 @@ CMS-related tasks.
 https://home.cern/about/experiments/cms
 """
 
-__all__ = ["BundleCMSSW"]
+from __future__ import annotations
 
+__all__ = ["BundleCMSSW"]
 
 import os
 import subprocess
-from abc import abstractmethod
+import pathlib
+import abc
 
-import luigi
-
+import luigi  # type: ignore[import-untyped]
 
 from law.task.base import Task
-from law.target.file import get_path
+from law.target.file import get_path, FileSystemFileTarget
 from law.target.local import LocalFileTarget
 from law.parameter import NO_STR, CSVParameter
 from law.decorator import log
@@ -46,17 +47,17 @@ class BundleCMSSW(Task):
 
     cmssw_checksumming = True
 
-    def __init__(self, *args, **kwargs):
-        super(BundleCMSSW, self).__init__(*args, **kwargs)
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
 
-        self._checksum = None
+        self._checksum: str | None = None
 
-    @abstractmethod
-    def get_cmssw_path(self):
-        return
+    @abc.abstractmethod
+    def get_cmssw_path(self) -> str | pathlib.Path | LocalFileTarget:
+        ...
 
     @property
-    def checksum(self):
+    def checksum(self) -> None | str:
         if not self.cmssw_checksumming:
             return None
 
@@ -70,10 +71,15 @@ class BundleCMSSW(Task):
             ]
             if self.exclude != NO_STR:
                 cmd += [self.exclude]
-            cmd = quote_cmd(cmd)
+            _cmd = quote_cmd(cmd)
 
-            code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-                stdout=subprocess.PIPE)
+            out: str
+            code, out, _ = interruptable_popen(  # type: ignore[assignment]
+                _cmd,
+                shell=True,
+                executable="/bin/bash",
+                stdout=subprocess.PIPE,
+            )
             if code != 0:
                 raise Exception("cmssw checksum calculation failed")
 
@@ -81,20 +87,20 @@ class BundleCMSSW(Task):
 
         return self._checksum
 
-    def output(self):
+    def output(self) -> FileSystemFileTarget:
         base = os.path.basename(get_path(self.get_cmssw_path()))
         if self.checksum:
-            base += "{}.".format(self.checksum)
+            base += f"{self.checksum}."
         base = os.path.abspath(os.path.expandvars(os.path.expanduser(base)))
-        return LocalFileTarget("{}.tgz".format(base))
+        return LocalFileTarget(f"{base}.tgz")
 
     @log
-    def run(self):
+    def run(self) -> None:
         with self.output().localize("w") as tmp:
             with self.publish_step("bundle CMSSW ..."):
                 self.bundle(tmp.path)
 
-    def get_cmssw_bundle_command(self, dst_path):
+    def get_cmssw_bundle_command(self, dst_path: str | pathlib.Path | LocalFileTarget) -> list[str]:
         return [
             rel_path(__file__, "scripts", "bundle_cmssw.sh"),
             get_path(self.get_cmssw_path()),
@@ -103,7 +109,7 @@ class BundleCMSSW(Task):
             " ".join(self.include),
         ]
 
-    def bundle(self, dst_path):
+    def bundle(self, dst_path: str | pathlib.Path | LocalFileTarget) -> None:
         cmd = self.get_cmssw_bundle_command(dst_path)
         code = interruptable_popen(quote_cmd(cmd), shell=True, executable="/bin/bash")[0]
         if code != 0:

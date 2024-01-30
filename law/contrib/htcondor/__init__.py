@@ -11,7 +11,6 @@ __all__ = [
     "HTCondorWorkflow",
 ]
 
-
 # provisioning imports
 from law.contrib.htcondor.util import get_htcondor_version
 from law.contrib.htcondor.job import HTCondorJobManager, HTCondorJobFileFactory

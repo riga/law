@@ -4,12 +4,14 @@
 CMS-related utilities.
 """
 
-__all__ = ["Site", "lfn_to_pfn", "renew_vomsproxy", "delegate_myproxy"]
+from __future__ import annotations
 
+__all__ = ["Site", "lfn_to_pfn", "renew_vomsproxy", "delegate_myproxy"]
 
 import os
 
 import law
+
 
 law.contrib.load("wlcg")
 
@@ -52,14 +54,14 @@ class Site(object):
         "us": "cmsxrootd.fnal.gov",
     }
 
-    def __init__(self, name=None):
-        super(Site, self).__init__()
+    def __init__(self, name: str | None = None) -> None:
+        super().__init__()
 
         # site name cache
-        self.name = name or self.get_name_from_env()
+        self.name: str | None = self.get_name_from_env() if name is None else name
 
     @classmethod
-    def get_name_from_env(cls):
+    def get_name_from_env(cls) -> str | None:
         """
         Tries to extract the site name from environment variables. Returns the name on succcess and
         *None* otherwise.
@@ -71,63 +73,75 @@ class Site(object):
         return None
 
     @property
-    def info(self):
+    def info(self) -> tuple[str, str, str] | tuple[None, None, None]:
         """
         Tier, country and locality information in a 3-tuple, e.g. ``("T2", "DE", "RWTH")``.
         """
-        return self.name and self.name.split("", 2)
+        if self.name is not None:
+            info = self.name.split("_", 2)
+            if len(info) != 3:
+                raise ValueError(f"invalid site name: {self.name}")
+            return tuple(info)  # type: ignore[return-value]
+
+        return (None, None, None)
 
     @property
-    def tier(self):
+    def tier(self) -> str | None:
         """
         The tier of the site, e.g. ``T2``.
         """
-        return self.name and self.info[0]
+        info = self.info
+        return None if self.info is None else info[0]
 
     @property
-    def country(self):
+    def country(self) -> str | None:
         """
         The country of the site, e.g. ``DE``.
         """
-        return self.name and self.info[1]
+        info = self.info
+        return None if self.info is None else info[1]
 
     @property
     def locality(self):
         """
         The locality of the site, e.g. ``RWTH``.
         """
-        return self.name and self.info[2]
+        info = self.info
+        return None if self.info is None else info[2]
 
     @property
-    def redirector(self):
+    def redirector(self) -> str:
         """
         The XRD redirector that should be used on this site. For more information on XRD, see
         `this link <https://twiki.cern.ch/twiki/bin/view/CMSPublic/WorkBookXrootdService>`_.
         """
-        return self.redirectors.get(self.country.lower(), self.redirectors["global"])
+        country = self.country
+        if country in self.redirectors:
+            return self.redirectors[country]
+        return self.redirectors["global"]
 
 
-def lfn_to_pfn(lfn, redirector="global"):
+def lfn_to_pfn(lfn: str, redirector: str = "global") -> str:
     """
     Converts a logical file name *lfn* to a physical file name *pfn* using a *redirector*. Valid
     values for *redirector* are defined by :py:attr:`Site.redirectors`.
     """
     if redirector not in Site.redirectors:
-        raise ValueError("unknown redirector: {}".format(redirector))
+        raise ValueError(f"unknown redirector: {redirector}")
 
-    return "root://{}/{}".format(Site.redirectors[redirector], lfn)
+    return f"root://{Site.redirectors[redirector]}/{lfn}"
 
 
-def renew_vomsproxy(**kwargs):
+def renew_vomsproxy(**kwargs) -> str | None:
     """
     Renews a VOMS proxy in the exact same way that :py:func:`law.wlcg.renew_vomsproxy` does, but
     with the *vo* attribute set to ``"cms"`` by default.
     """
     kwargs.setdefault("vo", "cms")
-    return law.wlcg.renew_vomsproxy(**kwargs)
+    return law.wlcg.renew_vomsproxy(**kwargs)  # type: ignore[attr-defined]
 
 
-def delegate_myproxy(**kwargs):
+def delegate_myproxy(**kwargs) -> str | None:
     """
     Delegates a X509 proxy to a myproxy server in the exact same way that
     :py:func:`law.wlcg.delegate_myproxy` does, but with the *retrievers* argument set to a value
@@ -138,4 +152,4 @@ def delegate_myproxy(**kwargs):
         "/DC=ch/DC=cern/OU=computers/CN=crab-(preprod|prod|dev)-tw(01|02|03).cern.ch|/DC=ch/DC=cern/OU=computers/CN=stefanov(m|m2).cern.ch|/DC=ch/DC=cern/OU=computers/CN=dciangot-tw.cern.ch",  # noqa
     )
     kwargs.setdefault("vo", "cms")
-    return law.wlcg.delegate_myproxy(**kwargs)
+    return law.wlcg.delegate_myproxy(**kwargs)  # type: ignore[attr-defined]

@@ -17,15 +17,15 @@ from law._types import Callable, Any, Iterator
 
 
 def cache_by_status(
-    func: Callable[[Any, dict, str, int], Any],
-) -> Callable[[dict, str, int], Any]:
+    func: Callable[[Any, JobData, str, int], Any],
+) -> Callable[[JobData, str, int], Any]:
     """
     Decorator for :py:meth:`BaseJobDashboard.publish` (and inheriting classes) that caches the last
     published status to decide if the a new publication is necessary or not. When the status did not
     change since the last call, the actual publish method is not invoked and *None* is returned.
     """
     @functools.wraps(func)
-    def wrapper(self, job_data: dict, event: str, job_num: int, *args, **kwargs) -> None | Any:
+    def wrapper(self, job_data: JobData, event: str, job_num: int, *args, **kwargs) -> Any | None:
         job_id = job_data["job_id"]
         dashboard_status = self.map_status(job_data.get("status"), event)
 
@@ -165,7 +165,7 @@ class BaseJobDashboard(object, metaclass=ABCMeta):
         ...
 
     @abstractmethod
-    def publish(self, job_data: dict, event: str, job_num: int, *args, **kwargs) -> None:
+    def publish(self, job_data: JobData, event: str, job_num: int) -> None:
         """
         Publishes the status of a job to the implemented job dashboard. *job_data* is a dictionary
         that contains a *job_id* and a *status* string (see
@@ -182,9 +182,17 @@ class NoJobDashboard(BaseJobDashboard):
     """
 
     def map_status(self, *args, **kwargs) -> str | None:
-        """"""
+        """
+        Returns *None*.
+        """
         return None
 
     def publish(self, *args, **kwargs) -> None:
-        """"""
-        return
+        """
+        Returns *None*.
+        """
+        return None
+
+
+# trailing imports
+from law.workflow.remote import JobData

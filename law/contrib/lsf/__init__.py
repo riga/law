@@ -11,7 +11,6 @@ __all__ = [
     "LSFWorkflow",
 ]
 
-
 # provisioning imports
 from law.contrib.lsf.util import get_lsf_version
 from law.contrib.lsf.job import LSFJobManager, LSFJobFileFactory

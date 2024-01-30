@@ -14,6 +14,10 @@ __all__ = [
     "ensure_vomsproxy",
 ]
 
+# dependencies to other contrib modules
+import law
+law.contrib.load("gfal")
+
 # provisioning imports
 from law.contrib.wlcg.util import (
     get_userkey, get_usercert, get_usercert_subject,

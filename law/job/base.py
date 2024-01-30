@@ -23,15 +23,16 @@ from multiprocessing.pool import ThreadPool, AsyncResult
 from threading import Lock
 from abc import ABCMeta, abstractmethod
 
-from law.task.base import Register
+from law.task.base import Task
 from law.target.file import get_scheme, get_path
+from law.target.local import LocalFileTarget
 from law.target.remote.base import RemoteTarget
 from law.config import Config
 from law.util import (
     colored, make_list, make_tuple, iter_chunks, makedirs, create_hash, empty_context,
 )
 from law.logger import get_logger
-from law._types import Any, Callable, Hashable, Sequence, TracebackType
+from law._types import Any, Callable, Hashable, Sequence, TracebackType, Type, T
 
 
 logger = get_logger(__name__)
@@ -180,7 +181,7 @@ class BaseJobManager(object, metaclass=ABCMeta):
     @classmethod
     def job_status_dict(
         cls,
-        job_id: str | None = None,
+        job_id: Any | None = None,
         status: str | None = None,
         code: int | None = None,
         error: str | None = None,
@@ -193,7 +194,7 @@ class BaseJobManager(object, metaclass=ABCMeta):
         return dict(job_id=job_id, status=status, code=code, error=error, extra=extra)
 
     @classmethod
-    def cast_job_id(cls, job_id: Any) -> str:
+    def cast_job_id(cls, job_id: Any) -> Any:
         """
         Hook for casting an input *job_id*, for instance, after loading serialized data from json.
         """
@@ -214,16 +215,16 @@ class BaseJobManager(object, metaclass=ABCMeta):
         self.last_counts = [0] * len(self.status_names)
 
     @abstractmethod
-    def submit(self) -> list[str]:
+    def submit(self) -> Any:
         """
         Abstract atomic or group job submission.
         Can throw exceptions.
-        Should return a list of job ids.
+        Should return a single job id or a list of ids.
         """
         ...
 
     @abstractmethod
-    def cancel(self) -> dict[str, Any]:
+    def cancel(self) -> dict[Any, Any]:
         """
         Abstract atomic or group job cancellation.
         Can throw exceptions.
@@ -232,7 +233,7 @@ class BaseJobManager(object, metaclass=ABCMeta):
         ...
 
     @abstractmethod
-    def cleanup(self) -> dict[str, Any]:
+    def cleanup(self) -> dict[Any, Any]:
         """
         Abstract atomic or group job cleanup.
         Can throw exceptions.
@@ -241,7 +242,7 @@ class BaseJobManager(object, metaclass=ABCMeta):
         ...
 
     @abstractmethod
-    def query(self) -> dict[str, Any]:
+    def query(self) -> dict[Any, Any]:
         """
         Abstract atomic or group job status query.
         Can throw exceptions.
@@ -249,7 +250,7 @@ class BaseJobManager(object, metaclass=ABCMeta):
         """
         ...
 
-    def group_job_ids(self, job_ids: list[Any]) -> dict[Any, list[Any]]:
+    def group_job_ids(self, job_ids: list[Any]) -> dict[Hashable, list[Any]]:
         """
         Hook that needs to be implemented if the job mananger supports grouping of jobs, i.e., when
         :py:attr:`job_grouping` is *True*, and potentially used during status queries, job
@@ -332,6 +333,7 @@ class BaseJobManager(object, metaclass=ABCMeta):
     def submit_batch(
         self,
         job_files: list[Any],
+        *,
         threads: int | None = None,
         chunk_size: int | None = None,
         callback: Callable[[int, Any], Any] | None = None,
@@ -366,6 +368,7 @@ class BaseJobManager(object, metaclass=ABCMeta):
     def cancel_batch(
         self,
         job_ids: list[Hashable],
+        *,
         threads: int | None = None,
         chunk_size: int | None = None,
         callback: Callable[[int, Any], Any] | None = None,
@@ -401,6 +404,7 @@ class BaseJobManager(object, metaclass=ABCMeta):
     def cleanup_batch(
         self,
         job_ids: list[Hashable],
+        *,
         threads: int | None = None,
         chunk_size: int | None = None,
         callback: Callable[[int, Any], Any] | None = None,
@@ -437,6 +441,7 @@ class BaseJobManager(object, metaclass=ABCMeta):
     def query_batch(
         self,
         job_ids: list[Hashable],
+        *,
         threads: int | None = None,
         chunk_size: int | None = None,
         callback: Callable[[int, Any], Any] | None = None,
@@ -469,18 +474,18 @@ class BaseJobManager(object, metaclass=ABCMeta):
     def _apply_group(
         self,
         func: Callable,
-        result_type: type,
-        group_func,
+        result_type: Type[T],
+        group_func: Callable[[list[Any]], dict[Hashable, list[Any]]],
         job_objs: list[Any],
         threads: int | None = None,
         callback: Callable[[int, Any], Any] | None = None,
         **kwargs,
-    ) -> Any:
+    ) -> T:
         # default arguments
         threads = max(threads or self.threads or 1, 1)
 
         # group objects
-        job_obj_groups: dict[Any, list[Any]] = group_func(make_list(job_objs))
+        job_obj_groups: dict[Hashable, list[Any]] = group_func(make_list(job_objs))
 
         # factory to call the passed callback for each job file even when chunking
         def cb_factory(i: int) -> Callable | None:
@@ -512,13 +517,14 @@ class BaseJobManager(object, metaclass=ABCMeta):
                 if isinstance(result_data, list):
                     result_data.append(data if isinstance(data, Exception) else data[i])
                 else:
-                    result_data[job_obj] = data if isinstance(data, Exception) else data[job_obj]
+                    result_data[job_obj] = data if isinstance(data, Exception) else data[job_obj]  # type: ignore[index] # noqa
 
         return result_data
 
     def submit_group(
         self,
         job_files: list[Any],
+        *,
         threads: int | None = None,
         callback: Callable[[int, Any], Any] | None = None,
         **kwargs,
@@ -538,7 +544,7 @@ class BaseJobManager(object, metaclass=ABCMeta):
         added to the returned list.
         """
         # in order to use the generic grouping mechanism in _apply_group create a trivial group_func
-        def group_func(job_files: list[Any]) -> dict[Any, list[Any]]:
+        def group_func(job_files: list[Any]) -> dict[Hashable, list[Any]]:
             groups = defaultdict(list)
             for job_file in job_files:
                 groups[job_file].append(job_file)
@@ -557,6 +563,7 @@ class BaseJobManager(object, metaclass=ABCMeta):
     def cancel_group(
         self,
         job_ids: list[Hashable],
+        *,
         threads: int | None = None,
         callback: Callable[[int, Any], Any] | None = None,
         **kwargs,
@@ -580,7 +587,7 @@ class BaseJobManager(object, metaclass=ABCMeta):
             job_objs=job_ids,
             threads=threads,
             callback=callback,
-            **kwargs  # noqa
+            **kwargs,
         )
 
         # return only errors
@@ -589,6 +596,7 @@ class BaseJobManager(object, metaclass=ABCMeta):
     def cleanup_group(
         self,
         job_ids: list[Hashable],
+        *,
         threads: int | None = None,
         callback: Callable[[int, Any], Any] | None = None,
         **kwargs,
@@ -621,6 +629,7 @@ class BaseJobManager(object, metaclass=ABCMeta):
     def query_group(
         self,
         job_ids: list[Hashable],
+        *,
         threads: int | None = None,
         callback: Callable[[int, Any], Any] | None = None,
         **kwargs,
@@ -651,6 +660,7 @@ class BaseJobManager(object, metaclass=ABCMeta):
         self,
         counts: Sequence[int],
         last_counts: Sequence[int] | bool | None = None,
+        *,
         sum_counts: int | None = None,
         timestamp: bool = True,
         align: bool | int = False,
@@ -812,6 +822,7 @@ class BaseJobFileFactory(object, metaclass=ABCMeta):
 
     def __init__(
         self,
+        *,
         dir: str | pathlib.Path | None = None,
         render_variables: dict[str, Any] | None = None,
         custom_log_file: str | pathlib.Path | None = None,
@@ -870,6 +881,7 @@ class BaseJobFileFactory(object, metaclass=ABCMeta):
         cls,
         path: str | pathlib.Path,
         postfix: str | dict[str, str] | None = None,
+        *,
         add_hash: bool = False,
     ) -> str:
         """
@@ -993,6 +1005,7 @@ class BaseJobFileFactory(object, metaclass=ABCMeta):
         src: str | pathlib.Path,
         dst: str | pathlib.Path,
         render_variables: dict[str, Any],
+        *,
         postfix: str | dict[str, str] | None = None,
         silent: bool = True,
     ) -> None:
@@ -1043,6 +1056,7 @@ class BaseJobFileFactory(object, metaclass=ABCMeta):
     def provide_input(
         self,
         src: str | pathlib.Path,
+        *,
         postfix: str | dict[str, str] | None = None,
         dir: str | pathlib.Path | None = None,
         render_variables: dict[str, Any] | None = None,
@@ -1177,13 +1191,14 @@ class JobArguments(object):
 
     def __init__(
         self,
-        task_cls: Register,
+        *,
+        task_cls: Type[Task],
         task_params: str,
         branches: list[int],
         workers: int = 1,
         auto_retry: bool = False,
-        dashboard_data: list[str] | None = None,
-    ):
+        dashboard_data: dict[str, Any] | None = None,
+    ) -> None:
         super().__init__()
 
         self.task_cls = task_cls
@@ -1191,7 +1206,7 @@ class JobArguments(object):
         self.branches = branches
         self.workers = max(workers, 1)
         self.auto_retry = auto_retry
-        self.dashboard_data: list[str] = dashboard_data or []
+        self.dashboard_data: dict[str, Any] = dashboard_data or {}
 
     @classmethod
     def encode_bool(cls, b: bool) -> str:
@@ -1209,12 +1224,26 @@ class JobArguments(object):
         return encoded.decode("utf-8")
 
     @classmethod
-    def encode_list(cls, l: list) -> str:
+    def encode_list(cls, l: list[Any]) -> str:
         """
         Encodes a list *l* into a string via base64 encoding.
         """
-        encoded = base64.b64encode((" ".join(map(str, l)) or "-").encode("utf-8"))
+        # none of the elements in l must have a space in their string representation
+        l_str = list(map(str, l))
+        for s in l_str:
+            if " " in s:
+                raise ValueError(f"cannot encode list element containing spaces: {l_str}")
+
+        encoded = base64.b64encode((" ".join(l_str) or "-").encode("utf-8"))
         return encoded.decode("utf-8")
+
+    @classmethod
+    def encode_dict(cls, d: dict) -> str:
+        """
+        Encodes a dict *d* into a string representation "key1=value1 key2=value2" via base64
+        encoding.
+        """
+        return cls.encode_list([f"{k}={v}" for k, v in d.items()])
 
     def get_args(self) -> list[str]:
         """
@@ -1228,7 +1257,7 @@ class JobArguments(object):
             self.encode_list(self.branches),
             str(self.workers),
             self.encode_bool(self.auto_retry),
-            self.encode_list(self.dashboard_data),
+            self.encode_dict(self.dashboard_data),
         ]
 
     def join(self) -> str:
@@ -1330,7 +1359,8 @@ class JobInputFile(object):
 
     def __init__(
         self,
-        path: str | pathlib.Path | JobInputFile,
+        path: str | pathlib.Path | JobInputFile | LocalFileTarget,
+        *,
         copy: bool | None = None,
         share: bool | None = None,
         forward: bool | None = None,

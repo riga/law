@@ -29,7 +29,6 @@ else:
 
 if sys.version_info[:2] >= (3, 9):
     from types import GenericAlias  # noqa
-
 else:
     GenericAlias = str
 
