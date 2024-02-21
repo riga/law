@@ -10,7 +10,8 @@ def config_defaults(default_config):
         "job": {
             "crab_job_file_dir": None,
             "crab_job_file_dir_cleanup": False,
-            "crab_sandbox_name": "CMSSW_10_6_30",
+            "crab_job_file_dir_mkdtemp": None,
+            "crab_sandbox_name": "CMSSW_14_0_0::arch=el9_amd64_gcc12",
             "crab_password_file": None,
         },
         "cmssw_sandbox": {
