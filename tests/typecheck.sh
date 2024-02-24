@@ -2,7 +2,7 @@
 
 # Script to run mypy type checks.
 # Arguments:
-#   1. The linting command. Defaults to "mypy law test".
+#   1. The command. Defaults to "mypy law tests".
 
 action() {
     local shell_is_zsh="$( [ -z "${ZSH_VERSION}" ] && echo "false" || echo "true" )"
