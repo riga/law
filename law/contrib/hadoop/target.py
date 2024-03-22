@@ -352,10 +352,10 @@ class HDFSFileInterface(RemoteFileInterface):
     @RemoteFileInterface.retry(uri_base_name=["mkdir_rec", "mkdir"])
     def mkdir_rec(self, path, perm, base=None, silent=True, **kwargs):
         """
-        HDFS -mkdir -R
+        HDFS -mkdir -p
         """
         uri = self.uri(path, base_name="mkdir", base=base)
-        cmd = self.hadoop_cmd + ["fs", "-mkdir", "-R", uri]
+        cmd = self.hadoop_cmd + ["fs", "-mkdir", "-p", uri]
         try:
             self.call_check(cmd)
         except hdfs_error.HDFSCliError:
