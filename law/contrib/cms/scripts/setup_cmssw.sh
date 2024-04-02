@@ -11,6 +11,8 @@
 #       The scram architecture to use. Optional.
 #   - LAW_CMSSW_SETUP:
 #       A path to a script that is called inside the src directory upon installation. Optional.
+#   - LAW_CMSSW_ARGS:
+#       Space-separated arguments that are passed to the setup script when given. Optional.
 #   - LAW_CMSSW_DIR:
 #       The directory in which CMSSW is installed. Defaults to $LAW_HOME/cms/cmssw.
 #   - LAW_CMSSW_CORES:
@@ -77,6 +79,7 @@ setup_cmssw() {
     local custom_cmssw_version="${LAW_CMSSW_VERSION}"
     local custom_scram_arch="${LAW_CMSSW_ARCH}"
     local custom_setup_script="${LAW_CMSSW_SETUP}"
+    local custom_setup_args="${LAW_CMSSW_ARGS}"
     local custom_install_dir="${LAW_CMSSW_DIR}"
     local custom_install_cores="${LAW_CMSSW_CORES:-1}"
 
@@ -86,7 +89,7 @@ setup_cmssw() {
         return "3"
     fi
     if [ ! -z "${custom_setup_script}" ] && [ ! -f "${custom_setup_script}" ]; then
-        >&2 echo "custom setup script ${custom_setup_script} (LAW_CMSSW_SETUP) does not exist"
+        >&2 echo "custom setup script '${custom_setup_script}' (LAW_CMSSW_SETUP) does not exist"
         return "4"
     fi
     if [ -z "${custom_install_dir}" ]; then
@@ -158,11 +161,11 @@ setup_cmssw() {
 
         # call the custom setup on top
         if [ -f "${custom_setup_script}" ]; then
-            echo "running custom setup script ${custom_setup_script}"
+            echo "running custom setup script '${custom_setup_script}' with arguments '${custom_setup_args}'"
             (
                 cd "${custom_src_dir}"
                 eval "$( scramv1 runtime -sh )" && \
-                    bash "${custom_setup_script}" && \
+                    source "${custom_setup_script}" ${custom_setup_args} && \
                     scram b -j "${custom_install_cores}"
             )
         fi

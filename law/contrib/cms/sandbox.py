@@ -31,7 +31,7 @@ class CMSSWSandbox(BashSandbox):
     # (names corresond to variables used in setup_cmssw.sh script)
     Variables = collections.namedtuple(
         "Variables",
-        ["version", "setup", "dir", "arch", "cores"],
+        ["version", "setup", "args", "dir", "arch", "cores"],
     )
 
     @classmethod
@@ -73,7 +73,14 @@ class CMSSWSandbox(BashSandbox):
 
         # when no env cache path was given, set it to a deterministic path in LAW_HOME
         if not self.env_cache_path:
-            h = create_hash((self.sandbox_type, self.env_cache_key))
+            h = create_hash((
+                self.sandbox_type,
+                self.env_cache_key,
+                self.variables.arch,
+                self.variables.setup,
+                self.variables.args,
+                self.variables.dir,
+            ))
             self.env_cache_path = law_home_path(
                 "cms",
                 f"{self.sandbox_type}_cache",
