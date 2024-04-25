@@ -21,8 +21,8 @@ from abc import abstractmethod
 import luigi
 import six
 
-from law.task.base import Task, Register
-from law.task.proxy import ProxyTask, get_proxy_attribute
+from law.task.base import Register
+from law.task.proxy import ProxyTask, ProxyAttributeTask
 from law.target.collection import TargetCollection
 from law.target.local import LocalFileTarget
 from law.parameter import NO_STR, MultiRangeParameter, CSVParameter
@@ -493,7 +493,7 @@ class WorkflowRegister(Register):
         return condition_attr
 
 
-class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
+class BaseWorkflow(six.with_metaclass(WorkflowRegister, ProxyAttributeTask)):
     """
     Base class of all workflows.
 
@@ -1030,9 +1030,6 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, Task)):
     def workflow_proxy(self):
         self._initialize_workflow()
         return self.as_workflow()._workflow_proxy
-
-    def __getattribute__(self, attr, proxy=True):
-        return get_proxy_attribute(self, attr, proxy=proxy, super_cls=Task)
 
     def repr(self, *args, **kwargs):
         if self.create_branch_map_before_repr:
