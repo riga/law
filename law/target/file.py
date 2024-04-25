@@ -483,7 +483,7 @@ class FileSystemFileTarget(FileSystemTarget):
         **kwargs,
     ) -> str:
         if isinstance(src, FileSystemFileTarget):
-            return src.copy_to(self.path, perm=perm, dir_perm=dir_perm, **kwargs)
+            return src.copy_to(self.abspath, perm=perm, dir_perm=dir_perm, **kwargs)
 
         # when src is a plain string, let the fs handle it
         # TODO: complain when src not local? forward to copy_to request depending on protocol?
@@ -509,7 +509,7 @@ class FileSystemFileTarget(FileSystemTarget):
         **kwargs,
     ) -> str:
         if isinstance(src, FileSystemFileTarget):
-            return src.move_to(self.path, perm=perm, dir_perm=dir_perm, **kwargs)
+            return src.move_to(self.abspath, perm=perm, dir_perm=dir_perm, **kwargs)
 
         # when src is a plain string, let the fs handle it
         # TODO: complain when src not local? forward to copy_to request depending on protocol?
