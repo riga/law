@@ -55,7 +55,7 @@ class DockerSandbox(Sandbox):
             try:
                 return tmp.load(formatter="pickle")
             except Exception as e:
-                raise Exception(f"env deserialization of sandbox {self!r} failed: {e}")
+                raise Exception(f"{self} env deserialization failed: {e}")
 
         # load the env when the cache file is configured and existing
         if self.env_cache_path:
@@ -74,8 +74,12 @@ class DockerSandbox(Sandbox):
         # mount the env file
         docker_run_cmd.extend(["-v", f"{tmp.path}:{env_file}"])
 
-        # build commands to setup the environment
-        setup_cmds = self._build_setup_cmds(self._get_env())
+        # pre-setup commands
+        pre_setup_cmds = self._build_pre_setup_cmds()
+
+        # post-setup commands
+        post_env = self._get_env()
+        post_setup_cmds = self._build_post_setup_cmds(post_env)
 
         # build the python command that dumps the environment
         py_cmd = (
@@ -86,10 +90,12 @@ class DockerSandbox(Sandbox):
         # build the full command
         cmd = quote_cmd(docker_run_cmd + [
             self.image,
-            "bash",
-            "-l",
-            "-c",
-            " && ".join(flatten(setup_cmds, quote_cmd(["python", "-c", py_cmd]))),
+            "bash", "-l", "-c",
+            " && ".join(flatten(
+                pre_setup_cmds,
+                post_setup_cmds,
+                quote_cmd(["python", "-c", py_cmd]),
+            )),
         ])
 
         # run it
@@ -247,16 +253,21 @@ class DockerSandbox(Sandbox):
         # get the docker run command, add arguments from above
         docker_run_cmd = self._docker_run_cmd() + args
 
-        # build commands to setup the environment
-        setup_cmds = self._build_setup_cmds(env)
+        # pre-setup commands
+        pre_setup_cmds = self._build_pre_setup_cmds()
+
+        # post-setup commands with the full env
+        post_setup_cmds = self._build_post_setup_cmds(env)
 
         # build the final command
         cmd = quote_cmd(docker_run_cmd + [
             self.image,
-            "bash",
-            "-l",
-            "-c",
-            " && ".join(flatten(setup_cmds, proxy_cmd.build())),
+            "bash", "-l", "-c",
+            " && ".join(flatten(
+                pre_setup_cmds,
+                post_setup_cmds,
+                proxy_cmd.build(),
+            )),
         ])
 
         return cmd
