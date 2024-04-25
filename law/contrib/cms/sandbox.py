@@ -41,7 +41,7 @@ class CMSSWSandboxVariables(SandboxVariables):
         if "dir" in values:
             values["dir"] = expand(values["dir"])
         else:
-            h = create_hash((cls.sandbox_type, values["version"], values.get("setup")))
+            h = create_hash((CMSSWSandbox.sandbox_type, values["version"], values.get("setup")))
             values["dir"] = law_home_path("cms", "cmssw", "{}_{}".format(values["version"], h))
 
         if "cores" in values:
