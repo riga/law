@@ -5,4 +5,4 @@
 -r ../requirements_dev.txt
 
 # documentation packages
--r requirements_docs.txt
+-r ../requirements_docs.txt

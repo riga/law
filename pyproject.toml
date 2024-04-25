@@ -62,7 +62,7 @@ Repository = "https://github.com/riga/law.git"
 version = {attr = "law.__meta__.__version__"}
 readme = {file = ["README.md"], content-type = "text/markdown"}
 dependencies = {file = ["requirements.txt"]}
-optional-dependencies = {dev = {file = ["requirements_dev.txt"]}}
+optional-dependencies = {dev = {file = ["requirements_dev.txt"]}, docs = {file = ["requirements_docs.txt"]}}
 
 
 [project.scripts]
@@ -87,5 +87,5 @@ exclude = ["tests/*"]
 
 [tool.mypy]
 
-exclude = ["law/templates/*"]
-disable_error_code = ["no-redef"]
+disable_error_code = ["no-redef", "valid-type"]
+exclude = ["law/templates/*", "docs", "examples", "tests", "build"]
