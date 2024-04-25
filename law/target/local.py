@@ -108,7 +108,7 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
 
         # join with the base path
         base = os.path.expandvars(os.path.expanduser(str(self.base)))
-        path = os.path.join(base, path.lstrip(os.sep))
+        path = os.path.join(base, path)
 
         return os.path.abspath(path)
 
