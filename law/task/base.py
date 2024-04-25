@@ -242,8 +242,6 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
         if self.cache_requirements:
             if self._cached_requirements is no_value:
                 self._cached_requirements = self.requires()
-            else:
-                print("BASETASK.INPUT() TAKING REQS FROM CACHE BITCHES")
             reqs = self._cached_requirements
         else:
             reqs = self.requires()
