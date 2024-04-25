@@ -21,8 +21,8 @@ from abc import abstractmethod
 
 import luigi  # type: ignore[import-untyped]
 
-from law.task.base import Task, Register
-from law.task.proxy import ProxyTask, get_proxy_attribute
+from law.task.base import Register, Task
+from law.task.proxy import ProxyTask, ProxyAttributeTask
 from law.target.collection import TargetCollection
 from law.target.local import LocalFileTarget
 from law.parameter import NO_STR, MultiRangeParameter, CSVParameter
@@ -515,7 +515,7 @@ class WorkflowRegister(Register):
         return condition_attr
 
 
-class BaseWorkflow(Task, metaclass=WorkflowRegister):
+class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
     """
     Base class of all workflows.
 
@@ -1043,9 +1043,6 @@ class BaseWorkflow(Task, metaclass=WorkflowRegister):
     def workflow_proxy(self) -> BaseWorkflowProxy:
         self._initialize_workflow()
         return self.as_workflow()._workflow_proxy  # type: ignore[return-value]
-
-    def __getattribute__(self, attr: str, proxy: bool = True) -> Any:
-        return get_proxy_attribute(self, attr, proxy=proxy, super_cls=Task)
 
     def repr(self, *args, **kwargs) -> str:
         if self.create_branch_map_before_repr:

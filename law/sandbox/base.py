@@ -19,8 +19,7 @@ from fnmatch import fnmatch
 import luigi  # type: ignore[import-untyped]
 
 from law.config import Config
-from law.task.base import Task
-from law.task.proxy import ProxyTask, ProxyCommand, get_proxy_attribute
+from law.task.proxy import ProxyTask, ProxyAttributeTask, ProxyCommand
 from law.target.local import FileSystemTarget
 from law.target.local import LocalDirectoryTarget
 from law.target.collection import TargetCollection
@@ -420,14 +419,14 @@ class SandboxProxy(ProxyTask):
         if not stagein_dir_name:
             return None
 
-        # get the sandbox stage-in mask
-        stagein_mask = self.task.sandbox_stagein()
-        if not stagein_mask:
-            return None
-
         # determine inputs as seen by the sandbox
         with patch_object(os, "environ", self.task.env, lock=True):
             sandbox_inputs = self.task.input()
+
+        # get the sandbox stage-in mask
+        stagein_mask = self.task.sandbox_stagein(sandbox_inputs)
+        if not stagein_mask:
+            return None
 
         # apply the mask
         sandbox_inputs = mask_struct(stagein_mask, sandbox_inputs)
@@ -473,14 +472,14 @@ class SandboxProxy(ProxyTask):
         if not stageout_dir_name:
             return None
 
-        # get the sandbox stage-out mask
-        stageout_mask = self.task.sandbox_stageout()
-        if not stageout_mask:
-            return None
-
         # determine outputs as seen by the sandbox
         with patch_object(os, "environ", self.task.env, lock=True):
             sandbox_outputs = self.task.output()
+
+        # get the sandbox stage-out mask
+        stageout_mask = self.task.sandbox_stageout(sandbox_outputs)
+        if not stageout_mask:
+            return None
 
         # apply the mask
         sandbox_outputs = mask_struct(stageout_mask, sandbox_outputs)
@@ -547,7 +546,7 @@ class SandboxProxy(ProxyTask):
             sys.stdout.flush()
 
 
-class SandboxTask(Task):
+class SandboxTask(ProxyAttributeTask):
 
     sandbox = luigi.Parameter(
         default=_current_sandbox[0] or NO_STR,
@@ -625,18 +624,33 @@ class SandboxTask(Task):
         self._initialize_sandbox()
         return self._sandbox_proxy  # type: ignore[return-value]
 
-    def __getattribute__(self, attr: str, proxy: bool = True) -> Any:
-        return get_proxy_attribute(self, attr, proxy=proxy, super_cls=Task)
-
     def is_sandboxed(self) -> bool:
+        # returns whether the task requires no additional sandboxing, i.e., if it is already in its
+        # desired sandbox
         return self.effective_sandbox == NO_STR or not self.sandbox_inst
 
+    def is_sandboxed_task(self) -> bool:
+        # returns whether the task is the _one_ task whose execution is actually sandboxed
+        return self.live_task_id == _sandbox_task_id
+
     def is_root_task(self) -> bool:
+        # returns whether the task is the root task of the initial "law run" invocation, potentially
+        # outside a sandbox
         is_root = super().is_root_task()
         if not _sandbox_switched:
             return is_root
 
         return is_root and _sandbox_is_root_task
+
+    def _proxy_staged_input(self) -> bool:
+        # whether the input attribute should be forwarded to _stagein_input
+        # (see get_proxy_attribute used in ProxyAttributeTask.__getattribute__)
+        return bool(_sandbox_stagein_dir) and self.is_sandboxed() and self.is_sandboxed_task()
+
+    def _proxy_staged_output(self) -> bool:
+        # whether the output attribute should be forwarded to _stagein_output
+        # (see get_proxy_attribute used in ProxyAttributeTask.__getattribute__)
+        return bool(_sandbox_stageout_dir) and self.is_sandboxed() and self.is_sandboxed_task()
 
     def _staged_input(self) -> Any:
         from law.decorator import _is_patched_localized_method
@@ -658,7 +672,7 @@ class SandboxTask(Task):
 
         # create the struct of staged inputs and apply the stage-in mask
         staged_inputs = create_staged_target_struct(_sandbox_stagein_dir, inputs)
-        return mask_struct(self.sandbox_stagein(), staged_inputs, inputs)
+        return mask_struct(self.sandbox_stagein(inputs), staged_inputs, replace=inputs)
 
     def _staged_output(self) -> Any:
         from law.decorator import _is_patched_localized_method
@@ -680,7 +694,7 @@ class SandboxTask(Task):
 
         # create the struct of staged outputs and apply the stage-out mask
         staged_outputs = create_staged_target_struct(_sandbox_stageout_dir, outputs)
-        return mask_struct(self.sandbox_stageout(), staged_outputs, outputs)
+        return mask_struct(self.sandbox_stageout(outputs), staged_outputs, replace=outputs)
 
     @property
     def env(self) -> MutableMapping[str, Any]:
@@ -701,11 +715,11 @@ class SandboxTask(Task):
 
         return uid, gid
 
-    def sandbox_stagein(self) -> Any | bool:
+    def sandbox_stagein(self, inputs: Any) -> Any | bool:
         # disable stage-in by default
         return False
 
-    def sandbox_stageout(self) -> Any | bool:
+    def sandbox_stageout(self, outputs: Any) -> Any | bool:
         # disable stage-out by default
         return False
 

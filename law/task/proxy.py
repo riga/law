@@ -39,6 +39,25 @@ class ProxyTask(BaseTask, metaclass=ProxyRegister):
     exclude_params_req = {"task"}
 
 
+class ProxyAttributeTask(Task):
+
+    _proxy_attribute_task_init = False
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+        self._proxy_attribute_task_init = True
+
+    def __getattribute__(self, attr: str, proxy: bool | None = None) -> Any:
+        if attr == "_proxy_attribute_task_init":
+            return super().__getattribute__(attr)
+
+        if proxy is None:
+            proxy = bool(self._proxy_attribute_task_init)
+
+        return get_proxy_attribute(ProxyAttributeTask, self, attr, proxy=proxy)
+
+
 class ProxyCommand(object):
 
     arg_sep = "__law_arg_sep__"
@@ -122,17 +141,18 @@ class ProxyCommand(object):
 
 
 def get_proxy_attribute(
+    cls: BaseRegister,
     task: BaseTask,
     attr: str,
     proxy: bool = True,
-    super_cls: BaseRegister = BaseTask,
 ) -> Any:
     """
     Returns an attribute *attr* of a *task* taking into account possible proxies such as owned by
     workflow (:py:class:`BaseWorkflow`) or sandbox tasks (:py:class:`SandboxTask`). The reason for
     having an external function to evaluate possible attribute forwarding is the complexity of
     attribute lookup independent of the method resolution order. When the requested attribute is not
-    forwarded or *proxy* is *False*, the default lookup implemented in *super_cls* is used.
+    forwarded or *proxy* is *False*, the default lookup implemented in the super method of *cls* is
+    used.
     """
     if proxy:
         # priority to workflow proxy forwarding, fallback to sandbox proxy or super class
@@ -144,16 +164,18 @@ def get_proxy_attribute(
             return getattr(task.workflow_proxy, attr)
 
         if attr in _forward_sandbox_attributes and isinstance(task, SandboxTask):
+            # forward run method if not sandboxed
             if attr == "run" and not task.is_sandboxed():
                 return task.sandbox_proxy.run
-            if attr == "input" and _sandbox_stagein_dir and task.is_sandboxed():
+            # foward input and output methods
+            if attr == "input" and task._proxy_staged_input():
                 return task._staged_input
-            if attr == "output" and _sandbox_stageout_dir and task.is_sandboxed():
+            if attr == "output" and task._proxy_staged_output():
                 return task._staged_output
 
-    return super_cls.__getattribute__(task, attr)  # type: ignore[call-arg]
+    return super(cls, task).__getattribute__(attr)  # type: ignore[arg-type]
 
 
 # trailing imports
 from law.workflow.base import BaseWorkflow
-from law.sandbox.base import SandboxTask, _sandbox_stagein_dir, _sandbox_stageout_dir
+from law.sandbox.base import SandboxTask
