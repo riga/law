@@ -253,6 +253,8 @@ def dynamic_workflow_condition(
     create_branch_map_fn: Callable[[], Any] | None = None,
     requires_fn: Callable[[], Any] | None = None,
     output_fn: Callable[[], Any] | None = None,
+    condition_as_workflow: bool = False,
+    cache_met_condition: bool = True,
 ) -> Callable[[Callable[[], bool]], DynamicWorkflowCondition] | DynamicWorkflowCondition:
     """
     Decorator factory that is meant to wrap a workflow methods that defines a dynamic workflow
@@ -328,6 +330,11 @@ class DynamicWorkflowCondition(object):
     As a consequence, the amended workflow is fully dynamic with its exact shape potentially
     depending heavily on conditions that are only known at runtime.
 
+    Internally, the condition is evaluated by the calling task which is usually a workflow, but it
+    can also be one of its branch tasks if, for instance, sandboxing is involved. Set
+    *condition_as_workflow* to *True* to ensure that the condition is always evaluated by the
+    workflow itself.
+
     In case the ``workflow_condition`` involves a costly computation, it is recommended to cache
     evluation of the condition by setting *cache_met_condition* argument to *True* or a string
     denoting the task instance attribute where the met condition is stored. In the first case,
@@ -342,6 +349,7 @@ class DynamicWorkflowCondition(object):
         create_branch_map_fn: Callable[[], Any] | None = None,
         requires_fn: Callable[[], Any] | None = None,
         output_fn: Callable[[], Any] | None = None,
+        condition_as_workflow: bool = False,
         cache_met_condition: str | bool = True,
     ) -> None:
         super().__init__()
@@ -351,6 +359,7 @@ class DynamicWorkflowCondition(object):
         self._create_branch_map_fn = create_branch_map_fn
         self._requires_fn = requires_fn
         self._output_fn = output_fn
+        self.condition_as_workflow = condition_as_workflow
         self.cache_met_condition = bool(cache_met_condition)
         self.cache_met_condition_attr = (
             cache_met_condition
@@ -369,7 +378,8 @@ class DynamicWorkflowCondition(object):
                 return getattr(inst, self.cache_met_condition_attr)
 
             # evaluate the condition
-            is_met = self._condition_fn(inst.as_workflow(), *args, **kwargs)  # type: ignore[call-arg] # noqa
+            task = inst.as_workflow() if self.condition_as_workflow else inst
+            is_met = self._condition_fn(task, *args, **kwargs)  # type: ignore[call-arg]
 
             # write to cache if requested
             if self.cache_met_condition and is_met:
@@ -705,6 +715,9 @@ class BaseWorkflow(Task, metaclass=WorkflowRegister):
                 if wrapped_condition_fn is not None:
                     bound_condition_fn = wrapped_condition_fn.__get__(inst)
                     setattr(inst, condition_attr, bound_condition_fn)
+
+                    # store the condition object itself
+                    setattr(inst, condition_attr + "_obj", condition)
 
                     # bind wrapped methods that currently correspond to placeholders
                     for attr, wrapper in condition._iter_wrappers(bound_condition_fn):
@@ -1379,12 +1392,11 @@ class BaseWorkflow(Task, metaclass=WorkflowRegister):
 
     def workflow_input(self) -> Any:
         """
-        Returns the output targets if all workflow requirements, comparable to the normal
-        ``input()`` method of plain tasks. When this method is called from a branch task, an
-        exception is raised.
+        Returns the output targets of all workflow requirements, comparable to the normal
+        ``input()`` method of plain tasks.
         """
         if self.is_branch():
-            raise Exception("calls to workflow_input are forbidden for branch tasks")
+            return self.as_workflow().workflow_input()
 
         # get potentially cached workflow requirements
         if self.cache_workflow_requirements:
