@@ -1197,11 +1197,14 @@ def map_struct(func, struct, map_dict=True, map_list=True, map_tuple=False, map_
     return func(struct)
 
 
-def mask_struct(mask, struct, replace=no_value, convert_types=None):
+def mask_struct(mask, struct, replace=no_value, keep_missing=True, convert_types=None):
     """
     Masks a complex structured object *struct* with a *mask* and returns the remaining values. When
     *replace* is set, masked values are replaced with that value instead of being removed. The
     *mask* can have a complex structure as well.
+
+    In case an item in *struct* is not matched by a value in *mask*, the item is kept unless
+    *keep_missing* is *False*. When *keep_missing* is *True*, unmatched items are removed.
 
     *convert_types* can be a dictionary containing conversion functions mapped to types (or tuples)
     thereof that is applied to objects during the struct traversal if their types match.
@@ -1241,12 +1244,14 @@ def mask_struct(mask, struct, replace=no_value, convert_types=None):
         new_struct = []
         for i, val in enumerate(struct):
             if i >= len(mask):
-                new_struct.append(val)
+                if keep_missing:
+                    new_struct.append(val)
             else:
                 repl = replace
                 if isinstance(replace, (list, tuple)) and len(replace) > i:
                     repl = replace[i]
-                val = mask_struct(mask[i], val, replace=repl, convert_types=convert_types)
+                val = mask_struct(mask[i], val, replace=repl, keep_missing=keep_missing,
+                    convert_types=convert_types)
                 if val != no_value:
                     new_struct.append(val)
 
@@ -1257,12 +1262,14 @@ def mask_struct(mask, struct, replace=no_value, convert_types=None):
         new_struct = struct.__class__()
         for key, val in six.iteritems(struct):
             if key not in mask:
-                new_struct[key] = val
+                if keep_missing:
+                    new_struct[key] = val
             else:
                 repl = replace
                 if isinstance(replace, dict) and key in replace:
                     repl = replace[key]
-                val = mask_struct(mask[key], val, replace=repl, convert_types=convert_types)
+                val = mask_struct(mask[key], val, replace=repl, keep_missing=keep_missing,
+                    convert_types=convert_types)
                 if val != no_value:
                     new_struct[key] = val
         return new_struct or replace
