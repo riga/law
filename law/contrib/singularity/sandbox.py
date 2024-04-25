@@ -82,8 +82,12 @@ class SingularitySandbox(Sandbox):
         # get the singularity exec command
         singularity_exec_cmd = self._singularity_exec_cmd() + args
 
-        # build commands to setup the environment
-        setup_cmds = self._build_setup_cmds(self._get_env())
+        # pre-setup commands
+        pre_setup_cmds = self._build_pre_setup_cmds()
+
+        # post-setup commands
+        post_env = self._get_env()
+        post_setup_cmds = self._build_post_setup_cmds(post_env)
 
         # build the python command that dumps the environment
         py_cmd = "import os,pickle;" \
@@ -91,7 +95,11 @@ class SingularitySandbox(Sandbox):
 
         # build the full command
         cmd = quote_cmd(singularity_exec_cmd + [self.image, "bash", "-l", "-c",
-            " && ".join(flatten(setup_cmds, quote_cmd(["python", "-c", py_cmd]))),
+            " && ".join(flatten(
+                pre_setup_cmds,
+                post_setup_cmds,
+                quote_cmd(["python", "-c", py_cmd]),
+            )),
         ])
 
         # run it
@@ -259,12 +267,19 @@ class SingularitySandbox(Sandbox):
         # get the singularity exec command, add arguments from above
         singularity_exec_cmd = self._singularity_exec_cmd() + args
 
-        # build commands to set up environment
-        setup_cmds = self._build_setup_cmds(env)
+        # pre-setup commands
+        pre_setup_cmds = self._build_pre_setup_cmds()
+
+        # post-setup commands with the full env
+        post_setup_cmds = self._build_post_setup_cmds(env)
 
         # build the final command
         cmd = quote_cmd(singularity_exec_cmd + [self.image, "bash", "-l", "-c",
-            " && ".join(flatten(setup_cmds, proxy_cmd.build())),
+            " && ".join(flatten(
+                pre_setup_cmds,
+                post_setup_cmds,
+                proxy_cmd.build(),
+            )),
         ])
 
         return cmd

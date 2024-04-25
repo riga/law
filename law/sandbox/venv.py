@@ -42,8 +42,12 @@ class VenvSandbox(Sandbox):
             # get the activation command
             venv_cmd = self._venv_cmd()
 
-            # build commands to setup the environment
-            setup_cmds = self._build_setup_cmds(self._get_env())
+            # pre-setup commands
+            pre_setup_cmds = self._build_pre_setup_cmds()
+
+            # post-setup commands
+            post_env = self._get_env()
+            post_setup_cmds = self._build_post_setup_cmds(post_env)
 
             # build the python command that dumps the environment
             py_cmd = "import os,pickle;" \
@@ -51,8 +55,9 @@ class VenvSandbox(Sandbox):
 
             # build the full command
             cmd = " && ".join(
+                pre_setup_cmds +
                 [quote_cmd(venv_cmd)] +
-                setup_cmds +
+                post_setup_cmds +
                 [quote_cmd(["python", "-c", py_cmd])],
             )
 
@@ -99,20 +104,21 @@ class VenvSandbox(Sandbox):
         return ["source", os.path.join(self.venv_dir, "bin", "activate"), ""]
 
     def cmd(self, proxy_cmd):
-        # environment variables to set
-        env = self._get_env()
-
-        # add staging directories
-        if self.stagein_info:
-            env["LAW_SANDBOX_STAGEIN_DIR"] = self.stagein_info.stage_dir.path
-        if self.stageout_info:
-            env["LAW_SANDBOX_STAGEOUT_DIR"] = self.stageout_info.stage_dir.path
-
         # get the activation command
         venv_cmd = self._venv_cmd()
 
-        # build commands to setup the environment
-        setup_cmds = self._build_setup_cmds(env)
+        # pre-setup commands
+        pre_setup_cmds = self._build_pre_setup_cmds()
+
+        # post-setup commands
+        post_env = self._get_env()
+        # add staging directories
+        if self.stagein_info:
+            post_env["LAW_SANDBOX_STAGEIN_DIR"] = self.stagein_info.stage_dir.path
+        if self.stageout_info:
+            post_env["LAW_SANDBOX_STAGEOUT_DIR"] = self.stageout_info.stage_dir.path
+        # build
+        post_setup_cmds = self._build_post_setup_cmds(post_env)
 
         # handle local scheduling within the container
         if self.force_local_scheduler():
@@ -120,8 +126,9 @@ class VenvSandbox(Sandbox):
 
         # build the full command
         cmd = " && ".join(
+            pre_setup_cmds +
             [quote_cmd(venv_cmd)] +
-            setup_cmds +
+            post_setup_cmds +
             [proxy_cmd.build()],
         )
 

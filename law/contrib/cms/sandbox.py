@@ -12,7 +12,7 @@ import collections
 
 import six
 
-from law.sandbox.base import _current_sandbox
+from law.sandbox.base import _current_sandbox, SandboxVariables
 from law.sandbox.bash import BashSandbox
 from law.util import (
     tmp_file, interruptable_popen, quote_cmd, flatten, makedirs, rel_path, law_home_path,
@@ -20,66 +20,59 @@ from law.util import (
 )
 
 
-class CMSSWSandbox(BashSandbox):
+class CMSSWSandboxVariables(SandboxVariables):
 
-    sandbox_type = "cmssw"
-
-    # type for sandbox variables
-    # (names corresond to variables used in setup_cmssw.sh script)
-    Variables = collections.namedtuple(
-        "Variables",
-        ["version", "setup", "args", "dir", "arch", "cores"],
-    )
+    fields = ("version", "setup", "args", "dir", "arch", "cores")
+    eq_fields = ("name", "version", "setup", "args", "dir", "arch")
 
     @classmethod
-    def create_variables(cls, s):
-        # input format: <cmssw_version>[::<other_var=value>[::...]]
-        if not s:
-            raise ValueError("cannot create {} variables from input '{}'".format(cls.__name__, s))
+    def parse_name(cls, name):
+        values = super(CMSSWSandboxVariables, cls).parse_name(name)
 
-        # split values
-        values = {}
-        for i, part in enumerate(s.split(cls.delimiter)):
-            if i == 0:
-                values["version"] = part
-                continue
-            if "=" not in part:
-                raise ValueError(
-                    "wrong format, part '{}' at index {} does not contain a '='".format(part, i),
-                )
-            field, value = part.split("=", 1)
-            if field not in cls.Variables._fields:
-                raise KeyError("unknown variable name '{}' at index {}".format(field, i))
-            values[field] = value
+        # version is mandatory
+        if "version" not in values:
+            raise ValueError("CMSSW sandbox name must contain a version")
 
         # special treatments
         expand = lambda p: os.path.abspath(os.path.expandvars(os.path.expanduser(p)))
         if "setup" in values:
             values["setup"] = expand(values["setup"])
+
         if "dir" in values:
             values["dir"] = expand(values["dir"])
         else:
             h = create_hash((cls.sandbox_type, values["version"], values.get("setup")))
             values["dir"] = law_home_path("cms", "cmssw", "{}_{}".format(values["version"], h))
 
-        return cls.Variables(*[values.get(field, "") for field in cls.Variables._fields])
+        if "cores" in values:
+            values["cores"] = int(values["cores"])
+
+        return values
+
+    def __init__(self, name, version, setup=None, args=None, dir=None, arch=None, cores=None):
+        super(CMSSWSandboxVariables, self).__init__(name)
+
+        self.version = version
+        self.setup = setup
+        self.args = args
+        self.dir = dir
+        self.arch = arch
+        self.cores = cores
+
+
+class CMSSWSandbox(BashSandbox):
+
+    sandbox_type = "cmssw"
+
+    # type for sandbox variables
+    variable_cls = CMSSWSandboxVariables
 
     def __init__(self, *args, **kwargs):
         super(CMSSWSandbox, self).__init__(*args, **kwargs)
 
-        # parse name into variables
-        self.variables = self.create_variables(self.name)
-
         # when no env cache path was given, set it to a deterministic path in LAW_HOME
         if not self.env_cache_path:
-            h = create_hash((
-                self.sandbox_type,
-                self.env_cache_key,
-                self.variables.arch,
-                self.variables.setup,
-                self.variables.args,
-                self.variables.dir,
-            ))
+            h = create_hash((self.sandbox_type, self.env_cache_key))
             self.env_cache_path = law_home_path(
                 "cms",
                 "{}_cache".format(self.sandbox_type),
@@ -89,11 +82,12 @@ class CMSSWSandbox(BashSandbox):
     def is_active(self):
         # check if any current sandbox matches the version, setup and dir of this one
         for key in _current_sandbox:
+            if not key:
+                continue
             _type, name = self.split_key(key)
             if _type != self.sandbox_type:
                 continue
-            variables = self.create_variables(name)
-            if variables[:3] == self.variables[:3]:
+            if self.create_variables(name) == self.variables:
                 return True
 
         return False
@@ -103,7 +97,11 @@ class CMSSWSandbox(BashSandbox):
 
     @property
     def env_cache_key(self):
-        return self.variables[:3]
+        # use version, setup, args, dir and arch as cache key
+        return tuple(
+            getattr(self.variables, attr)
+            for attr in ("version", "setup", "args", "dir", "arch")
+        )
 
     @property
     def script(self):
@@ -118,14 +116,22 @@ class CMSSWSandbox(BashSandbox):
             # get the bash command
             bash_cmd = self._bash_cmd()
 
-            # build commands to setup the environment
-            setup_cmds = self._build_setup_cmds(self._get_env())
-
-            # build script variable exports
-            export_cmds = self._build_setup_cmds(collections.OrderedDict(
+            # pre-setup commands
+            # environment variables corresponding to sandbox variables
+            pre_env = collections.OrderedDict(
                 ("LAW_CMSSW_{}".format(attr.upper()), value)
-                for attr, value in zip(self.variables._fields, self.variables)
-            ))
+                for attr, value in (
+                    (attr, getattr(self.variables, attr))
+                    for attr in self.variables.fields
+                )
+                if value is not None
+            )
+            # build
+            pre_setup_cmds = self._build_pre_setup_cmds(pre_env)
+
+            # post-setup commands
+            post_env = self._get_env()
+            post_setup_cmds = self._build_post_setup_cmds(post_env)
 
             # build the python command that dumps the environment
             py_cmd = "import os,pickle;" \
@@ -133,17 +139,17 @@ class CMSSWSandbox(BashSandbox):
 
             # build the full command
             cmd = quote_cmd(bash_cmd + ["-c", " && ".join(flatten(
-                export_cmds,
-                "source \"{}\" \"\"".format(self.script),
-                setup_cmds,
+                pre_setup_cmds,
+                "source \"{}\" \"\"".format(self.script),  # noqa: Q003
+                post_setup_cmds,
                 quote_cmd(["python", "-c", py_cmd]),
             ))])
 
             # run it
             returncode = interruptable_popen(cmd, shell=True, executable="/bin/bash")[0]
             if returncode != 0:
-                raise Exception("bash sandbox env loading failed with exit code {}".format(
-                    returncode))
+                raise Exception("{} env loading failed with exit code {}".format(
+                    self, returncode))
 
         # helper to load the env
         def load_env(path):
@@ -179,26 +185,31 @@ class CMSSWSandbox(BashSandbox):
         return env
 
     def cmd(self, proxy_cmd):
-        # environment variables to set
-        env = self._get_env()
-
-        # add staging directories
-        if self.stagein_info:
-            env["LAW_SANDBOX_STAGEIN_DIR"] = self.stagein_info.stage_dir.path
-        if self.stageout_info:
-            env["LAW_SANDBOX_STAGEOUT_DIR"] = self.stageout_info.stage_dir.path
-
         # get the bash command
         bash_cmd = self._bash_cmd()
 
-        # build commands to setup the environment
-        setup_cmds = self._build_setup_cmds(env)
-
-        # build script variable exports
-        export_cmds = self._build_setup_cmds(collections.OrderedDict(
+        # pre-setup commands
+        # environment variables corresponding to sandbox variables
+        pre_env = collections.OrderedDict(
             ("LAW_CMSSW_{}".format(attr.upper()), value)
-            for attr, value in zip(self.variables._fields, self.variables)
-        ))
+            for attr, value in (
+                (attr, getattr(self.variables, attr))
+                for attr in self.variables.fields
+            )
+            if value is not None
+        )
+        # build
+        pre_setup_cmds = self._build_pre_setup_cmds(pre_env)
+
+        # post-setup commands
+        post_env = self._get_env()
+        # add staging directories
+        if self.stagein_info:
+            post_env["LAW_SANDBOX_STAGEIN_DIR"] = self.stagein_info.stage_dir.path
+        if self.stageout_info:
+            post_env["LAW_SANDBOX_STAGEOUT_DIR"] = self.stageout_info.stage_dir.path
+        # build
+        post_setup_cmds = self._build_post_setup_cmds(post_env)
 
         # handle local scheduling within the container
         if self.force_local_scheduler():
@@ -206,9 +217,9 @@ class CMSSWSandbox(BashSandbox):
 
         # build the final command
         cmd = quote_cmd(bash_cmd + ["-c", " && ".join(flatten(
-            export_cmds,
-            "source \"{}\" \"\"".format(self.script),
-            setup_cmds,
+            pre_setup_cmds,
+            "source \"{}\" \"\"".format(self.script),  # noqa: Q003
+            post_setup_cmds,
             proxy_cmd.build(),
         ))])
 

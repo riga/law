@@ -86,6 +86,61 @@ class StageInfo(object):
         return str(self)
 
 
+class SandboxVariables(object):
+
+    fields = ()
+    eq_fields = ("name",)
+
+    @classmethod
+    def from_name(cls, name):
+        if not name:
+            raise ValueError("cannot create {} from empty name '{}'".format(cls.__name__, name))
+
+        # default implementation
+        return cls(name, **cls.parse_name(name))
+
+    @classmethod
+    def parse_name(cls, name):
+        if not cls.fields:
+            return {}
+
+        values = {}
+        for i, pair in enumerate(name.split(Sandbox.delimiter)):
+            if "=" not in pair:
+                if i >= len(cls.fields):
+                    raise ValueError("invalid format of {} item '{}'".format(cls.__name__, pair))
+                key = cls.fields[i]
+                value = pair
+            else:
+                key, value = pair.split("=", 1)
+            if key not in cls.fields:
+                raise ValueError("invalid {} key '{}'".format(cls.__name__, key))
+            if key in values:
+                raise ValueError("duplicate {} key '{}'".format(cls.__name__, key))
+            values[key] = value
+
+        return values
+
+    def __init__(self, name):
+        super(SandboxVariables, self).__init__()
+
+        # intended to be read-only
+        self._name = str(name)
+
+    @property
+    def name(self):
+        return self._name
+
+    def __str__(self):
+        return self._name
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, self.__class__) and
+            all(getattr(self, attr) == getattr(other, attr) for attr in self.eq_fields)
+        )
+
+
 class Sandbox(six.with_metaclass(ABCMeta, object)):
     """
     Sandbox definition.
@@ -100,6 +155,8 @@ class Sandbox(six.with_metaclass(ABCMeta, object)):
     """
 
     delimiter = "::"
+
+    variable_cls = SandboxVariables
 
     # cached envs
     _envs = {}
@@ -124,18 +181,14 @@ class Sandbox(six.with_metaclass(ABCMeta, object)):
         return tuple(parts)
 
     @classmethod
-    def remove_type(cls, key):
-        # check for key format
-        cls.check_key(key)
-
-        # remove leading type if present
-        return key.split(cls.delimiter, 1)[-1]
-
-    @classmethod
     def join_key(cls, _type, name):
         """ join_key(type, name)
         """
         return str(_type) + cls.delimiter + str(name)
+
+    @classmethod
+    def create_variables(cls, name):
+        return cls.variable_cls.from_name(name)
 
     @classmethod
     def new(cls, key, *args, **kwargs):
@@ -162,7 +215,7 @@ class Sandbox(six.with_metaclass(ABCMeta, object)):
         if task and not isinstance(task, SandboxTask):
             raise TypeError("sandbox task must be a SandboxTask instance, got {}".format(task))
 
-        self.name = str(name)
+        self.variables = self.create_variables(name)
         self.task = task
         self.env_cache_path = (
             os.path.abspath(os.path.expandvars(os.path.expanduser(str(env_cache_path))))
@@ -173,6 +226,13 @@ class Sandbox(six.with_metaclass(ABCMeta, object)):
         # target staging info
         self.stagein_info = None
         self.stageout_info = None
+
+    def __str__(self):
+        return self.key
+
+    @property
+    def name(self):
+        return self.variables.name
 
     def is_active(self):
         return self.key in _current_sandbox
@@ -309,17 +369,37 @@ class Sandbox(six.with_metaclass(ABCMeta, object)):
 
         return vol
 
-    def _build_setup_cmds(self, env):
-        # commands that are used to setup the env and actual run commands
-        setup_cmds = []
+    def _build_export_commands(self, env):
+        export_cmds = []
 
         for key, value in env.items():
-            setup_cmds.append("export {}=\"{}\"".format(key, value))
+            export_cmds.append("export {}=\"{}\"".format(key, value))  # noqa: Q003
+
+        return export_cmds
+
+    def _build_pre_setup_cmds(self, env=None):
+        # commands that run before the setup is performed
+        pre_setup_cmds = []
+
+        if env:
+            pre_setup_cmds.extend(self._build_export_commands(env))
 
         if self.task:
-            setup_cmds.extend(self.task.sandbox_setup_cmds())
+            pre_setup_cmds.extend(self.task.sandbox_pre_setup_cmds())
 
-        return setup_cmds
+        return pre_setup_cmds
+
+    def _build_post_setup_cmds(self, env=None):
+        # commands that run before the setup is performed
+        post_setup_cmds = []
+
+        if env:
+            post_setup_cmds.extend(self._build_export_commands(env))
+
+        if self.task:
+            post_setup_cmds.extend(self.task.sandbox_post_setup_cmds())
+
+        return post_setup_cmds
 
 
 class SandboxProxy(ProxyTask):
@@ -340,9 +420,9 @@ class SandboxProxy(ProxyTask):
         )
 
     def run(self):
-        # before_run hook
-        if callable(self.task.sandbox_before_run):
-            self.task.sandbox_before_run()
+        # pre_run hook
+        if callable(self.task.sandbox_pre_run):
+            self.task.sandbox_pre_run()
 
         # create a temporary direction for file staging
         tmp_dir = LocalDirectoryTarget(is_tmp=True)
@@ -378,9 +458,9 @@ class SandboxProxy(ProxyTask):
         if stageout_info:
             self.stageout(stageout_info)
 
-        # after_run hook
-        if callable(self.task.sandbox_after_run):
-            self.task.sandbox_after_run()
+        # post_run hook
+        if callable(self.task.sandbox_post_run):
+            self.task.sandbox_post_run()
 
     def stagein(self, tmp_dir):
         # check if the stage-in dir is set
@@ -390,14 +470,14 @@ class SandboxProxy(ProxyTask):
         if not stagein_dir_name:
             return None
 
-        # get the sandbox stage-in mask
-        stagein_mask = self.task.sandbox_stagein()
-        if not stagein_mask:
-            return None
-
         # determine inputs as seen by the sandbox
         with patch_object(os, "environ", self.task.env, lock=True):
             sandbox_inputs = self.task.input()
+
+        # get the sandbox stage-in mask
+        stagein_mask = self.task.sandbox_stagein(sandbox_inputs)
+        if not stagein_mask:
+            return None
 
         # apply the mask
         sandbox_inputs = mask_struct(stagein_mask, sandbox_inputs)
@@ -591,9 +671,17 @@ class SandboxTask(ProxyAttributeTask):
         return self._sandbox_proxy
 
     def is_sandboxed(self):
+        # returns whether the task requires no additional sandboxing, i.e., if it is already in its
+        # desired sandbox
         return self.effective_sandbox == NO_STR or not self.sandbox_inst
 
+    def is_sandboxed_task(self):
+        # returns whether the task is the _one_ task whose execution is actually sandboxed
+        return self.live_task_id == _sandbox_task_id
+
     def is_root_task(self):
+        # returns whether the task is the root task of the initial "law run" invocation, potentially
+        # outside a sandbox
         is_root = super(SandboxTask, self).is_root_task()
         if not _sandbox_switched:
             return is_root
@@ -689,8 +777,12 @@ class SandboxTask(ProxyAttributeTask):
         # additional volumes to mount
         return {}
 
-    def sandbox_setup_cmds(self):
-        # list of commands to set up the environment inside a sandbox
+    def sandbox_pre_setup_cmds(self):
+        # list of commands that are run before the sandbox is set up
+        return []
+
+    def sandbox_post_setup_cmds(self):
+        # list of commands that are run after the sandbox is set up
         return []
 
     def sandbox_law_executable(self):
@@ -703,11 +795,11 @@ class SandboxTask(ProxyAttributeTask):
 
         return shlex.split(executable) if executable else []
 
-    def sandbox_before_run(self):
+    def sandbox_pre_run(self):
         # method that is invoked before the run method of the sandbox proxy is called
         return
 
-    def sandbox_after_run(self):
+    def sandbox_post_run(self):
         # method that is invoked after the run method of the sandbox proxy is called
         return
 
