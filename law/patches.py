@@ -5,6 +5,8 @@ Collection of minor patches for luigi. These patches are only intended to suppor
 law, rather than changing default luigi behavior.
 """
 
+from __future__ import annotations
+
 __all__ = ["before_run", "patch_all"]
 
 import re
@@ -22,7 +24,7 @@ logger = get_logger(__name__)
 
 _patched = False
 
-_before_run_funcs = []
+_before_run_funcs: list[Callable] = []
 
 
 def before_run(func: Callable, force: bool = False) -> bool:

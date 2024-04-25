@@ -69,7 +69,7 @@ class Config(ConfigParser):
         *True*). When a file exists, the check is stopped. Therefore, the order is important here.
     """
 
-    _instance = None
+    _instance: Config | None = None
 
     class Deferred(object):
         """

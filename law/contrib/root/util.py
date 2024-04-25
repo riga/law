@@ -18,7 +18,7 @@ from law.util import map_verbose, make_list, interruptable_popen, human_bytes, q
 from law._types import ModuleType, Sequence
 
 
-_ROOT = None
+_ROOT: ModuleType | None = None
 
 
 def import_ROOT(batch: bool = True, ignore_cli: bool = True, reset: bool = False) -> ModuleType:
@@ -38,10 +38,10 @@ def import_ROOT(batch: bool = True, ignore_cli: bool = True, reset: bool = False
         _ROOT: ModuleType = ROOT
 
     if was_empty or reset:
-        _ROOT.gROOT.SetBatch(batch)  # type: ignore[attr-defined]
+        _ROOT.gROOT.SetBatch(batch)  # type: ignore[attr-defined, union-attr]
 
     if was_empty or reset:
-        _ROOT.PyConfig.IgnoreCommandLineOptions = ignore_cli  # type: ignore[attr-defined]
+        _ROOT.PyConfig.IgnoreCommandLineOptions = ignore_cli  # type: ignore[attr-defined, union-attr] # noqa
 
     return _ROOT  # type: ignore[return-value]
 

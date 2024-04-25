@@ -124,7 +124,7 @@ def create_magics(
             cmd = quote_cmd(["bash", "-c", cmd])
 
             # run it
-            return self.shell.system_piped(cmd)  # type: ignore[attr-defined]
+            return self.shell.system_piped(cmd)  # type: ignore[attr-defined, union-attr]
 
     return LawMagics
 
