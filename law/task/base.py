@@ -626,7 +626,7 @@ class Task(BaseTask, metaclass=Register):
         context = (lambda: self.publish_step(msg)) if msg else empty_context
 
         # iterate and invoke the callback
-        with context():
+        with context():  # type: ignore[operator]
             for i, val in enumerate(iterable):
                 yield val
                 progress_callback(i)

@@ -2,7 +2,7 @@
 
 # Script to run mypy type checks.
 # Arguments:
-#   1. The command. Defaults to "mypy .".
+#   1. The command. Defaults to "mypy --config-file ${repo_dir}/pyproject.toml .".
 
 action() {
     local shell_is_zsh="$( [ -z "${ZSH_VERSION}" ] && echo "false" || echo "true" )"
@@ -11,7 +11,7 @@ action() {
     local repo_dir="$( dirname "${this_dir}" )"
 
     # default test command
-    local cmd="${1:-mypy .}"
+    local cmd="${1:-mypy --config-file ${repo_dir}/pyproject.toml .}"
 
     # execute it
     echo -e "command: \x1b[1;49;39m${cmd}\x1b[0m"

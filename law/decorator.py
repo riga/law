@@ -553,7 +553,7 @@ def localize(
     # wrap input context
     input_context = empty_context
     if opts["input"]:
-        def input_context():  # noqa: F811
+        def input_context():  # type: ignore[misc] # noqa: F811
             input_struct = task.input()
             input_kwargs = opts["input_kwargs"] or {}
             input_kwargs.setdefault("mode", "r")
@@ -562,7 +562,7 @@ def localize(
     # wrap output context
     output_context = empty_context
     if opts["output"]:
-        def output_context():  # noqa: F811
+        def output_context():  # type: ignore[misc] # noqa: F811
             output_struct = task.output()
             output_kwargs = opts["output_kwargs"] or {}
             output_kwargs.setdefault("mode", "w")
