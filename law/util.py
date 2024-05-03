@@ -393,12 +393,12 @@ def custom_context(obj: T) -> Callable[[], AbstractContextManager[T]]:
 
 
 @contextlib.contextmanager
-def empty_context() -> Iterator[None]:
+def empty_context(obj: T | None = None) -> Iterator[T | None]:
     """
     Yields an empty context that can be used in case of dynamically choosing context managers while
     maintaining code structure.
     """
-    yield
+    yield T
 
 
 def common_task_params(task_instance, task_cls) -> dict[str, Any]:

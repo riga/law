@@ -551,6 +551,7 @@ open('${input_file_render_base}', 'w').write(content);\
 
     echo
     _law_job_subsection "execute attempt 1"
+    export LAW_JOB_ATTEMPT="1"
     date +"%d/%m/%Y %T.%N (%Z)"
     eval "${cmd}"
     law_ret="$?"
@@ -560,6 +561,7 @@ open('${input_file_render_base}', 'w').write(content);\
     if [ "${law_ret}" != "0" ] && [ "${LAW_JOB_AUTO_RETRY}" = "yes" ]; then
         echo
         _law_job_subsection "execute attempt 2"
+        export LAW_JOB_ATTEMPT="2"
         date +"%d/%m/%Y %T.%N (%Z)"
         eval "${cmd}"
         law_ret="$?"
