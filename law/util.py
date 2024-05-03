@@ -369,12 +369,12 @@ def flag_to_bool(s, silent=False):
 
 
 @contextlib.contextmanager
-def empty_context():
+def empty_context(obj=None):
     """
     Yields an empty context that can be used in case of dynamically choosing context managers while
     maintaining code structure.
     """
-    yield
+    yield obj
 
 
 def common_task_params(task_instance, task_cls):

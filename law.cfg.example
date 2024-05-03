@@ -256,7 +256,7 @@
 ; Default: "local_fs"
 
 ; tmp_dir
-; Description:: The directory in which temporary local targets are stored.
+; Description: The directory in which temporary local targets are stored.
 ; Type: string
 ; Default: "$LAW_TARGET_TMP_DIR", "tempfile.gettempdir()"
 
