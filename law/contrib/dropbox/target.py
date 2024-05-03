@@ -70,7 +70,7 @@ class DropboxFileSystem(RemoteFileSystem):
         section, fs_config, fi_config = self._init_configs(
             section,
             "default_dropbox_fs",
-            "dropbox_fs",
+            "_dropbox_fs_defaults",
             kwargs,
         )
 

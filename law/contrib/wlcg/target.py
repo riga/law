@@ -30,7 +30,7 @@ class WLCGFileSystem(RemoteFileSystem):
         section, fs_config, fi_config = self._init_configs(
             section,
             "default_wlcg_fs",
-            "wlcg_fs",
+            "_wlcg_fs_defaults",
             kwargs,
         )
 

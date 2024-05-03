@@ -10,7 +10,7 @@ from law._types import Any
 
 
 def config_defaults(default_config: dict) -> dict[str, dict[str, Any]]:
-    return {
+    defaults: dict[str, dict[str, Any]] = {
         "target": {
             "default_wlcg_fs": "wlcg_fs",
         },
@@ -58,3 +58,7 @@ def config_defaults(default_config: dict) -> dict[str, dict[str, Any]]:
             # no dedicated configs
         },
     }
+
+    defaults["_wlcg_fs_defaults"] = defaults["wlcg_fs"].copy()
+
+    return defaults

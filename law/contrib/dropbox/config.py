@@ -10,7 +10,7 @@ from law._types import Any
 
 
 def config_defaults(default_config: dict) -> dict[str, dict[str, Any]]:
-    return {
+    defaults: dict[str, dict[str, Any]] = {
         "target": {
             "default_dropbox_fs": "dropbox_fs",
         },
@@ -60,3 +60,7 @@ def config_defaults(default_config: dict) -> dict[str, dict[str, Any]]:
             "dropbox_access_token": None,
         },
     }
+
+    defaults["_dropbox_fs_defaults"] = defaults["dropbox_fs"].copy()
+
+    return defaults
