@@ -4,9 +4,11 @@
 Function returning the config defaults of the wlcg package.
 """
 
+from copy import deepcopy
+
 
 def config_defaults(default_config):
-    return {
+    defaults = {
         "target": {
             "default_wlcg_fs": "wlcg_fs",
         },
@@ -54,3 +56,7 @@ def config_defaults(default_config):
             # no dedicated configs
         },
     }
+
+    defaults["_wlcg_fs_defaults"] = deepcopy(defaults["wlcg_fs"])
+
+    return defaults

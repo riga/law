@@ -4,9 +4,11 @@
 Function returning the config defaults of the dropbox package.
 """
 
+from copy import deepcopy
+
 
 def config_defaults(default_config):
-    return {
+    defaults = {
         "target": {
             "default_dropbox_fs": "dropbox_fs",
         },
@@ -56,3 +58,7 @@ def config_defaults(default_config):
             "dropbox_access_token": None,
         },
     }
+
+    defaults["_dropbox_fs_defaults"] = deepcopy(defaults["dropbox_fs"])
+
+    return defaults

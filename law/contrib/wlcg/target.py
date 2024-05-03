@@ -28,8 +28,8 @@ class WLCGFileSystem(RemoteFileSystem):
     def __init__(self, section=None, **kwargs):
         # read configs from section and combine them with kwargs to get the file system and
         # file interface configs
-        section, fs_config, fi_config = self._init_configs(section, "default_wlcg_fs", "wlcg_fs",
-            kwargs)
+        section, fs_config, fi_config = self._init_configs(section, "default_wlcg_fs",
+            "_wlcg_fs_defaults", kwargs)
 
         # store the config section
         self.config_section = section

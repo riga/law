@@ -53,7 +53,7 @@ class DropboxFileSystem(RemoteFileSystem):
         # read configs from section and combine them with kwargs to get the file system and
         # file interface configs
         section, fs_config, fi_config = self._init_configs(section, "default_dropbox_fs",
-            "dropbox_fs", kwargs)
+            "_dropbox_fs_defaults", kwargs)
 
         # store the config section
         self.config_section = section
