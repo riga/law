@@ -71,7 +71,7 @@ class ARCWorkflowProxy(BaseRemoteWorkflowProxy):
             task.exclude_params_workflow |
             task.exclude_params_remote_workflow |
             task.exclude_params_arc_workflow |
-            {"workflow"}
+            {"workflow", "effective_workflow"}
         )
         proxy_cmd = ProxyCommand(
             task.as_branch(branches[0]),
