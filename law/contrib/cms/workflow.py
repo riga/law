@@ -103,7 +103,7 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
             task.exclude_params_workflow |
             task.exclude_params_remote_workflow |
             task.exclude_params_crab_workflow |
-            {"workflow"}
+            {"workflow", "effective_workflow"}
         )
         proxy_cmd = ProxyCommand(
             task.as_branch(),
