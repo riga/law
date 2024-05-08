@@ -102,7 +102,7 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
         proxy_cmd = ProxyCommand(
             task.as_branch(branches[0]),
             exclude_task_args=exclude_args,
-            exclude_global_args=["workers", "local-scheduler"],
+            exclude_global_args=["workers", "local-scheduler", f"{task.task_family}-*"],
         )
         if task.glite_use_local_scheduler():
             proxy_cmd.add_arg("--local-scheduler", "True", overwrite=True)

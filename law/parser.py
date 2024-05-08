@@ -13,6 +13,7 @@ from argparse import ArgumentParser
 import luigi  # type: ignore[import-untyped]
 
 from law.logger import get_logger
+from law.util import multi_match
 from law._types import Sequence, Any
 
 
@@ -159,12 +160,12 @@ def global_cmdline_args(exclude: Sequence[str] | None = None) -> dict[str, str] 
     global_args = _global_cmdline_args
 
     if exclude:
-        # create a copy and remove excluded keys
+        # create a copy and remove excluded keys, which can be patterns
         global_args = dict(global_args)
-        for key in exclude:
-            if not key.startswith("--"):
-                key = "--" + key.lstrip("-")
-            global_args.pop(key, None)
+        _exclude = ["--" + pattern.lstrip("-") for pattern in exclude]
+        for arg in list(global_args.keys()):
+            if multi_match(arg, _exclude, mode=any):
+                global_args.pop(arg)
 
     return global_args
 
