@@ -104,7 +104,7 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
         proxy_cmd = ProxyCommand(
             task.as_branch(),
             exclude_task_args=exclude_args,
-            exclude_global_args=["workers"],
+            exclude_global_args=["workers", task.task_family + "-*"],
         )
         proxy_cmd.add_arg("--local-scheduler", "True", overwrite=True)
         for key, value in OrderedDict(task.crab_cmdline_args()).items():

@@ -13,6 +13,7 @@ from argparse import ArgumentParser
 import luigi
 
 from law.logger import get_logger
+from law.util import multi_match
 
 
 logger = get_logger(__name__)
@@ -152,10 +153,11 @@ def global_cmdline_args(exclude=None):
     if exclude:
         args = OrderedDict(args)
 
-        for key in exclude:
-            if not key.startswith("--"):
-                key = "--" + key.lstrip("-")
-            args.pop(key, None)
+        # treat arguments in exclude as patterns
+        _exclude = ["--" + pattern.lstrip("-") for pattern in exclude]
+        for arg in list(args.keys()):
+            if multi_match(arg, _exclude, mode=any):
+                args.pop(arg)
 
     return args
 
