@@ -187,6 +187,14 @@ class Sandbox(six.with_metaclass(ABCMeta, object)):
         return str(_type) + cls.delimiter + str(name)
 
     @classmethod
+    def remove_type(cls, key):
+        # check for key format
+        cls.check_key(key)
+
+        # remove leading type if present
+        return key.split(cls.delimiter, 1)[-1]
+
+    @classmethod
     def create_variables(cls, name):
         return cls.variable_cls.from_name(name)
 
