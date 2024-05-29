@@ -1323,7 +1323,7 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, ProxyAttributeTask)):
         # create a new workflow instance
         kwargs["_exclude"] = set(kwargs.get("_exclude", set())) | {"branches"}
         kwargs["_skip_task_excludes"] = True
-        wf = self.req_workflow(self, **kwargs)
+        wf = self.req_workflow(**kwargs)
 
         # return its branch chunks
         return wf.get_branch_chunks(chunk_size)
