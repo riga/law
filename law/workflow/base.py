@@ -1345,7 +1345,7 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
         # create a new workflow instance
         kwargs["_exclude"] = set(kwargs.get("_exclude", set())) | {"branches"}
         kwargs["_skip_task_excludes"] = True
-        wf = self.req_workflow(self, **kwargs)  # type: ignore[call-arg]
+        wf = self.req_workflow(**kwargs)  # type: ignore[call-arg]
 
         # return its branch chunks
         return wf.get_branch_chunks(chunk_size)
