@@ -193,7 +193,8 @@ class Config(ConfigParser):
         return path
 
     def __init__(self, config_file="", skip_defaults=False, skip_fallbacks=False,
-            skip_includes=False, skip_env_sync=False, skip_luigi_sync=False):
+            skip_includes=False, skip_env_sync=False, skip_luigi_sync=False,
+            skip_resolve_deferred=False):
         ConfigParser.__init__(self, allow_no_value=True)
 
         # lookup to correct config file
@@ -231,7 +232,8 @@ class Config(ConfigParser):
         if not skip_includes and self.config_file:
             # eagerly read the config file to get a glimpse of the files to inherit from
             c = self.__class__(self.config_file, skip_defaults=True, skip_fallbacks=True,
-                skip_includes=True, skip_env_sync=True, skip_luigi_sync=True)
+                skip_includes=True, skip_env_sync=True, skip_luigi_sync=True,
+                skip_resolve_deferred=True)
             opt = "inherit"
             if c.has_option("core", "inherit_configs") and not c.get_expanded("core", "inherit"):
                 # print a warning, not using the logger yet since it's not initialized at this point
@@ -267,7 +269,8 @@ class Config(ConfigParser):
             self.sync_luigi_config()
 
         # resolve deferred default values
-        self.resolve_deferred_defaults()
+        if not skip_resolve_deferred:
+            self.resolve_deferred_defaults()
 
     def _convert_to_boolean(self, value):
         # py2 backport
