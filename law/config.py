@@ -217,6 +217,7 @@ class Config(ConfigParser):
         skip_includes: bool = False,
         skip_env_sync: bool = False,
         skip_luigi_sync: bool = False,
+        skip_resolve_deferred: bool = False,
     ) -> None:
         super().__init__(allow_no_value=True)
 
@@ -261,6 +262,7 @@ class Config(ConfigParser):
                 skip_includes=True,
                 skip_env_sync=True,
                 skip_luigi_sync=True,
+                skip_resolve_deferred=True,
             )
             include_configs(c.get_expanded("core", "extend", None))
 
@@ -281,7 +283,8 @@ class Config(ConfigParser):
             self.sync_luigi_config()
 
         # resolve deferred default values
-        self.resolve_deferred_defaults()
+        if not skip_resolve_deferred:
+            self.resolve_deferred_defaults()
 
     def _get_type_converter(self, type: type | str, value: Any) -> type | Callable[[Any], Any]:
         if type in (str, "str", "s"):
