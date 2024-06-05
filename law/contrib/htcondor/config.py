@@ -8,6 +8,7 @@ Function returning the config defaults of the htcondor package.
 def config_defaults(default_config):
     return {
         "job": {
+            "htcondor_job_grouping_submit": True,
             "htcondor_job_file_dir": None,
             "htcondor_job_file_dir_mkdtemp": None,
             "htcondor_job_file_dir_cleanup": False,

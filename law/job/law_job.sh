@@ -602,10 +602,10 @@ start_law_job() {
             law_job "$@"
         elif command -v tee &> /dev/null; then
             set -o pipefail
-            echo -e "" > "${log_file}"
+            echo "---" >> "${log_file}"
             law_job "$@" 2>&1 | tee -a "${log_file}"
         else
-            echo -e "" > "${log_file}"
+            echo "---" >> "${log_file}"
             law_job "$@" &>> "${log_file}"
         fi
     fi

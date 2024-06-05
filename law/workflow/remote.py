@@ -277,11 +277,11 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
     def create_job_file(self, *args, **kwargs):
         """
         Creates a job file using the :py:attr:`job_file_factory`. The expected arguments depend on
-        wether the job manager supports job grouping (:py:attr:`BaseJobManager.job_grouping`). If it
-        does, two arguments containing the job number (*job_num*) and the list of branch numbers
-        (*branches*) covered by the job. If job grouping is supported, a single dictionary mapping
-        job numbers to covered branch values must be passed. In any case, the path(s) of job files
-        are returned.
+        whether the job manager supports job grouping during submission
+        (:py:attr:`BaseJobManager.job_grouping_submit`). If it does, two arguments containing the
+        job number (*job_num*) and the list of branch numbers (*branches*) covered by the job. If
+        job grouping is supported, a single dictionary mapping job numbers to covered branch values
+        must be passed. In any case, the path(s) of job files are returned.
 
         This method must be implemented by inheriting classes.
         """
@@ -307,10 +307,11 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             dst_info = ", {}".format(dst_info)
         return dst_info
 
-    def get_extra_submission_data(self, job_file, config, log=None):
+    def get_extra_submission_data(self, job_file, job_id, config, log=None):
         """
-        Hook that is called after job submission with the *job_file*, the submission *config* and
-        an optional *log* file to return extra data that is saved in the central job data.
+        Hook that is called after job submission with the *job_file*, the returned *job_id*, the
+        submission *config* and an optional *log* file to return extra data that is saved in the
+        central job data.
         """
         extra = {}
         if log:
@@ -419,9 +420,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             ("code", job_data["code"]),
             ("error", job_data.get("error")),
             ("job script error", self.job_error_messages.get(job_data["code"], no_value)),
-            # ("log", job_data["extra"].get("log", no_value)),
-            # backwards compatibility for some limited time
-            ("log", job_data.get("extra", {}).get("log", no_value)),
+            ("log", job_data["extra"].get("log", no_value)),
         ])
 
     def _print_status_errors(self, failed_jobs):
@@ -675,7 +674,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
         # cancel jobs
         task.publish_message("going to cancel {} jobs".format(len(job_ids)))
-        if self.job_manager.job_grouping:
+        if self.job_manager.job_grouping_cancel:
             errors = self.job_manager.cancel_group(job_ids, **cancel_kwargs)
         else:
             errors = self.job_manager.cancel_batch(job_ids, **cancel_kwargs)
@@ -720,7 +719,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
         # cleanup jobs
         task.publish_message("going to cleanup {} jobs".format(len(job_ids)))
-        if self.job_manager.job_grouping:
+        if self.job_manager.job_grouping_cleanup:
             errors = self.job_manager.cleanup_group(job_ids, **cleanup_kwargs)
         else:
             errors = self.job_manager.cleanup_batch(job_ids, **cleanup_kwargs)
@@ -813,7 +812,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             len(submit_jobs), self.workflow_type, dst_info))
 
         # job file preparation and submission
-        if self.job_manager.job_grouping:
+        if self.job_manager.job_grouping_submit:
             job_ids, submission_data = self._submit_group(submit_jobs)
         else:
             job_ids, submission_data = self._submit_batch(submit_jobs)
@@ -829,7 +828,8 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             # set the job id in the job data
             job_data = self.job_data.jobs[job_num]
             job_data["job_id"] = job_id
-            extra = self.get_extra_submission_data(data["job"], data["config"], log=data.get("log"))
+            extra = self.get_extra_submission_data(data["job"], job_id, data["config"],
+                log=data.get("log"))
             job_data["extra"].update(extra)
             new_submission_data[job_num] = copy.deepcopy(job_data)
 
@@ -978,7 +978,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             if i > 0:
                 time.sleep(task.poll_interval * 60)
 
-            # handle scheduler messages, which could change task some parameters
+            # handle scheduler messages, which could change some task parameters
             task._handle_scheduler_messages()
 
             # walltime exceeded?
@@ -1018,7 +1018,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
             # query job states
             job_ids = [self.job_data.jobs[job_num]["job_id"] for job_num in active_jobs]
-            if self.job_manager.job_grouping:
+            if self.job_manager.job_grouping_query:
                 query_data = self.job_manager.query_group(job_ids, **query_kwargs)
             else:
                 query_data = self.job_manager.query_batch(job_ids, **query_kwargs)
@@ -1251,11 +1251,11 @@ class BaseRemoteWorkflow(BaseWorkflow):
     """
     Opinionated base class for remote workflows that works in 2 phases:
 
-       1. Create and submit *m* jobs that process *n* tasks. Submission information (mostly job ids)
-       is stored in the so-called *jobs* file, which is an output target of this workflow.
+        1. Create and submit *m* jobs that process *n* tasks. Submission information (mostly job ids)
+        is stored in the so-called *jobs* file, which is an output target of this workflow.
 
-       2. Use the job data and start status polling. When done, status data is stored alongside the
-       submission information in the same *jobs* file.
+        2. Use the job data and start status polling. When done, status data is stored alongside the
+        submission information in the same *jobs* file.
 
     .. py:classattribute:: check_unreachable_acceptance
 
