@@ -8,8 +8,6 @@
 import os
 import sys
 
-from luigi.cmdline import luigi_run
-
 from law.config import Config
 from law.task.base import Task
 from law.util import abort
@@ -90,6 +88,7 @@ def execute(args, argv):
         abort("task '{}' not found".format(args.task_family))
 
     # run luigi
+    from luigi.cmdline import luigi_run
     sys.argv[0] += " run"
     luigi_run([task_family] + argv[3:])
 

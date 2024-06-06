@@ -26,7 +26,7 @@ _law_complete() {
     local index_file="${LAW_INDEX_FILE:-${law_home}/index}"
 
     # common parameters
-    local common_params="run index config software completion location quickstart --help --version"
+    local common_params="run index config software completion location quickstart luigid --help --version"
 
     # the current word
     local cur="${COMP_WORDS[COMP_CWORD]}"
@@ -199,6 +199,14 @@ _law_complete() {
     # complete the "quickstart" subcommand
     elif [ "${sub_cmd}" = "quickstart" ]; then
         local words="help directory no-tasks no-config no-setup"
+        local inp="${cur##-}"
+        inp="${inp##-}"
+        COMPREPLY=( $( compgen -W "$( echo ${words} )" -P "--" -- "${inp}" ) )
+        return "0"
+
+    # complete the "luigid" subcommand
+    elif [ "${sub_cmd}" = "luigid" ]; then
+        local words="help background pidfile logdir state-path address unix-socket port"
         local inp="${cur##-}"
         inp="${inp##-}"
         COMPREPLY=( $( compgen -W "$( echo ${words} )" -P "--" -- "${inp}" ) )
