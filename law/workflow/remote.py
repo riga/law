@@ -591,10 +591,12 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             self.dashboard.apply_config(self.job_data.dashboard_config)
 
         # store the initially complete branches
+        outputs_existing = False
         if "collection" in self._outputs:
             collection = self._outputs["collection"]
             count, keys = collection.count(keys=True)
             self._initially_existing_branches = keys
+            outputs_existing = count >= collection._abs_threshold()
 
         # cancel jobs?
         if self._cancel_jobs:
@@ -608,6 +610,10 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             if self._submitted:
                 self.cleanup()
             self._controlled_jobs = True
+            return
+
+        # were all outputs already existing?
+        if outputs_existing:
             return
 
         # from here on, submit and/or wait while polling
