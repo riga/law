@@ -12,7 +12,7 @@ from argparse import ArgumentParser
 import law
 
 
-progs = ["run", "index", "config", "software", "completion", "location", "quickstart"]
+progs = ["run", "index", "config", "software", "completion", "location", "quickstart", "luigid"]
 
 
 def run(argv=None):
@@ -51,13 +51,14 @@ def run(argv=None):
     # argv that is passed to the prog execution when set
     prog_argv = None
 
-    # parse args and dispatch execution, with "run" being a special case
+    # parse args and dispatch execution, considering some special cases
     prog = argv[0] if argv else None
     if prog == "run":
-        # only pass the prog and the task family to the parser
-        # and let luigi's parsing handle the rest downstream in execute
         args = parser.parse_args(argv[:2])
         prog_argv = ["law run"] + argv
+    elif prog == "luigid":
+        args = parser.parse_args(argv[:1])
+        prog_argv = ["law luigid"] + argv
     else:
         args = parser.parse_args(argv)
 

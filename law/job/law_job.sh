@@ -456,7 +456,6 @@ law_job() {
     fi
 
     # handle input file rendering
-    local render_ret
     render_variables="$( echo "${render_variables}" | base64 --decode )"
     if [ "${#input_files_render[@]}" != "0" ] && [ ! -z "${render_variables}" ] && [ "${render_variables}" != "-" ]; then
         echo
@@ -473,14 +472,16 @@ law_job() {
             [ "${input_file_render:0:1}" != "/" ] && input_file_render="${LAW_JOB_INIT_DIR}/${input_file_render}"
             # render
             echo "render ${input_file_render}"
-            _law_python -c "\
-import re;\
-repl = ${render_variables};\
-content = open('${input_file_render}', 'r').read();\
-content = re.sub(r'\{\{(\w+)\}\}', lambda m: repl.get(m.group(1), ''), content);\
-open('${input_file_render_base}', 'w').write(content);\
-"
-            render_ret="$?"
+            cat > _render.py << EOT
+import re
+repl = ${render_variables}
+content = open('${input_file_render}', 'r').read()
+content = re.sub(r'\{\{(\w+)\}\}', lambda m: repl.get(m.group(1), ''), content)
+open('${input_file_render_base}', 'w').write(content)
+EOT
+            _law_python _render.py
+            local render_ret="$?"
+            rm -f _render.py
             # handle rendering errors
             if [ "${render_ret}" != "0" ]; then
                 >&2 echo "input file rendering failed (exit code ${render_ret}), stop job"
@@ -602,10 +603,10 @@ start_law_job() {
             law_job "$@"
         elif command -v tee &> /dev/null; then
             set -o pipefail
-            echo -e "" > "${log_file}"
+            echo "---" >> "${log_file}"
             law_job "$@" 2>&1 | tee -a "${log_file}"
         else
-            echo -e "" > "${log_file}"
+            echo "---" >> "${log_file}"
             law_job "$@" &>> "${log_file}"
         fi
     fi

@@ -30,15 +30,24 @@ _cfg = Config.instance()
 
 class HTCondorJobManager(BaseJobManager):
 
-    # whether to merge jobs files for batched submission
-    merge_job_files = _cfg.get_expanded_bool("job", "htcondor_merge_job_files")
+    # whether to use job grouping or batched submission
+    job_grouping_submit = _cfg.get_expanded_bool("job", "htcondor_job_grouping_submit")
 
-    # chunking settings
-    chunk_size_submit = (
-        _cfg.get_expanded_int("job", "htcondor_chunk_size_submit")
-        if merge_job_files
-        else 0
-    )
+    # settings depending on job grouping or batched submission
+    merge_job_files = False
+    chunk_size_submit = 0
+    if not job_grouping_submit:
+        # whether to merge jobs files for batched submission
+        merge_job_files = _cfg.get_expanded_bool("job", "htcondor_merge_job_files")
+
+        # chunking for batched submission
+        chunk_size_submit = (
+            _cfg.get_expanded_int("job", "htcondor_chunk_size_submit")
+            if merge_job_files
+            else 0
+        )
+
+    # other chunking settings
     chunk_size_cancel = _cfg.get_expanded_int("job", "htcondor_chunk_size_cancel")
     chunk_size_query = _cfg.get_expanded_int("job", "htcondor_chunk_size_query")
 
@@ -66,7 +75,28 @@ class HTCondorJobManager(BaseJobManager):
     def cleanup_batch(self, *args, **kwargs):
         raise NotImplementedError("HTCondorJobManager.cleanup_batch is not implemented")
 
-    def submit(self, job_file, pool=None, scheduler=None, retries=0, retry_delay=3, silent=False):
+    def submit(self, job_file, job_files=None, pool=None, scheduler=None, retries=0, retry_delay=3,
+            silent=False):
+        # signature is the superset for both grouped and batched submission, and the dispatching to
+        # the actual submission implementation is based on the presence of job_files
+        kwargs = {
+            "pool": pool,
+            "scheduler": scheduler,
+            "retries": retries,
+            "retry_delay": retry_delay,
+            "silent": silent,
+        }
+
+        if job_files is None:
+            func = self._submit_impl_batched
+        else:
+            kwargs["job_files"] = job_files
+            func = self._submit_impl_grouped
+
+        return func(job_file, **kwargs)
+
+    def _submit_impl_batched(self, job_file, pool=None, scheduler=None, retries=0, retry_delay=3,
+            silent=False):
         # default arguments
         if pool is None:
             pool = self.pool
@@ -158,6 +188,62 @@ class HTCondorJobManager(BaseJobManager):
 
             raise Exception("submission of htcondor job(s) '{}' failed:\n{}".format(
                 job_files_repr, err))
+
+    def _submit_impl_grouped(self, job_file, job_files=None, pool=None, scheduler=None, retries=0,
+            retry_delay=3, silent=False):
+        # default arguments
+        if pool is None:
+            pool = self.pool
+        if scheduler is None:
+            scheduler = self.scheduler
+
+        # build the command
+        cmd = ["condor_submit"]
+        if pool:
+            cmd += ["-pool", pool]
+        if scheduler:
+            cmd += ["-name", scheduler]
+        cmd.append(os.path.basename(job_file))
+        cmd = quote_cmd(cmd)
+
+        # define the actual submission in a loop to simplify retries
+        while True:
+            # run the command
+            logger.debug("submit htcondor job with command '{}'".format(cmd))
+            code, out, err = interruptable_popen(cmd, shell=True, executable="/bin/bash",
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=os.path.dirname(job_file))
+
+            # get the job id(s)
+            if code == 0:
+                # loop through all lines and try to match the expected pattern
+                job_ids = []
+                for line in out.strip().split("\n"):
+                    m = self.submission_job_id_cre.match(line.strip())
+                    if m:
+                        job_ids.extend([
+                            "{}.{}".format(m.group(2), i)
+                            for i in range(int(m.group(1)))
+                        ])
+                if not job_ids:
+                    code = 1
+                    err = "cannot parse htcondor job id(s) from output:\n{}".format(out)
+
+            # retry or done?
+            if code == 0:
+                return job_ids
+
+            logger.debug("submission of htcondor job(s) '{}' failed with code {}:\n{}".format(
+                job_file, code, err))
+
+            if retries > 0:
+                retries -= 1
+                time.sleep(retry_delay)
+                continue
+
+            if silent:
+                return None
+
+            raise Exception("submission of htcondor job(s) '{}' failed:\n{}".format(job_file, err))
 
     def cancel(self, job_id, pool=None, scheduler=None, silent=False):
         # default arguments
@@ -344,13 +430,13 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
 
     config_attrs = BaseJobFileFactory.config_attrs + [
         "file_name", "command", "executable", "arguments", "input_files", "output_files", "log",
-        "stdout", "stderr", "postfix_output_files", "universe", "notification", "custom_content",
-        "absolute_paths",
+        "stdout", "stderr", "postfix_output_files", "postfix", "universe",
+        "notification", "custom_content", "absolute_paths",
     ]
 
     def __init__(self, file_name="htcondor_job.jdl", command=None, executable=None, arguments=None,
             input_files=None, output_files=None, log="log.txt", stdout="stdout.txt",
-            stderr="stderr.txt", postfix_output_files=True, universe="vanilla",
+            stderr="stderr.txt", postfix_output_files=True, postfix=None, universe="vanilla",
             notification="Never", custom_content=None, absolute_paths=False, **kwargs):
         # get some default kwargs from the config
         cfg = Config.instance()
@@ -376,18 +462,28 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
         self.stdout = stdout
         self.stderr = stderr
         self.postfix_output_files = postfix_output_files
+        self.postfix = postfix
         self.universe = universe
         self.notification = notification
         self.custom_content = custom_content
         self.absolute_paths = absolute_paths
 
-    def create(self, postfix=None, **kwargs):
+    def create(self, grouped_submission=False, **kwargs):
         # merge kwargs and instance attributes
         c = self.get_config(**kwargs)
 
         # some sanity checks
         if not c.file_name:
             raise ValueError("file_name must not be empty")
+        if not c.arguments:
+            raise ValueError("arguments must not be empty")
+        c.arguments = make_list(c.arguments)
+        if grouped_submission and c.postfix:
+            c.postfix = make_list(c.postfix)
+            if len(c.postfix) != len(c.arguments):
+                raise ValueError("number of postfixes does not match the number of arguments")
+        if c.postfix_output_files and not c.postfix:
+            raise ValueError("postfix must not be empty when postfix_output_files is set")
         if not c.command and not c.executable:
             raise ValueError("either command or executable must not be empty")
         if not c.universe:
@@ -398,6 +494,7 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
             c.output_files.append(c.custom_log_file)
 
         # postfix certain output files
+        postfix = "$(law_job_postfix)" if grouped_submission else c.postfix
         c.output_files = list(map(str, c.output_files))
         if c.postfix_output_files:
             skip_postfix_cre = re.compile(r"^(/dev/).*$")
@@ -438,7 +535,7 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
             # copy the file
             abs_path = self.provide_input(
                 src=abs_path,
-                postfix=postfix if f.postfix and not f.share else None,
+                postfix=c.postfix if not grouped_submission and f.postfix and not f.share else None,
                 dir=c.dir,
                 skip_existing=f.share,
             )
@@ -496,14 +593,24 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
             c.render_variables["log_file"] = c.custom_log_file
 
         # add the file postfix to render variables
-        if postfix and "file_postfix" not in c.render_variables:
-            c.render_variables["file_postfix"] = postfix
+        # (this is done in the wrapper script for grouped submission)
+        if not grouped_submission and c.postfix and "file_postfix" not in c.render_variables:
+            c.render_variables["file_postfix"] = c.postfix
+
+        # inject arguments into the htcondor wrapper via render variables
+        if grouped_submission:
+            c.render_variables["htcondor_job_arguments_map"] = ("\n" + 8 * " ").join(
+                "['{}']=\"{}\"".format(i + 1, str(args))
+                for i, args in enumerate(c.arguments)
+            )
 
         # linearize render variables
         render_variables = self.linearize_render_variables(c.render_variables)
 
         # prepare the job description file
-        job_file = self.postfix_input_file(os.path.join(c.dir, str(c.file_name)), postfix)
+        job_file = os.path.join(c.dir, str(c.file_name))
+        if not grouped_submission:
+            job_file = self.postfix_input_file(job_file, c.postfix)
 
         # render copied, non-forwarded input files
         for key, f in c.input_files.items():
@@ -513,7 +620,7 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
                 f.path_sub_abs,
                 f.path_sub_abs,
                 render_variables,
-                postfix=postfix if f.postfix else None,
+                postfix=c.postfix if not grouped_submission and f.postfix else None,
             )
 
         # prepare the executable when given
@@ -524,13 +631,21 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
             if os.path.exists(path):
                 os.chmod(path, os.stat(path).st_mode | stat.S_IXUSR | stat.S_IXGRP)
 
+        # helper to encode lists
+        def encode_list(items, sep=" ", quote=True):
+            items = make_list(items)
+            s = sep.join(map(str, items))
+            if quote:
+                s = "\"{}\"".format(s)  # noqa: Q003
+            return s
+
         # job file content
         content = []
         content.append(("universe", c.universe))
         if c.command:
             cmd = quote_cmd(c.command) if isinstance(c.command, (list, tuple)) else c.command
             content.append(("executable", cmd))
-        elif c.executable:
+        else:
             content.append(("executable", c.executable))
         if c.log:
             content.append(("log", c.log))
@@ -541,13 +656,21 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
         if c.input_files or c.output_files:
             content.append(("should_transfer_files", "YES"))
         if c.input_files:
-            content.append(("transfer_input_files", make_unique(
-                f.path_sub_rel
-                for f in c.input_files.values()
-                if f.path_sub_rel
+            content.append(("transfer_input_files", encode_list(
+                make_unique(
+                    f.path_sub_rel
+                    for f in c.input_files.values()
+                    if f.path_sub_rel
+                ),
+                sep=",",
+                quote=False,
             )))
         if c.output_files:
-            content.append(("transfer_output_files", make_unique(c.output_files)))
+            content.append(("transfer_output_files", encode_list(
+                make_unique(c.output_files),
+                sep=",",
+                quote=False,
+            )))
             content.append(("when_to_transfer_output", "ON_EXIT"))
         if c.notification:
             content.append(("notification", c.notification))
@@ -556,9 +679,33 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
         if c.custom_content:
             content += c.custom_content
 
-        # finally arguments and queuing statements
-        if c.arguments:
-            for _arguments in make_list(c.arguments):
+        # add htcondor specific env variables
+        env_vars = []
+        _content = []
+        for obj in content:
+            if isinstance(obj, tuple) and len(obj) == 2 and obj[0].lower() == "environment":
+                env_vars.append(obj[1].strip("\""))  # noqa: Q003
+            else:
+                _content.append(obj)
+        content = _content
+        # add new ones and add back to content
+        env_vars.append("LAW_HTCONDOR_JOB_CLUSTER=$(Cluster)")
+        env_vars.append("LAW_HTCONDOR_JOB_PROCESS=$(Process)")
+        content.append(("environment", encode_list(env_vars, sep=" ", quote=True)))
+
+        # queue
+        if grouped_submission:
+            content.append("queue law_job_postfix, arguments from (")
+            for i in range(len(c.arguments)):
+                pf = log = "''"
+                if c.postfix_output_files:
+                    pf = c.postfix[i]
+                    if c.custom_log_file:
+                        log = c.custom_log_file
+                content.append("    {0}, {0} {1}".format(pf, log))
+            content.append(")")
+        elif c.arguments:
+            for _arguments in c.arguments:
                 content.append(("arguments", _arguments))
                 content.append("queue")
         else:
@@ -576,9 +723,6 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
 
     @classmethod
     def create_line(cls, key, value=None):
-        if isinstance(value, (list, tuple)):
-            value = ",".join(str(v) for v in value)
         if value is None:
             return str(key)
-        else:
-            return "{} = {}".format(key, value)
+        return "{} = {}".format(key, value)

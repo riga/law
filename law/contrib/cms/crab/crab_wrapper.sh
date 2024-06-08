@@ -158,15 +158,17 @@ EOF
         [ "${input_file_render_base}" = "${this_file_base}" ] && continue
         # render
         echo "render ${input_file_render}"
-        _law_python -c "\
-import re;\
-repl = ${render_variables};\
-repl['input_files_render'] = '';\
-content = open('${input_file_render}', 'r').read();\
-content = re.sub(r'\{\{(\w+)\}\}', lambda m: repl.get(m.group(1), ''), content);\
-open('${input_file_render_base}', 'w').write(content);\
-"
+        cat > _render.py << EOT
+import re
+repl = ${render_variables}
+repl['input_files_render'] = ''
+content = open('${input_file_render}', 'r').read()
+content = re.sub(r'\{\{(\w+)\}\}', lambda m: repl.get(m.group(1), ''), content)
+open('${input_file_render_base}', 'w').write(content)
+EOT
+        _law_python _render.py
         local render_ret="$?"
+        rm -f _render.py
         # handle rendering errors
         if [ "${render_ret}" != "0" ]; then
             >&2 echo "input file rendering failed with code ${render_ret}"

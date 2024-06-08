@@ -14,12 +14,12 @@ from collections import OrderedDict
 import luigi
 
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
-from law.job.base import JobArguments, JobInputFile, DeprecatedInputFiles
+from law.job.base import JobArguments, JobInputFile
 from law.task.proxy import ProxyCommand
 from law.target.file import get_path, get_scheme, FileSystemDirectoryTarget
 from law.target.local import LocalDirectoryTarget
 from law.parameter import NO_STR
-from law.util import law_src_path, merge_dicts, DotDict
+from law.util import law_src_path, merge_dicts, DotDict, rel_path
 from law.logger import get_logger
 
 from law.contrib.htcondor.job import HTCondorJobManager, HTCondorJobFileFactory
@@ -38,28 +38,38 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
     def create_job_file_factory(self, **kwargs):
         return self.task.htcondor_create_job_file_factory(**kwargs)
 
-    def create_job_file(self, job_num, branches):
+    def create_job_file(self, *args):
         task = self.task
 
-        # the file postfix is pythonic range made from branches, e.g. [0, 1, 2, 4] -> "_0To5"
-        postfix = "_{}To{}".format(branches[0], branches[-1] + 1)
+        grouped_submission = len(args) == 1
+        if grouped_submission:
+            submit_jobs = args[0]
+        else:
+            job_num, branches = args
 
         # create the config
         c = self.job_file_factory.get_config()
-        c.input_files = DeprecatedInputFiles()
+        c.input_files = {}
         c.output_files = []
         c.render_variables = {}
         c.custom_content = []
 
-        # get the actual wrapper file that will be executed by the remote job
-        wrapper_file = task.htcondor_wrapper_file()
+        # get the actual wrapper and job file that will be executed by the remote job
         law_job_file = task.htcondor_job_file()
-        if wrapper_file and get_path(wrapper_file) != get_path(law_job_file):
+        c.input_files["job_file"] = law_job_file
+        if grouped_submission:
+            # grouped wrapper file
+            wrapper_file = task.htcondor_group_wrapper_file()
             c.input_files["executable_file"] = wrapper_file
             c.executable = wrapper_file
         else:
-            c.executable = law_job_file
-        c.input_files["job_file"] = law_job_file
+            # standard wrapper file
+            wrapper_file = task.htcondor_wrapper_file()
+            if wrapper_file and get_path(wrapper_file) != get_path(law_job_file):
+                c.input_files["executable_file"] = wrapper_file
+                c.executable = wrapper_file
+            else:
+                c.executable = law_job_file
 
         # collect task parameters
         exclude_args = (
@@ -70,7 +80,7 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
             {"workflow", "effective_workflow"}
         )
         proxy_cmd = ProxyCommand(
-            task.as_branch(branches[0]),
+            task.as_branch(0 if grouped_submission else branches[0]),
             exclude_task_args=exclude_args,
             exclude_global_args=["workers", "local-scheduler", task.task_family + "-*"],
         )
@@ -79,17 +89,34 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         for key, value in OrderedDict(task.htcondor_cmdline_args()).items():
             proxy_cmd.add_arg(key, value, overwrite=True)
 
-        # job script arguments
-        job_args = JobArguments(
-            task_cls=task.__class__,
-            task_params=proxy_cmd.build(skip_run=True),
-            branches=branches,
-            workers=task.job_workers,
-            auto_retry=False,
-            dashboard_data=self.dashboard.remote_hook_data(
-                job_num, self.job_data.attempts.get(job_num, 0)),
-        )
-        c.arguments = job_args.join()
+        # the file postfix is pythonic range made from branches, e.g. [0, 1, 2, 4] -> "_0To5"
+        if grouped_submission:
+            c.postfix = [
+                "_{}To{}".format(branches[0], branches[-1] + 1)
+                for branches in submit_jobs.values()
+            ]
+        else:
+            c.postfix = "_{}To{}".format(branches[0], branches[-1] + 1)
+
+        # job script arguments per job number
+        def get_job_args(job_num, branches):
+            return JobArguments(
+                task_cls=task.__class__,
+                task_params=proxy_cmd.build(skip_run=True),
+                branches=branches,
+                workers=task.job_workers,
+                auto_retry=False,
+                dashboard_data=self.dashboard.remote_hook_data(
+                    job_num, self.job_data.attempts.get(job_num, 0)),
+            )
+
+        if grouped_submission:
+            c.arguments = [
+                get_job_args(job_num, branches).join()
+                for job_num, branches in submit_jobs.items()
+            ]
+        else:
+            c.arguments = get_job_args(job_num, branches).join()
 
         # add the bootstrap file
         bootstrap_file = task.htcondor_bootstrap_file()
@@ -128,14 +155,17 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
             c.custom_content.append(("initialdir", output_dir.abspath))
 
         # task hook
-        c = task.htcondor_job_config(c, job_num, branches)
+        if grouped_submission:
+            c = task.htcondor_job_config(c, list(submit_jobs.keys()), list(submit_jobs.values()))
+        else:
+            c = task.htcondor_job_config(c, job_num, branches)
 
         # when the output dir is not local, direct output files are not possible
         if not output_dir_is_local:
             del c.output_files[:]
 
         # build the job file and get the sanitized config
-        job_file, c = self.job_file_factory(postfix=postfix, **c.__dict__)
+        job_file, c = self.job_file_factory(grouped_submission=grouped_submission, **c.__dict__)
 
         # get the location of the custom local log file if any
         abs_log_file = None
@@ -144,6 +174,26 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
 
         # return job and log files
         return {"job": job_file, "config": c, "log": abs_log_file}
+
+    def _submit_group(self, *args, **kwargs):
+        job_ids, submission_data = super(HTCondorWorkflowProxy, self)._submit_group(*args, **kwargs)
+
+        # when a log file is present, replace certain htcondor variables
+        for i, (job_id, data) in enumerate(zip(job_ids, submission_data.values())):
+            log = data.get("log")
+            if not log:
+                continue
+            # replace Cluster, ClusterId, Process, ProcId
+            c, p = job_id.split(".")
+            log = log.replace("$(Cluster)", c).replace("$(ClusterId)", c)
+            log = log.replace("$(Process)", p).replace("$(ProcId)", p)
+            # replace law_job_postfix
+            if data["config"].postfix_output_files and data["config"].postfix:
+                log = log.replace("$(law_job_postfix)", data["config"].postfix[i])
+            # add back
+            data["log"] = log
+
+        return job_ids, submission_data
 
     def destination_info(self):
         info = super(HTCondorWorkflowProxy, self).destination_info()
@@ -196,14 +246,34 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
     def htcondor_workflow_requires(self):
         return DotDict()
 
+    def htcondor_job_resources(self, job_num, branches):
+        """
+        Hook to define resources for a specific job with number *job_num*, processing *branches*.
+        This method should return a dictionary.
+        """
+        return {}
+
     def htcondor_bootstrap_file(self):
         return None
+
+    def htcondor_group_wrapper_file(self):
+        # only used for grouped submissions
+        return JobInputFile(
+            path=rel_path(__file__, "htcondor_wrapper.sh"),
+            copy=True,
+            render_local=True,
+        )
 
     def htcondor_wrapper_file(self):
         return None
 
     def htcondor_job_file(self):
-        return JobInputFile(law_src_path("job", "law_job.sh"))
+        return JobInputFile(
+            path=law_src_path("job", "law_job.sh"),
+            copy=True,
+            share=True,
+            render_job=True,
+        )
 
     def htcondor_stageout_file(self):
         return None

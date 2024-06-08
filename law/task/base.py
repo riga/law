@@ -8,7 +8,6 @@ __all__ = ["Task", "WrapperTask", "ExternalTask"]
 
 
 import sys
-import socket
 import logging
 from collections import OrderedDict
 from contextlib import contextmanager
@@ -86,12 +85,6 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
     exclude_params_req_set = set()
     exclude_params_req_get = set()
     prefer_params_cli = set()
-
-    @staticmethod
-    def resource_name(name, host=None):
-        if host is None:
-            host = socket.gethostname().partition(".")[0]
-        return "{}_{}".format(host, name)
 
     @classmethod
     def deregister(cls, task_cls=None):
