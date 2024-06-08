@@ -76,7 +76,7 @@ class BaseWorkflowProxy(ProxyTask):
 
         self._workflow_has_reset_branch_map = False
 
-    def _get_task_attribute(self, name, fallback=False):
+    def _get_task_attribute(self, name, fallback=True):
         """
         Return an attribute of the actual task named ``<workflow_type>_<name>``. When the attribute
         does not exist and *fallback* is *True*, try to return the task attribute simply named
@@ -88,10 +88,9 @@ class BaseWorkflowProxy(ProxyTask):
         if isinstance(name, (list, tuple)):
             attributes = name
         else:
-            attributes = [
-                "{}_{}".format(self.workflow_type, name),
-                name,
-            ]
+            attributes = ["{}_{}".format(self.workflow_type, name)]
+            if fallback:
+                attributes.append(name)
 
         for attr in attributes:
             value = getattr(self.task, attr, no_value)

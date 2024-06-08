@@ -236,6 +236,10 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         # intially, set the number of parallel jobs which might change at some piont
         self._set_parallel_jobs(task.parallel_jobs)
 
+        # cache of process resources per job number, set initially during the first call to
+        # process_resources()
+        self._initial_process_resources = None
+
     @property
     def job_data_cls(self):
         return JobData
@@ -496,6 +500,59 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 print("    {n_jobs} jobs ({n_branches} branches) with {summary_line}".format(
                     summary_line=summary_line, **stats))
 
+    @classmethod
+    def merge_resources(cls, resources):
+        merged = defaultdict(int)
+        for res in (resources.values() if isinstance(resources, dict) else resources):
+            for name, count in res.items():
+                merged[name] += count
+        return merged
+
+    @classmethod
+    def _maximum_resources(cls, resources, n_parallel):
+        # cap by the maximum number of parallel jobs, but in a way such that maximizes the sum of
+        # all possible resources that could be claimed at any given point in time
+        # (for evenly distributed resources across jobs, this would not be necessary)
+        if isinstance(resources, dict):
+            resources = list(resources.values())
+
+        # get all possible keys
+        keys = set.union(*(set(r.keys()) for r in resources))
+
+        # flatten and sort by increasing counts, then select the n_parallel last ones
+        flat_resources = sorted([
+            tuple(r.get(k, 0) for k in keys)
+            for r in resources
+        ])[-n_parallel:]
+
+        # create sums across counts
+        merged_counts = [
+            sum(r[i] for r in flat_resources)
+            for i in range(len(flat_resources[0]))
+        ]
+
+        return dict(zip(keys, merged_counts))
+
+    def process_resources(self, force=False):
+        if self._initial_process_resources is None or force:
+            task = self.task
+
+            job_resources = {}
+            get_job_resources = self._get_task_attribute("job_resources")
+
+            branch_chunks = iter_chunks(task.branch_map.keys(), task.tasks_per_job)
+            for job_num, branches in enumerate(branch_chunks, 1):
+                if self._can_skip_job(job_num, branches):
+                    continue
+                job_resources[job_num] = get_job_resources(job_num, branches)
+
+            self._initial_process_resources = job_resources
+
+        if not self._initial_process_resources:
+            return {}
+
+        return self._maximum_resources(self._initial_process_resources, self.poll_data.n_parallel)
+
     def complete(self):
         if self.task.is_controlling_remote_jobs():
             return self._controlled_jobs
@@ -560,7 +617,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         logger.debug("job data dumped")
 
     def get_run_context(self):
-        return self._get_task_attribute("workflow_run_context", fallback=True)()
+        return self._get_task_attribute("workflow_run_context")()
 
     def run(self):
         with self.get_run_context():
@@ -641,7 +698,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
             # sleep once to give the job interface time to register the jobs
             if not self._submitted and not task.no_poll:
-                post_submit_delay = self._get_task_attribute("post_submit_delay", True)()
+                post_submit_delay = self._get_task_attribute("post_submit_delay")()
                 if post_submit_delay > 0:
                     logger.debug("sleep for {} second(s) due to post_submit_delay".format(
                         post_submit_delay))
@@ -878,7 +935,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         job_files = [f["job"] for f in six.itervalues(all_job_files)]
 
         # prepare objects for dumping intermediate job data
-        dump_freq = self._get_task_attribute("dump_intermediate_job_data", True)()
+        dump_freq = self._get_task_attribute("dump_intermediate_job_data")()
         if dump_freq and not is_number(dump_freq):
             dump_freq = 50
 
@@ -964,6 +1021,11 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         # track finished and failed jobs in dicts holding status data
         finished_jobs = []
         failed_jobs = []
+
+        # the resources of yet unfinished jobs as claimed initially and reported to the scheduler
+        # and the maximum amount resources potentially claimed by the jobs
+        job_resources = dict(self._initial_process_resources)
+        max_resources = self._maximum_resources(job_resources, self.poll_data.n_parallel)
 
         # track number of consecutive polling failures and the start time
         n_poll_fails = 0
@@ -1190,6 +1252,21 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             # inform the scheduler about the progress
             task.publish_progress(100.0 * n_finished / n_jobs)
 
+            # remove resources of finished and failed jobs
+            for job_num in finished_jobs + failed_jobs:
+                job_resources.pop(job_num, None)
+            # check if the maximum possible resources decreased and report to the scheduler
+            new_max_resources = self._maximum_resources(job_resources, self.poll_data.n_parallel)
+            decreased_resources = {}
+            for key, value in max_resources.items():
+                diff = value - new_max_resources.get(key, 0)
+                if diff > 0:
+                    decreased_resources[key] = diff
+            if decreased_resources:
+                task.decrease_running_resources(decreased_resources)
+            # some resources might even have increased (due to post-facto, user induced changes)
+            max_resources = new_max_resources
+
             # print newly failed jobs
             if newly_failed_jobs:
                 self._print_status_errors({
@@ -1229,7 +1306,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                     raise Exception(err.format(self.poll_data.n_finished_min, n_jobs, n_failed))
 
             # invoke the poll callback
-            poll_callback_res = self._get_task_attribute("poll_callback", True)(self.poll_data)
+            poll_callback_res = self._get_task_attribute("poll_callback")(self.poll_data)
             if poll_callback_res is False:
                 logger.debug(
                     "job polling loop gracefully stopped due to False returned by poll_callback",
@@ -1285,6 +1362,14 @@ class BaseRemoteWorkflow(BaseWorkflow):
         When *True*, jobs to retry are added to the end of the jobs to submit, giving priority to
         new ones. However, when *shuffle_jobs* is *True*, they might be submitted again earlier.
         Defaults to *False*.
+
+    .. py:classattribute:: include_member_resources
+
+        type: bool
+
+        When *True*, the task resources defined in :py:meth:`process_resources` will contain the
+        the ones defined in the :py:attr:`resources` instance or class attribute. Defaults to
+        *False*.
 
     .. py:classattribute:: retries
 
@@ -1449,6 +1534,7 @@ class BaseRemoteWorkflow(BaseWorkflow):
     check_unreachable_acceptance = False
     align_polling_status_line = False
     append_retry_jobs = False
+    include_member_resources = False
 
     exclude_index = True
 
@@ -1460,6 +1546,23 @@ class BaseRemoteWorkflow(BaseWorkflow):
     exclude_params_repr = {"cancel_jobs", "cleanup_jobs"}
 
     exclude_params_remote_workflow = set()
+
+    def process_resources(self):
+        """
+        Method used by luigi to define the resources required when running this task to include into
+        scheduling rules when using the central scheduler.
+        """
+        resources = self.workflow_proxy.process_resources()
+        if self.include_member_resources:
+            resources.update(self.resources)
+        return resources
+
+    def job_resources(self, job_num, branches):
+        """
+        Hook to define resources for a specific job with number *job_num*, processing *branches*.
+        This method should return a dictionary.
+        """
+        return {}
 
     @contextlib.contextmanager
     def workflow_run_context(self):

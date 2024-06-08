@@ -246,6 +246,13 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
     def htcondor_workflow_requires(self):
         return DotDict()
 
+    def htcondor_job_resources(self, job_num, branches):
+        """
+        Hook to define resources for a specific job with number *job_num*, processing *branches*.
+        This method should return a dictionary.
+        """
+        return {}
+
     def htcondor_bootstrap_file(self):
         return None
 
