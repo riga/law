@@ -12,6 +12,7 @@ from law._types import Any
 def config_defaults(default_config: dict) -> dict[str, dict[str, Any]]:
     return {
         "job": {
+            "htcondor_job_grouping_submit": True,
             "htcondor_job_file_dir": None,
             "htcondor_job_file_dir_mkdtemp": None,
             "htcondor_job_file_dir_cleanup": False,

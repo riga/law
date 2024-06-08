@@ -60,7 +60,10 @@ class CrabJobManager(BaseJobManager):
 
     log_file_pattern = "https://cmsweb.cern.ch:8443/scheddmon/{scheduler_id}/{user}/{task_name}/job_out.{crab_num}.{attempt}.txt"  # noqa
 
-    job_grouping = True
+    job_grouping_submit = True
+    job_grouping_query = True
+    job_grouping_cancel = True
+    job_grouping_cleanup = True
 
     JobId = collections.namedtuple("JobId", ["crab_num", "task_name", "proj_dir"])
 

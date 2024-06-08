@@ -169,7 +169,7 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
             c.custom_log_file = log_file
 
         # task hook
-        c = task.crab_job_config(c, submit_jobs)
+        c = task.crab_job_config(c, list(submit_jobs.keys()), list(submit_jobs.values()))
 
         # build the job file and get the sanitized config
         job_file, c = self.job_file_factory(**c.__dict__)  # type: ignore[misc]

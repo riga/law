@@ -10,7 +10,6 @@ __all__ = ["Task", "WrapperTask", "ExternalTask"]
 
 import sys
 import time
-import socket
 import pathlib
 import logging
 import contextlib
@@ -92,12 +91,6 @@ class BaseTask(luigi.Task, metaclass=BaseRegister):
 
     # whether to cache the result of requires() for input() and potentially also other calls
     cache_requirements = False
-
-    @classmethod
-    def resource_name(cls, name: str, host: str | None = None) -> str:
-        if host is None:
-            host = socket.gethostname().partition(".")[0]
-        return f"{host}_{name}"
 
     @classmethod
     def deregister(cls, task_cls: BaseRegister | None = None) -> bool:

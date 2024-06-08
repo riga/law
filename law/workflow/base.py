@@ -89,7 +89,9 @@ class BaseWorkflowProxy(ProxyTask):
         if isinstance(name, (list, tuple)):
             attributes = name
         else:
-            attributes = [f"{self.workflow_type}_{name}", name]
+            attributes = [f"{self.workflow_type}_{name}"]
+            if fallback:
+                attributes.append(name)
 
         for attr in attributes:
             value = getattr(self.task, attr, no_value)
