@@ -617,7 +617,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         logger.debug("job data dumped")
 
     def get_run_context(self):
-        return self._get_task_attribute("workflow_run_context")()
+        return self._get_task_attribute("workflow_run_context", fallback=True)()
 
     def run(self):
         with self.get_run_context():
@@ -698,7 +698,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
             # sleep once to give the job interface time to register the jobs
             if not self._submitted and not task.no_poll:
-                post_submit_delay = self._get_task_attribute("post_submit_delay")()
+                post_submit_delay = self._get_task_attribute("post_submit_delay", fallback=True)()
                 if post_submit_delay > 0:
                     logger.debug("sleep for {} second(s) due to post_submit_delay".format(
                         post_submit_delay))
@@ -935,7 +935,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         job_files = [f["job"] for f in six.itervalues(all_job_files)]
 
         # prepare objects for dumping intermediate job data
-        dump_freq = self._get_task_attribute("dump_intermediate_job_data")()
+        dump_freq = self._get_task_attribute("dump_intermediate_job_data", fallback=True)()
         if dump_freq and not is_number(dump_freq):
             dump_freq = 50
 
@@ -1306,7 +1306,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                     raise Exception(err.format(self.poll_data.n_finished_min, n_jobs, n_failed))
 
             # invoke the poll callback
-            poll_callback_res = self._get_task_attribute("poll_callback")(self.poll_data)
+            poll_callback_res = self._get_task_attribute("poll_callback", fallback=True)(self.poll_data)  # noqa
             if poll_callback_res is False:
                 logger.debug(
                     "job polling loop gracefully stopped due to False returned by poll_callback",
