@@ -853,9 +853,17 @@
 ; existing, the values above are used. The only exception is ``htcondor_job_file_dir_cleanup`` whose
 ; default value is ``False``.
 
+; htcondor_job_grouping_submit
+; Desciption: Whether to use job grouping (cluster submission in HTCondor nomenclature) or not. If
+; not, the standard batched submission is used and settings such as "htcondor_chunk_size_submit" and
+; "htcondor_merge_job_files" are considered.
+; Type: boolean
+; Default: True
+
 ; htcondor_chunk_size_submit
 ; Description: Number of jobs that can be submitted in parallel inside a single call to
-; "law.htcondor.HTCondorJobManager.submit", i.e., in a single ``condor_submit`` command.
+; "law.htcondor.HTCondorJobManager.submit", i.e., in a single "condor_submit" command. Ignored when
+; job grouping is enabled in "htcondor_job_grouping_submit".
 ; Type: ``int``
 ; Default: ``25``
 
@@ -874,8 +882,9 @@
 
 ; htcondor_merge_job_files
 ; Description: A boolean flag that decides whether multiple job description files should be merged
-; into a single file before submission. When ``False``, the ``htcondor_chunk_size_submit`` option is
-; not considered either.
+; into a single file before submission. Ignored when job grouping is enabled in
+; "htcondor_job_grouping_submit". When "False", the "htcondor_chunk_size_submit" option is not
+; considered either.
 ; Type: ``bool``
 ; Default: ``True``
 

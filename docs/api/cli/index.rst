@@ -12,3 +12,5 @@ law.cli
    completion
    config
    software
+   quickstart
+   luigid

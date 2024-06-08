@@ -179,7 +179,7 @@ class TargetCollection(Target):
 
         # simple counting with early stopping criteria for both success and fail cases
         n = 0
-        for i, targets in enumerate(self.iter_existing(**kwargs)):
+        for i, _ in enumerate(self.iter_existing(**kwargs)):
             n += 1
 
             # check for early success
