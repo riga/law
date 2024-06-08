@@ -1637,6 +1637,9 @@ class BaseRemoteWorkflow(BaseWorkflow):
         Method used by luigi to define the resources required when running this task to include into
         scheduling rules when using the central scheduler.
         """
+        if self.is_branch():
+            return super().process_resources()
+
         resources = self.workflow_proxy.process_resources()
         if self.include_member_resources:
             resources.update(self.resources)
