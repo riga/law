@@ -285,7 +285,9 @@ def print_task_status(
             status_lines = status_text.split("\n")
             _print(ooffset + status_lines[0], ooffset)
             for line in status_lines[1:]:
-                _print(ooffset + line, ooffset + ws_cre.match(line).group(1) + fmt["ind"] * " ")
+                m = ws_cre.match(line)
+                line_offset = "" if m is None else m.group(1)
+                _print(ooffset + line, ooffset + line_offset + int(fmt["ind"]) * " ")
 
 
 def print_task_output(task: Task, max_depth: int = 0, scheme: bool = True) -> None:
