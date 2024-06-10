@@ -513,6 +513,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         # cap by the maximum number of parallel jobs, but in a way such that maximizes the sum of
         # all possible resources that could be claimed at any given point in time
         # (for evenly distributed resources across jobs, this would not be necessary)
+        if not resources:
+            return {}
+
         if isinstance(resources, dict):
             resources = list(resources.values())
 
