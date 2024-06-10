@@ -11,6 +11,7 @@ __all__ = [
 
 
 import os
+import re
 
 import six
 
@@ -256,6 +257,9 @@ def print_task_status(task, max_depth=0, target_depth=0, flags=None):
 
         done.append(dep)
 
+        # compiled regex for splitting leading whitespace
+        ws_cre = re.compile(r"^(\s*)(.*)$")
+
         # start the traversing
         for output, _, oprefix, ooffset, _ in _iter_output(
             dep.output(),
@@ -268,7 +272,7 @@ def print_task_status(task, max_depth=0, target_depth=0, flags=None):
             status_lines = status_text.split("\n")
             _print(ooffset + status_lines[0], ooffset)
             for line in status_lines[1:]:
-                _print(ooffset + line, ooffset)
+                _print(ooffset + line, ooffset + ws_cre.match(line).group(1) + fmt["ind"] * " ")
 
 
 def print_task_output(task, max_depth=0, scheme=True):
