@@ -218,10 +218,6 @@ class ForestMerge(LocalWorkflow):
         self._merge_forest: list[dict[int, list[tuple[int, ...]]]] | None = None
         self._leaves_per_tree: list[int] | None = None
 
-        # the merge factor should not be 1
-        if self.merge_factor == 1:
-            raise ValueError("merge factor must not be 1")
-
         # modify_param_values prevents the forest from being a workflow, but still check
         if self.is_forest() and self.is_workflow():
             raise Exception(f"merge forest must not be a workflow, {self} misconfigured")
