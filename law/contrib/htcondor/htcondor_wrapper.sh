@@ -80,7 +80,7 @@ import re
 repl = ${render_variables}
 repl['input_files_render'] = ''
 repl['file_postfix'] = '${file_postfix}' or repl.get('file_postfix', '')
-repl['log_file'] = '${log_file}' or repl.get('log_file', '')
+repl['log_file'] = ''
 content = open('${input_file_render}', 'r').read()
 content = re.sub(r'\{\{(\w+)\}\}', lambda m: repl.get(m.group(1), ''), content)
 open('${input_file_render_base}', 'w').write(content)

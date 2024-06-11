@@ -179,10 +179,11 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         job_ids, submission_data = super(HTCondorWorkflowProxy, self)._submit_group(*args, **kwargs)
 
         # when a log file is present, replace certain htcondor variables
-        for i, (job_id, data) in enumerate(zip(job_ids, submission_data.values())):
+        for i, (job_id, (job_num, data)) in enumerate(zip(job_ids, submission_data.items())):
             log = data.get("log")
             if not log:
                 continue
+            log_orig = log
             # replace Cluster, ClusterId, Process, ProcId
             c, p = job_id.split(".")
             log = log.replace("$(Cluster)", c).replace("$(ClusterId)", c)
@@ -190,8 +191,13 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
             # replace law_job_postfix
             if data["config"].postfix_output_files and data["config"].postfix:
                 log = log.replace("$(law_job_postfix)", data["config"].postfix[i])
-            # add back
+            # nothing to do when the log did not changed
+            if log == log_orig:
+                continue
+            # add back in a shallow copy
+            data = data.copy()
             data["log"] = log
+            submission_data[job_num] = data
 
         return job_ids, submission_data
 
