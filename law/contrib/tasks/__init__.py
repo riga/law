@@ -552,12 +552,13 @@ class ForestMerge(LocalWorkflow):
         inputs = list(self.trace_merge_inputs(inputs) if self.is_leaf() else inputs.values())
 
         # merge
-        self.publish_message(f"start merging {len(inputs)} inputs of node {self.branch_data}")
+        node_position = (self.tree_index,) + self.branch_data
+        self.publish_message(f"start merging {len(inputs)} inputs of node {node_position}")
         self.merge(inputs, self.output())
 
         # remove intermediate nodes
         if not self.is_leaf() and not self.keep_nodes:
-            msg = f"removing intermediate results of node {self.branch_data}"
+            msg = f"removing intermediate results of node {node_position}"
             with self.publish_step(msg):
                 for inp in flatten(inputs):
                     inp.remove()
