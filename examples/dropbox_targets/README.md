@@ -6,7 +6,6 @@ Resources: [luigi](http://luigi.readthedocs.io/en/stable), [law](http://law.read
 
 There are multiple ways to setup and run this example:
 
-
 #### Before you start
 
 ##### 1. `gfal2`
@@ -16,7 +15,6 @@ Dropbox targets, as well as other remote targets in law, require the [gfal2 libr
 ```shell
 docker run -ti riga/law:example dropbox_targets
 ```
-
 
 ##### 2. Drobbox API credentials
 
@@ -32,7 +30,6 @@ access_token: ...
 ```
 
 `base` can refer to any directory in your Dropbox. All target paths are resolved relative to this directory and cannot access anything above it.
-
 
 #### Play with targets
 
@@ -91,7 +88,6 @@ data_file.exists()
 # => False
 ```
 
-
 #### Upload, download and target formatters
 
 Write some json data into the file. There are multiple methods to do this, so select the one that fits your needs best:
@@ -138,7 +134,6 @@ data_file.load()
 # => {"foo": "bar", "baz": [1, 2, 3]}
 ```
 
-
 #### Localization
 
 Another method is *target localization*. This is especially helpful when dealing with large files that are either produced or required by a different part of your code or another library. Let's assume you want to work with a large numpy array:
@@ -161,7 +156,6 @@ with array_file.localize("w") as tmp:
     # do some stuff with it
     dnn_prediction_into_file(tmp.path)
 ```
-
 
 #### The local cache
 
@@ -192,7 +186,6 @@ array_file.copy_to_local("/local/path", cache=False)
 # => "/local/path"
 ```
 
-
 #### Fancy examples
 
 ##### 1. Multiple Dropboxes
@@ -208,7 +201,6 @@ pred_file.dump(array_file.load()["prediction"])
 ```
 
 The `fs` argument requires either a `DropboxFileSystem` instance, or the name of a section in your config file that is used to build one.
-
 
 ##### 2. File merging
 

@@ -6,7 +6,6 @@ The actual payload of the tasks is rather trivial. The workflow consists of 26 t
 
 Resources: [luigi](http://luigi.readthedocs.io/en/stable), [law](http://law.readthedocs.io/en/latest)
 
-
 #### 0. At CERN: copy this example to your user space
 
 ```shell
@@ -15,13 +14,11 @@ cd /examplepath
 cp -r /afs/cern.ch/user/m/mrieger/public/law_sw/law/examples/htcondor_at_cern/* .
 ```
 
-
 #### 1. Source the setup script (just software and some variables)
 
 ```shell
 source setup.sh
 ```
-
 
 #### 2. Let law index your tasks and their parameters (for autocompletion)
 
@@ -41,7 +38,6 @@ module 'analysis.tasks', 2 task(s):
 
 written 2 task(s) to index file '/examplepath/.law/index'
 ```
-
 
 #### 3. Check the status of the `CreateAlphabet` task
 
@@ -67,9 +63,7 @@ print task status with max_depth -1 and target_depth 0
            absent (0/26)
 ```
 
-
 #### 4. Run the `CreateAlphabet` task
-
 
 ```shell
 law run CreateAlphabet --version v1 --CreateChars-transfer-logs --CreateChars-poll-interval 30sec
@@ -80,7 +74,6 @@ The ``CreateChars`` task is a ``HTCondorWorkflow`` by default, but it is also ab
 This should take only a few minutes to process, depending on the job queue.
 
 By default, this example uses a local scheduler, which - by definition - offers no visualization tools in the browser. If you want to see how the task tree is built and subsequently run, run ``luigid`` in a second terminal. This will start a central scheduler at *localhost:8082* (the default address). To inform tasks (or rather *workers*) about the scheduler, either add ``--local-scheduler False`` to the ``law run`` command, or set the ``local-scheduler`` value in the ``[luigi_core]`` config section in the ``law.cfg`` file to ``False``.
-
 
 #### 5. Check the status again
 
@@ -106,14 +99,12 @@ print task status with max_depth -1 and target_depth 0
            existent (26/26)
 ```
 
-
 #### 6. Look at the results
 
 ```shell
 cd data
 ls */v1/
 ```
-
 
 #### 7. Cleanup the results
 

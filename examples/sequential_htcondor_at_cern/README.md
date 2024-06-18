@@ -16,7 +16,6 @@ A single, final task collects the partial results in the end and writes all char
 
 The dependency structure is visualized in the following graph.
 
-
 ```mermaid
 graph TD
     CFA(CreateFullAlphabet)
@@ -55,7 +54,6 @@ As soon as a single `CreateChars` chunk (of five) workflow is finished, a dedica
 
 Resources: [luigi](http://luigi.readthedocs.io/en/stable), [law](http://law.readthedocs.io/en/latest)
 
-
 #### 0. At CERN: copy this example to your user space
 
 ```shell
@@ -64,13 +62,11 @@ cd /examplepath
 cp -r /afs/cern.ch/user/m/mrieger/public/law_sw/law/examples/sequential_htcondor_at_cern/* .
 ```
 
-
 #### 1. Source the setup script (just software and some variables)
 
 ```shell
 source setup.sh
 ```
-
 
 #### 2. Let law index your tasks and their parameters (for autocompletion)
 
@@ -91,7 +87,6 @@ module 'analysis.tasks', 3 task(s):
 
 written 3 task(s) to index file '/examplepath/.law/index'
 ```
-
 
 #### 3. Check the status a `CreatePartialAlphabet` task
 
@@ -158,7 +153,6 @@ print task status with max_depth -1 and target_depth 0
 
 In any case, no tasks ran so far, so no output target should exist yet.
 
-
 #### 4. Check the status of the `CreateFullAlphabet` task
 
 This task triggers the six `CreatePartialAlphabet` tasks which in turn require all 26 `CreateChars` tasks.
@@ -224,11 +218,9 @@ print task status with max_depth 1 and target_depth 0
 
 As you can see, there is a total of six tasks required (`ceil(26 / 5)`).
 
-
 #### 5. Run the `CreateFullAlphabet` task
 
 As we want to see the eager submission structure in action, we pick six six parallel processes to run (``--workers 6``) which allows starting the six `CreatePartialAlphabet` tasks (that only perform job status polling on your local machine) with maximum concurrency.
-
 
 ```shell
 law run CreateFullAlphabet --version v1 --workers 6
@@ -243,14 +235,12 @@ If you want to see how the task tree is built and subsequently run, run ``luigid
 This will start a central scheduler at *localhost:8082* (the default address).
 To inform tasks (or rather *workers*) about the scheduler, either add ``--local-scheduler False`` to the ``law run`` command, or set the ``local-scheduler`` value in the ``[luigi_core]`` config section in the ``law.cfg`` file to ``False``.
 
-
 #### 6. Look at the results
 
 ```shell
 cd data
 ls */v1/
 ```
-
 
 #### 7. Cleanup the results
 

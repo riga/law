@@ -4,7 +4,6 @@ This short example demonstrates the usage of so-called `WorkflowParameter`s.
 
 To understand this concept, make sure you've read the general [documentation on workflows](https://law.readthedocs.io/en/latest/workflows.html), especially regarding how the `branch_map` of a *workflow* defines which *branch* tasks it will run.
 
-
 ## Recap: Workflows
 
 In short, if we consider the following example,
@@ -36,7 +35,7 @@ the dictionary returned by `create_branch_map` defines `MyWorkflow`'s branches.
 If we were to execute a single branch, say `0`, we could run
 
 ```shell
-$ law run MyWorkflow --branch 0
+law run MyWorkflow --branch 0
 ```
 
 and the above task would run with `self.branch = 0` and, according to the branch map, `self.branch_data = {"option_a": "foo", "option_b": 123}`.
@@ -44,15 +43,14 @@ The latter is usually used to control the task's behavior in `run()`, `output()`
 
 To run multiple branches simultaneously, you would usually
 
-  - omit the `--branch` parameter or set it to `--branch -1` to trigger the *workflow* instead of a specific branch, **and optionally**
-  - add `--branches SELECTION` to select a subset of possible branches (`SELECTION` can be a comma-separated list of branches or pythonic slices, e.g. `0,3,5:9`).
+- omit the `--branch` parameter or set it to `--branch -1` to trigger the *workflow* instead of a specific branch, **and optionally**
+- add `--branches SELECTION` to select a subset of possible branches (`SELECTION` can be a comma-separated list of branches or pythonic slices, e.g. `0,3,5:9`).
 
 The workflow then determines which branches it needs to run and handles their execution depending on its workflow type (`law.LocalWorkflow` runs them locally, whereas remote workflows such as `law.htcondor.HTCondorWorlflow` submit them as HTCondor jobs).
 
 This mechanism is generic, but in case you are dealing with complex branch maps, triggering a specific single branch or a specific subset of branches requires you to know their branch values which you then use on the command line with either `--branch` or `--branches`.
 
 **`WorkflowParameter`s provide a way to make this branch lookup more convenient**❗️
-
 
 ## Dynamic branch lookup: `WorkflowParameter`
 
@@ -103,7 +101,7 @@ This is necessary since the automatic lookup of branches based on the values of 
 
 As a result, parameters can be defined verbosely on the command line, translate to branch values, and configure which branches are run by the workflow:
 
-  - `--option-a foo --option-b 123` → finds `branch=0` (but for this, you probably wouldn't need a workflow in the first place)
-  - `--option-a foo` → finds `branches=[0, 2]` and runs them as a workflow
-  - `--option-b 456` → finds `branches=[1, 2]` and runs them as a workflow
-  - `--option-b 123` → finds `branches=[0]` and runs it in a workflow
+- `--option-a foo --option-b 123` → finds `branch=0` (but for this, you probably wouldn't need a workflow in the first place)
+- `--option-a foo` → finds `branches=[0, 2]` and runs them as a workflow
+- `--option-b 456` → finds `branches=[1, 2]` and runs them as a workflow
+- `--option-b 123` → finds `branches=[0]` and runs it in a workflow
