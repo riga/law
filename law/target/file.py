@@ -235,6 +235,10 @@ class FileSystemTarget(Target, shims.FileSystemTarget):
     def chmod(self, perm, silent=False, **kwargs):
         self.fs.chmod(self.path, perm, silent=silent, **kwargs)
 
+    def makedirs(self, *args, **kwargs):
+        parent = self.parent
+        return None if parent is None else parent.touch(*args, **kwargs)
+
     @abstractproperty
     def fs(self):
         return
