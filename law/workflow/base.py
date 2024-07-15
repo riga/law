@@ -129,10 +129,16 @@ class BaseWorkflowProxy(ProxyTask):
         Returns the default workflow outputs in an ordered dictionary. At the moment this is just
         the collection of outputs of the branch tasks, stored with the key ``"collection"``.
         """
-        cls = self.task.output_collection_cls or TargetCollection
+        # get all targets
         targets = luigi.task.getpaths(self.task.get_branch_tasks())
-        collection = cls(targets, threshold=self.threshold(len(targets)))
 
+        # determine the collection container clas
+        cls = TargetCollection
+        if self.task.output_collection_cls and targets:
+            cls = self.task.output_collection_cls
+
+        # create the collection
+        collection = cls(targets, threshold=self.threshold(len(targets)))
         return DotDict([("collection", collection)])
 
     def threshold(self, n=None):
@@ -1335,6 +1341,8 @@ class BaseWorkflow(six.with_metaclass(WorkflowRegister, ProxyAttributeTask)):
         string will contain a unique hash describing those ranges.
         """
         branch_map = self.get_branch_map()
+        if not branch_map:
+            return ""
 
         if not self.branches:
             return "{}To{}".format(min(branch_map.keys()), max(branch_map.keys()) + 1)
