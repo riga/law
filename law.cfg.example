@@ -854,7 +854,7 @@
 ; default value is ``False``.
 
 ; htcondor_job_grouping_submit
-; Desciption: Whether to use job grouping (cluster submission in HTCondor nomenclature) or not. If
+; Description: Whether to use job grouping (cluster submission in HTCondor nomenclature) or not. If
 ; not, the standard batched submission is used and settings such as "htcondor_chunk_size_submit" and
 ; "htcondor_merge_job_files" are considered.
 ; Type: boolean
