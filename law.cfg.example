@@ -769,7 +769,7 @@
 ; factories. When a string is used it serves as a prefix for name of the temporary directory. More
 ; than three X's will be replaced with random characters and template variables "{{task_id}}" and
 ; "{{task_family}}" will be expanded with task values.
-; Type: boolean or string
+; Type: boolean, string
 ; Default: True
 
 ; job_file_dir_cleanup
