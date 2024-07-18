@@ -28,6 +28,7 @@ from law.target.file import get_scheme, get_path
 from law.target.remote.base import RemoteTarget
 from law.util import (
     colored, make_list, make_tuple, iter_chunks, makedirs, create_hash, empty_context,
+    create_random_string,
 )
 from law.logger import get_logger
 
@@ -774,7 +775,7 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
         self.cleanup = cleanup
 
         # when dir ist None, a temporary directory is forced
-        if not dir:
+        if not dir and not mkdtemp:
             mkdtemp = True
 
         # store the directory, default to the job.job_file_dir config
@@ -786,7 +787,8 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
 
         # check if it should be extended by a temporary dir
         if mkdtemp:
-            self.dir = tempfile.mkdtemp(dir=self.dir)
+            prefix = mkdtemp if isinstance(mkdtemp, six.string_types) else None
+            self.dir = tempfile.mkdtemp(dir=self.dir, prefix=prefix)
 
         # store attributes
         self.render_variables = render_variables or {}
@@ -962,6 +964,20 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
 
         with open(dst, "w") as f:
             f.write(content)
+
+    @classmethod
+    def _expand_template_path(cls, path, variables=None):
+        # replace more than three X's with random characters
+        if "XXX" in path:
+            repl = lambda m: create_random_string(l=len(m.group(1)))
+            path = re.sub("(X{3,})", repl, path)
+
+        # replace variables
+        if variables:
+            for key, value in variables.items():
+                path = cls.render_string(path, key, value)
+
+        return path
 
     def provide_input(self, src, postfix=None, dir=None, render_variables=None,
             skip_existing=False):
