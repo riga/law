@@ -30,6 +30,7 @@ from law.target.remote.base import RemoteTarget
 from law.config import Config
 from law.util import (
     colored, make_list, make_tuple, iter_chunks, makedirs, create_hash, empty_context,
+    create_random_string,
 )
 from law.logger import get_logger
 from law._types import Any, Callable, Hashable, Sequence, TracebackType, Type, T
@@ -867,7 +868,7 @@ class BaseJobFileFactory(object, metaclass=ABCMeta):
         self.cleanup = cleanup
 
         # when dir ist None, a temporary directory is forced
-        if not dir:
+        if not dir and not mkdtemp:
             mkdtemp = True
 
         # store the directory, default to the job.job_file_dir config
@@ -879,7 +880,8 @@ class BaseJobFileFactory(object, metaclass=ABCMeta):
 
         # check if it should be extended by a temporary dir
         if mkdtemp:
-            self.dir = tempfile.mkdtemp(dir=self.dir)
+            prefix = mkdtemp if isinstance(mkdtemp, str) else None
+            self.dir = tempfile.mkdtemp(dir=self.dir, prefix=prefix)
 
         # store attributes
         self.render_variables = render_variables or {}
@@ -1076,6 +1078,26 @@ class BaseJobFileFactory(object, metaclass=ABCMeta):
 
         with open(dst, "w") as f:
             f.write(content)
+
+    @classmethod
+    def _expand_template_path(
+        cls,
+        path: str | pathlib.Path,
+        variables: dict[str, str] | None = None,
+    ) -> str:
+        path = str(path)
+
+        # replace more than three X's with random characters
+        if "XXX" in path:
+            repl = lambda m: create_random_string(l=len(m.group(1)))
+            path = re.sub("(X{3,})", repl, path)
+
+        # replace variables
+        if variables:
+            for key, value in variables.items():
+                path = cls.render_string(path, key, value)
+
+        return path
 
     def provide_input(
         self,

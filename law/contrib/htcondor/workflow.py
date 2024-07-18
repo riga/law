@@ -14,6 +14,7 @@ import pathlib
 
 import luigi  # type: ignore[import-untyped]
 
+from law.config import Config
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
 from law.job.base import JobArguments, JobInputFile
 from law.task.proxy import ProxyCommand
@@ -303,9 +304,26 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
         return HTCondorJobFileFactory
 
     def htcondor_create_job_file_factory(self, **kwargs) -> HTCondorJobFileFactory:
+        # get the file factory cls
+        factory_cls = self.htcondor_job_file_factory_cls()
+
         # job file fectory config priority: kwargs > class defaults
         kwargs = merge_dicts({}, self.htcondor_job_file_factory_defaults, kwargs)
-        return self.htcondor_job_file_factory_cls()(**kwargs)
+
+        # default mkdtemp value which might require task-level info
+        if kwargs.get("mkdtemp") is None:
+            cfg = Config.instance()
+            mkdtemp = cfg.get_expanded(
+                "job",
+                cfg.find_option("job", "htcondor_job_file_dir_mkdtemp", "job_file_dir_mkdtemp"),
+            )
+            if isinstance(mkdtemp, str) and mkdtemp.lower() not in {"true", "false"}:
+                kwargs["mkdtemp"] = factory_cls._expand_template_path(
+                    mkdtemp,
+                    variables={"task_id": self.live_task_id, "task_family": self.task_family},
+                )
+
+        return factory_cls(**kwargs)
 
     def htcondor_job_config(
         self,

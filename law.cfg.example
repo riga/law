@@ -772,10 +772,13 @@
 ; Default: ``"$LAW_JOB_FILE_DIR"``, ``tempfile.gettempdir()``
 
 ; job_file_dir_mkdtemp
-; Description: A boolean flag that decides if a temporary directory inside job_file_dir should be
-; created in which the actual job files are stored. It is recommended to set this option to ``True``
-; in order to have a clear separation between files created by different job file factories.
-; Type: ``bool``
+; Description: A boolean flag or string that decides if a temporary directory inside job_file_dir
+; should be created in which the actual job files are stored. It is discouraged to set this option
+; to ``False`` in order to have a clear separation between files created by different job file
+; factories. When a string is used it serves as a prefix for name of the temporary directory. More
+; than three X's will be replaced with random characters and template variables "{{task_id}}" and
+; "{{task_family}}" will be expanded with task values.
+; Type: ``bool``, ``str``
 ; Default: ``True``
 
 ; job_file_dir_cleanup
