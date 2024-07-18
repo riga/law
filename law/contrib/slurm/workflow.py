@@ -134,6 +134,13 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
         if task.slurm_partition and task.slurm_partition != NO_STR:
             c.partition = task.slurm_partition
 
+        # custom tmp dir since slurm uses the job submission dir as the main job directory, and law
+        # puts the tmp directory in this job directory which might become quite long; then,
+        # python's default multiprocessing puts socket files into that tmp directory which comes
+        # with the restriction of less then 80 characters that would be violated, and potentially
+        # would also overwhelm the submission directory
+        c.render_variables["law_job_tmp"] = "/tmp/law_$( basename \"$LAW_JOB_HOME\" )"
+
         # task hook
         c = task.slurm_job_config(c, job_num, branches)
 
