@@ -834,8 +834,12 @@ class RemoteFileTarget(FileSystemFileTarget, RemoteTarget):
 
 class RemoteDirectoryTarget(FileSystemDirectoryTarget, RemoteTarget):
 
-    def _child_args(self, path: str | pathlib.Path) -> tuple[tuple[Any, ...], dict[str, Any]]:
-        args, kwargs = super()._child_args(path)
+    def _child_args(
+        self,
+        path: str | pathlib.Path,
+        type: str,
+    ) -> tuple[tuple[Any, ...], dict[str, Any]]:
+        args, kwargs = super()._child_args(path, type)
         args += (self.fs,)
         return args, kwargs
 

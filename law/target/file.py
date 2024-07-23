@@ -527,7 +527,11 @@ class FileSystemDirectoryTarget(FileSystemTarget):
 
     open = None
 
-    def _child_args(self, path: str | pathlib.Path) -> tuple[tuple[Any, ...], dict[str, Any]]:
+    def _child_args(
+        self,
+        path: str | pathlib.Path,
+        type: str,
+    ) -> tuple[tuple[Any, ...], dict[str, Any]]:
         return (), {}
 
     def child(
@@ -557,10 +561,12 @@ class FileSystemDirectoryTarget(FileSystemTarget):
             raise Exception(f"cannot guess type of non-existing path '{path}'")
         elif self.fs.isdir(path):
             cls = self.__class__
+            type = "d"
         else:
             cls = self.file_class
+            type = "f"
 
-        args, _kwargs = self._child_args(path)
+        args, _kwargs = self._child_args(path, type)
         _kwargs.update(kwargs)
 
         return cls(unexpanded_path, *args, **_kwargs)

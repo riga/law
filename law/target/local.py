@@ -591,8 +591,12 @@ class LocalFileTarget(FileSystemFileTarget, LocalTarget):
 
 class LocalDirectoryTarget(FileSystemDirectoryTarget, LocalTarget):
 
-    def _child_args(self, path: str | pathlib.Path) -> tuple[tuple[Any, ...], dict[str, Any]]:
-        args, kwargs = super(LocalDirectoryTarget, self)._child_args(path)
+    def _child_args(
+        self,
+        path: str | pathlib.Path,
+        ype: str,
+    ) -> tuple[tuple[Any, ...], dict[str, Any]]:
+        args, kwargs = super(LocalDirectoryTarget, self)._child_args(path, type)
         kwargs["fs"] = self.fs
         return args, kwargs
 

@@ -12,4 +12,5 @@ law.target
    local
    remote
    collection
+   mirrored
    formatter
