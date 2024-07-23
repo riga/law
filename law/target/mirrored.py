@@ -192,11 +192,11 @@ class MirroredTarget(FileSystemTarget):
         )
 
     @property
-    def abs_dirname(self):
+    def absdirname(self):
         return (
-            self.local_target.abs_dirname
+            self.local_target.absdirname
             if self._local_target_exists()
-            else self.remote_target.abs_dirname
+            else self.remote_target.absdirname
         )
 
     @property
