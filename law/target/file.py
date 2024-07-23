@@ -277,7 +277,7 @@ class FileSystemTarget(Target, shims.FileSystemTarget):
         return self.fs.dirname(self.path)  # type: ignore[return-value]
 
     @property
-    def abs_dirname(self) -> str:
+    def absdirname(self) -> str:
         return self.fs.dirname(self.abspath)  # type: ignore[return-value]
 
     @property

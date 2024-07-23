@@ -346,7 +346,7 @@ class SiblingFileCollection(SiblingFileCollectionBase):
 
         # check that targets are in fact located in the same directory
         for t in flatten_collections(self._flat_target_list):
-            if t.abs_dirname != self.dir.abspath:
+            if t.absdirname != self.dir.abspath:
                 raise Exception(f"{t} is not located in common directory {self.dir}")
 
     def _repr_pairs(self) -> list[tuple[str, Any]]:
