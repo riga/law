@@ -340,7 +340,7 @@ class FileSystemTarget(Target, shims.FileSystemTarget):
         ...
 
     @abstractmethod
-    def touch(self, perm: int | None = None, *, dir_perm: int | None = None, **kwargs) -> None:
+    def touch(self, *, perm: int | None = None, dir_perm: int | None = None, **kwargs) -> bool:
         ...
 
     @abstractmethod
@@ -463,10 +463,11 @@ class FileSystemFileTarget(FileSystemTarget):
     def open(self, mode: str, **kwargs) -> AbstractContextManager[IO]:
         return self.fs.open(self.path, mode, **kwargs)
 
-    def touch(self, **kwargs) -> None:  # type: ignore[override]
+    def touch(self, **kwargs) -> bool:
         # create the file via open without content
         with self.open("w", **kwargs) as f:
             f.write("")
+        return True
 
     def copy_to(
         self,
