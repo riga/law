@@ -316,9 +316,8 @@ class SiblingFileCollection(SiblingFileCollectionBase):
 
         # check that targets are in fact located in the same directory
         for t in flatten_collections(self._flat_target_list):
-            if t.dirname != self.dir.path:
-                raise Exception("{} {} is not located in common directory {}".format(
-                    t.__class__.__name__, t, self.dir))
+            if t.abs_dirname != self.dir.abspath:
+                raise Exception("{} is not located in common directory {}".format(t, self.dir))
 
     def _repr_pairs(self):
         expand = Config.instance().get_expanded_bool("target", "expand_path_repr")
