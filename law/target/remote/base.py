@@ -678,8 +678,8 @@ class RemoteFileTarget(FileSystemFileTarget, RemoteTarget):
 
 class RemoteDirectoryTarget(FileSystemDirectoryTarget, RemoteTarget):
 
-    def _child_args(self, path):
-        args, kwargs = super(RemoteDirectoryTarget, self)._child_args(path)
+    def _child_args(self, path, type):
+        args, kwargs = super(RemoteDirectoryTarget, self)._child_args(path, type)
         args += (self.fs,)
         return args, kwargs
 

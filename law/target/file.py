@@ -347,7 +347,7 @@ class FileSystemDirectoryTarget(FileSystemTarget):
 
     open = None
 
-    def _child_args(self, path):
+    def _child_args(self, path, type):
         return (), {}
 
     def child(self, path, type=None, mktemp_pattern=False, **kwargs):
@@ -370,10 +370,12 @@ class FileSystemDirectoryTarget(FileSystemTarget):
             raise Exception("cannot guess type of non-existing path '{}'".format(path))
         elif self.fs.isdir(path):
             cls = self.__class__
+            type = "d"
         else:
             cls = self.file_class
+            type = "f"
 
-        args, _kwargs = self._child_args(path)
+        args, _kwargs = self._child_args(path, type)
         _kwargs.update(kwargs)
 
         return cls(unexpanded_path, *args, **_kwargs)

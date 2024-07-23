@@ -9,6 +9,7 @@ __all__ = [
     "FileSystemTarget", "FileSystemFileTarget", "FileSystemDirectoryTarget",
     "LocalFileSystem", "LocalTarget", "LocalFileTarget", "LocalDirectoryTarget",
     "TargetCollection", "FileCollection", "SiblingFileCollection", "NestedSiblingFileCollection",
+    "MirroredTarget", "MirroredFileTarget", "MirroredDirectoryTarget",
     "Sandbox", "BashSandbox", "VenvSandbox",
     "BaseJobManager", "BaseJobFileFactory", "JobInputFile", "JobArguments",
     "NO_STR", "NO_INT", "NO_FLOAT", "is_no_param", "get_param", "Parameter",
@@ -75,6 +76,7 @@ from law.target.local import LocalFileSystem, LocalTarget, LocalFileTarget, Loca
 from law.target.collection import (
     TargetCollection, FileCollection, SiblingFileCollection, NestedSiblingFileCollection,
 )
+from law.target.mirrored import MirroredTarget, MirroredFileTarget, MirroredDirectoryTarget
 import law.decorator
 from law.task.base import Register, Task, WrapperTask, ExternalTask
 from law.workflow.base import (
