@@ -90,6 +90,7 @@ class HTCondorJobManager(BaseJobManager):
         job_files: Sequence[str | pathlib.Path] | None = None,
         pool: str | None = None,
         scheduler: str | None = None,
+        spool: bool = False,
         retries: int = 0,
         retry_delay: float | int = 3,
         silent: bool = False,
@@ -99,6 +100,7 @@ class HTCondorJobManager(BaseJobManager):
         kwargs = {
             "pool": pool,
             "scheduler": scheduler,
+            "spool": spool,
             "retries": retries,
             "retry_delay": retry_delay,
             "silent": silent,
@@ -123,6 +125,7 @@ class HTCondorJobManager(BaseJobManager):
         job_file: str | pathlib.Path | Sequence[str | pathlib.Path],
         pool: str | None = None,
         scheduler: str | None = None,
+        spool: bool = False,
         retries: int = 0,
         retry_delay: float | int = 3,
         silent: bool = False,
@@ -174,6 +177,8 @@ class HTCondorJobManager(BaseJobManager):
             cmd += ["-pool", pool]
         if scheduler:
             cmd += ["-name", scheduler]
+        if spool:
+            cmd.append("-spool")
         cmd += list(map(os.path.basename, job_files))
         cmd_str = quote_cmd(cmd)
 
@@ -229,6 +234,7 @@ class HTCondorJobManager(BaseJobManager):
         job_files: Sequence[str | pathlib.Path] | None = None,
         pool: str | None = None,
         scheduler: str | None = None,
+        spool: bool = False,
         retries: int = 0,
         retry_delay: float | int = 3,
         silent: bool = False,
@@ -245,6 +251,8 @@ class HTCondorJobManager(BaseJobManager):
             cmd += ["-pool", pool]
         if scheduler:
             cmd += ["-name", scheduler]
+        if spool:
+            cmd.append("-spool")
         cmd.append(os.path.basename(job_file))
         cmd_str = quote_cmd(cmd)
 
