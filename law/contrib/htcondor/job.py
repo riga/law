@@ -75,13 +75,14 @@ class HTCondorJobManager(BaseJobManager):
     def cleanup_batch(self, *args, **kwargs):
         raise NotImplementedError("HTCondorJobManager.cleanup_batch is not implemented")
 
-    def submit(self, job_file, job_files=None, pool=None, scheduler=None, retries=0, retry_delay=3,
-            silent=False):
+    def submit(self, job_file, job_files=None, pool=None, scheduler=None, spool=False, retries=0,
+            retry_delay=3, silent=False):
         # signature is the superset for both grouped and batched submission, and the dispatching to
         # the actual submission implementation is based on the presence of job_files
         kwargs = {
             "pool": pool,
             "scheduler": scheduler,
+            "spool": spool,
             "retries": retries,
             "retry_delay": retry_delay,
             "silent": silent,
@@ -95,8 +96,8 @@ class HTCondorJobManager(BaseJobManager):
 
         return func(job_file, **kwargs)
 
-    def _submit_impl_batched(self, job_file, pool=None, scheduler=None, retries=0, retry_delay=3,
-            silent=False):
+    def _submit_impl_batched(self, job_file, pool=None, scheduler=None, spool=False, retries=0,
+            retry_delay=3, silent=False):
         # default arguments
         if pool is None:
             pool = self.pool
@@ -145,6 +146,8 @@ class HTCondorJobManager(BaseJobManager):
             cmd += ["-pool", pool]
         if scheduler:
             cmd += ["-name", scheduler]
+        if spool:
+            cmd.append("-spool")
         cmd += list(map(os.path.basename, job_files))
         cmd = quote_cmd(cmd)
 
@@ -189,8 +192,8 @@ class HTCondorJobManager(BaseJobManager):
             raise Exception("submission of htcondor job(s) '{}' failed:\n{}".format(
                 job_files_repr, err))
 
-    def _submit_impl_grouped(self, job_file, job_files=None, pool=None, scheduler=None, retries=0,
-            retry_delay=3, silent=False):
+    def _submit_impl_grouped(self, job_file, job_files=None, pool=None, scheduler=None, spool=False,
+            retries=0, retry_delay=3, silent=False):
         # default arguments
         if pool is None:
             pool = self.pool
@@ -203,6 +206,8 @@ class HTCondorJobManager(BaseJobManager):
             cmd += ["-pool", pool]
         if scheduler:
             cmd += ["-name", scheduler]
+        if spool:
+            cmd.append("-spool")
         cmd.append(os.path.basename(job_file))
         cmd = quote_cmd(cmd)
 
