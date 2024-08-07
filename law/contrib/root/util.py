@@ -35,7 +35,7 @@ def import_ROOT(batch: bool = True, ignore_cli: bool = True, reset: bool = False
 
     if was_empty:
         import ROOT  # type: ignore[import-untyped, import-not-found]
-        _ROOT: ModuleType = ROOT
+        _ROOT = ROOT
 
     if was_empty or reset:
         _ROOT.gROOT.SetBatch(batch)  # type: ignore[attr-defined, union-attr]

@@ -126,7 +126,7 @@ def law_src_path(*paths: Any) -> str:
     """
     Returns the law installation directory, optionally joined with *paths*.
     """
-    return rel_path(__file__, paths)
+    return rel_path(__file__, *paths)
 
 
 def law_home_path(*paths: Any) -> str:
