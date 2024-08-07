@@ -545,7 +545,7 @@ class ForestMerge(LocalWorkflow):
         if self.is_forest():
             # yield the forest dependencies again
             yield self._forest_requires()
-            return
+            return None
 
         # trace actual inputs to merge
         inputs = self.input()["forest_merge"]
@@ -562,6 +562,8 @@ class ForestMerge(LocalWorkflow):
             with self.publish_step(msg):
                 for inp in flatten(inputs):
                     inp.remove()
+
+        return None
 
     def control_output_postfix(self):
         postfix = super(ForestMerge, self).control_output_postfix()

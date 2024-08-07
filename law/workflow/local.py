@@ -62,6 +62,8 @@ class LocalWorkflowProxy(BaseWorkflowProxy):
             # wrap into DynamicRequirements
             yield luigi.DynamicRequirements(reqs, lambda complete_fn: complete_fn(self))
 
+        return None
+
 
 class LocalWorkflow(BaseWorkflow):
     """
