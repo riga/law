@@ -794,17 +794,32 @@ def range_join(numbers, to_str=False, include_end=False, sep=",", range_sep=":")
     return ranges
 
 
-def multi_match(name, patterns, mode=any, regex=False):
+def multi_match(name, patterns, mode=any, regex=None):
     """
     Compares *name* to multiple *patterns* and returns *True* in case of at least one match (*mode*
     = *any*, the default), or in case all patterns match (*mode* = *all*). Otherwise, *False* is
-    returned. When *regex* is *True*, *re.match* is used instead of *fnmatch.fnmatch*.
+    returned. When *regex* is *True*, *re.match* is used instead of *fnmatch.fnmatch*. When *None*,
+    the matching function is chosen per pattern: when starting with "^" and ending in "$" regex
+    matching is used, and fnmatch otherwise.
     """
     patterns = make_list(patterns)
-    if not regex:
-        return mode(fnmatch.fnmatch(name, pattern) for pattern in patterns)
-    else:
-        return mode(re.match(pattern, name) for pattern in patterns)
+
+    # generic matching functions with identical signature
+    match_func_fn = lambda pattern: fnmatch.fnmatch(name, pattern)
+    match_func_re = lambda pattern: bool(re.match(pattern, name))
+
+    # determine the matching function
+    match_func = match_func_fn
+    if regex is None:
+        match_func = lambda pattern: (
+            match_func_re(pattern)
+            if pattern.startswith("^") and pattern.endswith("$")
+            else match_func_fn(pattern)
+        )
+    elif regex:
+        match_func = match_func_re
+
+    return mode(match_func(pattern) for pattern in patterns)
 
 
 def is_iterable(obj):
