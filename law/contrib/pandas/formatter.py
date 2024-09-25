@@ -51,7 +51,9 @@ class DataFrameFormatter(Formatter):
             return pandas.read_pickle(path, *args, **kwargs)
 
         suffix = pathlib.Path(path).suffix
-        raise NotImplementedError(f"Suffix \"{suffix}\" not implemented in DataFrameFormatter")
+        raise NotImplementedError(
+            f'Suffix "{suffix}" not implemented in DataFrameFormatter'
+        )
 
     @classmethod
     def dump(cls, path, obj, *args, **kwargs):
@@ -73,4 +75,6 @@ class DataFrameFormatter(Formatter):
             return obj.to_pickle(path, *args, **kwargs)
 
         suffix = pathlib.Path(path).suffix
-        raise NotImplementedError(f"Suffix \"{suffix}\" not implemented in DataFrameFormatter")
+        raise NotImplementedError(
+            f'Suffix "{suffix}" not implemented in DataFrameFormatter'
+        )
