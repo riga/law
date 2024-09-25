@@ -8,7 +8,7 @@ __all__ = ["DataFrameFormatter"]
 
 
 import pathlib
-from law.target.formatter import Formatter, PickleFormatter
+from law.target.formatter import Formatter
 from law.target.file import get_path
 from law.logger import get_logger
 
