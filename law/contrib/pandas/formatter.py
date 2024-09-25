@@ -23,9 +23,8 @@ class DataFrameFormatter(Formatter):
     @classmethod
     def accepts(cls, path, mode):
         # still missing: excel, html, xml, latex, feather, orc, sql, stata, markdown, ...
-        return get_path(path).endswith(
-            (".csv", ".json", ".parquet", ".h5", ".hdf5", ".pickle", ".pkl")
-        )
+        suffixes = (".csv", ".json", ".parquet", ".h5", ".hdf5", ".pickle", ".pkl")
+        return get_path(path).endswith(suffixes)
 
     @classmethod
     def load(cls, path, *args, **kwargs):
@@ -52,7 +51,7 @@ class DataFrameFormatter(Formatter):
 
         suffix = pathlib.Path(path).suffix
         raise NotImplementedError(
-            f'Suffix "{suffix}" not implemented in DataFrameFormatter'
+            f'Suffix "{suffix}" not implemented in DataFrameFormatter',
         )
 
     @classmethod
@@ -76,5 +75,5 @@ class DataFrameFormatter(Formatter):
 
         suffix = pathlib.Path(path).suffix
         raise NotImplementedError(
-            f'Suffix "{suffix}" not implemented in DataFrameFormatter'
+            f'Suffix "{suffix}" not implemented in DataFrameFormatter',
         )
