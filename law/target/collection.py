@@ -20,6 +20,7 @@ from law.target.base import Target
 from law.target.file import (
     FileSystemTarget, FileSystemDirectoryTarget, localize_file_targets, get_path,
 )
+from law.target.mirror import MirroredTarget, MirroredDirectoryTarget
 from law.target.local import LocalDirectoryTarget
 from law.util import colored, flatten, map_struct, is_lazy_iterable
 from law.logger import get_logger
@@ -346,8 +347,20 @@ class SiblingFileCollection(SiblingFileCollectionBase):
 
         # check that targets are in fact located in the same directory
         for t in flatten_collections(self._flat_target_list):
-            if t.absdirname != self.dir.abspath:
+            if not self._exists_in_dir(t):
                 raise Exception(f"{t} is not located in common directory {self.dir}")
+
+    def _exists_in_dir(self, target: FileSystemTarget) -> bool:
+        # comparisons of dirnames are transparently possible for most target classes since their
+        # paths are consistent, but implement a custom check for mirrored targets
+        sub_target = target.remote_target if isinstance(target, MirroredTarget) else target
+        dir_target = (
+            self.dir.remote_target
+            if isinstance(self.dir, MirroredDirectoryTarget)
+            else self.dir
+        )
+        # do the check
+        return sub_target.absdirname == dir_target.abspath
 
     def _repr_pairs(self) -> list[tuple[str, Any]]:
         expand = Config.instance().get_expanded_bool("target", "expand_path_repr")
