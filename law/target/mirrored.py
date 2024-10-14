@@ -33,7 +33,7 @@ class MirroredTarget(FileSystemTarget):
         if path == os.sep or not path.startswith(os.sep):
             return False
 
-        root_path = os.path.split(os.sep)[1]
+        root_path = os.sep.join(path.split(os.sep, 2)[:2])
         if root_path not in cls._existing_local_roots:
             with local_root_check_lock:
                 cls._existing_local_roots[root_path] = os.path.exists(root_path)
