@@ -980,7 +980,7 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
         return path
 
     def provide_input(self, src, postfix=None, dir=None, render_variables=None,
-            skip_existing=False, increment_existing=True):
+            skip_existing=False, increment_existing=False):
         """
         Convenience method that copies an input file to a target directory *dir* which defaults to
         the :py:attr:`dir` attribute of this instance. The provided file has the same basename,
