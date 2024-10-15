@@ -67,6 +67,21 @@ class Formatter(metaclass=FormatterRegister):
     def dump(cls, path, *args, **kwargs):
         raise NotImplementedError
 
+    @classmethod
+    def chmod(cls, target: FileSystemTarget | Any, perm: None | int = None) -> None:
+        if not isinstance(target, FileSystemTarget):
+            return
+
+        if perm is None:
+            perm = (
+                target.fs.default_file_perm
+                if isinstance(target, FileSystemFileTarget)
+                else target.fs.default_dir_perm
+            )
+
+        if perm:
+            target.chmod(perm)
+
 
 def get_formatter(name: str, silent: bool = False) -> Type[Formatter] | None:
     """
@@ -400,4 +415,6 @@ class PythonFormatter(Formatter):
 
 
 # trailing imports
-from law.target.file import get_path, FileSystemTarget, FileSystemDirectoryTarget
+from law.target.file import (
+    get_path, FileSystemTarget, FileSystemFileTarget, FileSystemDirectoryTarget,
+)

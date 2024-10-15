@@ -15,6 +15,7 @@ from contextlib import contextmanager
 
 from law.target.formatter import Formatter
 from law.target.file import FileSystemFileTarget, get_path
+from law.util import no_value
 from law._types import Any, TracebackType, Iterator
 
 from law.contrib.root.util import import_ROOT
@@ -100,7 +101,14 @@ class ROOTNumpyFormatter(Formatter):
         ROOT = import_ROOT()  # noqa: F841
         import root_numpy  # type: ignore[import-untyped, import-not-found]
 
-        return root_numpy.array2root(arr, get_path(path), *args, **kwargs)
+        perm = kwargs.pop("perm", no_value)
+
+        ret = root_numpy.array2root(arr, get_path(path), *args, **kwargs)
+
+        if perm != no_value:
+            cls.chmod(path, perm)
+
+        return ret
 
 
 class ROOTPandasFormatter(Formatter):
@@ -124,7 +132,14 @@ class ROOTPandasFormatter(Formatter):
         # importing root_pandas adds the to_root() method to data frames
         import root_pandas  # type: ignore[import-untyped, import-not-found] # noqa
 
-        return df.to_root(get_path(path), *args, **kwargs)
+        perm = kwargs.pop("perm", no_value)
+
+        ret = df.to_root(get_path(path), *args, **kwargs)
+
+        if perm != no_value:
+            cls.chmod(path, perm)
+
+        return ret
 
 
 class UprootFormatter(Formatter):
@@ -157,6 +172,8 @@ class UprootFormatter(Formatter):
             raise ValueError(f"unknown uproot writing mode: {mode}")
         fn = getattr(uproot, mode.lower())
 
+        perm = kwargs.pop("perm", no_value)
+
         # create the file object and yield it
         f = fn(get_path(path), **kwargs)
         try:
@@ -164,5 +181,7 @@ class UprootFormatter(Formatter):
         finally:
             try:
                 f.file.close()
+                if perm != no_value:
+                    cls.chmod(path, perm)
             except:
                 pass

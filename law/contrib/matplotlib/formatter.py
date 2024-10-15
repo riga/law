@@ -12,6 +12,7 @@ import pathlib
 
 from law.target.formatter import Formatter
 from law.target.file import FileSystemFileTarget, get_path
+from law.util import no_value
 from law._types import Any
 
 
@@ -31,5 +32,12 @@ class MatplotlibFormatter(Formatter):
         fig: Any,
         *args,
         **kwargs,
-    ) -> None:
-        fig.savefig(get_path(path), *args, **kwargs)
+    ) -> Any:
+        perm = kwargs.pop("perm", no_value)
+
+        ret = fig.savefig(get_path(path), *args, **kwargs)
+
+        if perm != no_value:
+            cls.chmod(path, perm)
+
+        return ret

@@ -13,6 +13,7 @@ import pathlib
 from law.target.formatter import Formatter
 from law.target.file import FileSystemFileTarget, get_path
 from law.logger import get_logger
+from law.util import no_value
 from law._types import Any
 
 
@@ -26,24 +27,6 @@ class KerasModelFormatter(Formatter):
     @classmethod
     def accepts(cls, path: str | pathlib.Path | FileSystemFileTarget, mode: str) -> bool:
         return get_path(path).endswith((".hdf5", ".h5", ".json", ".yaml", ".yml"))
-
-    @classmethod
-    def dump(cls, path: str | pathlib.Path | FileSystemFileTarget, model, *args, **kwargs) -> Any:
-        path = get_path(path)
-
-        # the method for saving the model depends on the file extension
-        if path.endswith(".json"):
-            with open(path, "w") as f:
-                f.write(model.to_json(*args, **kwargs))
-            return
-
-        if path.endswith((".yml", ".yaml")):
-            with open(path, "w") as f:
-                f.write(model.to_yaml(*args, **kwargs))
-            return
-
-        # .hdf5, .h5, bundle
-        return model.save(path, *args, **kwargs)
 
     @classmethod
     def load(cls, path: str | pathlib.Path | FileSystemFileTarget, *args, **kwargs) -> Any:
@@ -63,6 +46,29 @@ class KerasModelFormatter(Formatter):
         # .hdf5, .h5, bundle
         return keras.models.load_model(path, *args, **kwargs)
 
+    @classmethod
+    def dump(cls, path: str | pathlib.Path | FileSystemFileTarget, model, *args, **kwargs) -> Any:
+        _path = get_path(path)
+        perm = kwargs.pop("perm", no_value)
+
+        # the method for saving the model depends on the file extension
+        ret = None
+        if _path.endswith(".json"):
+            with open(_path, "w") as f:
+                f.write(model.to_json(*args, **kwargs))
+
+        elif _path.endswith((".yml", ".yaml")):
+            with open(_path, "w") as f:
+                f.write(model.to_yaml(*args, **kwargs))
+
+        else:  # .hdf5, .h5, bundle
+            ret = model.save(_path, *args, **kwargs)
+
+        if perm != no_value:
+            cls.chmod(path, perm)
+
+        return ret
+
 
 class KerasWeightsFormatter(Formatter):
 
@@ -73,16 +79,6 @@ class KerasWeightsFormatter(Formatter):
         return get_path(path).endswith((".hdf5", ".h5"))
 
     @classmethod
-    def dump(
-        cls,
-        path: str | pathlib.Path | FileSystemFileTarget,
-        model: Any,
-        *args,
-        **kwargs,
-    ) -> Any:
-        return model.save_weights(get_path(path), *args, **kwargs)
-
-    @classmethod
     def load(
         cls,
         path: str | pathlib.Path | FileSystemFileTarget,
@@ -91,3 +87,20 @@ class KerasWeightsFormatter(Formatter):
         **kwargs,
     ) -> Any:
         return model.load_weights(get_path(path), *args, **kwargs)
+
+    @classmethod
+    def dump(
+        cls,
+        path: str | pathlib.Path | FileSystemFileTarget,
+        model: Any,
+        *args,
+        **kwargs,
+    ) -> Any:
+        perm = kwargs.pop("perm", no_value)
+
+        ret = model.save_weights(get_path(path), *args, **kwargs)
+
+        if perm != no_value:
+            cls.chmod(path, perm)
+
+        return ret

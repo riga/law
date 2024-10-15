@@ -13,6 +13,7 @@ import pathlib
 from law.target.formatter import Formatter
 from law.target.file import FileSystemFileTarget, get_path
 from law.logger import get_logger
+from law.util import no_value
 from law._types import Any, Callable
 
 
@@ -36,15 +37,16 @@ class NumpyFormatter(Formatter):
         return func(path, *args, **kwargs)  # type: ignore[operator]
 
     @classmethod
-    def dump(cls, path: str | pathlib.Path | FileSystemFileTarget, *args, **kwargs) -> None:
+    def dump(cls, path: str | pathlib.Path | FileSystemFileTarget, *args, **kwargs) -> Any:
         import numpy as np
 
-        path = get_path(path)
+        _path = get_path(path)
+        perm = kwargs.pop("perm", no_value)
 
         func: Callable
-        if str(path).endswith(".txt"):
+        if str(_path).endswith(".txt"):
             func = np.savetxt
-        elif str(path).endswith(".npz"):
+        elif str(_path).endswith(".npz"):
             compress_flag = "savez_compressed"
             compress = False
             if compress_flag in kwargs:
@@ -56,4 +58,9 @@ class NumpyFormatter(Formatter):
         else:
             func = np.save
 
-        func(path, *args, **kwargs)
+        ret = func(_path, *args, **kwargs)
+
+        if perm != no_value:
+            cls.chmod(path, perm)
+
+        return ret

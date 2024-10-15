@@ -13,6 +13,7 @@ import pathlib
 from law.target.formatter import Formatter
 from law.target.file import FileSystemFileTarget, get_path
 from law.logger import get_logger
+from law.util import no_value
 from law._types import Any
 
 
@@ -53,4 +54,11 @@ class CoffeaFormatter(Formatter):
     ) -> Any:
         from coffea.util import save  # type: ignore[import-untyped, import-not-found]
 
-        save(out, get_path(path), *args, **kwargs)
+        perm = kwargs.pop("perm", None)
+
+        ret = save(out, get_path(path), *args, **kwargs)
+
+        if perm != no_value:
+            cls.chmod(path, perm)
+
+        return ret
