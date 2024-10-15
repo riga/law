@@ -540,9 +540,10 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
             # copy the file
             abs_path = self.provide_input(
                 src=abs_path,
-                postfix=c.postfix if not grouped_submission and f.postfix and not f.share else None,
+                postfix=c.postfix if f.postfix and not f.share and not grouped_submission else None,
                 dir=c.dir,
                 skip_existing=f.share,
+                increment_existing=f.increment and not f.share and grouped_submission,
             )
             return abs_path
 

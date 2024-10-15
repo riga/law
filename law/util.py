@@ -13,10 +13,11 @@ __all__ = [
     "is_lazy_iterable", "make_list", "make_tuple", "make_set", "make_unique", "is_nested",
     "flatten", "merge_dicts", "unzip", "which", "map_verbose", "map_struct", "mask_struct",
     "tmp_file", "perf_counter", "interruptable_popen", "readable_popen", "create_hash",
-    "create_random_string", "copy_no_perm", "makedirs", "user_owns_file", "iter_chunks",
-    "human_bytes", "parse_bytes", "human_duration", "parse_duration", "is_file_exists_error",
-    "send_mail", "DotDict", "ShorthandDict", "open_compat", "patch_object", "join_generators",
-    "quote_cmd", "escape_markdown", "classproperty", "BaseStream", "TeeStream", "FilteredStream",
+    "create_random_string", "copy_no_perm", "makedirs", "user_owns_file", "increment_path",
+    "iter_chunks", "human_bytes", "parse_bytes", "human_duration", "parse_duration",
+    "is_file_exists_error", "send_mail", "DotDict", "ShorthandDict", "open_compat", "patch_object",
+    "join_generators", "quote_cmd", "escape_markdown", "classproperty", "BaseStream", "TeeStream",
+    "FilteredStream",
 ]
 
 
@@ -1520,6 +1521,41 @@ def user_owns_file(path, uid=None):
         uid = os.getuid()
     path = os.path.expandvars(os.path.expanduser(str(path)))
     return os.stat(path).st_uid == uid
+
+
+def increment_path(path, n=None):
+    """
+    Takes a file path *path* and returns a new path with a counter appended to the basename. When
+    *n* is a number (and in particular, not *None*), the counter is increased by that number. When
+    *n* is *None*, a new counter is determined by checking the directory for existing files with the
+    same basename. The new path is returned.
+    """
+    path = os.path.abspath(os.path.expandvars(os.path.expanduser(str(path))))
+    dirname, basename = os.path.split(path)
+    basename, ext = os.path.splitext(basename)
+
+    # check if basename already contains a trailing counter
+    m = re.match(r"^([^\.]+)_(\d+)$", basename)
+    counter = 0
+    if m:
+        basename = m.group(1)
+        counter = int(m.group(2))
+
+    # helper to determine the incremented path
+    next_path = lambda i: os.path.join(dirname, "{}_{}{}".format(basename, counter + i, ext))
+
+    # when a number is given in n, just increase the counter by that number
+    if n is not None:
+        return next_path(n)
+
+    # when n is none, perform a full collision handling in the directory
+    _path = path
+    i = 0
+    while True:
+        if not os.path.exists(_path):
+            return _path
+        i += 1
+        _path = next_path(i)
 
 
 def iter_chunks(l, size):
