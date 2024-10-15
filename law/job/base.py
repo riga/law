@@ -29,7 +29,7 @@ from law.target.local import LocalFileTarget
 from law.target.remote.base import RemoteTarget
 from law.config import Config
 from law.util import (
-    colored, make_list, make_tuple, iter_chunks, makedirs, create_hash, empty_context,
+    colored, make_list, make_tuple, iter_chunks, makedirs, create_hash, increment_path,
     create_random_string,
 )
 from law.logger import get_logger
@@ -1107,6 +1107,7 @@ class BaseJobFileFactory(object, metaclass=ABCMeta):
         dir: str | pathlib.Path | None = None,
         render_variables: dict[str, Any] | None = None,
         skip_existing: bool = False,
+        increment_existing: bool = False,
     ) -> str:
         """
         Convenience method that copies an input file to a target directory *dir* which defaults to
@@ -1114,7 +1115,8 @@ class BaseJobFileFactory(object, metaclass=ABCMeta):
         which is optionally postfixed with *postfix*. Essentially, this method calls
         :py:meth:`render_file` when *render_variables* is set, or simply ``shutil.copy2`` otherwise.
         If the file to create is already existing, it is overwritten unless *skip_existing* is
-        *True*.
+        *True*. If *skip_existing* is *False* but *increment_existing* is *True*, the target path is
+        incremented when the file already exists.
         """
         # create the destination path
         src = str(src)
@@ -1122,16 +1124,23 @@ class BaseJobFileFactory(object, metaclass=ABCMeta):
         postfixed_src = self.postfix_input_file(src, postfix=postfix)
         dst = os.path.join(os.path.realpath(dir), os.path.basename(postfixed_src))
 
-        # thread-safe check for the existince of the file in a thread-safe
-        context = self.file_locks[dst] if skip_existing else empty_context()
-        with context:  # type: ignore[attr-defined]
-            # create if not existing or if overwriting
-            if not skip_existing or not os.path.exists(dst):
-                # provide the file
-                if render_variables:
-                    self.render_file(src, dst, render_variables, postfix=postfix)
-                else:
-                    shutil.copy2(src, dst)
+        # check if the file exists but should be skipped
+        if skip_existing:
+            with self.file_locks[dst]:
+                if os.path.exists(dst):
+                    return dst
+
+        # check if the path needs to be incremented
+        elif increment_existing:
+            with self.file_locks[dst]:
+                dst = increment_path(dst)
+
+        # provide the file
+        with self.file_locks[dst]:
+            if render_variables:
+                self.render_file(src, dst, render_variables, postfix=postfix)
+            else:
+                shutil.copy2(src, dst)
 
         return dst
 
@@ -1348,6 +1357,13 @@ class JobInputFile(object):
         considered if supported by the submission system (e.g. local ones such as htcondor or
         slurm).
 
+    .. py:attribute:: increment
+
+        type: bool
+
+        Whether the file path should be incremented when copied if a file with the same name already
+        exists in the same submission directory.
+
     .. py:attribute:: postfix
 
         type: bool
@@ -1410,6 +1426,7 @@ class JobInputFile(object):
         copy: bool | None = None,
         share: bool | None = None,
         forward: bool | None = None,
+        increment: bool | None = None,
         postfix: bool | None = None,
         render: bool | None = None,
         render_local: bool | None = None,
@@ -1422,6 +1439,7 @@ class JobInputFile(object):
             copy = path.copy
             share = path.share
             forward = path.forward
+            increment = path.increment
             postfix = path.postfix
             render_local = path.render_local
             render_job = path.render_job
@@ -1475,6 +1493,7 @@ class JobInputFile(object):
         self.copy = True if copy is None else bool(copy)
         self.share = False if share is None else bool(share)
         self.forward = False if forward is None else bool(forward)
+        self.increment = False if increment is None else bool(increment)
         self.postfix = True if postfix is None else bool(postfix)
         self.render_local = True if render_local is None else bool(render_local)
         self.render_job = False if render_job is None else bool(render_job)
@@ -1521,7 +1540,10 @@ class JobInputFile(object):
         return self.path
 
     def __repr__(self) -> str:
-        attrs = ["path", "copy", "share", "forward", "postfix", "render_local", "render_job"]
+        attrs = [
+            "path", "copy", "share", "forward", "increment", "postfix", "render_local",
+            "render_job",
+        ]
         attr_str = ", ".join(f"{attr}={getattr(self, attr)}" for attr in attrs)
         return f"<{self.__class__.__name__}({attr_str}) at {hex(id(self))}>"
 

@@ -275,6 +275,7 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
             path=rel_path(__file__, "htcondor_wrapper.sh"),
             copy=True,
             render_local=True,
+            increment=True,
         )
 
     def htcondor_wrapper_file(self) -> str | pathlib.Path | LocalFileTarget | JobInputFile | None:

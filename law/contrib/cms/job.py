@@ -794,6 +794,7 @@ class CrabJobFileFactory(BaseJobFileFactory):
             path=rel_path(__file__, "crab", "crab_wrapper.sh"),
             copy=True,
             render=True,
+            increment=True,
         )
 
         # prepare input files
@@ -806,6 +807,7 @@ class CrabJobFileFactory(BaseJobFileFactory):
                     src=abs_path,
                     dir=c.dir,
                     skip_existing=f.share,
+                    increment_existing=f.increment and not f.share,
                 )
             return abs_path
 
