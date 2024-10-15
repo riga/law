@@ -20,7 +20,7 @@ from law.target.base import Target
 from law.target.file import (
     FileSystemTarget, FileSystemDirectoryTarget, localize_file_targets, get_path,
 )
-from law.target.mirror import MirroredTarget, MirroredDirectoryTarget
+from law.target.mirrored import MirroredTarget, MirroredDirectoryTarget
 from law.target.local import LocalDirectoryTarget
 from law.util import colored, flatten, map_struct, is_lazy_iterable
 from law.logger import get_logger
