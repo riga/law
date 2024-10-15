@@ -190,7 +190,7 @@ _law_complete() {
     # complete the "location" subcommand
     elif [ "${sub_cmd}" = "location" ]; then
         local words="help"
-        local contribs="arc awkward cms coffea docker dropbox gfal git glite hdf5 htcondor ipython keras lsf matplotlib mercurial numpy profiling pyarrow rich root singularity slack slurm tasks telegram tensorflow wlcg"
+        local contribs="arc awkward cms coffea docker dropbox gfal git glite hdf5 htcondor ipython keras lsf matplotlib mercurial numpy pandas profiling pyarrow rich root singularity slack slurm tasks telegram tensorflow wlcg"
         local inp="${cur##-}"
         inp="${inp##-}"
         COMPREPLY=( $( compgen -W "$( echo ${words} )" -P "--" -- "${inp}" ) $( compgen -W "$( echo ${contribs} )" -- "${inp}" ) )
