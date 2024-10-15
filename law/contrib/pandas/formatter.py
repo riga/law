@@ -78,7 +78,7 @@ class DataFrameFormatter(Formatter):
             ret = obj.to_pickle(_path, *args, **kwargs)
 
         else:
-            suffix = os.path.splitext(path)[1]
+            suffix = os.path.splitext(_path)[1]
             raise NotImplementedError(
                 "suffix \"{}\" not implemented in DataFrameFormatter".format(suffix),
             )
