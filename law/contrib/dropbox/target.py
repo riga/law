@@ -132,15 +132,15 @@ class DropboxTarget(RemoteTarget):
     def __init__(
         self,
         path: str | pathlib.Path,
-        fs: str | pathlib.Path | DropboxFileSystem | None = DropboxFileSystem.default_instance,
+        fs: str | pathlib.Path | DropboxFileSystem | None = DropboxFileSystem.default_instance,  # type: ignore[assignment] # noqa
         **kwargs,
     ) -> None:
         if fs is None:
-            fs = DropboxFileSystem.default_instance
+            fs = DropboxFileSystem.default_instance  # type: ignore[assignment]
         elif not isinstance(fs, DropboxFileSystem):
             fs = DropboxFileSystem(str(fs))
 
-        super().__init__(path, fs, **kwargs)
+        super().__init__(path, fs, **kwargs)  # type: ignore[arg-type]
 
 
 class DropboxFileTarget(DropboxTarget, RemoteFileTarget):

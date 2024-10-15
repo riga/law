@@ -17,8 +17,8 @@ import weakref
 import contextlib
 import atexit
 
-from law.target.file import FileSystem
 from law.config import Config
+import law.target.remote.base as _remote_base
 from law.util import (
     makedirs, human_bytes, parse_bytes, parse_duration, create_hash, user_owns_file, io_lock,
 )
@@ -104,7 +104,7 @@ class RemoteCache(object):
 
     def __init__(
         self,
-        fs: FileSystem,
+        fs: _remote_base.RemoteFileSystem,
         *,
         root: str | pathlib.Path | None = TMP,
         cleanup: bool = False,
@@ -168,7 +168,7 @@ class RemoteCache(object):
         return os.path.exists(self.cache_path(rpath))
 
     @property
-    def fs(self) -> FileSystem:
+    def fs(self) -> _remote_base.FileSystem:
         return self.fs_ref()  # type: ignore[return-value]
 
     def _cleanup(self) -> None:

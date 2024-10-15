@@ -150,7 +150,7 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
 
         return True
 
-    def remove(
+    def remove(  # type: ignore[override]
         self,
         path: str | pathlib.Path,
         *,
@@ -173,7 +173,7 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
 
         return True
 
-    def mkdir(
+    def mkdir(  # type: ignore[override]
         self,
         path: str | pathlib.Path,
         *,
@@ -322,7 +322,7 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
 
         return full_dst
 
-    def copy(
+    def copy(  # type: ignore[override]
         self,
         src: str | pathlib.Path,
         dst: str | pathlib.Path,
@@ -343,7 +343,7 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
 
         return dst
 
-    def move(
+    def move(  # type: ignore[override]
         self,
         src: str | pathlib.Path,
         dst: str | pathlib.Path,
@@ -519,7 +519,7 @@ class LocalTarget(FileSystemTarget, shims.LocalTarget):
         return ret
 
 
-class LocalFileTarget(FileSystemFileTarget, LocalTarget):
+class LocalFileTarget(FileSystemFileTarget, LocalTarget):  # type: ignore[misc]
 
     @contextlib.contextmanager
     def localize(
@@ -589,12 +589,12 @@ class LocalFileTarget(FileSystemFileTarget, LocalTarget):
                 self.chmod(perm, silent=True)
 
 
-class LocalDirectoryTarget(FileSystemDirectoryTarget, LocalTarget):
+class LocalDirectoryTarget(FileSystemDirectoryTarget, LocalTarget):  # type: ignore[misc]
 
     def _child_args(
         self,
         path: str | pathlib.Path,
-        ype: str,
+        type: str,
     ) -> tuple[tuple[Any, ...], dict[str, Any]]:
         args, kwargs = super(LocalDirectoryTarget, self)._child_args(path, type)
         kwargs["fs"] = self.fs

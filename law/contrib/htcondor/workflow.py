@@ -36,16 +36,16 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
     workflow_type: str = "htcondor"
 
     def create_job_manager(self, **kwargs) -> HTCondorJobManager:
-        return self.task.htcondor_create_job_manager(**kwargs)
+        return self.task.htcondor_create_job_manager(**kwargs)  # type: ignore[attr-defined]
 
     def create_job_file_factory(self, **kwargs) -> HTCondorJobFileFactory:
-        return self.task.htcondor_create_job_file_factory(**kwargs)
+        return self.task.htcondor_create_job_file_factory(**kwargs)  # type: ignore[attr-defined]
 
     def create_job_file(
         self,
         *args,
     ) -> dict[str, str | pathlib.Path | HTCondorJobFileFactory.Config | None]:
-        task = self.task
+        task: HTCondorWorkflow = self.task  # type: ignore[assignment]
 
         grouped_submission = len(args) == 1
         if grouped_submission:
@@ -70,7 +70,7 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
             c.executable = wrapper_file
         else:
             # standard wrapper file
-            wrapper_file = task.htcondor_wrapper_file()
+            wrapper_file = task.htcondor_wrapper_file()  # type: ignore[assignment]
             if wrapper_file and get_path(wrapper_file) != get_path(law_job_file):
                 c.input_files["executable_file"] = wrapper_file
                 c.executable = wrapper_file
@@ -87,7 +87,7 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         )
         proxy_cmd = ProxyCommand(
             task.as_branch(0 if grouped_submission else branches[0]),
-            exclude_task_args=exclude_args,
+            exclude_task_args=list(exclude_args),
             exclude_global_args=["workers", "local-scheduler", f"{task.task_family}-*"],
         )
         if task.htcondor_use_local_scheduler():
@@ -163,7 +163,7 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
 
         # task hook
         if grouped_submission:
-            c = task.htcondor_job_config(c, list(submit_jobs.keys()), list(submit_jobs.values()))
+            c = task.htcondor_job_config(c, list(submit_jobs.keys()), list(submit_jobs.values()))  # type: ignore[arg-type] # noqa
         else:
             c = task.htcondor_job_config(c, job_num, branches)
 
@@ -211,13 +211,14 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
     def destination_info(self) -> InsertableDict:
         info = super().destination_info()
 
-        if self.task.htcondor_pool and self.task.htcondor_pool != NO_STR:
-            info["pool"] = f"pool: {self.task.htcondor_pool}"
+        task: HTCondorWorkflow = self.task  # type: ignore[assignment]
+        if task.htcondor_pool and task.htcondor_pool != NO_STR:
+            info["pool"] = f"pool: {task.htcondor_pool}"
 
-        if self.task.htcondor_scheduler and self.task.htcondor_scheduler != NO_STR:
-            info["scheduler"] = f"scheduler: {self.task.htcondor_scheduler}"
+        if task.htcondor_scheduler and task.htcondor_scheduler != NO_STR:
+            info["scheduler"] = f"scheduler: {task.htcondor_scheduler}"
 
-        info = self.task.htcondor_destination_info(info)
+        info = task.htcondor_destination_info(info)
 
         return info
 
@@ -226,9 +227,9 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
 
     workflow_proxy_cls = HTCondorWorkflowProxy
 
-    htcondor_workflow_run_decorators = None
-    htcondor_job_manager_defaults = None
-    htcondor_job_file_factory_defaults = None
+    htcondor_workflow_run_decorators: list | None = None
+    htcondor_job_manager_defaults: dict | None = None
+    htcondor_job_file_factory_defaults: dict | None = None
 
     htcondor_pool = luigi.Parameter(
         default=NO_STR,
@@ -242,9 +243,9 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
     )
 
     htcondor_job_kwargs: list[str] = ["htcondor_pool", "htcondor_scheduler"]
-    htcondor_job_kwargs_submit = None
-    htcondor_job_kwargs_cancel = None
-    htcondor_job_kwargs_query = None
+    htcondor_job_kwargs_submit: dict | None = None
+    htcondor_job_kwargs_cancel: dict | None = None
+    htcondor_job_kwargs_query: dict | None = None
 
     exclude_params_branch = {"htcondor_pool", "htcondor_scheduler"}
 

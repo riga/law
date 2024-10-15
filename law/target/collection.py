@@ -343,11 +343,11 @@ class SiblingFileCollection(SiblingFileCollectionBase):
         # find the first target and store its directory
         if self.first_target is None:
             raise Exception(f"{self.__class__.__name__} requires at least one file target")
-        self.dir = self.first_target.parent
+        self.dir = self.first_target.parent  # type: ignore[attr-defined]
 
         # check that targets are in fact located in the same directory
         for t in flatten_collections(self._flat_target_list):
-            if not self._exists_in_dir(t):
+            if not self._exists_in_dir(t):  # type: ignore[arg-type]
                 raise Exception(f"{t} is not located in common directory {self.dir}")
 
     def _exists_in_dir(self, target: FileSystemTarget) -> bool:
@@ -436,7 +436,7 @@ class NestedSiblingFileCollection(SiblingFileCollectionBase):
         self._flat_target_collections = {}
         grouped_targets: dict[str, list[Target]] = {}
         for t in flatten_collections(self._flat_target_list):
-            grouped_targets.setdefault(t.parent.uri(), []).append(t)
+            grouped_targets.setdefault(t.parent.uri(), []).append(t)  # type: ignore[attr-defined]
         for targets in grouped_targets.values():
             # create and store the collection
             collection = SiblingFileCollection(targets)
@@ -486,7 +486,7 @@ class NestedSiblingFileCollection(SiblingFileCollectionBase):
 
         # loop and yield
         for key, targets in self._iter_flat():
-            state = all(exists(t, basenames[self._flat_target_collections[t]]) for t in targets)
+            state = all(exists(t, basenames[self._flat_target_collections[t]]) for t in targets)  # type: ignore[call-overload] # noqa
             if state is existing:
                 if unpack:
                     targets = self.targets[key]

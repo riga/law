@@ -66,7 +66,7 @@ def merge_parquet_files(
 
     # trivial case
     if copy_single and len(src_paths) == 1:
-        shutil.copy(src_paths[0], dst_path)
+        shutil.copy(str(src_paths[0]), str(dst_path))
         callback(0)
         return dst_path
 
@@ -160,7 +160,7 @@ def merge_parquet_task(
         # fetch
         with task.publish_step("fetching inputs ...", runtime=True):
             def fetch(inp: FileSystemFileTarget) -> LocalFileTarget:
-                local_inp = cwd.child(inp.unique_basename, type="f")
+                local_inp: LocalFileTarget = cwd.child(inp.unique_basename, type="f")  # type: ignore[assignment] # noqa
                 inp.copy_to_local(local_inp, cache=False)
                 return local_inp
 

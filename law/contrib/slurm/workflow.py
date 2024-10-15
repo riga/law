@@ -36,17 +36,17 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
     workflow_type: str = "slurm"
 
     def create_job_manager(self, **kwargs) -> SlurmJobManager:
-        return self.task.slurm_create_job_manager(**kwargs)
+        return self.task.slurm_create_job_manager(**kwargs)  # type: ignore[attr-defined]
 
     def create_job_file_factory(self, **kwargs) -> SlurmJobFileFactory:
-        return self.task.slurm_create_job_file_factory(**kwargs)
+        return self.task.slurm_create_job_file_factory(**kwargs)  # type: ignore[attr-defined]
 
     def create_job_file(
         self,
         job_num: int,
         branches: list[int],
     ) -> dict[str, str | pathlib.Path | SlurmJobFileFactory.Config | None]:
-        task = self.task
+        task: SlurmWorkflow = self.task  # type: ignore[assignment]
 
         # the file postfix is pythonic range made from branches, e.g. [0, 1, 2, 4] -> "_0To5"
         postfix = f"_{branches[0]}To{branches[-1] + 1}"
@@ -77,7 +77,7 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
         )
         proxy_cmd = ProxyCommand(
             task.as_branch(branches[0]),
-            exclude_task_args=exclude_args,
+            exclude_task_args=list(exclude_args),
             exclude_global_args=["workers", "local-scheduler", f"{task.task_family}-*"],
         )
         if task.slurm_use_local_scheduler():
@@ -96,7 +96,7 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
             task_cls=task.__class__,
             task_params=proxy_cmd.build(skip_run=True),
             branches=branches,
-            workers=task.job_workers,
+            workers=task.job_workers,  # type: ignore[arg-type]
             auto_retry=False,
             dashboard_data=dashboard_data,
         )
@@ -169,7 +169,7 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
     def destination_info(self) -> InsertableDict:
         info = super().destination_info()
 
-        info = self.task.slurm_destination_info(info)
+        info = self.task.slurm_destination_info(info)  # type: ignore[attr-defined]
 
         return info
 
@@ -178,9 +178,9 @@ class SlurmWorkflow(BaseRemoteWorkflow):
 
     workflow_proxy_cls = SlurmWorkflowProxy
 
-    slurm_workflow_run_decorators = None
-    slurm_job_manager_defaults = None
-    slurm_job_file_factory_defaults = None
+    slurm_workflow_run_decorators: list | None = None
+    slurm_job_manager_defaults: dict | None = None
+    slurm_job_file_factory_defaults: dict | None = None
 
     slurm_partition = luigi.Parameter(
         default=NO_STR,
@@ -189,9 +189,9 @@ class SlurmWorkflow(BaseRemoteWorkflow):
     )
 
     slurm_job_kwargs: list[str] = ["slurm_partition"]
-    slurm_job_kwargs_submit = None
-    slurm_job_kwargs_cancel = None
-    slurm_job_kwargs_query = None
+    slurm_job_kwargs_submit: dict | None = None
+    slurm_job_kwargs_cancel: dict | None = None
+    slurm_job_kwargs_query: dict | None = None
 
     exclude_params_branch = {"slurm_partition"}
 

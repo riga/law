@@ -69,15 +69,15 @@ class WLCGTarget(RemoteTarget):
     def __init__(
         self,
         path: str | pathlib.Path,
-        fs: str | pathlib.Path | WLCGFileSystem | None = WLCGFileSystem.default_instance,
+        fs: str | pathlib.Path | WLCGFileSystem | None = WLCGFileSystem.default_instance,  # type: ignore[assignment] # noqa
         **kwargs,
     ) -> None:
         if fs is None:
-            fs = WLCGFileSystem.default_instance
+            fs = WLCGFileSystem.default_instance  # type: ignore[assignment]
         elif not isinstance(fs, WLCGFileSystem):
             fs = WLCGFileSystem(str(fs))
 
-        super().__init__(path, fs, **kwargs)
+        super().__init__(path, fs, **kwargs)  # type: ignore[arg-type]
 
 
 class WLCGFileTarget(WLCGTarget, RemoteFileTarget):

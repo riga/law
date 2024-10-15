@@ -279,7 +279,7 @@ class RemoteFileSystem(FileSystem):
 
         return self.file_interface.chmod(self.abspath(path), perm, **kwargs)
 
-    def remove(self, path: str | pathlib.Path, **kwargs) -> bool:
+    def remove(self, path: str | pathlib.Path, **kwargs) -> bool:  # type: ignore[override]
         # forward to local_fs
         if self.is_local(path):
             return self.local_fs.remove(path)
@@ -292,7 +292,7 @@ class RemoteFileSystem(FileSystem):
 
         return self.file_interface.remove(path, **kwargs)
 
-    def mkdir(
+    def mkdir(  # type: ignore[override]
         self,
         path: str | pathlib.Path,
         perm: int | None = None,
@@ -591,7 +591,7 @@ class RemoteFileSystem(FileSystem):
 
         return full_dst
 
-    def copy(
+    def copy(  # type: ignore[override]
         self,
         src,
         dst,
@@ -603,12 +603,12 @@ class RemoteFileSystem(FileSystem):
         # dst might be an existing directory
         if dst:
             dst_fs = self.local_fs if self.is_local(dst) else self
-            dst_fs._prepare_dst_dir(dst, src=src, perm=dir_perm, **kwargs)
+            dst_fs._prepare_dst_dir(dst, src=src, perm=dir_perm, **kwargs)  # type: ignore[attr-defined] # noqa
 
         # copy the file
         return self._cached_copy(src, dst, perm=perm, **kwargs)
 
-    def move(
+    def move(  # type: ignore[override]
         self,
         src: str | pathlib.Path,
         dst: str | pathlib.Path,
@@ -728,7 +728,7 @@ class RemoteTarget(FileSystemTarget):
         return self.uri(return_all=False)  # type: ignore[return-value]
 
     def uri(self, **kwargs) -> str | list[str]:
-        return self.fs.uri(self.path, **kwargs)
+        return self.fs.uri(self.path, **kwargs)  # type: ignore[attr-defined]
 
     def copy_to_local(
         self,
@@ -736,7 +736,7 @@ class RemoteTarget(FileSystemTarget):
         **kwargs,
     ) -> str:
         if dst is not None:
-            dst = add_scheme(self.fs.local_fs.abspath(get_path(dst)), "file")
+            dst = add_scheme(self.fs.local_fs.abspath(get_path(dst)), "file")  # type: ignore[attr-defined] # noqa
         dst = self.copy_to(dst, **kwargs)  # type: ignore[arg-type]
         return remove_scheme(dst)
 
@@ -745,7 +745,7 @@ class RemoteTarget(FileSystemTarget):
         src: str | pathlib.Path | FileSystemTarget | None = None,
         **kwargs,
     ) -> str:
-        src = add_scheme(self.fs.local_fs.abspath(get_path(src)), "file")
+        src = add_scheme(self.fs.local_fs.abspath(get_path(src)), "file")  # type: ignore[attr-defined] # noqa
         return self.copy_from(src, **kwargs)
 
     def move_to_local(
@@ -754,7 +754,7 @@ class RemoteTarget(FileSystemTarget):
         **kwargs,
     ) -> str:
         if dst is not None:
-            dst = add_scheme(self.fs.local_fs.abspath(get_path(dst)), "file")
+            dst = add_scheme(self.fs.local_fs.abspath(get_path(dst)), "file")  # type: ignore[attr-defined] # noqa
         dst = self.move_to(dst, **kwargs)  # type: ignore[arg-type]
         return remove_scheme(dst)
 
@@ -763,12 +763,12 @@ class RemoteTarget(FileSystemTarget):
         src: str | pathlib.Path | FileSystemTarget | None = None,
         **kwargs,
     ) -> str:
-        src = add_scheme(self.fs.local_fs.abspath(get_path(src)), "file")
+        src = add_scheme(self.fs.local_fs.abspath(get_path(src)), "file")  # type: ignore[attr-defined] # noqa
         return self.move_from(src, **kwargs)
 
     def load(self, *args, **kwargs) -> Any:
         # split kwargs that might be designated for remote files
-        remote_kwargs, kwargs = self.fs.split_remote_kwargs(kwargs)
+        remote_kwargs, kwargs = self.fs.split_remote_kwargs(kwargs)  # type: ignore[attr-defined]
 
         # forward to the localized representation
         with self.localize(mode="r", **remote_kwargs) as loc:
@@ -776,7 +776,7 @@ class RemoteTarget(FileSystemTarget):
 
     def dump(self, *args, **kwargs) -> Any:
         # split kwargs that might be designated for remote files
-        remote_kwargs, kwargs = self.fs.split_remote_kwargs(kwargs)
+        remote_kwargs, kwargs = self.fs.split_remote_kwargs(kwargs)  # type: ignore[attr-defined]
 
         # forward to the localized representation
         with self.localize(mode="a", **remote_kwargs) as loc:
@@ -787,10 +787,10 @@ class RemoteFileTarget(FileSystemFileTarget, RemoteTarget):
 
     @property
     def cache_path(self) -> str | None:
-        if not self.fs.cache:
+        if not self.fs.cache:  # type: ignore[attr-defined]
             return None
 
-        return self.fs.cache.cache_path(self.path)
+        return self.fs.cache.cache_path(self.path)  # type: ignore[attr-defined]
 
     @contextlib.contextmanager
     def localize(

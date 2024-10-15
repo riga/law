@@ -267,7 +267,7 @@ class Sandbox(object, metaclass=ABCMeta):
 
     def scheduler_on_host(self) -> bool:
         config = luigi.interface.core()
-        return multi_match(config.scheduler_host, ["0.0.0.0", "127.0.0.1", "localhost"])
+        return multi_match(config.scheduler_host, ["0.0.0.0", "127.0.0.1", "localhost"])  # type: ignore[arg-type] # noqa
 
     def force_local_scheduler(self) -> bool:
         return False
@@ -443,20 +443,24 @@ class SandboxProxy(ProxyTask):
 
     @property
     def sandbox_inst(self) -> Sandbox:
-        return self.task.sandbox_inst
+        return self.task.sandbox_inst  # type: ignore[attr-defined]
 
     def create_proxy_cmd(self) -> ProxyCommand:
+        task: SandboxTask = self.task  # type: ignore[assignment]
+
         return ProxyCommand(
-            self.task,
-            exclude_task_args=self.task.exclude_params_sandbox,
+            task,
+            exclude_task_args=list(task.exclude_params_sandbox),
             exclude_global_args=["workers"],
-            executable=self.task.sandbox_law_executable(),
+            executable=task.sandbox_law_executable(),
         )
 
     def run(self) -> None:
+        task: SandboxTask = self.task  # type: ignore[assignment]
+
         # pre_run hook
-        if callable(self.task.sandbox_pre_run):
-            self.task.sandbox_pre_run()
+        if callable(task.sandbox_pre_run):
+            task.sandbox_pre_run()
 
         # create a temporary direction for file staging
         tmp_dir = LocalDirectoryTarget(is_tmp=True)
@@ -493,13 +497,15 @@ class SandboxProxy(ProxyTask):
             self.stageout(stageout_info)
 
         # post_run hook
-        if callable(self.task.sandbox_post_run):
-            self.task.sandbox_post_run()
+        if callable(task.sandbox_post_run):
+            task.sandbox_post_run()
 
     def stagein(
         self,
         tmp_dir: str | pathlib.Path | LocalDirectoryTarget,
     ) -> StageInfo | None:
+        task: SandboxTask = self.task  # type: ignore[assignment]
+
         # check if the stage-in dir is set
         cfg = Config.instance()
         section = self.sandbox_inst.get_config_section()
@@ -508,11 +514,11 @@ class SandboxProxy(ProxyTask):
             return None
 
         # determine inputs as seen by the sandbox
-        with patch_object(os, "environ", self.task.env, lock=True):
-            sandbox_inputs = self.task.input()
+        with patch_object(os, "environ", task.env, lock=True):
+            sandbox_inputs = task.input()
 
         # get the sandbox stage-in mask
-        stagein_mask = self.task.sandbox_stagein(sandbox_inputs)
+        stagein_mask = task.sandbox_stagein(sandbox_inputs)
         if not stagein_mask:
             return None
 
@@ -524,7 +530,7 @@ class SandboxProxy(ProxyTask):
         # create the stage-in directory
         if not isinstance(tmp_dir, LocalDirectoryTarget):
             tmp_dir = LocalDirectoryTarget(tmp_dir)
-        stagein_dir = tmp_dir.child(stagein_dir_name, type="d")
+        stagein_dir: LocalDirectoryTarget = tmp_dir.child(stagein_dir_name, type="d")  # type: ignore[assignment] # noqa
         stagein_dir.touch()
 
         # create localized sandbox input representations
@@ -553,6 +559,8 @@ class SandboxProxy(ProxyTask):
         self,
         tmp_dir: str | pathlib.Path | LocalDirectoryTarget,
     ) -> StageInfo | None:
+        task: SandboxTask = self.task  # type: ignore[assignment]
+
         # check if the stage-out dir is set
         cfg = Config.instance()
         section = self.sandbox_inst.get_config_section()
@@ -561,11 +569,11 @@ class SandboxProxy(ProxyTask):
             return None
 
         # determine outputs as seen by the sandbox
-        with patch_object(os, "environ", self.task.env, lock=True):
-            sandbox_outputs = self.task.output()
+        with patch_object(os, "environ", task.env, lock=True):
+            sandbox_outputs = task.output()
 
         # get the sandbox stage-out mask
-        stageout_mask = self.task.sandbox_stageout(sandbox_outputs)
+        stageout_mask = task.sandbox_stageout(sandbox_outputs)
         if not stageout_mask:
             return None
 
@@ -577,7 +585,7 @@ class SandboxProxy(ProxyTask):
         # create the stage-out directory
         if not isinstance(tmp_dir, LocalDirectoryTarget):
             tmp_dir = LocalDirectoryTarget(tmp_dir)
-        stageout_dir = tmp_dir.child(stageout_dir_name, type="d")
+        stageout_dir: LocalDirectoryTarget = tmp_dir.child(stageout_dir_name, type="d")  # type: ignore[assignment] # noqa
         stageout_dir.touch()
 
         # create localized sandbox output representations
@@ -661,6 +669,7 @@ class SandboxTask(ProxyAttributeTask):
         if self._sandbox_initialized and not force:
             return
         self._sandbox_initialized = True
+        sandbox: str = self.sandbox  # type: ignore[assignment]
 
         # reset values
         self._effective_sandbox = None
@@ -674,14 +683,14 @@ class SandboxTask(ProxyAttributeTask):
         # when the sandbox is set via a parameter and not hard-coded,
         # check if the value is among the valid sandboxes, otherwise determine the fallback
         elif isinstance(self.__class__.sandbox, luigi.Parameter):
-            if multi_match(self.sandbox, self.valid_sandboxes, mode=any):
-                self._effective_sandbox = self.sandbox
+            if multi_match(sandbox, self.valid_sandboxes, mode=any):
+                self._effective_sandbox = sandbox
             else:
-                self._effective_sandbox = self.fallback_sandbox(self.sandbox)
+                self._effective_sandbox = self.fallback_sandbox(sandbox)
 
         # just set the effective sandbox
         else:
-            self._effective_sandbox = self.sandbox
+            self._effective_sandbox = sandbox
 
         # at this point, the sandbox must be set unless it is explicitely allowed to be empty
         if self._effective_sandbox in (None, NO_STR):
@@ -867,4 +876,4 @@ def create_staged_target(
     if not isinstance(stage_dir, LocalDirectoryTarget):
         stage_dir = LocalDirectoryTarget(str(stage_dir))
 
-    return stage_dir.child(target.unique_basename, type=target.type, **target._copy_kwargs())
+    return stage_dir.child(target.unique_basename, type=target.type, **target._copy_kwargs())  # type: ignore[attr-defined] # noqa

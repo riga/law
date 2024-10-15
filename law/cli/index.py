@@ -154,7 +154,7 @@ def execute(args: argparse.Namespace) -> int:
     lookup: list[Type[Task]] = [Task]
     while lookup:
         cls: Type[Task] = lookup.pop(0)  # type: ignore
-        lookup.extend(cls.__subclasses__())
+        lookup.extend(cls.__subclasses__())  # type: ignore[arg-type]
 
         # skip tasks in __main__ module in interactive sessions
         if cls.__module__ == "__main__":
@@ -283,4 +283,4 @@ def get_global_parameters(
 
             params.append((cls, param, attr, full_name))
 
-    return params
+    return params  # type: ignore[return-value]

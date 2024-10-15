@@ -41,36 +41,37 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
         super().__init__(*args, **kwargs)
 
         # check if there is at least one ce
-        if not self.task.glite_ce:
+        if not self.task.glite_ce:  # type: ignore[attr-defined]
             raise Exception("please set at least one glite computing element (--glite-ce)")
 
         self.delegation_ids = None
 
     def create_job_manager(self, **kwargs) -> GLiteJobManager:
-        return self.task.glite_create_job_manager(**kwargs)
+        return self.task.glite_create_job_manager(**kwargs)  # type: ignore[attr-defined]
 
     def setup_job_mananger(self) -> dict[str, Any]:
         kwargs = {}
 
         # delegate the voms proxy to all endpoints
-        if callable(self.task.glite_delegate_proxy):
+        task: GLiteWorkflow = self.task  # type: ignore[assignment]
+        if callable(task.glite_delegate_proxy):
             delegation_ids = []
-            for ce in self.task.glite_ce:
+            for ce in task.glite_ce:  # type: ignore[attr-defined]
                 endpoint = law.wlcg.get_ce_endpoint(ce)  # type: ignore[attr-defined]
-                delegation_ids.append(self.task.glite_delegate_proxy(endpoint))
+                delegation_ids.append(task.glite_delegate_proxy(endpoint))
             kwargs["delegation_id"] = delegation_ids
 
         return kwargs
 
     def create_job_file_factory(self, **kwargs) -> GLiteJobFileFactory:
-        return self.task.glite_create_job_file_factory(**kwargs)
+        return self.task.glite_create_job_file_factory(**kwargs)  # type: ignore[attr-defined]
 
     def create_job_file(
         self,
         job_num: int,
         branches: list[int],
     ) -> dict[str, str | pathlib.Path | GLiteJobFileFactory.Config | None]:
-        task = self.task
+        task: GLiteWorkflow = self.task  # type: ignore[assignment]
 
         # the file postfix is pythonic range made from branches, e.g. [0, 1, 2, 4] -> "_0To5"
         postfix = f"_{branches[0]}To{branches[-1] + 1}"
@@ -102,7 +103,7 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
         )
         proxy_cmd = ProxyCommand(
             task.as_branch(branches[0]),
-            exclude_task_args=exclude_args,
+            exclude_task_args=list(exclude_args),
             exclude_global_args=["workers", "local-scheduler", f"{task.task_family}-*"],
         )
         if task.glite_use_local_scheduler():
@@ -121,7 +122,7 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
             task_cls=task.__class__,
             task_params=proxy_cmd.build(skip_run=True),
             branches=branches,
-            workers=task.job_workers,
+            workers=task.job_workers,  # type: ignore[arg-type]
             auto_retry=False,
             dashboard_data=dashboard_data,
         )
@@ -172,9 +173,10 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
     def destination_info(self) -> InsertableDict:
         info = super().destination_info()
 
-        info["ce"] = f"ce: {','.join(self.task.glite_ce)}"
+        task: GLiteWorkflow = self.task  # type: ignore[assignment]
+        info["ce"] = f"ce: {','.join(task.glite_ce)}"  # type: ignore[arg-type]
 
-        info = self.task.glite_destination_info(info)
+        info = task.glite_destination_info(info)
 
         return info
 
@@ -183,9 +185,9 @@ class GLiteWorkflow(BaseRemoteWorkflow):
 
     workflow_proxy_cls = GLiteWorkflowProxy
 
-    glite_workflow_run_decorators = None
-    glite_job_manager_defaults = None
-    glite_job_file_factory_defaults = None
+    glite_workflow_run_decorators: list | None = None
+    glite_job_manager_defaults: dict | None = None
+    glite_job_file_factory_defaults: dict | None = None
 
     glite_ce = CSVParameter(
         default=(),
@@ -195,9 +197,9 @@ class GLiteWorkflow(BaseRemoteWorkflow):
 
     glite_job_kwargs: list[str] = []
     glite_job_kwargs_submit = ["glite_ce"]
-    glite_job_kwargs_cancel = None
-    glite_job_kwargs_cleanup = None
-    glite_job_kwargs_query = None
+    glite_job_kwargs_cancel: dict | None = None
+    glite_job_kwargs_cleanup: dict | None = None
+    glite_job_kwargs_query: dict | None = None
 
     exclude_params_branch = {"glite_ce"}
 

@@ -11,7 +11,7 @@ action() {
     local repo_dir="$( dirname "${this_dir}" )"
 
     # default test command
-    local cmd="${1:-mypy --config-file ${repo_dir}/pyproject.toml .}"
+    local cmd="${1:-mypy --config-file '${repo_dir}/pyproject.toml' .}"
 
     # execute it
     echo -e "command: \x1b[1;49;39m${cmd}\x1b[0m"

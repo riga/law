@@ -185,7 +185,7 @@ def print_task_deps(task: Task, max_depth: int = 1) -> None:
         text_offset += f"{fmt['|'] if next_deps_shown else ' '}{text_prefix}"
 
         # print the task line
-        _print(task_offset + task_prefix + dep.repr(color=True), text_offset)
+        _print(task_offset + task_prefix + dep.repr(color=True), text_offset)  # type: ignore[union-attr] # noqa
 
 
 def print_task_status(
@@ -261,7 +261,7 @@ def print_task_status(
         text_offset_ind = text_offset + int(fmt["ind"]) * " "
 
         # print the task line
-        _print(task_offset + task_prefix + dep.repr(color=True), text_offset)
+        _print(task_offset + task_prefix + dep.repr(color=True), text_offset)  # type: ignore[union-attr] # noqa
 
         # skip if already seen
         if skip_seen and dep in done:
@@ -396,7 +396,7 @@ def remove_task_output(
         text_offset_ind = text_offset + int(fmt["ind"]) * " "
 
         # print the task line
-        _print(task_offset + task_prefix + dep.repr(color=True), text_offset)
+        _print(task_offset + task_prefix + dep.repr(color=True), text_offset)  # type: ignore[union-attr] # noqa
 
         # always skip external tasks
         if isinstance(dep, ExternalTask):
@@ -571,7 +571,7 @@ def fetch_task_output(
         text_offset_ind = text_offset + int(fmt["ind"]) * " "
 
         # print the task line
-        _print(task_offset + task_prefix + dep.repr(color=True), text_offset)
+        _print(task_offset + task_prefix + dep.repr(color=True), text_offset)  # type: ignore[union-attr] # noqa
 
         if not include_external and isinstance(dep, ExternalTask):
             _print(text_offset_ind + colored("task is external", "yellow"), text_offset_ind)
@@ -601,7 +601,7 @@ def fetch_task_output(
             int(fmt["ind"]) * " ",
         ):
             try:
-                stat = output.stat()
+                stat = output.stat()  # type: ignore[attr-defined]
             except:
                 stat = None
 
@@ -673,8 +673,8 @@ def fetch_task_output(
                 if not callable(getattr(outp, "copy_to_local", None)):
                     continue
 
-                basename = f"{dep.live_task_id}__{outp.basename}"
-                outp.copy_to_local(os.path.join(target_dir, basename), retries=0)
+                basename = f"{dep.live_task_id}__{outp.basename}"  # type: ignore[attr-defined]
+                outp.copy_to_local(os.path.join(target_dir, basename), retries=0)  # type: ignore[attr-defined] # noqa
 
                 _print(
                     ooffset + f"{colored('fetched', 'green', style='bright')} ({basename})",

@@ -165,7 +165,7 @@ class BaseJobDashboard(object, metaclass=ABCMeta):
         ...
 
     @abstractmethod
-    def publish(self, job_data: JobData, event: str, job_num: int) -> None:
+    def publish(self, job_data: dict, event: str, job_num: int) -> None:
         """
         Publishes the status of a job to the implemented job dashboard. *job_data* is a dictionary
         that contains a *job_id* and a *status* string (see

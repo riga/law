@@ -39,7 +39,7 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
     job_error_messages = {}
 
     def create_job_manager(self, **kwargs) -> CrabJobManager:
-        return self.task.crab_create_job_manager(**kwargs)
+        return self.task.crab_create_job_manager(**kwargs)  # type: ignore[attr-defined]
 
     def setup_job_manager(self) -> dict[str, Any]:
         cfg = Config.instance()
@@ -76,13 +76,13 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
         return {"myproxy_username": myproxy_username}
 
     def create_job_file_factory(self, **kwargs) -> CrabJobFileFactory:
-        return self.task.crab_create_job_file_factory(**kwargs)
+        return self.task.crab_create_job_file_factory(**kwargs)  # type: ignore[attr-defined]
 
     def create_job_file_group(
         self,
         submit_jobs: dict[int, list[int]],
     ) -> dict[str, str | pathlib.Path | CrabJobFileFactory.Config | None]:
-        task = self.task
+        task: CrabWorkflow = self.task  # type: ignore[assignment]
 
         # create the config
         c = self.job_file_factory.get_config()  # type: ignore[union-attr]
@@ -107,7 +107,7 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
         )
         proxy_cmd = ProxyCommand(
             task.as_branch(),
-            exclude_task_args=exclude_args,
+            exclude_task_args=list(exclude_args),
             exclude_global_args=["workers", f"{task.task_family}-*"],
         )
         proxy_cmd.add_arg("--local-scheduler", "True", overwrite=True)
@@ -127,7 +127,7 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
                 task_cls=task.__class__,
                 task_params=proxy_cmd.build(skip_run=True),
                 branches=branches,
-                workers=task.job_workers,
+                workers=task.job_workers,  # type: ignore[arg-type]
                 auto_retry=False,
                 dashboard_data=dashboard_data,
             )
@@ -169,7 +169,7 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
             c.custom_log_file = log_file
 
         # task hook
-        c = task.crab_job_config(c, list(submit_jobs.keys()), list(submit_jobs.values()))
+        c = task.crab_job_config(c, list(submit_jobs.keys()), list(submit_jobs.values()))  # type: ignore[call-arg, arg-type] # noqa
 
         # build the job file and get the sanitized config
         job_file, c = self.job_file_factory(**c.__dict__)  # type: ignore[misc]
@@ -189,7 +189,7 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
     def destination_info(self) -> InsertableDict:
         info = super().destination_info()
 
-        info = self.task.crab_destination_info(info)
+        info = self.task.crab_destination_info(info)  # type: ignore[attr-defined]
 
         return info
 
@@ -198,15 +198,15 @@ class CrabWorkflow(BaseRemoteWorkflow):
 
     workflow_proxy_cls = CrabWorkflowProxy
 
-    crab_workflow_run_decorators = None
-    crab_job_manager_defaults = None
-    crab_job_file_factory_defaults = None
+    crab_workflow_run_decorators: list | None = None
+    crab_job_manager_defaults: dict | None = None
+    crab_job_file_factory_defaults: dict | None = None
 
     crab_job_kwargs: list[str] = []
-    crab_job_kwargs_submit = None
-    crab_job_kwargs_cancel = None
-    crab_job_kwargs_cleanup = None
-    crab_job_kwargs_query = None
+    crab_job_kwargs_submit: dict | None = None
+    crab_job_kwargs_cancel: dict | None = None
+    crab_job_kwargs_cleanup: dict | None = None
+    crab_job_kwargs_query: dict | None = None
 
     exclude_params_branch = set()
     exclude_params_crab_workflow: set[str] = set()
@@ -247,7 +247,7 @@ class CrabWorkflow(BaseRemoteWorkflow):
         value of the "job.crab_work_area" configuration options is used.
         """
         # when job files are cleaned, try to use the output directory when local
-        if self.workflow_proxy.job_file_factory and self.workflow_proxy.job_file_factory.cleanup:
+        if self.workflow_proxy.job_file_factory and self.workflow_proxy.job_file_factory.cleanup:  # type: ignore[attr-defined] # noqa
             out_dir = self.crab_output_directory()
             # when local, return the directory
             if isinstance(out_dir, LocalDirectoryTarget):

@@ -651,7 +651,7 @@ class RangeParameter(Parameter):
     """
 
     RANGE_SEP = ":"
-    OPEN = None
+    OPEN: None = None
 
     @classmethod
     def expand(

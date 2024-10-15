@@ -98,7 +98,7 @@ def root_task_parser() -> ArgumentParser | None:
 
         # create a new parser and add all root actions
         _root_task_parser = ArgumentParser(add_help=False)
-        for action in list(_full_parser._actions):
+        for action in list(_full_parser._actions):  # type: ignore[attr-defined]
             if not action.option_strings or action.dest in root_dests:
                 _root_task_parser._add_action(action)
 
@@ -198,7 +198,7 @@ def global_cmdline_values() -> dict[str, Any] | None:
 
         # go through all actions of the luigi parser and compare options with global cmdline args
         _global_cmdline_values = {}
-        for action in _full_parser._actions:
+        for action in _full_parser._actions:  # type: ignore[attr-defined]
             if any(arg in action.option_strings for arg in global_args):
                 _global_cmdline_values[action.dest] = getattr(luigi_parser.known_args, action.dest)
 

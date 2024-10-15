@@ -55,7 +55,7 @@ class BundleGitRepository(Task):
     @property
     def checksum(self) -> str:
         if self.custom_checksum != NO_STR:
-            return self.custom_checksum
+            return self.custom_checksum  # type: ignore[return-value]
 
         with self._checksum_lock:
             if self._checksum is None:
@@ -81,7 +81,7 @@ class BundleGitRepository(Task):
     def output(self) -> FileSystemFileTarget:
         repo_base = os.path.basename(get_path(self.get_repo_path()))
         repo_base = os.path.abspath(os.path.expandvars(os.path.expanduser(repo_base)))
-        return LocalFileTarget(f"{repo_base}.{self.check_sum}.tgz")
+        return LocalFileTarget(f"{repo_base}.{self.check_sum}.tgz")  # type: ignore[attr-defined]
 
     @log
     def run(self) -> None:
@@ -95,8 +95,8 @@ class BundleGitRepository(Task):
             rel_path(__file__, "scripts", "bundle_repository.sh"),
             get_path(self.get_repo_path()),
             get_path(dst_path),
-            " ".join(self.exclude_files),
-            " ".join(self.include_files),
+            " ".join(self.exclude_files),  # type: ignore[arg-type]
+            " ".join(self.include_files),  # type: ignore[arg-type]
         ]
         cmd = quote_cmd(cmd)
 

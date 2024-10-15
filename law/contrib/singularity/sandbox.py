@@ -122,7 +122,7 @@ class SingularitySandbox(Sandbox):
             tmp.copy_to_local(env_cache_target)
 
         # load the env
-        env = load_env(tmp)
+        env = load_env(tmp)  # type: ignore[arg-type]
 
         return env
 

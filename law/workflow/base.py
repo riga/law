@@ -31,7 +31,7 @@ from law.util import (
     is_classmethod, DotDict,
 )
 from law.logger import get_logger
-from law._types import Any, Sequence, Callable, Iterator
+from law._types import Any, Sequence, Callable, Iterator, Type
 
 
 logger = get_logger(__name__)
@@ -109,7 +109,7 @@ class BaseWorkflowProxy(ProxyTask):
         anything else than *NotImplemented* returns the value, or just does the default completion
         check otherwise.
         """
-        complete = self.task.workflow_complete()
+        complete = self.task.workflow_complete()  # type: ignore[attr-defined]
         if complete is not NotImplemented:
             return complete
 
@@ -121,7 +121,7 @@ class BaseWorkflowProxy(ProxyTask):
         the return value of the task's *workflow_requires* method.
         """
         reqs = DotDict()
-        workflow_reqs = self.task.workflow_requires()
+        workflow_reqs = self.task.workflow_requires()  # type: ignore[attr-defined]
         if workflow_reqs:
             reqs.update(workflow_reqs)
         return reqs
@@ -131,13 +131,15 @@ class BaseWorkflowProxy(ProxyTask):
         Returns the default workflow outputs in an ordered dictionary. At the moment this is just
         the collection of outputs of the branch tasks, stored with the key ``"collection"``.
         """
+        task: BaseWorkflow = self.task  # type: ignore[assignment]
+
         # get targets
-        targets = luigi.task.getpaths(self.task.get_branch_tasks())
+        targets = luigi.task.getpaths(task.get_branch_tasks())
 
         # determine the collection container clas
         cls = TargetCollection
-        if self.task.output_collection_cls and targets:
-            cls = self.task.output_collection_cls
+        if task.output_collection_cls and targets:
+            cls = task.output_collection_cls
 
         # create the collection
         collection = cls(targets, threshold=self.threshold(len(targets)))
@@ -152,23 +154,27 @@ class BaseWorkflowProxy(ProxyTask):
         :py:meth:`output`. By default, the maximum number of tasks is taken from the length of the
         branch map. For performance purposes, you can set this value, *n*, directly.
         """
-        if n is None:
-            n = len(self.task.get_branch_map())
+        task: BaseWorkflow = self.task  # type: ignore[assignment]
 
-        acceptance = self.task.acceptance
+        if n is None:
+            n = len(task.get_branch_map())
+
+        acceptance: int | float = task.acceptance  # type: ignore[assignment]
         return (acceptance * n) if acceptance <= 1 else acceptance
 
     def run(self) -> None | Iterator[Any]:
         """
         Default run implementation that resets the branch map once if requested.
         """
-        if self.task.reset_branch_map_before_run and not self._workflow_has_reset_branch_map:
+        task: BaseWorkflow = self.task  # type: ignore[assignment]
+
+        if task.reset_branch_map_before_run and not self._workflow_has_reset_branch_map:
             self._workflow_has_reset_branch_map = True
 
             # reset cached branch map, branch tasks and boundaries
-            self.task._branch_map = None
-            self.task._branch_tasks = None
-            self.task.branches = self.task._initial_branches
+            task._branch_map = None
+            task._branch_tasks = None
+            task.branches = task._initial_branches  # type: ignore[assignment]
 
         return None
 
@@ -500,7 +506,7 @@ class WorkflowRegister(Register):
         cls_dict["_defined_workflow_proxy"] = "workflow_proxy_cls" in cls_dict
 
         # create and return the class
-        return super().__new__(meta_cls, cls_name, bases, cls_dict)
+        return super().__new__(meta_cls, cls_name, bases, cls_dict)  # type: ignore[return-value]
 
     @classmethod
     def check_dynamic_workflow_conditions(
@@ -691,14 +697,14 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
 
     # configuration members
     workflow_proxy_cls = BaseWorkflowProxy
-    output_collection_cls = None
+    output_collection_cls: Type[TargetCollection] | None = None
     force_contiguous_branches = False
     reset_branch_map_before_run = False
     create_branch_map_before_repr = False
     cache_workflow_requirements = False
     cache_branch_map_default = True
     passthrough_requested_workflow = True
-    workflow_run_decorators = None
+    workflow_run_decorators: list | None = None
 
     # skip from indexing
     exclude_index = True
@@ -741,14 +747,14 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
 
         # determine the default workflow type when not set
         if params.get("workflow") in [None, NO_STR]:
-            params["workflow"] = cls.find_workflow_cls().workflow_proxy_cls.workflow_type
+            params["workflow"] = cls.find_workflow_cls().workflow_proxy_cls.workflow_type  # type: ignore[attr-defined] # noqa
 
         # set the effective workflow parameter based on the actual resolution
         workflow_cls = cls.find_workflow_cls(
             name=params["workflow"],
             fallback_to_first=cls.passthrough_requested_workflow,
         )
-        params["effective_workflow"] = workflow_cls.workflow_proxy_cls.workflow_type
+        params["effective_workflow"] = workflow_cls.workflow_proxy_cls.workflow_type  # type: ignore[attr-defined] # noqa
 
         # resolve workflow parameters
         params = cls._resolve_workflow_parameters(params)
@@ -937,7 +943,7 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
         for workflow_cls in inspect.getmro(cls):
             if not issubclass(workflow_cls, BaseWorkflow):
                 continue
-            if not workflow_cls._defined_workflow_proxy:
+            if not workflow_cls._defined_workflow_proxy:  # type: ignore[attr-defined] # noqa
                 continue
             if name in (workflow_cls.workflow_proxy_cls.workflow_type, None, NO_STR):
                 return workflow_cls
@@ -992,7 +998,7 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
         _exclude |= cls.exclude_params_branch
         kwargs["_exclude"] = _exclude
 
-        return cls.req(inst, **kwargs)
+        return cls.req(inst, **kwargs)  # type: ignore[return-value]
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -1019,7 +1025,7 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
             self._workflow_proxy: BaseWorkflowProxy | None = None
 
             # initially set branches
-            self._initial_branches = tuple(self.branches)
+            self._initial_branches: tuple = tuple(self.branches)  # type: ignore[arg-type]
 
         else:
             # caches
@@ -1036,8 +1042,8 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
         if self._workflow_initialized and not force:
             return
 
-        self._workflow_cls = self.find_workflow_cls(self.effective_workflow)
-        self._workflow_proxy = self._workflow_cls.workflow_proxy_cls(task=self)
+        self._workflow_cls = self.find_workflow_cls(self.effective_workflow)  # type: ignore[arg-type] # noqa
+        self._workflow_proxy = self._workflow_cls.workflow_proxy_cls(task=self)  # type: ignore[attr-defined] # noqa
         logger.debug(f"created workflow proxy instance of type '{self.effective_workflow}'")
 
         self._workflow_initialized = True
@@ -1109,7 +1115,7 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
             kwargs["_exclude"] |= set(self.exclude_params_branch)
 
         # create the task
-        task = self.req(self, branch=branch, **kwargs)
+        task: BaseWorkflow = self.req(self, branch=branch, **kwargs)  # type: ignore[assignment]
 
         # set the _workflow_task attribute if known
         if task._workflow_task is None:
@@ -1124,7 +1130,7 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
         if self.is_branch():
             kwargs["_exclude"] |= set(self.exclude_params_workflow)
 
-        return self.req(self, branch=-1, **kwargs)
+        return self.req(self, branch=-1, **kwargs)  # type: ignore[return-value]
 
     def is_branch(self) -> bool:
         """
@@ -1187,7 +1193,7 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
 
             # get expanded branch values
             branches = range_expand(
-                list(self.branches),
+                list(self.branches),  # type: ignore[call-overload]
                 min_value=min_branch,
                 max_value=max_branch,
             )
@@ -1213,7 +1219,7 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
             max_branch = max(branches) + 1
 
             requested = range_expand(
-                list(self.branches),
+                list(self.branches),  # type: ignore[call-overload]
                 min_value=min_branch,
                 max_value=max_branch,
             )
@@ -1280,7 +1286,7 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
         if self.branch not in branch_map:
             raise ValueError(f"invalid branch '{self.branch}', not found in branch map")
 
-        return branch_map[self.branch]
+        return branch_map[self.branch]  # type: ignore[index]
 
     def get_branch_tasks(self) -> dict[int, BaseWorkflow]:
         """
@@ -1455,7 +1461,7 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
             if m:
                 attr = "tolerance"
                 try:
-                    self.tolerance = float(m.group(3))
+                    self.tolerance = float(m.group(3))  # type: ignore[assignment]
                     value = self.tolerance
                 except ValueError as e:
                     value = e
@@ -1466,7 +1472,7 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
             if m:
                 attr = "acceptance"
                 try:
-                    self.acceptance = float(m.group(3))
+                    self.acceptance = float(m.group(3))  # type: ignore[assignment]
                     value = self.acceptance
                 except ValueError as e:
                     value = e

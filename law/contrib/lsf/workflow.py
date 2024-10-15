@@ -36,17 +36,17 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
     workflow_type: str = "lsf"
 
     def create_job_manager(self, **kwargs) -> LSFJobManager:
-        return self.task.lsf_create_job_manager(**kwargs)
+        return self.task.lsf_create_job_manager(**kwargs)  # type: ignore[attr-defined]
 
     def create_job_file_factory(self, **kwargs) -> LSFJobFileFactory:
-        return self.task.lsf_create_job_file_factory(**kwargs)
+        return self.task.lsf_create_job_file_factory(**kwargs)  # type: ignore[attr-defined]
 
     def create_job_file(
         self,
         job_num: int,
         branches: list[int],
     ) -> dict[str, str | pathlib.Path | LSFJobFileFactory.Config | None]:
-        task = self.task
+        task: LSFWorkflow = self.task  # type: ignore[assignment]
 
         # the file postfix is pythonic range made from branches, e.g. [0, 1, 2, 4] -> "_0To5"
         postfix = f"_{branches[0]}To{branches[-1] + 1}"
@@ -78,7 +78,7 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
         )
         proxy_cmd = ProxyCommand(
             task.as_branch(branches[0]),
-            exclude_task_args=exclude_args,
+            exclude_task_args=list(exclude_args),
             exclude_global_args=["workers", "local-scheduler", f"{task.task_family}-*"],
         )
         if task.lsf_use_local_scheduler():
@@ -97,7 +97,7 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
             task_cls=task.__class__,
             task_params=proxy_cmd.build(skip_run=True),
             branches=branches,
-            workers=task.job_workers,
+            workers=task.job_workers,  # type: ignore[arg-type]
             auto_retry=False,
             dashboard_data=dashboard_data,
         )
@@ -163,10 +163,11 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
     def destination_info(self) -> InsertableDict:
         info = super().destination_info()
 
-        if self.task.lsf_queue != NO_STR:
-            info["queue"] = f"queue: {self.task.lsf_queue}"
+        task: LSFWorkflow = self.task  # type: ignore[assignment]
+        if task.lsf_queue != NO_STR:
+            info["queue"] = f"queue: {task.lsf_queue}"
 
-        info = self.task.lsf_destination_info(info)
+        info = task.lsf_destination_info(info)
 
         return info
 
@@ -175,9 +176,9 @@ class LSFWorkflow(BaseRemoteWorkflow):
 
     workflow_proxy_cls = LSFWorkflowProxy
 
-    lsf_workflow_run_decorators = None
-    lsf_job_manager_defaults = None
-    lsf_job_file_factory_defaults = None
+    lsf_workflow_run_decorators: list | None = None
+    lsf_job_manager_defaults: dict | None = None
+    lsf_job_file_factory_defaults: dict | None = None
 
     lsf_queue = luigi.Parameter(
         default=NO_STR,
@@ -186,9 +187,9 @@ class LSFWorkflow(BaseRemoteWorkflow):
     )
 
     lsf_job_kwargs: list[str] = ["lsf_queue"]
-    lsf_job_kwargs_submit = None
-    lsf_job_kwargs_cancel = None
-    lsf_job_kwargs_query = None
+    lsf_job_kwargs_submit: dict | None = None
+    lsf_job_kwargs_cancel: dict | None = None
+    lsf_job_kwargs_query: dict | None = None
 
     exclude_params_branch = {"lsf_queue"}
 

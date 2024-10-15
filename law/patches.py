@@ -454,7 +454,7 @@ def patch_interface_logging() -> None:
 
         return ret
 
-    luigi.setup_logging.InterfaceLogging._default = classmethod(_default)
+    luigi.setup_logging.InterfaceLogging._default = classmethod(_default)  # type: ignore[assignment]  # noqa
 
     logger.debug("patched luigi.setup_logging.InterfaceLogging._default")
 
@@ -487,7 +487,7 @@ def patch_parameter_copy() -> None:
 
         return inst
 
-    luigi.parameter.Parameter.copy = _copy
+    luigi.parameter.Parameter.copy = _copy  # type: ignore[attr-defined]
 
     logger.debug("patched luigi.parameter.Parameter.copy")
 

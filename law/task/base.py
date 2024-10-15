@@ -63,18 +63,18 @@ class BaseRegister(luigi.task_register.Register):
                     cls_dict[exclude_attr] -= include_params
 
         # create the class, bypassing the luigi task register
-        cls = ABCMeta.__new__(metacls, cls_name, bases, cls_dict)
+        cls: BaseRegister = ABCMeta.__new__(metacls, cls_name, bases, cls_dict)
 
         # default attributes, apart from inheritance
         if getattr(cls, "update_register", None) is None:
-            cls.update_register = False
+            cls.update_register = False  # type: ignore[attr-defined]
 
         # deregister when requested
-        if cls.update_register:
-            cls.deregister()
+        if cls.update_register:  # type: ignore[attr-defined]
+            cls.deregister()  # type: ignore[attr-defined]
 
         # add to register (mimic luigi.task_register.Register.__new__)
-        cls._namespace_at_class_time = metacls._get_namespace(cls.__module__)
+        cls._namespace_at_class_time = metacls._get_namespace(cls.__module__)  # type: ignore[attr-defined] # noqa
         metacls._reg.append(cls)
 
         return cls
@@ -105,7 +105,7 @@ class BaseTask(luigi.Task, metaclass=BaseRegister):
         elif isinstance(task_cls, str):
             task_family = task_cls
         else:
-            task_family = task_cls.get_task_family()
+            task_family = task_cls.get_task_family()  # type: ignore[attr-defined]
 
         success = False
 
@@ -787,7 +787,7 @@ class Task(BaseTask, metaclass=Register):
         **kwargs,
     ) -> int:
         # when kwargs are given, create a new instance
-        inst = self.req(self, **kwargs) if kwargs else self
+        inst: Task = self.req(self, **kwargs) if kwargs else self  # type: ignore[assignment]
 
         return self._law_run_inst(
             inst,

@@ -130,7 +130,7 @@ class FileSystem(shims.FileSystem):
         ...
 
     @abstractmethod
-    def remove(
+    def remove(  # type: ignore[override]
         self,
         path: str | pathlib.Path,
         *,
@@ -141,7 +141,7 @@ class FileSystem(shims.FileSystem):
         ...
 
     @abstractmethod
-    def mkdir(
+    def mkdir(  # type: ignore[override]
         self,
         path: str | pathlib.Path,
         *,
@@ -184,7 +184,7 @@ class FileSystem(shims.FileSystem):
         ...
 
     @abstractmethod
-    def copy(
+    def copy(  # type: ignore[override]
         self,
         src: str | pathlib.Path,
         dst: str | pathlib.Path,
@@ -196,7 +196,7 @@ class FileSystem(shims.FileSystem):
         ...
 
     @abstractmethod
-    def move(
+    def move(  # type: ignore[override]
         self,
         src: str | pathlib.Path,
         dst: str | pathlib.Path,
@@ -301,7 +301,7 @@ class FileSystemTarget(Target, shims.FileSystemTarget):
             return None
 
         args, kwargs = self._parent_args()
-        return self.directory_class(dirname, *args, **kwargs)
+        return self.directory_class(dirname, *args, **kwargs)  # type: ignore[return-value]
 
     def sibling(self, *args, **kwargs) -> FileSystemTarget:
         parent = self.parent
@@ -455,7 +455,7 @@ class FileSystemTarget(Target, shims.FileSystemTarget):
 
 class FileSystemFileTarget(FileSystemTarget):
 
-    type = "f"
+    type: str = "f"
 
     def ext(self, n: int = 1) -> str:
         return self.fs.ext(self.path, n=n)
@@ -557,11 +557,11 @@ class FileSystemDirectoryTarget(FileSystemTarget):
         if type == "f":
             cls = self.file_class
         elif type == "d":
-            cls = self.__class__
+            cls = self.__class__  # type: ignore[assignment]
         elif not self.fs.exists(path):
             raise Exception(f"cannot guess type of non-existing path '{path}'")
         elif self.fs.isdir(path):
-            cls = self.__class__
+            cls = self.__class__  # type: ignore[assignment]
             type = "d"
         else:
             cls = self.file_class

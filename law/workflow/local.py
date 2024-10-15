@@ -32,13 +32,15 @@ class LocalWorkflowProxy(BaseWorkflowProxy):
     def requires(self) -> Any:
         reqs = super().requires()
 
-        local_reqs = self.task.local_workflow_requires()
+        task: BaseWorkflow = self.task  # type: ignore[assignment]
+
+        local_reqs = task.local_workflow_requires()
         if local_reqs:
             reqs.update(local_reqs)
 
         # when local_workflow_require_branches is True, add all branch tasks as dependencies
-        if self.task.local_workflow_require_branches:
-            reqs["branches"] = self.task.get_branch_tasks()
+        if task.local_workflow_require_branches:
+            reqs["branches"] = task.get_branch_tasks()
 
         return reqs
 
@@ -47,17 +49,19 @@ class LocalWorkflowProxy(BaseWorkflowProxy):
         When *local_workflow_require_branches* of the task was set to *False*, starts all branch
         tasks via dynamic dependencies by yielding them in a list, or simply does nothing otherwise.
         """
-        pre_run_gen = self.task.local_workflow_pre_run()
+        task: BaseWorkflow = self.task  # type: ignore[assignment]
+
+        pre_run_gen = task.local_workflow_pre_run()
         if isinstance(pre_run_gen, Generator):
             yield pre_run_gen
 
         super().run()
 
-        if not self.task.local_workflow_require_branches and not self._local_workflow_has_yielded:
+        if not task.local_workflow_require_branches and not self._local_workflow_has_yielded:
             self._local_workflow_has_yielded = True
 
             # use branch tasks as requirements
-            reqs = list(self.task.get_branch_tasks().values())
+            reqs = list(task.get_branch_tasks().values())
 
             # wrap into DynamicRequirements
             yield luigi.DynamicRequirements(reqs, lambda complete_fn: complete_fn(self))

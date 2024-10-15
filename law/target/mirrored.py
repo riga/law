@@ -164,7 +164,7 @@ class MirroredTarget(FileSystemTarget):
         return (
             self.local_target.fs
             if self._local_target_exists()
-            else self.remote_target.fs
+            else self.remote_target.fs  # type: ignore[return-value]
         )
 
     @contextlib.contextmanager
@@ -189,11 +189,11 @@ class MirroredTarget(FileSystemTarget):
         )
 
     @property
-    def abs_dirname(self) -> str:
+    def absdirname(self) -> str:
         return (
-            self.local_target.abs_dirname
+            self.local_target.absdirname
             if self._local_target_exists()
-            else self.remote_target.abs_dirname
+            else self.remote_target.absdirname
         )
 
     @property
@@ -358,8 +358,8 @@ class MirroredDirectoryTarget(FileSystemDirectoryTarget, MirroredTarget):
         type: str,
     ) -> tuple[tuple[Any, ...], dict[str, Any]]:
         child_kwargs = {
-            "remote_target": self.remote_target.child(path, type=type),
-            "local_target": self.local_target.child(path, type=type),
+            "remote_target": self.remote_target.child(path, type=type),  # type: ignore[attr-defined] # noqa
+            "local_target": self.local_target.child(path, type=type),  # type: ignore[attr-defined] # noqa
             "local_read_only": self.local_read_only,
             "local_sync": self.local_sync,
         }
@@ -367,30 +367,30 @@ class MirroredDirectoryTarget(FileSystemDirectoryTarget, MirroredTarget):
 
     def child(self, *args, **kwargs) -> MirroredTarget:
         return (
-            self.local_target.child(*args, **kwargs)
+            self.local_target.child(*args, **kwargs)  # type: ignore[attr-defined]
             if self._local_target_exists()
-            else self.remote_target.child(*args, **kwargs)
+            else self.remote_target.child(*args, **kwargs)  # type: ignore[attr-defined]
         )
 
     def listdir(self, *args, **kwargs) -> list[str]:
         return (
-            self.local_target.listdir(*args, **kwargs)
+            self.local_target.listdir(*args, **kwargs)  # type: ignore[attr-defined]
             if self._local_target_exists()
-            else self.remote_target.listdir(*args, **kwargs)
+            else self.remote_target.listdir(*args, **kwargs)  # type: ignore[attr-defined]
         )
 
     def glob(self, *args, **kwargs) -> list[str]:
         return (
-            self.local_target.glob(*args, **kwargs)
+            self.local_target.glob(*args, **kwargs)  # type: ignore[attr-defined]
             if self._local_target_exists()
-            else self.remote_target.glob(*args, **kwargs)
+            else self.remote_target.glob(*args, **kwargs)  # type: ignore[attr-defined]
         )
 
     def walk(self, *args, **kwargs) -> Iterator[tuple[str, list[str], list[str], int]]:
         return (
-            self.local_target.walk(*args, **kwargs)
+            self.local_target.walk(*args, **kwargs)  # type: ignore[attr-defined]
             if self._local_target_exists()
-            else self.remote_target.walk(*args, **kwargs)
+            else self.remote_target.walk(*args, **kwargs)  # type: ignore[attr-defined]
         )
 
 
