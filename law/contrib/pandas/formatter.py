@@ -7,10 +7,12 @@ Pandas target formatters.
 __all__ = ["DataFrameFormatter"]
 
 
-import pathlib
+import os
+
 from law.target.formatter import Formatter
 from law.target.file import get_path
 from law.logger import get_logger
+from law.util import no_value
 
 
 logger = get_logger(__name__)
@@ -29,6 +31,7 @@ class DataFrameFormatter(Formatter):
     @classmethod
     def load(cls, path, *args, **kwargs):
         path = get_path(path)
+
         if path.endswith(".csv"):
             import pandas  # fmt: skip
             return pandas.read_csv(path, *args, **kwargs)
@@ -49,31 +52,38 @@ class DataFrameFormatter(Formatter):
             import pandas  # fmt: skip
             return pandas.read_pickle(path, *args, **kwargs)
 
-        suffix = pathlib.Path(path).suffix
+        suffix = os.path.splitext(path)[1]
         raise NotImplementedError(
-            f'Suffix "{suffix}" not implemented in DataFrameFormatter',
+            "suffix \"{}\" not implemented in DataFrameFormatter".format(suffix),
         )
 
     @classmethod
     def dump(cls, path, obj, *args, **kwargs):
-        path = get_path(path)
+        _path = get_path(path)
+        perm = kwargs.pop("perm", no_value)
 
-        if path.endswith(".csv"):
-            return obj.to_csv(path, *args, **kwargs)
+        if _path.endswith(".csv"):
+            ret = obj.to_csv(_path, *args, **kwargs)
 
-        if path.endswith(".json"):
-            return obj.to_json(path, *args, **kwargs)
+        elif _path.endswith(".json"):
+            ret = obj.to_json(_path, *args, **kwargs)
 
-        if path.endswith(".parquet"):
-            return obj.to_parquet(path, *args, **kwargs)
+        elif _path.endswith(".parquet"):
+            ret = obj.to_parquet(_path, *args, **kwargs)
 
-        if path.endswith((".h5", ".hdf5")):
-            return obj.to_hdf(path, *args, **kwargs)
+        elif _path.endswith((".h5", ".hdf5")):
+            ret = obj.to_hdf(_path, *args, **kwargs)
 
-        if path.endswith((".pickle", ".pkl")):
-            return obj.to_pickle(path, *args, **kwargs)
+        elif _path.endswith((".pickle", ".pkl")):
+            ret = obj.to_pickle(_path, *args, **kwargs)
 
-        suffix = pathlib.Path(path).suffix
-        raise NotImplementedError(
-            f'Suffix "{suffix}" not implemented in DataFrameFormatter',
-        )
+        else:
+            suffix = os.path.splitext(path)[1]
+            raise NotImplementedError(
+                "suffix \"{}\" not implemented in DataFrameFormatter".format(suffix),
+            )
+
+        if perm != no_value:
+            cls.chmod(path, perm)
+
+        return ret
