@@ -179,7 +179,7 @@ class SingularitySandbox(Sandbox):
         if callable(forward_law_cb):
             forward_law = forward_law_cb()
         else:
-            forward_law = cfg.get_expanded(cfg_section, "forward_law")
+            forward_law = cfg.get_expanded_bool(cfg_section, "forward_law")
 
         # environment variables to set
         env = self._get_env()
