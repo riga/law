@@ -4,8 +4,9 @@
 Pandas target formatters.
 """
 
-__all__ = ["DataFrameFormatter"]
+from __future__ import annotations
 
+__all__ = ["DataFrameFormatter"]
 
 import pathlib
 
