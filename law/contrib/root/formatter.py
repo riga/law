@@ -15,6 +15,7 @@ import six
 
 from law.target.formatter import Formatter
 from law.target.file import get_path
+from law.util import no_value
 
 from law.contrib.root.util import import_ROOT
 
@@ -95,7 +96,14 @@ class ROOTNumpyFormatter(Formatter):
         ROOT = import_ROOT()  # noqa: F841
         import root_numpy
 
-        return root_numpy.array2root(arr, get_path(path), *args, **kwargs)
+        perm = kwargs.pop("perm", None)
+
+        ret = root_numpy.array2root(arr, get_path(path), *args, **kwargs)
+
+        if perm != no_value:
+            cls.chmod(path, perm)
+
+        return ret
 
 
 class ROOTPandasFormatter(Formatter):
@@ -119,7 +127,14 @@ class ROOTPandasFormatter(Formatter):
         # importing root_pandas adds the to_root() method to data frames
         import root_pandas  # noqa: F401
 
-        return df.to_root(get_path(path), *args, **kwargs)
+        perm = kwargs.pop("perm", None)
+
+        ret = df.to_root(get_path(path), *args, **kwargs)
+
+        if perm != no_value:
+            cls.chmod(path, perm)
+
+        return ret
 
 
 class UprootFormatter(Formatter):
@@ -147,6 +162,8 @@ class UprootFormatter(Formatter):
             raise ValueError("unknown uproot writing mode: {}".format(mode))
         fn = getattr(uproot, mode.lower())
 
+        perm = kwargs.pop("perm", None)
+
         # create the file object and yield it
         f = fn(get_path(path), **kwargs)
         try:
@@ -154,5 +171,7 @@ class UprootFormatter(Formatter):
         finally:
             try:
                 f.file.close()
+                if perm is not None:
+                    cls.chmod(path, perm)
             except:
                 pass

@@ -13,6 +13,7 @@ import os
 
 from law.target.formatter import Formatter
 from law.target.file import get_path
+from law.util import no_value
 
 
 class TFGraphFormatter(Formatter):
@@ -119,11 +120,12 @@ class TFGraphFormatter(Formatter):
         (v2).
         """
         tf, tf1, tf_version = cls.import_tf()
-        path = get_path(path)
-        graph_dir, graph_name = os.path.split(path)
+        _path = get_path(path)
+        perm = kwargs.pop("perm", no_value)
+        graph_dir, graph_name = os.path.split(_path)
 
         # default as_text value
-        kwargs.setdefault("as_text", path.endswith((".pbtxt", ".pb.txt")))
+        kwargs.setdefault("as_text", _path.endswith((".pbtxt", ".pb.txt")))
 
         # convert keras models and polymorphic functions to concrete functions, v2 only
         if tf_version[0] != "1":
@@ -178,9 +180,14 @@ class TFGraphFormatter(Formatter):
 
         # write it
         if tf_version[0] == "1":
-            return tf1.train.write_graph(graph, graph_dir, graph_name, *args, **kwargs)
+            ret = tf1.train.write_graph(graph, graph_dir, graph_name, *args, **kwargs)
         else:
-            return tf.io.write_graph(graph, graph_dir, graph_name, *args, **kwargs)
+            ret = tf.io.write_graph(graph, graph_dir, graph_name, *args, **kwargs)
+
+        if perm != no_value:
+            cls.chmod(path, perm)
+
+        return ret
 
 
 class TFSavedModelFormatter(Formatter):
@@ -194,14 +201,22 @@ class TFSavedModelFormatter(Formatter):
         return not ext
 
     @classmethod
-    def dump(cls, path, model, *args, **kwargs):
-        import tensorflow as tf
-        return tf.saved_model.save(model, get_path(path), *args, **kwargs)
-
-    @classmethod
     def load(cls, path, *args, **kwargs):
         import tensorflow as tf
         return tf.saved_model.load(get_path(path), *args, **kwargs)
+
+    @classmethod
+    def dump(cls, path, model, *args, **kwargs):
+        import tensorflow as tf
+
+        perm = kwargs.pop("perm", no_value)
+
+        ret = tf.saved_model.save(model, get_path(path), *args, **kwargs)
+
+        if perm != no_value:
+            cls.chmod(path, perm)
+
+        return ret
 
 
 class TFKerasModelFormatter(Formatter):
@@ -212,20 +227,6 @@ class TFKerasModelFormatter(Formatter):
     def accepts(cls, path, mode):
         _, ext = os.path.splitext(get_path(path))
         return ext in (".hdf5", ".h5", ".json", ".yaml", ".yml", "")
-
-    @classmethod
-    def dump(cls, path, model, *args, **kwargs):
-        path = get_path(path)
-
-        # the method for saving the model depends on the file extension
-        if path.endswith(".json"):
-            with open(path, "w") as f:
-                f.write(model.to_json())
-        elif path.endswith((".yml", ".yaml")):
-            with open(path, "w") as f:
-                f.write(model.to_yaml())
-        else:  # .hdf5, .h5, bundle
-            return model.save(path, *args, **kwargs)
 
     @classmethod
     def load(cls, path, *args, **kwargs):
@@ -243,6 +244,27 @@ class TFKerasModelFormatter(Formatter):
         else:  # .hdf5, .h5, bundle
             return tf.keras.models.load_model(path, *args, **kwargs)
 
+    @classmethod
+    def dump(cls, path, model, *args, **kwargs):
+        _path = get_path(path)
+        perm = kwargs.pop("perm", no_value)
+
+        # the method for saving the model depends on the file extension
+        ret = None
+        if _path.endswith(".json"):
+            with open(_path, "w") as f:
+                f.write(model.to_json())
+        elif _path.endswith((".yml", ".yaml")):
+            with open(_path, "w") as f:
+                f.write(model.to_yaml())
+        else:  # .hdf5, .h5, bundle
+            ret = model.save(_path, *args, **kwargs)
+
+        if perm != no_value:
+            cls.chmod(path, perm)
+
+        return ret
+
 
 class TFKerasWeightsFormatter(Formatter):
 
@@ -253,9 +275,16 @@ class TFKerasWeightsFormatter(Formatter):
         return get_path(path).endswith((".hdf5", ".h5"))
 
     @classmethod
-    def dump(cls, path, model, *args, **kwargs):
-        return model.save_weights(get_path(path), *args, **kwargs)
-
-    @classmethod
     def load(cls, path, model, *args, **kwargs):
         return model.load_weights(get_path(path), *args, **kwargs)
+
+    @classmethod
+    def dump(cls, path, model, *args, **kwargs):
+        perm = kwargs.pop("perm", no_value)
+
+        ret = model.save_weights(get_path(path), *args, **kwargs)
+
+        if perm != no_value:
+            cls.chmod(path, perm)
+
+        return ret

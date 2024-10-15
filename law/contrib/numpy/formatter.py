@@ -10,6 +10,7 @@ __all__ = ["NumpyFormatter"]
 from law.target.formatter import Formatter
 from law.target.file import get_path
 from law.logger import get_logger
+from law.util import no_value
 
 
 logger = get_logger(__name__)
@@ -35,11 +36,12 @@ class NumpyFormatter(Formatter):
     def dump(cls, path, *args, **kwargs):
         import numpy as np
 
-        path = get_path(path)
+        _path = get_path(path)
+        perm = kwargs.pop("perm", no_value)
 
-        if path.endswith(".txt"):
+        if _path.endswith(".txt"):
             func = np.savetxt
-        elif path.endswith(".npz"):
+        elif _path.endswith(".npz"):
             compress_flag = "savez_compressed"
             compress = False
             if compress_flag in kwargs:
@@ -52,4 +54,7 @@ class NumpyFormatter(Formatter):
         else:
             func = np.save
 
-        func(path, *args, **kwargs)
+        func(_path, *args, **kwargs)
+
+        if perm != no_value:
+            cls.chmod(path, perm)

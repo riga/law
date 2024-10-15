@@ -16,7 +16,7 @@ from collections import OrderedDict
 
 import six
 
-from law.util import make_list, import_file
+from law.util import no_value, make_list, import_file
 from law.logger import get_logger
 
 
@@ -102,6 +102,21 @@ class Formatter(six.with_metaclass(FormatterRegister, object)):
     def dump(cls, path, *args, **kwargs):
         raise NotImplementedError
 
+    @classmethod
+    def chmod(cls, target, perm=None):
+        if not isinstance(target, FileSystemTarget):
+            return
+
+        if perm is None:
+            perm = (
+                target.fs.default_file_perm
+                if isinstance(target, FileSystemFileTarget)
+                else target.fs.default_dir_perm
+            )
+
+        if perm:
+            target.chmod(perm)
+
 
 class TextFormatter(Formatter):
 
@@ -118,8 +133,13 @@ class TextFormatter(Formatter):
 
     @classmethod
     def dump(cls, path, content, *args, **kwargs):
+        perm = kwargs.pop("perm", no_value)
+
         with open(get_path(path), "w") as f:
             f.write(str(content), *args, **kwargs)
+
+        if perm != no_value:
+            cls.chmod(path, perm)
 
 
 class JSONFormatter(Formatter):
@@ -138,9 +158,16 @@ class JSONFormatter(Formatter):
 
     @classmethod
     def dump(_cls, path, obj, *args, **kwargs):
+        perm = kwargs.pop("perm", no_value)
+
         # kwargs might contain *cls*
         with open(get_path(path), "w") as f:
-            return json.dump(obj, f, *args, **kwargs)
+            ret = json.dump(obj, f, *args, **kwargs)
+
+        if perm != no_value:
+            _cls.chmod(path, perm)
+
+        return ret
 
 
 class PickleFormatter(Formatter):
@@ -159,8 +186,15 @@ class PickleFormatter(Formatter):
 
     @classmethod
     def dump(cls, path, obj, *args, **kwargs):
+        perm = kwargs.pop("perm", no_value)
+
         with open(get_path(path), "wb") as f:
-            return six.moves.cPickle.dump(obj, f, *args, **kwargs)
+            ret = six.moves.cPickle.dump(obj, f, *args, **kwargs)
+
+        if perm != no_value:
+            cls.chmod(path, perm)
+
+        return ret
 
 
 class YAMLFormatter(Formatter):
@@ -183,8 +217,15 @@ class YAMLFormatter(Formatter):
     def dump(cls, path, obj, *args, **kwargs):
         import yaml
 
+        perm = kwargs.pop("perm", no_value)
+
         with open(get_path(path), "w") as f:
-            return yaml.dump(obj, f, *args, **kwargs)
+            ret = yaml.dump(obj, f, *args, **kwargs)
+
+        if perm != no_value:
+            cls.chmod(path, perm)
+
+        return ret
 
 
 class ZipFormatter(Formatter):
@@ -222,6 +263,8 @@ class ZipFormatter(Formatter):
         elif "mode" in kwargs:
             mode = kwargs.pop("mode")
 
+        perm = kwargs.pop("perm", no_value)
+
         # arguments passed to write()
         write_kwargs = kwargs.pop("write_kwargs", None) or {}
 
@@ -233,6 +276,9 @@ class ZipFormatter(Formatter):
             else:
                 for elem in os.listdir(src):
                     f.write(os.path.join(src, elem), elem, **write_kwargs)
+
+        if perm != no_value:
+            cls.chmod(path, perm)
 
 
 class GZipFormatter(Formatter):
@@ -270,12 +316,19 @@ class GZipFormatter(Formatter):
         elif "mode" in kwargs:
             mode = kwargs.pop("mode")
 
+        perm = kwargs.pop("perm", no_value)
+
         # arguments passed to write()
         write_kwargs = kwargs.pop("write_kwargs", None) or {}
 
         # write into a new gzip file
         with gzip.open(get_path(path), mode, *args, **kwargs) as f:
-            return f.write(obj, **write_kwargs)
+            ret = f.write(obj, **write_kwargs)
+
+        if perm != no_value:
+            cls.chmod(path, perm)
+
+        return ret
 
 
 class TarFormatter(Formatter):
@@ -328,6 +381,8 @@ class TarFormatter(Formatter):
             compression = cls.infer_compression(path)
             mode = "w" if not compression else "w:" + compression
 
+        perm = kwargs.pop("perm", no_value)
+
         # arguments passed to add()
         add_kwargs = kwargs.pop("add_kwargs", None) or {}
 
@@ -349,6 +404,9 @@ class TarFormatter(Formatter):
                 _add_kwargs.update(add_kwargs)
                 f.add(src, **_add_kwargs)
 
+        if perm != no_value:
+            cls.chmod(path, perm)
+
 
 class PythonFormatter(Formatter):
 
@@ -364,4 +422,4 @@ class PythonFormatter(Formatter):
 
 
 # trailing imports
-from law.target.file import get_path
+from law.target.file import get_path, FileSystemTarget, FileSystemFileTarget

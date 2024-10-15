@@ -10,6 +10,7 @@ __all__ = ["ParquetFormatter", "ParquetTableFormatter"]
 from law.target.formatter import Formatter
 from law.target.file import get_path
 from law.logger import get_logger
+from law.util import no_value
 
 
 logger = get_logger(__name__)
@@ -48,4 +49,11 @@ class ParquetTableFormatter(Formatter):
     def dump(cls, path, obj, *args, **kwargs):
         import pyarrow.parquet as pq
 
-        return pq.write_table(obj, get_path(path), *args, **kwargs)
+        perm = kwargs.pop("perm", no_value)
+
+        ret = pq.write_table(obj, get_path(path), *args, **kwargs)
+
+        if perm != no_value:
+            cls.chmod(path, perm)
+
+        return ret

@@ -10,6 +10,7 @@ __all__ = ["CoffeaFormatter"]
 from law.target.formatter import Formatter
 from law.target.file import get_path
 from law.logger import get_logger
+from law.util import no_value
 
 
 logger = get_logger(__name__)
@@ -43,4 +44,9 @@ class CoffeaFormatter(Formatter):
     def dump(cls, path, out, *args, **kwargs):
         from coffea.util import save
 
+        perm = kwargs.pop("perm", no_value)
+
         save(out, get_path(path), *args, **kwargs)
+
+        if perm != no_value:
+            cls.chmod(path, perm)

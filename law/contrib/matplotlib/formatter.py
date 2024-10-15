@@ -8,7 +8,8 @@ __all__ = ["MatplotlibFormatter"]
 
 
 from law.target.formatter import Formatter
-from law.target.file import get_path, FileSystemTarget
+from law.target.file import get_path
+from law.util import no_value
 
 
 class MatplotlibFormatter(Formatter):
@@ -22,6 +23,9 @@ class MatplotlibFormatter(Formatter):
 
     @classmethod
     def dump(cls, path, fig, *args, **kwargs):
+        perm = kwargs.pop("perm", no_value)
+
         fig.savefig(get_path(path), *args, **kwargs)
-        if isinstance(path, FileSystemTarget):
-            path.chmod(path.fs.default_file_perm)
+
+        if perm != no_value:
+            cls.chmod(path, perm)

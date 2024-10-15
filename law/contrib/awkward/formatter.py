@@ -10,6 +10,7 @@ __all__ = ["AwkwardFormatter"]
 from law.target.formatter import Formatter, PickleFormatter
 from law.target.file import get_path
 from law.logger import get_logger
+from law.util import no_value
 
 
 logger = get_logger(__name__)
@@ -40,18 +41,24 @@ class AwkwardFormatter(Formatter):
 
     @classmethod
     def dump(cls, path, obj, *args, **kwargs):
-        path = get_path(path)
+        _path = get_path(path)
+        perm = kwargs.pop("perm", no_value)
 
-        if path.endswith((".parquet", ".parq")):
+        if _path.endswith((".parquet", ".parq")):
             import awkward as ak
-            return ak.to_parquet(obj, path, *args, **kwargs)
+            ret = ak.to_parquet(obj, _path, *args, **kwargs)
 
-        if path.endswith(".json"):
+        elif _path.endswith(".json"):
             import awkward as ak
-            return ak.to_json(obj, path, *args, **kwargs)
+            ret = ak.to_json(obj, _path, *args, **kwargs)
 
-        # .pickle, .pkl
-        return PickleFormatter.dump(path, obj, *args, **kwargs)
+        else:  # .pickle, .pkl
+            ret = PickleFormatter.dump(_path, obj, *args, **kwargs)
+
+        if perm != no_value:
+            cls.chmod(path, perm)
+
+        return ret
 
 
 class DaskAwkwardFormatter(Formatter):
@@ -78,10 +85,16 @@ class DaskAwkwardFormatter(Formatter):
     def dump(cls, path, obj, *args, **kwargs):
         import dask_awkward as dak
 
-        path = get_path(path)
+        _path = get_path(path)
+        perm = kwargs.pop("perm", no_value)
 
-        if path.endswith(".json"):
-            return dak.to_json(obj, path, *args, **kwargs)
+        if _path.endswith(".json"):
+            ret = dak.to_json(obj, _path, *args, **kwargs)
 
-        # .parquet, .parq
-        return dak.to_parquet(obj, path, *args, **kwargs)
+        else:  # .parquet, .parq
+            ret = dak.to_parquet(obj, _path, *args, **kwargs)
+
+        if perm != no_value:
+            cls.chmod(path, perm)
+
+        return ret
