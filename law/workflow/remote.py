@@ -1110,14 +1110,6 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         # get job kwargs for status querying
         query_kwargs = merge_dicts(job_man_kwargs, self._get_job_kwargs("query"))
 
-        # extract some task parameters
-        poll_interval: int | float = task.poll_interval  # type: ignore[assignment]
-        walltime: int | float = task.walltime  # type: ignore[assignment]
-        acceptance: int | float = task.acceptance  # type: ignore[assignment]
-        tolerance: int | float = task.tolerance  # type: ignore[assignment]
-        poll_fails: int = task.poll_fails  # type: ignore[assignment]
-        retries: int = task.retries  # type: ignore[assignment]
-
         # start the poll loop
         i = -1
         while True:
@@ -1129,6 +1121,14 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
             # handle scheduler messages, which could change some task parameters
             task._handle_scheduler_messages()
+
+            # extract latest task parameters
+            poll_interval: int | float = task.poll_interval  # type: ignore[assignment]
+            walltime: int | float = task.walltime  # type: ignore[assignment]
+            acceptance: int | float = task.acceptance  # type: ignore[assignment]
+            tolerance: int | float = task.tolerance  # type: ignore[assignment]
+            poll_fails: int = task.poll_fails  # type: ignore[assignment]
+            retries: int = task.retries  # type: ignore[assignment]
 
             # walltime exceeded?
             if task.walltime != NO_FLOAT and (time.time() - start_time) > walltime * 3600:
