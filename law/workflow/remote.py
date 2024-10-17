@@ -1117,7 +1117,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
             # handle scheduler messages, which could change some task parameters
             task._handle_scheduler_messages()
-            
+
             # sleep after the first iteration
             poll_interval: int | float = task.poll_interval  # type: ignore[assignment]
             if i > 0:
