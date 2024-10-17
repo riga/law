@@ -1115,15 +1115,15 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         while True:
             i += 1
 
+            # handle scheduler messages, which could change some task parameters
+            task._handle_scheduler_messages()
+            
             # sleep after the first iteration
+            poll_interval: int | float = task.poll_interval  # type: ignore[assignment]
             if i > 0:
                 time.sleep(poll_interval * 60)
 
-            # handle scheduler messages, which could change some task parameters
-            task._handle_scheduler_messages()
-
             # extract latest task parameters
-            poll_interval: int | float = task.poll_interval  # type: ignore[assignment]
             walltime: int | float = task.walltime  # type: ignore[assignment]
             acceptance: int | float = task.acceptance  # type: ignore[assignment]
             tolerance: int | float = task.tolerance  # type: ignore[assignment]
