@@ -52,7 +52,6 @@ Key features:
 
 <!-- marker-after-header -->
 
-
 ## Contents
 
 <!-- marker-before-contents -->
@@ -73,7 +72,6 @@ Key features:
   - [Contributors](#contributors)
 
 <!-- marker-after-contents -->
-
 
 <!-- marker-before-body -->
 
@@ -99,16 +97,13 @@ If you plan to use remote targets, the (default) implementation also requires [g
 conda install -c conda-forge gfal2 gfal2-util
 ```
 
-
 ### Usage at CERN
 
 See the [wiki](https://github.com/riga/law/wiki/Usage-at-CERN).
 
-
 ### Overcomplete example config
 
 See [law.cfg.example](https://github.com/riga/law/tree/master/law.cfg.example).
-
 
 ## Projects using law
 
@@ -148,7 +143,6 @@ See [law.cfg.example](https://github.com/riga/law/tree/master/law.cfg.example).
 
 If your project uses law but is not yet listed here, feel free to open a pull request or mention your project details in a new [issue](https://github.com/riga/law/issues/new?assignees=riga&labels=docs&template=register-project.md) and it will be added.
 
-
 ## Examples
 
 All examples can be run either in a Jupyter notebook or a dedicated docker container.
@@ -178,7 +172,6 @@ docker run -ti riga/law:example <example_name>
 - [parallel_optimization](https://github.com/riga/law/tree/master/examples/parallel_optimization): Parallel optimization using [scikit optimize](https://scikit-optimize.github.io).
 - [notifications](https://github.com/riga/law/tree/master/examples/notifications): Demonstration of slack and telegram task status notifications..
 - [CMS Single Top Analysis](https://github.com/riga/law_example_CMSSingleTopAnalysis): Simple physics analysis using law.
-
 
 ## Further topics
 
@@ -216,12 +209,10 @@ If this is the case, just source the law completion script (which internally ena
 source "$( law completion )"
 ```
 
-
 ## Development
 
 - Source hosted at [GitHub](https://github.com/riga/law)
 - Report issues, questions, feature requests on [GitHub Issues](https://github.com/riga/law/issues)
-
 
 ### Tests
 
@@ -243,7 +234,6 @@ Each of these steps be run in a local environment or via docker.
 
 **Note** that, although Python 3.7 is still suppported, type hints are tested only for Python ≥3.8!
 
-
 ### Git hooks
 
 Linting and type checking can be integrated into the git workflow by setting up the provided hook:
@@ -255,7 +245,6 @@ Linting and type checking can be integrated into the git workflow by setting up 
 
 By default, the hook is triggered *after* each commit and *always passes*.
 Use `git commit --amend` to add local changes to the previous commit if needed.
-
 
 ### Docker images
 
