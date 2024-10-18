@@ -35,7 +35,7 @@
 
 <!-- marker-before-header -->
 
-> [!NOTE]  
+> [!NOTE]
 > This project is currently under development.
 > - Version 1.0.0 will support Python ≥3.7 and is developed in the [release_prep branch](https://github.com/riga/law/tree/release_prep).
 > - There will be a legacy branch with Python 2.7 and ≤3.6 support that, however, won't receive any new features.
@@ -57,25 +57,23 @@ Key features:
 
 <!-- marker-after-header -->
 
-
 ## Contents
 
 <!-- marker-before-contents -->
 
 - [First steps](#first-steps)
-   - [Installation and dependencies](#installation-and-dependencies)
-   - [Usage at CERN](#usage-at-cern)
-   - [Overcomplete example config](#overcomplete-example-config)
+  - [Installation and dependencies](#installation-and-dependencies)
+  - [Usage at CERN](#usage-at-cern)
+  - [Overcomplete example config](#overcomplete-example-config)
 - [Projects using law](#projects-using-law)
 - [Examples](#examples)
 - [Further topics](#further-topics)
-   - [Auto completion on the command-line](#auto-completion-on-the-command-line)
+  - [Auto completion on the command-line](#auto-completion-on-the-command-line)
 - [Development](#development)
-   - [Tests](#tests)
-   - [Contributors](#contributors)
+  - [Tests](#tests)
+  - [Contributors](#contributors)
 
 <!-- marker-after-contents -->
-
 
 <!-- marker-before-body -->
 
@@ -101,16 +99,13 @@ If you plan to use remote targets, the (default) implementation also requires [g
 conda install -c conda-forge gfal2 gfal2-util
 ```
 
-
 ### Usage at CERN
 
 See the [wiki](https://github.com/riga/law/wiki/Usage-at-CERN).
 
-
 ### Overcomplete example config
 
 See [law.cfg.example](https://github.com/riga/law/tree/master/law.cfg.example).
-
 
 ## Projects using law
 
@@ -150,7 +145,6 @@ See [law.cfg.example](https://github.com/riga/law/tree/master/law.cfg.example).
 
 If your project uses law but is not yet listed here, feel free to open a pull request or mention your project details in a new [issue](https://github.com/riga/law/issues/new?assignees=riga&labels=docs&template=register-project.md) and it will be added.
 
-
 ## Examples
 
 All examples can be run either in a Jupyter notebook or a dedicated docker container.
@@ -180,7 +174,6 @@ docker run -ti riga/law:example <example_name>
 - [parallel_optimization](https://github.com/riga/law/tree/master/examples/parallel_optimization): Parallel optimization using [scikit optimize](https://scikit-optimize.github.io).
 - [notifications](https://github.com/riga/law/tree/master/examples/notifications): Demonstration of slack and telegram task status notifications..
 - [CMS Single Top Analysis](https://github.com/riga/law_example_CMSSingleTopAnalysis): Simple physics analysis using law.
-
 
 ## Further topics
 
@@ -218,12 +211,10 @@ If this is the case, just source the law completion script (which internally ena
 source "$( law completion )"
 ```
 
-
 ## Development
 
 - Source hosted at [GitHub](https://github.com/riga/law)
 - Report issues, questions, feature requests on [GitHub Issues](https://github.com/riga/law/issues)
-
 
 ### Tests
 
@@ -246,13 +237,6 @@ docker run -ti riga/law:<the_tag>
 | CentOS 8    |    3.9 | c8-py39                                   |
 | CentOS 8    |    3.8 | c8-py38                                   |
 | CentOS 8    |    3.7 | c8-py37                                   |
-| CentOS 7    |   3.10 | c7-py310, c7-py3, c7                      |
-| CentOS 7    |    3.9 | c7-py39                                   |
-| CentOS 7    |    3.8 | c7-py38                                   |
-| CentOS 7    |    3.7 | c7-py37                                   |
-| CentOS 7    |    3.6 | c7-py36, py36 (removed soon)              |
-| CentOS 7    |    2.7 | c7-py27, c7-py2, py27, py2 (removed soon) |
-
 
 ### Contributors
 
