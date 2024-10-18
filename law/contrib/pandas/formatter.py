@@ -20,7 +20,7 @@ logger = get_logger(__name__)
 
 class DataFrameFormatter(Formatter):
 
-    name = "dataframe"
+    name = "pandas"
 
     @classmethod
     def accepts(cls, path, mode):
