@@ -22,7 +22,7 @@ logger = get_logger(__name__)
 
 class DataFrameFormatter(Formatter):
 
-    name = "dataframe"
+    name = "pandas"
 
     @classmethod
     def accepts(cls, path: str | pathlib.Path | FileSystemFileTarget, mode: str) -> bool:
