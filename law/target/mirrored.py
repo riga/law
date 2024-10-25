@@ -299,19 +299,15 @@ class MirroredTarget(FileSystemTarget):
 
     @contextlib.contextmanager
     def localize(self, mode="r", **kwargs):
-        context = (
+        with (
             self.local_target.localize(mode, **kwargs)
             if (mode == "r" or not self.local_read_only) and self._local_target_exists()
             else self.remote_target.localize(mode, **kwargs)
-        )
-        try:
-            with context as ret:
-                yield ret
-        except:
-            raise
-        else:
-            if mode == "w" and self.local_read_only and self.local_sync:
-                self._wait_for_local(missing=False)
+        ) as ret:
+            yield ret
+
+        if mode == "w" and self.local_read_only and self.local_sync:
+            self._wait_for_local(missing=False)
 
     def touch(self, *args, **kwargs):
         if not self.local_read_only:
@@ -346,19 +342,15 @@ class MirroredFileTarget(FileSystemFileTarget, MirroredTarget):
 
     @contextlib.contextmanager
     def open(self, mode, **kwargs):
-        context = (
+        with (
             self.local_target.open(mode, **kwargs)
             if (mode == "r" or not self.local_read_only) and self._local_target_exists()
             else self.remote_target.open(mode, **kwargs)
-        )
-        try:
-            with context as ret:
-                yield ret
-        except:
-            raise
-        else:
-            if mode == "w" and self.local_read_only and self.local_sync:
-                self._wait_for_local(missing=False)
+        ) as ret:
+            yield ret
+
+        if mode == "w" and self.local_read_only and self.local_sync:
+            self._wait_for_local(missing=False)
 
 
 class MirroredDirectoryTarget(FileSystemDirectoryTarget, MirroredTarget):
