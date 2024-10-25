@@ -363,7 +363,7 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
 
         return dst
 
-    def open(
+    def open(  # type: ignore[override]
         self,
         path: str | pathlib.Path,
         mode: str,

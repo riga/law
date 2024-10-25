@@ -208,6 +208,7 @@ class FileSystem(shims.FileSystem):
         ...
 
     @abstractmethod
+    @contextlib.contextmanager
     def open(
         self,
         path: str | pathlib.Path,
@@ -216,7 +217,7 @@ class FileSystem(shims.FileSystem):
         perm: int | None = None,
         dir_perm: int | None = None,
         **kwargs,
-    ) -> AbstractContextManager[IO]:
+    ) -> Iterator[IO]:
         ...
 
 
@@ -441,7 +442,7 @@ class FileSystemTarget(Target, shims.FileSystemTarget):
         dir_perm: int | None = None,
         tmp_dir: str | pathlib.Path | None = None,
         **kwargs,
-    ) -> Generator[FileSystemTarget, None, None]:
+    ) -> Iterator[FileSystemTarget]:
         ...
 
     @abstractmethod

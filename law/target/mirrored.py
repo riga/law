@@ -22,7 +22,7 @@ from law.target.remote import (
     RemoteFileSystem, RemoteTarget, RemoteFileTarget, RemoteDirectoryTarget,
 )
 from law.util import patch_object
-from law._types import Any, Type, Generator, AbstractContextManager, IO, Iterator
+from law._types import Any, Type, Generator, Iterator, IO
 
 
 local_root_check_lock = threading.Lock()
@@ -295,7 +295,7 @@ class MirroredTarget(FileSystemTarget):
         return ret
 
     @contextlib.contextmanager
-    def localize(self, mode: str = "r", **kwargs) -> Generator[FileSystemTarget, None, None]:
+    def localize(self, mode: str = "r", **kwargs) -> Iterator[FileSystemTarget]:
         with (
             self.local_target.localize(mode=mode, **kwargs)
             if (mode == "r" or not self.local_read_only) and self._local_target_exists()
@@ -336,12 +336,14 @@ class MirroredFileTarget(FileSystemFileTarget, MirroredTarget):
     def __init__(self, path: str | pathlib.Path, **kwargs) -> None:
         super().__init__(path, _is_file=True, **kwargs)
 
-    def open(self, mode: str, **kwargs) -> AbstractContextManager[IO]:
-        ret = (
+    @contextlib.contextmanager
+    def open(self, mode: str, **kwargs) -> Iterator[IO]:
+        with (
             self.local_target.open(mode, **kwargs)
             if (mode == "r" or not self.local_read_only) and self._local_target_exists()
             else self.remote_target.open(mode, **kwargs)
-        )
+        ) as ret:
+            yield ret
         if mode == "w" and self.local_read_only and self.local_sync:
             self._wait_for_local(missing=False)
         return ret

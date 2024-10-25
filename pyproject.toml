@@ -88,4 +88,4 @@ exclude = ["tests/*"]
 [tool.mypy]
 
 disable_error_code = ["no-redef", "valid-type", "method-assign"]
-exclude = ["law/templates/*", "docs", "examples", "tests", "build"]
+exclude = ["law/templates/*", "docs", "examples", "tests", "build", "setup.py"]

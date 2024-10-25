@@ -387,7 +387,7 @@ class CSVParameter(Parameter):
             return value
 
         key = self._sort if callable(self._sort) else None
-        return tuple(sorted(value, key=key))  # type: ignore[return-value]
+        return tuple(sorted(value, key=key))  # type: ignore[return-value, type-var]
 
     def _check_len(self, value: tuple[Any]) -> None:
         str_repr = lambda: ",".join(str(v) for v in value)
