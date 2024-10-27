@@ -93,7 +93,7 @@ def hadd_task(task, inputs, output, cwd=None, local=False, force=True, hadd_args
 
     if local:
         # when local, there is no need to download inputs
-        input_paths = [inp.path for inp in inputs]
+        input_paths = [inp.abspath for inp in inputs]
 
         with task.publish_step("merging ...", runtime=True):
             # clear the output if necessary
@@ -104,14 +104,14 @@ def hadd_task(task, inputs, output, cwd=None, local=False, force=True, hadd_args
                 output.copy_from_local(inputs[0])
             else:
                 # merge using hadd
-                cmd = hadd_cmd(input_paths, output.path)
+                cmd = hadd_cmd(input_paths, output.abspath)
                 code = interruptable_popen(cmd, shell=True, executable="/bin/bash")[0]
                 if code != 0:
                     raise Exception("hadd failed")
 
         stat = output.exists(stat=True)
         if not stat:
-            raise Exception("output '{}' not creating during merging".format(output.path))
+            raise Exception("output '{}' not creating during merging".format(output.abspath))
 
         # print the size
         output_size = human_bytes(stat.st_size, fmt=True)
@@ -133,7 +133,7 @@ def hadd_task(task, inputs, output, cwd=None, local=False, force=True, hadd_args
         with output.localize("w", cache=False) as tmp_out:
             with task.publish_step("merging ...", runtime=True):
                 if len(bases) == 1:
-                    tmp_out.path = cwd.child(bases[0]).path
+                    tmp_out.path = cwd.child(bases[0]).abspath
                 else:
                     # merge using hadd
                     cmd = hadd_cmd(bases, tmp_out.path)

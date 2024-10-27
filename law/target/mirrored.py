@@ -30,9 +30,14 @@ class MirroredTarget(FileSystemTarget):
     @classmethod
     def check_local_root(cls, path):
         path = str(path)
-        if path == os.sep or not path.startswith(os.sep):
+
+        # path must start with a separator
+        if path == os.sep:
+            return True
+        if not path or not path.startswith(os.sep):
             return False
 
+        # get the root path or mount point of the path (e.g. "/mnt")
         root_path = os.sep.join(path.split(os.sep, 2)[:2])
         if root_path not in cls._existing_local_roots:
             with local_root_check_lock:
