@@ -131,15 +131,15 @@ def merge_parquet_task(
 
             # merge
             merge_parquet_files(
-                [inp.path for inp in inputs],
-                output.path,
+                [inp.abspath for inp in inputs],
+                output.abspath,
                 writer_opts=writer_opts,
                 copy_single=copy_single,
             )
 
         stat = output.exists(stat=True)
         if not stat:
-            raise Exception(f"output '{output.path}' not creating during merging")
+            raise Exception(f"output '{output.abspath}' not creating during merging")
 
         # print the size
         output_size = human_bytes(stat.st_size, fmt=True)

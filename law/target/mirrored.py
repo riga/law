@@ -35,7 +35,11 @@ class MirroredTarget(FileSystemTarget):
     @classmethod
     def check_local_root(cls, path: str | pathlib.Path) -> bool:
         path = str(path)
-        if path == os.sep or not path.startswith(os.sep):
+
+        # path must start with a separator
+        if path == os.sep:
+            return True
+        if not path or not path.startswith(os.sep):
             return False
 
         root_path = os.sep.join(path.split(os.sep, 2)[:2])

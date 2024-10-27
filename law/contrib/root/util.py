@@ -91,7 +91,7 @@ def hadd_task(
     # helper to create the hadd cmd
     def hadd_cmd(input_paths: list[str], output_path: str) -> str:
         cmd = ["hadd", "-n", "0"]
-        cmd.extend(["-d", cwd.path])
+        cmd.extend(["-d", cwd.abspath])
         if hadd_args:
             cmd.extend(make_list(hadd_args))
         cmd.append(output_path)
@@ -100,7 +100,7 @@ def hadd_task(
 
     if local:
         # when local, there is no need to download inputs
-        input_paths = [inp.path for inp in inputs]
+        input_paths = [inp.abspath for inp in inputs]
 
         with task.publish_step("merging ...", runtime=True):
             # clear the output if necessary
@@ -111,14 +111,14 @@ def hadd_task(
                 output.copy_from_local(inputs[0])
             else:
                 # merge using hadd
-                cmd = hadd_cmd(input_paths, output.path)
+                cmd = hadd_cmd(input_paths, output.abspath)
                 code = interruptable_popen(cmd, shell=True, executable="/bin/bash")[0]
                 if code != 0:
                     raise Exception("hadd failed")
 
         stat: os.stat_result = output.exists(stat=True)  # type: ignore[assignment]
         if not stat:
-            raise Exception(f"output '{output.path}' not creating during merging")
+            raise Exception(f"output '{output.abspath}' not creating during merging")
 
         # print the size
         output_size = human_bytes(stat.st_size, fmt=True)
@@ -140,22 +140,22 @@ def hadd_task(
         with output.localize("w", cache=False) as tmp_out:
             with task.publish_step("merging ...", runtime=True):
                 if len(bases) == 1:
-                    tmp_out.path = cwd.child(bases[0]).path
+                    tmp_out.path = cwd.child(bases[0]).abspath
                 else:
                     # merge using hadd
-                    cmd = hadd_cmd(bases, tmp_out.path)
+                    cmd = hadd_cmd(bases, tmp_out.abspath)
                     code = interruptable_popen(
                         cmd,
                         shell=True,
                         executable="/bin/bash",
-                        cwd=cwd.path,
+                        cwd=cwd.abspath,
                     )[0]
                     if code != 0:
                         raise Exception("hadd failed")
 
             stat: os.stat_result = tmp_out.exists(stat=True)  # type: ignore[assignment]
             if not stat:
-                raise Exception(f"output '{tmp_out.path}' not creating during merging")
+                raise Exception(f"output '{tmp_out.abspath}' not created during merging")
 
             # print the size
             output_size = human_bytes(stat.st_size, fmt=True)

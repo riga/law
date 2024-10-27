@@ -266,6 +266,7 @@ def dynamic_workflow_condition(
     condition_fn: Callable[[], bool] | None = None,
     create_branch_map_fn: Callable[[], Any] | None = None,
     requires_fn: Callable[[], Any] | None = None,
+    requires_eager_fn: Callable[[], Any] | None = None,
     output_fn: Callable[[], Any] | None = None,
     condition_as_workflow: bool = False,
     cache_met_condition: bool = True,
@@ -279,6 +280,7 @@ def dynamic_workflow_condition(
             condition_fn=condition_fn,
             create_branch_map_fn=create_branch_map_fn,
             requires_fn=requires_fn,
+            requires_eager_fn=requires_eager_fn,
             output_fn=output_fn,
         )
 
@@ -338,8 +340,11 @@ class DynamicWorkflowCondition(object):
     In addition, both ``create_branch_map()`` and ``output()`` are decorated with corresponding
     attributes of the initially decorated object. As a result, both methods will return placeholder
     objects as long as the condition is not met - the branch map will be considered empty and the
-    output will refer to a temporary placeholder target that is never created. Note that a third
-    decorator for ``requires`` exists as well.
+    output will refer to a temporary placeholder target that is never created. Note that two
+    additional decorators exist for handling dynaminc branch-level requirements. ``requires()`` is
+    meant to decorator the actual branch requirement and is evaluated once the condition is met.
+    ``requires_eager()`` is evaluated if the condition is _not_ met and is meant to provide eager
+    requirements that do not depend on the condition.
 
     As a consequence, the amended workflow is fully dynamic with its exact shape potentially
     depending heavily on conditions that are only known at runtime.
@@ -362,6 +367,7 @@ class DynamicWorkflowCondition(object):
         condition_fn: Callable[[], bool],
         create_branch_map_fn: Callable[[], Any] | None = None,
         requires_fn: Callable[[], Any] | None = None,
+        requires_eager_fn: Callable[[], Any] | None = None,
         output_fn: Callable[[], Any] | None = None,
         condition_as_workflow: bool = False,
         cache_met_condition: str | bool = True,
@@ -372,6 +378,7 @@ class DynamicWorkflowCondition(object):
         self._condition_fn = condition_fn
         self._create_branch_map_fn = create_branch_map_fn
         self._requires_fn = requires_fn
+        self._requires_eager_fn = requires_eager_fn
         self._output_fn = output_fn
         self.condition_as_workflow = condition_as_workflow
         self.cache_met_condition = bool(cache_met_condition)
@@ -431,6 +438,12 @@ class DynamicWorkflowCondition(object):
 
         return self._decorator_result
 
+    def requires_eager(self, requires_eager_fn: Callable[[], Any]) -> object:
+        # store the function
+        self._requires_eager_fn = requires_eager_fn
+
+        return self._decorator_result
+
     def _wrap_requires(self, bound_condition_fn: Callable[[], Any]) -> Callable | None:
         if self._requires_fn is None:
             return None
@@ -438,6 +451,9 @@ class DynamicWorkflowCondition(object):
         @functools.wraps(self._requires_fn)
         def requires(inst, *args, **kwargs):
             if not bound_condition_fn():
+                # eager requirements if present
+                if self._requires_eager_fn is not None:
+                    return self._requires_eager_fn(inst, *args, **kwargs)
                 return []
 
             # enable branch map caching since the condition is met
@@ -446,6 +462,17 @@ class DynamicWorkflowCondition(object):
             return self._requires_fn(inst, *args, **kwargs)
 
         return requires
+
+    def _wrap_requires_eager(self, bound_condition_fn: Callable[[], Any]) -> Callable | None:
+        if self._requires_eager_fn is None:
+            return None
+
+        @functools.wraps(self._requires_eager_fn)
+        def requires_eager(inst, *args, **kwargs):
+            # just forward the call
+            return self._requires_eager_fn(inst, *args, **kwargs)
+
+        return requires_eager
 
     def output(self, output_fn: Callable[[], Any]) -> object:
         # store the function
@@ -477,6 +504,10 @@ class DynamicWorkflowCondition(object):
         wrapped_func = self._wrap_requires(bound_condition_fn)
         if wrapped_func is not None:
             yield "requires", wrapped_func
+
+        wrapped_func = self._wrap_requires_eager(bound_condition_fn)
+        if wrapped_func is not None:
+            yield "requires_eager", wrapped_func
 
         wrapped_func = self._wrap_output(bound_condition_fn)
         if wrapped_func is not None:
@@ -1160,16 +1191,17 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
 
         return self.req_branch(branch or 0)
 
-    def as_workflow(self) -> BaseWorkflow:
+    def as_workflow(self, **kwargs) -> BaseWorkflow:
         """
         When this task refers to a branch task, a re-instantiated task with ``branch=-1`` and
-        identical parameters is returned. Otherwise, the workflow itself is returned.
+        identical parameters is returned. Otherwise, the workflow itself is returned. All *kwargs*
+        are passed to :py:meth:`req_workflow`.
         """
         if self.is_workflow():
             return self
 
         if self._workflow_task is None:
-            self._workflow_task = self.req_workflow()
+            self._workflow_task = self.req_workflow(**kwargs)
 
         return self._workflow_task
 
