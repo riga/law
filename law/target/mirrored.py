@@ -371,13 +371,6 @@ class MirroredDirectoryTarget(FileSystemDirectoryTarget, MirroredTarget):
         }
         return (), child_kwargs
 
-    def child(self, *args, **kwargs) -> MirroredTarget:
-        return (
-            self.local_target.child(*args, **kwargs)  # type: ignore[attr-defined]
-            if self._local_target_exists()
-            else self.remote_target.child(*args, **kwargs)  # type: ignore[attr-defined]
-        )
-
     def listdir(self, *args, **kwargs) -> list[str]:
         return (
             self.local_target.listdir(*args, **kwargs)  # type: ignore[attr-defined]
