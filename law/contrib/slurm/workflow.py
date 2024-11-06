@@ -118,11 +118,15 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
 
         # when the output dir is local, we can run within this directory for easier output file
         # handling and use absolute paths for input files
-        output_dir = task.slurm_output_directory()
-        if not isinstance(output_dir, FileSystemDirectoryTarget):
-            output_dir = get_path(output_dir)
-            if get_scheme(output_dir) in (None, "file"):
-                output_dir = LocalDirectoryTarget(output_dir)
+        def cast_output_dir(output_dir):
+            if isinstance(output_dir, FileSystemDirectoryTarget):
+                return output_dir
+            path = get_path(output_dir)
+            if get_scheme(path) in (None, "file"):
+                return LocalDirectoryTarget(path)
+            return output_dir
+
+        output_dir = cast_output_dir(task.slurm_output_directory())
         output_dir_is_local = isinstance(output_dir, LocalDirectoryTarget)
         if output_dir_is_local:
             c.absolute_paths = True
@@ -149,9 +153,12 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
         job_file, c = self.job_file_factory(postfix=postfix, **c.__dict__)
 
         # get the location of the custom local log file if any
+        log_dir = task.slurm_log_directory()
+        log_dir = cast_output_dir(log_dir) if log_dir else output_dir
+        log_dir_is_local = isinstance(log_dir, LocalDirectoryTarget)
         abs_log_file = None
-        if output_dir_is_local and c.custom_log_file:
-            abs_log_file = os.path.join(output_dir.abspath, c.custom_log_file)
+        if log_dir_is_local and c.custom_log_file:
+            abs_log_file = os.path.join(log_dir.abspath, c.custom_log_file)
 
         # return job and log files
         return {"job": job_file, "config": c, "log": abs_log_file}
@@ -200,6 +207,20 @@ class SlurmWorkflow(BaseRemoteWorkflow):
 
     @abstractmethod
     def slurm_output_directory(self):
+        """
+        Hook to define the location of submission output files, such as the json files containing
+        job data, and optional log files (in case :py:meth:`slurm_log_directory` is not defined).
+        This method should return a :py:class:`FileSystemDirectoryTarget`.
+        """
+        return None
+
+    def slurm_log_directory(self):
+        """
+        Hook to define the location of log files if any are written. When set, it has precedence
+        over :py:meth:`slurm_output_directory` for log files.
+        This method should return a :py:class:`FileSystemDirectoryTarget` or a value that evaluates
+        to *False* in case no custom log directory is desired.
+        """
         return None
 
     def slurm_workflow_requires(self):
