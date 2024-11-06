@@ -183,6 +183,9 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
 
         # when a log file is present, replace certain htcondor variables
         for i, (job_id, (job_num, data)) in enumerate(zip(job_ids, submission_data.items())):
+            # skip exceptions
+            if isinstance(job_id, Exception):
+                continue
             log = data.get("log")
             if not log:
                 continue
