@@ -13,7 +13,6 @@ import re
 import copy
 import random
 import threading
-import contextlib
 from collections import OrderedDict, defaultdict
 from abc import abstractmethod
 
@@ -620,7 +619,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         logger.debug("job data dumped")
 
     def get_run_context(self):
-        return self._get_task_attribute("workflow_run_context", fallback=True)()
+        return self._get_task_attribute("workflow_run_context")()
 
     def run(self):
         with self.get_run_context():
@@ -701,7 +700,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
             # sleep once to give the job interface time to register the jobs
             if not self._submitted and not task.no_poll:
-                post_submit_delay = self._get_task_attribute("post_submit_delay", fallback=True)()
+                post_submit_delay = self._get_task_attribute("post_submit_delay")()
                 if post_submit_delay > 0:
                     logger.debug("sleep for {} second(s) due to post_submit_delay".format(
                         post_submit_delay))
@@ -938,7 +937,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         job_files = [f["job"] for f in six.itervalues(all_job_files)]
 
         # prepare objects for dumping intermediate job data
-        dump_freq = self._get_task_attribute("dump_intermediate_job_data", fallback=True)()
+        dump_freq = self._get_task_attribute("dump_intermediate_job_data")()
         if dump_freq and not is_number(dump_freq):
             dump_freq = 50
 
@@ -1016,7 +1015,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         Initiates the job status polling loop.
         """
         task = self.task
-        dump_intermediate_job_data = task.dump_intermediate_job_data()
+        dump_intermediate_job_data = self._get_task_attribute("dump_intermediate_job_data")()
 
         # total job count
         n_jobs = len(self.job_data)
@@ -1309,7 +1308,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                     raise Exception(err.format(self.poll_data.n_finished_min, n_jobs, n_failed))
 
             # invoke the poll callback
-            poll_callback_res = self._get_task_attribute("poll_callback", fallback=True)(self.poll_data)  # noqa
+            poll_callback_res = self._get_task_attribute("poll_callback")(self.poll_data)
             if poll_callback_res is False:
                 logger.debug(
                     "job polling loop gracefully stopped due to False returned by poll_callback",
@@ -1550,6 +1549,19 @@ class BaseRemoteWorkflow(BaseWorkflow):
 
     exclude_params_remote_workflow = set()
 
+    # for internal consistency, inheriting classes should implement
+    #  - <workflow_type>_job_resources
+    #  - <workflow_type>_workflow_requires
+    #  - <workflow_type>_output_directory
+    #  - <workflow_type>_output_postfix
+    #  - <workflow_type>_workflow_run_context
+    #  - <workflow_type>_post_submit_delay
+    #  - <workflow_type>_dump_intermediate_job_data
+    #  - <workflow_type>_dump_intermediate_job_data
+    #  - <workflow_type>_check_job_completeness
+    #  - <workflow_type>_check_job_completeness_delay
+    #  - <workflow_type>_poll_callback
+
     def process_resources(self):
         """
         Method used by luigi to define the resources required when running this task to include into
@@ -1563,22 +1575,6 @@ class BaseRemoteWorkflow(BaseWorkflow):
             resources.update(self.resources)
         return resources
 
-    def job_resources(self, job_num, branches):
-        """
-        Hook to define resources for a specific job with number *job_num*, processing *branches*.
-        This method should return a dictionary.
-        """
-        return {}
-
-    @contextlib.contextmanager
-    def workflow_run_context(self):
-        """
-        Hook to provide a context manager in which the workflow run implementation is placed. This
-        can be helpful in situations where resurces should be acquired before and released after
-        running a workflow.
-        """
-        yield
-
     def is_controlling_remote_jobs(self):
         """
         Returns *True* if the remote workflow is only controlling remote jobs instead of handling
@@ -1591,27 +1587,6 @@ class BaseRemoteWorkflow(BaseWorkflow):
         Hook that should return a string that is inserted into the names of control output files.
         """
         return self.get_branches_repr()
-
-    def poll_callback(self, poll_data):
-        """
-        Configurable callback that is called after each job status query and before potential
-        resubmission. It receives the variable polling attributes *poll_data* (:py:class:`PollData`)
-        that can be changed within this method.
-
-        If *False* is returned, the polling loop is gracefully terminated. Returning any other value
-        does not have any effect.
-        """
-        return
-
-    def post_submit_delay(self):
-        """
-        Configurable delay in seconds to wait after submitting jobs and before starting the status
-        polling.
-        """
-        return self.poll_interval * 60
-
-    def dump_intermediate_job_data(self):
-        return True
 
     def create_job_dashboard(self):
         """

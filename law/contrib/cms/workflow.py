@@ -9,6 +9,7 @@ __all__ = ["CrabWorkflow"]
 
 
 import uuid
+import contextlib
 from abc import abstractmethod
 from collections import OrderedDict
 
@@ -206,6 +207,15 @@ class CrabWorkflow(BaseRemoteWorkflow):
 
     exclude_index = True
 
+    @contextlib.contextmanager
+    def crab_workflow_run_context(self):
+        """
+        Hook to provide a context manager in which the workflow run implementation is placed. This
+        can be helpful in situations where resurces should be acquired before and released after
+        running a workflow.
+        """
+        yield
+
     @abstractmethod
     def crab_stageout_location(self):
         """
@@ -297,6 +307,13 @@ class CrabWorkflow(BaseRemoteWorkflow):
         """
         return self.crab_output_directory().uri()
 
+    def crab_job_resources(self, job_num, branches):
+        """
+        Hook to define resources for a specific job with number *job_num*, processing *branches*.
+        This method should return a dictionary.
+        """
+        return {}
+
     def crab_job_manager_cls(self):
         """
         Hook to define a custom job managet class to use.
@@ -348,6 +365,20 @@ class CrabWorkflow(BaseRemoteWorkflow):
         """
         return config
 
+    def crab_dump_intermediate_job_data(self):
+        """
+        Whether to dump intermediate job data to the job submission file while jobs are being
+        submitted.
+        """
+        return True
+
+    def crab_post_submit_delay(self):
+        """
+        Configurable delay in seconds to wait after submitting jobs and before starting the status
+        polling.
+        """
+        return self.poll_interval * 60
+
     def crab_check_job_completeness(self):
         """
         Hook to define whether
@@ -361,6 +392,17 @@ class CrabWorkflow(BaseRemoteWorkflow):
         asynchronous behavior.
         """
         return 0.0
+
+    def crab_poll_callback(self, poll_data):
+        """
+        Configurable callback that is called after each job status query and before potential
+        resubmission. It receives the variable polling attributes *poll_data* (:py:class:`PollData`)
+        that can be changed within this method.
+
+        If *False* is returned, the polling loop is gracefully terminated. Returning any other value
+        does not have any effect.
+        """
+        return
 
     def crab_cmdline_args(self):
         """

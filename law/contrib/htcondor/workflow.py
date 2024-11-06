@@ -8,6 +8,7 @@ __all__ = ["HTCondorWorkflow"]
 
 
 import os
+import contextlib
 from abc import abstractmethod
 from collections import OrderedDict
 
@@ -247,6 +248,15 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
 
     exclude_index = True
 
+    @contextlib.contextmanager
+    def htcondor_workflow_run_context(self):
+        """
+        Hook to provide a context manager in which the workflow run implementation is placed. This
+        can be helpful in situations where resurces should be acquired before and released after
+        running a workflow.
+        """
+        yield
+
     @abstractmethod
     def htcondor_output_directory(self):
         return None
@@ -325,11 +335,36 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
     def htcondor_job_config(self, config, job_num, branches):
         return config
 
+    def htcondor_dump_intermediate_job_data(self):
+        """
+        Whether to dump intermediate job data to the job submission file while jobs are being
+        submitted.
+        """
+        return True
+
+    def htcondor_post_submit_delay(self):
+        """
+        Configurable delay in seconds to wait after submitting jobs and before starting the status
+        polling.
+        """
+        return self.poll_interval * 60
+
     def htcondor_check_job_completeness(self):
         return False
 
     def htcondor_check_job_completeness_delay(self):
         return 0.0
+
+    def htcondor_poll_callback(self, poll_data):
+        """
+        Configurable callback that is called after each job status query and before potential
+        resubmission. It receives the variable polling attributes *poll_data* (:py:class:`PollData`)
+        that can be changed within this method.
+
+        If *False* is returned, the polling loop is gracefully terminated. Returning any other value
+        does not have any effect.
+        """
+        return
 
     def htcondor_use_local_scheduler(self):
         return False
