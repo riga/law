@@ -142,6 +142,13 @@ action() {
     local file_postfix="$1"
     local log_file="$2"
 
+    # create log directory
+    if [ ! -z "${log_file}" ]; then
+        local log_dir="$( dirname "${log_file}" )"
+        [ ! -d "${log_dir}" ] && mkdir -p "${log_dir}"
+    fi
+
+    # run the wrapper function
     if [ -z "${log_file}" ]; then
         htcondor_wrapper "$@"
     elif command -v tee &> /dev/null; then

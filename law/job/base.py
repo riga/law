@@ -1364,11 +1364,6 @@ class JobInputFile(object):
                 "input file at {} is configured to be rendered locally and within the job, which "
                 "is likely unnecessary".format(self.path),
             )
-        if not self.render_local and not self.render_job:
-            logger.error(
-                "input file at {} is configured not to be rendered at all, which will most likely "
-                "cause errors on remote worker nodes".format(self.path),
-            )
 
         # different path variants as seen by jobs
         self.path_sub_abs = None

@@ -22,7 +22,7 @@ from law.task.proxy import ProxyCommand
 from law.target.file import get_path, get_scheme, FileSystemDirectoryTarget
 from law.target.local import LocalDirectoryTarget
 from law.parameter import NO_STR
-from law.util import law_src_path, merge_dicts, DotDict, rel_path
+from law.util import no_value, law_src_path, merge_dicts, DotDict, rel_path
 from law.logger import get_logger
 
 from law.contrib.htcondor.job import HTCondorJobManager, HTCondorJobFileFactory
@@ -53,7 +53,7 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         # create the config
         c = self.job_file_factory.get_config()
         c.input_files = {}
-        c.output_files = []
+        c.output_files = {}
         c.render_variables = {}
         c.custom_content = []
 
@@ -136,30 +136,36 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         if dashboard_file:
             c.input_files["dashboard_file"] = dashboard_file
 
-        # logging
-        # we do not use htcondor's logging mechanism since it might require that the submission
-        # directory is present when it retrieves logs, and therefore we use a custom log file
-        c.log = None
-        c.stdout = None
-        c.stderr = None
+        # initialize logs with empty values and defer to defaults later
+        c.log = no_value
+        c.stdout = no_value
+        c.stderr = no_value
         if task.transfer_logs:
             c.custom_log_file = "stdall.txt"
 
-        # when the output dir is local, we can run within this directory for easier output file
-        # handling and use absolute paths for input files
-        def cast_output_dir(output_dir):
-            if isinstance(output_dir, FileSystemDirectoryTarget):
-                return output_dir
-            path = get_path(output_dir)
-            if get_scheme(path) in (None, "file"):
-                return LocalDirectoryTarget(path)
+        # helper to cast directory paths to local directory targets if possible
+        def cast_dir(output_dir, touch=True):
+            if not isinstance(output_dir, FileSystemDirectoryTarget):
+                path = get_path(output_dir)
+                if get_scheme(path) not in (None, "file"):
+                    return output_dir
+                output_dir = LocalDirectoryTarget(path)
+            if touch:
+                output_dir.touch()
             return output_dir
 
-        output_dir = cast_output_dir(task.htcondor_output_directory())
+        # when the output dir is local, we can run within this directory for easier output file
+        # handling and use absolute paths for input files
+        output_dir = cast_dir(task.htcondor_output_directory())
         output_dir_is_local = isinstance(output_dir, LocalDirectoryTarget)
         if output_dir_is_local:
             c.absolute_paths = True
             c.custom_content.append(("initialdir", output_dir.abspath))
+
+        # prepare the log dir
+        log_dir_orig = task.htcondor_log_directory()
+        log_dir = cast_dir(log_dir_orig) if log_dir_orig else output_dir
+        log_dir_is_local = isinstance(log_dir, LocalDirectoryTarget)
 
         # task hook
         if grouped_submission:
@@ -167,18 +173,33 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         else:
             c = task.htcondor_job_config(c, job_num, branches)
 
+        # logging defaults
+        # we do not use htcondor's logging mechanism since it might require that the submission
+        # directory is present when it retrieves logs, and therefore we use a custom log file
+        # also, stderr and stdout can be remapped (moved) by htcondor, so use a different behavior
+        def log_path(path):
+            if not path:
+                return None
+            log_target = log_dir.child(path, type="f")
+            if log_target.parent != log_dir:
+                log_target.parent.touch()
+            return log_target.abspath
+
+        c.log = c.log or None
+        c.stdout = log_path(c.stdout)
+        c.stderr = log_path(c.stderr)
+        c.custom_log_file = log_path(c.custom_log_file)
+
         # when the output dir is not local, direct output files are not possible
-        if not output_dir_is_local:
-            del c.output_files[:]
+        if not output_dir_is_local and c.output_files:
+            c.output_files.clear()
 
         # build the job file and get the sanitized config
         job_file, c = self.job_file_factory(grouped_submission=grouped_submission, **c.__dict__)
 
-        # get the location of the custom local log file if any
+        # get the finale, absolute location of the custom log file
+        # (note that c.custom_log_file is always just a basename after the factory hook)
         abs_log_file = None
-        log_dir = task.htcondor_log_directory()
-        log_dir = cast_output_dir(log_dir) if log_dir else output_dir
-        log_dir_is_local = isinstance(log_dir, LocalDirectoryTarget)
         if log_dir_is_local and c.custom_log_file:
             abs_log_file = os.path.join(log_dir.abspath, c.custom_log_file)
 

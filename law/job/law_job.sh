@@ -598,7 +598,13 @@ start_law_job() {
         local this_file="$( ${shell_is_zsh} && echo "${(%):-%x}" || echo "${BASH_SOURCE[0]}" )"
         LAW_JOB_WRAPPED_BASH="1" bash "${this_file}" $@
     else
-        # already wrapped, start and optionally log
+        # create log directory
+        if [ ! -z "${log_file}" ]; then
+            local log_dir="$( dirname "${log_file}" )"
+            [ ! -d "${log_dir}" ] && mkdir -p "${log_dir}"
+        fi
+
+        # start the job and optionally log
         if [ -z "${log_file}" ]; then
             law_job "$@"
         elif command -v tee &> /dev/null; then
