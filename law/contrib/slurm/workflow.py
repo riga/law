@@ -22,7 +22,7 @@ from law.task.proxy import ProxyCommand
 from law.target.file import get_path, get_scheme, FileSystemDirectoryTarget
 from law.target.local import LocalDirectoryTarget
 from law.parameter import NO_STR
-from law.util import law_src_path, merge_dicts, DotDict
+from law.util import no_value, law_src_path, merge_dicts, DotDict
 from law.logger import get_logger
 
 from law.contrib.slurm.job import SlurmJobManager, SlurmJobFileFactory
@@ -108,29 +108,35 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
         if dashboard_file:
             c.input_files["dashboard_file"] = dashboard_file
 
-        # logging
-        # we do not use slurm's logging mechanism since it might require that the submission
-        # directory is present when it retrieves logs, and therefore we use a custom log file
-        c.stdout = "/dev/null"
-        c.stderr = None
+        # initialize logs with empty values and defer to defaults later
+        c.stdout = no_value
+        c.stderr = no_value
         if task.transfer_logs:
             c.custom_log_file = "stdall.txt"
 
-        # when the output dir is local, we can run within this directory for easier output file
-        # handling and use absolute paths for input files
-        def cast_output_dir(output_dir):
-            if isinstance(output_dir, FileSystemDirectoryTarget):
-                return output_dir
-            path = get_path(output_dir)
-            if get_scheme(path) in (None, "file"):
-                return LocalDirectoryTarget(path)
+        # helper to cast directory paths to local directory targets if possible
+        def cast_dir(output_dir, touch=True):
+            if not isinstance(output_dir, FileSystemDirectoryTarget):
+                path = get_path(output_dir)
+                if get_scheme(path) not in (None, "file"):
+                    return output_dir
+                output_dir = LocalDirectoryTarget(path)
+            if touch:
+                output_dir.touch()
             return output_dir
 
-        output_dir = cast_output_dir(task.slurm_output_directory())
+        # when the output dir is local, we can run within this directory for easier output file
+        # handling and use absolute paths for input files
+        output_dir = cast_dir(task.slurm_output_directory())
         output_dir_is_local = isinstance(output_dir, LocalDirectoryTarget)
         if output_dir_is_local:
             c.absolute_paths = True
             c.custom_content.append(("chdir", output_dir.abspath))
+
+        # prepare the log dir
+        log_dir_orig = task.htcondor_log_directory()
+        log_dir = cast_dir(log_dir_orig) if log_dir_orig else output_dir
+        log_dir_is_local = isinstance(log_dir, LocalDirectoryTarget)
 
         # job name
         c.job_name = "{}{}".format(task.live_task_id, postfix)
@@ -144,18 +150,29 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
         # python's default multiprocessing puts socket files into that tmp directory which comes
         # with the restriction of less then 80 characters that would be violated, and potentially
         # would also overwhelm the submission directory
-        c.render_variables["law_job_tmp"] = "/tmp/law_$( basename \"$LAW_JOB_HOME\" )"
+        if not c.render_variables.get("law_job_tmp"):
+            c.render_variables["law_job_tmp"] = "/tmp/law_$( basename \"$LAW_JOB_HOME\" )"
 
         # task hook
         c = task.slurm_job_config(c, job_num, branches)
 
+        # logging defaults
+        def log_path(path):
+            if not path or path.startswith("/dev/"):
+                return path or None
+            log_target = log_dir.child(path, type="f")
+            if log_target.parent != log_dir:
+                log_target.parent.touch()
+            return log_target.abspath
+
+        c.stdout = log_path(c.stdout)
+        c.stderr = log_path(c.stderr)
+        c.custom_log_file = log_path(c.custom_log_file)
+
         # build the job file and get the sanitized config
         job_file, c = self.job_file_factory(postfix=postfix, **c.__dict__)
 
-        # get the location of the custom local log file if any
-        log_dir = task.slurm_log_directory()
-        log_dir = cast_output_dir(log_dir) if log_dir else output_dir
-        log_dir_is_local = isinstance(log_dir, LocalDirectoryTarget)
+        # get the finale, absolute location of the custom log file
         abs_log_file = None
         if log_dir_is_local and c.custom_log_file:
             abs_log_file = os.path.join(log_dir.abspath, c.custom_log_file)
