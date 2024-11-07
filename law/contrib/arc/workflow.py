@@ -20,7 +20,7 @@ from law.job.base import JobArguments, JobInputFile, DeprecatedInputFiles
 from law.task.proxy import ProxyCommand
 from law.target.file import get_path
 from law.parameter import CSVParameter
-from law.util import law_src_path, merge_dicts, DotDict
+from law.util import no_value, law_src_path, merge_dicts, DotDict
 from law.logger import get_logger
 
 from law.contrib.arc.job import ARCJobManager, ARCJobFileFactory
@@ -114,10 +114,10 @@ class ARCWorkflowProxy(BaseRemoteWorkflowProxy):
         if dashboard_file:
             c.input_files["dashboard_file"] = dashboard_file
 
-        # log files
-        c.log = None
-        c.stdout = None
-        c.stderr = None
+        # initialize logs with empty values and defer to defaults later
+        c.log = no_value
+        c.stdout = no_value
+        c.stderr = no_value
         if task.transfer_logs:
             log_file = "stdall.txt"
             c.stdout = log_file
@@ -133,6 +133,12 @@ class ARCWorkflowProxy(BaseRemoteWorkflowProxy):
 
         # build the job file and get the sanitized config
         job_file, c = self.job_file_factory(postfix=postfix, **c.__dict__)
+
+        # logging defaults
+        c.log = c.log or None
+        c.stdout = c.stdout or None
+        c.stderr = c.stderr or None
+        c.custom_log_file = c.custom_log_file or None
 
         # determine the custom log file uri if set
         abs_log_file = None

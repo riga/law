@@ -7,7 +7,6 @@ LSF remote workflow implementation. See https://www.ibm.com/support/knowledgecen
 __all__ = ["LSFWorkflow"]
 
 
-import os
 import contextlib
 from abc import abstractmethod
 from collections import OrderedDict
@@ -22,7 +21,7 @@ from law.task.proxy import ProxyCommand
 from law.target.file import get_path, get_scheme, FileSystemDirectoryTarget
 from law.target.local import LocalDirectoryTarget
 from law.parameter import NO_STR
-from law.util import law_src_path, merge_dicts, DotDict
+from law.util import no_value, law_src_path, merge_dicts, DotDict
 from law.logger import get_logger
 
 from law.contrib.lsf.job import LSFJobManager, LSFJobFileFactory
@@ -109,25 +108,26 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
         if dashboard_file:
             c.input_files["dashboard_file"] = dashboard_file
 
-        # logging
-        # we do not use lsf's logging mechanism since it might require that the submission
-        # directory is present when it retrieves logs, and therefore we use a custom log file
-        c.stdout = None
-        c.stderr = None
+        # initialize logs with empty values and defer to defaults later
+        c.stdout = no_value
+        c.stderr = no_value
         if task.transfer_logs:
             c.custom_log_file = "stdall.txt"
 
-        # we can use lsf's file stageout only when the output directory is local
-        # otherwise, one should use the stageout_file and stageout manually
-        def cast_output_dir(output_dir):
-            if isinstance(output_dir, FileSystemDirectoryTarget):
-                return output_dir
-            path = get_path(output_dir)
-            if get_scheme(path) in (None, "file"):
-                return LocalDirectoryTarget(path)
+        # helper to cast directory paths to local directory targets if possible
+        def cast_dir(output_dir, touch=True):
+            if not isinstance(output_dir, FileSystemDirectoryTarget):
+                path = get_path(output_dir)
+                if get_scheme(path) not in (None, "file"):
+                    return output_dir
+                output_dir = LocalDirectoryTarget(path)
+            if touch:
+                output_dir.touch()
             return output_dir
 
-        output_dir = cast_output_dir(task.lsf_output_directory())
+        # when the output dir is local, we can run within this directory for easier output file
+        # handling and use absolute paths for input files
+        output_dir = cast_dir(task.lsf_output_directory())
         output_dir_is_local = isinstance(output_dir, LocalDirectoryTarget)
         if output_dir_is_local:
             c.absolute_paths = True
@@ -146,13 +146,17 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
         # build the job file and get the sanitized config
         job_file, c = self.job_file_factory(postfix=postfix, **c.__dict__)
 
+        # logging defaults
+        # we do not use lsf's logging mechanism since it might require that the submission
+        # directory is present when it retrieves logs, and therefore we use a custom log file
+        c.stdout = c.stdout or None
+        c.stderr = c.stderr or None
+        c.custom_log_file = c.custom_log_file or None
+
         # get the location of the custom local log file if any
         abs_log_file = None
-        log_dir = task.lsf_log_directory()
-        log_dir = cast_output_dir(log_dir) if log_dir else output_dir
-        log_dir_is_local = isinstance(log_dir, LocalDirectoryTarget)
-        if log_dir_is_local and c.custom_log_file:
-            abs_log_file = os.path.join(log_dir.abspath, c.custom_log_file)
+        if output_dir_is_local and c.custom_log_file:
+            abs_log_file = output_dir.child(c.custom_log_file, type="f").abspath
 
         # return job and log files
         return {"job": job_file, "config": c, "log": abs_log_file}
@@ -206,17 +210,8 @@ class LSFWorkflow(BaseRemoteWorkflow):
     def lsf_output_directory(self):
         """
         Hook to define the location of submission output files, such as the json files containing
-        job data, and optional log files (in case :py:meth:`lsf_log_directory` is not defined).
+        job data, and optional log files.
         This method should return a :py:class:`FileSystemDirectoryTarget`.
-        """
-        return None
-
-    def lsf_log_directory(self):
-        """
-        Hook to define the location of log files if any are written. When set, it has precedence
-        over :py:meth:`lsf_output_directory` for log files.
-        This method should return a :py:class:`FileSystemDirectoryTarget` or a value that evaluates
-        to *False* in case no custom log directory is desired.
         """
         return None
 

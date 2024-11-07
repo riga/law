@@ -159,8 +159,7 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
 
         # log file
         if task.transfer_logs:
-            log_file = "stdall.txt"
-            c.custom_log_file = log_file
+            c.custom_log_file = "stdall.txt"
 
         # task hook
         c = task.crab_job_config(c, list(submit_jobs.keys()), list(submit_jobs.values()))
