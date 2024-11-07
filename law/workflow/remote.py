@@ -7,6 +7,7 @@ Base definition of remote workflows based on job submission and status polling.
 __all__ = ["JobData", "BaseRemoteWorkflowProxy", "BaseRemoteWorkflow"]
 
 
+import os
 import sys
 import time
 import re
@@ -1205,6 +1206,14 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                         data["job_id"] = self.job_data.dummy_job_id
                         task.forward_dashboard_event(self.dashboard, copy.deepcopy(data),
                             "status.finished", job_num)
+                        # potentially clear logs
+                        if task.clear_logs:
+                            log_file = data["extra"].get("log")
+                            if isinstance(log_file, six.string_types) and os.path.exists(log_file):
+                                try:
+                                    os.remove(log_file)
+                                except (FileNotFoundError if six.PY3 else IOError):
+                                    pass
                         continue
 
                     # the job is marked as finished but not all branches are complete
@@ -1531,6 +1540,11 @@ class BaseRemoteWorkflow(BaseWorkflow):
         default=False,
         significant=False,
         description="transfer job logs to the output directory; default: False",
+    )
+    clear_logs = luigi.BoolParameter(
+        default=False,
+        significant=False,
+        description="when --transfer-logs is set, remove logs of successful jobs; default: False",
     )
 
     check_unreachable_acceptance = False
