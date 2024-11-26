@@ -450,7 +450,7 @@ class NestedSiblingFileCollection(SiblingFileCollectionBase):
             if isinstance(coll, SiblingFileCollectionBase) and coll in basenames:
                 iter_kwargs["basenames"] = basenames[coll]
             for obj in coll._iter_state(**iter_kwargs):
-                yield obj 
+                yield obj
 
     def _exists_fwd(self, **kwargs):
         fwd = [("basenames", "basenames_dict"), ("optional_existing", "optional_existing")]
