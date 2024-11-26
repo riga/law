@@ -439,26 +439,18 @@ class NestedSiblingFileCollection(SiblingFileCollectionBase):
         if basenames is None:
             basenames = self._get_basenames()
 
-        # helper to check for existence
-        def exists(t, _basenames):
-            if optional_existing is not None and t.optional:
-                return optional_existing
-            if isinstance(t, SiblingFileCollectionBase):
-                return t._exists_fwd(
-                    basenames=_basenames,
-                    optional_existing=optional_existing,
-                )
-            if isinstance(t, TargetCollection):
-                return all(exists(_t for _t in flatten_collections(t)))
-            return t.basename in _basenames
-
-        # loop and yield
-        for key, targets in self._iter_flat():
-            state = all(exists(t, basenames[self._flat_target_collections[t]]) for t in targets)
-            if state is existing:
-                if unpack:
-                    targets = self.targets[key]
-                yield (key, targets) if keys else targets
+        # reuse state iteration of wrapped collections
+        for coll in self.collections:
+            iter_kwargs = {
+                "existing": existing,
+                "optional_existing": optional_existing,
+                "keys": keys,
+                "unpack": unpack,
+            }
+            if isinstance(coll, SiblingFileCollectionBase) and coll in basenames:
+                iter_kwargs["basenames"] = basenames[coll]
+            for obj in coll._iter_state(**iter_kwargs):
+                yield obj 
 
     def _exists_fwd(self, **kwargs):
         fwd = [("basenames", "basenames_dict"), ("optional_existing", "optional_existing")]
