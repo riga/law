@@ -404,11 +404,18 @@ class NestedSiblingFileCollection(SiblingFileCollectionBase):
         self.collections = []
         self._flat_target_collections = {}
         grouped_targets = {}
-        for t in flatten_collections(self._flat_target_list):
-            grouped_targets.setdefault(t.parent.uri(), []).append(t)
+        for key, target in six.iteritems(self._flat_targets):
+            target = flatten_collections(target)
+            if isinstance(target, list):
+                if len(target) > 1:
+                    raise NotImplementedError(
+                        "Only passing single file targets to NestedSiblingFileCollection is supported."
+                    )
+                target = target[0]
+            grouped_targets.setdefault(target.parent.uri(), []).append((key, target))
         for targets in grouped_targets.values():
             # create and store the collection
-            collection = SiblingFileCollection(targets)
+            collection = SiblingFileCollection(dict(targets))
             self.collections.append(collection)
             # remember the collection per target
             for t in targets:
