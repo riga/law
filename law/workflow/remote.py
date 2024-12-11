@@ -543,6 +543,12 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             job_resources = {}
             get_job_resources = self._get_task_attribute("job_resources")
 
+            outputs = self.output()
+            if len(self._initially_existing_branches) == 0 and "collection" in outputs:
+                collection = outputs["collection"]
+                _, keys = collection.count(keys=True)  # only existing keys
+                self._initially_existing_branches = keys
+
             branch_chunks = iter_chunks(task.branch_map.keys(), task.tasks_per_job)
             for job_num, branches in enumerate(branch_chunks, 1):
                 if self._can_skip_job(job_num, branches):
