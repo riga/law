@@ -349,16 +349,16 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         """
         return isinstance(getattr(self.task, "cleanup_jobs", None), bool) and self.task.cleanup_jobs
 
-    def _can_skip_job(self, job_num, branches):
+    def _can_skip_job(self, job_num, branches, skip_explicit_check=False):
         """
         Returns *True* when a job can be potentially skipped, which is the case when all branch
         tasks given by *branches* are complete.
         """
         if job_num not in self.skip_jobs:
-            self.skip_jobs[job_num] = all(
-                (b in self._initially_existing_branches) or self.task.as_branch(b).complete()
-                for b in branches
-            )
+            available = ((b in self._initially_existing_branches) for b in branches)
+            if not skip_explicit_check:
+                available = (available[i] or self.task.as_branch(b).complete() for i, b in enumerate(branches))
+            self.skip_jobs[job_num] = all(available)
 
             # when the job is skipped, ensure that a job data entry exists and set the status
             if self.skip_jobs[job_num]:
@@ -551,7 +551,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
             branch_chunks = iter_chunks(task.branch_map.keys(), task.tasks_per_job)
             for job_num, branches in enumerate(branch_chunks, 1):
-                if self._can_skip_job(job_num, branches):
+                if self._can_skip_job(job_num, branches, skip_explicit_check=True):
                     continue
                 job_resources[job_num] = get_job_resources(job_num, branches)
 
