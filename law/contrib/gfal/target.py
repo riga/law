@@ -9,7 +9,6 @@ __all__ = ["GFALFileInterface"]
 
 import os
 import sys
-import gc
 import contextlib
 import stat as _stat
 
@@ -108,7 +107,6 @@ class GFALFileInterface(RemoteFileInterface):
         finally:
             if self.atomic_contexts and pid in self._contexts:
                 del self._contexts[pid]
-            gc.collect()
 
     @contextlib.contextmanager
     def transfer_parameters(self, ctx):
