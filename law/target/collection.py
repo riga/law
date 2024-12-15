@@ -392,6 +392,8 @@ class SiblingFileCollection(SiblingFileCollectionBase):
         # get all basenames
         if basenames is None:
             basenames = self.dir.listdir() if self.dir.exists() else []
+        # convert to set for faster lookup
+        basenames = set(basenames) if basenames else set()
 
         # helper to check for existence
         if exists_func is None:
@@ -468,6 +470,8 @@ class NestedSiblingFileCollection(SiblingFileCollectionBase):
                 col.dir.abspath: (col.dir.listdir() if col.dir.exists() else [])
                 for col in self.collections
             }
+        # convert to sets for faster lookups
+        basenames = {k: (set(v) if v else set()) for k, v in basenames.items()}
 
         # helper to check for existence
         if exists_func is None:
