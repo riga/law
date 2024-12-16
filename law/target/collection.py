@@ -299,12 +299,14 @@ class SiblingFileCollectionBase(FileCollection):
             else:
                 # need to find find the collection manually, that could possibly contain the target,
                 # then use its basenames
-                for col, _basenames in basenames.items():
-                    if col._exists_in_dir(target):
+                for col_absdir, _basenames in basenames.items():
+                    if _target_path_in_dir(target, col_absdir):
                         basenames = _basenames
                         break
                 else:
                     return False
+        if not basenames:
+            return False
         return target.basename in basenames
 
     def remove(self, silent=True):
@@ -352,20 +354,8 @@ class SiblingFileCollection(SiblingFileCollectionBase):
 
         # check that targets are in fact located in the same directory
         for t in flatten_collections(self._flat_target_list):
-            if not self._exists_in_dir(t):
+            if not _target_path_in_dir(t, self.dir):
                 raise Exception("{} is not located in common directory {}".format(t, self.dir))
-
-    def _exists_in_dir(self, target):
-        # comparisons of dirnames are transparently possible for most target classes since their
-        # paths are consistent, but implement a custom check for mirrored targets
-        sub_target = target.remote_target if isinstance(target, MirroredTarget) else target
-        dir_target = (
-            self.dir.remote_target
-            if isinstance(self.dir, MirroredDirectoryTarget)
-            else self.dir
-        )
-        # do the check
-        return sub_target.absdirname == dir_target.abspath
 
     def _repr_pairs(self):
         expand = Config.instance().get_expanded_bool("target", "expand_path_repr")
@@ -493,6 +483,29 @@ class NestedSiblingFileCollection(SiblingFileCollectionBase):
     def _exists_fwd(self, **kwargs):
         fwd = ["optional_existing", "basenames", "exists_func"]
         return self.exists(**{key: kwargs[key] for key in fwd if key in kwargs})
+
+
+def _target_path_in_dir(target, directory):
+    # comparisons of dirnames are transparently possible for most target classes since their
+    # paths are consistent, but implement a custom check for mirrored targets
+    if isinstance(target, str):
+        target_absdir = target
+    else:
+        target_absdir = (
+            target.remote_target
+            if isinstance(target, MirroredTarget)
+            else target
+        ).absdirname
+    if isinstance(directory, str):
+        dir_abspath = directory
+    else:
+        dir_abspath = (
+            directory.remote_target
+            if isinstance(directory, MirroredDirectoryTarget)
+            else directory
+        ).abspath
+    # do the comparison
+    return target_absdir == dir_abspath
 
 
 def flatten_collections(*targets):
