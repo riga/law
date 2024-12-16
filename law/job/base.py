@@ -1488,7 +1488,6 @@ class JobInputFile(object):
             render_local = maybe_set(render_local, False)
 
         # store attributes, apply residual defaults
-        # TODO: move to job rendering by default
         self.path = os.path.abspath(os.path.expandvars(os.path.expanduser(get_path(path))))
         self.copy = True if copy is None else bool(copy)
         self.share = False if share is None else bool(share)
@@ -1520,7 +1519,7 @@ class JobInputFile(object):
                 "directory, but rendering is enabled which has no effect",
             )
         if self.share and self.render_local:
-            logger.warning(
+            logger.error(
                 f"input file at {self.path} is configured to be shared across jobs but local "
                 "rendering is active, potentially resulting in wrong file content",
             )

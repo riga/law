@@ -9,19 +9,20 @@ from __future__ import annotations
 
 __all__ = ["CrabWorkflow"]
 
-import pathlib
 import uuid
 import abc
+import contextlib
+import pathlib
 
 from law.config import Config
-from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy, JobData
+from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy, JobData, PollData
 from law.job.base import JobArguments, JobInputFile
 from law.target.file import get_path, get_scheme, remove_scheme, FileSystemDirectoryTarget
 from law.target.local import LocalDirectoryTarget, LocalFileTarget
 from law.task.proxy import ProxyCommand
 from law.util import no_value, law_src_path, merge_dicts, human_duration, DotDict, InsertableDict
 from law.logger import get_logger
-from law._types import Any, Type
+from law._types import Any, Type, Generator
 
 from law.contrib.wlcg import check_vomsproxy_validity, get_myproxy_info
 from law.contrib.cms.job import CrabJobManager, CrabJobFileFactory
@@ -165,8 +166,7 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
 
         # log file
         if task.transfer_logs:
-            log_file = "stdall.txt"
-            c.custom_log_file = log_file
+            c.custom_log_file = "stdall.txt"
 
         # task hook
         c = task.crab_job_config(c, list(submit_jobs.keys()), list(submit_jobs.values()))  # type: ignore[call-arg, arg-type] # noqa
@@ -262,6 +262,22 @@ class CrabWorkflow(BaseRemoteWorkflow):
         # relative to the job file directory
         return ""
 
+    @contextlib.contextmanager
+    def crab_workflow_run_context(self) -> Generator[None, None, None]:
+        """
+        Hook to provide a context manager in which the workflow run implementation is placed. This
+        can be helpful in situations where resurces should be acquired before and released after
+        running a workflow.
+        """
+        yield
+
+    def crab_workflow_requires(self) -> DotDict:
+        """
+        Hook to define requirements for the workflow itself and that need to be resolved before any
+        submission can happen.
+        """
+        return DotDict()
+
     def crab_job_file(self) -> str | pathlib.Path | LocalFileTarget | JobInputFile:
         """
         Hook to return the location of the job file that is executed on job nodes.
@@ -284,13 +300,6 @@ class CrabWorkflow(BaseRemoteWorkflow):
         """
         return None
 
-    def crab_workflow_requires(self) -> DotDict:
-        """
-        Hook to define requirements for the workflow itself and that need to be resolved before any
-        submission can happen.
-        """
-        return DotDict()
-
     def crab_output_postfix(self) -> str:
         """
         Hook to define the postfix of outputs, for instance such that workflows with different
@@ -303,6 +312,13 @@ class CrabWorkflow(BaseRemoteWorkflow):
         Hook to return the URI of the remote crab output directory.
         """
         return self.crab_output_directory().uri(return_all=False)  # type: ignore[return-value]
+
+    def crab_job_resources(self, job_num: int, branches: list[int]) -> dict[str, int]:
+        """
+        Hook to define resources for a specific job with number *job_num*, processing *branches*.
+        This method should return a dictionary.
+        """
+        return {}
 
     def crab_job_manager_cls(self) -> Type[CrabJobManager]:
         """
@@ -359,6 +375,20 @@ class CrabWorkflow(BaseRemoteWorkflow):
         """
         return config
 
+    def crab_dump_intermediate_job_data(self) -> bool:
+        """
+        Whether to dump intermediate job data to the job submission file while jobs are being
+        submitted.
+        """
+        return True
+
+    def crab_post_submit_delay(self) -> float | int:
+        """
+        Configurable delay in seconds to wait after submitting jobs and before starting the status
+        polling.
+        """
+        return self.poll_interval * 60
+
     def crab_check_job_completeness(self) -> bool:
         """
         Hook to define whether after job report successful completion, the job manager should check
@@ -373,6 +403,16 @@ class CrabWorkflow(BaseRemoteWorkflow):
         asynchronous behavior.
         """
         return 0.0
+
+    def crab_poll_callback(self, poll_data: PollData) -> None:
+        """
+        Configurable callback that is called after each job status query and before potential
+        resubmission. It receives the variable polling attributes *poll_data* (:py:class:`PollData`)
+        that can be changed within this method.
+        If *False* is returned, the polling loop is gracefully terminated. Returning any other value
+        does not have any effect.
+        """
+        return
 
     def crab_cmdline_args(self) -> dict[str, str]:
         """

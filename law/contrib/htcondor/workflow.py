@@ -10,20 +10,21 @@ __all__ = ["HTCondorWorkflow"]
 
 import os
 import abc
+import contextlib
 import pathlib
 
 import luigi  # type: ignore[import-untyped]
 
 from law.config import Config
-from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
+from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy, PollData
 from law.job.base import JobArguments, JobInputFile
 from law.task.proxy import ProxyCommand
 from law.target.file import get_path, get_scheme, FileSystemDirectoryTarget
 from law.target.local import LocalDirectoryTarget, LocalFileTarget
 from law.parameter import NO_STR
-from law.util import law_src_path, rel_path, merge_dicts, DotDict, InsertableDict
+from law.util import no_value, law_src_path, rel_path, merge_dicts, DotDict, InsertableDict
 from law.logger import get_logger
-from law._types import Type, Any
+from law._types import Type, Any, Generator
 
 from law.contrib.htcondor.job import HTCondorJobManager, HTCondorJobFileFactory
 
@@ -56,7 +57,7 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         # create the config
         c = self.job_file_factory.get_config()  # type: ignore[union-attr]
         c.input_files = {}
-        c.output_files = []
+        c.output_files = {}
         c.render_variables = {}
         c.custom_content = []
 
@@ -140,26 +141,39 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
             if dashboard_file:
                 c.input_files["dashboard_file"] = dashboard_file
 
-        # logging
-        # we do not use htcondor's logging mechanism since it might require that the submission
-        # directory is present when it retrieves logs, and therefore we use a custom log file
-        c.log = None
-        c.stdout = None
-        c.stderr = None
+        # initialize logs with empty values and defer to defaults later
+        c.log = no_value
+        c.stdout = no_value
+        c.stderr = no_value
         if task.transfer_logs:
             c.custom_log_file = "stdall.txt"
 
+        # helper to cast directory paths to local directory targets if possible
+        def cast_dir(
+            output_dir: FileSystemDirectoryTarget | str | pathlib.Path,
+            touch: bool = True,
+        ) -> FileSystemDirectoryTarget | str:
+            if not isinstance(output_dir, FileSystemDirectoryTarget):
+                path = get_path(output_dir)
+                if get_scheme(path) not in (None, "file"):
+                    return str(output_dir)
+                output_dir = LocalDirectoryTarget(path)
+            if touch:
+                output_dir.touch()
+            return output_dir
+
         # when the output dir is local, we can run within this directory for easier output file
         # handling and use absolute paths for input files
-        output_dir = task.htcondor_output_directory()
-        if not isinstance(output_dir, FileSystemDirectoryTarget):
-            output_dir = get_path(output_dir)
-            if get_scheme(output_dir) in (None, "file"):
-                output_dir = LocalDirectoryTarget(output_dir)
+        output_dir = cast_dir(task.htcondor_output_directory())
         output_dir_is_local = isinstance(output_dir, LocalDirectoryTarget)
         if output_dir_is_local:
             c.absolute_paths = True
-            c.custom_content.append(("initialdir", output_dir.abspath))
+            c.custom_content.append(("initialdir", output_dir.abspath))  # type: ignore[union-attr] # noqa
+
+        # prepare the log dir
+        log_dir_orig = task.htcondor_log_directory()
+        log_dir = cast_dir(log_dir_orig) if log_dir_orig else output_dir
+        log_dir_is_local = isinstance(log_dir, LocalDirectoryTarget)
 
         # task hook
         if grouped_submission:
@@ -167,17 +181,35 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         else:
             c = task.htcondor_job_config(c, job_num, branches)
 
+        # logging defaults
+        # we do not use htcondor's logging mechanism since it might require that the submission
+        # directory is present when it retrieves logs, and therefore we use a custom log file
+        # also, stderr and stdout can be remapped (moved) by htcondor, so use a different behavior
+        def log_path(path: str | pathlib.Path) -> str | None:
+            if not path or not log_dir_is_local:
+                return None
+            log_target = log_dir.child(path, type="f")  # type: ignore[union-attr]
+            if log_target.parent != log_dir:
+                log_target.parent.touch()  # type: ignore[union-attr,call-arg]
+            return log_target.abspath
+
+        c.log = c.log or None
+        c.stdout = log_path(c.stdout)
+        c.stderr = log_path(c.stderr)
+        c.custom_log_file = log_path(c.custom_log_file)
+
         # when the output dir is not local, direct output files are not possible
-        if not output_dir_is_local:
-            del c.output_files[:]
+        if not output_dir_is_local and c.output_files:
+            c.output_files.clear()
 
         # build the job file and get the sanitized config
         job_file, c = self.job_file_factory(grouped_submission=grouped_submission, **c.__dict__)  # type: ignore[misc] # noqa
 
-        # get the location of the custom local log file if any
+        # get the finale, absolute location of the custom log file
+        # (note that c.custom_log_file is always just a basename after the factory hook)
         abs_log_file = None
-        if output_dir_is_local and c.custom_log_file:
-            abs_log_file = os.path.join(output_dir.abspath, c.custom_log_file)
+        if log_dir_is_local and c.custom_log_file:
+            abs_log_file = os.path.join(log_dir.abspath, c.custom_log_file)  # type: ignore[union-attr] # noqa
 
         # return job and log files
         return {"job": job_file, "config": c, "log": abs_log_file}
@@ -187,6 +219,9 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
 
         # when a log file is present, replace certain htcondor variables
         for i, (job_id, (job_num, data)) in enumerate(zip(job_ids, submission_data.items())):
+            # skip exceptions
+            if isinstance(job_id, Exception):
+                continue
             log = data.get("log")
             if not log:
                 continue
@@ -254,8 +289,26 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
     exclude_index = True
 
     @abc.abstractmethod
-    def htcondor_output_directory(self) -> FileSystemDirectoryTarget:
+    def htcondor_output_directory(self) -> str | pathlib.Path | FileSystemDirectoryTarget:
         ...
+
+    def htcondor_log_directory(self) -> str | pathlib.Path | FileSystemDirectoryTarget | None:
+        """
+        Hook to define the location of log files if any are written. When set, it has precedence
+        over :py:meth:`htcondor_output_directory` for log files.
+        This method should return a :py:class:`FileSystemDirectoryTarget` or a value that evaluates
+        to *False* in case no custom log directory is desired.
+        """
+        return None
+
+    @contextlib.contextmanager
+    def htcondor_workflow_run_context(self) -> Generator[None, None, None]:
+        """
+        Hook to provide a context manager in which the workflow run implementation is placed. This
+        can be helpful in situations where resurces should be acquired before and released after
+        running a workflow.
+        """
+        yield
 
     def htcondor_workflow_requires(self) -> DotDict:
         return DotDict()
@@ -335,11 +388,35 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
     ) -> HTCondorJobFileFactory.Config:
         return config
 
+    def htcondor_dump_intermediate_job_data(self) -> bool:
+        """
+        Whether to dump intermediate job data to the job submission file while jobs are being
+        submitted.
+        """
+        return True
+
+    def htcondor_post_submit_delay(self) -> int | float:
+        """
+        Configurable delay in seconds to wait after submitting jobs and before starting the status
+        polling.
+        """
+        return self.poll_interval * 60
+
     def htcondor_check_job_completeness(self) -> bool:
         return False
 
     def htcondor_check_job_completeness_delay(self) -> float | int:
         return 0.0
+
+    def htcondor_poll_callback(self, poll_data: PollData) -> None:
+        """
+        Configurable callback that is called after each job status query and before potential
+        resubmission. It receives the variable polling attributes *poll_data* (:py:class:`PollData`)
+        that can be changed within this method.
+        If *False* is returned, the polling loop is gracefully terminated. Returning any other value
+        does not have any effect.
+        """
+        return
 
     def htcondor_use_local_scheduler(self) -> bool:
         return False

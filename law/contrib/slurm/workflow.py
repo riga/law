@@ -10,20 +10,21 @@ __all__ = ["SlurmWorkflow"]
 
 import os
 import abc
+import contextlib
 import pathlib
 
 import luigi  # type: ignore[import-untyped]
 
 from law.config import Config
-from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
+from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy, PollData
 from law.job.base import JobArguments, JobInputFile
 from law.task.proxy import ProxyCommand
 from law.target.file import get_path, get_scheme, FileSystemDirectoryTarget
 from law.target.local import LocalDirectoryTarget, LocalFileTarget
 from law.parameter import NO_STR
-from law.util import law_src_path, merge_dicts, DotDict, InsertableDict
+from law.util import no_value, law_src_path, merge_dicts, DotDict, InsertableDict
 from law.logger import get_logger
-from law._types import Type
+from law._types import Type, Generator
 
 from law.contrib.slurm.job import SlurmJobManager, SlurmJobFileFactory
 
@@ -118,25 +119,37 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
             if dashboard_file:
                 c.input_files["dashboard_file"] = dashboard_file
 
-        # logging
-        # we do not use slurm's logging mechanism since it might require that the submission
-        # directory is present when it retrieves logs, and therefore we use a custom log file
-        c.stdout = "/dev/null"
-        c.stderr = None
+        # initialize logs with empty values and defer to defaults later
+        c.stdout = no_value
+        c.stderr = no_value
         if task.transfer_logs:
             c.custom_log_file = "stdall.txt"
 
+        def cast_dir(
+            output_dir: FileSystemDirectoryTarget | str | pathlib.Path,
+            touch: bool = True,
+        ) -> FileSystemDirectoryTarget | str:
+            if not isinstance(output_dir, FileSystemDirectoryTarget):
+                path = get_path(output_dir)
+                if get_scheme(path) not in (None, "file"):
+                    return str(output_dir)
+                output_dir = LocalDirectoryTarget(path)
+            if touch:
+                output_dir.touch()
+            return output_dir
+
         # when the output dir is local, we can run within this directory for easier output file
         # handling and use absolute paths for input files
-        output_dir = task.slurm_output_directory()
-        if not isinstance(output_dir, FileSystemDirectoryTarget):
-            output_dir = get_path(output_dir)
-            if get_scheme(output_dir) in (None, "file"):
-                output_dir = LocalDirectoryTarget(output_dir)
+        output_dir = cast_dir(task.slurm_output_directory())
         output_dir_is_local = isinstance(output_dir, LocalDirectoryTarget)
         if output_dir_is_local:
             c.absolute_paths = True
-            c.custom_content.append(("chdir", output_dir.abspath))
+            c.custom_content.append(("chdir", output_dir.abspath))  # type: ignore[union-attr]
+
+        # prepare the log dir
+        log_dir_orig = task.htcondor_log_directory()
+        log_dir = cast_dir(log_dir_orig) if log_dir_orig else output_dir
+        log_dir_is_local = isinstance(log_dir, LocalDirectoryTarget)
 
         # job name
         c.job_name = f"{task.live_task_id}{postfix}"
@@ -150,18 +163,32 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
         # python's default multiprocessing puts socket files into that tmp directory which comes
         # with the restriction of less then 80 characters that would be violated, and potentially
         # would also overwhelm the submission directory
-        c.render_variables["law_job_tmp"] = "/tmp/law_$( basename \"$LAW_JOB_HOME\" )"
+        if not c.render_variables.get("law_job_tmp"):
+            c.render_variables["law_job_tmp"] = "/tmp/law_$( basename \"$LAW_JOB_HOME\" )"
 
         # task hook
         c = task.slurm_job_config(c, job_num, branches)
 
+        # logging defaults
+        def log_path(path):
+            if not path or path.startswith("/dev/"):
+                return path or None
+            log_target = log_dir.child(path, type="f")
+            if log_target.parent != log_dir:
+                log_target.parent.touch()
+            return log_target.abspath
+
+        c.stdout = log_path(c.stdout)
+        c.stderr = log_path(c.stderr)
+        c.custom_log_file = log_path(c.custom_log_file)
+
         # build the job file and get the sanitized config
         job_file, c = self.job_file_factory(postfix=postfix, **c.__dict__)  # type: ignore[misc]
 
-        # get the location of the custom local log file if any
+        # get the finale, absolute location of the custom log file
         abs_log_file = None
-        if output_dir_is_local and c.custom_log_file:
-            abs_log_file = os.path.join(output_dir.abspath, c.custom_log_file)
+        if log_dir_is_local and c.custom_log_file:
+            abs_log_file = os.path.join(log_dir.abspath, c.custom_log_file)  # type: ignore[union-attr] # noqa
 
         # return job and log files
         return {"job": job_file, "config": c, "log": abs_log_file}
@@ -200,11 +227,41 @@ class SlurmWorkflow(BaseRemoteWorkflow):
     exclude_index = True
 
     @abc.abstractmethod
-    def slurm_output_directory(self) -> FileSystemDirectoryTarget:
+    def slurm_output_directory(self) -> str | pathlib.Path | FileSystemDirectoryTarget:
+        """
+        Hook to define the location of submission output files, such as the json files containing
+        job data, and optional log files.
+        This method should return a :py:class:`FileSystemDirectoryTarget`.
+        """
         ...
+
+    def slurm_log_directory(self) -> str | pathlib.Path | FileSystemDirectoryTarget | None:
+        """
+        Hook to define the location of log files if any are written. When set, it has precedence
+        over :py:meth:`slurm_output_directory` for log files.
+        This method should return a :py:class:`FileSystemDirectoryTarget` or a value that evaluates
+        to *False* in case no custom log directory is desired.
+        """
+        return None
+
+    @contextlib.contextmanager
+    def slurm_workflow_run_context(self) -> Generator[None, None, None]:
+        """
+        Hook to provide a context manager in which the workflow run implementation is placed. This
+        can be helpful in situations where resurces should be acquired before and released after
+        running a workflow.
+        """
+        yield
 
     def slurm_workflow_requires(self) -> DotDict:
         return DotDict()
+
+    def slurm_job_resources(self, job_num: int, branches: list[int]) -> dict[str, int]:
+        """
+        Hook to define resources for a specific job with number *job_num*, processing *branches*.
+        This method should return a dictionary.
+        """
+        return {}
 
     def slurm_bootstrap_file(self) -> str | pathlib.Path | LocalFileTarget | JobInputFile | None:
         return None
@@ -261,11 +318,35 @@ class SlurmWorkflow(BaseRemoteWorkflow):
     ) -> SlurmJobFileFactory.Config:
         return config
 
+    def slurm_dump_intermediate_job_data(self) -> bool:
+        """
+        Whether to dump intermediate job data to the job submission file while jobs are being
+        submitted.
+        """
+        return True
+
+    def slurm_post_submit_delay(self) -> int | float:
+        """
+        Configurable delay in seconds to wait after submitting jobs and before starting the status
+        polling.
+        """
+        return self.poll_interval * 60
+
     def slurm_check_job_completeness(self) -> bool:
         return False
 
     def slurm_check_job_completeness_delay(self) -> float | int:
         return 0.0
+
+    def slurm_poll_callback(self, poll_data: PollData) -> None:
+        """
+        Configurable callback that is called after each job status query and before potential
+        resubmission. It receives the variable polling attributes *poll_data* (:py:class:`PollData`)
+        that can be changed within this method.
+        If *False* is returned, the polling loop is gracefully terminated. Returning any other value
+        does not have any effect.
+        """
+        return
 
     def slurm_use_local_scheduler(self) -> bool:
         return False

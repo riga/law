@@ -8,22 +8,22 @@ from __future__ import annotations
 
 __all__ = ["LSFWorkflow"]
 
-import os
 import abc
+import contextlib
 import pathlib
 
 import luigi  # type: ignore[import-untyped]
 
 from law.config import Config
-from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
+from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy, PollData
 from law.job.base import JobArguments, JobInputFile
 from law.task.proxy import ProxyCommand
 from law.target.file import get_path, get_scheme, FileSystemDirectoryTarget
 from law.target.local import LocalDirectoryTarget, LocalFileTarget
 from law.parameter import NO_STR
-from law.util import law_src_path, merge_dicts, DotDict, InsertableDict
+from law.util import no_value, law_src_path, merge_dicts, DotDict, InsertableDict
 from law.logger import get_logger
-from law._types import Type
+from law._types import Type, Generator
 
 from law.contrib.lsf.job import LSFJobManager, LSFJobFileFactory
 
@@ -119,25 +119,33 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
             if dashboard_file:
                 c.input_files["dashboard_file"] = dashboard_file
 
-        # logging
-        # we do not use lsf's logging mechanism since it might require that the submission
-        # directory is present when it retrieves logs, and therefore we use a custom log file
-        c.stdout = None
-        c.stderr = None
+        # initialize logs with empty values and defer to defaults later
+        c.stdout = no_value
+        c.stderr = no_value
         if task.transfer_logs:
             c.custom_log_file = "stdall.txt"
 
-        # we can use lsf's file stageout only when the output directory is local
-        # otherwise, one should use the stageout_file and stageout manually
-        output_dir = task.lsf_output_directory()
-        if not isinstance(output_dir, FileSystemDirectoryTarget):
-            output_dir = get_path(output_dir)
-            if get_scheme(output_dir) in (None, "file"):
-                output_dir = LocalDirectoryTarget(output_dir)
+        # helper to cast directory paths to local directory targets if possible
+        def cast_dir(
+            output_dir: FileSystemDirectoryTarget | str | pathlib.Path,
+            touch: bool = True,
+        ) -> FileSystemDirectoryTarget | str:
+            if not isinstance(output_dir, FileSystemDirectoryTarget):
+                path = get_path(output_dir)
+                if get_scheme(path) not in (None, "file"):
+                    return str(output_dir)
+                output_dir = LocalDirectoryTarget(path)
+            if touch:
+                output_dir.touch()
+            return output_dir
+
+        # when the output dir is local, we can run within this directory for easier output file
+        # handling and use absolute paths for input files
+        output_dir = cast_dir(task.lsf_output_directory())
         output_dir_is_local = isinstance(output_dir, LocalDirectoryTarget)
         if output_dir_is_local:
             c.absolute_paths = True
-            c.cwd = output_dir.abspath
+            c.cwd = output_dir.abspath  # type: ignore[union-attr]
 
         # job name
         c.job_name = f"{task.live_task_id}{postfix}"
@@ -152,10 +160,17 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
         # build the job file and get the sanitized config
         job_file, c = self.job_file_factory(postfix=postfix, **c.__dict__)  # type: ignore[misc]
 
+        # logging defaults
+        # we do not use lsf's logging mechanism since it might require that the submission
+        # directory is present when it retrieves logs, and therefore we use a custom log file
+        c.stdout = c.stdout or None
+        c.stderr = c.stderr or None
+        c.custom_log_file = c.custom_log_file or None
+
         # get the location of the custom local log file if any
         abs_log_file = None
         if output_dir_is_local and c.custom_log_file:
-            abs_log_file = os.path.join(output_dir.abspath, c.custom_log_file)
+            abs_log_file = output_dir.child(c.custom_log_file, type="f").abspath  # type: ignore[union-attr] # noqa
 
         # return job and log files
         return {"job": job_file, "config": c, "log": abs_log_file}
@@ -198,8 +213,22 @@ class LSFWorkflow(BaseRemoteWorkflow):
     exclude_index = True
 
     @abc.abstractmethod
-    def lsf_output_directory(self) -> FileSystemDirectoryTarget:
+    def lsf_output_directory(self) -> str | pathlib.Path | FileSystemDirectoryTarget:
+        """
+        Hook to define the location of submission output files, such as the json files containing
+        job data, and optional log files.
+        This method should return a :py:class:`FileSystemDirectoryTarget`.
+        """
         ...
+
+    @contextlib.contextmanager
+    def lsf_workflow_run_context(self) -> Generator[None, None, None]:
+        """
+        Hook to provide a context manager in which the workflow run implementation is placed. This
+        can be helpful in situations where resurces should be acquired before and released after
+        running a workflow.
+        """
+        yield
 
     def lsf_workflow_requires(self) -> DotDict:
         return DotDict()
@@ -218,6 +247,13 @@ class LSFWorkflow(BaseRemoteWorkflow):
 
     def lsf_output_postfix(self) -> str:
         return ""
+
+    def lsf_job_resources(self, job_num: int, branches: list[int]) -> dict[str, int]:
+        """
+        Hook to define resources for a specific job with number *job_num*, processing *branches*.
+        This method should return a dictionary.
+        """
+        return {}
 
     def lsf_job_manager_cls(self) -> Type[LSFJobManager]:
         return LSFJobManager
@@ -259,11 +295,35 @@ class LSFWorkflow(BaseRemoteWorkflow):
     ) -> LSFJobFileFactory.Config:
         return config
 
+    def lsf_dump_intermediate_job_data(self) -> bool:
+        """
+        Whether to dump intermediate job data to the job submission file while jobs are being
+        submitted.
+        """
+        return True
+
+    def lsf_post_submit_delay(self) -> float | int:
+        """
+        Configurable delay in seconds to wait after submitting jobs and before starting the status
+        polling.
+        """
+        return self.poll_interval * 60
+
     def lsf_check_job_completeness(self) -> bool:
         return False
 
     def lsf_check_job_completeness_delay(self) -> float | int:
         return 0.0
+
+    def lsf_poll_callback(self, poll_data: PollData) -> None:
+        """
+        Configurable callback that is called after each job status query and before potential
+        resubmission. It receives the variable polling attributes *poll_data* (:py:class:`PollData`)
+        that can be changed within this method.
+        If *False* is returned, the polling loop is gracefully terminated. Returning any other value
+        does not have any effect.
+        """
+        return
 
     def lsf_use_local_scheduler(self) -> bool:
         return True

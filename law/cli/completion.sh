@@ -215,12 +215,17 @@ _law_complete() {
     fi
 }
 
-# run bashcompinit in zsh, export the completion function in bash
-if [ ! -z "${ZSH_VERSION}" ]; then
-    autoload -Uz +X compinit && compinit
-    autoload -Uz +X bashcompinit && bashcompinit
-else
-    export -f _law_complete
-fi
+# export the completion function in bash
+[ ! -z "${BASH_VERSION}" ] && export -f _law_complete
 
-complete -o bashdefault -o default -F _law_complete law
+# enable the completion if not explicitly disabled
+if [ "${LAW_CLI_SKIP_COMPLETION}" != "1" ]; then
+    # in zsh, run bashcompinit in zsh, export the completion function in bash
+    if [ ! -z "${ZSH_VERSION}" ]; then
+        autoload -Uz +X compinit && compinit
+        autoload -Uz +X bashcompinit && bashcompinit
+    fi
+
+    # add to all known executables
+    complete -o bashdefault -o default -F _law_complete law
+fi

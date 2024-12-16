@@ -12,8 +12,9 @@ __all__ = [
 
 import random
 import pathlib
-from abc import abstractmethod
+import functools
 import contextlib
+from collections import deque, defaultdict
 
 from law.config import Config
 from law.target.base import Target
@@ -93,22 +94,24 @@ class TargetCollection(Target):
         optional_existing: bool | None = None,
         keys: bool = False,
         unpack: bool = True,
+        exists_func: Callable[[Target], bool] | None = None,
     ) -> Iterator[tuple[Any, Any] | Any]:
         existing = bool(existing)
         if optional_existing is not None:
             optional_existing = bool(optional_existing)
 
         # helper to check for existence
-        def exists(t: Target) -> bool:
-            if optional_existing is not None and t.optional:
-                return optional_existing
-            if isinstance(t, TargetCollection):
-                return t.exists(optional_existing=optional_existing)
-            return t.exists()
+        if exists_func is None:
+            def exists_func(t: Target) -> bool:
+                if optional_existing is not None and t.optional:
+                    return optional_existing
+                if isinstance(t, TargetCollection):
+                    return t.exists(optional_existing=optional_existing)
+                return t.exists()
 
         # loop and yield
         for key, targets in self._iter_flat():
-            state = all(exists(t) for t in targets)
+            state = all(map(exists_func, targets))
             if state is existing:
                 if unpack:
                     targets = self.targets[key]
@@ -169,7 +172,7 @@ class TargetCollection(Target):
         return self.optional or self.exists(**kwargs)
 
     def _exists_fwd(self, **kwargs) -> bool:
-        fwd = ["optional_existing"]
+        fwd = ["optional_existing", "exists_func"]
         return self.exists(**{key: kwargs[key] for key in fwd if key in kwargs})
 
     def exists(self, **kwargs) -> bool:
@@ -200,7 +203,7 @@ class TargetCollection(Target):
         target_keys = [key for key, _ in self._iter_state(**kwargs)]
 
         n = len(target_keys)
-        return n if not keys else (n, target_keys)
+        return (n, target_keys) if keys else n
 
     def map(self, func: Callable[[Target], Target]) -> TargetCollection:
         """
@@ -293,16 +296,50 @@ class SiblingFileCollectionBase(FileCollection):
     Base class for file collections whose elements are located in the same directory (siblings).
     """
 
+    @classmethod
+    def _exists_in_basenames(
+        cls,
+        target: Target,
+        basenames: set[str] | dict[str, set[str]] | None,
+        optional_existing: bool | None,
+        target_dirs: dict[Target, str] | None,
+    ) -> bool:
+        if optional_existing is not None and target.optional:
+            return optional_existing
+        if isinstance(target, SiblingFileCollectionBase):
+            return target._exists_fwd(
+                basenames=basenames,
+                optional_existing=optional_existing,
+            )
+        if isinstance(target, TargetCollection):
+            return target.exists(exists_func=functools.partial(
+                cls._exists_in_basenames,
+                basenames=basenames,
+                optional_existing=optional_existing,
+                target_dirs=target_dirs,
+            ))
+        if isinstance(basenames, dict):
+            if target_dirs and target in target_dirs:
+                basenames = basenames[target_dirs[target]]
+            else:
+                # need to find find the collection manually, that could possibly contain the target,
+                # then use its basenames
+                for col_absdir, _basenames in basenames.items():
+                    if _target_path_in_dir(target, col_absdir):
+                        basenames = _basenames
+                        break
+                else:
+                    return False
+        if not basenames:
+            return False
+        return target.basename in basenames
+
     def remove(self, *, silent: bool = True, **kwargs) -> bool:
         removed_any = False
         for targets in self.iter_existing(unpack=False):
             for t in targets:
                 removed_any |= t.remove(silent=silent)
         return removed_any
-
-    @abstractmethod
-    def _exists_fwd(self, **kwargs) -> bool:
-        ...
 
 
 class SiblingFileCollection(SiblingFileCollectionBase):
@@ -347,20 +384,8 @@ class SiblingFileCollection(SiblingFileCollectionBase):
 
         # check that targets are in fact located in the same directory
         for t in flatten_collections(self._flat_target_list):
-            if not self._exists_in_dir(t):  # type: ignore[arg-type]
+            if not _target_path_in_dir(t, self.dir):
                 raise Exception(f"{t} is not located in common directory {self.dir}")
-
-    def _exists_in_dir(self, target: FileSystemTarget) -> bool:
-        # comparisons of dirnames are transparently possible for most target classes since their
-        # paths are consistent, but implement a custom check for mirrored targets
-        sub_target = target.remote_target if isinstance(target, MirroredTarget) else target
-        dir_target = (
-            self.dir.remote_target
-            if isinstance(self.dir, MirroredDirectoryTarget)
-            else self.dir
-        )
-        # do the check
-        return sub_target.absdirname == dir_target.abspath
 
     def _repr_pairs(self) -> list[tuple[str, Any]]:
         expand = Config.instance().get_expanded_bool("target", "expand_path_repr")
@@ -372,45 +397,45 @@ class SiblingFileCollection(SiblingFileCollectionBase):
         *,
         existing: bool = True,
         optional_existing: bool | None = None,
-        basenames: Sequence[str] | None = None,
+        basenames: Sequence[str] | set[str] | None = None,
         keys: bool = False,
         unpack: bool = True,
+        exists_func: Callable[[Target], bool] | None = None,
     ) -> Iterator[tuple[Any, Any] | Any]:
-        existing = bool(existing)
-        if optional_existing is not None:
-            optional_existing = bool(optional_existing)
-
         # the directory must exist
         if not self.dir.exists():
             return
 
-        # get the basenames of all elements of the directory
+        existing = bool(existing)
+        if optional_existing is not None:
+            optional_existing = bool(optional_existing)
+
+        # get all basenames
         if basenames is None:
             basenames = self.dir.listdir()
+            basenames = self.dir.listdir() if self.dir.exists() else []
+        # convert to set for faster lookup
+        basenames = set(basenames) if basenames else set()
 
         # helper to check for existence
-        def exists(t) -> bool:
-            if optional_existing is not None and t.optional:
-                return optional_existing
-            if isinstance(t, SiblingFileCollectionBase):
-                return t._exists_fwd(
-                    basenames=basenames,
-                    optional_existing=optional_existing,
-                )
-            if isinstance(t, TargetCollection):
-                return all(exists(_t) for _t in flatten_collections(t))
-            return t.basename in basenames
+        if exists_func is None:
+            exists_func = functools.partial(
+                self._exists_in_basenames,
+                basenames=basenames,
+                optional_existing=optional_existing,
+                target_dirs=None,
+            )
 
         # loop and yield
         for key, targets in self._iter_flat():
-            state = all(exists(t) for t in targets)
+            state = all(map(exists_func, targets))
             if state is existing:
                 if unpack:
                     targets = self.targets[key]
                 yield (key, targets) if keys else targets
 
     def _exists_fwd(self, **kwargs) -> bool:
-        fwd = ["basenames", "optional_existing"]
+        fwd = ["optional_existing", "basenames", "exists_func"]
         return self.exists(**{key: kwargs[key] for key in fwd if key in kwargs})
 
 
@@ -433,78 +458,100 @@ class NestedSiblingFileCollection(SiblingFileCollectionBase):
         # _flat_target_list attributes, but store them again in sibling file collections to speed up
         # some methods by grouping them into targets in the same physical directory
         self.collections: list[SiblingFileCollection] = []
-        self._flat_target_collections = {}
-        grouped_targets: dict[str, list[Target]] = {}
+        self._flat_target_dirs = {}
+        grouped_targets = defaultdict(list)
         for t in flatten_collections(self._flat_target_list):
-            grouped_targets.setdefault(t.parent.uri(), []).append(t)  # type: ignore[attr-defined]
+            grouped_targets[t.parent.uri()].append(t)
         for targets in grouped_targets.values():
             # create and store the collection
             collection = SiblingFileCollection(targets)
             self.collections.append(collection)
-            # remember the collection per target
+            # remember the absolute collection dir per target for faster loopups later
             for t in targets:
-                self._flat_target_collections[t] = collection
+                self._flat_target_dirs[t] = collection.dir.abspath
 
     def _repr_pairs(self) -> list[tuple[str, Any]]:
         return super()._repr_pairs() + [("collections", len(self.collections))]
-
-    def _get_basenames(self):
-        return {
-            collection: (collection.dir.listdir() if collection.dir.exists() else [])
-            for collection in self.collections
-        }
 
     def _iter_state(
         self,
         *,
         existing: bool = True,
         optional_existing: bool | None = None,
-        basenames: Sequence[str] | None = None,
+        basenames: dict[str, Sequence[str] | set[str]] | None = None,
         keys: bool = False,
         unpack: bool = True,
+        exists_func: Callable[[Target], bool] | None = None,
     ) -> Iterator[tuple[Any, Any] | Any]:
         existing = bool(existing)
         if optional_existing is not None:
             optional_existing = bool(optional_existing)
 
-        # get the dict of all basenames
+        # get all basenames
         if basenames is None:
-            basenames = self._get_basenames()
+            basenames = {
+                col.dir.abspath: (col.dir.listdir() if col.dir.exists() else [])
+                for col in self.collections
+            }
+        # convert to sets for faster lookups
+        basenames = {k: (set(v) if v else set()) for k, v in basenames.items()}
 
         # helper to check for existence
-        def exists(t, _basenames) -> bool:
-            if optional_existing is not None and t.optional:
-                return optional_existing
-            if isinstance(t, SiblingFileCollectionBase):
-                return t._exists_fwd(
-                    basenames=_basenames,
-                    optional_existing=optional_existing,
-                )
-            if isinstance(t, TargetCollection):
-                return all(_t.exists() for _t in flatten_collections(t))
-            return t.basename in _basenames
+        if exists_func is None:
+            exists_func = functools.partial(
+                self._exists_in_basenames,
+                basenames=basenames,  # type: ignore[arg-type]
+                optional_existing=optional_existing,
+                target_dirs=self._flat_target_dirs,
+            )
 
         # loop and yield
         for key, targets in self._iter_flat():
-            state = all(exists(t, basenames[self._flat_target_collections[t]]) for t in targets)  # type: ignore[call-overload] # noqa
+            state = all(map(exists_func, targets))
             if state is existing:
                 if unpack:
                     targets = self.targets[key]
                 yield (key, targets) if keys else targets
 
     def _exists_fwd(self, **kwargs) -> bool:
-        fwd = [("basenames", "basenames_dict"), ("optional_existing", "optional_existing")]
-        return self.exists(**{dst: kwargs[src] for dst, src in fwd if src in kwargs})
+        fwd = ["optional_existing", "basenames", "exists_func"]
+        return self.exists(**{key: kwargs[key] for key in fwd if key in kwargs})
+
+
+def _target_path_in_dir(
+    target: FileSystemTarget | str | pathlib.Path,
+    directory: FileSystemDirectoryTarget | str | pathlib.Path,
+) -> bool:
+    # comparisons of dirnames are transparently possible for most target classes since their
+    # paths are consistent, but implement a custom check for mirrored targets
+    if not isinstance(target, FileSystemTarget):
+        target_absdir = str(target)
+    else:
+        target_absdir = (
+            target.remote_target
+            if isinstance(target, MirroredTarget)
+            else target
+        ).absdirname
+    if not isinstance(directory, FileSystemDirectoryTarget):
+        dir_abspath = str(directory)
+    else:
+        dir_abspath = (
+            directory.remote_target
+            if isinstance(directory, MirroredDirectoryTarget)
+            else directory
+        ).abspath
+    # do the comparison
+    return target_absdir == dir_abspath
 
 
 def flatten_collections(*targets) -> list[Target]:
-    lookup = flatten(targets)
+    lookup = deque(flatten(targets))
     _targets: list[Target] = []
 
     while lookup:
-        t = lookup.pop(0)
+        t = lookup.popleft()
         if isinstance(t, TargetCollection):
-            lookup[:0] = t._flat_target_list
+            lookup.extendleft(t._flat_target_list)
         else:
             _targets.append(t)
 

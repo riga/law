@@ -12,19 +12,20 @@ __all__ = ["GLiteWorkflow"]
 import os
 import sys
 import abc
+import contextlib
 import pathlib
 
 import law
 from law.config import Config
-from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy
+from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy, PollData
 from law.job.base import JobArguments, JobInputFile
 from law.task.proxy import ProxyCommand
 from law.target.file import get_path
 from law.target.local import LocalFileTarget
 from law.parameter import CSVParameter
-from law.util import law_src_path, merge_dicts, DotDict, InsertableDict
+from law.util import no_value, law_src_path, merge_dicts, DotDict, InsertableDict
 from law.logger import get_logger
-from law._types import Type, Any
+from law._types import Type, Any, Generator
 
 from law.contrib.wlcg import WLCGDirectoryTarget, delegate_vomsproxy_glite
 from law.contrib.glite.job import GLiteJobManager, GLiteJobFileFactory
@@ -144,9 +145,9 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
             if dashboard_file:
                 c.input_files["dashboard_file"] = dashboard_file
 
-        # log file
-        c.stdout = None
-        c.stderr = None
+        # initialize logs with empty values and defer to defaults later
+        c.stdout = no_value
+        c.stderr = no_value
         if task.transfer_logs:
             log_file = "stdall.txt"
             c.stdout = log_file
@@ -161,6 +162,11 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
 
         # build the job file and get the sanitized config
         job_file, c = self.job_file_factory(postfix=postfix, **c.__dict__)  # type: ignore[misc]
+
+        # logging defaults
+        c.stdout = c.stdout or None
+        c.stderr = c.stderr or None
+        c.custom_log_file = c.custom_log_file or None
 
         # determine the custom log file uri if set
         abs_log_file = None
@@ -224,6 +230,15 @@ class GLiteWorkflow(BaseRemoteWorkflow):
     def glite_stageout_file(self) -> str | pathlib.Path | LocalFileTarget | JobInputFile | None:
         return None
 
+    @contextlib.contextmanager
+    def glite_workflow_run_context(self) -> Generator[None, None, None]:
+        """
+        Hook to provide a context manager in which the workflow run implementation is placed. This
+        can be helpful in situations where resurces should be acquired before and released after
+        running a workflow.
+        """
+        yield
+
     def glite_workflow_requires(self) -> DotDict:
         return DotDict()
 
@@ -232,6 +247,13 @@ class GLiteWorkflow(BaseRemoteWorkflow):
 
     def glite_output_uri(self) -> str:
         return self.glite_output_directory().uri(return_all=False)  # type: ignore[return-value]
+
+    def glite_job_resources(self, job_num: int, branches: list[int]) -> dict[str, int]:
+        """
+        Hook to define resources for a specific job with number *job_num*, processing *branches*.
+        This method should return a dictionary.
+        """
+        return {}
 
     def glite_delegate_proxy(self, endpoint: str) -> str:
         return delegate_vomsproxy_glite(  # type: ignore[attr-defined]
@@ -273,14 +295,43 @@ class GLiteWorkflow(BaseRemoteWorkflow):
 
         return factory_cls(**kwargs)
 
-    def glite_job_config(self, config, job_num, branches):
+    def glite_job_config(
+        self,
+        config: GLiteJobFileFactory.Config,
+        job_num: int,
+        branches: list[int],
+    ) -> GLiteJobFileFactory.Config:
         return config
+
+    def glite_dump_intermediate_job_data(self) -> bool:
+        """
+        Whether to dump intermediate job data to the job submission file while jobs are being
+        submitted.
+        """
+        return True
+
+    def glite_post_submit_delay(self) -> int | float:
+        """
+        Configurable delay in seconds to wait after submitting jobs and before starting the status
+        polling.
+        """
+        return self.poll_interval * 60
 
     def glite_check_job_completeness(self) -> bool:
         return False
 
     def glite_check_job_completeness_delay(self) -> float | int:
         return 0.0
+
+    def glite_poll_callback(self, poll_data: PollData) -> None:
+        """
+        Configurable callback that is called after each job status query and before potential
+        resubmission. It receives the variable polling attributes *poll_data* (:py:class:`PollData`)
+        that can be changed within this method.
+        If *False* is returned, the polling loop is gracefully terminated. Returning any other value
+        does not have any effect.
+        """
+        return
 
     def glite_use_local_scheduler(self) -> bool:
         return True

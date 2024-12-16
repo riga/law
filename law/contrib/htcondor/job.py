@@ -538,7 +538,7 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
         executable: str | None = None,
         arguments: str | Sequence[str] | None = None,
         input_files: dict[str, str | pathlib.Path | JobInputFile] | None = None,
-        output_files: Sequence[str] | None = None,
+        output_files: dict[str | pathlib.Path, str | pathlib.Path] | None = None,
         log: str = "log.txt",
         stdout: str = "stdout.txt",
         stderr: str = "stderr.txt",
@@ -575,7 +575,7 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
         self.executable = executable
         self.arguments = arguments
         self.input_files = input_files or {}
-        self.output_files = output_files or []
+        self.output_files = output_files or {}
         self.log = log
         self.stdout = stdout
         self.stderr = stderr
@@ -611,23 +611,36 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
         if not c.universe:
             raise ValueError("universe must not be empty")
 
+        # ensure that output_files is a dict mapping remote paths on the job node
+        # to local paths on the submission node
+        # (relative local paths will be resolved relative to the initial dir)
+        c.output_files = {
+            str(k): str(v)
+            for k, v in (
+                c.output_files.items()
+                if isinstance(c.output_files, dict)
+                else zip(c.output_files, c.output_files)
+            )
+        }
+
         # ensure that the custom log file is an output file
-        if c.custom_log_file and c.custom_log_file not in c.output_files:
-            c.output_files.append(c.custom_log_file)
+        if c.custom_log_file:
+            c.custom_log_file = str(c.custom_log_file)
+            custom_log_file_base = os.path.basename(c.custom_log_file)
+            if custom_log_file_base not in c.output_files:
+                c.output_files[custom_log_file_base] = c.custom_log_file
+            c.custom_log_file = custom_log_file_base
 
         # postfix certain output files
         postfix = "$(law_job_postfix)" if grouped_submission else c.postfix
-        c.output_files = list(map(str, c.output_files))
         if c.postfix_output_files:
             skip_postfix_cre = re.compile(r"^(/dev/).*$")
             skip_postfix = lambda s: bool(skip_postfix_cre.match(str(s)))
-            c.output_files = [
-                path if skip_postfix(path) else self.postfix_output_file(path, postfix)
-                for path in c.output_files
-            ]
+            add_postfix = lambda s: s if skip_postfix(s) else self.postfix_output_file(s, postfix)
+            c.output_files = {add_postfix(k): add_postfix(v) for k, v in c.output_files.items()}
             for attr in ["log", "stdout", "stderr", "custom_log_file"]:
-                if c[attr] and not skip_postfix(c[attr]):
-                    c[attr] = self.postfix_output_file(c[attr], postfix)
+                if c[attr]:
+                    c[attr] = add_postfix(c[attr])
 
         # ensure that all input files are JobInputFile objects
         c.input_files = {
@@ -762,9 +775,17 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
                 s = "\"{s}\""
             return s
 
+        # helper to encode dicts
+        def encode_dict(d: dict, sep: str = " ; ", quote: bool = True) -> str:
+            s = sep.join(f"{k} = {v}" for k, v in d.items())
+            if quote:
+                s = f"\"{s}\""  # noqa: Q003
+            return s
+
         # job file content
         content: list[str | tuple[str, Any]] = []
         content.append(("universe", c.universe))
+        output_remaps = {}
         if c.command:
             cmd = quote_cmd(c.command) if isinstance(c.command, (list, tuple)) else c.command
             content.append(("executable", cmd))
@@ -773,9 +794,17 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
         if c.log:
             content.append(("log", c.log))
         if c.stdout:
-            content.append(("output", c.stdout))
+            c.stdout = str(c.stdout)
+            stdout_base = os.path.basename(c.stdout)
+            content.append(("output", stdout_base))
+            if stdout_base != c.stdout:
+                output_remaps[stdout_base] = c.stdout
         if c.stderr:
-            content.append(("error", c.stderr))
+            c.stderr = str(c.stderr)
+            stderr_base = os.path.basename(c.stderr)
+            content.append(("error", stderr_base))
+            if stderr_base != c.stderr:
+                output_remaps[stderr_base] = c.stderr
         if c.input_files or c.output_files:
             content.append(("should_transfer_files", "YES"))
         if c.input_files:
@@ -790,11 +819,19 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
             )))
         if c.output_files:
             content.append(("transfer_output_files", encode_list(
-                make_unique(c.output_files),
+                c.output_files.keys(),
                 sep=",",
                 quote=False,
             )))
+            # add mapping to local paths when different
+            output_remaps.update({
+                remote_path: local_path
+                for remote_path, local_path in c.output_files.items()
+                if remote_path != local_path
+            })
             content.append(("when_to_transfer_output", "ON_EXIT"))
+        if output_remaps:
+            content.append(("transfer_output_remaps", encode_dict(output_remaps)))
         if c.notification:
             content.append(("notification", c.notification))
 

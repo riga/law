@@ -466,6 +466,8 @@ def patch_parameter_copy() -> None:
     functionality will eventually be moved to luigi, but the patch might be kept for versions of
     luigi where it was not addded yet.
     """
+    default_cre = re.compile(r"(.+)(;|,)\s*((empty|no|without) default|default: [^\;]+)\s*$")
+
     def _copy(self, add_default_to_description=False, **kwargs):
         # copy the instance
         inst = copy.copy(self)
@@ -482,8 +484,13 @@ def patch_parameter_copy() -> None:
 
         # amend the description
         if add_default_to_description:
-            prefix = "; " if inst.description else ""
-            inst.description += f"{prefix}default: {inst._default}"
+            # remove default from description
+            if inst.description:
+                m = default_cre.match(inst.description)
+                if m:
+                    inst.description = m.group(1)
+                inst.description += "; "
+            inst.description += "default: {}".format(inst._default)
 
         return inst
 
