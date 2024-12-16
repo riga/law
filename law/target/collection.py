@@ -299,7 +299,7 @@ class SiblingFileCollectionBase(FileCollection):
     @classmethod
     def _exists_in_basenames(
         cls,
-        target: Target,
+        target: FileSystemTarget,
         basenames: set[str] | dict[str, set[str]] | None,
         optional_existing: bool | None,
         target_dirs: dict[Target, str] | None,
@@ -384,7 +384,7 @@ class SiblingFileCollection(SiblingFileCollectionBase):
 
         # check that targets are in fact located in the same directory
         for t in flatten_collections(self._flat_target_list):
-            if not _target_path_in_dir(t, self.dir):
+            if not _target_path_in_dir(t, self.dir):  # type: ignore[arg-type]
                 raise Exception(f"{t} is not located in common directory {self.dir}")
 
     def _repr_pairs(self) -> list[tuple[str, Any]]:
@@ -461,7 +461,7 @@ class NestedSiblingFileCollection(SiblingFileCollectionBase):
         self._flat_target_dirs = {}
         grouped_targets = defaultdict(list)
         for t in flatten_collections(self._flat_target_list):
-            grouped_targets[t.parent.uri()].append(t)
+            grouped_targets[t.parent.uri()].append(t)  # type: ignore[attr-defined]
         for targets in grouped_targets.values():
             # create and store the collection
             collection = SiblingFileCollection(targets)

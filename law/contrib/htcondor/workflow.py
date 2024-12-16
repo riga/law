@@ -400,7 +400,7 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
         Configurable delay in seconds to wait after submitting jobs and before starting the status
         polling.
         """
-        return self.poll_interval * 60
+        return self.poll_interval * 60  # type: ignore[operator]
 
     def htcondor_check_job_completeness(self) -> bool:
         return False
