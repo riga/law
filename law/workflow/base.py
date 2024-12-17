@@ -77,6 +77,9 @@ class BaseWorkflowProxy(ProxyTask):
 
         self._workflow_has_reset_branch_map = False
 
+        # cached outputs
+        self._cached_output: dict[str, Any] | None = None
+
     def _get_task_attribute(self, name: str | Sequence[str], *, fallback: bool = False) -> Any:
         """
         Return an attribute of the actual task named ``<workflow_type>_<name>``. When the attribute
@@ -126,7 +129,7 @@ class BaseWorkflowProxy(ProxyTask):
             reqs.update(workflow_reqs)
         return reqs
 
-    def output(self) -> Any:
+    def output(self) -> dict[str, Any]:
         """
         Returns the default workflow outputs in an ordered dictionary. At the moment this is just
         the collection of outputs of the branch tasks, stored with the key ``"collection"``.
@@ -144,6 +147,27 @@ class BaseWorkflowProxy(ProxyTask):
         # create the collection
         collection = cls(targets, threshold=self.threshold(len(targets)))
         return DotDict([("collection", collection)])
+
+    def get_cached_output(self, update: bool = False) -> dict[str, Any]:
+        """
+        If already cached, returns the previously computed output, and otherwise computes it via
+        :py:meth:`output` and caches it for subsequent calls, if :py:attr:`cache_brach_map` of the
+        task is *True*.
+        """
+        # invalidate cache
+        if update:
+            self._cached_output = None
+
+        # return from cache if present
+        if self._cached_output is not None:
+            return self._cached_output
+
+        # get output and cache it if possible
+        output = self.output()
+        if self.task.cache_branch_map:  # type: ignore[attr-defined]
+            self._cached_output = output
+
+        return output
 
     def threshold(self, n: int | None = None) -> float | int:
         """

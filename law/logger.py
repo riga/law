@@ -230,7 +230,7 @@ def setup_logging() -> None:
 
     # setup the main law logger first and set its handler which is propagated to subloggers
     logger = get_logger("law", skip_setup=True)
-    logger = setup_logger(logger, add_console_handler=False)
+    logger = setup_logger(logger, add_console_handler=False)  # type: ignore[assignment]
     logger.addHandler(create_stream_handler())
 
     # set levels for all loggers and add the console handler for all non-law loggers
@@ -246,7 +246,7 @@ def _logger_setup(logger: logging.Logger, value: bool | None = None) -> bool:
     return getattr(logger, attr, False)
 
 
-def get_logger(*args, skip_setup: bool = False, **kwargs) -> logging.Logger:
+def get_logger(*args, skip_setup: bool = False, **kwargs) -> Logger:
     """
     Replacement for *logging.getLogger* that makes sure that the custom :py:class:`Logger` class is
     used when new loggers are created and that the logger is properly set up by
@@ -261,7 +261,7 @@ def get_logger(*args, skip_setup: bool = False, **kwargs) -> logging.Logger:
         if not skip_setup:
             setup_logger(logger)
 
-        return logger
+        return logger  # type: ignore[return-value]
     finally:
         logging.setLoggerClass(orig_cls)
 

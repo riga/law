@@ -12,10 +12,12 @@ __all__ = ["before_run", "patch_all"]
 import re
 import functools
 import copy
+import multiprocessing
 import logging
 
 import luigi  # type: ignore[import-untyped]
 import law
+from law.task.base import BaseTask
 from law.logger import get_logger
 from law._types import Callable
 
@@ -63,6 +65,7 @@ def patch_all() -> None:
     patch_interface_logging()
     patch_parameter_copy()
     patch_parameter_parse_or_no_value()
+    patch_worker_check_complete_cached()
 
     logger.debug("applied all law-specific luigi patches")
 
@@ -512,3 +515,45 @@ def patch_parameter_parse_or_no_value() -> None:
     luigi.parameter.Parameter._parse_or_no_value = _parse_or_no_value
 
     logger.debug("patched luigi.parameter.Parameter._parse_or_no_value")
+
+
+def patch_worker_check_complete_cached() -> None:
+    """
+    Patches the ``luigi.worker.check_complete_cached`` function to treat cached task completeness
+    decision slightly differently. The original implementation only skips the completeness check and
+    uses the cached value if, and only if, a task was actually already marked as complete. Missing
+    or *False* entries are both neglected and the completeness check is performed. Now, *False*
+    entries also cause the check to be skipped, considering the task as incomplete. However, after
+    that, the cache entry is removed so that subsequent checks are performed as usual.
+    """
+    def check_complete_cached(
+        task: BaseTask,
+        completion_cache: multiprocessing.managers.DictProxy | None = None,
+    ) -> bool:
+        # no caching behavior when no cache is given
+        if completion_cache is None:
+            return task.complete()
+
+        # get the cached state
+        cache_key = task.task_id
+        complete = completion_cache.get(cache_key)
+
+        # stop when already complete
+        if complete:
+            return True
+
+        # consider as incomplete when the cache entry is falsy, yet not None
+        if not complete and complete is not None:
+            completion_cache.pop(cache_key, None)
+            return False
+
+        # check the status and tell the cache when complete
+        complete = task.complete()
+        if complete:
+            completion_cache[cache_key] = complete
+
+        return complete
+
+    luigi.worker.check_complete_cached = check_complete_cached
+
+    logger.debug("patched luigi.worker.check_complete_cached")

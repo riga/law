@@ -233,9 +233,6 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         # retry counts per job num
         self._job_retries: dict[int, int] = defaultdict(int)
 
-        # cached output() return value
-        self._cached_output: dict | None = None
-
         # flag that denotes whether a submission was done befire, set in run()
         self._submitted = False
 
@@ -394,11 +391,6 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         task: BaseRemoteWorkflow = self.task  # type: ignore[assignment]
         return isinstance(getattr(task, "cleanup_jobs", None), bool) and task.cleanup_jobs  # type: ignore[return-value] # noqa
 
-    def _get_cached_output(self) -> dict:
-        if self._cached_output is None:
-            self._cached_output = self.output()
-        return self._cached_output
-
     def _get_existing_branches(
         self,
         sync: bool = False,
@@ -412,7 +404,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             self._existing_branches = set()
             # add initial branches existing in output collection
             if collection is None:
-                collection = self._get_cached_output().get("collection")
+                collection = self.get_cached_output().get("collection")
             if collection is not None:
                 keys = collection.count(existing=True, keys=True)[1]  # type: ignore[index]
                 self._existing_branches |= set(keys)
@@ -691,7 +683,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             self.job_data["dashboard_config"] = self.dashboard.get_persistent_config()
 
         # write the job data to the output file
-        output = self._get_cached_output()
+        output = self.get_cached_output()
         if output is not None:
             with self._dump_lock:
                 output["jobs"].dump(self.job_data, formatter="json", indent=4)
@@ -712,7 +704,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         """
         task: BaseRemoteWorkflow = self.task  # type: ignore[assignment]
 
-        output = self._get_cached_output()
+        output = self.get_cached_output()
         if not isinstance(output, dict):
             raise TypeError(f"workflow output must be a dict, got '{output}'")
 
