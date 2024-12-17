@@ -17,7 +17,6 @@ import logging
 
 import luigi  # type: ignore[import-untyped]
 import law
-from law.task.base import BaseTask
 from law.logger import get_logger
 from law._types import Callable
 
@@ -527,7 +526,7 @@ def patch_worker_check_complete_cached() -> None:
     that, the cache entry is removed so that subsequent checks are performed as usual.
     """
     def check_complete_cached(
-        task: BaseTask,
+        task: law.task.base.BaseTask,
         completion_cache: multiprocessing.managers.DictProxy | None = None,
     ) -> bool:
         # no caching behavior when no cache is given
