@@ -12,7 +12,12 @@ import luigi
 
 from law import luigi_version_info
 from law.workflow.base import BaseWorkflow, BaseWorkflowProxy
+from law.target.collection import SiblingFileCollectionBase
+from law.logger import get_logger
 from law.util import DotDict
+
+
+logger = get_logger(__name__)
 
 
 class LocalWorkflowProxy(BaseWorkflowProxy):
@@ -55,12 +60,52 @@ class LocalWorkflowProxy(BaseWorkflowProxy):
             self._local_workflow_has_yielded = True
 
             # use branch tasks as requirements
-            reqs = list(self.task.get_branch_tasks().values())
+            branch_tasks = self.task.get_branch_tasks()
+            reqs = list(branch_tasks.values())
+
+            # helper to get the output collection
+            get_col = lambda: self.get_cached_output().get("collection")
 
             # wrap into DynamicRequirements when available, otherwise just yield the list
             if luigi_version_info[:3] >= (3, 1, 2):
-                yield luigi.DynamicRequirements(reqs, lambda complete_fn: complete_fn(self))
+                # in case the workflows creates a sibling file collection, per-branch completion
+                # checks are possible in advance and can be stored in luigi's completion cache
+                def custom_complete(complete_fn):
+                    # get the cache (stored as a specified keyword of a partial'ed function)
+                    cache = getattr(complete_fn, "keywords", {}).get("completion_cache")
+                    if cache is None:
+                        if complete_fn(self):
+                            return True
+                        # show a warning for large workflows that use sibling file collections and
+                        # that could profit from the cache_task_completion feature
+                        if len(reqs) >= 100 and isinstance(get_col(), SiblingFileCollectionBase):
+                            url = "https://luigi.readthedocs.io/en/stable/configuration.html#worker"
+                            logger.warning_once(
+                                "cache_task_completion_hint",
+                                "detected SiblingFileCollection for LocalWorkflow with {} branches "
+                                "whose completness checks will be performed manually by luigi; "
+                                "consider enabling luigi's cache_task_completion feature to speed "
+                                "up these checks; fore more info, see {}".format(len(reqs), url),
+                            )
+                        return False
+
+                    # the output collection must be a sibling file collection
+                    col = get_col()
+                    if not isinstance(col, SiblingFileCollectionBase):
+                        return complete_fn(self)
+
+                    # get existing branches and populate the cache with completeness states
+                    existing_branches = set(col.count(keys=True)[1])
+                    for b, task in branch_tasks.items():
+                        cache[task.task_id] = b in existing_branches
+
+                    # finally, evaluate the normal completeness check on the workflow
+                    return complete_fn(self)
+
+                yield luigi.DynamicRequirements(reqs, custom_complete)
+
             else:
+                # old, possibly slow behavior
                 yield reqs
 
 
