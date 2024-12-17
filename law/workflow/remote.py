@@ -212,9 +212,6 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         # retry counts per job num
         self._job_retries = defaultdict(int)
 
-        # cached output() return value
-        self._cached_output = None
-
         # flag that denotes whether a submission was done befire, set in run()
         self._submitted = False
 
@@ -349,11 +346,6 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         """
         return isinstance(getattr(self.task, "cleanup_jobs", None), bool) and self.task.cleanup_jobs
 
-    def _get_cached_output(self):
-        if self._cached_output is None:
-            self._cached_output = self.output()
-        return self._cached_output
-
     def _get_existing_branches(self, sync=False, collection=None):
         if self._existing_branches is None:
             sync = True
@@ -363,7 +355,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             self._existing_branches = set()
             # add initial branches existing in output collection
             if collection is None:
-                collection = self._get_cached_output().get("collection")
+                collection = self.get_cached_output().get("collection")
             if collection is not None:
                 keys = collection.count(existing=True, keys=True)[1]
                 self._existing_branches |= set(keys)
@@ -634,7 +626,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         self.job_data["dashboard_config"] = self.dashboard.get_persistent_config()
 
         # write the job data to the output file
-        output = self._get_cached_output()
+        output = self.get_cached_output()
         with self._dump_lock:
             output["jobs"].dump(self.job_data, formatter="json", indent=4)
 
@@ -654,7 +646,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         performs job cancelling or cleaning, depending on the task parameters.
         """
         task = self.task
-        output = self._get_cached_output()
+        output = self.get_cached_output()
 
         # create the job dashboard interface
         self.dashboard = task.create_job_dashboard() or NoJobDashboard()

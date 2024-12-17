@@ -76,6 +76,9 @@ class BaseWorkflowProxy(ProxyTask):
 
         self._workflow_has_reset_branch_map = False
 
+        # cached outputs
+        self._cached_output = None
+
     def _get_task_attribute(self, name, fallback=False):
         """
         Return an attribute of the actual task named ``<workflow_type>_<name>``. When the attribute
@@ -140,6 +143,27 @@ class BaseWorkflowProxy(ProxyTask):
         # create the collection
         collection = cls(targets, threshold=self.threshold(len(targets)))
         return DotDict([("collection", collection)])
+
+    def get_cached_output(self, update=False):
+        """
+        If already cached, returns the previously computed output, and otherwise computes it via
+        :py:meth:`output` and caches it for subsequent calls, if :py:attr:`cache_brach_map` of the
+        task is *True*.
+        """
+        # invalidate cache
+        if update:
+            self._cached_output = None
+
+        # return from cache if present
+        if self._cached_output is not None:
+            return self._cached_output
+
+        # get output and cache it if possible
+        output = self.output()
+        if self.task.cache_branch_map:
+            self._cached_output = output
+
+        return output
 
     def threshold(self, n=None):
         """
