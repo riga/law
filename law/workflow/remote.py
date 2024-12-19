@@ -605,22 +605,23 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         task: BaseRemoteWorkflow = self.task  # type: ignore[assignment]
 
         # collect resources over all branches if not just controlling running jobs
-        if (
-            not task.is_controlling_remote_jobs() and
-            (self._initial_process_resources is None or force)
-        ):
+        resources = self._initial_process_resources
+        if not task.is_controlling_remote_jobs() and (resources is None or force):
             get_job_resources = self._get_task_attribute("job_resources")
             branch_chunks = iter_chunks(task.branch_map.keys(), task.tasks_per_job)  # type: ignore[arg-type] # noqa
-            self._initial_process_resources = {
+            resources = {
                 job_num: get_job_resources(job_num, branches)
                 for job_num, branches in enumerate(branch_chunks, 1)
                 if not self._can_skip_job(job_num, branches)
             }
+            # store resources only if the branch map was frozen
+            if task.cache_branch_map:
+                self._initial_process_resources = resources
 
-        if not self._initial_process_resources:
+        if not resources:
             return {}
 
-        return self._maximum_resources(self._initial_process_resources, self.poll_data.n_parallel)  # type: ignore[arg-type] # noqa
+        return self._maximum_resources(resources, self.poll_data.n_parallel)  # type: ignore[arg-type] # noqa
 
     def complete(self) -> bool:
         task: BaseRemoteWorkflow = self.task  # type: ignore[assignment]
