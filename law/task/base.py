@@ -27,6 +27,7 @@ from law.logger import setup_logger
 from law.util import (
     no_value, abort, law_run, common_task_params, colored, uncolored, make_list, multi_match,
     flatten, BaseStream, human_duration, patch_object, round_discrete, empty_context, make_set,
+    map_struct, mask_struct,
 )
 from law.logger import get_logger
 from law._types import Any, Sequence, Iterator, Generator, Callable, Iterable, T, TextIO
@@ -827,7 +828,8 @@ class WrapperTask(Task):
         return all(task.complete() for task in flatten(reqs))
 
     def output(self) -> Any:
-        return self.input()
+        inputs = self.input()
+        return mask_struct(map_struct(bool, inputs), inputs) or []
 
     def run(self) -> None | Iterator[Any]:
         return None
