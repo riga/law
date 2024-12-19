@@ -33,7 +33,7 @@ class MirroredTarget(FileSystemTarget):
     _existing_local_roots: dict[str, bool] = {}
 
     @classmethod
-    def check_local_root(cls, path: str | pathlib.Path) -> bool:
+    def check_local_root(cls, path: str | pathlib.Path, depth: int = 1) -> bool:
         path = str(path)
 
         # path must start with a separator
@@ -42,7 +42,7 @@ class MirroredTarget(FileSystemTarget):
         if not path or not path.startswith(os.sep):
             return False
 
-        root_path = os.sep.join(path.split(os.sep, 2)[:2])
+        root_path = os.sep.join(path.split(os.sep)[:depth + 1])
         if root_path not in cls._existing_local_roots:
             with local_root_check_lock:
                 cls._existing_local_roots[root_path] = os.path.exists(root_path)
@@ -124,9 +124,13 @@ class MirroredTarget(FileSystemTarget):
 
         super().__init__(path, **kwargs)
 
+    @property
+    def _local_root_depth(self) -> int:
+        return self.local_target.fs.local_root_depth
+
     def _local_target_exists(self, *args, **kwargs) -> bool:
         return bool(
-            self.check_local_root(self.local_target.abspath) and
+            self.check_local_root(self.local_target.abspath, depth=self._local_root_depth) and
             self.local_target.exists(*args, **kwargs),
         )
 
@@ -145,7 +149,7 @@ class MirroredTarget(FileSystemTarget):
         timeout: int | float = 0.5,
         attempts: int = 90,
     ) -> None:
-        if not self.check_local_root(self.local_target.abspath):
+        if not self.check_local_root(self.local_target.abspath, depth=self._local_root_depth):
             return
 
         sleep_counter = 0

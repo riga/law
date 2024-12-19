@@ -218,8 +218,9 @@ class TargetCollection(Target):
         flags: str | Sequence[str] | None = None,
         color: bool = False,
         exists: bool | None = None,
+        **kwargs,
     ) -> str:
-        count, existing_keys = self.count(keys=True)  # type: ignore[misc]
+        count, existing_keys = self.count(keys=True, **kwargs)  # type: ignore[misc]
         exists = count >= self._abs_threshold()
 
         if exists:
@@ -246,7 +247,7 @@ class TargetCollection(Target):
                 text += f"\n{key}: "
 
                 if isinstance(item, TargetCollection):
-                    t = item.status_text(max_depth=max_depth - 1, color=color)
+                    t = item.status_text(max_depth=max_depth - 1, color=color, **kwargs)
                     text += "\n  ".join(t.split("\n"))
                 elif isinstance(item, Target):
                     t = item.status_text(color=color, exists=key in existing_keys)

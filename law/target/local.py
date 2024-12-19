@@ -55,6 +55,9 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
         # default base path
         add("base", cfg.get_expanded)
 
+        # number of fragments of the absolute local path to check when used in a MirroredTarget
+        add("local_root_depth", cfg.get_expanded_int)
+
         return config
 
     def __init__(self, section: str | None = None, *, base: str | None = None, **kwargs) -> None:
@@ -70,28 +73,29 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
         default_section = cfg.get_expanded("target", "default_local_fs")
         self.config_section: str | None = None
 
-        # when no base is given, evaluate the config section
+        # determine the correct config section
+        if not section:
+            # use the default section when none is set
+            section = default_section
+        elif section != default_section:
+            # check if the section exists
+            if not cfg.has_section(section):
+                raise Exception(
+                    f"law config has no section '{section}' to read {self.__class__.__name__} "
+                    "options",
+                )
+            # extend non-default sections by options of the default one
+            data = dict(cfg.items(default_section, expand_vars=False, expand_user=False))
+            cfg.update({section: data}, overwrite_sections=True, overwrite_options=False)
+        self.config_section = section
+
+        # parse the config
+        kwargs = self.parse_config(self.config_section, kwargs)  # type: ignore[arg-type]
+        kwargs.setdefault("name", self.config_section)
+
+        # when no base is given, use the config value
         if not base:
-            if not section:
-                # use the default section when none is set
-                section = default_section
-            elif section != default_section:
-                # check if the section exists
-                if not cfg.has_section(section):
-                    raise Exception(
-                        f"law config has no section '{section}' to read {self.__class__.__name__} "
-                        "options",
-                    )
-                # extend non-default sections by options of the default one
-                data = dict(cfg.items(default_section, expand_vars=False, expand_user=False))
-                cfg.update({section: data}, overwrite_sections=True, overwrite_options=False)
-            self.config_section = section
-
-            # parse the config and set fs name and base
-            kwargs = self.parse_config(self.config_section, kwargs)  # type: ignore[arg-type]
-            kwargs.setdefault("name", self.config_section)
             base = kwargs.pop("base", None) or os.sep
-
             # special case: the default local fs is not allowed to have a base directory other than
             # "/" to ensure that files and directories wrapped by local targets in law or derived
             # projects for convenience are interpreted as such and in particular do not resolve them
@@ -102,8 +106,9 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
                     f"but got {base}",
                 )
 
-        # set the base
+        # store attributes
         self.base = os.path.abspath(self._unscheme(str(base)))
+        self.local_root_depth: int = kwargs["local_root_depth"]
 
         super().__init__(**kwargs)
 

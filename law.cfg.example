@@ -329,6 +329,15 @@
 ; Default: ``True``
 
 
+; --- Options defined by "law.target.local.LocalFileSystem"
+; local_root_depth
+; Description: Number of fragments of the absolute local path to check when local targets are used
+; in "law.MirroredTarget"'s. The check is done pre-emptively on the local file system to ensure that
+; a mount point with a path of the configured depth exists.
+; Type: integer
+; Default: 1
+
+
 ; --- wlcg_fs section ------------------------------------------------------------------------------
 
 [wlcg_fs]

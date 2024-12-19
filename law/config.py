@@ -127,6 +127,8 @@ class Config(ConfigParser):
             "default_file_perm": None,
             "default_dir_perm": None,
             "create_file_dir": True,
+            # defined by LocalFileSystem
+            "local_root_depth": 1,
         },
         "job": {
             "job_file_dir": os.getenv("LAW_JOB_FILE_DIR") or tempfile.gettempdir(),
