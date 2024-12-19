@@ -28,7 +28,7 @@ class MirroredTarget(FileSystemTarget):
     _existing_local_roots = {}
 
     @classmethod
-    def check_local_root(cls, path):
+    def check_local_root(cls, path, depth=1):
         path = str(path)
 
         # path must start with a separator
@@ -38,7 +38,7 @@ class MirroredTarget(FileSystemTarget):
             return False
 
         # get the root path or mount point of the path (e.g. "/mnt")
-        root_path = os.sep.join(path.split(os.sep, 2)[:2])
+        root_path = os.sep.join(path.split(os.sep)[:depth + 1])
         if root_path not in cls._existing_local_roots:
             with local_root_check_lock:
                 cls._existing_local_roots[root_path] = os.path.exists(root_path)
@@ -132,9 +132,13 @@ class MirroredTarget(FileSystemTarget):
 
         super().__init__(path, **kwargs)
 
+    @property
+    def _local_root_depth(self):
+        return self.local_target.fs.local_root_depth
+
     def _local_target_exists(self, *args, **kwargs):
         return (
-            self.check_local_root(self.local_target.abspath) and
+            self.check_local_root(self.local_target.abspath, depth=self._local_root_depth) and
             self.local_target.exists(*args, **kwargs)
         )
 
@@ -148,7 +152,7 @@ class MirroredTarget(FileSystemTarget):
         return (), parent_kwargs
 
     def _wait_for_local(self, missing=False, timeout=0.5, attempts=90):
-        if not self.check_local_root(self.local_target.abspath):
+        if not self.check_local_root(self.local_target.abspath, depth=self._local_root_depth):
             return
 
         sleep_counter = 0

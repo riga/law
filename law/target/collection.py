@@ -201,8 +201,8 @@ class TargetCollection(Target):
         """
         return self.__class__(map_struct(func, self.targets), **self._copy_kwargs())
 
-    def status_text(self, max_depth=0, flags=None, color=False, exists=None):
-        count, existing_keys = self.count(keys=True)
+    def status_text(self, max_depth=0, flags=None, color=False, **kwargs):
+        count, existing_keys = self.count(keys=True, **kwargs)
         exists = count >= self._abs_threshold()
 
         if exists:
@@ -229,7 +229,7 @@ class TargetCollection(Target):
                 text += "\n{}: ".format(key)
 
                 if isinstance(item, TargetCollection):
-                    t = item.status_text(max_depth=max_depth - 1, color=color)
+                    t = item.status_text(max_depth=max_depth - 1, color=color, **kwargs)
                     text += "\n  ".join(t.split("\n"))
                 elif isinstance(item, Target):
                     t = item.status_text(color=color, exists=key in existing_keys)
