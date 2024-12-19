@@ -25,6 +25,7 @@ from law.logger import setup_logger
 from law.util import (
     no_value, abort, law_run, common_task_params, colored, uncolored, make_list, multi_match,
     flatten, BaseStream, human_duration, patch_object, round_discrete, empty_context, perf_counter,
+    map_struct, mask_struct,
 )
 from law.logger import get_logger
 
@@ -711,7 +712,8 @@ class WrapperTask(Task):
         return all(task.complete() for task in flatten(reqs))
 
     def output(self):
-        return self.input()
+        inputs = self.input()
+        return mask_struct(map_struct(bool, inputs), inputs) or []
 
     def run(self):
         return
