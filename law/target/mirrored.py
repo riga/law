@@ -136,11 +136,11 @@ class MirroredTarget(FileSystemTarget):
     def _local_root_depth(self):
         return self.local_target.fs.local_root_depth
 
+    def _local_root_exists(self):
+        return self.check_local_root(self.local_target.abspath, depth=self._local_root_depth)
+
     def _local_target_exists(self, *args, **kwargs):
-        return (
-            self.check_local_root(self.local_target.abspath, depth=self._local_root_depth) and
-            self.local_target.exists(*args, **kwargs)
-        )
+        return self._local_root_exists() and self.local_target.exists(*args, **kwargs)
 
     def _parent_args(self):
         parent_kwargs = {
