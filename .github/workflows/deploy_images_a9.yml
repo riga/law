@@ -14,12 +14,12 @@ on:
         default: none
         options:
           - none
-          - py37
           - py38
           - py39
           - py310
           - py311
           - py312
+          - py313
           - example
 
       platforms:
@@ -32,25 +32,6 @@ on:
           - linux/arm64
 
 jobs:
-  a9-py37:
-    if: ${{ github.event.inputs.specific_job == 'none' || contains(github.event.inputs.specific_job, 'py37') }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout 🛎️
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-
-      - name: Build and deploy image 🐳
-        uses: ./.github/actions/build-image
-        with:
-          dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
-          dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
-          docker_file: docker/Dockerfile_alma9_py37
-          platforms: ${{ github.event.inputs.platforms }}
-          tags: riga/law:a9-py37,riga/law:py37
-          push_image: ${{ github.event.inputs.push_image == 'true' }}
-
   a9-py38:
     if: ${{ github.event.inputs.specific_job == 'none' || contains(github.event.inputs.specific_job, 'py38') }}
     runs-on: ubuntu-latest
@@ -144,6 +125,25 @@ jobs:
           docker_file: docker/Dockerfile_alma9_py312
           platforms: ${{ github.event.inputs.platforms }}
           tags: riga/law:a9-py312,riga/law:py312
+          push_image: ${{ github.event.inputs.push_image == 'true' }}
+
+  a9-py313:
+    if: ${{ github.event.inputs.specific_job == 'none' || contains(github.event.inputs.specific_job, 'py313') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Build and deploy image 🐳
+        uses: ./.github/actions/build-image
+        with:
+          dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
+          docker_file: docker/Dockerfile_alma9_py313
+          platforms: ${{ github.event.inputs.platforms }}
+          tags: riga/law:a9-py313,riga/law:py313
           push_image: ${{ github.event.inputs.push_image == 'true' }}
 
   example:

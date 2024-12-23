@@ -252,16 +252,17 @@ There are various docker `riga/law` images available on the [DockerHub](https://
 
 |      OS     | Python |                    Tags                   |
 | ----------- | ------ | ----------------------------------------- |
+| AlmaLinux 9 |   3.13 | a9-py313, py313                           |
+| AlmaLinux 9 |   3.12 | a9-py312, py312                           |
 | AlmaLinux 9 |   3.11 | a9-py311, a9-py3, a9, py311, py3, latest  |
 | AlmaLinux 9 |   3.10 | a9-py310, py310                           |
 | AlmaLinux 9 |    3.9 | a9-py39, py39                             |
 | AlmaLinux 9 |    3.8 | a9-py38, py38                             |
-| AlmaLinux 9 |    3.8 | a9-py37, py37                             |
+| CentOS 8    |   3.12 | c8-py312                                  |
 | CentOS 8    |   3.11 | c8-py311, c8-py3, c8                      |
 | CentOS 8    |   3.10 | c8-py310                                  |
 | CentOS 8    |    3.9 | c8-py39                                   |
 | CentOS 8    |    3.8 | c8-py38                                   |
-| CentOS 8    |    3.7 | c8-py37                                   |
 
 Start them via
 
