@@ -1,3 +1,7 @@
+name: "build image"
+
+description: "Build and push a Docker image."
+
 inputs:
   dockerhub_username:
     description: "The DockerHub username."
@@ -21,7 +25,7 @@ inputs:
 
   push_image:
     description: "Whether to push to DockerHub."
-    default: false
+    default: "false"
 
 runs:
   using: "composite"
