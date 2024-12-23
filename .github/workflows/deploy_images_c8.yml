@@ -46,7 +46,7 @@ jobs:
           dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
           docker_file: docker/Dockerfile_centos8_py38
           platforms: ${{ github.event.inputs.platforms }}
-          tags: riga/law:c8-py38
+          tags: riga/law:c8-py38-rc
           push_image: ${{ github.event.inputs.push_image == 'true' }}
 
   c8-py39:
@@ -65,7 +65,7 @@ jobs:
           dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
           docker_file: docker/Dockerfile_centos8_py39
           platforms: ${{ github.event.inputs.platforms }}
-          tags: riga/law:c8-py39
+          tags: riga/law:c8-py39-rc
           push_image: ${{ github.event.inputs.push_image == 'true' }}
 
   c8-py310:
@@ -84,7 +84,7 @@ jobs:
           dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
           docker_file: docker/Dockerfile_centos8_py310
           platforms: ${{ github.event.inputs.platforms }}
-          tags: riga/law:c8-py310
+          tags: riga/law:c8-py310-rc
           push_image: ${{ github.event.inputs.push_image == 'true' }}
 
   c8-py311:
@@ -103,7 +103,7 @@ jobs:
           dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
           docker_file: docker/Dockerfile_centos8_py311
           platforms: ${{ github.event.inputs.platforms }}
-          tags: riga/law:c8-py311,riga/law:c8-py3,riga/law:c8
+          tags: riga/law:c8-py311-rc,riga/law:c8-py3-rc,riga/law:c8-rc
           push_image: ${{ github.event.inputs.push_image == 'true' }}
 
   c8-py312:
@@ -122,5 +122,5 @@ jobs:
           dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
           docker_file: docker/Dockerfile_centos8_py312
           platforms: ${{ github.event.inputs.platforms }}
-          tags: riga/law:c8-py312
+          tags: riga/law:c8-py312-rc
           push_image: ${{ github.event.inputs.push_image == 'true' }}

@@ -17,7 +17,7 @@ jobs:
         run: docker pull riga/law:py38
 
       - name: Lint 🔍
-        run: ./tests/docker.sh riga/law:py38 ./tests/linting.sh
+        run: ./tests/docker.sh riga/law:py312-rc ./tests/linting.sh
 
   typecheck:
     runs-on: ubuntu-latest
@@ -33,10 +33,10 @@ jobs:
           persist-credentials: false
 
       - name: Pull docker image 🐳
-        run: docker pull riga/law:py${{ matrix.python }}
+        run: docker pull riga/law:py${{ matrix.python }}-rc
 
       - name: Typecheck 📋
-        run: ./tests/docker.sh riga/law:py${{ matrix.python }} ./tests/typecheck.sh
+        run: ./tests/docker.sh riga/law:py${{ matrix.python }}-rc ./tests/typecheck.sh
 
   unittest:
     runs-on: ubuntu-latest
@@ -52,10 +52,10 @@ jobs:
           persist-credentials: false
 
       - name: Pull docker image 🐳
-        run: docker pull riga/law:py${{ matrix.python }}
+        run: docker pull riga/law:py${{ matrix.python }}-rc
 
       - name: Test 🎢
-        run: ./tests/docker.sh riga/law:py${{ matrix.python }} ./tests/unittest.sh
+        run: ./tests/docker.sh riga/law:py${{ matrix.python }}-rc ./tests/unittest.sh
 
   pypi:
     runs-on: ubuntu-latest
@@ -91,10 +91,10 @@ jobs:
           submodules: recursive
 
       - name: Pull docker image 🐳
-        run: docker pull riga/law
+        run: docker pull riga/law:py312-rc
 
       - name: Run coverage test 🎢
-        run: ./tests/docker.sh riga/law ./tests/coverage.sh
+        run: ./tests/docker.sh riga/law:py312-rc ./tests/coverage.sh
 
       - name: Upload report 🔝
         uses: codecov/codecov-action@v5

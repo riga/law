@@ -48,7 +48,7 @@ jobs:
           dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
           docker_file: docker/Dockerfile_alma9_py38
           platforms: ${{ github.event.inputs.platforms }}
-          tags: riga/law:a9-py38,riga/law:py38
+          tags: riga/law:a9-py38-rc,riga/law:py38-rc
           push_image: ${{ github.event.inputs.push_image == 'true' }}
 
   a9-py39:
@@ -67,7 +67,7 @@ jobs:
           dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
           docker_file: docker/Dockerfile_alma9_py39
           platforms: ${{ github.event.inputs.platforms }}
-          tags: riga/law:a9-py39,riga/law:py39
+          tags: riga/law:a9-py39-rc,riga/law:py39-rc
           push_image: ${{ github.event.inputs.push_image == 'true' }}
 
   a9-py310:
@@ -86,7 +86,7 @@ jobs:
           dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
           docker_file: docker/Dockerfile_alma9_py310
           platforms: ${{ github.event.inputs.platforms }}
-          tags: riga/law:a9-py310,riga/law:py310
+          tags: riga/law:a9-py310-rc,riga/law:py310-rc
           push_image: ${{ github.event.inputs.push_image == 'true' }}
 
   a9-py311:
@@ -105,7 +105,7 @@ jobs:
           dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
           docker_file: docker/Dockerfile_alma9_py311
           platforms: ${{ github.event.inputs.platforms }}
-          tags: riga/law:a9-py311,riga/law:a9-py3,riga/law:a9,riga/law:py311,riga/law:py3,riga/law:latest
+          tags: riga/law:a9-py311-rc,riga/law:a9-py3-rc,riga/law:a9-rc,riga/law:py311-rc,riga/law:py3-rc,riga/law:latest-rc
           push_image: ${{ github.event.inputs.push_image == 'true' }}
 
   a9-py312:
@@ -124,7 +124,7 @@ jobs:
           dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
           docker_file: docker/Dockerfile_alma9_py312
           platforms: ${{ github.event.inputs.platforms }}
-          tags: riga/law:a9-py312,riga/law:py312
+          tags: riga/law:a9-py312-rc,riga/law:py312-rc
           push_image: ${{ github.event.inputs.push_image == 'true' }}
 
   # NO GFAL SUPPORT YET
@@ -164,5 +164,5 @@ jobs:
           dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
           docker_file: docker/Dockerfile_example
           platforms: ${{ github.event.inputs.platforms }}
-          tags: riga/law:example
+          tags: riga/law:example-rc
           push_image: true
