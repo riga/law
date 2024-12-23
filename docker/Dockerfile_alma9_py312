@@ -3,7 +3,7 @@ FROM almalinux:9
 ARG TARGETPLATFORM
 
 # labels
-LABEL law_version="0.1.19"
+LABEL law_version="0.1.20"
 LABEL law.image-name="riga/law"
 LABEL law.image-tag="a9-py312"
 LABEL law.image-os="almalinux9"
