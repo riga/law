@@ -70,7 +70,7 @@ WORKDIR /root
 RUN rm -rf /root/install
 
 # install law master
-RUN git clone --recursive https://github.com/riga/law "${LAW_IMAGE_ROOT}" && \
+RUN git clone --recursive --single-branch --branch release_prep https://github.com/riga/law "${LAW_IMAGE_ROOT}" && \
     cd "${LAW_IMAGE_ROOT}" && \
     pip install --no-cache-dir .[dev]
 WORKDIR ${LAW_IMAGE_ROOT}
