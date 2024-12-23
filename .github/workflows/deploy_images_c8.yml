@@ -18,6 +18,7 @@ on:
           - py39
           - py310
           - py311
+          - py312
 
       platforms:
         description: Platforms to build for
@@ -103,4 +104,23 @@ jobs:
           docker_file: docker/Dockerfile_centos8_py311
           platforms: ${{ github.event.inputs.platforms }}
           tags: riga/law:c8-py311,riga/law:c8-py3,riga/law:c8
+          push_image: ${{ github.event.inputs.push_image == 'true' }}
+
+  c8-py312:
+    if: ${{ github.event.inputs.specific_job == 'none' || contains(github.event.inputs.specific_job, 'py312') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Build and deploy image 🐳
+        uses: ./.github/actions/build-image
+        with:
+          dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
+          docker_file: docker/Dockerfile_centos8_py312
+          platforms: ${{ github.event.inputs.platforms }}
+          tags: riga/law:c8-py312
           push_image: ${{ github.event.inputs.push_image == 'true' }}
