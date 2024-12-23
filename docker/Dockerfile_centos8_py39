@@ -66,8 +66,7 @@ RUN micromamba install gfal2 gfal2-util python-gfal2 && \
     micromamba clean --all
 
 # python packages
-RUN pip install --no-cache-dir --upgrade pip
-RUN pip install --no-cache-dir --upgrade setuptools
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
 # cleanup installation workdir
 WORKDIR /root

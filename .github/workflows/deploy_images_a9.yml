@@ -19,6 +19,7 @@ on:
           - py39
           - py310
           - py311
+          - py312
           - example
 
       platforms:
@@ -124,6 +125,25 @@ jobs:
           docker_file: docker/Dockerfile_alma9_py311
           platforms: ${{ github.event.inputs.platforms }}
           tags: riga/law:a9-py311,riga/law:a9-py3,riga/law:a9,riga/law:py311,riga/law:py3,riga/law:latest
+          push_image: ${{ github.event.inputs.push_image == 'true' }}
+
+  a9-py312:
+    if: ${{ github.event.inputs.specific_job == 'none' || contains(github.event.inputs.specific_job, 'py312') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Build and deploy image 🐳
+        uses: ./.github/actions/build-image
+        with:
+          dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
+          docker_file: docker/Dockerfile_alma9_py312
+          platforms: ${{ github.event.inputs.platforms }}
+          tags: riga/law:a9-py312,riga/law:py312
           push_image: ${{ github.event.inputs.push_image == 'true' }}
 
   example:
