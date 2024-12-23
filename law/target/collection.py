@@ -289,7 +289,7 @@ class SiblingFileCollectionBase(FileCollection):
 
     @classmethod
     def _exists_in_basenames(cls, target, basenames, optional_existing, target_dirs):
-        if optional_existing is not None and target.optional:
+        if optional_existing not in (None, no_value) and target.optional:
             return optional_existing
         if isinstance(target, SiblingFileCollectionBase):
             return target._exists_fwd(
