@@ -22,7 +22,7 @@ from law.target.base import Target
 from law.target.file import FileSystemTarget, FileSystemDirectoryTarget, localize_file_targets
 from law.target.mirrored import MirroredTarget, MirroredDirectoryTarget
 from law.target.local import LocalDirectoryTarget
-from law.util import colored, flatten, map_struct
+from law.util import no_value, colored, flatten, map_struct
 from law.logger import get_logger
 
 
@@ -34,7 +34,7 @@ class TargetCollection(Target):
     Collection of arbitrary targets.
     """
 
-    def __init__(self, targets, threshold=1.0, **kwargs):
+    def __init__(self, targets, threshold=1.0, optional_existing=None, **kwargs):
         if isinstance(targets, types.GeneratorType):
             targets = list(targets)
         elif not isinstance(targets, (list, tuple, dict)):
@@ -42,9 +42,10 @@ class TargetCollection(Target):
 
         super(TargetCollection, self).__init__(**kwargs)
 
-        # store targets and threshold
+        # store attributes
         self.targets = targets
         self.threshold = threshold
+        self.optional_existing = optional_existing
 
         # store flat targets per element in the input structure of targets
         if isinstance(targets, (list, tuple)):
@@ -70,10 +71,19 @@ class TargetCollection(Target):
     def _copy_kwargs(self):
         kwargs = super(TargetCollection, self)._copy_kwargs()
         kwargs["threshold"] = self.threshold
+        kwargs["optional_existing"] = self.optional_existing
         return kwargs
 
     def _repr_pairs(self):
-        return Target._repr_pairs(self) + [("len", len(self)), ("threshold", self.threshold)]
+        pairs = Target._repr_pairs(self) + [("len", len(self))]
+
+        # add non-default attributes
+        if self.threshold != 1.0:
+            pairs.append(("threshold", self.threshold))
+        if self.optional_existing is not None:
+            pairs.append(("optional_existing", self.optional_existing))
+
+        return pairs
 
     def _iter_flat(self):
         # prepare the generator for looping
@@ -89,20 +99,20 @@ class TargetCollection(Target):
     def _iter_state(
         self,
         existing=True,
-        optional_existing=None,
+        optional_existing=no_value,
         keys=False,
         unpack=True,
         exists_func=None,
     ):
         existing = bool(existing)
-        if optional_existing is not None:
-            optional_existing = bool(optional_existing)
+        if optional_existing is no_value:
+            optional_existing = self.optional_existing
 
         # helper to check for existence
         if exists_func is None:
             def exists_func(t):
                 if optional_existing is not None and t.optional:
-                    return optional_existing
+                    return bool(optional_existing)
                 if isinstance(t, TargetCollection):
                     return t.exists(optional_existing=optional_existing)
                 return t.exists()
@@ -365,7 +375,7 @@ class SiblingFileCollection(SiblingFileCollectionBase):
     def _iter_state(
         self,
         existing=True,
-        optional_existing=None,
+        optional_existing=no_value,
         basenames=None,
         keys=False,
         unpack=True,
@@ -376,8 +386,8 @@ class SiblingFileCollection(SiblingFileCollectionBase):
             return
 
         existing = bool(existing)
-        if optional_existing is not None:
-            optional_existing = bool(optional_existing)
+        if optional_existing is no_value:
+            optional_existing = self.optional_existing
 
         # get all basenames
         if basenames is None:
@@ -444,15 +454,15 @@ class NestedSiblingFileCollection(SiblingFileCollectionBase):
     def _iter_state(
         self,
         existing=True,
-        optional_existing=None,
+        optional_existing=no_value,
         basenames=None,
         keys=False,
         unpack=True,
         exists_func=None,
     ):
         existing = bool(existing)
-        if optional_existing is not None:
-            optional_existing = bool(optional_existing)
+        if optional_existing is no_value:
+            optional_existing = self.optional_existing
 
         # get all basenames
         if basenames is None:
