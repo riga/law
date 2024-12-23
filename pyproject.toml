@@ -76,7 +76,7 @@ law_cms_delegate_myproxy = "law.contrib.cms.scripts.delegate_myproxy:main"
 
 [tool.setuptools]
 
-include-package-data = false
+include-package-data = true
 
 
 [tool.setuptools.packages.find]
