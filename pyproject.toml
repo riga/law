@@ -81,11 +81,11 @@ include-package-data = false
 
 [tool.setuptools.packages.find]
 
-include = ["law"]
-exclude = ["tests/*"]
+where = ["."]
+include = ["law*"]
 
 
 [tool.mypy]
 
 disable_error_code = ["no-redef", "valid-type", "method-assign"]
-exclude = ["law/templates/*", "docs", "examples", "tests", "build", "setup.py"]
+exclude = ["docs", "examples", "tests", "build", "dist", "law/templates"]

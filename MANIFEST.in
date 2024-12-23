@@ -1,4 +1,4 @@
 graft law
 graft bin
-include setup.py requirements.txt requirements_docs.txt README.rst LICENSE .flake8 law.cfg.example
+include pyproject.toml requirements.txt requirements_dev.txt requirements_docs.txt README.md LICENSE .flake8 law.cfg.example
 global-exclude *.py[cod] __pycache__
