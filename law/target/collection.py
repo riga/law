@@ -23,7 +23,7 @@ from law.target.file import (
 )
 from law.target.mirrored import MirroredTarget, MirroredDirectoryTarget
 from law.target.local import LocalDirectoryTarget
-from law.util import colored, flatten, map_struct, is_lazy_iterable
+from law.util import no_value, NoValue, colored, flatten, map_struct, is_lazy_iterable
 from law.logger import get_logger
 from law._types import Any, Iterator, Callable, Sequence, Generator
 
@@ -36,7 +36,14 @@ class TargetCollection(Target):
     Collection of arbitrary targets.
     """
 
-    def __init__(self, targets: Any, *, threshold: int | float = 1.0, **kwargs) -> None:
+    def __init__(
+        self,
+        targets: Any,
+        *,
+        threshold: int | float = 1.0,
+        optional_existing: bool | None = None,
+        **kwargs,
+    ) -> None:
         if is_lazy_iterable(targets):
             targets = list(targets)
         elif not isinstance(targets, (list, tuple, dict)):
@@ -44,9 +51,10 @@ class TargetCollection(Target):
 
         super().__init__(**kwargs)
 
-        # store targets and threshold
+        # store attributes
         self.targets = targets
         self.threshold = threshold
+        self.optional_existing = optional_existing
 
         # store flat targets per element in the input structure of targets
         if isinstance(targets, (list, tuple)):
@@ -71,10 +79,19 @@ class TargetCollection(Target):
     def _copy_kwargs(self) -> dict[str, Any]:
         kwargs = super()._copy_kwargs()
         kwargs["threshold"] = self.threshold
+        kwargs["optional_existing"] = self.optional_existing
         return kwargs
 
     def _repr_pairs(self) -> list[tuple[str, Any]]:
-        return super()._repr_pairs() + [("len", len(self)), ("threshold", self.threshold)]
+        pairs = super()._repr_pairs() + [("len", len(self))]
+
+        # add non-default attributes
+        if self.threshold != 1.0:
+            pairs.append(("threshold", self.threshold))
+        if self.optional_existing is not None:
+            pairs.append(("optional_existing", self.optional_existing))
+
+        return pairs
 
     def _iter_flat(self) -> Iterator[tuple[Any, Any]]:
         # prepare the generator for looping
@@ -91,20 +108,20 @@ class TargetCollection(Target):
         self,
         *,
         existing: bool = True,
-        optional_existing: bool | None = None,
+        optional_existing: bool | None | NoValue = no_value,
         keys: bool = False,
         unpack: bool = True,
         exists_func: Callable[[Target], bool] | None = None,
     ) -> Iterator[tuple[Any, Any] | Any]:
         existing = bool(existing)
-        if optional_existing is not None:
-            optional_existing = bool(optional_existing)
+        if optional_existing is no_value:
+            optional_existing = self.optional_existing
 
         # helper to check for existence
         if exists_func is None:
             def exists_func(t: Target) -> bool:
                 if optional_existing is not None and t.optional:
-                    return optional_existing
+                    return bool(optional_existing)
                 if isinstance(t, TargetCollection):
                     return t.exists(optional_existing=optional_existing)
                 return t.exists()
@@ -302,11 +319,11 @@ class SiblingFileCollectionBase(FileCollection):
         cls,
         target: FileSystemTarget,
         basenames: set[str] | dict[str, set[str]] | None,
-        optional_existing: bool | None,
+        optional_existing: bool | None | NoValue,
         target_dirs: dict[Target, str] | None,
     ) -> bool:
-        if optional_existing is not None and target.optional:
-            return optional_existing
+        if optional_existing not in (None, no_value) and target.optional:
+            return bool(optional_existing)
         if isinstance(target, SiblingFileCollectionBase):
             return target._exists_fwd(
                 basenames=basenames,
@@ -397,7 +414,7 @@ class SiblingFileCollection(SiblingFileCollectionBase):
         self,
         *,
         existing: bool = True,
-        optional_existing: bool | None = None,
+        optional_existing: bool | None | NoValue = no_value,
         basenames: Sequence[str] | set[str] | None = None,
         keys: bool = False,
         unpack: bool = True,
@@ -408,8 +425,8 @@ class SiblingFileCollection(SiblingFileCollectionBase):
             return
 
         existing = bool(existing)
-        if optional_existing is not None:
-            optional_existing = bool(optional_existing)
+        if optional_existing is no_value:
+            optional_existing = self.optional_existing
 
         # get all basenames
         if basenames is None:
@@ -478,15 +495,15 @@ class NestedSiblingFileCollection(SiblingFileCollectionBase):
         self,
         *,
         existing: bool = True,
-        optional_existing: bool | None = None,
+        optional_existing: bool | None | NoValue = no_value,
         basenames: dict[str, Sequence[str] | set[str]] | None = None,
         keys: bool = False,
         unpack: bool = True,
         exists_func: Callable[[Target], bool] | None = None,
     ) -> Iterator[tuple[Any, Any] | Any]:
         existing = bool(existing)
-        if optional_existing is not None:
-            optional_existing = bool(optional_existing)
+        if optional_existing is no_value:
+            optional_existing = self.optional_existing
 
         # get all basenames
         if basenames is None:
