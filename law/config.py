@@ -494,6 +494,7 @@ class Config(ConfigParser):
                         type=type,
                         expand_vars=expand_vars,
                         expand_user=expand_user,
+                        split_csv=split_csv,
                         dereference=dereference,
                         default_when_none=default_when_none,
                         _skip_refs=_skip_refs,
