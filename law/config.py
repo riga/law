@@ -445,8 +445,9 @@ class Config(ConfigParser):
 
                     # return the referenced value
                     return self.get_default(*ref, default=default, type=type,
-                        expand_vars=expand_vars, expand_user=expand_user, dereference=dereference,
-                        default_when_none=default_when_none, _skip_refs=_skip_refs)
+                        expand_vars=expand_vars, expand_user=expand_user, split_csv=split_csv,
+                        dereference=dereference, default_when_none=default_when_none,
+                        _skip_refs=_skip_refs)
 
         # interpret None and "None" as missing?
         if default_when_none and default_set:
