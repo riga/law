@@ -41,6 +41,7 @@ The following example shows how a package (e.g. the :py:mod:`~law.docker` packag
    keras
    lsf
    matplotlib
+   mattermost
    mercurial
    numpy
    pandas
