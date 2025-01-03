@@ -30,7 +30,7 @@ class NotifyMattermostParameter(NotifyParameter):
 
         # overwrite title
         cfg = Config.instance()
-        header = cfg.get_expanded("notifications", "mattermost_header")
+        header = cfg.get_expanded("notifications", "mattermost_header", default=None)
         task_block = "```\n{}\n```".format(content["Task"])
         title = "{}\n{}".format(header, task_block) if header else task_block
         del content["Task"]
