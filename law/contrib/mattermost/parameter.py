@@ -42,7 +42,8 @@ class NotifyMattermostParameter(NotifyParameter):
         # prepend the status text to the message content
         cfg = Config.instance()
         status_text = "success" if success else "failure"
-        status_emoji = cfg.get_expanded("notifications", "mattermost_{}_emoji".format(status_text))
+        status_emoji = cfg.get_expanded("notifications", "mattermost_{}_emoji".format(status_text),
+            default=None)
         if status_emoji:
             status_text += " " + status_emoji
         content["Status"] = status_text
