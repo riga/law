@@ -95,7 +95,7 @@ def _notify_mattermost(hook_url, request_data):
     try:
         res = requests.post(hook_url, json=request_data)
         if not res.ok:
-            logger.warning("unsuccessful Mattermost API call: {}".format(res))
+            logger.warning("unsuccessful Mattermost API call: {}".format(res.text))
     except Exception as e:
         t = traceback.format_exc()
         logger.warning("could not send Mattermost notification: {}\n{}".format(e, t))
