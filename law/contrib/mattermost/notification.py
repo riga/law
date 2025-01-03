@@ -28,11 +28,10 @@ def notify_mattermost(
     **kwargs,
 ):
     """
-    Sends a slack notification and returns *True* on success. The communication with the slack API
-    might have some delays and is therefore handled by a thread. The format of the notification
-    depends on *content*. If it is a string, a simple text notification is sent. Otherwise, it
-    should be a dictionary whose fields are used to build a message attachment with two-column
-    formatting.
+    Sends a mattermost notification and returns *True* on success. The communication with the
+    mattermost API might have some delays and is therefore handled by a thread. The format of the
+    notification depends on *content*. If it is a string, a simple text notification is sent.
+    Otherwise, it should be a dictionary whose fields are formatted as key-value pairs.
     """
     cfg = Config.instance()
 
