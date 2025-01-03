@@ -1020,6 +1020,55 @@
 ; Type: string
 ; Default: None
 
+; mattermost_hook_url
+; Desciption: Address of the mattermost webhook to use. For more info, see
+; https://developers.mattermost.com/integrate/webhooks/incoming.
+; Type: string
+; Default: None
+
+; mattermost_header
+; Desciption: A custom header to add to mattermost notifications. Not used when empty.
+; Type: string
+; Default: None
+
+; mattermost_channel
+; Desciption: A custom channel name to send the notification to. When empty, the default configured
+; for the webhook is used.
+; Type: string
+; Default: None
+
+; mattermost_user
+; Desciption: A custom user name to send the notification with. When empty, the default configured
+; for the webhook is used.
+; Type: string
+; Default: None
+
+; mattermost_mention_user
+; Desciption: If set, the user with that name is mentioned.
+; Type: string
+; Default: None
+
+; mattermost_icon_url
+; Desciption: The address of a custom icon to use. When empty, the default configured for the
+; webhook is used.
+; Type: string
+; Default: "https://media.githubusercontent.com/media/riga/law/refs/heads/master/assets/logo_profile.png"
+
+; mattermost_icon_emoji
+; Desciption: Name of a custom emoji to use instead of the icon url.
+; Type: string
+; Default: None
+
+; mattermost_success_emoji
+; Desciption: Emoji to append to the status text in case of success.
+; Type: string
+; Default: ":tada:"
+
+; mattermost_failure_emoji
+; Desciption: Emoji to append to the status text in case of a failure.
+; Type: string
+; Default: ":rotating_light:"
+
 
 ; --- bash_sandbox section -------------------------------------------------------------------------
 
