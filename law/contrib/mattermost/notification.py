@@ -41,17 +41,17 @@ def notify_mattermost(
 
     # get default settings
     if not hook_url:
-        hook_url = cfg.get_expanded("notifications", "mattermost_hook_url")
+        hook_url = cfg.get_expanded("notifications", "mattermost_hook_url", default=None)
     if not channel:
-        channel = cfg.get_expanded("notifications", "mattermost_channel")
+        channel = cfg.get_expanded("notifications", "mattermost_channel", default=None)
     if not user:
-        user = cfg.get_expanded("notifications", "mattermost_user")
+        user = cfg.get_expanded("notifications", "mattermost_user", default=None)
     if not mention_user:
-        mention_user = cfg.get_expanded("notifications", "mattermost_mention_user")
+        mention_user = cfg.get_expanded("notifications", "mattermost_mention_user", default=None)
     if not icon_url:
-        icon_url = cfg.get_expanded("notifications", "mattermost_icon_url")
+        icon_url = cfg.get_expanded("notifications", "mattermost_icon_url", default=None)
     if not icon_emoji:
-        icon_emoji = cfg.get_expanded("notifications", "mattermost_icon_emoji")
+        icon_emoji = cfg.get_expanded("notifications", "mattermost_icon_emoji", default=None)
 
     if not hook_url:
         logger.warning(f"cannot send Mattermost notification, hook_url ({hook_url}) empty")

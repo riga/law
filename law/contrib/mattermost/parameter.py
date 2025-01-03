@@ -34,7 +34,7 @@ class NotifyMattermostParameter(NotifyParameter):
 
         # overwrite title
         cfg = Config.instance()
-        header = cfg.get_expanded("notifications", "mattermost_header")
+        header = cfg.get_expanded("notifications", "mattermost_header", default=None)
         task_block = f"```\n{content['Task']}\n```"
         title = f"{header}\n{task_block}" if header else task_block
         del content["Task"]
@@ -46,7 +46,11 @@ class NotifyMattermostParameter(NotifyParameter):
         # prepend the status text to the message content
         cfg = Config.instance()
         status_text = "success" if success else "failure"
-        status_emoji = cfg.get_expanded("notifications", f"mattermost_{status_text}_emoji")
+        status_emoji = cfg.get_expanded(
+            "notifications",
+            f"mattermost_{status_text}_emoji",
+            default=None,
+        )
         if status_emoji:
             status_text += " " + status_emoji
         content["Status"] = status_text
