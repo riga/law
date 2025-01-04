@@ -33,20 +33,25 @@ def notify_mail(
     """
     cfg = Config.instance()
 
+    # get config recipient and sender values from config
     if not recipient:
         recipient = cfg.get_expanded("notifications", "mail_recipient")
     if not sender:
         sender = cfg.get_expanded("notifications", "mail_sender")
-    if not smtp_host:
-        smtp_host = cfg.get_expanded("notifications", "mail_smtp_host")
-    if not smtp_port:
-        smtp_port = cfg.get_expanded("notifications", "mail_smtp_port")
-
     if not recipient or not sender:
         logger.warning(
             f"cannot send mail notification, recipient ({recipient}) or sender ({sender}) empty",
         )
         return False
+
+    # get host and port
+    if not smtp_port:
+        smtp_port = cfg.get_expanded("notifications", "mail_smtp_port")
+    if not smtp_host:
+        smtp_host = cfg.get_expanded("notifications", "mail_smtp_host")
+    # infer host from sender when not set
+    if not smtp_host:
+        smtp_host = sender.split("@", 1)[1]
 
     mail_kwargs: dict[str, str | int] = {}
     if smtp_host:

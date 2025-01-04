@@ -986,13 +986,13 @@
 
 ; mail_smtp_host
 ; Description: The SMTP host for notifications sent by "law.notification.notify_mail".
-; Type: ``str``
-; Default: ``"127.0.0.1"``
+; Type: ``str``, ``None``
+; Default: ``None``
 
 ; mail_smtp_port
 ; Description: The SMTP port for notifications sent by "law.notification.notify_mail".
-; Type: ``int``
-; Default: ``25``
+; Type: ``int``, ``None``
+; Default: ``None``
 
 
 ; --- Options of contrib packages

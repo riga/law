@@ -138,8 +138,8 @@ class Config(ConfigParser):
         "notifications": {
             "mail_recipient": None,
             "mail_sender": None,
-            "mail_smtp_host": "127.0.0.1",
-            "mail_smtp_port": 25,
+            "mail_smtp_host": None,
+            "mail_smtp_port": None,
         },
         "bash_sandbox": {
             "stagein_dir_name": "stagein",
