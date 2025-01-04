@@ -1995,7 +1995,7 @@ def send_mail(recipient, sender, subject="", content="", smtp_host="127.0.0.1", 
     try:
         server = smtplib.SMTP(smtp_host, smtp_port)
     except Exception as e:
-        logger.warning("cannot create SMTP server: {}".format(e))
+        logger.warning("cannot create SMTP server {}:{}: {}".format(smtp_host, smtp_port, e))
         return False
 
     header = "From: {}\r\nTo: {}\r\nSubject: {}\r\n\r\n".format(sender, recipient, subject)
