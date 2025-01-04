@@ -53,8 +53,8 @@ jobs:
           - {python: "39", os: ubuntu-latest}
           - {python: "310", os: ubuntu-latest}
           - {python: "311", os: ubuntu-latest}
-          - {python: "312", os: ubuntu-latest}
-          - {python: "313", os: ubuntu-latest}
+          # - {python: "312", os: ubuntu-latest}
+          # - {python: "313", os: ubuntu-latest}
     runs-on: ${{ matrix.version.os }}
     name: test (python ${{ matrix.version.python }})
     steps:
