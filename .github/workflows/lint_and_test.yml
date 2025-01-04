@@ -44,12 +44,19 @@ jobs:
         run: twine check "dist/$( python setup.py --fullname ).tar.gz"
 
   test:
-    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python: ["37", "38", "39", "310", "311"]
-    name: test (python ${{ matrix.python }})
+        version:
+          - {python: "3.7", os: ubuntu-22.04}
+          - {python: "3.8", os: ubuntu-latest}
+          - {python: "3.9", os: ubuntu-latest}
+          - {python: "3.10", os: ubuntu-latest}
+          - {python: "3.11", os: ubuntu-latest}
+          - {python: "3.12", os: ubuntu-latest}
+          - {python: "3.13", os: ubuntu-latest}
+    runs-on: ${{ matrix.version.os }}
+    name: test (python ${{ matrix.version.python }})
     steps:
       - name: Checkout 🛎️
         uses: actions/checkout@v4
@@ -57,10 +64,10 @@ jobs:
           persist-credentials: false
 
       - name: Pull docker image 🐳
-        run: docker pull riga/law:py${{ matrix.python }}
+        run: docker pull riga/law:py${{ matrix.version.python }}
 
       - name: Test 🎢
-        run: ./tests/docker.sh riga/law:py${{ matrix.python }}
+        run: ./tests/docker.sh riga/law:py${{ matrix.version.python }}
 
   coverage:
     runs-on: ubuntu-latest
@@ -78,7 +85,7 @@ jobs:
         run: ./tests/docker.sh riga/law ./tests/coverage.sh
 
       - name: Upload report 🔝
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
