@@ -48,13 +48,13 @@ jobs:
       fail-fast: false
       matrix:
         version:
-          - {python: "3.7", os: ubuntu-22.04}
-          - {python: "3.8", os: ubuntu-latest}
-          - {python: "3.9", os: ubuntu-latest}
-          - {python: "3.10", os: ubuntu-latest}
-          - {python: "3.11", os: ubuntu-latest}
-          - {python: "3.12", os: ubuntu-latest}
-          - {python: "3.13", os: ubuntu-latest}
+          - {python: "37", os: ubuntu-22.04}
+          - {python: "38", os: ubuntu-latest}
+          - {python: "39", os: ubuntu-latest}
+          - {python: "310", os: ubuntu-latest}
+          - {python: "311", os: ubuntu-latest}
+          - {python: "312", os: ubuntu-latest}
+          - {python: "313", os: ubuntu-latest}
     runs-on: ${{ matrix.version.os }}
     name: test (python ${{ matrix.version.python }})
     steps:
