@@ -441,10 +441,10 @@ def notify(
         status_string = "succeeded" if success else "failed"
         title = "Task {} {}!".format(_task.get_task_family(), status_string)
         parts = collections.OrderedDict([
+            ("Task", str(_task)),
             ("Host", socket.gethostname()),
             ("Duration", duration),
             ("Last message", "-" if not len(_task._message_cache) else _task._message_cache[-1]),
-            ("Task", str(_task)),
         ])
         if not success:
             parts["Traceback"] = traceback.format_exc()

@@ -26,6 +26,13 @@ class NotifyTelegramParameter(NotifyParameter):
                 "law.decorator.notify, a Telegram notification is sent once the task finishes"
             )
 
+    def get_transport(self) -> dict[str, Any]:
+        return {
+            "func": self.notify,
+            "raw": True,
+            "colored": False,
+        }
+
     @staticmethod
     def notify(success: bool, title: str, content: dict[str, str], **kwargs) -> bool:
         # escape the full content
@@ -51,10 +58,3 @@ class NotifyTelegramParameter(NotifyParameter):
 
         # send the notification
         return notify_telegram(title, content, **kwargs)
-
-    def get_transport(self) -> dict[str, Any]:
-        return {
-            "func": self.notify,
-            "raw": True,
-            "colored": False,
-        }

@@ -16,10 +16,11 @@ __all__ = [
 
 import functools
 import csv
+from collections import OrderedDict
 
 import luigi  # type: ignore[import-untyped]
 
-from law.notification import notify_mail
+from law.notification import notify_mail, notify_custom
 from law.util import (
     human_duration, parse_duration, time_units, time_unit_aliases, human_bytes, parse_bytes,
     byte_units, is_lazy_iterable, make_tuple, make_unique, brace_expand, range_expand, try_int,
@@ -887,18 +888,72 @@ class NotifyMailParameter(NotifyParameter):
                 "email notification is sent once the task finishes"
             )
 
-    @classmethod
-    def notify(cls, *args, **kwargs) -> bool:
-        """"""
-        return notify_mail(*args, **kwargs)
-
     def get_transport(self) -> dict[str, Any]:
         """"""
         return {
             "func": self.notify,
-            "raw": False,
+            "raw": True,
             "colored": False,
         }
+
+    @classmethod
+    def notify(cls, success: bool, title: str, content: dict[str, Any], **kwargs) -> bool:
+        """"""
+        title, message = cls.format_message(success, title, content)
+        return notify_mail(title, message, **kwargs)
+
+    @classmethod
+    def format_message(cls, success: bool, title: str, content: dict[str, Any]) -> tuple[str, str]:
+        """"""
+        content = OrderedDict(content)
+
+        # status text
+        content["Status"] = "success" if success else "failure"
+        content.move_to_end("Status", last=False)
+
+        # markup for traceback
+        if "Traceback" in content:
+            content["Traceback"] = f"\n```\n{content['Traceback']}\n```"
+
+        # format message
+        message = "\n".join(f"**{k}**: {v}" for k, v in content.items())
+
+        return title, message
+
+
+class NotifyCustomParameter(NotifyParameter):
+    """
+    Notification parameter defining a custom notification transport.The *notify_func* argument can
+    be used to pass a custom notification function. When empty, the default implemented in
+    :py:meth:`law.notification.notify_custom` is used.
+    """
+
+    def __init__(self, *args, **kwargs) -> None:
+        # store the notification attributes
+        self.raw = kwargs.pop("raw", True)
+        self.notify_func = kwargs.pop("notify_func", None)
+
+        super().__init__(*args, **kwargs)
+
+        if not self.description:
+            self.description = (
+                "when true, and the task's run method is decorated with law.decorator.notify, "
+                "a custom notification is sent once the task finishes"
+            )
+
+    def get_transport(self) -> dict[str, Any]:
+        """"""
+        return {
+            "func": functools.partial(self.notify, notify_func=self.notify_func),
+            "raw": self.raw,
+            "colored": False,
+        }
+
+    @classmethod
+    def notify(cls, success: bool, *args, **kwargs) -> bool:
+        """"""
+        # success is not forwarded, as the message content will have a field "Traceback" when failed
+        return notify_custom(*args, **kwargs)
 
 
 # trailing imports

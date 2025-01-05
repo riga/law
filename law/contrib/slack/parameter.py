@@ -26,6 +26,13 @@ class NotifySlackParameter(NotifyParameter):
                 "law.decorator.notify, a Slack notification is sent once the task finishes"
             )
 
+    def get_transport(self) -> dict[str, Any]:
+        return {
+            "func": self.notify,
+            "raw": True,
+            "colored": False,
+        }
+
     @classmethod
     def notify(cls, success: bool, title: str, content: dict[str, Any], **kwargs) -> bool:
         # escape the full content
@@ -54,10 +61,3 @@ class NotifySlackParameter(NotifyParameter):
 
         # send the notification
         return notify_slack(title, content, attachment_color=color, **kwargs)
-
-    def get_transport(self) -> dict[str, Any]:
-        return {
-            "func": self.notify,
-            "raw": True,
-            "colored": False,
-        }

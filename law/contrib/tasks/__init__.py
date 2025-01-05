@@ -81,6 +81,7 @@ class TransferLocalFile(Task):
     )
 
     exclude_index = True
+    exclude_params_repr_empty = {"source_path"}
 
     def get_source_target(self) -> LocalFileTarget:
         # when self.source_path is set, return a target around it
