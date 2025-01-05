@@ -24,8 +24,15 @@ class NotifyMattermostParameter(NotifyParameter):
                 "a Mattermost notification is sent once the task finishes"
             )
 
-    @staticmethod
-    def notify(success, title, content, **kwargs):
+    def get_transport(self):
+        return {
+            "func": self.notify,
+            "raw": True,
+            "colored": False,
+        }
+
+    @classmethod
+    def notify(cls, success, title, content, **kwargs):
         content = OrderedDict(content)
 
         # overwrite title
@@ -58,10 +65,3 @@ class NotifyMattermostParameter(NotifyParameter):
 
         # send the notification
         return notify_mattermost(title, content, **kwargs)
-
-    def get_transport(self):
-        return {
-            "func": self.notify,
-            "raw": True,
-            "colored": False,
-        }

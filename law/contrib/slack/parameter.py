@@ -25,8 +25,15 @@ class NotifySlackParameter(NotifyParameter):
             self.description = "when true, and the task's run method is decorated with " \
                 "law.decorator.notify, a Slack notification is sent once the task finishes"
 
-    @staticmethod
-    def notify(success, title, content, **kwargs):
+    def get_transport(self):
+        return {
+            "func": self.notify,
+            "raw": True,
+            "colored": False,
+        }
+
+    @classmethod
+    def notify(cls, success, title, content, **kwargs):
         # escape the full content
         content = content.__class__(
             (k, escape_markdown(v) if isinstance(v, six.string_types) else v)
@@ -53,10 +60,3 @@ class NotifySlackParameter(NotifyParameter):
 
         # send the notification
         return notify_slack(title, content, attachment_color=color, **kwargs)
-
-    def get_transport(self):
-        return {
-            "func": self.notify,
-            "raw": True,
-            "colored": False,
-        }

@@ -25,8 +25,15 @@ class NotifyTelegramParameter(NotifyParameter):
             self.description = "when true, and the task's run method is decorated with " \
                 "law.decorator.notify, a Telegram notification is sent once the task finishes"
 
-    @staticmethod
-    def notify(success, title, content, **kwargs):
+    def get_transport(self):
+        return {
+            "func": self.notify,
+            "raw": True,
+            "colored": False,
+        }
+
+    @classmethod
+    def notify(cls, success, title, content, **kwargs):
         # escape the full content
         content = content.__class__(
             (k, escape_markdown(v) if isinstance(v, six.string_types) else v)
@@ -50,10 +57,3 @@ class NotifyTelegramParameter(NotifyParameter):
 
         # send the notification
         return notify_telegram(title, content, **kwargs)
-
-    def get_transport(self):
-        return {
-            "func": self.notify,
-            "raw": True,
-            "colored": False,
-        }

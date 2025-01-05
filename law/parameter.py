@@ -857,8 +857,16 @@ class NotifyMailParameter(NotifyParameter):
             self.description = "when true, and the task's run method is decorated with " \
                 "law.decorator.notify, an email notification is sent once the task finishes"
 
+    def get_transport(self):
+        """"""
+        return {
+            "func": self.notify,
+            "raw": True,
+            "colored": False,
+        }
+
     @classmethod
-    def notify(success, *args, **kwargs):
+    def notify(cls, success, title, content, **kwargs):
         """"""
         return notify_mail(*args, **kwargs)
 
