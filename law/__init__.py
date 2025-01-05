@@ -15,7 +15,7 @@ __all__ = [
     "NO_STR", "NO_INT", "NO_FLOAT", "is_no_param", "get_param", "Parameter",
     "TaskInstanceParameter", "OptionalBoolParameter", "DurationParameter", "BytesParameter",
     "CSVParameter", "MultiCSVParameter", "RangeParameter", "MultiRangeParameter", "NotifyParameter",
-    "NotifyMultiParameter", "NotifyMailParameter",
+    "NotifyMultiParameter", "NotifyMailParameter", "NotifyCustomParameter",
     "Config",
     "run", "no_value",
     "notify_mail",
@@ -68,6 +68,7 @@ from law.parameter import (
     NO_STR, NO_INT, NO_FLOAT, is_no_param, get_param, Parameter, TaskInstanceParameter,
     OptionalBoolParameter, DurationParameter, BytesParameter, CSVParameter, MultiCSVParameter,
     RangeParameter, MultiRangeParameter, NotifyParameter, NotifyMultiParameter, NotifyMailParameter,
+    NotifyCustomParameter,
 )
 from law.target.file import (
     FileSystemTarget, FileSystemFileTarget, FileSystemDirectoryTarget, localize_file_targets,
