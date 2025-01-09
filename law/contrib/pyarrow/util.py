@@ -15,7 +15,7 @@ from law.util import map_verbose, human_bytes
 
 
 def merge_parquet_files(src_paths, dst_path, force=True, callback=None, writer_opts=None,
-        copy_single=False):
+        copy_single=False, skip_empty=True):
     """
     Merges parquet files in *src_paths* into a new file at *dst_path*. Intermediate directories are
     created automatically. When *dst_path* exists and *force* is *True*, the file is removed first.
@@ -24,7 +24,8 @@ def merge_parquet_files(src_paths, dst_path, force=True, callback=None, writer_o
     *callback* can refer to a callable accepting a single integer argument representing the index of
     the file after it was merged. *writer_opts* can be a dictionary of keyword arguments that are
     passed to the *ParquetWriter* instance. When *src_paths* contains only a single file and
-    *copy_single* is *True*, the file is copied to *dst_path* and no merging takes place.
+    *copy_single* is *True*, the file is copied to *dst_path* and no merging takes place. Files
+    containing empty tables are skipped unless *skip_empty* is *False*.
 
     The absolute, expanded *dst_path* is returned.
     """
@@ -70,14 +71,15 @@ def merge_parquet_files(src_paths, dst_path, force=True, callback=None, writer_o
 
         # write the remaining ones
         for i, path in enumerate(src_paths[1:], 1):
-            writer.write_table(pq.read_table(path))
+            _table = pq.read_table(path)
+            if not skip_empty or _table.num_rows > 0:
+                writer.write_table(_table)
             callback(i)
 
     return dst_path
 
 
-def merge_parquet_task(task, inputs, output, local=False, cwd=None, force=True, writer_opts=None,
-        copy_single=False):
+def merge_parquet_task(task, inputs, output, local=False, cwd=None, force=True, **kwargs):
     """
     This method is intended to be used by tasks that are supposed to merge parquet files, e.g. when
     inheriting from :py:class:`law.contrib.tasks.MergeCascade`. *inputs* should be a sequence of
@@ -89,8 +91,8 @@ def merge_parquet_task(task, inputs, output, local=False, cwd=None, force=True, 
     :py:meth:`law.Task.publish_step` methods. When *force* is *True*, any existing output file is
     overwritten.
 
-    *writer_opts* and *copy_single* are forwarded to :py:func:`merge_parquet_files` which is used
-    internally for the actual merging.
+    All additional *kwargs* are forwarded to :py:func:`merge_parquet_files` which is used internally
+    for the actual merging.
     """
     abspath = lambda path: os.path.abspath(os.path.expandvars(os.path.expanduser(str(path))))
 
@@ -114,8 +116,7 @@ def merge_parquet_task(task, inputs, output, local=False, cwd=None, force=True, 
             merge_parquet_files(
                 [inp.abspath for inp in inputs],
                 output.abspath,
-                writer_opts=writer_opts,
-                copy_single=copy_single,
+                **kwargs  # noqa
             )
 
         stat = output.exists(stat=True)
