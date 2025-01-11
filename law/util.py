@@ -1413,7 +1413,6 @@ def kill_process(p, kill_group=False, kill_timeout=None):
     # when a kill_timeout is set, and the process is still running after that period,
     # send SIGKILL to force its termination
     if p.poll() is None and kill_timeout is not None:
-        print("kill timeout")
         target_time = perf_counter() + kill_timeout
         while target_time > perf_counter():
             time.sleep(0.05)
@@ -1421,12 +1420,9 @@ def kill_process(p, kill_group=False, kill_timeout=None):
                 # the process terminated, exit the loop
                 break
         else:
-            print("here", 1)
             # check the status again to avoid race conditions
             if p.poll() is None:
-                print("here", 2)
                 os.killpg(pid, signal.SIGKILL)
-            print("here", 3)
 
 
 def readable_popen(*args, **kwargs):
