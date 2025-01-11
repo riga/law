@@ -177,7 +177,7 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
 
         # task hook
         if grouped_submission:
-            c = task.htcondor_job_config(c, list(submit_jobs.keys()), list(submit_jobs.values()))  # type: ignore[arg-type] # noqa
+            c = task.htcondor_job_config(c, list(submit_jobs.keys()), list(submit_jobs.values()))
         else:
             c = task.htcondor_job_config(c, job_num, branches)
 
@@ -383,8 +383,8 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
     def htcondor_job_config(
         self,
         config: HTCondorJobFileFactory.Config,
-        job_num: int,
-        branches: list[int],
+        job_num: int | list[int],
+        branches: list[int] | list[list[int]],
     ) -> HTCondorJobFileFactory.Config:
         return config
 
