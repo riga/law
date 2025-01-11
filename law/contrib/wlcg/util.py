@@ -358,6 +358,7 @@ def delegate_myproxy(
     userkey: str | pathlib.Path | None = None,
     usercert: str | pathlib.Path | None = None,
     username: str | None = None,
+    proxy_file: str | pathlib.Path | None = None,
     encode_username: bool = True,
     cred_lifetime: int = 720,
     proxy_lifetime: int = 168,
@@ -399,7 +400,10 @@ def delegate_myproxy(
         usercert = get_usercert()
     usercert = str(usercert)
     if not username:
-        username = get_vomsproxy_identity(silent=True) or get_usercert_subject()
+        username = (
+            get_vomsproxy_identity(proxy_file=proxy_file, silent=True) or
+            get_usercert_subject()
+        )
     if encode_username:
         username = hashlib.sha1(username.encode("utf-8")).hexdigest()
 
@@ -462,6 +466,7 @@ def delegate_myproxy(
 def get_myproxy_info(
     endpoint: str = "myproxy.cern.ch",
     username: str | None = None,
+    proxy_file: str | pathlib.Path | None = None,
     encode_username: bool = True,
     silent: bool = False,
 ) -> dict[str, str | int] | None:
@@ -477,7 +482,10 @@ def get_myproxy_info(
     """
     # prepare arguments
     if not username:
-        username = get_vomsproxy_identity(silent=True) or get_usercert_subject()
+        username = (
+            get_vomsproxy_identity(proxy_file=proxy_file, silent=True) or
+            get_usercert_subject()
+        )
     if encode_username:
         username = hashlib.sha1(username.encode("utf-8")).hexdigest()
 

@@ -960,7 +960,7 @@
 ; installation, ``"dir"``, a custom install directory, ``"arch"``, a custom scram architecture, and
 ; ``"cores"``, the number of CPU cores to use for installation.
 ; Type: ``str``
-; Default: ``"CMSSW_10_6_30"``
+; Default: ``"CMSSW_14_2_1::arch=el9_amd64_gcc12"``
 
 ; crab_password_file
 ; Description: A file containing the X509 certificate password for automatic proxy delegations by

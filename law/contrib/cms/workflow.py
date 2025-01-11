@@ -24,7 +24,7 @@ from law.util import no_value, law_src_path, merge_dicts, human_duration, DotDic
 from law.logger import get_logger
 from law._types import Any, Type, Generator
 
-from law.contrib.wlcg import check_vomsproxy_validity, get_myproxy_info
+from law.contrib.wlcg import get_vomsproxy_file, check_vomsproxy_validity, get_myproxy_info
 from law.contrib.cms.job import CrabJobManager, CrabJobFileFactory
 from law.contrib.cms.util import renew_vomsproxy, delegate_myproxy
 
@@ -46,13 +46,15 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
         cfg = Config.instance()
         password_file = cfg.get_expanded("job", "crab_password_file")
 
+        # determine the proxy file first
+        proxy_file = get_vomsproxy_file()
+
         # ensure a VOMS proxy exists
         if not check_vomsproxy_validity():
-            print("renew voms-proxy")
-            renew_vomsproxy(password_file=password_file)
+            renew_vomsproxy(proxy_file=proxy_file, password_file=password_file)
 
         # ensure that it has been delegated to the myproxy server
-        info = get_myproxy_info(silent=True)
+        info = get_myproxy_info(proxy_file=proxy_file, silent=True)
         delegate = False
         if not info:
             delegate = True
@@ -69,12 +71,11 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
 
         # actual delegation
         if delegate:
-            print("delegate to myproxy server")
-            myproxy_username = delegate_myproxy(password_file=password_file)
+            myproxy_username = delegate_myproxy(proxy_file=proxy_file, password_file=password_file)
         else:
             myproxy_username = info["username"]  # type: ignore[index, assignment]
 
-        return {"myproxy_username": myproxy_username}
+        return {"proxy": proxy_file, "myproxy_username": myproxy_username}
 
     def create_job_file_factory(self, **kwargs) -> CrabJobFileFactory:
         return self.task.crab_create_job_file_factory(**kwargs)  # type: ignore[attr-defined]
@@ -367,7 +368,8 @@ class CrabWorkflow(BaseRemoteWorkflow):
     def crab_job_config(
         self,
         config: CrabJobFileFactory.Config,
-        submit_jobs: dict[int, list[int]],
+        job_num: list[int],
+        branches: list[list[int]],
     ) -> CrabJobFileFactory.Config:
         """
         Hook to inject custom settings into the job *config*, which is an instance of the

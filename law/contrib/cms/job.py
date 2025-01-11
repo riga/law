@@ -365,6 +365,7 @@ class CrabJobManager(BaseJobManager):
             shell=True,
             executable="/bin/bash",
             stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
             env=self.cmssw_env,
         )
 
@@ -453,6 +454,7 @@ class CrabJobManager(BaseJobManager):
                 "HOLDING on command SUBMIT",
                 "NEW on command SUBMIT",
                 "QUEUED on command SUBMIT",
+                "WAITING on command SUBMIT",
                 "SUBMITTED",
             ]
             if server_status not in accepted_server_states:
@@ -711,7 +713,6 @@ class CrabJobFileFactory(BaseJobFileFactory):
                 ("scriptExe", no_value),
                 ("maxMemoryMB", 2048),
                 ("allowUndistributedCMSSW", True),
-                ("sendPythonFolder", False),
                 ("disableAutomaticOutputCollection", True),
                 ("inputFiles", no_value),
                 ("outputFiles", no_value),

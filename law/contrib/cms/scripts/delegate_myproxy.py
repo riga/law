@@ -97,4 +97,9 @@ def main():
 
 # entry hook
 if __name__ == "__main__":
-    main()
+    import sys
+
+    exit_code = main()
+
+    if isinstance(exit_code, int):
+        sys.exit(exit_code)
