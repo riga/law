@@ -28,6 +28,8 @@ from law.logger import get_logger
 from law.contrib.cms.job import CrabJobManager, CrabJobFileFactory
 from law.contrib.cms.util import renew_vomsproxy, delegate_myproxy
 
+law.contrib.load("wlcg")
+
 
 logger = get_logger(__name__)
 
@@ -46,13 +48,15 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
         cfg = Config.instance()
         password_file = cfg.get_expanded("job", "crab_password_file")
 
+        # determine the proxy file first
+        proxy_file = law.wlcg.get_vomsproxy_file()
+
         # ensure a VOMS proxy exists
         if not law.wlcg.check_vomsproxy_validity():
-            print("renew voms-proxy")
-            renew_vomsproxy(password_file=password_file)
+            renew_vomsproxy(proxy_file=proxy_file, password_file=password_file)
 
         # ensure that it has been delegated to the myproxy server
-        info = law.wlcg.get_myproxy_info(silent=True)
+        info = law.wlcg.get_myproxy_info(proxy_file=proxy_file, silent=True)
         delegate = False
         if not info:
             delegate = True
@@ -70,12 +74,11 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
 
         # actual delegation
         if delegate:
-            print("delegate to myproxy server")
-            myproxy_username = delegate_myproxy(password_file=password_file)
+            myproxy_username = delegate_myproxy(proxy_file=proxy_file, password_file=password_file)
         else:
             myproxy_username = info["username"]
 
-        return {"myproxy_username": myproxy_username}
+        return {"proxy": proxy_file, "myproxy_username": myproxy_username}
 
     def create_job_file_factory(self, **kwargs):
         return self.task.crab_create_job_file_factory(**kwargs)
@@ -357,7 +360,7 @@ class CrabWorkflow(BaseRemoteWorkflow):
 
         return factory_cls(**kwargs)
 
-    def crab_job_config(self, config, submit_jobs):
+    def crab_job_config(self, config, job_num, branches):
         """
         Hook to inject custom settings into the job *config*, which is an instance of the
         :py:attr:`Config` class defined inside the job manager.

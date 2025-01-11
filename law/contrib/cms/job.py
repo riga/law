@@ -286,7 +286,7 @@ class CrabJobManager(BaseJobManager):
         # run it
         logger.debug("query crab job(s) with command '{}'".format(cmd))
         code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-            stdout=subprocess.PIPE, env=self.cmssw_env)
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=self.cmssw_env)
 
         # handle errors
         if code != 0:
@@ -358,6 +358,7 @@ class CrabJobManager(BaseJobManager):
                 "HOLDING on command SUBMIT",
                 "NEW on command SUBMIT",
                 "QUEUED on command SUBMIT",
+                "WAITING on command SUBMIT",
                 "SUBMITTED",
             ]
             if server_status not in accepted_server_states:
@@ -585,7 +586,6 @@ class CrabJobFileFactory(BaseJobFileFactory):
                 ("scriptExe", no_value),
                 ("maxMemoryMB", 2048),
                 ("allowUndistributedCMSSW", True),
-                ("sendPythonFolder", False),
                 ("disableAutomaticOutputCollection", True),
                 ("inputFiles", no_value),
                 ("outputFiles", no_value),

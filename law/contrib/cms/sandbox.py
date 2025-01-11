@@ -22,8 +22,8 @@ from law.util import (
 
 class CMSSWSandboxVariables(SandboxVariables):
 
-    fields = ("version", "setup", "args", "dir", "arch", "cores")
-    eq_fields = ("name", "version", "setup", "args", "dir", "arch")
+    fields = ("version", "setup", "args", "dir", "arch", "cores", "source")
+    eq_fields = ("name", "version", "setup", "args", "dir", "arch", "source")
 
     @classmethod
     def parse_name(cls, name):
@@ -47,9 +47,13 @@ class CMSSWSandboxVariables(SandboxVariables):
         if "cores" in values:
             values["cores"] = int(values["cores"])
 
+        if "source" in values:
+            values["source"] = expand(values["source"])
+
         return values
 
-    def __init__(self, name, version, setup=None, args=None, dir=None, arch=None, cores=None):
+    def __init__(self, name, version, setup=None, args=None, dir=None, arch=None, cores=None,
+            source=None):
         super(CMSSWSandboxVariables, self).__init__(name)
 
         self.version = version
@@ -58,6 +62,7 @@ class CMSSWSandboxVariables(SandboxVariables):
         self.dir = dir
         self.arch = arch
         self.cores = cores
+        self.source = source
 
 
 class CMSSWSandbox(BashSandbox):
@@ -100,7 +105,7 @@ class CMSSWSandbox(BashSandbox):
         # use version, setup, args, dir and arch as cache key
         return tuple(
             getattr(self.variables, attr)
-            for attr in ("version", "setup", "args", "dir", "arch")
+            for attr in CMSSWSandboxVariables.eq_fields[1:]
         )
 
     @property

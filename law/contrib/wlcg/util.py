@@ -313,6 +313,7 @@ def delegate_myproxy(
     userkey=None,
     usercert=None,
     username=None,
+    proxy_file=None,
     encode_username=True,
     cred_lifetime=720,
     proxy_lifetime=168,
@@ -354,7 +355,10 @@ def delegate_myproxy(
         usercert = get_usercert()
     usercert = str(usercert)
     if not username:
-        username = get_vomsproxy_identity(silent=True) or get_usercert_subject()
+        username = (
+            get_vomsproxy_identity(proxy_file=proxy_file, silent=True) or
+            get_usercert_subject()
+        )
     if encode_username:
         username = hashlib.sha1(username.encode("utf-8")).hexdigest()
 
@@ -402,7 +406,8 @@ def delegate_myproxy(
     raise Exception("myproxy-init failed with code {}".format(code))
 
 
-def get_myproxy_info(endpoint="myproxy.cern.ch", username=None, encode_username=True, silent=False):
+def get_myproxy_info(endpoint="myproxy.cern.ch", username=None, encode_username=True,
+        proxy_file=None, silent=False):
     """
     Returns information about a previous myproxy delegation to a server *endpoint*. When *username*
     is *None*, the subject string of the certificate is used instead, and sha1 encoded if
@@ -415,7 +420,10 @@ def get_myproxy_info(endpoint="myproxy.cern.ch", username=None, encode_username=
     """
     # prepare arguments
     if not username:
-        username = get_vomsproxy_identity(silent=True) or get_usercert_subject()
+        username = (
+            get_vomsproxy_identity(proxy_file=proxy_file, silent=True) or
+            get_usercert_subject()
+        )
     if encode_username:
         username = hashlib.sha1(username.encode("utf-8")).hexdigest()
 

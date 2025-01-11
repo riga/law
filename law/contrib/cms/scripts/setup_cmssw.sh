@@ -17,6 +17,8 @@
 #       The directory in which CMSSW is installed. Defaults to $LAW_HOME/cms/cmssw.
 #   - LAW_CMSSW_CORES:
 #       The number of cores to use for compilation. Defaults to 1.
+#   - LAW_CMSSW_SOURCE:
+#       A path to a script that is source'd after successful installation. Optional.
 
 setup_cmssw() {
     local shell_is_zsh="$( [ -z "${ZSH_VERSION}" ] && echo "false" || echo "true" )"
@@ -82,6 +84,7 @@ setup_cmssw() {
     local custom_setup_args="${LAW_CMSSW_ARGS}"
     local custom_install_dir="${LAW_CMSSW_DIR}"
     local custom_install_cores="${LAW_CMSSW_CORES:-1}"
+    local custom_source_script="${LAW_CMSSW_SOURCE}"
 
     # checks
     if [ -z "${custom_cmssw_version}" ]; then
@@ -189,6 +192,20 @@ setup_cmssw() {
         >&2 echo "cmsenv failed in ${custom_src_dir}"
         return "9"
     fi
+
+    # additional source script
+    if [ ! -z "${custom_source_script}" ] && [ -f "${custom_source_script}" ]; then
+        source "${custom_source_script}" ""
+        local source_ret="$?"
+        if [ "${source_ret}" != "0" ]; then
+            >&2 echo "custom source script '${custom_source_script}' failed"
+            return "10"
+        fi
+    fi
+
+    # patch for crab: pythonpath is incomplete so add missing fragments
+    local cmssw_py_past_path="$( python3 -c "import os, past; print(os.path.normpath(os.path.join(past.__file__, '../..')))" )"
+    [ "$?" = "0" ] && export PYTHONPATH="${PYTHONPATH}:${cmssw_py_past_path}"
 
     # setup done
     return "0"
