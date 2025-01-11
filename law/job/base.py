@@ -30,7 +30,7 @@ from law.target.remote.base import RemoteTarget
 from law.config import Config
 from law.util import (
     colored, make_list, make_tuple, iter_chunks, makedirs, create_hash, increment_path,
-    create_random_string,
+    create_random_string, kill_process,
 )
 from law.logger import get_logger
 from law._types import Any, Callable, Hashable, Sequence, TracebackType, Type, T
@@ -328,12 +328,18 @@ class BaseJobManager(object, metaclass=ABCMeta):
 
         # threaded processing
         pool = ThreadPool(threads)
+        kwargs["_processes"] = []
         results = [
             pool.apply_async(func, (arg,), kwargs, callback=cb_factory(i))
             for i, arg in enumerate(job_objs)
         ]
-        pool.close()
-        pool.join()
+        try:
+            pool.close()
+            pool.join()
+        except KeyboardInterrupt:
+            for p in kwargs["_processes"]:
+                kill_process(p, kill_group=True, kill_timeout=2)
+            raise
 
         # store result data or an exception
         result_data = result_type()
@@ -527,12 +533,18 @@ class BaseJobManager(object, metaclass=ABCMeta):
 
         # threaded processing
         pool = ThreadPool(threads)
+        kwargs["_processes"] = []
         results = [
             pool.apply_async(func, make_tuple(arg), kwargs, callback=cb_factory(i))
             for i, arg in enumerate(job_obj_groups.items())
         ]
-        pool.close()
-        pool.join()
+        try:
+            pool.close()
+            pool.join()
+        except KeyboardInterrupt:
+            for p in kwargs["_processes"]:
+                kill_process(p, kill_group=True, kill_timeout=2)
+            raise
 
         # store result data or an exception
         result_data = result_type()

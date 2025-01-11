@@ -23,9 +23,10 @@ __all__ = [
     "brace_expand", "range_expand", "range_join", "multi_match", "is_iterable",
     "is_lazy_iterable", "make_list", "make_tuple", "make_set", "make_unique", "is_nested",
     "flatten", "merge_dicts", "unzip", "map_verbose", "map_struct", "mask_struct",
+    # parallelization helpers
+    "interruptable_popen", "kill_process", "readable_popen",
     # io helpers
-    "tmp_file", "interruptable_popen", "readable_popen", "copy_no_perm", "makedirs",
-    "user_owns_file",
+    "tmp_file", "copy_no_perm", "makedirs", "user_owns_file",
     # classes
     "DotDict", "ShorthandDict", "classproperty", "BaseStream", "TeeStream", "FilteredStream",
 ]
@@ -1457,6 +1458,7 @@ def interruptable_popen(
     stdin_delay: int | float = 0,
     interrupt_callback: Callable[[subprocess.Popen], Any] | None = None,
     kill_timeout: int | float | None = None,
+    processes: list | None = None,
     **kwargs,
 ) -> tuple[int, str | None, str | None]:
     """
@@ -1474,11 +1476,19 @@ def interruptable_popen(
     When *kill_timeout* is set, and the process is still alive after that period (in seconds), a
     SIGKILL signal is sent to force the process termination.
 
+    In case a *processes* list is defined, the process is appended to it right after it was created.
+    This can be useful to keep track of multiple processes and sending signals to them from an
+    outer context.
+
     All other *args* and *kwargs* are forwarded to the :py:class:`Popen` constructor.
     """
     # start the subprocess in a new process group
     kwargs["preexec_fn"] = os.setsid
     p = subprocess.Popen(*args, **kwargs)
+
+    # add to processes list
+    if processes is not None:
+        processes.append(p)
 
     # get stdin
     stdin_data = None
@@ -1497,24 +1507,8 @@ def interruptable_popen(
         if callable(interrupt_callback):
             interrupt_callback(p)
 
-        # when the process is still alive, send SIGTERM to gracefully terminate it
-        pgid = os.getpgid(p.pid)
-        if p.poll() is None:
-            os.killpg(pgid, signal.SIGTERM)
-
-        # when a kill_timeout is set, and the process is still running after that period,
-        # send SIGKILL to force its termination
-        if kill_timeout is not None:
-            target_time = time.perf_counter() + kill_timeout
-            while target_time > time.perf_counter():
-                time.sleep(0.05)
-                if p.poll() is not None:
-                    # the process terminated, exit the loop
-                    break
-            else:
-                # check the status again to avoid race conditions
-                if p.poll() is None:
-                    os.killpg(pgid, signal.SIGKILL)
+        # kill it
+        kill_process(p, kill_group=True, kill_timeout=kill_timeout)
 
         # transparently reraise
         raise
@@ -1526,6 +1520,40 @@ def interruptable_popen(
         err = err.decode("utf-8")
 
     return p.returncode, out, err
+
+
+def kill_process(
+    p: subprocess.Popen,
+    kill_group: bool = False,
+    kill_timeout: int | float | None = None,
+) -> None:
+    """
+    Kills a running process with SIGTERM. When *kill_group* is *True*, the process group is killed.
+    When *kill_timeout* is set, and the process is still running after that period (in seconds), a
+    SIGKILL signal is sent to force the process termination.
+    """
+    # get the pid
+    pid = p.pid
+    if kill_group:
+        pid = os.getpgid(pid)
+
+    # when the process is still alive, send SIGTERM to gracefully terminate it
+    if p.poll() is None:
+        os.killpg(pid, signal.SIGTERM)
+
+    # when a kill_timeout is set, and the process is still running after that period,
+    # send SIGKILL to force its termination
+    if p.poll() is None and kill_timeout is not None:
+        target_time = time.perf_counter() + kill_timeout
+        while target_time > time.perf_counter():
+            time.sleep(0.05)
+            if p.poll() is not None:
+                # the process terminated, exit the loop
+                break
+        else:
+            # check the status again to avoid race conditions
+            if p.poll() is None:
+                os.killpg(pid, signal.SIGKILL)
 
 
 def readable_popen(*args, **kwargs) -> tuple[subprocess.Popen, Iterable[str]]:

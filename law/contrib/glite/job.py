@@ -60,6 +60,7 @@ class GLiteJobManager(BaseJobManager):
         retries: int = 0,
         retry_delay: float | int = 3,
         silent: bool = False,
+        _processes: list | None = None,
     ) -> str | None:
         # default arguments
         if ce is None:
@@ -104,6 +105,8 @@ class GLiteJobManager(BaseJobManager):
                 executable="/bin/bash",
                 stdout=subprocess.PIPE,
                 cwd=job_file_dir,
+                kill_timeout=2,
+                processes=_processes,
             )
 
             # in some cases, the return code is 0 but the ce did not respond with a valid id
@@ -133,6 +136,7 @@ class GLiteJobManager(BaseJobManager):
         self,
         job_id: str | Sequence[str],
         silent: bool = False,
+        _processes: list | None = None,
     ) -> dict[str, Any] | None:
         chunking = isinstance(job_id, (list, tuple))
         job_ids = make_list(job_id)
@@ -149,6 +153,8 @@ class GLiteJobManager(BaseJobManager):
             shell=True,
             executable="/bin/bash",
             stdout=subprocess.PIPE,
+            kill_timeout=2,
+            processes=_processes,
         )
 
         # check success
@@ -164,6 +170,7 @@ class GLiteJobManager(BaseJobManager):
         self,
         job_id: str | Sequence[str],
         silent: bool = False,
+        _processes: list | None = None,
     ) -> dict[str, Any] | None:
         chunking = isinstance(job_id, (list, tuple))
         job_ids = make_list(job_id)
@@ -180,6 +187,8 @@ class GLiteJobManager(BaseJobManager):
             shell=True,
             executable="/bin/bash",
             stdout=subprocess.PIPE,
+            kill_timeout=2,
+            processes=_processes,
         )
 
         # check success
@@ -193,6 +202,7 @@ class GLiteJobManager(BaseJobManager):
         self,
         job_id: str | Sequence[str],
         silent: bool = False,
+        _processes: list | None = None,
     ) -> dict[int, dict[str, Any]] | dict[str, Any] | None:
         chunking = isinstance(job_id, (list, tuple))
         job_ids = make_list(job_id)
@@ -209,6 +219,8 @@ class GLiteJobManager(BaseJobManager):
             shell=True,
             executable="/bin/bash",
             stdout=subprocess.PIPE,
+            kill_timeout=2,
+            processes=_processes,
         )
 
         # handle errors

@@ -168,6 +168,10 @@ class CrabJobManager(BaseJobManager):
             **kwargs,
         )
 
+    def _check_proj_dir(self, proj_dir: str | pathlib.Path) -> None:
+        if not os.path.isdir(str(proj_dir)):
+            raise Exception(f"project directory '{proj_dir}' does not exist")
+
     def submit(  # type: ignore[override]
         self,
         job_file: str | pathlib.Path,
@@ -179,6 +183,7 @@ class CrabJobManager(BaseJobManager):
         retries: int = 0,
         retry_delay: int | float = 3,
         silent: bool = False,
+        _processes: list | None = None,
     ) -> list[JobId] | None:
         # default arguments
         if proxy is None:
@@ -210,6 +215,8 @@ class CrabJobManager(BaseJobManager):
                 stdout=subprocess.PIPE,
                 cwd=job_file_dir,
                 env=self.cmssw_env,
+                kill_timeout=2,
+                processes=_processes,
             )
 
             # handle errors
@@ -277,7 +284,10 @@ class CrabJobManager(BaseJobManager):
         instance: str | None = None,
         myproxy_username: str | None = None,
         silent: bool = False,
+        _processes: list | None = None,
     ) -> dict[JobId, None]:
+        self._check_proj_dir(proj_dir)
+
         if job_ids is None:
             job_ids = self._job_ids_from_proj_dir(proj_dir)
 
@@ -297,6 +307,8 @@ class CrabJobManager(BaseJobManager):
             executable="/bin/bash",
             stdout=subprocess.PIPE,
             env=self.cmssw_env,
+            kill_timeout=2,
+            processes=_processes,
         )
 
         # check success
@@ -318,6 +330,7 @@ class CrabJobManager(BaseJobManager):
         instance: str | None = None,
         myproxy_username: str | None = None,
         silent: bool = False,
+        _processes: list | None = None,
     ) -> dict[JobId, None]:
         if job_ids is None:
             job_ids = self._job_ids_from_proj_dir(proj_dir)
@@ -339,7 +352,10 @@ class CrabJobManager(BaseJobManager):
         myproxy_username: str | None = None,
         skip_transfers: bool | None = None,
         silent: bool = False,
+        _processes: list | None = None,
     ) -> dict[JobId, dict[str, Any]] | None:
+        self._check_proj_dir(proj_dir)
+
         proj_dir = str(proj_dir)
         log_data = self._parse_log_file(os.path.join(proj_dir, "crab.log"))
         if job_ids is None:
@@ -367,6 +383,8 @@ class CrabJobManager(BaseJobManager):
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             env=self.cmssw_env,
+            kill_timeout=2,
+            processes=_processes,
         )
 
         # handle errors

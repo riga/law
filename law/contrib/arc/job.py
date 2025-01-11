@@ -65,6 +65,7 @@ class ARCJobManager(BaseJobManager):
         retries: int = 0,
         retry_delay: float | int = 3,
         silent: bool = False,
+        _processes: list | None = None,
     ) -> str | list[str] | None:
         # default arguments
         if job_list is None:
@@ -104,6 +105,8 @@ class ARCJobManager(BaseJobManager):
                 executable="/bin/bash",
                 stdout=subprocess.PIPE,
                 cwd=job_file_dir,
+                kill_timeout=2,
+                processes=_processes,
             )
 
             # in some cases, the return code is 0 but the ce did not respond valid job ids
@@ -145,6 +148,7 @@ class ARCJobManager(BaseJobManager):
         job_id: str | Sequence[str],
         job_list: str | None = None,
         silent: bool = False,
+        _processes: list | None = None,
     ) -> dict[str, None] | None:
         # default arguments
         if job_list is None:
@@ -168,6 +172,8 @@ class ARCJobManager(BaseJobManager):
             shell=True,
             executable="/bin/bash",
             stdout=subprocess.PIPE,
+            kill_timeout=2,
+            processes=_processes,
         )
 
         # check success
@@ -182,6 +188,7 @@ class ARCJobManager(BaseJobManager):
         job_id: str | Sequence[str],
         job_list: str | None = None,
         silent: bool = False,
+        _processes: list | None = None,
     ) -> dict[str, None] | None:
         # default arguments
         if job_list is None:
@@ -205,6 +212,8 @@ class ARCJobManager(BaseJobManager):
             shell=True,
             executable="/bin/bash",
             stdout=subprocess.PIPE,
+            kill_timeout=2,
+            processes=_processes,
         )
 
         # check success
@@ -219,6 +228,7 @@ class ARCJobManager(BaseJobManager):
         job_id: str | Sequence[str],
         job_list: str | None = None,
         silent: bool = False,
+        _processes: list | None = None,
     ) -> dict[int, dict[str, Any]] | dict[str, Any] | None:
         # default arguments
         if job_list is None:
@@ -243,6 +253,8 @@ class ARCJobManager(BaseJobManager):
             executable="/bin/bash",
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
+            kill_timeout=2,
+            processes=_processes,
         )
 
         # handle errors

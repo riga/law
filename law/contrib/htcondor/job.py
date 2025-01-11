@@ -94,6 +94,7 @@ class HTCondorJobManager(BaseJobManager):
         retries: int = 0,
         retry_delay: float | int = 3,
         silent: bool = False,
+        _processes: list | None = None,
     ) -> str | Sequence[str] | None:
         # signature is the superset for both grouped and batched submission, and the dispatching to
         # the actual submission implementation is based on the presence of job_files
@@ -104,6 +105,7 @@ class HTCondorJobManager(BaseJobManager):
             "retries": retries,
             "retry_delay": retry_delay,
             "silent": silent,
+            "_processes": _processes,
         }
 
         if job_files is None:
@@ -129,6 +131,7 @@ class HTCondorJobManager(BaseJobManager):
         retries: int = 0,
         retry_delay: float | int = 3,
         silent: bool = False,
+        _processes: list | None = None,
     ) -> str | Sequence[str] | None:
         # default arguments
         if pool is None:
@@ -195,6 +198,8 @@ class HTCondorJobManager(BaseJobManager):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 cwd=os.path.dirname(job_files[0]),
+                kill_timeout=2,
+                processes=_processes,
             )
 
             # get the job id(s)
@@ -238,6 +243,7 @@ class HTCondorJobManager(BaseJobManager):
         retries: int = 0,
         retry_delay: float | int = 3,
         silent: bool = False,
+        _processes: list | None = None,
     ) -> Sequence[str] | None:
         # default arguments
         if pool is None:
@@ -269,6 +275,8 @@ class HTCondorJobManager(BaseJobManager):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 cwd=os.path.dirname(job_file),
+                kill_timeout=2,
+                processes=_processes,
             )
 
             # get the job id(s)
@@ -307,6 +315,7 @@ class HTCondorJobManager(BaseJobManager):
         pool: str | None = None,
         scheduler: str | None = None,
         silent: bool = False,
+        _processes: list | None = None,
     ) -> dict[str, None] | None:
         # default arguments
         if pool is None:
@@ -336,6 +345,8 @@ class HTCondorJobManager(BaseJobManager):
             executable="/bin/bash",
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            kill_timeout=2,
+            processes=_processes,
         )
 
         # check success
@@ -353,6 +364,7 @@ class HTCondorJobManager(BaseJobManager):
         scheduler: str | None = None,
         user: str | None = None,
         silent: bool = False,
+        _processes: list | None = None,
     ) -> dict[int, dict[str, Any]] | dict[str, Any] | None:
         # default arguments
         if pool is None:
@@ -392,6 +404,8 @@ class HTCondorJobManager(BaseJobManager):
             executable="/bin/bash",
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            kill_timeout=2,
+            processes=_processes,
         )
 
         # handle errors
@@ -430,6 +444,8 @@ class HTCondorJobManager(BaseJobManager):
                 executable="/bin/bash",
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
+                kill_timeout=2,
+                processes=_processes,
             )
 
             # handle errors

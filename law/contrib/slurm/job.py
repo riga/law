@@ -62,6 +62,7 @@ class SlurmJobManager(BaseJobManager):
         retries: int = 0,
         retry_delay: float | int = 3,
         silent: bool = False,
+        _processes: list | None = None,
     ) -> int | None:
         # default arguments
         if partition is None:
@@ -90,6 +91,8 @@ class SlurmJobManager(BaseJobManager):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 cwd=job_file_dir,
+                kill_timeout=2,
+                processes=_processes,
             )
 
             # get the job id(s)
@@ -125,6 +128,7 @@ class SlurmJobManager(BaseJobManager):
         job_id: int | Sequence[int],
         partition: str | None = None,
         silent: bool = False,
+        _processes: list | None = None,
     ) -> dict[int, None] | None:
         # default arguments
         if partition is None:
@@ -150,6 +154,8 @@ class SlurmJobManager(BaseJobManager):
             executable="/bin/bash",
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            kill_timeout=2,
+            processes=_processes,
         )
 
         # check success
@@ -165,6 +171,7 @@ class SlurmJobManager(BaseJobManager):
         job_id: int | Sequence[int],
         partition: str | None = None,
         silent: bool = False,
+        _processes: list | None = None,
     ) -> dict[int, dict[str, Any]] | dict[str, Any] | None:
         # default arguments
         if partition is None:
@@ -189,6 +196,8 @@ class SlurmJobManager(BaseJobManager):
             executable="/bin/bash",
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            kill_timeout=2,
+            processes=_processes,
         )
 
         # special case: when the id of a single yet expired job is queried, squeue responds with an
@@ -226,6 +235,8 @@ class SlurmJobManager(BaseJobManager):
                 executable="/bin/bash",
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
+                kill_timeout=2,
+                processes=_processes,
             )
 
             # handle errors
