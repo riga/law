@@ -18,7 +18,7 @@ import six
 from law.config import Config
 from law.job.base import BaseJobManager, BaseJobFileFactory, JobInputFile, DeprecatedInputFiles
 from law.target.file import get_path
-from law.util import interruptable_popen, make_list, make_unique, quote_cmd
+from law.util import make_list, make_unique, quote_cmd, interruptable_popen
 from law.logger import get_logger
 
 from law.contrib.lsf.util import get_lsf_version
@@ -57,7 +57,8 @@ class LSFJobManager(BaseJobManager):
     def cleanup_batch(self, *args, **kwargs):
         raise NotImplementedError("LSFJobManager.cleanup_batch is not implemented")
 
-    def submit(self, job_file, queue=None, emails=None, retries=0, retry_delay=3, silent=False):
+    def submit(self, job_file, queue=None, emails=None, retries=0, retry_delay=3, silent=False,
+            _processes=None):
         # default arguments
         if queue is None:
             queue = self.queue
@@ -78,7 +79,8 @@ class LSFJobManager(BaseJobManager):
             # run the command
             logger.debug("submit lsf job with command '{}'".format(cmd))
             code, out, err = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=job_file_dir)
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=job_file_dir, kill_timeout=2,
+                processes=_processes)
 
             # get the job id
             if code == 0:
@@ -106,7 +108,7 @@ class LSFJobManager(BaseJobManager):
 
             raise Exception("submission of lsf job '{}' failed: \n{}".format(job_file, err))
 
-    def cancel(self, job_id, queue=None, silent=False):
+    def cancel(self, job_id, queue=None, silent=False, _processes=None):
         # default arguments
         if queue is None:
             queue = self.queue
@@ -124,7 +126,7 @@ class LSFJobManager(BaseJobManager):
         # run it
         logger.debug("cancel lsf job(s) with command '{}'".format(cmd))
         code, out, err = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, kill_timeout=2, processes=_processes)
 
         # check success
         if code != 0 and not silent:
@@ -133,7 +135,7 @@ class LSFJobManager(BaseJobManager):
 
         return {job_id: None for job_id in job_ids} if chunking else None
 
-    def query(self, job_id, queue=None, silent=False):
+    def query(self, job_id, queue=None, silent=False, _processes=None):
         # default arguments
         if queue is None:
             queue = self.queue
@@ -153,7 +155,7 @@ class LSFJobManager(BaseJobManager):
         # run it
         logger.debug("query lsf job(s) with command '{}'".format(cmd))
         code, out, err = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, kill_timeout=2, processes=_processes)
 
         # handle errors
         if code != 0:

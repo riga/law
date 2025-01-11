@@ -28,7 +28,7 @@ from law.target.file import get_scheme, get_path
 from law.target.remote.base import RemoteTarget
 from law.util import (
     colored, make_list, make_tuple, iter_chunks, makedirs, create_hash, create_random_string,
-    increment_path,
+    increment_path, kill_process,
 )
 from law.logger import get_logger
 
@@ -314,12 +314,18 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
 
         # threaded processing
         pool = ThreadPool(threads)
+        kwargs["_processes"] = []
         results = [
             pool.apply_async(func, (arg,), kwargs, callback=cb_factory(i))
             for i, arg in enumerate(job_objs)
         ]
-        pool.close()
-        pool.join()
+        try:
+            pool.close()
+            pool.join()
+        except KeyboardInterrupt:
+            for p in kwargs["_processes"]:
+                kill_process(p, kill_group=True, kill_timeout=2)
+            raise
 
         # store result data or an exception
         result_data = result_type()
@@ -481,12 +487,18 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
 
         # threaded processing
         pool = ThreadPool(threads)
+        kwargs["_processes"] = []
         results = [
             pool.apply_async(func, make_tuple(arg), kwargs, callback=cb_factory(i))
             for i, arg in enumerate(job_objs.items())
         ]
-        pool.close()
-        pool.join()
+        try:
+            pool.close()
+            pool.join()
+        except KeyboardInterrupt:
+            for p in kwargs["_processes"]:
+                kill_process(p, kill_group=True, kill_timeout=2)
+            raise
 
         # store result data or an exception
         result_data = result_type()

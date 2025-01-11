@@ -27,7 +27,7 @@ from law.job.base import BaseJobManager, BaseJobFileFactory, JobInputFile, Depre
 from law.job.dashboard import BaseJobDashboard
 from law.target.file import get_path
 from law.util import (
-    DotDict, interruptable_popen, make_list, make_unique, quote_cmd, no_value, rel_path,
+    DotDict, make_list, make_unique, quote_cmd, no_value, rel_path, interruptable_popen,
 )
 from law.logger import get_logger
 
@@ -138,8 +138,12 @@ class CrabJobManager(BaseJobManager):
             **kwargs  # noqa
         )
 
+    def _check_proj_dir(self, proj_dir):
+        if not os.path.isdir(str(proj_dir)):
+            raise Exception("project directory '{}' does not exist".format(proj_dir))
+
     def submit(self, job_file, job_files=None, proxy=None, instance=None, myproxy_username=None,
-            retries=0, retry_delay=3, silent=False):
+            retries=0, retry_delay=3, silent=False, _processes=None):
         # default arguments
         if proxy is None:
             proxy = self.proxy
@@ -163,7 +167,8 @@ class CrabJobManager(BaseJobManager):
             # crab prints everything to stdout
             logger.debug("submit crab jobs with command '{}'".format(cmd))
             code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-                stdout=subprocess.PIPE, cwd=job_file_dir, env=self.cmssw_env)
+                stdout=subprocess.PIPE, cwd=job_file_dir, env=self.cmssw_env, kill_timeout=2,
+                processes=_processes)
 
             # handle errors
             if code != 0:
@@ -171,7 +176,8 @@ class CrabJobManager(BaseJobManager):
                     job_file, code, out))
 
                 # remove the project directory
-                proj_dir = self._proj_dir_from_job_file(job_file, self.cmssw_env)
+                proj_dir = self._proj_dir_from_job_file(job_file, self.cmssw_env,
+                    _processes=_processes)
                 if proj_dir and os.path.isdir(proj_dir):
                     logger.debug("removing crab project '{}' from previous attempt".format(
                         proj_dir))
@@ -225,7 +231,9 @@ class CrabJobManager(BaseJobManager):
             return job_ids
 
     def cancel(self, proj_dir, job_ids=None, proxy=None, instance=None, myproxy_username=None,
-            silent=False):
+            silent=False, _processes=None):
+        self._check_proj_dir(proj_dir)
+
         if job_ids is None:
             job_ids = self._job_ids_from_proj_dir(proj_dir)
 
@@ -240,7 +248,7 @@ class CrabJobManager(BaseJobManager):
         # run it
         logger.debug("cancel crab job(s) with command '{}'".format(cmd))
         code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-            stdout=subprocess.PIPE, env=self.cmssw_env)
+            stdout=subprocess.PIPE, env=self.cmssw_env, kill_timeout=2, processes=_processes)
 
         # check success
         if code != 0 and not silent:
@@ -265,7 +273,9 @@ class CrabJobManager(BaseJobManager):
         return {job_id: None for job_id in job_ids}
 
     def query(self, proj_dir, job_ids=None, proxy=None, instance=None, myproxy_username=None,
-            skip_transfers=None, silent=False):
+            skip_transfers=None, silent=False, _processes=None):
+        self._check_proj_dir(proj_dir)
+
         proj_dir = str(proj_dir)
         log_data = self._parse_log_file(os.path.join(proj_dir, "crab.log"))
         if job_ids is None:
@@ -286,7 +296,8 @@ class CrabJobManager(BaseJobManager):
         # run it
         logger.debug("query crab job(s) with command '{}'".format(cmd))
         code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=self.cmssw_env)
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=self.cmssw_env, kill_timeout=2,
+            processes=_processes)
 
         # handle errors
         if code != 0:
@@ -414,7 +425,7 @@ class CrabJobManager(BaseJobManager):
         return query_data
 
     @classmethod
-    def _proj_dir_from_job_file(cls, job_file, cmssw_env):
+    def _proj_dir_from_job_file(cls, job_file, cmssw_env, _processes=None):
         work_area = None
         request_name = None
 
@@ -454,7 +465,7 @@ with open("{}", "r") as f:
     cfg = mod["cfg"]
 print(join(cfg.General.workArea, "crab_" + cfg.General.requestName))'""".format(py_exec, job_file)
             code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-                stdout=subprocess.PIPE, env=cmssw_env)
+                stdout=subprocess.PIPE, env=cmssw_env, kill_timeout=2, processes=_processes)
             if code == 0:
                 path = out.strip().replace("\r\n", "\n").split("\n")[-1]
                 path = os.path.expandvars(os.path.expanduser(path))

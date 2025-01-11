@@ -18,7 +18,7 @@ import subprocess
 from law.config import Config
 from law.job.base import BaseJobManager, BaseJobFileFactory, JobInputFile, DeprecatedInputFiles
 from law.target.file import get_path
-from law.util import interruptable_popen, make_list, make_unique, quote_cmd
+from law.util import make_list, make_unique, quote_cmd, interruptable_popen
 from law.logger import get_logger
 
 
@@ -48,7 +48,8 @@ class ARCJobManager(BaseJobManager):
         self.ce = ce
         self.threads = threads
 
-    def submit(self, job_file, job_list=None, ce=None, retries=0, retry_delay=3, silent=False):
+    def submit(self, job_file, job_list=None, ce=None, retries=0, retry_delay=3, silent=False,
+            _processes=None):
         # default arguments
         if job_list is None:
             job_list = self.job_list
@@ -81,7 +82,7 @@ class ARCJobManager(BaseJobManager):
             # run the command
             logger.debug("submit arc job(s) with command '{}'".format(cmd))
             code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-                stdout=subprocess.PIPE, cwd=job_file_dir)
+                stdout=subprocess.PIPE, cwd=job_file_dir, kill_timeout=2, processes=_processes)
 
             # in some cases, the return code is 0 but the ce did not respond valid job ids
             job_ids = []
@@ -117,7 +118,7 @@ class ARCJobManager(BaseJobManager):
 
             raise Exception("submission of arc job(s) '{}' failed:\n{}".format(job_files, out))
 
-    def cancel(self, job_id, job_list=None, silent=False):
+    def cancel(self, job_id, job_list=None, silent=False, _processes=None):
         # default arguments
         if job_list is None:
             job_list = self.job_list
@@ -135,7 +136,7 @@ class ARCJobManager(BaseJobManager):
         # run it
         logger.debug("cancel arc job(s) with command '{}'".format(cmd))
         code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-            stdout=subprocess.PIPE)
+            stdout=subprocess.PIPE, kill_timeout=2, processes=_processes)
 
         # check success
         if code != 0 and not silent:
@@ -145,7 +146,7 @@ class ARCJobManager(BaseJobManager):
 
         return {job_id: None for job_id in job_ids} if chunking else None
 
-    def cleanup(self, job_id, job_list=None, silent=False):
+    def cleanup(self, job_id, job_list=None, silent=False, _processes=None):
         # default arguments
         if job_list is None:
             job_list = self.job_list
@@ -163,7 +164,7 @@ class ARCJobManager(BaseJobManager):
         # run it
         logger.debug("cleanup arc job(s) with command '{}'".format(cmd))
         code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-            stdout=subprocess.PIPE)
+            stdout=subprocess.PIPE, kill_timeout=2, processes=_processes)
 
         # check success
         if code != 0 and not silent:
@@ -173,7 +174,7 @@ class ARCJobManager(BaseJobManager):
 
         return {job_id: None for job_id in job_ids} if chunking else None
 
-    def query(self, job_id, job_list=None, silent=False):
+    def query(self, job_id, job_list=None, silent=False, _processes=None):
         # default arguments
         if job_list is None:
             job_list = self.job_list
@@ -191,7 +192,7 @@ class ARCJobManager(BaseJobManager):
         # run it
         logger.debug("query arc job(s) with command '{}'".format(cmd))
         code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, kill_timeout=2, processes=_processes)
 
         # handle errors
         if code != 0:

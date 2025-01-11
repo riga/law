@@ -17,7 +17,7 @@ import subprocess
 from law.config import Config
 from law.job.base import BaseJobManager, BaseJobFileFactory, JobInputFile, DeprecatedInputFiles
 from law.target.file import get_path
-from law.util import interruptable_popen, make_list, make_unique, quote_cmd
+from law.util import make_list, make_unique, quote_cmd, interruptable_popen
 from law.logger import get_logger
 
 
@@ -44,7 +44,8 @@ class GLiteJobManager(BaseJobManager):
         self.delegation_id = delegation_id
         self.threads = threads
 
-    def submit(self, job_file, ce=None, delegation_id=None, retries=0, retry_delay=3, silent=False):
+    def submit(self, job_file, ce=None, delegation_id=None, retries=0, retry_delay=3, silent=False,
+            _processes=None):
         # default arguments
         if ce is None:
             ce = self.ce
@@ -80,7 +81,7 @@ class GLiteJobManager(BaseJobManager):
             # glite prints everything to stdout
             logger.debug("submit glite job with command '{}'".format(cmd))
             code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-                stdout=subprocess.PIPE, cwd=job_file_dir)
+                stdout=subprocess.PIPE, cwd=job_file_dir, kill_timeout=2, processes=_processes)
 
             # in some cases, the return code is 0 but the ce did not respond with a valid id
             if code == 0:
@@ -106,7 +107,7 @@ class GLiteJobManager(BaseJobManager):
 
             raise Exception("submission of glite job '{}' failed:\n{}".format(job_file, out))
 
-    def cancel(self, job_id, silent=False):
+    def cancel(self, job_id, silent=False, _processes=None):
         chunking = isinstance(job_id, (list, tuple))
         job_ids = make_list(job_id)
 
@@ -117,7 +118,7 @@ class GLiteJobManager(BaseJobManager):
         # run it
         logger.debug("cancel glite job(s) with command '{}'".format(cmd))
         code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-            stdout=subprocess.PIPE)
+            stdout=subprocess.PIPE, kill_timeout=2, processes=_processes)
 
         # check success
         if code != 0 and not silent:
@@ -127,7 +128,7 @@ class GLiteJobManager(BaseJobManager):
 
         return {job_id: None for job_id in job_ids} if chunking else None
 
-    def cleanup(self, job_id, silent=False):
+    def cleanup(self, job_id, silent=False, _processes=None):
         chunking = isinstance(job_id, (list, tuple))
         job_ids = make_list(job_id)
 
@@ -138,7 +139,7 @@ class GLiteJobManager(BaseJobManager):
         # run it
         logger.debug("cleanup glite job(s) with command '{}'".format(cmd))
         code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-            stdout=subprocess.PIPE)
+            stdout=subprocess.PIPE, kill_timeout=2, processes=_processes)
 
         # check success
         if code != 0 and not silent:
@@ -148,7 +149,7 @@ class GLiteJobManager(BaseJobManager):
 
         return {job_id: None for job_id in job_ids} if chunking else None
 
-    def query(self, job_id, silent=False):
+    def query(self, job_id, silent=False, _processes=None):
         chunking = isinstance(job_id, (list, tuple))
         job_ids = make_list(job_id)
 
@@ -159,7 +160,7 @@ class GLiteJobManager(BaseJobManager):
         # run it
         logger.debug("query glite job(s) with command '{}'".format(cmd))
         code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-            stdout=subprocess.PIPE)
+            stdout=subprocess.PIPE, kill_timeout=2, processes=_processes)
 
         # handle errors
         if code != 0:

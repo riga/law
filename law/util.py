@@ -12,12 +12,12 @@ __all__ = [
     "is_pattern", "brace_expand", "range_expand", "range_join", "multi_match", "is_iterable",
     "is_lazy_iterable", "make_list", "make_tuple", "make_set", "make_unique", "is_nested",
     "flatten", "merge_dicts", "unzip", "which", "map_verbose", "map_struct", "mask_struct",
-    "tmp_file", "perf_counter", "interruptable_popen", "readable_popen", "create_hash",
-    "create_random_string", "copy_no_perm", "makedirs", "user_owns_file", "increment_path",
-    "iter_chunks", "human_bytes", "parse_bytes", "human_duration", "parse_duration",
-    "is_file_exists_error", "send_mail", "DotDict", "ShorthandDict", "open_compat", "patch_object",
-    "join_generators", "quote_cmd", "escape_markdown", "classproperty", "BaseStream", "TeeStream",
-    "FilteredStream",
+    "tmp_file", "perf_counter", "interruptable_popen", "kill_process", "readable_popen",
+    "create_hash", "create_random_string", "copy_no_perm", "makedirs", "user_owns_file",
+    "increment_path", "iter_chunks", "human_bytes", "parse_bytes", "human_duration",
+    "parse_duration", "is_file_exists_error", "send_mail", "DotDict", "ShorthandDict",
+    "open_compat", "patch_object", "join_generators", "quote_cmd", "escape_markdown",
+    "classproperty", "BaseStream", "TeeStream", "FilteredStream",
 ]
 
 
@@ -1327,7 +1327,7 @@ def perf_counter():
 
 
 def interruptable_popen(*args, **kwargs):
-    """ interruptable_popen(*args, stdin_callback=None, stdin_delay=0, interrupt_callback=None, kill_timeout=None, **kwargs)  # noqa
+    """ interruptable_popen(*args, stdin_callback=None, stdin_delay=0, interrupt_callback=None, kill_timeout=None, processes=None, **kwargs)  # noqa
     Shorthand to :py:class:`Popen` followed by :py:meth:`Popen.communicate` which can be interrupted
     by *KeyboardInterrupt*. The return code, standard output and standard error are returned in a
     3-tuple.
@@ -1342,6 +1342,10 @@ def interruptable_popen(*args, **kwargs):
     When *kill_timeout* is set, and the process is still alive after that period (in seconds), a
     SIGKILL signal is sent to force the process termination.
 
+    In case a *processes* list is defined, the process is appended to it right after it was created.
+    This can be useful to keep track of multiple processes and sending signals to them from an
+    outer context.
+
     All other *args* and *kwargs* are forwarded to the :py:class:`Popen` constructor.
     """
     # get kwargs not being passed to Popen
@@ -1349,10 +1353,15 @@ def interruptable_popen(*args, **kwargs):
     stdin_delay = kwargs.pop("stdin_delay", 0)
     interrupt_callback = kwargs.pop("interrupt_callback", None)
     kill_timeout = kwargs.pop("kill_timeout", None)
+    processes = kwargs.pop("processes", None)
 
     # start the subprocess in a new process group
     kwargs["preexec_fn"] = os.setsid
     p = subprocess.Popen(*args, **kwargs)
+
+    # add to processes list
+    if processes is not None:
+        processes.append(p)
 
     # get stdin
     stdin_data = None
@@ -1371,24 +1380,8 @@ def interruptable_popen(*args, **kwargs):
         if callable(interrupt_callback):
             interrupt_callback(p)
 
-        # when the process is still alive, send SIGTERM to gracefully terminate it
-        pgid = os.getpgid(p.pid)
-        if p.poll() is None:
-            os.killpg(pgid, signal.SIGTERM)
-
-        # when a kill_timeout is set, and the process is still running after that period,
-        # send SIGKILL to force its termination
-        if kill_timeout is not None:
-            target_time = perf_counter() + kill_timeout
-            while target_time > perf_counter():
-                time.sleep(0.05)
-                if p.poll() is not None:
-                    # the process terminated, exit the loop
-                    break
-            else:
-                # check the status again to avoid race conditions
-                if p.poll() is None:
-                    os.killpg(pgid, signal.SIGKILL)
+        # kill the process
+        kill_process(p, use_group=True, kill_timeout=kill_timeout)
 
         # transparently reraise
         raise
@@ -1400,6 +1393,40 @@ def interruptable_popen(*args, **kwargs):
             err = err.decode("utf-8")
 
     return p.returncode, out, err
+
+
+def kill_process(p, kill_group=False, kill_timeout=None):
+    """
+    Kills a running process with SIGTERM. When *kill_group* is *True*, the process group is killed.
+    When *kill_timeout* is set, and the process is still running after that period (in seconds), a
+    SIGKILL signal is sent to force the process termination.
+    """
+    # get the pid
+    pid = p.pid
+    if kill_group:
+        pid = os.getpgid(pid)
+
+    # when the process is still alive, send SIGTERM to gracefully terminate it
+    if p.poll() is None:
+        os.killpg(pid, signal.SIGTERM)
+
+    # when a kill_timeout is set, and the process is still running after that period,
+    # send SIGKILL to force its termination
+    if p.poll() is None and kill_timeout is not None:
+        print("kill timeout")
+        target_time = perf_counter() + kill_timeout
+        while target_time > perf_counter():
+            time.sleep(0.05)
+            if p.poll() is not None:
+                # the process terminated, exit the loop
+                break
+        else:
+            print("here", 1)
+            # check the status again to avoid race conditions
+            if p.poll() is None:
+                print("here", 2)
+                os.killpg(pid, signal.SIGKILL)
+            print("here", 3)
 
 
 def readable_popen(*args, **kwargs):

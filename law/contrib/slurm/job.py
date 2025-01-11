@@ -16,7 +16,7 @@ import subprocess
 from law.config import Config
 from law.job.base import BaseJobManager, BaseJobFileFactory, JobInputFile
 from law.target.file import get_path
-from law.util import interruptable_popen, make_list, quote_cmd
+from law.util import make_list, quote_cmd, interruptable_popen
 from law.logger import get_logger
 
 
@@ -52,7 +52,8 @@ class SlurmJobManager(BaseJobManager):
     def cleanup_batch(self, *args, **kwargs):
         raise NotImplementedError("SlurmJobManager.cleanup_batch is not implemented")
 
-    def submit(self, job_file, partition=None, retries=0, retry_delay=3, silent=False):
+    def submit(self, job_file, partition=None, retries=0, retry_delay=3, silent=False,
+            _processes=None):
         # default arguments
         if partition is None:
             partition = self.partition
@@ -72,7 +73,8 @@ class SlurmJobManager(BaseJobManager):
             # run the command
             logger.debug("submit slurm job with command '{}'".format(cmd))
             code, out, err = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=job_file_dir)
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=job_file_dir, kill_timeout=2,
+                processes=_processes)
 
             # get the job id(s)
             if code == 0:
@@ -104,7 +106,7 @@ class SlurmJobManager(BaseJobManager):
             raise Exception("submission of slurm job '{}' failed:\n{}".format(
                 job_file, err))
 
-    def cancel(self, job_id, partition=None, silent=False):
+    def cancel(self, job_id, partition=None, silent=False, _processes=None):
         # default arguments
         if partition is None:
             partition = self.partition
@@ -122,7 +124,7 @@ class SlurmJobManager(BaseJobManager):
         # run it
         logger.debug("cancel slurm job(s) with command '{}'".format(cmd))
         code, out, err = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, kill_timeout=2, processes=_processes)
 
         # check success
         if code != 0 and not silent:
@@ -131,7 +133,7 @@ class SlurmJobManager(BaseJobManager):
 
         return {job_id: None for job_id in job_ids} if chunking else None
 
-    def query(self, job_id, partition=None, silent=False):
+    def query(self, job_id, partition=None, silent=False, _processes=None):
         # default arguments
         if partition is None:
             partition = self.partition
@@ -148,7 +150,7 @@ class SlurmJobManager(BaseJobManager):
 
         logger.debug("query slurm job(s) with command '{}'".format(cmd))
         code, out, err = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, kill_timeout=2, processes=_processes)
 
         # special case: when the id of a single yet expired job is queried, squeue responds with an
         # error (exit code != 0), so as a workaround, consider these cases as an empty result
@@ -180,7 +182,7 @@ class SlurmJobManager(BaseJobManager):
 
             logger.debug("query slurm accounting history with command '{}'".format(cmd))
             code, out, err = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, kill_timeout=2)
 
             # handle errors
             if code != 0:
