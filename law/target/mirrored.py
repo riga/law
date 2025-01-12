@@ -124,6 +124,12 @@ class MirroredTarget(FileSystemTarget):
 
         super().__init__(path, **kwargs)
 
+    def _copy_kwargs(self):
+        kwargs = super()._copy_kwargs()
+        kwargs["local_read_only"] = self.local_read_only
+        kwargs["local_sync"] = self.local_sync
+        return kwargs
+
     @property
     def _local_root_depth(self) -> int:
         return self.local_target.fs.local_root_depth
