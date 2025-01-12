@@ -130,7 +130,13 @@ class MirroredTarget(FileSystemTarget):
         # temporary, forced file system
         self._force_fs = None
 
-        super().__init__(path, **kwargs)
+        super(MirroredTarget, self).__init__(path, **kwargs)
+
+    def _copy_kwargs(self):
+        kwargs = super(MirroredTarget, self)._copy_kwargs()
+        kwargs["local_read_only"] = self.local_read_only
+        kwargs["local_sync"] = self.local_sync
+        return kwargs
 
     @property
     def _local_root_depth(self):
@@ -347,7 +353,7 @@ class MirroredTarget(FileSystemTarget):
 class MirroredFileTarget(FileSystemFileTarget, MirroredTarget):
 
     def __init__(self, path, **kwargs):
-        super().__init__(path, _is_file=True, **kwargs)
+        super(MirroredFileTarget, self).__init__(path, _is_file=True, **kwargs)
 
     @contextlib.contextmanager
     def open(self, mode, **kwargs):
@@ -365,7 +371,7 @@ class MirroredFileTarget(FileSystemFileTarget, MirroredTarget):
 class MirroredDirectoryTarget(FileSystemDirectoryTarget, MirroredTarget):
 
     def __init__(self, path, **kwargs):
-        super().__init__(path, _is_file=False, **kwargs)
+        super(MirroredDirectoryTarget, self).__init__(path, _is_file=False, **kwargs)
 
     def _child_args(self, path, type):
         child_kwargs = {
