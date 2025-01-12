@@ -1381,7 +1381,7 @@ def interruptable_popen(*args, **kwargs):
             interrupt_callback(p)
 
         # kill the process
-        kill_process(p, use_group=True, kill_timeout=kill_timeout)
+        kill_process(p, kill_group=True, kill_timeout=kill_timeout)
 
         # transparently reraise
         raise
