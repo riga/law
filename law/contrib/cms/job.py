@@ -261,7 +261,7 @@ class CrabJobManager(BaseJobManager):
         return {job_id: None for job_id in job_ids}
 
     def cleanup(self, proj_dir, job_ids=None, proxy=None, instance=None, myproxy_username=None,
-            silent=False):
+            silent=False, _processes=None):
         if job_ids is None:
             job_ids = self._job_ids_from_proj_dir(proj_dir)
 
@@ -363,24 +363,32 @@ class CrabJobManager(BaseJobManager):
                 extra["tracking_url"] = monitoring_url
             return extra
 
-        # in case scheduler status or the json line is missing, the submission could be too new
+        # in case scheduler status or the json line is missing, the submission could be too new or
+        # it failed entirely
         if not scheduler_status or not json_line:
-            accepted_server_states = [
+            pending_server_states = {
                 "HOLDING on command SUBMIT",
                 "NEW on command SUBMIT",
                 "QUEUED on command SUBMIT",
                 "WAITING on command SUBMIT",
                 "SUBMITTED",
-            ]
-            if server_status not in accepted_server_states:
-                s = ",".join(map("'{}'".format, accepted_server_states))
+            }
+            failed_server_states = {"SUBMITFAILED"}
+            error = None
+            if server_status in pending_server_states:
+                status = cls.PENDING
+            elif server_status in failed_server_states:
+                status = cls.FAILED
+                error = "submission failed"
+            else:
+                s = ",".join(map("'{}'".format, pending_server_states | failed_server_states))
                 raise Exception(
                     "no per-job information available (yet?), which is only accepted if the crab " +
                     "server status is any of {}, but got '{}'".format(s, server_status),
                 )
-            # interpret all jobs as pending
             return {
-                job_id: cls.job_status_dict(job_id=job_id, status=cls.PENDING, extra=extra(job_id))
+                job_id: cls.job_status_dict(job_id=job_id, status=status, error=error,
+                    extra=extra(job_id))
                 for job_id in job_ids
             }
 

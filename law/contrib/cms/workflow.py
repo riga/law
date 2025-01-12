@@ -240,8 +240,7 @@ class CrabWorkflow(BaseRemoteWorkflow):
 
     def crab_request_name(self, submit_jobs):
         """
-        Returns a random name for a request, i.e., the project directory inside the crab job working
-        area.
+        Returns a name for a request, i.e., the project directory inside the crab job working area.
         """
         return "{}_{}".format(self.live_task_id, str(uuid.uuid4())[:8])
 
