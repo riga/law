@@ -5,7 +5,7 @@ Helpful utility functions.
 """
 
 __all__ = [
-    "default_lock", "io_lock", "console_lock", "no_value", "rel_path", "law_src_path",
+    "default_lock", "io_lock", "console_lock", "no_value", "mp_manager", "rel_path", "law_src_path",
     "law_home_path", "law_run", "print_err", "abort", "import_file", "get_terminal_width",
     "is_classmethod", "is_number", "is_float", "try_int", "round_discrete", "str_to_int",
     "flag_to_bool", "empty_context", "common_task_params", "colored", "uncolored", "query_choice",
@@ -43,6 +43,7 @@ import time
 import datetime
 import random
 import threading
+import multiprocessing
 import io
 import shlex
 import inspect
@@ -69,6 +70,9 @@ logger = logging.getLogger(__name__)
 default_lock = threading.Lock()
 io_lock = threading.Lock()
 console_lock = threading.Lock()
+
+# globally usable manager for mp objects
+mp_manager = multiprocessing.Manager()
 
 
 class NoValue(object):
