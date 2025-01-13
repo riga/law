@@ -25,7 +25,7 @@ import functools
 import six
 
 from law.util import (
-    interruptable_popen, create_hash, human_duration, parse_duration, quote_cmd,
+    interruptable_popen, create_hash, human_duration, parse_duration, quote_cmd, make_list,
 )
 from law.logger import get_logger
 
@@ -314,7 +314,7 @@ def delegate_myproxy(
     usercert=None,
     username=None,
     proxy_file=None,
-    encode_username=True,
+    encode_username=False,
     cred_lifetime=720,
     proxy_lifetime=168,
     retrievers=None,
@@ -334,7 +334,7 @@ def delegate_myproxy(
     *encode_username* is set, *username* is the sha1 encoded.
 
     The credential and proxy lifetimes can be defined in hours by *cred_lifetime* and
-    *proxy_lifetime*. When *retrievers* is given, it is passed as both ``--renewable_by`` and
+    *proxy_lifetime*. When *retrievers* is given, they are passed as both ``--renewable_by`` and
     ``--retrievable_by_cert`` to the underlying ``myproxy-init`` command.
 
     When *rfc* is *True*, the delegated proxy will be RFC compliant. To pass VOMS attributes to the
@@ -362,7 +362,7 @@ def delegate_myproxy(
     if encode_username:
         username = hashlib.sha1(username.encode("utf-8")).hexdigest()
 
-    # build the command
+    # build the init command
     cmd = [
         "myproxy-init",
         "-s", endpoint,
@@ -373,10 +373,8 @@ def delegate_myproxy(
         "-c", str(cred_lifetime),
     ]
     if retrievers:
-        cmd.extend([
-            "-x", "-R", retrievers,
-            "-x", "-Z", retrievers,
-        ])
+        for r in make_list(retrievers):
+            cmd.extend(["-x", "-R", r, "-x", "-Z", r])
     if vo:
         cmd.extend(["-m", vo])
     if create_local:
@@ -397,17 +395,49 @@ def delegate_myproxy(
             stderr=silent_pipe, stdin=subprocess.PIPE, stdin_callback=stdin_callback,
             stdin_delay=0.2)[0]
 
-    if code == 0:
-        return username
+    # stop in case of an error
+    if code != 0:
+        if silent:
+            return None
+        raise Exception("myproxy-init failed with code {}".format(code))
 
-    if silent:
-        return None
+    # optional myproxy-get-delegation call, currently disabled
+    # # build the delegation command
+    # cmd = ["myproxy-get-delegation"]
+    # if vo:
+    #     cmd.extend(["-m", vo])
+    # if proxy_file:
+    #     cmd.extend(["-o", proxy_file])
 
-    raise Exception("myproxy-init failed with code {}".format(code))
+    # # run it, depending on whether a password file is given
+    # silent_pipe = subprocess.PIPE if silent else None
+    # if password_file:
+    #     cmd = "cat \"{}\" | {} -S".format(password_file, quote_cmd(cmd))
+    #     code = interruptable_popen(cmd, shell=True, executable="/bin/bash", stdout=silent_pipe,
+    #         stderr=silent_pipe)[0]
+    # else:
+    #     cmd = quote_cmd(cmd)
+    #     stdin_callback = (lambda: password) if password else functools.partial(getpass.getpass, "")
+    #     code = interruptable_popen(cmd, shell=True, executable="/bin/bash", stdout=silent_pipe,
+    #         stderr=silent_pipe, stdin=subprocess.PIPE, stdin_callback=stdin_callback,
+    #         stdin_delay=0.2)[0]
+
+    # # stop in case of an error
+    # if code != 0:
+    #     if silent:
+    #         return None
+    #     raise Exception("myproxy-get-delegation failed with code {}".format(code))
+
+    return username
 
 
-def get_myproxy_info(endpoint="myproxy.cern.ch", username=None, encode_username=True,
-        proxy_file=None, silent=False):
+def get_myproxy_info(
+    endpoint="myproxy.cern.ch",
+    username=None,
+    encode_username=False,
+    proxy_file=None,
+    silent=False,
+):
     """
     Returns information about a previous myproxy delegation to a server *endpoint*. When *username*
     is *None*, the subject string of the certificate is used instead, and sha1 encoded if

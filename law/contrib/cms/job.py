@@ -44,6 +44,7 @@ class CrabJobManager(BaseJobManager):
     submission_task_name_cre = re.compile(r"^Task\s+name\s*\:\s+([^\s]+)\s*$")
     submission_log_file_cre = re.compile(r"^Log\s+file\s+is\s+([^\s]+\.log)\s*$")
     query_server_status_cre = re.compile(r"^Status\s+on\s+the\s+CRAB\s+server\s*\:\s+([^\s].*)$")
+    query_server_failure_cre = re.compile(r"^Failure\s+message\s+from\s+server\s*\:\s+([^\s].*)$")
     query_user_cre = re.compile(r"^Task\s+name\s*:\s+\d+_\d+\:([^_]+)_.+$")
     query_scheduler_cre = re.compile(r"^Grid\s+scheduler\s+-\s+Task\s+Worker\s*\:\s+([^\s]+).+$")
     query_scheduler_id_cre = re.compile(r"^Grid\s+scheduler\s+-\s+Task\s+Worker\s*\:\s+crab.*\@.+[^\d](\d+)\..+$")  # noqa
@@ -63,7 +64,8 @@ class CrabJobManager(BaseJobManager):
 
     JobId = namedtuple("JobId", ["crab_num", "task_name", "proj_dir"])
 
-    def __init__(self, sandbox_name=None, proxy=None, instance=None, threads=1):
+    def __init__(self, sandbox_name=None, proxy_file=None, myproxy_username=None, instance=None,
+            threads=1):
         super(CrabJobManager, self).__init__()
 
         # default sandbox name
@@ -79,7 +81,8 @@ class CrabJobManager(BaseJobManager):
         )
 
         # store attributes
-        self.proxy = proxy
+        self.proxy_file = proxy_file
+        self.myproxy_username = myproxy_username
         self.instance = instance
         self.threads = threads
 
@@ -142,11 +145,13 @@ class CrabJobManager(BaseJobManager):
         if not os.path.isdir(str(proj_dir)):
             raise Exception("project directory '{}' does not exist".format(proj_dir))
 
-    def submit(self, job_file, job_files=None, proxy=None, instance=None, myproxy_username=None,
-            retries=0, retry_delay=3, silent=False, _processes=None):
+    def submit(self, job_file, job_files=None, proxy_file=None, myproxy_username=None,
+            instance=None, retries=0, retry_delay=3, silent=False, _processes=None):
         # default arguments
-        if proxy is None:
-            proxy = self.proxy
+        if proxy_file is None:
+            proxy_file = self.proxy_file
+        if myproxy_username is None:
+            myproxy_username = self.myproxy_username
         if instance is None:
             instance = self.instance
 
@@ -157,8 +162,8 @@ class CrabJobManager(BaseJobManager):
         while True:
             # build the command
             cmd = ["crab", "submit", "--config", job_file_name]
-            if proxy:
-                cmd += ["--proxy", proxy]
+            if proxy_file:
+                cmd += ["--proxy", proxy_file]
             if instance:
                 cmd += ["--instance", instance]
             cmd = quote_cmd(cmd)
@@ -230,17 +235,24 @@ class CrabJobManager(BaseJobManager):
 
             return job_ids
 
-    def cancel(self, proj_dir, job_ids=None, proxy=None, instance=None, myproxy_username=None,
+    def cancel(self, proj_dir, job_ids=None, proxy_file=None, myproxy_username=None, instance=None,
             silent=False, _processes=None):
         self._check_proj_dir(proj_dir)
 
+        # default arguments
         if job_ids is None:
             job_ids = self._job_ids_from_proj_dir(proj_dir)
+        if proxy_file is None:
+            proxy_file = self.proxy_file
+        if myproxy_username is None:
+            myproxy_username = self.myproxy_username
+        if instance is None:
+            instance = self.instance
 
         # build the command
         cmd = ["crab", "kill", "--dir", str(proj_dir)]
-        if proxy:
-            cmd += ["--proxy", proxy]
+        if proxy_file:
+            cmd += ["--proxy", proxy_file]
         if instance:
             cmd += ["--instance", instance]
         cmd = quote_cmd(cmd)
@@ -260,7 +272,7 @@ class CrabJobManager(BaseJobManager):
 
         return {job_id: None for job_id in job_ids}
 
-    def cleanup(self, proj_dir, job_ids=None, proxy=None, instance=None, myproxy_username=None,
+    def cleanup(self, proj_dir, job_ids=None, proxy_file=None, myproxy_username=None, instance=None,
             silent=False, _processes=None):
         if job_ids is None:
             job_ids = self._job_ids_from_proj_dir(proj_dir)
@@ -272,7 +284,7 @@ class CrabJobManager(BaseJobManager):
 
         return {job_id: None for job_id in job_ids}
 
-    def query(self, proj_dir, job_ids=None, proxy=None, instance=None, myproxy_username=None,
+    def query(self, proj_dir, job_ids=None, proxy_file=None, myproxy_username=None, instance=None,
             skip_transfers=None, silent=False, _processes=None):
         self._check_proj_dir(proj_dir)
 
@@ -281,14 +293,22 @@ class CrabJobManager(BaseJobManager):
         if job_ids is None:
             job_ids = self._job_ids_from_proj_dir(proj_dir, log_data=log_data)
 
+        # default arguments
+        if proxy_file is None:
+            proxy_file = self.proxy_file
+        if myproxy_username is None:
+            myproxy_username = self.myproxy_username
+        if instance is None:
+            instance = self.instance
+
         # when output collection is disabled, we can consider all "transferring" states as finished
         if skip_transfers is None:
             skip_transfers = str(log_data.get("disable_output_collection")).lower() == "true"
 
         # build the command
         cmd = ["crab", "status", "--dir", proj_dir, "--json"]
-        if proxy:
-            cmd += ["--proxy", proxy]
+        if proxy_file:
+            cmd += ["--proxy", proxy_file]
         if instance:
             cmd += ["--instance", instance]
         cmd = quote_cmd(cmd)
@@ -333,6 +353,7 @@ class CrabJobManager(BaseJobManager):
             cls.query_scheduler_status_cre,
             cls.query_json_line_cre,
             cls.query_monitoring_url_cre,
+            cls.query_server_failure_cre,
         ]
         values = len(cres) * [None]
         for line in out.replace("\r", "").split("\n"):
@@ -346,7 +367,15 @@ class CrabJobManager(BaseJobManager):
                 break
 
         # unpack
-        username, server_status, scheduler_id, scheduler_status, json_line, monitoring_url = values
+        (
+            username,
+            server_status,
+            scheduler_id,
+            scheduler_status,
+            json_line,
+            monitoring_url,
+            server_failure,
+        ) = values
 
         # helper to build extra info
         def extra(job_id, job_data=None):
@@ -379,11 +408,11 @@ class CrabJobManager(BaseJobManager):
                 status = cls.PENDING
             elif server_status in failed_server_states:
                 status = cls.FAILED
-                error = "submission failed"
+                error = server_failure or "submission failed"
             else:
                 s = ",".join(map("'{}'".format, pending_server_states | failed_server_states))
                 raise Exception(
-                    "no per-job information available (yet?), which is only accepted if the crab " +
+                    "no per-job information available (yet?), which is only accepted if the crab "
                     "server status is any of {}, but got '{}'".format(s, server_status),
                 )
             return {
@@ -395,7 +424,7 @@ class CrabJobManager(BaseJobManager):
         # parse json data
         if not json_line:
             raise Exception(
-                "no per-job information available in status response, crab server " +
+                "no per-job information available in status response, crab server "
                 "status '{}', scheduler status '{}'".format(server_status, scheduler_status),
             )
 

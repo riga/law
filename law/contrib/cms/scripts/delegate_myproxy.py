@@ -5,16 +5,27 @@ Script to trigger a myproxy delegation, e.g. for crab submission.
 """
 
 
-def delegate(renew, endpoint, username, password_file, vo, voms_proxy):
+def delegate(renew, endpoint, username, password_file, vo, voms_proxy, crab):
     import law
 
     law.contrib.load("cms", "wlcg")
+
+    # settings
+    encode_username = False
+    retrievers = None
+
+    # crab mode
+    if crab:
+        encode_username = True
+        voms_proxy = True
+        retrievers = law.contrib.cms.util._default_crab_receivers
 
     # when not renewing, check if a previous delegation exists
     if not renew:
         info = law.wlcg.get_myproxy_info(
             endpoint=endpoint,
             username=username,
+            encode_username=encode_username,
             silent=True,
         )
         if info:
@@ -30,8 +41,10 @@ def delegate(renew, endpoint, username, password_file, vo, voms_proxy):
     law.cms.delegate_myproxy(
         endpoint=endpoint,
         username=username,
+        encode_username=encode_username,
         password_file=password_file,
         vo=vo,
+        retrievers=retrievers,
     )
 
 
@@ -56,7 +69,7 @@ def main():
         "--endpoint",
         "-e",
         default="myproxy.cern.ch",
-        help="the server endpoint; default: myproxy.cern.ch",
+        help="the server endpoint; default: %(default)s",
     )
     parser.add_argument(
         "--password-file",
@@ -74,14 +87,19 @@ def main():
     parser.add_argument(
         "--vo",
         "-m",
-        default="cms",
-        help="virtual organization to use; default: cms",
+        default=law.contrib.cms.util._default_vo(),
+        help="virtual organization to use; default: %(default)s",
     )
     parser.add_argument(
         "--voms-proxy",
         "-v",
         action="store_true",
         help="create a voms-proxy prior to the delegation",
+    )
+    parser.add_argument(
+        "--crab",
+        action="store_true",
+        help="adds crab-specific defaults",
     )
     args = parser.parse_args()
 
@@ -92,6 +110,7 @@ def main():
         args.password_file,
         args.vo,
         args.voms_proxy,
+        args.crab,
     )
 
 

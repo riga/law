@@ -56,7 +56,7 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
             renew_vomsproxy(proxy_file=proxy_file, password_file=password_file)
 
         # ensure that it has been delegated to the myproxy server
-        info = law.wlcg.get_myproxy_info(proxy_file=proxy_file, silent=True)
+        info = law.wlcg.get_myproxy_info(proxy_file=proxy_file, encode_username=True, silent=True)
         delegate = False
         if not info:
             delegate = True
@@ -66,19 +66,20 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
         elif "timeleft" not in info:
             logger.warning("field 'timeleft' not in myproxy info")
             delegate = True
-        elif info["timeleft"] < 86400:
-            logger.warning("myproxy lifetime below 24h ({})".format(
+        elif info["timeleft"] < 5 * 86400:
+            logger.warning("myproxy lifetime below 5 days ({})".format(
                 human_duration(seconds=info["timeleft"]),
             ))
             delegate = True
 
         # actual delegation
         if delegate:
-            myproxy_username = delegate_myproxy(proxy_file=proxy_file, password_file=password_file)
+            myproxy_username = delegate_myproxy(proxy_file=proxy_file, password_file=password_file,
+                encode_username=True)
         else:
             myproxy_username = info["username"]
 
-        return {"proxy": proxy_file, "myproxy_username": myproxy_username}
+        return {"proxy_file": proxy_file, "myproxy_username": myproxy_username}
 
     def create_job_file_factory(self, **kwargs):
         return self.task.crab_create_job_file_factory(**kwargs)
