@@ -681,7 +681,7 @@ class Task(BaseTask, metaclass=Register):
             include = (
                 param.significant and
                 not multi_match(name, exclude) and
-                (value not in (None, "NO_STR") or name not in self.exclude_params_repr_empty)
+                (value not in (None, "NO_STR", ()) or name not in self.exclude_params_repr_empty)
             )
             if include:
                 params[name] = value

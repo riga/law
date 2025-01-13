@@ -48,6 +48,7 @@ class CrabJobManager(BaseJobManager):
     submission_task_name_cre = re.compile(r"^Task\s+name\s*\:\s+([^\s]+)\s*$")
     submission_log_file_cre = re.compile(r"^Log\s+file\s+is\s+([^\s]+\.log)\s*$")
     query_server_status_cre = re.compile(r"^Status\s+on\s+the\s+CRAB\s+server\s*\:\s+([^\s].*)$")
+    query_server_failure_cre = re.compile(r"^Failure\s+message\s+from\s+server\s*\:\s+([^\s].*)$")
     query_user_cre = re.compile(r"^Task\s+name\s*:\s+\d+_\d+\:([^_]+)_.+$")
     query_scheduler_cre = re.compile(r"^Grid\s+scheduler\s+-\s+Task\s+Worker\s*\:\s+([^\s]+).+$")
     query_scheduler_id_cre = re.compile(r"^Grid\s+scheduler\s+-\s+Task\s+Worker\s*\:\s+crab.*\@.+[^\d](\d+)\..+$")  # noqa
@@ -70,7 +71,8 @@ class CrabJobManager(BaseJobManager):
     def __init__(
         self,
         sandbox_name: str | None = None,
-        proxy: str | None = None,
+        proxy_file: str | None = None,
+        myproxy_username: str | None = None,
         instance: str | None = None,
         threads: int = 1,
     ) -> None:
@@ -89,7 +91,8 @@ class CrabJobManager(BaseJobManager):
         )
 
         # store attributes
-        self.proxy = proxy
+        self.proxy_file = proxy_file
+        self.myproxy_username = myproxy_username
         self.instance = instance
         self.threads = threads
 
@@ -177,17 +180,19 @@ class CrabJobManager(BaseJobManager):
         job_file: str | pathlib.Path,
         *,
         job_files: Sequence[str | pathlib.Path] | None = None,
-        proxy: str | None = None,
-        instance: str | None = None,
+        proxy_file: str | None = None,
         myproxy_username: str | None = None,
+        instance: str | None = None,
         retries: int = 0,
         retry_delay: int | float = 3,
         silent: bool = False,
         _processes: list | None = None,
     ) -> list[JobId] | None:
         # default arguments
-        if proxy is None:
-            proxy = self.proxy
+        if proxy_file is None:
+            proxy_file = self.proxy_file
+        if myproxy_username is None:
+            myproxy_username = self.myproxy_username
         if instance is None:
             instance = self.instance
 
@@ -198,8 +203,8 @@ class CrabJobManager(BaseJobManager):
         while True:
             # build the command
             cmd = ["crab", "submit", "--config", job_file_name]
-            if proxy:
-                cmd += ["--proxy", proxy]
+            if proxy_file:
+                cmd += ["--proxy", proxy_file]
             if instance:
                 cmd += ["--instance", instance]
             cmd_str = quote_cmd(cmd)
@@ -280,21 +285,28 @@ class CrabJobManager(BaseJobManager):
         proj_dir: str | pathlib.Path,
         *,
         job_ids: list[JobId] | None = None,
-        proxy: str | None = None,
-        instance: str | None = None,
+        proxy_file: str | None = None,
         myproxy_username: str | None = None,
+        instance: str | None = None,
         silent: bool = False,
         _processes: list | None = None,
     ) -> dict[JobId, None]:
         self._check_proj_dir(proj_dir)
 
+        # default arguments
         if job_ids is None:
             job_ids = self._job_ids_from_proj_dir(proj_dir)
+        if proxy_file is None:
+            proxy_file = self.proxy_file
+        if myproxy_username is None:
+            myproxy_username = self.myproxy_username
+        if instance is None:
+            instance = self.instance
 
         # build the command
         cmd = ["crab", "kill", "--dir", str(proj_dir)]
-        if proxy:
-            cmd += ["--proxy", proxy]
+        if proxy_file:
+            cmd += ["--proxy", proxy_file]
         if instance:
             cmd += ["--instance", instance]
         cmd_str = quote_cmd(cmd)
@@ -326,9 +338,9 @@ class CrabJobManager(BaseJobManager):
         proj_dir: str | pathlib.Path,
         *,
         job_ids: list[JobId] | None = None,
-        proxy: str | None = None,
-        instance: str | None = None,
+        proxy_file: str | None = None,
         myproxy_username: str | None = None,
+        instance: str | None = None,
         silent: bool = False,
         _processes: list | None = None,
     ) -> dict[JobId, None]:
@@ -347,19 +359,26 @@ class CrabJobManager(BaseJobManager):
         proj_dir: str | pathlib.Path,
         *,
         job_ids: list[JobId] | None = None,
-        proxy: str | None = None,
-        instance: str | None = None,
+        proxy_file: str | None = None,
         myproxy_username: str | None = None,
+        instance: str | None = None,
         skip_transfers: bool | None = None,
         silent: bool = False,
         _processes: list | None = None,
     ) -> dict[JobId, dict[str, Any]] | None:
         self._check_proj_dir(proj_dir)
 
+        # default arguments
         proj_dir = str(proj_dir)
         log_data = self._parse_log_file(os.path.join(proj_dir, "crab.log"))
         if job_ids is None:
             job_ids = self._job_ids_from_proj_dir(proj_dir, log_data=log_data)
+        if proxy_file is None:
+            proxy_file = self.proxy_file
+        if myproxy_username is None:
+            myproxy_username = self.myproxy_username
+        if instance is None:
+            instance = self.instance
 
         # when output collection is disabled, we can consider all "transferring" states as finished
         if skip_transfers is None:
@@ -367,8 +386,8 @@ class CrabJobManager(BaseJobManager):
 
         # build the command
         cmd = ["crab", "status", "--dir", proj_dir, "--json"]
-        if proxy:
-            cmd += ["--proxy", proxy]
+        if proxy_file:
+            cmd += ["--proxy", proxy_file]
         if instance:
             cmd += ["--instance", instance]
         cmd_str = quote_cmd(cmd)
@@ -427,6 +446,7 @@ class CrabJobManager(BaseJobManager):
             cls.query_scheduler_status_cre,
             cls.query_json_line_cre,
             cls.query_monitoring_url_cre,
+            cls.query_server_failure_cre,
         ]
         values: list[str | None] = len(cres) * [None]  # type: ignore[assignment]
         for line in out.replace("\r", "").split("\n"):
@@ -446,6 +466,7 @@ class CrabJobManager(BaseJobManager):
             scheduler_status,
             json_line,
             monitoring_url,
+            server_failure,
         ) = values
 
         # helper to build extra info
@@ -482,7 +503,7 @@ class CrabJobManager(BaseJobManager):
                 status = cls.PENDING
             elif server_status in failed_server_states:
                 status = cls.FAILED
-                error = "submission failed"
+                error = server_failure or "submission failed"
             else:
                 s = ",".join(map("'{}'".format, pending_server_states | failed_server_states))
                 raise Exception(

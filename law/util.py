@@ -8,7 +8,7 @@ from __future__ import annotations
 
 __all__ = [
     # singleton values
-    "default_lock", "io_lock", "console_lock", "no_value",
+    "default_lock", "io_lock", "console_lock", "mp_manager", "no_value",
     # path and task helpers
     "rel_path", "law_src_path", "law_home_path", "law_run", "common_task_params", "increment_path",
     # generic helpers
@@ -52,6 +52,7 @@ import time
 import datetime
 import random
 import threading
+import multiprocessing
 import shlex
 import inspect
 import logging
@@ -81,6 +82,9 @@ logger = logging.getLogger(__name__)
 default_lock = threading.Lock()
 io_lock = threading.Lock()
 console_lock = threading.Lock()
+
+# globally usable manager for mp objects
+mp_manager = multiprocessing.Manager()
 
 
 class NoValue(object):

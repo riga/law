@@ -25,10 +25,10 @@ import getpass
 import functools
 
 from law.util import (
-    interruptable_popen, create_hash, human_duration, parse_duration, quote_cmd,
+    interruptable_popen, create_hash, human_duration, parse_duration, quote_cmd, make_list,
 )
 from law.logger import get_logger
-from law._types import TextIO
+from law._types import TextIO, Sequence
 
 
 logger = get_logger(__name__)
@@ -359,10 +359,10 @@ def delegate_myproxy(
     usercert: str | pathlib.Path | None = None,
     username: str | None = None,
     proxy_file: str | pathlib.Path | None = None,
-    encode_username: bool = True,
+    encode_username: bool = False,
     cred_lifetime: int = 720,
     proxy_lifetime: int = 168,
-    retrievers: str | None = None,
+    retrievers: str | Sequence[str] | None = None,
     rfc: bool = True,
     vo: str | None = None,
     create_local: bool = False,
@@ -379,7 +379,7 @@ def delegate_myproxy(
     *encode_username* is set, *username* is the sha1 encoded.
 
     The credential and proxy lifetimes can be defined in hours by *cred_lifetime* and
-    *proxy_lifetime*. When *retrievers* is given, it is passed as both ``--renewable_by`` and
+    *proxy_lifetime*. When *retrievers* are given, they are passed as both ``--renewable_by`` and
     ``--retrievable_by_cert`` to the underlying ``myproxy-init`` command.
 
     When *rfc* is *True*, the delegated proxy will be RFC compliant. To pass VOMS attributes to the
@@ -418,10 +418,8 @@ def delegate_myproxy(
         "-c", str(cred_lifetime),
     ]
     if retrievers:
-        cmd.extend([
-            "-x", "-R", retrievers,
-            "-x", "-Z", retrievers,
-        ])
+        for r in make_list(retrievers):
+            cmd.extend(["-x", "-R", r, "-x", "-Z", r])
     if vo:
         cmd.extend(["-m", vo])
     if create_local:
@@ -454,20 +452,20 @@ def delegate_myproxy(
             stdin_delay=0.2,
         )[0]
 
-    if code == 0:
-        return username
+    # stop in case of an error
+    if code != 0:
+        if silent:
+            return None
+        raise Exception(f"myproxy-init failed with code {code}")
 
-    if silent:
-        return None
-
-    raise Exception(f"myproxy-init failed with code {code}")
+    return username
 
 
 def get_myproxy_info(
     endpoint: str = "myproxy.cern.ch",
     username: str | None = None,
     proxy_file: str | pathlib.Path | None = None,
-    encode_username: bool = True,
+    encode_username: bool = False,
     silent: bool = False,
 ) -> dict[str, str | int] | None:
     """

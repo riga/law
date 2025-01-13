@@ -17,6 +17,7 @@ import logging
 
 import luigi  # type: ignore[import-untyped]
 import law
+from law.util import patch_object
 from law.logger import get_logger
 from law._types import Callable
 
@@ -163,7 +164,8 @@ def patch_worker_add_task() -> None:
     """
     Patches the ``luigi.worker.Worker._add_task`` method to skip dependencies of the triggered task
     when running in a sandbox, as dependencies are already controlled from outside the sandbox.
-    Also, the severity of luigi's interface logging is increased when running in a sandbox.
+    To reduce redundant logs, the severity of luigi's interface logging is increased when running in
+    a sandbox. In addition, info logs about repeatedly added tasks are suppressed.
     """
     _add_task_orig = luigi.worker.Worker._add_task
 
@@ -171,8 +173,17 @@ def patch_worker_add_task() -> None:
 
     @functools.wraps(_add_task_orig)
     def _add_task(self, *args, **kwargs):
-        previous_level = interface_logger.level
+        # identify if the task was added before with the same status and if so, patch the info log
+        task = self._scheduled_tasks.get(kwargs["task_id"])
+        is_dup = (task, kwargs["status"], kwargs["runnable"]) in self._add_task_history
+        info_orig = interface_logger.info
+        def info(msg, *args, **kwargs):
+            if is_dup and msg.startswith("Informed scheduler"):
+                return
+            return info_orig(msg, *args, **kwargs)
 
+        # check if sandboxed and adjust level
+        previous_level = interface_logger.level
         if law.sandbox.base._sandbox_switched:
             # increase the log level
             interface_logger.setLevel(logging.WARNING)
@@ -182,7 +193,8 @@ def patch_worker_add_task() -> None:
                 kwargs["deps"] = None
 
         try:
-            return _add_task_orig(self, *args, **kwargs)
+            with patch_object(interface_logger, "info", info):
+                return _add_task_orig(self, *args, **kwargs)
         finally:
             interface_logger.setLevel(previous_level)
 

@@ -16,11 +16,13 @@ from law.task.base import BaseTask
 from law.workflow.base import BaseWorkflow, BaseWorkflowProxy
 from law.target.collection import SiblingFileCollectionBase
 from law.logger import get_logger
-from law.util import DotDict
+from law.util import mp_manager, DotDict
 from law._types import Any, Iterator, Callable
 
 
 logger = get_logger(__name__)
+
+_tasks_yielded = mp_manager.dict()
 
 
 class LocalWorkflowProxy(BaseWorkflowProxy):
@@ -30,10 +32,16 @@ class LocalWorkflowProxy(BaseWorkflowProxy):
 
     workflow_type = "local"
 
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
+    @property
+    def _local_workflow_has_yielded(self) -> bool:
+        return self.live_task_id in _tasks_yielded
 
-        self._local_workflow_has_yielded = False
+    @_local_workflow_has_yielded.setter
+    def _local_workflow_has_yielded(self, value: bool) -> None:
+        if value:
+            _tasks_yielded[self.live_task_id] = True
+        else:
+            _tasks_yielded.pop(self.live_task_id, None)
 
     def requires(self) -> Any:
         reqs = super().requires()

@@ -12,8 +12,17 @@ import os
 
 import law
 
-
 law.contrib.load("wlcg")
+
+
+# obtained via _get_crab_receivers below
+_default_crab_receivers = [
+    "/DC=ch/DC=cern/OU=computers/CN=crab-(preprod|prod)-tw(01|02).cern.ch|/DC=ch/DC=cern/OU=computers/CN=crab-dev-tw(01|02|03|04).cern.ch|/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=cmscrab/CN=(817881|373708)/CN=Robot: cms crab|/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=crabint1/CN=373708/CN=Robot: CMS CRAB Integration 1",  # noqa
+]
+
+
+def _default_vo() -> str:
+    return os.getenv("LAW_CMS_VO", "cms")
 
 
 class Site(object):
@@ -135,21 +144,28 @@ def lfn_to_pfn(lfn: str, redirector: str = "global") -> str:
 def renew_vomsproxy(**kwargs) -> str | None:
     """
     Renews a VOMS proxy in the exact same way that :py:func:`law.wlcg.renew_vomsproxy` does, but
-    with the *vo* attribute set to ``"cms"`` by default.
+    with the *vo* argument default to the environment variable LAW_CMS_VO or ``"cms"`` when empty.
     """
-    kwargs.setdefault("vo", "cms")
+    if "vo" not in kwargs:
+        kwargs["vo"] = _default_vo()
     return law.wlcg.renew_vomsproxy(**kwargs)  # type: ignore[attr-defined]
 
 
 def delegate_myproxy(**kwargs) -> str | None:
     """
     Delegates a X509 proxy to a myproxy server in the exact same way that
-    :py:func:`law.wlcg.delegate_myproxy` does, but with the *retrievers* argument set to a value
-    that is usually expected for crab submissions and the vo set to "cms".
+    :py:func:`law.wlcg.delegate_myproxy` does, but with the *vo* argument default to the environment
+    variable LAW_CMS_VO or ``"cms"`` when empty.
     """
-    kwargs.setdefault(
-        "retrievers",
-        "/DC=ch/DC=cern/OU=computers/CN=crab-(preprod|prod|dev)-tw(01|02|03).cern.ch|/DC=ch/DC=cern/OU=computers/CN=stefanov(m|m2).cern.ch|/DC=ch/DC=cern/OU=computers/CN=dciangot-tw.cern.ch",  # noqa
-    )
-    kwargs.setdefault("vo", "cms")
+    if "vo" not in kwargs:
+        kwargs["vo"] = _default_vo()
     return law.wlcg.delegate_myproxy(**kwargs)  # type: ignore[attr-defined]
+
+
+def _get_crab_receivers() -> None:
+    from CRABClient.ClientUtilities import initLoggers, server_info  # type: ignore[import-not-found] # noqa
+    from CRABClient.Commands.createmyproxy import createmyproxy  # type: ignore[import-not-found]
+
+    cmd = createmyproxy(logger=initLoggers()[1])
+    alldns = server_info(crabserver=cmd.crabserver, subresource="delegatedn")
+    print(alldns.get("services"))
