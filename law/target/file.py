@@ -236,8 +236,13 @@ class FileSystemTarget(Target, shims.FileSystemTarget):
         self.fs.chmod(self.path, perm, silent=silent, **kwargs)
 
     def makedirs(self, *args, **kwargs):
+        # overwrite of luigi's makedirs
         parent = self.parent
         return None if parent is None else parent.touch(*args, **kwargs)
+
+    def _prepare_dir(self, **kwargs):
+        dir_target = self if isinstance(self, self.directory_class) else self.parent
+        dir_target.touch(**kwargs)
 
     @abstractproperty
     def fs(self):
@@ -318,27 +323,37 @@ class FileSystemFileTarget(FileSystemTarget):
 
     def copy_to(self, dst, perm=None, dir_perm=None, **kwargs):
         # TODO: complain when dst not local? forward to copy_from request depending on protocol?
-        return self.fs.copy(self.path, get_path(dst), perm=perm, dir_perm=dir_perm, **kwargs)
+        if isinstance(dst, FileSystemTarget):
+            dst._prepare_dir(perm=dir_perm, **kwargs)
+
+        return self.fs.copy(self.path, get_path(dst), perm=perm, **kwargs)
 
     def copy_from(self, src, perm=None, dir_perm=None, **kwargs):
+        self._prepare_dir(perm=dir_perm, **kwargs)
+
         if isinstance(src, FileSystemFileTarget):
-            return src.copy_to(self.abspath, perm=perm, dir_perm=dir_perm, **kwargs)
+            return src.copy_to(self.abspath, perm=perm or self.fs.default_file_perm, **kwargs)
 
         # when src is a plain string, let the fs handle it
         # TODO: complain when src not local? forward to copy_to request depending on protocol?
-        return self.fs.copy(get_path(src), self.path, perm=perm, dir_perm=dir_perm, **kwargs)
+        return self.fs.copy(get_path(src), self.path, perm=perm, **kwargs)
 
     def move_to(self, dst, perm=None, dir_perm=None, **kwargs):
         # TODO: complain when dst not local? forward to copy_from request depending on protocol?
-        return self.fs.move(self.path, get_path(dst), perm=perm, dir_perm=dir_perm, **kwargs)
+        if isinstance(dst, FileSystemTarget):
+            dst._prepare_dir(perm=dir_perm, **kwargs)
+
+        return self.fs.move(self.path, get_path(dst), perm=perm, **kwargs)
 
     def move_from(self, src, perm=None, dir_perm=None, **kwargs):
+        self._prepare_dir(perm=dir_perm, **kwargs)
+
         if isinstance(src, FileSystemFileTarget):
-            return src.move_to(self.abspath, perm=perm, dir_perm=dir_perm, **kwargs)
+            return src.move_to(self.abspath, perm=perm or self.fs.default_file_perm, **kwargs)
 
         # when src is a plain string, let the fs handle it
         # TODO: complain when src not local? forward to copy_to request depending on protocol?
-        return self.fs.move(get_path(src), self.path, perm=perm, dir_perm=dir_perm, **kwargs)
+        return self.fs.move(get_path(src), self.path, perm=perm, **kwargs)
 
 
 class FileSystemDirectoryTarget(FileSystemTarget):

@@ -171,7 +171,7 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
 
         # the mode passed to os.mkdir or os.makedirs is ignored on some systems, so the strategy
         # here is to disable the process' current umask, create the directories and use chmod again
-        orig = os.umask(0) if perm is not None else None
+        orig = os.umask(0o0777 - perm) if perm is not None else None
         func = os.makedirs if recursive else os.mkdir
         try:
             try:
@@ -481,7 +481,7 @@ class LocalFileTarget(FileSystemFileTarget, LocalTarget):
 
                     # move back again
                     if tmp.exists():
-                        tmp.copy_to_local(self, perm=perm, dir_perm=dir_perm)
+                        self.copy_from_local(tmp, perm=perm, dir_perm=dir_perm)
                     else:
                         logger.warning("cannot move non-existing localized target to actual "
                             "representation {!r}".format(self))
@@ -552,7 +552,7 @@ class LocalDirectoryTarget(FileSystemDirectoryTarget, LocalTarget):
                     # TODO: keep track of changed contents in "a" mode and copy only those?
                     if tmp.exists():
                         self.remove()
-                        tmp.copy_to_local(self, perm=perm, dir_perm=dir_perm)
+                        self.copy_from_local(tmp, perm=perm, dir_perm=dir_perm)
                     else:
                         logger.warning("cannot move non-existing localized target to actual "
                             "representation {!r}, leaving original contents unchanged".format(self))
