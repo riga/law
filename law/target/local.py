@@ -518,6 +518,8 @@ class LocalTarget(FileSystemTarget, shims.LocalTarget):
         ret = find_formatter(self.abspath, "dump", formatter).dump(self.abspath, *args, **kwargs)
 
         # chmod
+        if perm is None:
+            perm = self.fs.default_file_perm
         if perm and self.exists():
             self.chmod(perm)
 
@@ -591,6 +593,8 @@ class LocalFileTarget(FileSystemFileTarget, LocalTarget):  # type: ignore[misc]
                 # simply yield
                 yield self
 
+                if perm is None:
+                    perm = self.fs.default_file_perm
                 self.chmod(perm, silent=True)
 
 
