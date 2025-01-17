@@ -207,7 +207,7 @@ def print_task_status(task, max_depth=0, target_depth=0, flags=None):
     skip_seen = cfg.get_expanded_bool("task", "interactive_status_skip_seen")
 
     # walk through deps
-    done = []
+    done = set()
     parents_last_flags = []
     for dep, next_deps, depth, is_last in task.walk_deps(
         max_depth=max_depth,
@@ -255,7 +255,7 @@ def print_task_status(task, max_depth=0, target_depth=0, flags=None):
             _print(text_offset_ind + colored("outputs already checked", "yellow"), text_offset_ind)
             continue
 
-        done.append(dep)
+        done.add(dep)
 
         # compiled regex for splitting leading whitespace
         ws_cre = re.compile(r"^(\s*)(.*)$")
@@ -282,15 +282,21 @@ def print_task_output(task, max_depth=0, scheme=True):
     print("print task output with max_depth {}, {} schemes\n".format(
         max_depth, "showing" if scheme else "hiding"))
 
-    done = []
+    done_deps = set()
+    done_uris = set()
     for dep, _, depth in task.walk_deps(max_depth=max_depth, order="pre"):
-        done.append(dep)
+        if dep in done_deps:
+            continue
+        done_deps.add(dep)
 
         for outp in flatten(dep.output()):
             kwargs = {}
             if isinstance(outp, (FileSystemTarget, FileCollection)):
                 kwargs = {"scheme": scheme}
             for uri in make_list(outp.uri(**kwargs)):
+                if uri in done_uris:
+                    continue
+                done_uris.add(uri)
                 print(uri)
 
 
@@ -334,7 +340,7 @@ def remove_task_output(task, max_depth=0, mode=None, run_task=False):
     print("selected {} mode".format(colored(mode_name, "blue", style="bright")))
     print("")
 
-    done = []
+    done = set()
     parents_last_flags = []
     for dep, next_deps, depth, is_last in task.walk_deps(
         max_depth=max_depth,
@@ -386,7 +392,7 @@ def remove_task_output(task, max_depth=0, mode=None, run_task=False):
         if dep in done:
             _print(text_offset_ind + colored("already handled", "yellow"), text_offset_ind)
             continue
-        done.append(dep)
+        done.add(dep)
 
         # skip when mode is "all" and task is configured to skip
         if mode == "a" and getattr(dep, "skip_output_removal", False):
@@ -491,7 +497,7 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
     print("selected {} mode".format(colored(mode_name, "blue", style="bright")))
     print("")
 
-    done = []
+    done = set()
     parents_last_flags = []
     for dep, next_deps, depth, is_last in task.walk_deps(
         max_depth=max_depth,
@@ -549,7 +555,7 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
                 _print(text_offset_ind + colored("skipped", "yellow"), text_offset_ind)
                 continue
 
-        done.append(dep)
+        done.add(dep)
 
         # start the traversing through output structure with a lookup pattern
         for output, odepth, oprefix, ooffset, lookup in _iter_output(
