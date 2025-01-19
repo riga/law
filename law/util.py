@@ -2291,11 +2291,14 @@ class InsertableDict(dict):
 
         d.insert_after("test", "foo", "new_value")
         print(d)  # -> InsertableDict([('test', 999), ('foo', 'new_value'), ('bar', 456)])
+
+        d.append("test")
+        print(d)  # -> InsertableDict([('foo', 'new_value'), ('bar', 456), ('test', 999)])
     """
 
     def _insert(self, search_key: Hashable, key: Hashable, value: Any, offset: int) -> None:
-        # when key is a list or dict and value is None, assume key refers to key-value pairs
-        if isinstance(key, (list, dict)) and value is None:
+        # when key is a list or dict and value is no_value, assume key refers to key-value pairs
+        if isinstance(key, (list, dict)) and value == no_value:
             new_items = key.items() if isinstance(key, dict) else key
             new_keys = [k for k, v in new_items]
         else:
@@ -2303,7 +2306,7 @@ class InsertableDict(dict):
             new_keys = [key]
 
         # if the search key is not present, insert the new pairs and finish
-        if search_key not in self:
+        if search_key == no_value or search_key not in self:
             self.update(new_items)
             return
 
@@ -2328,19 +2331,39 @@ class InsertableDict(dict):
 
     def insert_before(self, before_key: Hashable, key: Hashable, value: Any = None) -> None:
         """
-        Inserts a *key* - *value* pair before the key *before_key*. When this key does not exist,
-        the new pair is added to the end. When *key* is list or dictionary and value is *None*,
-        multiple new values are inserted.
+        Inserts a *key* - *value* pair before the key *before_key*. If this key does not exist, the
+        new pair is added at the end. When *key* is list of item pairs or a dictionary, and value is
+        :py:attr:`no_value`, multiple new values are inserted.
         """
         self._insert(before_key, key, value, 0)
 
     def insert_after(self, after_key: Hashable, key: Hashable, value: Any = None) -> None:
         """
-        Inserts a *key* - *value* pair after the key *after_key*. When this key does not exist, the
-        new pair is added to the end. When *key* is list or dictionary and value is *None*,
-        multiple new values are inserted.
+        Inserts a *key* - *value* pair after the key *after_key*. If this key does not exist, the
+        new pair is added at the end. When *key* is list of item pairs or a dictionary, and value is
+        :py:attr:`no_value`, multiple new values are inserted.
         """
         self._insert(after_key, key, value, 1)
+
+    def prepend(self, key: Hashable, value: Any = None) -> None:
+        """
+        Adds a new *key* - *value* pair at the beginning of the dictionary. When *value* is
+        :py:attr:`no_value`, *key* is assumed to exist already in the dictionary and moved to the
+        beginning. When *key* is list of item pairs or a dictionary, and value is
+        :py:attr:`no_value`, multiple new values are prepended (in the given order).
+        """
+        first_key = next(iter(self)) if self else no_value
+        self.insert_before(first_key, key, value=value)
+
+    def append(self, key: Hashable, value: Any = None) -> None:
+        """
+        Adds a new *key* - *value* pair at the end of the dictionary. When *value* is
+        :py:attr:`no_value`, *key* is assumed to exist already in the dictionary and moved to the
+        end. When *key* is list of item pairs or a dictionary, and value is :py:attr:`no_value`,
+        multiple new values are appended (in the given order).
+        """
+        last_key = list(self)[-1] if self else no_value
+        self.insert_after(last_key, key, value=value)
 
 
 @contextlib.contextmanager
