@@ -296,7 +296,7 @@ class GFALFileInterface(RemoteFileInterface):
 
     @RemoteFileInterface.retry(uri_base_name=["mkdir_rec", "mkdir"])
     def mkdir_rec(self, path, perm, base=None, silent=True, **kwargs):
-        uri = self.uri(path, base_name="mkdir", base=base)
+        uri = self.uri(path, base_name=["mkdir_rec", "mkdir"], base=base)
         with self.context() as ctx:
             try:
                 logger.debug("invoking gfal2 mkdir_rec({}, {})".format(uri, perm))
