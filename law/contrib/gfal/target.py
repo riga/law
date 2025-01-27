@@ -381,7 +381,7 @@ class GFALFileInterface(RemoteFileInterface):
         silent: bool = True,
         **kwargs,
     ) -> bool:
-        uri: str = self.uri(path, base_name="mkdir", base=base, return_all=False)  # type: ignore[assignment] # noqa
+        uri: str = self.uri(path, base_name=["mkdir_rec", "mkdir"], base=base, return_all=False)  # type: ignore[assignment] # noqa
         with self.context() as ctx:
             try:
                 logger.debug(f"invoking gfal2 mkdir_rec({uri}, {perm})")
