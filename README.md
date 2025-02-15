@@ -14,8 +14,8 @@
   <a href="https://github.com/riga/law/actions?query=workflow%3A%22Lint+and+test%22">
     <img alt="Build status" src="https://github.com/riga/law/workflows/Lint%20and%20test/badge.svg" />
   </a>
-  <a href="https://github.com/riga/law/actions?query=workflow%3A%22Deploy+images%22">
-    <img alt="Docker images" src="https://github.com/riga/law/workflows/Deploy%20images/badge.svg" />
+  <a href="https://github.com/riga/law/actions/workflows/deploy_images_a9.yml?query=workflow%3A%22Deploy+images%22">
+    <img alt="Docker images" src="https://github.com/riga/law/actions/workflows/deploy_images_a9.yml/badge.svg" />
   </a>
   <a href="http://law.readthedocs.io/en/latest">
     <img alt="Documentation status" src="https://readthedocs.org/projects/law/badge/?version=latest" />

@@ -11,6 +11,7 @@ import sys
 import traceback
 import importlib
 import argparse
+import collections
 
 import luigi  # type: ignore[import-untyped]
 
@@ -18,7 +19,7 @@ from law.config import Config
 from law.task.base import Task, ExternalTask
 from law.util import multi_match, colored, abort, makedirs, brace_expand
 from law.logger import get_logger
-from law._types import Sequence, Type
+from law._types import Sequence
 
 
 logger = get_logger(__name__)
@@ -151,10 +152,14 @@ def execute(args: argparse.Namespace) -> int:
     # determine tasks to write into the index file
     seen_families = []
     task_classes = []
-    lookup: list[Type[Task]] = [Task]
-    while lookup:
-        cls: Type[Task] = lookup.pop(0)  # type: ignore
+    q = collections.deque([Task])
+    while q:
+        cls = q.popleft()
         lookup.extend(cls.__subclasses__())  # type: ignore[arg-type]
+
+        # skip tasks starting with an underscore
+        if cls.__name__.startswith("_"):
+            continue
 
         # skip tasks in __main__ module in interactive sessions
         if cls.__module__ == "__main__":

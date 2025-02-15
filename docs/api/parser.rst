@@ -4,6 +4,10 @@ law.parser
 .. automodule:: law.parser
    :members:
 
+.. autofunction:: root_task_cls
+
+.. autofunction:: root_task
+
 .. autofunction:: full_parser
 
 .. autofunction:: root_task_parser

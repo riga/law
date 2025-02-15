@@ -14,18 +14,43 @@ import luigi  # type: ignore[import-untyped]
 
 from law.logger import get_logger
 from law.util import multi_match
-from law._types import Sequence, Any
+from law._types import Sequence, Any, Type
 
 
 logger = get_logger(__name__)
 
 
 # cached objects
+_root_task_cls: Type[luigi.Task] | None = None
 _root_task: luigi.Task | None = None
 _full_parser: luigi.cmdline_parser.CmdlineParser | None = None
 _root_task_parser: ArgumentParser | None = None
 _global_cmdline_args: dict[str, str] | None = None
 _global_cmdline_values: dict[str, Any] | None = None
+
+
+def root_task_cls(task: luigi.Task | None = None) -> Type[luigi.Task] | None:
+    """
+    Returns the class of the task that was triggered on the command line. The returned class is
+    cached. When *task* is defined and no root task class was cached yet, this methods acts as a
+    setter.
+    """
+    global _root_task_cls
+
+    if not _root_task_cls:
+        if task:
+            _root_task_cls = task.__class__ if isinstance(task, luigi.Task) else task
+            logger.debug("set root task class to externally passed instance")
+
+        else:
+            luigi_parser = luigi.cmdline_parser.CmdlineParser.get_instance()
+            if not luigi_parser:
+                return None
+
+            _root_task_cls = luigi_parser._get_task_cls()
+            logger.debug("built root task class using luigi argument parser")
+
+    return _root_task_cls
 
 
 def root_task(task: luigi.Task | None = None) -> luigi.Task | None:
@@ -39,13 +64,13 @@ def root_task(task: luigi.Task | None = None) -> luigi.Task | None:
         if task:
             _root_task = task
             logger.debug("set root task to externally passed instance")
+
         else:
             luigi_parser = luigi.cmdline_parser.CmdlineParser.get_instance()
             if luigi_parser is None:
                 return None
 
             _root_task = luigi_parser.get_task_obj()
-
             logger.debug("built root task instance using luigi argument parser")
 
     return _root_task
