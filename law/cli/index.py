@@ -9,7 +9,7 @@ import os
 import sys
 import traceback
 from importlib import import_module
-from collections import OrderedDict
+from collections import OrderedDict, deque
 
 import luigi
 import six
@@ -150,10 +150,14 @@ def execute(args):
     # determine tasks to write into the index file
     seen_families = []
     task_classes = []
-    lookup = [Task]
+    lookup = deque([Task])
     while lookup:
-        cls = lookup.pop(0)
+        cls = lookup.popleft()
         lookup.extend(cls.__subclasses__())
+
+        # skip tasks starting with an underscore
+        if cls.__name__.startswith("_"):
+            continue
 
         # skip tasks in __main__ module in interactive sessions
         if cls.__module__ == "__main__":
