@@ -20,6 +20,7 @@ logger = get_logger(__name__)
 
 
 # cached objects
+_root_task_cls = None
 _root_task = None
 _full_parser = None
 _root_task_parser = None
@@ -27,10 +28,35 @@ _global_cmdline_args = None
 _global_cmdline_values = None
 
 
+def root_task_cls(task=None):
+    """
+    Returns the class of the task that was triggered on the command line. The returned class is
+    cached. When *task* is defined and no root task class was cached yet, this methods acts as a
+    setter.
+    """
+    global _root_task_cls
+
+    if not _root_task_cls:
+        if task:
+            _root_task_cls = task.__class__ if isinstance(task, luigi.Task) else task
+            logger.debug("set root task class to externally passed instance")
+        else:
+            luigi_parser = luigi.cmdline_parser.CmdlineParser.get_instance()
+            if not luigi_parser:
+                return None
+
+            _root_task_cls = luigi_parser._get_task_cls()
+
+            logger.debug("built root task class using luigi argument parser")
+
+    return _root_task_cls
+
+
 def root_task(task=None):
     """
     Returns the instance of the task that was triggered on the command line. The returned instance
-    is cached. When *task* is define and no root task was cached yet, this methods acts as a setter.
+    is cached. When *task* is defined and no root task was cached yet, this methods acts as a
+    setter.
     """
     global _root_task
 
