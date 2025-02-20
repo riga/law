@@ -74,6 +74,9 @@ class BaseRegister(luigi.task_register.Register):
         if cls.update_register:  # type: ignore[attr-defined]
             cls.deregister()  # type: ignore[attr-defined]
 
+        # invoke the class-level attribute update hook
+        cls.modify_task_attributes()  # type: ignore[attr-defined]
+
         # add to register (mimic luigi.task_register.Register.__new__)
         cls._namespace_at_class_time = metacls._get_namespace(cls.__module__)  # type: ignore[attr-defined] # noqa
         metacls._reg.append(cls)
@@ -125,6 +128,13 @@ class BaseTask(luigi.Task, metaclass=BaseRegister):
                 logger.debug(f"removed task class {registered_cls} from register")
 
         return success
+
+    @classmethod
+    def modify_task_attributes(cls) -> None:
+        """
+        Hook to modify class attributes before the class is added to the register.
+        """
+        return
 
     @classmethod
     def modify_param_args(
