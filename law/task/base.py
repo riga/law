@@ -68,6 +68,9 @@ class BaseRegister(luigi.task_register.Register):
         if cls.update_register:
             cls.deregister()
 
+        # invoke the class-level attribute update hook
+        cls.update_task_attributes()
+
         # add to register (mimic luigi.task_register.Register.__new__)
         cls._namespace_at_class_time = metacls._get_namespace(cls.__module__)
         metacls._reg.append(cls)
@@ -119,6 +122,13 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
                 logger.debug("removed task class {} from register".format(registered_cls))
 
         return success
+
+    @classmethod
+    def update_task_attributes(cls):
+        """
+        Hook to update class attributes before the class is added to the register.
+        """
+        return
 
     @classmethod
     def modify_param_args(cls, params, args, kwargs):
