@@ -44,6 +44,7 @@ import datetime
 import random
 import threading
 import multiprocessing
+import multiprocessing.managers
 import io
 import shlex
 import inspect
@@ -71,9 +72,6 @@ default_lock = threading.Lock()
 io_lock = threading.Lock()
 console_lock = threading.Lock()
 
-# globally usable manager for mp objects
-mp_manager = multiprocessing.Manager()
-
 
 class NoValue(object):
 
@@ -99,6 +97,21 @@ class NoValue(object):
 
 #: Unique dummy value that is used to denote missing values and always evaluates to *False*.
 no_value = NoValue()
+
+
+def MPManager(**kwargs):
+    """
+    Factory function identical to :py:func:`multiprocessing.Manager` but allows for additional
+    arguments to be forwarded to the underlying :py:class:`multiprocessing.managers.SyncManager`.
+    """
+    kwargs.setdefault("ctx", multiprocessing.context._default_context.get_context())
+    manager = multiprocessing.managers.SyncManager(**kwargs)
+    manager.start()
+    return manager
+
+
+# globally usable manager for mp objects
+mp_manager = MPManager(address=("localhost", 0))
 
 
 def rel_path(anchor, *paths):
