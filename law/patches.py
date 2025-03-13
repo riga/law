@@ -17,7 +17,7 @@ import logging
 
 import luigi  # type: ignore[import-untyped]
 import law
-from law.util import patch_object
+from law.util import patch_object, mp_manager
 from law.logger import get_logger
 from law._types import Callable
 
@@ -158,6 +158,27 @@ def patch_default_retcodes() -> None:
     retcode.unhandled_exception._default = 60
 
     logger.debug("patched luigis default return codes")
+
+
+def patch_worker_init() -> None:
+    """
+    Patches the ``luigi.worker.Worker.__init__`` method to use a MP-synced object to store the
+    status completion cache, based on :py:class:`multiprocessing.managers.SyncManager` instaced
+    configured by law.
+    """
+    _init_orig = luigi.worker.Worker.__init__
+
+    @functools.wraps(_init_orig)
+    def __init__(self, *args, **kwargs):
+        _init_orig(self, *args, **kwargs)
+
+        # overwrite the mp-synced completion cache
+        if getattr(self, "_task_completion_cache", None) is not None:
+            self._task_completion_cache = mp_manager.dict()
+
+    luigi.worker.Worker.__init__ = __init__
+
+    logger.debug("patched luigi.worker.Worker.__init__")
 
 
 def patch_worker_add_task() -> None:
@@ -528,6 +549,35 @@ def patch_parameter_parse_or_no_value() -> None:
     logger.debug("patched luigi.parameter.Parameter._parse_or_no_value")
 
 
+def check_complete_cached(
+    task: law.task.base.BaseTask,
+    completion_cache: multiprocessing.managers.DictProxy | None = None,
+) -> bool:
+    # no caching behavior when no cache is given
+    if completion_cache is None:
+        return task.complete()
+
+    # get the cached state
+    cache_key = task.task_id
+    complete = completion_cache.get(cache_key)
+
+    # stop when already complete
+    if complete:
+        return True
+
+    # consider as incomplete when the cache entry is falsy, yet not None
+    if not complete and complete is not None:
+        completion_cache.pop(cache_key, None)
+        return False
+
+    # check the status and tell the cache when complete
+    complete = task.complete()
+    if complete:
+        completion_cache[cache_key] = complete
+
+    return complete
+
+
 def patch_worker_check_complete_cached() -> None:
     """
     Patches the ``luigi.worker.check_complete_cached`` function to treat cached task completeness
@@ -537,34 +587,6 @@ def patch_worker_check_complete_cached() -> None:
     entries also cause the check to be skipped, considering the task as incomplete. However, after
     that, the cache entry is removed so that subsequent checks are performed as usual.
     """
-    def check_complete_cached(
-        task: law.task.base.BaseTask,
-        completion_cache: multiprocessing.managers.DictProxy | None = None,
-    ) -> bool:
-        # no caching behavior when no cache is given
-        if completion_cache is None:
-            return task.complete()
-
-        # get the cached state
-        cache_key = task.task_id
-        complete = completion_cache.get(cache_key)
-
-        # stop when already complete
-        if complete:
-            return True
-
-        # consider as incomplete when the cache entry is falsy, yet not None
-        if not complete and complete is not None:
-            completion_cache.pop(cache_key, None)
-            return False
-
-        # check the status and tell the cache when complete
-        complete = task.complete()
-        if complete:
-            completion_cache[cache_key] = complete
-
-        return complete
-
     luigi.worker.check_complete_cached = check_complete_cached
 
     logger.debug("patched luigi.worker.check_complete_cached")

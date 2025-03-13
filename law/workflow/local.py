@@ -22,8 +22,6 @@ from law._types import Any, Iterator, Callable
 
 logger = get_logger(__name__)
 
-_tasks_yielded = mp_manager.dict()
-
 
 class LocalWorkflowProxy(BaseWorkflowProxy):
     """
@@ -34,14 +32,16 @@ class LocalWorkflowProxy(BaseWorkflowProxy):
 
     @property
     def _local_workflow_has_yielded(self) -> bool:
-        return self.live_task_id in _tasks_yielded
+        tasks_yielded = mp_manager.get("local_workflow_tasks_yielded", "dict")
+        return self.live_task_id in tasks_yielded
 
     @_local_workflow_has_yielded.setter
     def _local_workflow_has_yielded(self, value: bool) -> None:
+        tasks_yielded = mp_manager.get("local_workflow_tasks_yielded", "dict")
         if value:
-            _tasks_yielded[self.live_task_id] = True
+            tasks_yielded[self.live_task_id] = True
         else:
-            _tasks_yielded.pop(self.live_task_id, None)
+            tasks_yielded.pop(self.live_task_id, None)
 
     def requires(self) -> Any:
         reqs = super().requires()
