@@ -110,8 +110,43 @@ def MPManager(**kwargs):
     return manager
 
 
-# globally usable manager for mp objects
-mp_manager = MPManager(address=("localhost", 0))
+_mp_managed_objects = {
+    "list", "dict", "Namespace", "Lock", "RLock", "Semaphore", "BoundedSemaphore", "Condition",
+    "Event", "Barrier", "Queue", "Value", "Array",
+}
+
+
+class DeferredManager(object):
+    """
+    Wrapper for a :py:class:`multiprocessing.managers.SyncManager` created by the
+    :py:func:`MPManager` factory that is started lazily once a synchronization attribute is
+    accessed. In addition, it provides a cache for these attributes.
+    """
+
+    def __init__(self, **kwargs):
+        super().__init__()
+
+        self.kwargs = kwargs
+        self._manager = None
+        self._objects = {}
+
+    def _start(self):
+        if self._manager is None:
+            self._manager = MPManager(**self.kwargs)
+
+    def get(self, name, obj_type, *args, **kwargs):
+        if name not in self._objects:
+            self._objects[name] = getattr(self, obj_type)(*args, **kwargs)
+        return self._objects[name]
+
+    def __getattr__(self, attr):
+        if attr in _mp_managed_objects:
+            self._start()
+        return getattr(self._manager, attr)
+
+
+# globally usable manager for mp-synced objects
+mp_manager = DeferredManager(address=("localhost", 0))
 
 
 def rel_path(anchor, *paths):
