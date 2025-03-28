@@ -21,7 +21,7 @@ from law.target.file import FileSystemTarget
 from law.target.collection import TargetCollection, FileCollection
 from law.util import (
     colored, uncolored, uncolor_cre, flatten, flag_to_bool, query_choice, human_bytes,
-    is_lazy_iterable, make_list, merge_dicts, makedirs, get_terminal_width,
+    is_lazy_iterable, make_list, merge_dicts, makedirs, get_terminal_width, multi_match,
 )
 from law.logger import get_logger
 
@@ -126,10 +126,36 @@ def _print_wrapped(line, width, offset=""):
         print(line)
 
 
-def print_task_deps(task, max_depth=1):
-    max_depth = int(max_depth)
+def _parse_stopping_condition(condition):
+    # returns a maximum depth value and a list of task family patterns:
+    # - a depth of -1 is returned in case no depth could be extracted
+    # - an empty list for the patterns is returned in case no patterns could be extracted
+    if isinstance(condition, six.integer_types):
+        return condition, []
 
-    print("print task dependencies with max_depth {}".format(max_depth))
+    max_depth = -1
+    family_patterns = []
+    for part in str(condition).strip().split("|"):
+        part = part.strip()
+        if part.lstrip("-").isdigit():
+            max_depth = int(part)
+        else:
+            family_patterns.append(part)
+
+    return max_depth, family_patterns
+
+
+def print_task_deps(task, stopping_condition=1):
+    # parse the stopping condition
+    max_depth, family_patterns = _parse_stopping_condition(stopping_condition)
+
+    # show a verbose message
+    msg = []
+    if max_depth >= 0 or not family_patterns:
+        msg.append("with max_depth {}".format(max_depth))
+    if family_patterns:
+        msg.append("up to task families '{}'".format(",".join(family_patterns)))
+    print("print task dependencies {}".format(" and ".join(msg)))
     print("")
 
     # get the format chars
@@ -149,6 +175,9 @@ def print_task_deps(task, max_depth=1):
         order="pre",
         yield_last_flag=True,
     ):
+        if family_patterns and multi_match(dep.task_family, family_patterns, mode=any):
+            next_deps.clear()
+
         del parents_last_flags[depth:]
         next_deps_shown = bool(next_deps) and (max_depth < 0 or depth < max_depth)
 
@@ -180,16 +209,22 @@ def print_task_deps(task, max_depth=1):
         _print(task_offset + task_prefix + dep.repr(color=True), text_offset)
 
 
-def print_task_status(task, max_depth=0, target_depth=0, flags=None):
+def print_task_status(task, stopping_condition=0, target_depth=0, flags=None):
     from law.workflow.base import BaseWorkflow
 
-    max_depth = int(max_depth)
+    # parse the stopping condition
+    max_depth, family_patterns = _parse_stopping_condition(stopping_condition)
     target_depth = int(target_depth)
     if flags:
         flags = tuple(flags.lower().split("-"))
 
-    print("print task status with max_depth {} and target_depth {}".format(
-        max_depth, target_depth))
+    # show a verbose message
+    msg = []
+    if max_depth >= 0 or not family_patterns:
+        msg.append("with max_depth {}".format(max_depth))
+    if family_patterns:
+        msg.append("up to task families '{}'".format(",".join(family_patterns)))
+    print("print task status {} and target_depth {}".format(" and ".join(msg), target_depth))
     print("")
 
     # get the format chars
@@ -214,6 +249,9 @@ def print_task_status(task, max_depth=0, target_depth=0, flags=None):
         order="pre",
         yield_last_flag=True,
     ):
+        if family_patterns and multi_match(dep.task_family, family_patterns, mode=any):
+            next_deps.clear()
+
         del parents_last_flags[depth:]
         next_deps_shown = bool(next_deps) and (max_depth < 0 or depth < max_depth)
 
@@ -275,19 +313,29 @@ def print_task_status(task, max_depth=0, target_depth=0, flags=None):
                 _print(ooffset + line, ooffset + ws_cre.match(line).group(1) + fmt["ind"] * " ")
 
 
-def print_task_output(task, max_depth=0, scheme=True):
-    max_depth = int(max_depth)
+def print_task_output(task, stopping_condition=0, scheme=True):
+    # parse the stopping condition
+    max_depth, family_patterns = _parse_stopping_condition(stopping_condition)
     scheme = flag_to_bool(scheme)
 
-    print("print task output with max_depth {}, {} schemes\n".format(
-        max_depth, "showing" if scheme else "hiding"))
+    # show a verbose message
+    msg = []
+    if max_depth >= 0 or not family_patterns:
+        msg.append("with max_depth {}".format(max_depth))
+    if family_patterns:
+        msg.append("up to task families '{}'".format(",".join(family_patterns)))
+    print("print task output {}, {} schemes\n".format(
+        " and ".join(msg), "showing" if scheme else "hiding"))
 
     done_deps = set()
     done_uris = set()
-    for dep, _, depth in task.walk_deps(max_depth=max_depth, order="pre"):
+    for dep, next_deps, depth in task.walk_deps(max_depth=max_depth, order="pre"):
         if dep in done_deps:
             continue
         done_deps.add(dep)
+
+        if family_patterns and multi_match(dep.task_family, family_patterns, mode=any):
+            next_deps.clear()
 
         for outp in flatten(dep.output()):
             kwargs = {}
@@ -300,13 +348,20 @@ def print_task_output(task, max_depth=0, scheme=True):
                 print(uri)
 
 
-def remove_task_output(task, max_depth=0, mode=None, run_task=False):
+def remove_task_output(task, stopping_condition=0, mode=None, run_task=False):
     from law.task.base import ExternalTask
     from law.workflow.base import BaseWorkflow
 
-    max_depth = int(max_depth)
+    # parse the stopping condition
+    max_depth, family_patterns = _parse_stopping_condition(stopping_condition)
 
-    print("remove task output with max_depth {}".format(max_depth))
+    # show a verbose message
+    msg = []
+    if max_depth >= 0 or not family_patterns:
+        msg.append("with max_depth {}".format(max_depth))
+    if family_patterns:
+        msg.append("up to task families '{}'".format(",".join(family_patterns)))
+    print("remove task output {}".format(" and ".join(msg)))
 
     run_task = flag_to_bool(run_task)
     if run_task:
@@ -347,6 +402,9 @@ def remove_task_output(task, max_depth=0, mode=None, run_task=False):
         order="pre",
         yield_last_flag=True,
     ):
+        if family_patterns and multi_match(dep.task_family, family_patterns, mode=any):
+            next_deps.clear()
+
         del parents_last_flags[depth:]
         next_deps_shown = bool(next_deps) and (max_depth < 0 or depth < max_depth)
 
@@ -450,12 +508,20 @@ def remove_task_output(task, max_depth=0, mode=None, run_task=False):
     return run_task
 
 
-def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_external=False):
+def fetch_task_output(task, stopping_condition=0, mode=None, target_dir=".", include_external=False):
     from law.task.base import ExternalTask
     from law.workflow.base import BaseWorkflow
 
-    max_depth = int(max_depth)
-    print("fetch task output with max_depth {}".format(max_depth))
+    # parse the stopping condition
+    max_depth, family_patterns = _parse_stopping_condition(stopping_condition)
+
+    # show a verbose message
+    msg = []
+    if max_depth >= 0 or not family_patterns:
+        msg.append("with max_depth {}".format(max_depth))
+    if family_patterns:
+        msg.append("up to task families '{}'".format(",".join(family_patterns)))
+    print("fetch task output {}".format(" and ".join(msg)))
 
     target_dir = os.path.normpath(os.path.abspath(str(target_dir)))
     print("target directory is {}".format(target_dir))
@@ -504,6 +570,9 @@ def fetch_task_output(task, max_depth=0, mode=None, target_dir=".", include_exte
         order="pre",
         yield_last_flag=True,
     ):
+        if family_patterns and multi_match(dep.task_family, family_patterns, mode=any):
+            next_deps.clear()
+
         del parents_last_flags[depth:]
         next_deps_shown = bool(next_deps) and (max_depth < 0 or depth < max_depth)
 

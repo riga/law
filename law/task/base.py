@@ -9,7 +9,7 @@ __all__ = ["Task", "WrapperTask", "ExternalTask"]
 
 import sys
 import logging
-from collections import OrderedDict
+from collections import OrderedDict, deque
 from contextlib import contextmanager
 from abc import ABCMeta, abstractmethod
 import inspect
@@ -303,36 +303,34 @@ class BaseTask(six.with_metaclass(BaseRegister, luigi.Task)):
             raise ValueError("yield_last_flag can only be used in 'pre' order, but got '{}'".format(
                 order))
 
-        tasks = [(self, 0)]
+        tasks = deque([(self, 0)])
         while len(tasks):
-            task, depth = tasks.pop(0)
+            task, depth = tasks.popleft()
             deps = flatten(task.requires())
             next_depth = tasks[0][1] if tasks else None
 
-            # define the tuple of objects to yield
-            tpl = (task, deps, depth)
-            if not yield_last_flag:
-                yield tpl
+            # yield objects
+            if yield_last_flag:
+                # when an additional flag should be yielded that denotes whether the object
+                # is the last one in its depth, evaluate this decision here and then yield
+                # note: this assumes that the deps were not changed by the using context
+                is_last = next_depth is None or next_depth < depth
+                yield task, deps, depth, is_last
+            else:
+                yield task, deps, depth
 
             # define the next deps, considering the maximum depth if set
-            deps = (
+            deps = [
                 (d, depth + 1)
                 for d in deps
                 if max_depth < 0 or depth < max_depth
-            )
+            ]
 
-            # add to the tasks run process, depending on the traversal order
+            # add to the tasks yet to process, depending on the traversal order
             if order == "level":
-                tasks[len(tasks):] = deps
+                tasks.extend(deps)
             elif order == "pre":
-                tasks[:0] = deps
-
-            # when an additional flag should be yielded that denotes whether the object is the last
-            # one in its depth, evaluate this decision here and then yield
-            # note: this assumes that the deps were not changed by the using context
-            if yield_last_flag:
-                is_last = next_depth is None or next_depth < depth
-                yield tpl + (is_last,)
+                tasks.extendleft(reversed(deps))
 
     def cli_args(self, exclude=None, replace=None, skip_empty_bools=True):
         exclude = set() if exclude is None else set(make_list(exclude))
@@ -399,40 +397,48 @@ class Task(six.with_metaclass(Register, BaseTask)):
         default=(),
         significant=False,
         description="print task dependencies but do not run any task; this CSV parameter accepts a "
-        "single integer value which sets the task recursion depth (0 means non-recursive)",
+        "single value which controls the task recursion depth, which can be an integer depth (0 "
+        "means non-recursive), a pattern matching a task family after which the recursion stops, "
+        "or a sequence of them spearated by '|'",
     )
     print_status = CSVParameter(
         default=(),
         significant=False,
         description="print the task status but do not run any task; this CSV parameter accepts up "
-        "to three values: 1. the task recursion depth (0 means non-recursive), 2. the depth of the "
-        "status text of target collections (default: 0), 3. a flag that is passed to the status "
-        "text creation (default: '')",
+        "to three values: 1. the task recursion depth, which can be an integer depth (0 means "
+        "non-recursive), a pattern matching a task family after which the recursion stops, or a "
+        "sequence of them spearated by '|', 2. the depth of the status text of target collections "
+        "(default: 0), 3. a flag that is passed to the status text creation (default: '')",
     )
     print_output = CSVParameter(
         default=(),
         significant=False,
         description="print a flat list of output targets but do not run any task; this CSV "
-        "parameter accepts up to two values: 1. the task recursion depth (0 means non-recursive), "
-        "2. a boolean flag that decides whether paths of file targets should contain file system "
-        "schemes (default: True)",
+        "parameter accepts up to two values: 1. the task recursion depth, which which can be an "
+        "integer depth (0 means non-recursive), a pattern matching a task family after which the "
+        "recursion stops, or a sequence of them spearated by '|', 2. a boolean flag that decides "
+        "whether paths of file targets should contain file system schemes (default: True)",
     )
     remove_output = CSVParameter(
         default=(),
         significant=False,
         description="remove task outputs but do not run any task by default; this CSV parameter "
-        "accepts up to three values: 1. the task recursion depth (0 means non-recursive), 2. one "
-        "of the modes 'i' (interactive), 'a' (all), 'd' (dry run) (default: 'i'), 3. a boolean "
-        "flag that decides whether the task is run after outputs were removed (default: False)",
+        "accepts up to three values: 1. the task recursion depth, which can be an integer depth "
+        "(0 means non-recursive), a pattern matching a task family after which the recursion "
+        "stops, or a sequence of them spearated by '|', 2. one of the modes 'i' (interactive), "
+        "'a' (all), 'd' (dry run) (default: 'i'), 3. a boolean flag that decides whether the task "
+        "is run after outputs were removed (default: False)",
     )
     fetch_output = CSVParameter(
         default=(),
         significant=False,
         description="copy all task outputs into a local directory but do not run any task; this "
-        "CSV parameter accepts up to four values: 1. the task recursion depth (0 means "
-        "non-recursive), 2. one of the modes 'i' (interactive), 'a' (all), 'd' (dry run) (default: "
-        "'i'), 3. the target directory (default: '.'), 4. a boolean flag that decides whether "
-        "external outputs and outputs of external tasks should be fetched (default: False)",
+        "CSV parameter accepts up to four values: 1. the task recursion depth, which can be an "
+        "integer depth (0 means non-recursive), a pattern matching a task family after which the "
+        "recursion stops, or a sequence of them spearated by '|', 2. one of the modes 'i' "
+        "(interactive), 'a' (all), 'd' (dry run) (default: 'i'), 3. the target directory "
+        "(default: '.'), 4. a boolean flag that decides whether external outputs and outputs of "
+        "external tasks should be fetched (default: False)",
     )
 
     interactive_params = [
