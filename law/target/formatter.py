@@ -214,6 +214,90 @@ class YAMLFormatter(Formatter):
             return yaml.dump(obj, f, *args, **kwargs)
 
 
+class TarFormatter(Formatter):
+
+    name = "tar"
+
+    @classmethod
+    def infer_compression(cls, path: str | pathlib.Path | FileSystemTarget) -> str | None:
+        path = get_path(path)
+        if path.endswith((".tar.gz", ".tgz")):
+            return "gz"
+        if path.endswith((".tar.bz2", ".tbz2", ".bz2")):
+            return "bz2"
+        if path.endswith((".tar.xz", ".txz", ".lzma")):
+            return "xz"
+        return None
+
+    @classmethod
+    def accepts(cls, path: str | pathlib.Path | FileSystemTarget, mode: str) -> bool:
+        return cls.infer_compression(path) is not None
+
+    @classmethod
+    def load(
+        cls,
+        path: str | pathlib.Path | FileSystemTarget,
+        dst: str | pathlib.Path | FileSystemDirectoryTarget,
+        *args,
+        **kwargs,
+    ) -> None:
+        # get the mode from args and kwargs, default to read mode with inferred compression
+        if args:
+            mode = args[0]
+            args = args[1:]
+        elif "mode" in kwargs:
+            mode = kwargs.pop("mode")
+        else:
+            compression = cls.infer_compression(path)
+            mode = "r" if not compression else "r:" + compression
+
+        # arguments passed to extractall()
+        extractall_kwargs = kwargs.pop("extractall_kwargs", None) or {}
+
+        # open zip file and extract to dst
+        with tarfile.open(get_path(path), mode, *args, **kwargs) as f:
+            f.extractall(get_path(dst), **extractall_kwargs)
+
+    @classmethod
+    def dump(
+        cls,
+        path: str | pathlib.Path | FileSystemTarget,
+        src: str | pathlib.Path | FileSystemDirectoryTarget,
+        *args,
+        **kwargs,
+    ) -> None:
+        # get the mode from args and kwargs, default to write mode with inferred compression
+        if args:
+            mode = args[0]
+            args = args[1:]
+        elif "mode" in kwargs:
+            mode = kwargs.pop("mode")
+        else:
+            compression = cls.infer_compression(path)
+            mode = "w" if not compression else "w:" + compression
+
+        # arguments passed to add()
+        add_kwargs = kwargs.pop("add_kwargs", None) or {}
+
+        # backwards compatibility
+        _filter = kwargs.pop("filter", None)
+        if _filter is not None:
+            logger.warning_once(
+                "passing filter=callback' to TarFormatter.dump is deprecated and will be removed "
+                "in a future release; please use 'add_kwargs=dict(filter=callback)' instead",
+            )
+            add_kwargs["filter"] = _filter
+
+        # open a new zip file and add all files in src
+        with tarfile.open(get_path(path), mode, *args, **kwargs) as f:
+            srcs = [os.path.abspath(get_path(src)) for src in make_list(src)]
+            common_prefix = os.path.commonprefix(srcs)
+            for src in srcs:
+                _add_kwargs = {"arcname": os.path.relpath(src, common_prefix)}
+                _add_kwargs.update(add_kwargs)
+                f.add(src, **_add_kwargs)  # type: ignore[arg-type]
+
+
 class ZipFormatter(Formatter):
 
     name = "zip"
@@ -315,90 +399,6 @@ class GZipFormatter(Formatter):
         # write into a new gzip file
         with gzip.open(get_path(path), mode, *args, **kwargs) as f:
             return f.write(obj, **write_kwargs)
-
-
-class TarFormatter(Formatter):
-
-    name = "tar"
-
-    @classmethod
-    def infer_compression(cls, path: str | pathlib.Path | FileSystemTarget) -> str | None:
-        path = get_path(path)
-        if path.endswith((".tar.gz", ".tgz")):
-            return "gz"
-        if path.endswith((".tar.bz2", ".tbz2", ".bz2")):
-            return "bz2"
-        if path.endswith((".tar.xz", ".txz", ".lzma")):
-            return "xz"
-        return None
-
-    @classmethod
-    def accepts(cls, path: str | pathlib.Path | FileSystemTarget, mode: str) -> bool:
-        return cls.infer_compression(path) is not None
-
-    @classmethod
-    def load(
-        cls,
-        path: str | pathlib.Path | FileSystemTarget,
-        dst: str | pathlib.Path | FileSystemDirectoryTarget,
-        *args,
-        **kwargs,
-    ) -> None:
-        # get the mode from args and kwargs, default to read mode with inferred compression
-        if args:
-            mode = args[0]
-            args = args[1:]
-        elif "mode" in kwargs:
-            mode = kwargs.pop("mode")
-        else:
-            compression = cls.infer_compression(path)
-            mode = "r" if not compression else "r:" + compression
-
-        # arguments passed to extractall()
-        extractall_kwargs = kwargs.pop("extractall_kwargs", None) or {}
-
-        # open zip file and extract to dst
-        with tarfile.open(get_path(path), mode, *args, **kwargs) as f:
-            f.extractall(get_path(dst), **extractall_kwargs)
-
-    @classmethod
-    def dump(
-        cls,
-        path: str | pathlib.Path | FileSystemTarget,
-        src: str | pathlib.Path | FileSystemDirectoryTarget,
-        *args,
-        **kwargs,
-    ) -> None:
-        # get the mode from args and kwargs, default to write mode with inferred compression
-        if args:
-            mode = args[0]
-            args = args[1:]
-        elif "mode" in kwargs:
-            mode = kwargs.pop("mode")
-        else:
-            compression = cls.infer_compression(path)
-            mode = "w" if not compression else "w:" + compression
-
-        # arguments passed to add()
-        add_kwargs = kwargs.pop("add_kwargs", None) or {}
-
-        # backwards compatibility
-        _filter = kwargs.pop("filter", None)
-        if _filter is not None:
-            logger.warning_once(
-                "passing filter=callback' to TarFormatter.dump is deprecated and will be removed "
-                "in a future release; please use 'add_kwargs=dict(filter=callback)' instead",
-            )
-            add_kwargs["filter"] = _filter
-
-        # open a new zip file and add all files in src
-        with tarfile.open(get_path(path), mode, *args, **kwargs) as f:
-            srcs = [os.path.abspath(get_path(src)) for src in make_list(src)]
-            common_prefix = os.path.commonprefix(srcs)
-            for src in srcs:
-                _add_kwargs = {"arcname": os.path.relpath(src, common_prefix)}
-                _add_kwargs.update(add_kwargs)
-                f.add(src, **_add_kwargs)  # type: ignore[arg-type]
 
 
 class PythonFormatter(Formatter):
