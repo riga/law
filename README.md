@@ -53,7 +53,7 @@ Key features:
 - Automatic submission to batch systems from within tasks
   - HTCondor, LSF, gLite, ARC, Slurm, CMS-CRAB
 - Environment sandboxing, configurable on task level
-  - Docker, Singularity, Sub-Shells, Virutal envs
+  - Docker, Singularity, Sub-Shells, Virtual envs
 
 <!-- marker-after-header -->
 
