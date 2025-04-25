@@ -293,4 +293,8 @@ docker run -ti riga/law:<the_tag>
 
 This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification.
 
+## Cite law
+
+M. Rieger, "End-to-End Analysis Automation over Distributed Resources with Luigi Analysis Workflows", *EPJ Web of Conferences* **295** (2024) 05012, [`arXiv:2402.17949`](https://arxiv.org/abs/2402.17949)
+
 <!-- marker-after-body -->
