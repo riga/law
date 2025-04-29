@@ -134,7 +134,7 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
             c.custom_content.append(("chdir", output_dir.abspath))
 
         # prepare the log dir
-        log_dir_orig = task.htcondor_log_directory()
+        log_dir_orig = task.slurm_log_directory()
         log_dir = cast_dir(log_dir_orig) if log_dir_orig else output_dir
         log_dir_is_local = isinstance(log_dir, LocalDirectoryTarget)
 
