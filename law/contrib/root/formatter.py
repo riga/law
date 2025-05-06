@@ -36,7 +36,7 @@ class GuardedTFile(object):
         if len(args) == 1 and isinstance(args[0], ROOT.TFile) and not kwargs:
             self._guarded_tfile = args[0]
         elif args or kwargs:
-            self._guarded_tfile = ROOT.TFile(*args, **kwargs)
+            self._guarded_tfile = ROOT.TFile.Open(*args, **kwargs)
 
     def __enter__(self):
         return self._guarded_tfile
