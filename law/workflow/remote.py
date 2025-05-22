@@ -1240,6 +1240,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 n_poll_fails = 0
 
             # handle active jobs
+            synced_existing_branches = False
             for job_num in active_jobs:
                 # update job data with status info
                 data = self.job_data.jobs[job_num]
@@ -1254,9 +1255,14 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 # to the batch system; in this case, mark it as unknown and to be retried
                 if self._submitted and i == 0:
                     is_finished = data["status"] == self.job_manager.FINISHED
-                    if is_finished and not self._can_skip_job(job_num, data["branches"]):
-                        data["status"] = self.job_manager.RETRY
-                        data["error"] = "initially missing task outputs"
+                    if is_finished:
+                        # sync existing branches once more in case jobs finished since last checked
+                        if not synced_existing_branches:
+                            self._get_existing_branches(sync=True)
+                            synced_existing_branches = True
+                        if not self._can_skip_job(job_num, data["branches"]):
+                            data["status"] = self.job_manager.RETRY
+                            data["error"] = "initially missing task outputs"
             del states_by_id
 
             # from here on, consider unknown jobs again as active
