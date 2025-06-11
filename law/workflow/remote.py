@@ -1677,6 +1677,7 @@ class BaseRemoteWorkflow(BaseWorkflow):
 
     exclude_index = True
 
+    exclude_params_req = {"no_poll"}
     exclude_params_branch = {
         "retries", "tasks_per_job", "parallel_jobs", "no_poll", "submission_threads", "walltime",
         "job_workers", "poll_interval", "poll_fails", "shuffle_jobs", "cancel_jobs", "cleanup_jobs",
