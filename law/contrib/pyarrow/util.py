@@ -76,7 +76,7 @@ def merge_parquet_files(
     if target_row_group_size <= 0:
         # trivial case
         if copy_single and len(src_paths) == 1:
-            shutil.copy(src_paths[0], dst_path)
+            shutil.copy(src_paths[0], dst_path)  # type: ignore[arg-type]
             callback(0)
         else:
             # for merging multiple files, iterate through them and add tables
@@ -94,7 +94,7 @@ def merge_parquet_files(
                     callback(i)
     else:
         # more complex behavior when aiming at specific row group sizes
-        q = collections.deque()
+        q: collections.deque[tuple[pq.ParquetFile, int]] = collections.deque()
         for src_path in src_paths:
             f = pq.ParquetFile(src_path)
             q.extend([(f, i) for i in range(f.num_row_groups)])
