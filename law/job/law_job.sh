@@ -47,6 +47,7 @@
 # - stageout_command: A command that is executed after running tasks.
 # - stageout_file: A file that is executed after running tasks.
 # - log_file: A file for logging stdout and stderr simultaneously.
+# - python_exe: Python executable to be used for various setup steps. If not set, a default is used.
 #
 # Dashboard hooks (called when found in environment):
 # - law_hook_job_running: A function that is called right before the job setup starts. No arguments.
@@ -120,6 +121,7 @@ law_job() {
     local input_files_render
     input_files_render=( {{input_files_render}} )
     local render_variables="{{render_variables}}"
+    local python_exe="{{python_exe}}"
 
     mkdir -p "${LAW_JOB_HOME}"
     mkdir -p "${LAW_JOB_TMP}"
@@ -134,8 +136,12 @@ law_job() {
     }
 
     _law_python() {
-        # forward to python if it exists, otherwise to python3
-        _law_exe_exists python && python "$@" || python3 "$@"
+        # use python_exe if set, otherwise forward to python if it exists, otherwise to python3
+        if [ ! -z "${python_exe}" ]; then
+            "${python_exe}" "$@"
+        else
+            _law_exe_exists python && python "$@" || python3 "$@"
+        fi
     }
 
     _law_job_line() {
