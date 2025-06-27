@@ -67,28 +67,26 @@ def merge_parquet_files(src_paths, dst_path, force=True, callback=None, writer_o
             callback(0)
         else:
             # for merging multiple files, iterate through them and add tables
-            table = pq.read_table(src_paths[0])
-            with pq.ParquetWriter(dst_path, table.schema, **(writer_opts or {})) as writer:
-                # write the first table
-                writer.write_table(table)
-                callback(0)
-
-                # write the remaining ones
-                for i, path in enumerate(src_paths[1:], 1):
-                    _table = pq.read_table(path)
-                    if not skip_empty or _table.num_rows > 0:
-                        writer.write_table(_table)
+            schema = pq.read_schema(src_paths[0])
+            with pq.ParquetWriter(dst_path, schema, **(writer_opts or {})) as writer:
+                # write all tables
+                for i, path in enumerate(src_paths):
+                    table = pq.read_table(path)
+                    if not skip_empty or table.num_rows > 0:
+                        writer.write_table(table)
                     callback(i)
     else:
         # more complex behavior when aiming at specific row group sizes
+        # create a work queue with file handle, file index and row group index
         q = collections.deque()
         for i, src_path in enumerate(src_paths):
             f = pq.ParquetFile(src_path)
             q.extend([(f, i, g) for g in range(f.num_row_groups)])
-        table = q[0][0].read_row_group(q.popleft()[2])
-        cur_size = table.num_rows
-        tables = collections.deque([(table, cur_size)])
-        with pq.ParquetWriter(dst_path, table.schema, **(writer_opts or {})) as writer:
+        # start iterative merging
+        tables = collections.deque()
+        cur_size = 0
+        schema = pq.read_schema(src_paths[0])
+        with pq.ParquetWriter(dst_path, schema, **(writer_opts or {})) as writer:
             while q:
                 # read the next row group
                 f, i, g = q.popleft()
@@ -100,6 +98,7 @@ def merge_parquet_files(src_paths, dst_path, force=True, callback=None, writer_o
                 while cur_size >= target_row_group_size:
                     merge_tables = []
                     merge_size = 0
+                    # from the front, check which tables should be merged, potentially splitting
                     while tables:
                         table, size = tables.popleft()
                         missing_size = target_row_group_size - merge_size
@@ -114,8 +113,10 @@ def merge_parquet_files(src_paths, dst_path, force=True, callback=None, writer_o
                             break
                     writer.write_table(pa.concat_tables(merge_tables))
                     cur_size -= merge_size
+                # after the last group is handled, invoke callback and close the file
                 if g == f.num_row_groups - 1:
                     callback(i)
+                    f.close()
             # write remaining tables
             if tables:
                 writer.write_table(pa.concat_tables([table for table, _ in tables]))
