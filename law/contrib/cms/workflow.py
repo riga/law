@@ -116,7 +116,8 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
             exclude_task_args=list(exclude_args),
             exclude_global_args=["workers", f"{task.task_family}-*"],
         )
-        proxy_cmd.add_arg("--local-scheduler", "True", overwrite=True)
+        if task.crab_use_local_scheduler():
+            proxy_cmd.add_arg("--local-scheduler", "True", overwrite=True)
         for key, value in dict(task.crab_cmdline_args()).items():
             proxy_cmd.add_arg(key, value, overwrite=True)
 
@@ -385,6 +386,12 @@ class CrabWorkflow(BaseRemoteWorkflow):
         """
         Whether to dump intermediate job data to the job submission file while jobs are being
         submitted.
+        """
+        return True
+
+    def crab_use_local_scheduler(self) -> bool:
+        """
+        Whether remote jobs should use a local scheduler.
         """
         return True
 

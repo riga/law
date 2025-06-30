@@ -326,7 +326,8 @@ class LSFWorkflow(BaseRemoteWorkflow):
         return
 
     def lsf_use_local_scheduler(self) -> bool:
-        return True
+        # try to use the config setting
+        return Config.instance().get_expanded_bool("luigi_core", "local_scheduler", False)
 
     def lsf_cmdline_args(self) -> dict[str, str]:
         return {}
