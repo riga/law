@@ -13,7 +13,9 @@ import six
 
 from law.target.file import FileSystemFileTarget
 from law.target.local import LocalFileTarget, LocalDirectoryTarget
-from law.util import map_verbose, make_list, interruptable_popen, human_bytes, quote_cmd
+from law.util import (
+    map_verbose, make_list, interruptable_popen, human_bytes, quote_cmd, iter_chunks,
+)
 
 
 _ROOT = None
@@ -44,7 +46,8 @@ def import_ROOT(batch=True, ignore_cli=True, reset=False):
     return _ROOT
 
 
-def hadd_task(task, inputs, output, cwd=None, local=False, force=True, hadd_args=None):
+def hadd_task(task, inputs, output, cwd=None, local=False, force=True, cascade_size=0,
+        hadd_args=None):
     """
     This method is intended to be used by tasks that are supposed to merge root files, e.g. when
     inheriting from :py:class:`law.contrib.tasks.ForestMerge`. *inputs* should be a sequence of
@@ -55,8 +58,13 @@ def hadd_task(task, inputs, output, cwd=None, local=False, force=True, hadd_args
 
     When *local* is *True*, the input and output targets are assumed to be local and the merging is
     based on their local paths. Otherwise, the targets are fetched first and the output target is
-    localized. When *force* is *True*, any existing output file is overwritten. *hadd_args* can be a
-    sequence of additional arguments that are added to the hadd command.
+    localized. When *force* is *True*, any existing output file is overwritten.
+
+    Since ``hadd`` is triggered as a subprocess, the resulting command line can potentially get
+    quite long. To avoid this, a so-called cascade can be utilized, resulting in consecutive merging
+    steps each running on *cascade_size* input files.
+
+    *hadd_args* can be a sequence of additional arguments that are added to the hadd command.
     """
     abspath = lambda path: os.path.abspath(os.path.expandvars(os.path.expanduser(str(path))))
 
@@ -91,6 +99,28 @@ def hadd_task(task, inputs, output, cwd=None, local=False, force=True, hadd_args
         cmd.extend(input_paths)
         return quote_cmd(cmd)
 
+    # helper to perform the merging itself
+    def hadd(input_paths, output_path, _cascade_depth=0):
+        if cascade_size > 0 and len(input_paths) > cascade_size:
+            # run hadd on chunks in the cwd
+            intermediate_paths = []
+            output_name = os.path.basename(output_path)
+            for i, chunk in enumerate(iter_chunks(input_paths, cascade_size)):
+                intermediate_path = "cascade_d{}_i{}_{}".format(_cascade_depth, i, output_name)
+                hadd(chunk, intermediate_path)
+                intermediate_paths.append(intermediate_path)
+            # intermediate paths might exceed cascade size again, so recurse
+            hadd(intermediate_paths, output_path, _cascade_depth=_cascade_depth + 1)
+            # remove intermediate files
+            for intermediate_path in intermediate_paths:
+                cwd.child(intermediate_path).remove()
+        else:
+            # atomic merging
+            cmd = hadd_cmd(input_paths, output_path)
+            code = interruptable_popen(cmd, shell=True, executable="/bin/bash", cwd=cwd.path)[0]
+            if code != 0:
+                raise Exception("hadd failed")
+
     if local:
         # when local, there is no need to download inputs
         input_paths = [inp.abspath for inp in inputs]
@@ -103,11 +133,7 @@ def hadd_task(task, inputs, output, cwd=None, local=False, force=True, hadd_args
             if len(inputs) == 1:
                 output.copy_from_local(inputs[0])
             else:
-                # merge using hadd
-                cmd = hadd_cmd(input_paths, output.abspath)
-                code = interruptable_popen(cmd, shell=True, executable="/bin/bash")[0]
-                if code != 0:
-                    raise Exception("hadd failed")
+                hadd(input_paths, output.abspath)
 
         stat = output.exists(stat=True)
         if not stat:
@@ -135,12 +161,7 @@ def hadd_task(task, inputs, output, cwd=None, local=False, force=True, hadd_args
                 if len(bases) == 1:
                     tmp_out.path = cwd.child(bases[0]).abspath
                 else:
-                    # merge using hadd
-                    cmd = hadd_cmd(bases, tmp_out.path)
-                    code = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-                        cwd=cwd.path)[0]
-                    if code != 0:
-                        raise Exception("hadd failed")
+                    hadd(bases, tmp_out.path)
 
             stat = tmp_out.exists(stat=True)
             if not stat:
