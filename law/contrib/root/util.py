@@ -137,7 +137,7 @@ def hadd_task(task, inputs, output, cwd=None, local=False, force=True, cascade_s
 
         stat = output.exists(stat=True)
         if not stat:
-            raise Exception("output '{}' not creating during merging".format(output.abspath))
+            raise Exception("output '{}' not created during merging".format(output.abspath))
 
         # print the size
         output_size = human_bytes(stat.st_size, fmt=True)
@@ -165,7 +165,7 @@ def hadd_task(task, inputs, output, cwd=None, local=False, force=True, cascade_s
 
             stat = tmp_out.exists(stat=True)
             if not stat:
-                raise Exception("output '{}' not creating during merging".format(tmp_out.path))
+                raise Exception("output '{}' not created during merging".format(tmp_out.path))
 
             # print the size
             output_size = human_bytes(stat.st_size, fmt=True)
