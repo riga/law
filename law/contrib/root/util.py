@@ -144,7 +144,7 @@ def hadd_task(
 
         stat: os.stat_result = output.exists(stat=True)  # type: ignore[assignment]
         if not stat:
-            raise Exception(f"output '{output.abspath}' not creating during merging")
+            raise Exception(f"output '{output.abspath}' not created during merging")
 
         # print the size
         output_size = human_bytes(stat.st_size, fmt=True)
