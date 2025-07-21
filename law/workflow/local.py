@@ -69,7 +69,9 @@ class LocalWorkflowProxy(BaseWorkflowProxy):
         if isinstance(pre_run_gen, Generator):
             yield pre_run_gen
 
-        super().run()
+        super_run_gen = super().run()
+        if isinstance(super_run_gen, Generator):
+            yield super_run_gen
 
         if not task.local_workflow_require_branches and not self._local_workflow_has_yielded:
             self._local_workflow_has_yielded = True

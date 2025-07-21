@@ -1199,13 +1199,13 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
         """
         return not self.is_branch()
 
-    def as_branch(self, branch: int | None = None) -> BaseWorkflow:
+    def as_branch(self, branch: int | None = None, **kwargs) -> BaseWorkflow:
         """
         When this task refers to the workflow, a re-instantiated task with identical parameters and
         a certain *branch* value, defaulting to 0, is returned. When this task is already a branch
         task, the task itself is returned when *branch* is *None* or matches this task's branch
-        value. Otherwise, a new branch task with that value and identical parameters is created and
-        returned.
+        value. Otherwise, a new branch task with that value, receiving all *kwargs* and otherwise
+        identical parameters is created and returned.
         """
         if branch == -1:
             raise ValueError("branch must not be -1 when selecting a branch task")
@@ -1213,7 +1213,7 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
         if self.is_branch() and branch in (None, self.branch):
             return self
 
-        return self.req_branch(branch or 0)
+        return self.req_branch(branch or 0, **kwargs)
 
     def as_workflow(self, **kwargs) -> BaseWorkflow:
         """
@@ -1344,18 +1344,19 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
 
         return branch_map[self.branch]  # type: ignore[index]
 
-    def get_branch_tasks(self) -> dict[int, BaseWorkflow]:
+    def get_branch_tasks(self, **kwargs) -> dict[int, BaseWorkflow]:
         """
         Returns a dictionary that maps branch numbers to instantiated branch tasks. As this might be
-        computationally intensive, the return value is cached.
+        computationally intensive, the return value is cached.  For the first initialization, all
+        *kwargs* are passed to :py:meth:`as_branch` for each created branch task.
         """
         if self.is_branch():
-            return self.as_workflow().get_branch_tasks()
+            return self.as_workflow().get_branch_tasks(**kwargs)
 
         if self._branch_tasks is None:
             # get all branch tasks according to the map
             branch_tasks = {
-                b: self.as_branch(branch=b)
+                b: self.as_branch(branch=b, **kwargs)
                 for b in self.get_branch_map()
             }
 
