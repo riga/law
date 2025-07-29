@@ -347,9 +347,9 @@ class SiblingFileCollectionBase(FileCollection):
             return False
         return target.basename in basenames
 
-    def remove(self, silent=True, parallel=None):
-        if parallel is None:
-            parallel = self.remove_threads
+    def remove(self, silent=True, threads=None):
+        if threads is None:
+            threads = self.remove_threads
 
         # atomic removal
         def remove(target):
@@ -362,8 +362,8 @@ class SiblingFileCollectionBase(FileCollection):
                     yield target
 
         # parallel or sequential removal
-        if parallel > 0:
-            with ThreadPool(parallel) as pool:
+        if threads > 0:
+            with ThreadPool(threads) as pool:
                 pool.map(remove, target_gen())
         else:
             for target in target_gen():
