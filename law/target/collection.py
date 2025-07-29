@@ -35,7 +35,8 @@ class TargetCollection(Target):
     Collection of arbitrary targets.
     """
 
-    def __init__(self, targets, threshold=1.0, optional_existing=None, remove_threads=None, **kwargs):
+    def __init__(self, targets, threshold=1.0, optional_existing=None, remove_threads=None,
+            **kwargs):
         if isinstance(targets, types.GeneratorType):
             targets = list(targets)
         elif not isinstance(targets, (list, tuple, dict)):
@@ -45,7 +46,8 @@ class TargetCollection(Target):
 
         # default number of threads for removal
         if remove_threads is None:
-            remove_threads = Config.instance().get_expanded_int("target", "collection_remove_threads")
+            remove_threads = Config.instance().get_expanded_int("target",
+                "collection_remove_threads")
 
         # store attributes
         self.targets = targets
