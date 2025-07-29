@@ -307,7 +307,7 @@ def log(
     return ret
 
 
-@factory(skip=None, accept_generator=True)
+@factory(skip=None, optional=True, accept_generator=True)
 def safe_output(
     fn: Callable,
     opts: dict[str, Any],
@@ -315,10 +315,10 @@ def safe_output(
     *args,
     **kwargs,
 ) -> tuple[Callable, Callable, Callable, Callable]:
-    """ safe_output(skip=None)
+    """ safe_output(skip=None, optional=True)
     Wraps a bound method of a task and guards its execution. If an exception occurs, and it is not
-    an instance of *skip*, the task's output is removed prior to the actual raising. Accepts
-    generator functions.
+    an instance of *skip*, the task's output is removed prior to the actual raising. If *optional*
+    is *False*, optional targets are not removed. Accepts generator functions.
     """
     def before_call() -> None:
         return None
@@ -332,6 +332,10 @@ def safe_output(
     def on_error(error: Exception, state: None) -> None:
         if opts["skip"] is None or not isinstance(error, opts["skip"]):
             for outp in luigi.task.flatten(task.output()):
+                # skip optional targets
+                if not opts["optional"] and getattr(outp, "optional", False):
+                    continue
+                # remove the target
                 outp.remove()
 
     return before_call, call, after_call, on_error

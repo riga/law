@@ -15,6 +15,7 @@ import pathlib
 import functools
 import contextlib
 from collections import deque, defaultdict
+from multiprocessing.pool import ThreadPool
 
 from law.config import Config
 from law.target.base import Target
@@ -42,6 +43,7 @@ class TargetCollection(Target):
         *,
         threshold: int | float = 1.0,
         optional_existing: bool | None = None,
+        remove_threads: int | None = None,
         **kwargs,
     ) -> None:
         if is_lazy_iterable(targets):
@@ -51,10 +53,18 @@ class TargetCollection(Target):
 
         super().__init__(**kwargs)
 
+        # default number of threads for removal
+        if remove_threads is None:
+            remove_threads = Config.instance().get_expanded_int(
+                "target",
+                "collection_remove_threads",
+            )
+
         # store attributes
         self.targets = targets
         self.threshold = threshold
         self.optional_existing = optional_existing
+        self.remove_threads = remove_threads
 
         # store flat targets per element in the input structure of targets
         if isinstance(targets, (list, tuple)):
@@ -107,18 +117,19 @@ class TargetCollection(Target):
     def _iter_state(
         self,
         *,
-        existing: bool = True,
+        existing: bool | None = True,
         optional_existing: bool | None | NoValue = no_value,
         keys: bool = False,
         unpack: bool = True,
         exists_func: Callable[[Target], bool] | None = None,
     ) -> Iterator[tuple[Any, Any] | Any]:
-        existing = bool(existing)
+        if existing is not None:
+            existing = bool(existing)
         if optional_existing is no_value:
             optional_existing = self.optional_existing
 
         # helper to check for existence
-        if exists_func is None:
+        if existing is not None and exists_func is None:
             def exists_func(t: Target) -> bool:
                 if optional_existing is not None and t.optional:
                     return bool(optional_existing)
@@ -128,8 +139,7 @@ class TargetCollection(Target):
 
         # loop and yield
         for key, targets in self._iter_flat():
-            state = all(map(exists_func, targets))
-            if state is existing:
+            if existing is None or all(map(exists_func, targets)) is existing:  # type: ignore[arg-type] # noqa
                 if unpack:
                     targets = self.targets[key]
                 yield (key, targets) if keys else targets
@@ -139,6 +149,9 @@ class TargetCollection(Target):
 
     def iter_missing(self, **kwargs) -> Iterator[tuple[Any, Any] | Any]:
         return self._iter_state(existing=False, **kwargs)
+
+    def iter_all(self, **kwargs) -> Iterator[tuple[Any, Any] | Any]:
+        return self._iter_state(existing=None, **kwargs)
 
     def keys(self) -> list[Any]:
         if isinstance(self._flat_targets, (list, tuple)):
@@ -166,13 +179,32 @@ class TargetCollection(Target):
         # dict
         return random.choice(list(self.targets.values()))
 
-    def remove(self, *, silent: bool = True, **kwargs) -> bool:
-        removed_any = False
-        for t in self._flat_target_list:
+    def remove(self, *, silent: bool = True, threads: int | None = None, **kwargs) -> bool:
+        if threads is None:
+            threads = self.remove_threads
+
+        # atomic removal
+        def remove(target):
             if silent:
-                removed_any |= t.remove(silent=True)
-            elif t.exists():
-                removed_any |= t.remove()
+                return target.remove(silent=True)
+            if target.exists():
+                return target.remove()
+            return False
+
+        # target generator
+        def target_gen():
+            for target in self._flat_target_list:
+                yield target
+
+        # parallel or sequential removal
+        removed_any = False
+        if threads > 0:
+            with ThreadPool(threads) as pool:
+                removed_any |= any(pool.map(remove, target_gen()))
+        else:
+            for target in target_gen():
+                removed_any |= remove(target)
+
         return removed_any
 
     def _abs_threshold(self) -> int | float:
@@ -352,11 +384,29 @@ class SiblingFileCollectionBase(FileCollection):
             return False
         return target.basename in basenames
 
-    def remove(self, *, silent: bool = True, **kwargs) -> bool:
+    def remove(self, *, silent: bool = True, threads: int | None = None, **kwargs) -> bool:
+        if threads is None:
+            threads = self.remove_threads
+
+        # atomic removal
+        def remove(target):
+            return target.remove(silent=silent)
+
+        # target generator
+        def target_gen():
+            for targets in self.iter_existing(unpack=False):
+                for target in targets:
+                    yield target
+
+        # parallel or sequential removal
         removed_any = False
-        for targets in self.iter_existing(unpack=False):
-            for t in targets:
-                removed_any |= t.remove(silent=silent)
+        if threads > 0:
+            with ThreadPool(threads) as pool:
+                removed_any |= any(pool.map(remove, target_gen()))
+        else:
+            for target in target_gen():
+                removed_any |= remove(target)
+
         return removed_any
 
 
@@ -413,7 +463,7 @@ class SiblingFileCollection(SiblingFileCollectionBase):
     def _iter_state(
         self,
         *,
-        existing: bool = True,
+        existing: bool | None = True,
         optional_existing: bool | None | NoValue = no_value,
         basenames: Sequence[str] | set[str] | None = None,
         keys: bool = False,
@@ -424,19 +474,19 @@ class SiblingFileCollection(SiblingFileCollectionBase):
         if not self.dir.exists():
             return
 
-        existing = bool(existing)
+        if existing is not None:
+            existing = bool(existing)
         if optional_existing is no_value:
             optional_existing = self.optional_existing
 
-        # get all basenames
-        if basenames is None:
-            basenames = self.dir.listdir()
-            basenames = self.dir.listdir() if self.dir.exists() else []
-        # convert to set for faster lookup
-        basenames = set(basenames) if basenames else set()
+        # default helper to check for existence
+        if existing is not None and exists_func is None:
+            # get all basenames
+            if basenames is None:
+                basenames = self.dir.listdir() if self.dir.exists() else []
+            # convert to set for faster lookup
+            basenames = set(basenames) if basenames else set()
 
-        # helper to check for existence
-        if exists_func is None:
             exists_func = functools.partial(
                 self._exists_in_basenames,
                 basenames=basenames,
@@ -446,8 +496,7 @@ class SiblingFileCollection(SiblingFileCollectionBase):
 
         # loop and yield
         for key, targets in self._iter_flat():
-            state = all(map(exists_func, targets))
-            if state is existing:
+            if existing is None or all(map(exists_func, targets)) is existing:  # type: ignore[arg-type] # noqa
                 if unpack:
                     targets = self.targets[key]
                 yield (key, targets) if keys else targets
@@ -494,28 +543,29 @@ class NestedSiblingFileCollection(SiblingFileCollectionBase):
     def _iter_state(
         self,
         *,
-        existing: bool = True,
+        existing: bool | None = True,
         optional_existing: bool | None | NoValue = no_value,
         basenames: dict[str, Sequence[str] | set[str]] | None = None,
         keys: bool = False,
         unpack: bool = True,
         exists_func: Callable[[Target], bool] | None = None,
     ) -> Iterator[tuple[Any, Any] | Any]:
-        existing = bool(existing)
+        if existing is not None:
+            existing = bool(existing)
         if optional_existing is no_value:
             optional_existing = self.optional_existing
 
-        # get all basenames
-        if basenames is None:
-            basenames = {
-                col.dir.abspath: (col.dir.listdir() if col.dir.exists() else [])
-                for col in self.collections
-            }
-        # convert to sets for faster lookups
-        basenames = {k: (set(v) if v else set()) for k, v in basenames.items()}
+        # default helper to check for existence
+        if existing is not None and exists_func is None:
+            # get all basenames
+            if basenames is None:
+                basenames = {
+                    col.dir.abspath: (col.dir.listdir() if col.dir.exists() else [])
+                    for col in self.collections
+                }
+            # convert to sets for faster lookups
+            basenames = {k: (set(v) if v else set()) for k, v in basenames.items()}
 
-        # helper to check for existence
-        if exists_func is None:
             exists_func = functools.partial(
                 self._exists_in_basenames,
                 basenames=basenames,  # type: ignore[arg-type]
@@ -525,8 +575,7 @@ class NestedSiblingFileCollection(SiblingFileCollectionBase):
 
         # loop and yield
         for key, targets in self._iter_flat():
-            state = all(map(exists_func, targets))
-            if state is existing:
+            if existing is None or all(map(exists_func, targets)) is existing:  # type: ignore[arg-type] # noqa
                 if unpack:
                     targets = self.targets[key]
                 yield (key, targets) if keys else targets
