@@ -228,9 +228,9 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
             search_dirs.extend((os.path.join(search_dir, d), depth + 1) for d in dirs)
 
     def glob(self, pattern, cwd=None, **kwargs):
-        pattern = self.abspath(pattern)
-
-        if cwd is not None:
+        if cwd is None:
+            pattern = self.abspath(pattern)
+        else:
             cwd = self.abspath(cwd)
             pattern = os.path.join(cwd, pattern)
 
