@@ -276,9 +276,9 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
         cwd: str | pathlib.Path | None = None,
         **kwargs,
     ) -> list[str]:
-        pattern = self.abspath(pattern)
-
-        if cwd is not None:
+        if cwd is None:
+            pattern = self.abspath(pattern)
+        else:
             cwd = self.abspath(cwd)
             pattern = os.path.join(cwd, pattern)
 
