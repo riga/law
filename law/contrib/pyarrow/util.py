@@ -8,6 +8,7 @@ __all__ = ["merge_parquet_files", "merge_parquet_task"]
 
 import os
 import shutil
+import collections
 
 from law.target.file import FileSystemFileTarget
 from law.target.local import LocalFileTarget, LocalDirectoryTarget
@@ -15,7 +16,7 @@ from law.util import map_verbose, human_bytes
 
 
 def merge_parquet_files(src_paths, dst_path, force=True, callback=None, writer_opts=None,
-        copy_single=False, skip_empty=True):
+        copy_single=False, skip_empty=True, target_row_group_size=0):
     """
     Merges parquet files in *src_paths* into a new file at *dst_path*. Intermediate directories are
     created automatically. When *dst_path* exists and *force* is *True*, the file is removed first.
@@ -27,8 +28,13 @@ def merge_parquet_files(src_paths, dst_path, force=True, callback=None, writer_o
     *copy_single* is *True*, the file is copied to *dst_path* and no merging takes place. Files
     containing empty tables are skipped unless *skip_empty* is *False*.
 
+    When *target_row_group_size* is a positive number, the merging is done on the level of particular
+    row groups. These groups are merged in-memory such that each resulting group stored on disk,
+    potentially except for the last one, will *target_row_group_size* rows.
+
     The absolute, expanded *dst_path* is returned.
     """
+    import pyarrow as pa
     import pyarrow.parquet as pq
 
     if not src_paths:
@@ -54,27 +60,66 @@ def merge_parquet_files(src_paths, dst_path, force=True, callback=None, writer_o
             raise Exception("destination path existing while force is False: {}".format(dst_path))
         os.remove(dst_path)
 
-    # trivial case
-    if copy_single and len(src_paths) == 1:
-        shutil.copy(src_paths[0], dst_path)
-        callback(0)
-        return dst_path
-
-    # read the first table to extract the schema
-    table = pq.read_table(src_paths[0])
-
-    # write the file
-    with pq.ParquetWriter(dst_path, table.schema, **(writer_opts or {})) as writer:
-        # write the first table
-        writer.write_table(table)
-        callback(0)
-
-        # write the remaining ones
-        for i, path in enumerate(src_paths[1:], 1):
-            _table = pq.read_table(path)
-            if not skip_empty or _table.num_rows > 0:
-                writer.write_table(_table)
-            callback(i)
+    if target_row_group_size <= 0:
+        # trivial case
+        if copy_single and len(src_paths) == 1:
+            shutil.copy(src_paths[0], dst_path)
+            callback(0)
+        else:
+            # for merging multiple files, iterate through them and add tables
+            schema = pq.read_schema(src_paths[0])
+            with pq.ParquetWriter(dst_path, schema, **(writer_opts or {})) as writer:
+                # write all tables
+                for i, path in enumerate(src_paths):
+                    table = pq.read_table(path)
+                    if not skip_empty or table.num_rows > 0:
+                        writer.write_table(table)
+                    callback(i)
+    else:
+        # more complex behavior when aiming at specific row group sizes
+        # create a work queue with file handle, file index and row group index
+        q = collections.deque()
+        for i, src_path in enumerate(src_paths):
+            f = pq.ParquetFile(src_path)
+            q.extend([(f, i, g) for g in range(f.num_row_groups)])
+        # start iterative merging
+        tables = collections.deque()
+        cur_size = 0
+        schema = pq.read_schema(src_paths[0])
+        with pq.ParquetWriter(dst_path, schema, **(writer_opts or {})) as writer:
+            while q:
+                # read the next row group
+                f, i, g = q.popleft()
+                table = f.read_row_group(g)
+                if not skip_empty or table.num_rows > 0:
+                    tables.append((table, table.num_rows))
+                    cur_size += table.num_rows
+                # write row groups when the size is reached
+                while cur_size >= target_row_group_size:
+                    merge_tables = []
+                    merge_size = 0
+                    # from the front, check which tables should be merged, potentially splitting
+                    while tables:
+                        table, size = tables.popleft()
+                        missing_size = target_row_group_size - merge_size
+                        if size < missing_size:
+                            merge_tables.append(table)
+                            merge_size += size
+                        else:
+                            merge_tables.append(table[:missing_size])
+                            merge_size += missing_size
+                            if size > missing_size:
+                                tables.appendleft((table[missing_size:], size - missing_size))
+                            break
+                    writer.write_table(pa.concat_tables(merge_tables))
+                    cur_size -= merge_size
+                # after the last group is handled, invoke callback and close the file
+                if g == f.num_row_groups - 1:
+                    callback(i)
+                    f.close()
+            # write remaining tables
+            if tables:
+                writer.write_table(pa.concat_tables([table for table, _ in tables]))
 
     return dst_path
 

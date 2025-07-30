@@ -332,7 +332,8 @@ class SlurmWorkflow(BaseRemoteWorkflow):
         return
 
     def slurm_use_local_scheduler(self):
-        return False
+        # try to use the config setting
+        return Config.instance().get_expanded_bool("luigi_core", "local_scheduler", False)
 
     def slurm_cmdline_args(self):
         return {}

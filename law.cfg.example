@@ -267,6 +267,12 @@
 ; Type: integer, None
 ; Default: 0o0770
 
+; collection_remove_threads
+; Desciption: Number of threads to use for removing targets in "TargetCollection"'s in parallel.
+; No multi-threading is used when the number is 0.
+; Type: int
+; Default: 0
+
 
 ; --- Options of contrib packages
 
