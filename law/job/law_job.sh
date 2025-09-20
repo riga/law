@@ -48,6 +48,7 @@
 # - stageout_file: A file that is executed after running tasks.
 # - log_file: A file for logging stdout and stderr simultaneously.
 # - python_exe: Python executable to be used for various setup steps. If not set, a default is used.
+# - law_exe: The law executable to be used. If not set, "law" is used.
 #
 # Dashboard hooks (called when found in environment):
 # - law_hook_job_running: A function that is called right before the job setup starts. No arguments.
@@ -122,6 +123,8 @@ law_job() {
     input_files_render=( {{input_files_render}} )
     local render_variables="{{render_variables}}"
     local python_exe="{{python_exe}}"
+    local law_exe="{{law_exe}}"
+    law_exe="${law_exe:-law}"
 
     mkdir -p "${LAW_JOB_HOME}"
     mkdir -p "${LAW_JOB_TMP}"
@@ -419,6 +422,7 @@ law_job() {
     echo "pwd      : $( pwd )"
     echo "script   : $0"
     echo "args     : $@"
+    echo "law exe  : ${law_exe}"
 
     # print additional task variables
     echo
@@ -542,7 +546,7 @@ EOT
     _law_job_section "run task ${branch_param} ${LAW_JOB_TASK_BRANCHES_CSV}"
 
     # build the full command
-    local cmd="law run ${LAW_JOB_TASK_MODULE}.${LAW_JOB_TASK_CLASS} ${LAW_JOB_TASK_PARAMS} --${branch_param}=${LAW_JOB_TASK_BRANCHES_CSV} ${workflow_param} --workers=${LAW_JOB_WORKERS}"
+    local cmd="${law_exe} run ${LAW_JOB_TASK_MODULE}.${LAW_JOB_TASK_CLASS} ${LAW_JOB_TASK_PARAMS} --${branch_param}=${LAW_JOB_TASK_BRANCHES_CSV} ${workflow_param} --workers=${LAW_JOB_WORKERS}"
     echo "cmd: ${cmd}"
     echo
 
