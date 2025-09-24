@@ -433,12 +433,13 @@ class Task(six.with_metaclass(Register, BaseTask)):
         default=(),
         significant=False,
         description="copy all task outputs into a local directory but do not run any task; this "
-        "CSV parameter accepts up to four values: 1. the task recursion depth, which can be an "
+        "CSV parameter accepts up to five values: 1. the task recursion depth, which can be an "
         "integer depth (0 means non-recursive), a pattern matching a task family after which the "
         "recursion stops, or a sequence of them spearated by '|', 2. one of the modes 'i' "
         "(interactive), 'a' (all), 'd' (dry run) (default: 'i'), 3. the target directory "
-        "(default: '.'), 4. a boolean flag that decides whether external outputs and outputs of "
-        "external tasks should be fetched (default: False)",
+        "(default: '.'), 4. a boolean flag that decides whether names of fetched files should not "
+        "adjusted to make them unique (default: False), 5. a boolean flag that decides whether "
+        "external outputs and outputs of external tasks should be fetched (default: False)",
     )
 
     interactive_params = [

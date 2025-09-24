@@ -508,7 +508,8 @@ def remove_task_output(task, stopping_condition=0, mode=None, run_task=False):
     return run_task
 
 
-def fetch_task_output(task, stopping_condition=0, mode=None, target_dir=".", include_external=False):
+def fetch_task_output(task, stopping_condition=0, mode=None, target_dir=".", keep_names=False,
+        include_external=False):
     from law.task.base import ExternalTask
     from law.workflow.base import BaseWorkflow
 
@@ -698,7 +699,9 @@ def fetch_task_output(task, stopping_condition=0, mode=None, target_dir=".", inc
                 if not callable(getattr(outp, "copy_to_local", None)):
                     continue
 
-                basename = "{}__{}".format(dep.live_task_id, outp.basename)
+                basename = outp.basename
+                if not keep_names:
+                    basename = "{}__{}".format(dep.live_task_id, basename)
                 outp.copy_to_local(os.path.join(target_dir, basename), retries=0)
 
                 _print(ooffset + "{} ({})".format(colored("fetched", "green", style="bright"),
