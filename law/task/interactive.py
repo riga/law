@@ -545,6 +545,7 @@ def fetch_task_output(
     stopping_condition: int | str = 0,
     mode: str | None = None,
     target_dir: str | pathlib.Path = ".",
+    keep_names: bool = False,
     include_external: bool = False,
 ) -> None:
     from law.workflow.base import BaseWorkflow
@@ -749,9 +750,13 @@ def fetch_task_output(
                 if not callable(getattr(outp, "copy_to_local", None)):
                     continue
 
-                basename = f"{dep.live_task_id}__{outp.basename}"  # type: ignore[attr-defined]
-                outp.copy_to_local(os.path.join(target_dir, basename), retries=0)  # type: ignore[attr-defined] # noqa
+                # define the basename
+                basename: str = outp.basename  # type: ignore[attr-defined]
+                if not keep_names:
+                    basename = f"{dep.live_task_id}__{basename}"
 
+                # copy and log
+                outp.copy_to_local(os.path.join(target_dir, basename), retries=0)  # type: ignore[attr-defined] # noqa
                 _print(
                     ooffset + f"{colored('fetched', 'green', style='bright')} ({basename})",
                     ooffset,
