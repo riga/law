@@ -349,13 +349,13 @@ class DynamicWorkflowCondition(object):
     attributes of the initially decorated object. As a result, both methods will return placeholder
     objects as long as the condition is not met - the branch map will be considered empty and the
     output will refer to a temporary placeholder target that is never created. Note that two
-    additional decorators exist for handling dynaminc branch-level requirements. ``requires()`` is
-    meant to decorator the actual branch requirement and is evaluated once the condition is met.
+    additional decorators exist for handling dynamic branch-level requirements. ``requires()`` is
+    meant to decorate the actual branch requirement and is evaluated once the condition is met.
     ``requires_eager()`` is evaluated if the condition is _not_ met and is meant to provide eager
     requirements that do not depend on the condition.
 
     As a consequence, the amended workflow is fully dynamic with its exact shape potentially
-    depending heavily on conditions that are only known at runtime.
+    depending heavily on conditions that are only known deferred at runtime.
 
     Internally, the condition is evaluated by the calling task which is usually a workflow, but it
     can also be one of its branch tasks if, for instance, sandboxing is involved. Set
@@ -363,7 +363,7 @@ class DynamicWorkflowCondition(object):
     workflow itself.
 
     In case the ``workflow_condition`` involves a costly computation, it is recommended to cache
-    evluation of the condition by setting *cache_met_condition* argument to *True* or a string
+    evaluation of the condition by setting *cache_met_condition* argument to *True* or a string
     denoting the task instance attribute where the met condition is stored. In the first case,
     the attribute defaults to ``_dynamic_workflow_condition_met``.
     """
