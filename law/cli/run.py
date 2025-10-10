@@ -60,9 +60,13 @@ def execute(args, argv):
                 task_family = task_cls.get_task_family()
         except ImportError as e:
             # distinguish import errors resulting from an unknown modid from all other cases
-            modid_unknown = str(e) in (
-                "No module named {}".format(modid),  # py 2
-                "No module named '{}'".format(modid),  # py 3
+            modid_parts = modid.split(".")
+            modid_unknown = any(
+                str(e) in {
+                    "No module named {}".format(".".join(modid_parts[:i + 1])),  # py 2
+                    "No module named '{}'".format(".".join(modid_parts[:i + 1])),  # py 3
+                }
+                for i in range(len(modid_parts))
             )
             if modid_unknown:
                 # keep the error in case the task family cannot be inferred from the index file
