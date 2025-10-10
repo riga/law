@@ -7,7 +7,6 @@ import law
 law.contrib.load("singularity")
 
 
-
 class CreateNumbers(law.SandboxTask):
 
     n_nums = luigi.IntParameter(default=100, description="amount of random numbers to be generated")
