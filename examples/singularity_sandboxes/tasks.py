@@ -1,4 +1,5 @@
-import os
+# coding: utf-8
+
 from random import random
 
 import luigi
@@ -12,7 +13,7 @@ class CreateNumbers(law.SandboxTask):
     n_nums = luigi.IntParameter(default=100, description="amount of random numbers to be generated")
     sandbox = "singularity::/cvmfs/unpacked.cern.ch/registry.hub.docker.com/cmssw/cms:rhel8-m"
     singularity_args = lambda x: ["-B", "/cvmfs"]
-        
+
     def output(self):
         return law.LocalFileTarget("/tmp/example_data/singularity/numbers_%i.txt" % self.n_nums)
 
@@ -52,6 +53,3 @@ class BinNumbers(law.SandboxTask):
             f.write("\n".join(str(b) for b in bins) + "\n")
 
         self.set_status_message("done")
-
-
-luigi.namespace()
