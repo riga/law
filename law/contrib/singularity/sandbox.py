@@ -95,6 +95,10 @@ class SingularitySandbox(Sandbox):
             f"pickle.dump(dict(os.environ),open('{env_file}','wb'),protocol=2)"
         )
 
+        # $(whereis -b python | cut -d " " -f 2) searches for the python binary in the container
+        # this is more robust than just calling 'python' as the latter might not be in the PATH
+        py_executable = "$(whereis -b python | cut -d \" \" -f 2)"
+
         # build the full command
         cmd = quote_cmd(singularity_exec_cmd + [
             self.image,
@@ -102,7 +106,7 @@ class SingularitySandbox(Sandbox):
             " && ".join(flatten(
                 pre_setup_cmds,
                 post_setup_cmds,
-                quote_cmd(["python", "-c", py_cmd]),
+                quote_cmd([py_executable, "-c", py_cmd]),
             )),
         ])
 
