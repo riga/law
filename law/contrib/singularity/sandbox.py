@@ -93,7 +93,7 @@ class SingularitySandbox(Sandbox):
         py_cmd = "import os,pickle;" \
             + "pickle.dump(dict(os.environ),open('{}','wb'),protocol=2)".format(env_file)
             
-        # $(whereis -b python | cut -d " " -f 2') searches for the python binary in the container
+        # $(whereis -b python | cut -d " " -f 2) searches for the python binary in the container
         # this is more robust than just calling 'python' as the latter might not be in the PATH
         py_executable = f"$(whereis -b python | cut -d \" \" -f 2) -c \"{py_cmd}\""
         
