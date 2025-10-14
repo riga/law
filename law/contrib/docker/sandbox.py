@@ -87,6 +87,9 @@ class DockerSandbox(Sandbox):
             f"pickle.dump(dict(os.environ),open('{env_file}','wb'),protocol=2)"
         )
 
+        # $(whereis -b python | cut -d " " -f 2) searches for the python binary in the container
+        py_executable = f"$( whereis -b python | cut -d \" \" -f 2 ) -c \"{py_cmd}\""
+
         # build the full command
         cmd = quote_cmd(docker_run_cmd + [
             self.image,
@@ -94,7 +97,7 @@ class DockerSandbox(Sandbox):
             " && ".join(flatten(
                 pre_setup_cmds,
                 post_setup_cmds,
-                quote_cmd(["python", "-c", py_cmd]),
+                py_executable,
             )),
         ])
 
