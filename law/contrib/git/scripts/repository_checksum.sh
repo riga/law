@@ -2,14 +2,14 @@
 
 # Computes a checksum of a git repository considering
 #   1. the current revision,
-#   2. the current diff,
-#   3. the content of new files, and
+#   2. the current diff, and
+#   3. the content of new files
 # of the repository itself and optionally all of its submodules.
 
 # Arguments:
 # 1. path to the repository
 # 2. (optional) recursive flag ("0" or "1"), defaults to "1"
-# 3. (optional) space-separated list of files or directories to force-add, that would otherwise be ignored
+# 3. (optional) space-separated list of files to force-add, that would otherwise be ignored
 
 action() {
     local shell_is_zsh="$( [ -z "${ZSH_VERSION}" ] && echo "false" || echo "true" )"
