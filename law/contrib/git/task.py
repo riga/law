@@ -62,6 +62,8 @@ class BundleGitRepository(Task):
                 cmd = quote_cmd([
                     rel_path(__file__, "scripts", "repository_checksum.sh"),
                     get_path(self.get_repo_path()),
+                    "1",  # recursive flag
+                    " ".join(self.include_files),  # type: ignore[arg-type]
                 ])
 
                 out: str

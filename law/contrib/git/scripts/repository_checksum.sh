@@ -9,6 +9,7 @@
 # Arguments:
 # 1. path to the repository
 # 2. (optional) recursive flag ("0" or "1"), defaults to "1"
+# 3. (optional) space-separated list of files to force-add, that would otherwise be ignored
 
 action() {
     local shell_is_zsh="$( [ -z "${ZSH_VERSION}" ] && echo "false" || echo "true" )"
@@ -16,11 +17,12 @@ action() {
     local this_dir="$( cd "$( dirname "${this_file}" )" && pwd )"
 
     # load polyfills
-    source "${this_dir}/../../../polyfills.sh" ""
+    source "${this_dir}/../../../polyfills.sh" "" || return "$?"
 
     # handle arguments
     local repo_path="$1"
     local recursive="${2:-1}"
+    local include_files="$3"
     if [ -z "${repo_path}" ]; then
         >&2 echo "please provide the path to the repository to bundle"
         return "1"
@@ -35,6 +37,7 @@ action() {
         cd "${repo_path}" && \
         git rev-parse HEAD && \
         git diff && \
+        ( [ -z "${include_files}" ] || shasum ${include_files} ) && \
         git ls-files --others --exclude-standard | xargs cat 2>&1; \
         [ "${recursive}" = "1" ] && git submodule foreach --recursive --quiet "\
             git rev-parse HEAD && \
