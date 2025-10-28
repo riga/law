@@ -66,7 +66,7 @@ action() {
         eval rsync ${rsync_args} "${repo_path}" "${tmp_dir}/" && \
         cd "${tmp_dir}/${repo_name}" && \
         sgit add -A . &> /dev/null && \
-        [ ! -z "${include_files}" ] && sgit add -f ${include_files} &> /dev/null
+        ( [ -z "${include_files}" ] || sgit add -f ${include_files} &> /dev/null) && \
         sgit commit -m "${commit_msg}" &> /dev/null
         for elem in $( sgit ls-files ); do echo "${elem}" >> "${tmp_list}"; done && \
         sgit submodule foreach --recursive --quiet "\
