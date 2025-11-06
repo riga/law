@@ -117,8 +117,18 @@ class TransferLocalFile(Task):
     def run(self) -> None:
         self.transfer(self.get_source_target())
 
-    def transfer(self, src_path: str | pathlib.Path | LocalFileTarget) -> None:
-        output = self.output()
+    def trace_transfer_output(self, output: Any) -> SiblingFileCollection | FileSystemFileTarget:
+        return output
+
+    def transfer(
+        self,
+        src_path: str | pathlib.Path | LocalFileTarget,
+        output: SiblingFileCollection | FileSystemFileTarget | None = None,
+    ) -> None:
+        # get the output target to transfer
+        if output is None:
+            output = self.output()
+            output = self.trace_transfer_output(output)
 
         # single output
         if not isinstance(output, SiblingFileCollection):
