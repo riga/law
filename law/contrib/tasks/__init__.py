@@ -109,8 +109,14 @@ class TransferLocalFile(Task):
     def run(self):
         self.transfer(self.get_source_target())
 
-    def transfer(self, src_path):
-        output = self.output()
+    def trace_transfer_output(self, output):
+        return output
+
+    def transfer(self, src_path, output=None):
+        # get the output target to transfer
+        if output is None:
+            output = self.output()
+            output = self.trace_transfer_output(output)
 
         # single output or replicas?
         if not isinstance(output, SiblingFileCollection):
