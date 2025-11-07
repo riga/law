@@ -470,8 +470,8 @@ class Task(BaseTask, metaclass=Register):
         "integer depth (0 means non-recursive), a pattern matching a task family after which the "
         "recursion stops, or a sequence of them spearated by '|', 2. one of the modes 'i' "
         "(interactive), 'a' (all), 'd' (dry run) (default: 'i'), 3. the target directory "
-        "(default: '.'), 4. a boolean flag that decides whether names of fetched files should not "
-        "adjusted to make them unique (default: False), 5. a boolean flag that decides whether "
+        "(default: '.'), 4. a boolean flag that decides whether names of fetched files should be "
+        "adjusted to make them unique (default: True), 5. a boolean flag that decides whether "
         "external outputs and outputs of external tasks should be fetched (default: False)",
     )
 

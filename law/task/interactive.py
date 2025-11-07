@@ -545,7 +545,7 @@ def fetch_task_output(
     stopping_condition: int | str = 0,
     mode: str | None = None,
     target_dir: str | pathlib.Path = ".",
-    keep_names: bool = False,
+    unique_names: bool = True,
     include_external: bool = False,
 ) -> None:
     from law.workflow.base import BaseWorkflow
@@ -752,7 +752,7 @@ def fetch_task_output(
 
                 # define the basename
                 basename: str = outp.basename  # type: ignore[attr-defined]
-                if not keep_names:
+                if unique_names:
                     basename = f"{dep.live_task_id}__{basename}"
 
                 # copy and log
