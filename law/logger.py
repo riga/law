@@ -272,6 +272,7 @@ def setup_logger(
     add_console_handler: bool | dict[str, Any] | None = None,
     clear: bool = False,
     force: bool = False,
+    propagate: bool = False,
 ) -> logging.Logger:
     """
     Sets up a *logger*, optionally given by its name, configures it to have a certain *level* and
@@ -285,8 +286,10 @@ def setup_logger(
 
     *level* can either be an integer or the name of a level present in the *logging* module. When no
     *level* is  given, the level of the ``"law"`` base logger is used as a default. When the logger
-    already existed and *clear* is *True*, all handlers and filters are removed first. The logger
-    object is returned.
+    already existed and *clear* is *True*, all handlers and filters are removed first. If
+    *propagate* is *False*, logs are not propagated to parent loggers.
+
+    The logger object is returned.
     """
     # get the logger
     logger = logger if isinstance(logger, logging.Logger) else get_logger(logger, skip_setup=True)
@@ -316,6 +319,9 @@ def setup_logger(
 
     # set the level
     logger.setLevel(level)
+
+    # set propagation
+    logger.propagate = propagate
 
     # add a console handler
     if add_console_handler is None:
