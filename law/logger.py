@@ -77,7 +77,8 @@ def get_logger(*args, **kwargs):
         logging.setLoggerClass(orig_cls)
 
 
-def setup_logger(logger, level=None, add_console_handler=None, clear=False, force=False):
+def setup_logger(logger, level=None, add_console_handler=None, clear=False, force=False,
+        propagate=False):
     """
     Sets up a *logger*, optionally given by its name, configures it to have a certain *level* and
     adds a preconfigured console handler when *add_console_handler* is *True*. When
@@ -90,8 +91,10 @@ def setup_logger(logger, level=None, add_console_handler=None, clear=False, forc
 
     *level* can either be an integer or the name of a level present in the *logging* module. When no
     *level* is  given, the level of the ``"law"`` base logger is used as a default. When the logger
-    already existed and *clear* is *True*, all handlers and filters are removed first. The logger
-    object is returned.
+    already existed and *clear* is *True*, all handlers and filters are removed first. When
+    *propagate* is *False*, log messages are not propagated to parent loggers.
+
+    The logger object is returned.
     """
     # get the logger
     logger = logger if isinstance(logger, logging.Logger) else get_logger(logger, skip_setup=True)
@@ -121,6 +124,9 @@ def setup_logger(logger, level=None, add_console_handler=None, clear=False, forc
 
     # set the level
     logger.setLevel(level)
+
+    # set propagation
+    logger.propagate = propagate
 
     # add a console handler
     if add_console_handler is None:
