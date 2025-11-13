@@ -16,8 +16,8 @@ from law.util import patch_object
 
 def from_parquet(*args, use_threads=False, **kwargs):
     """
-    Same as :func:`awkward.from_parquet`, but allowing to configure the *use_threads* option of the underlying
-    ``pyarrow.parquet.ParquetFile.read`` operation.
+    Same as :func:`awkward.from_parquet`, but allowing to configure the *use_threads* option of the
+    underlying ``pyarrow.parquet.ParquetFile.read`` operation.
     """
     import pyarrow.parquet as pq
     import awkward as ak
