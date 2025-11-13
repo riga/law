@@ -16,6 +16,9 @@ from law.logger import get_logger
 from law.util import no_value
 from law._types import Any
 
+from law.contrib.awkward.util import from_parquet
+
+
 logger = get_logger(__name__)
 
 
@@ -32,8 +35,7 @@ class AwkwardFormatter(Formatter):
         path = get_path(path)
 
         if path.endswith((".parquet", ".parq")):
-            import awkward as ak  # type: ignore[import-untyped, import-not-found]
-            return ak.from_parquet(path, *args, **kwargs)
+            return from_parquet(path, *args, **kwargs)
 
         if path.endswith(".json"):
             import awkward as ak  # type: ignore[import-untyped, import-not-found]
