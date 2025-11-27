@@ -28,7 +28,7 @@ from law.target.file import get_scheme, get_path
 from law.target.remote.base import RemoteTarget
 from law.util import (
     colored, make_list, make_tuple, iter_chunks, makedirs, create_hash, create_random_string,
-    increment_path, kill_process,
+    increment_path, kill_process, no_value, which,
 )
 from law.logger import get_logger
 
@@ -48,6 +48,25 @@ def get_async_result_silent(result, timeout=None):
         return result.get(timeout)
     except Exception as e:
         return e
+
+
+_timeout_command = no_value
+
+
+def get_timeout_command():
+    """
+    Returns "timeout", "gtimeout", or *None* depending on what is available on the system.
+    """
+    global _timeout_command
+
+    if _timeout_command == no_value:
+        _timeout_command = None
+        for cmd in ["timeout", "gtimeout"]:
+            if which(cmd):
+                _timeout_command = cmd
+                break
+
+    return _timeout_command
 
 
 class BaseJobManager(six.with_metaclass(ABCMeta, object)):
@@ -215,6 +234,17 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
         Hook for casting an input *job_id*, for instance, after loading serialized data from json.
         """
         return job_id
+
+    @classmethod
+    def prepend_timeout_command(cls, cmd, duration, signal=9, silent=True):
+        # get the installed timeout command
+        timeout_cmd = get_timeout_command()
+        if not timeout_cmd:
+            if not silent:
+                raise Exception("cannot prepend timeout command, no suitable command detected on system")
+            return cmd
+
+        return [timeout_cmd, "--preserve-status", "--signal={}".format(signal), str(duration)] + cmd
 
     def __init__(self, status_names=None, status_diff_styles=None, threads=1):
         super(BaseJobManager, self).__init__()

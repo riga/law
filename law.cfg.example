@@ -796,12 +796,19 @@
 ; Type: boolean
 ; Default: False
 
+; job_query_timeout
+; Description: If set, this option controls the maximum duration a job status query can take until
+; it is deemed hanging and terminated consequently. The default unit is seconds.
+; Type: integer, string
+; Default: None
+
 
 ; --- Options of contrib packages
 
 ; arc_job_file_dir
 ; arc_job_file_dir_mkdtemp
 ; arc_job_file_dir_cleanup
+; arc_job_query_timeout
 ; Description: These three options are identical to the ones above without the "arc" prefix, but
 ; only apply to the "law.arc.ARCJobFileFactory". When "None" or not existing, the values above are
 ; used.
@@ -833,6 +840,7 @@
 ; glite_job_file_dir
 ; glite_job_file_dir_mkdtemp
 ; glite_job_file_dir_cleanup
+; glite_job_query_timeout
 ; Description: These three options are identical to the ones above without the "glite" prefix, but
 ; only apply to the "law.glite.GLiteJobFileFactory". When "None" or not existing, the values above
 ; are used.
@@ -858,6 +866,7 @@
 ; htcondor_job_file_dir
 ; htcondor_job_file_dir_mkdtemp
 ; htcondor_job_file_dir_cleanup
+; htcondor_job_query_timeout
 ; Description: These three options are identical to the ones above without the "htcondor" prefix,
 ; but only apply to the "law.htcondor.HTCondorJobFileFactory". When "None" or not existing, the
 ; values above are used. The only exception is "htcondor_job_file_dir_cleanup" whose default value
@@ -900,6 +909,7 @@
 ; lsf_job_file_dir
 ; lsf_job_file_dir_mkdtemp
 ; lsf_job_file_dir_cleanup
+; lsf_job_query_timeout
 ; Description: These three options are identical to the ones above without the "lsf" prefix, but
 ; only apply to the "law.lsf.LSFJobFileFactory". When "None" or not existing, the values above are
 ; used. The only exception is "lsf_job_file_dir_cleanup" whose default value is False.
@@ -919,6 +929,7 @@
 ; slurm_job_file_dir
 ; slurm_job_file_dir_mkdtemp
 ; slurm_job_file_dir_cleanup
+; slurm_job_query_timeout
 ; Description: These three options are identical to the ones above without the "slurm" prefix, but
 ; only apply to the "law.slurm.SlurmJobFileFactory". When "None" or not existing, the values above
 ; are used. The only exception is "slurm_job_file_dir_cleanup" whose default value is False.
@@ -938,6 +949,7 @@
 ; crab_job_file_dir
 ; crab_job_file_dir_mkdtemp
 ; crab_job_file_dir_cleanup
+; crab_job_query_timeout
 ; Description: These three options are identical to the ones above without the "crab" prefix, but
 ; only apply to the "law.cms.CrabJobFileFactory". When "None" or not existing, the values above are
 ; used.

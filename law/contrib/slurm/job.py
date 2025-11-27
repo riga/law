@@ -16,7 +16,7 @@ import subprocess
 from law.config import Config
 from law.job.base import BaseJobManager, BaseJobFileFactory, JobInputFile
 from law.target.file import get_path
-from law.util import make_list, quote_cmd, interruptable_popen
+from law.util import make_list, quote_cmd, interruptable_popen, parse_duration
 from law.logger import get_logger
 
 
@@ -146,8 +146,16 @@ class SlurmJobManager(BaseJobManager):
         if partition:
             cmd += ["--partition", partition]
         cmd += ["--jobs", ",".join(map(str, job_ids))]
-        cmd = quote_cmd(cmd)
 
+        # optionally prepend timeout
+        cfg = Config.instance()
+        query_timeout = cfg.get_expanded("job", cfg.find_option("job", "slurm_job_query_timeout", "job_query_timeout"))
+        if query_timeout:
+            query_timeout_sec = parse_duration(query_timeout, input_unit="s")
+            cmd = self.prepend_timeout_command(cmd, query_timeout_sec)
+
+        # run it
+        cmd = quote_cmd(cmd)
         logger.debug("query slurm job(s) with command '{}'".format(cmd))
         code, out, err = interruptable_popen(cmd, shell=True, executable="/bin/bash",
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, kill_timeout=2, processes=_processes)

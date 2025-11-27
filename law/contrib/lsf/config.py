@@ -11,6 +11,7 @@ def config_defaults(default_config):
             "lsf_job_file_dir": None,
             "lsf_job_file_dir_mkdtemp": None,
             "lsf_job_file_dir_cleanup": False,
+            "lsf_job_query_timeout": None,
             "lsf_chunk_size_cancel": 25,
             "lsf_chunk_size_query": 25,
         },

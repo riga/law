@@ -17,7 +17,7 @@ import subprocess
 from law.config import Config
 from law.job.base import BaseJobManager, BaseJobFileFactory, JobInputFile, DeprecatedInputFiles
 from law.target.file import get_path
-from law.util import make_list, make_unique, quote_cmd, interruptable_popen
+from law.util import make_list, make_unique, quote_cmd, interruptable_popen, parse_duration
 from law.logger import get_logger
 
 from law.contrib.htcondor.util import get_htcondor_version
@@ -312,8 +312,17 @@ class HTCondorJobManager(BaseJobManager):
         # since v8.5.6 one can define the attributes to fetch
         if self.htcondor_ge_v856:
             cmd += ["-attributes", ads]
-        cmd = quote_cmd(cmd)
 
+        # optionally prepend timeout
+        cfg = Config.instance()
+        query_timeout = cfg.get_expanded("job", cfg.find_option("job", "htcondor_job_query_timeout",
+            "job_query_timeout"))
+        if query_timeout:
+            query_timeout_sec = parse_duration(query_timeout, input_unit="s")
+            cmd = self.prepend_timeout_command(cmd, query_timeout_sec)
+
+        # run the command
+        cmd = quote_cmd(cmd)
         logger.debug("query htcondor job(s) with command '{}'".format(cmd))
         code, out, err = interruptable_popen(cmd, shell=True, executable="/bin/bash",
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, kill_timeout=2, processes=_processes)

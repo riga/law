@@ -133,6 +133,7 @@ class Config(ConfigParser):
             "job_file_dir": os.getenv("LAW_JOB_FILE_DIR") or tempfile.gettempdir(),
             "job_file_dir_mkdtemp": True,
             "job_file_dir_cleanup": False,
+            "job_query_timeout": None,
         },
         "notifications": {
             "mail_recipient": None,
@@ -537,10 +538,12 @@ class Config(ConfigParser):
         :py:meth:`is_missing_or_none` is used to check the existence. When none of the selected
         *options* exists, *None* is returned.
         """
+        # traverse options
+        option = None
         for option in options:
             if not self.is_missing_or_none(section, option):
                 return option
-        return None
+        return option if option and self.has_option(section, option) else None
 
     def sync_env(self):
         """

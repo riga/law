@@ -27,7 +27,7 @@ from law.job.base import BaseJobManager, BaseJobFileFactory, JobInputFile, Depre
 from law.job.dashboard import BaseJobDashboard
 from law.target.file import get_path
 from law.util import (
-    DotDict, make_list, make_unique, quote_cmd, no_value, rel_path, interruptable_popen,
+    DotDict, make_list, make_unique, quote_cmd, no_value, rel_path, interruptable_popen, parse_duration,
 )
 from law.logger import get_logger
 
@@ -311,9 +311,16 @@ class CrabJobManager(BaseJobManager):
             cmd += ["--proxy", proxy_file]
         if instance:
             cmd += ["--instance", instance]
-        cmd = quote_cmd(cmd)
+
+        # optionally prepend timeout
+        cfg = Config.instance()
+        query_timeout = cfg.get_expanded("job", cfg.find_option("job", "crab_job_query_timeout", "job_query_timeout"))
+        if query_timeout:
+            query_timeout_sec = parse_duration(query_timeout, input_unit="s")
+            cmd = self.prepend_timeout_command(cmd, query_timeout_sec)
 
         # run it
+        cmd = quote_cmd(cmd)
         logger.debug("query crab job(s) with command '{}'".format(cmd))
         code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=self.cmssw_env, kill_timeout=2,

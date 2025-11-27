@@ -11,6 +11,7 @@ def config_defaults(default_config):
             "glite_job_file_dir": None,
             "glite_job_file_dir_mkdtemp": None,
             "glite_job_file_dir_cleanup": None,
+            "glite_job_query_timeout": None,
             "glite_chunk_size_cancel": 25,
             "glite_chunk_size_cleanup": 25,
             "glite_chunk_size_query": 25,
