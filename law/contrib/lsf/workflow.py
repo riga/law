@@ -306,6 +306,13 @@ class LSFWorkflow(BaseRemoteWorkflow):
         """
         return
 
+    def lsf_post_poll_callback(self, success, duration):
+        """
+        Configurable callback that is called after the polling loop has ended. It receives a boolean *success* that
+        indicates whether the job polling was successful, and the duration of the job polling in seconds.
+        """
+        return
+
     def lsf_use_local_scheduler(self):
         # try to use the config setting
         return Config.instance().get_expanded_bool("luigi_core", "local_scheduler", False)

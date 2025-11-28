@@ -1053,6 +1053,15 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         # get job kwargs for status querying
         query_kwargs = merge_dicts(job_man_kwargs, self._get_job_kwargs("query"))
 
+        # helper to trigger job summary callback
+        def trigger_summary(success):
+            callback = self._get_task_attribute("post_poll_callback")
+            duration = round(time.time() - start_time)
+            try:
+                callback(success, duration)
+            except Exception as e:
+                logger.error("exception raised during post_poll_callback {}: {}".format(callback, e))
+
         # start the poll loop
         i = -1
         while True:
@@ -1067,6 +1076,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
             # walltime exceeded?
             if task.walltime != NO_FLOAT and (time.time() - start_time) > task.walltime * 3600:
+                trigger_summary(False)
                 raise Exception("exceeded walltime: {}".format(human_duration(hours=task.walltime)))
 
             # update variable attributes for polling
@@ -1150,6 +1160,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 # increase the fail counter and maybe stop with an exception
                 n_poll_fails += 1
                 if task.poll_fails > 0 and n_poll_fails > task.poll_fails:
+                    trigger_summary(False)
                     raise Exception("poll_fails exceeded")
 
                 # poll again
@@ -1322,6 +1333,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             # complain when failed
             if failed:
                 failed_nums = sorted(failed_jobs - retry_jobs)
+                trigger_summary(False)
                 raise Exception(
                     "tolerance exceeded for job(s) {}".format(",".join(map(str, failed_nums))),
                 )
@@ -1334,6 +1346,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 elif task.check_unreachable_acceptance:
                     err = "acceptance of {} unreachable, total jobs: {}, failed jobs: {}"
                 if err:
+                    trigger_summary(False)
                     raise Exception(err.format(self.poll_data.n_finished_min, n_jobs, n_failed))
 
             # invoke the poll callback
@@ -1359,6 +1372,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
         duration = round(time.time() - start_time)
         task.publish_message("polling took {}".format(human_duration(seconds=duration)))
+        trigger_summary(True)
 
 
 class BaseRemoteWorkflow(BaseWorkflow):

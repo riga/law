@@ -413,6 +413,13 @@ class CrabWorkflow(BaseRemoteWorkflow):
         """
         return
 
+    def crab_post_poll_callback(self, success, duration):
+        """
+        Configurable callback that is called after the polling loop has ended. It receives a boolean *success* that
+        indicates whether the job polling was successful, and the duration of the job polling in seconds.
+        """
+        return
+
     def crab_cmdline_args(self):
         """
         Hook to add additional cli parameters to "law run" commands executed on job nodes.
