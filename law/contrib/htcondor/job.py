@@ -297,7 +297,7 @@ class HTCondorJobManager(BaseJobManager):
         job_ids = make_list(job_id)
 
         # default ClassAds to getch
-        ads = "ClusterId,ProcId,JobStatus,ExitCode,ExitStatus,HoldReason,RemoveReason"
+        ads = "ClusterId ProcId JobStatus ExitCode ExitStatus HoldReason RemoveReason MemoryUsage"
 
         # build the condor_q command
         cmd = ["condor_q"] + job_ids
@@ -305,13 +305,10 @@ class HTCondorJobManager(BaseJobManager):
             cmd += ["-pool", pool]
         if scheduler:
             cmd += ["-name", scheduler]
-        cmd += ["-long"]
+        cmd += ["-af:lng"] + ads.split()
         # since v8.3.3 one can limit the number of jobs to query
         if self.htcondor_ge_v833:
             cmd += ["-limit", str(len(job_ids))]
-        # since v8.5.6 one can define the attributes to fetch
-        if self.htcondor_ge_v856:
-            cmd += ["-attributes", ads]
 
         # optionally prepend timeout
         cfg = Config.instance()
@@ -346,15 +343,17 @@ class HTCondorJobManager(BaseJobManager):
                 cmd += ["-pool", pool]
             if scheduler:
                 cmd += ["-name", scheduler]
-            cmd += ["-long"]
+            cmd += ["-af:lng"] + ads.split()
             # since v8.3.3 one can limit the number of jobs to query
             if self.htcondor_ge_v833:
                 cmd += ["-limit", str(len(missing_ids))]
-            # since v8.5.6 one can define the attributes to fetch
-            if self.htcondor_ge_v856:
-                cmd += ["-attributes", ads]
-            cmd = quote_cmd(cmd)
 
+            # optionally prepend timeout
+            if query_timeout:
+                cmd = self.prepend_timeout_command(cmd, query_timeout_sec)
+
+            # run it
+            cmd = quote_cmd(cmd)
             logger.debug("query htcondor job history with command '{}'".format(cmd))
             code, out, err = interruptable_popen(cmd, shell=True, executable="/bin/bash",
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, kill_timeout=2,
@@ -402,7 +401,11 @@ class HTCondorJobManager(BaseJobManager):
             status = cls.map_status(data.get("JobStatus"))
 
             # get the exit code
-            code = int(data.get("ExitCode") or data.get("ExitStatus") or "0")
+            code = 0
+            for key in ["ExitCode", "ExitStatus"]:
+                if data.get(key, "undefined").isdigit():
+                    code = int(data[key])
+                    break
 
             # get the error message, undefined counts as None
             error = data.get("HoldReason", "undefined")
@@ -423,9 +426,15 @@ class HTCondorJobManager(BaseJobManager):
                         error = "job status set to '{}' due to non-zero exit code {}".format(
                             cls.FAILED, code)
 
+            # extra info
+            extra = {}
+            if "MemoryUsage" in data:
+                mem = float(data["MemoryUsage"]) if data.get("MemoryUsage", "undefined").isdigit() else None
+                extra["mem_peak_mb"] = mem
+
             # store it
             query_data[job_id] = cls.job_status_dict(job_id=job_id, status=status, code=code,
-                error=error)
+                error=error, extra=extra or None)
 
         return query_data
 
