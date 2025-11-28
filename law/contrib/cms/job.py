@@ -604,6 +604,7 @@ class CrabJobFileFactory(BaseJobFileFactory):
             kwargs["mkdtemp"] = cfg.get_expanded_bool(
                 "job",
                 cfg.find_option("job", "crab_job_file_dir_mkdtemp", "job_file_dir_mkdtemp"),
+                force_type=False,
             )
 
         super(CrabJobFileFactory, self).__init__(**kwargs)

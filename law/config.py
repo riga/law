@@ -389,14 +389,18 @@ class Config(ConfigParser):
             skip_luigi_sync=True)
         self.update(p._sections, *args, **kwargs)
 
-    def get_default(self, section, option, default=no_value, type=None, expand_vars=False,
-            expand_user=False, split_csv=False, dereference=True, default_when_none=True,
-            _skip_refs=None):
-        """ get_default(section, option, default=no_value, type=None, expand_vars=False, expand_user=False, split_csv=False, dereference=True, default_when_none=True)
-        Returns the config value defined by *section* and *option*. When either the section or the
-        option do not exist and a *default* value is provided, this value returned instead. When
-        *type* is set, it must be either `"str"`, `"int"`, `"float"`, or `"boolean"`. When
-        *expand_vars* is *True*, environment variables are expanded. When *expand_user* is *True*,
+    def get_default(self, section, option, default=no_value, type=None, force_type=True,
+            expand_vars=False, expand_user=False, split_csv=False, dereference=True,
+            default_when_none=True, _skip_refs=None):
+        """ get_default(section, option, default=no_value, type=None, force_type=True, expand_vars=False, expand_user=False, split_csv=False, dereference=True, default_when_none=True)
+        Returns the config value defined by *section* and *option*.
+
+        When either the section or the option do not exist and a *default* value is provided,
+        this value returned instead. When *type* is set, it must be either `"str"`, `"int"`,
+        `"float"`, or `"boolean"`. Unless force_type* is *False*, a ValueError is raised in case
+        the type conversion fails. Otherwise, the uncasted value is returned.
+
+        When *expand_vars* is *True*, environment variables are expanded. When *expand_user* is *True*,
         user variables are expanded as well. Sequences of values can be identified, split by comma
         and returned as a list when *split_csv* is *True*, which will also trigger brace expansion.
 
@@ -459,7 +463,16 @@ class Config(ConfigParser):
                 return default
 
         # helper for optional type conversion
-        cast_type = lambda value: self._get_type_converter(type, value)(value) if type else value
+        def cast_type(value):
+            if not type:
+                return value
+            convert = self._get_type_converter(type, value)
+            try:
+                return convert(value)
+            except ValueError:
+                if not force_type:
+                    return value
+                raise
 
         # do csv splitting if requested
         if split_csv:

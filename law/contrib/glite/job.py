@@ -282,7 +282,7 @@ class GLiteJobFileFactory(BaseJobFileFactory):
                 "glite_job_file_dir", "job_file_dir"))
         if kwargs.get("mkdtemp") is None:
             kwargs["mkdtemp"] = cfg.get_expanded_bool("job", cfg.find_option("job",
-                "glite_job_file_dir_mkdtemp", "job_file_dir_mkdtemp"))
+                "glite_job_file_dir_mkdtemp", "job_file_dir_mkdtemp"), force_type=False)
         if kwargs.get("cleanup") is None:
             kwargs["cleanup"] = cfg.get_expanded_bool("job", cfg.find_option("job",
                 "glite_job_file_dir_cleanup", "job_file_dir_cleanup"))
