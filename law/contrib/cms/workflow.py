@@ -99,7 +99,7 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
 
         # get remote job file, force remote rendering
         law_job_file = JobInputFile(task.crab_job_file())
-        law_job_file = JobInputFile(law_job_file.path, copy=False, render_job=True)
+        law_job_file = JobInputFile(str(law_job_file.path), copy=False, render_job=True)
         c.executable = law_job_file
         c.input_files["job_file"] = c.executable
 

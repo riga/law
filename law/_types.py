@@ -14,8 +14,8 @@ from io import TextIOWrapper  # noqa
 from collections.abc import KeysView, ValuesView, MappingView  # noqa
 from types import ModuleType, GeneratorType, TracebackType  # noqa
 from typing import (  # noqa
-    Any, Union, Type, TypeVar, ClassVar, Sequence, Callable, Generator, TextIO, Iterable, Iterator,
-    Hashable, MutableMapping, IO, Generic,
+    Any, Union, Type, TypeVar, ClassVar, Sequence, Callable, Generator, TextIO, Iterable, Iterator, Hashable,
+    MutableMapping, IO, Generic,
 )
 from contextlib import AbstractContextManager  # noqa
 

@@ -525,7 +525,7 @@ def patch_parameter_copy() -> None:
                 if m:
                     inst.description = m.group(1)
                 inst.description += "; "
-            inst.description += "default: {}".format(inst._default)
+            inst.description += f"default: {inst._default}"
 
         return inst
 
@@ -550,7 +550,7 @@ def patch_parameter_parse_or_no_value() -> None:
 
 
 def check_complete_cached(
-    task: law.task.base.BaseTask,
+    task: law.task.base.BaseTask,  # type: ignore[name-defined]
     completion_cache: multiprocessing.managers.DictProxy | None = None,
 ) -> bool:
     # no caching behavior when no cache is given

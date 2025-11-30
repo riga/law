@@ -353,9 +353,9 @@ class MirroredFileTarget(FileSystemFileTarget, MirroredTarget):
     @contextlib.contextmanager
     def open(self, mode: str, **kwargs) -> Iterator[IO]:
         with (
-            self.local_target.open(mode, **kwargs)
+            self.local_target.open(mode, **kwargs)  # type: ignore[misc]
             if (mode == "r" or not self.local_read_only) and self._local_target_exists()
-            else self.remote_target.open(mode, **kwargs)
+            else self.remote_target.open(mode, **kwargs)  # type: ignore[misc]
         ) as ret:
             yield ret
         if mode == "w" and self.local_read_only and self.local_sync:

@@ -403,6 +403,8 @@ class LocalTarget(FileSystemTarget, shims.LocalTarget):
 
     fs = LocalFileSystem.default_instance  # type: ignore[assignment]
 
+    open: Callable | None = None  # type: ignore[assignment]
+
     def __init__(
         self,
         path: str | pathlib.Path | None = None,

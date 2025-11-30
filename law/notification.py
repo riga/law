@@ -74,7 +74,7 @@ def notify_mail(
 def notify_custom(
     title: str,
     content: dict[str, Any],
-    notify_func: Callable[[str, dict[str, Any], Any], Any] | str | None = None,
+    notify_func: Callable[[str, dict[str, Any]], Any] | str | None = None,
     **kwargs,
 ) -> bool:
     """

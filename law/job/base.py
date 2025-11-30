@@ -1483,14 +1483,14 @@ class JobInputFile(object):
 
         # when path is a job file instance itself, use its values instead
         if isinstance(path, JobInputFile):
-            copy = path.copy
-            share = path.share
-            forward = path.forward
-            increment = path.increment
-            postfix = path.postfix
-            render_local = path.render_local
-            render_job = path.render_job
-            path = path.path
+            copy = path.copy  # type: ignore[has-type]
+            share = path.share  # type: ignore[has-type]
+            forward = path.forward  # type: ignore[has-type]
+            increment = path.increment  # type: ignore[has-type]
+            postfix = path.postfix  # type: ignore[has-type]
+            render_local = path.render_local  # type: ignore[has-type]
+            render_job = path.render_job  # type: ignore[has-type]
+            path = path.path  # type: ignore[has-type]
 
         # path must not be a remote file target
         if isinstance(path, RemoteTarget):

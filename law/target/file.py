@@ -227,6 +227,8 @@ class FileSystemTarget(Target, shims.FileSystemTarget):
     file_class: Type[FileSystemFileTarget]
     directory_class: Type[FileSystemDirectoryTarget]
 
+    open: Callable | None = None  # type: ignore[assignment]
+
     def __init__(self, path: str | pathlib.Path, fs: FileSystem | None = None, **kwargs) -> None:
         if fs is not None:
             self.fs: FileSystem = fs  # type: ignore[misc]
