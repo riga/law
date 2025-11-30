@@ -135,6 +135,7 @@ class Config(ConfigParser):
             "job_file_dir": os.getenv("LAW_JOB_FILE_DIR") or tempfile.gettempdir(),
             "job_file_dir_mkdtemp": True,
             "job_file_dir_cleanup": False,
+            "job_query_timeout": None,
         },
         "notifications": {
             "mail_recipient": None,
@@ -428,6 +429,7 @@ class Config(ConfigParser):
         option: str,
         default: Any | NoValue = no_value,
         type: str | type | None = None,
+        force_type: bool = True,
         expand_vars: bool = False,
         expand_user: bool = False,
         split_csv: bool = False,
@@ -436,17 +438,18 @@ class Config(ConfigParser):
         _skip_refs: list[tuple[str | None, str]] | None = None,
     ):
         """
-        Returns the config value defined by *section* and *option*. When either the section or the
-        option do not exist and a *default* value is provided, this value returned instead. When
-        *type* is set, it must be either `"str"`, `"int"`, `"float"`, or `"boolean"`. When
-        *expand_vars* is *True*, environment variables are expanded. When *expand_user* is *True*,
-        user variables are expanded as well. Sequences of values can be identified, split by comma
-        and returned as a list when *split_csv* is *True*, which will also trigger brace expansion.
+        Returns the config value defined by *section* and *option*. When either the section or the option do not exist
+        and a *default* value is provided, this value returned instead.
 
-        Also, options retrieved by this method are allowed to refer to values of other options
-        within the config, even to those in other sections. The syntax for config references is
-        ``&[::section]::option``. When no section is given, the value refers to an option in the
-        same section. Example:
+        When *type* is set, it must be either `"str"`, `"int"`, `"float"`, or `"boolean"`. Unless force_type* is
+        *False*, a ValueError is raised in case the type conversion fails. Otherwise, the uncasted value is returned.
+        When *expand_vars* is *True*, environment variables are expanded. When *expand_user* is *True*, user variables
+        are expanded as well. Sequences of values can be identified, split by comma and returned as a list when
+        *split_csv* is *True*, which will also trigger brace expansion.
+
+        Also, options retrieved by this method are allowed to refer to values of other options within the config, even
+        to those in other sections. The syntax for config references is ``&[::section]::option``. When no section is
+        given, the value refers to an option in the same section. Example:
 
         .. code-block:: ini
 
@@ -509,7 +512,16 @@ class Config(ConfigParser):
                 return default
 
         # helper for optional type conversion
-        cast_type = lambda value: self._get_type_converter(type, value)(value) if type else value
+        def cast_type(value):
+            if not type:
+                return value
+            convert = self._get_type_converter(type, value)
+            try:
+                return convert(value)
+            except ValueError:
+                if not force_type:
+                    return value
+                raise
 
         # do csv splitting if requested
         if split_csv:
@@ -582,10 +594,12 @@ class Config(ConfigParser):
         :py:meth:`is_missing_or_none` is used to check the existence. When none of the selected
         *options* exists, *None* is returned.
         """
+        # traverse options
+        option = None
         for option in options:
             if not self.is_missing_or_none(section, option):
                 return option
-        return None
+        return option if option and self.has_option(section, option) else None
 
     def sync_env(self) -> None:
         """

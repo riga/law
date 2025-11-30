@@ -31,7 +31,7 @@ from law.util import (
     ShorthandDict, InsertableDict,
 )
 from law.logger import get_logger
-from law._types import Any, Type, AbstractContextManager
+from law._types import Any, Callable, Type, ModuleType, AbstractContextManager
 
 
 logger = get_logger(__name__)
@@ -365,7 +365,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         return self._tracking_url
 
     @tracking_url.setter
-    def tracking_url(self, tracking_url: str) -> None:
+    def tracking_url(self, tracking_url: str | None) -> None:
         task: BaseRemoteWorkflow | None = self.task  # type: ignore[assignment]
 
         old_url = self.tracking_url
@@ -1838,3 +1838,53 @@ class BaseRemoteWorkflow(BaseWorkflow):
                     value = e
 
         return super().handle_scheduler_message(msg, (attr, value))
+
+
+def log_job_memory_summary(
+    job_data: JobData,
+    log: Callable | None = None,
+    summary_threshold: int = 5,
+    uniplot_args: dict[str, Any] | None = None,
+) -> None:
+    if log is None:
+        log = print
+
+    # collect peak memory values (in MB)
+    mem_peak_values = {}
+    for job_num, data in job_data.jobs.items():
+        if data.get("extra") and isinstance(data["extra"].get("mem_peak_mb"), (int, float)):
+            mem_peak_values[job_num] = data["extra"]["mem_peak_mb"]
+
+    # nothing to print in case nothing was recorded
+    if not mem_peak_values:
+        return
+
+    if len(mem_peak_values) <= summary_threshold:
+        # for a small number of jobs, just print a simple list
+        mem_str = ", ".join(map("{:.1f}".format, mem_peak_values.values()))
+        log(f"summary of peak memory usage of {len(mem_peak_values)} job(s) in MB: {mem_str}")
+
+    else:
+        # for many jobs, try to print a uniplot histogram, or just print avg, std, min, and max values
+        uniplot: ModuleType | None
+        try:
+            import uniplot  # type: ignore[import-untyped]
+        except ImportError:
+            uniplot = None
+
+        if uniplot is None:
+            vals = list(mem_peak_values.values())
+            avg = sum(vals) / len(vals)
+            std = (sum((v - avg) ** 2 for v in vals) / len(vals)) ** 0.5
+            mem_str = f"avg: {avg:.1f}, std: {std:.1f}, min: {min(vals):.1f}, max: {max(vals):.1f}"
+            log(f"summary of peak memory usage of {len(mem_peak_values)} job(s) in MB: {mem_str}")
+
+        else:
+            log("summary of per-job peak memory usage")
+            _uniplot_args = {
+                "title": f"Job peak memory in MB ({list(mem_peak_values.values())} jobs)",
+                "color": True,
+                "bins": 36,
+                "width": 80,
+            } | (uniplot_args or {})
+            uniplot.histogram(list(mem_peak_values.values()), **_uniplot_args)

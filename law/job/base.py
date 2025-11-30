@@ -30,13 +30,31 @@ from law.target.remote.base import RemoteTarget
 from law.config import Config
 from law.util import (
     colored, make_list, make_tuple, iter_chunks, makedirs, create_hash, increment_path,
-    create_random_string, kill_process,
+    create_random_string, kill_process, NoValue, no_value, which,
 )
 from law.logger import get_logger
 from law._types import Any, Callable, Hashable, Sequence, TracebackType, Type, T
 
 
 logger = get_logger(__name__)
+
+_timeout_command: NoValue | str | None = no_value
+
+
+def get_timeout_command() -> str | None:
+    """
+    Returns "timeout", "gtimeout", or *None* depending on what is available on the system.
+    """
+    global _timeout_command
+
+    if _timeout_command == no_value:
+        _timeout_command = None
+        for cmd in ["timeout", "gtimeout"]:
+            if which(cmd):
+                _timeout_command = cmd
+                break
+
+    return _timeout_command  # type: ignore[return-value]
 
 
 def get_async_result_silent(result: AsyncResult, timeout: int | float | None = None) -> Any:
@@ -224,6 +242,23 @@ class BaseJobManager(object, metaclass=ABCMeta):
         Hook for casting an input *job_id*, for instance, after loading serialized data from json.
         """
         return job_id
+
+    @classmethod
+    def prepend_timeout_command(
+        cls,
+        cmd: list[str],
+        duration: int | float,
+        signal: int = 9,
+        silent: bool = True,
+    ) -> list[str]:
+        # get the installed timeout command
+        timeout_cmd = get_timeout_command()
+        if not timeout_cmd:
+            if not silent:
+                raise Exception("cannot prepend timeout command, no suitable command detected on system")
+            return cmd
+
+        return [timeout_cmd, "--preserve-status", "--signal={}".format(signal), str(duration)] + cmd
 
     def __init__(
         self,
@@ -872,7 +907,7 @@ class BaseJobFileFactory(object, metaclass=ABCMeta):
 
         # get default values from config if None
         if mkdtemp is None:
-            mkdtemp = cfg.get_expanded_bool("job", "job_file_dir_mkdtemp")
+            mkdtemp = cfg.get_expanded_bool("job", "job_file_dir_mkdtemp", force_type=False)
         if cleanup is None:
             cleanup = cfg.get_expanded_bool("job", "job_file_dir_cleanup")
 

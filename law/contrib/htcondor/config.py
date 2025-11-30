@@ -16,6 +16,7 @@ def config_defaults(default_config: dict) -> dict[str, dict[str, Any]]:
             "htcondor_job_file_dir": None,
             "htcondor_job_file_dir_mkdtemp": None,
             "htcondor_job_file_dir_cleanup": False,
+            "htcondor_job_query_timeout": None,
             "htcondor_chunk_size_submit": 25,
             "htcondor_chunk_size_cancel": 25,
             "htcondor_chunk_size_query": 25,

@@ -333,6 +333,13 @@ class GLiteWorkflow(BaseRemoteWorkflow):
         """
         return
 
+    def glite_post_poll_callback(self, success: bool, duration: float | int) -> None:
+        """
+        Configurable callback that is called after the polling loop has ended. It receives a boolean *success* that
+        indicates whether the job polling was successful, and the duration of the job polling in seconds.
+        """
+        return
+
     def glite_use_local_scheduler(self) -> bool:
         return True
 

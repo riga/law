@@ -18,7 +18,7 @@ import subprocess
 from law.config import Config
 from law.job.base import BaseJobManager, BaseJobFileFactory, JobInputFile
 from law.target.file import get_path
-from law.util import interruptable_popen, make_list, quote_cmd
+from law.util import interruptable_popen, make_list, quote_cmd, parse_duration
 from law.logger import get_logger
 from law._types import Any, Sequence
 
@@ -185,8 +185,16 @@ class SlurmJobManager(BaseJobManager):
         if partition:
             cmd += ["--partition", partition]
         cmd += ["--jobs", ",".join(map(str, job_ids))]
-        cmd_str = quote_cmd(cmd)
 
+        # optionally prepend timeout
+        cfg = Config.instance()
+        query_timeout = cfg.get_expanded("job", cfg.find_option("job", "slurm_job_query_timeout", "job_query_timeout"))
+        if query_timeout:
+            query_timeout_sec = parse_duration(query_timeout, input_unit="s")
+            cmd = self.prepend_timeout_command(cmd, query_timeout_sec)
+
+        # run it
+        cmd_str = quote_cmd(cmd)
         logger.debug(f"query slurm job(s) with command '{cmd_str}'")
         out: str
         err: str
@@ -384,6 +392,7 @@ class SlurmJobFileFactory(BaseJobFileFactory):
             kwargs["mkdtemp"] = cfg.get_expanded_bool(
                 "job",
                 cfg.find_option("job", "slurm_job_file_dir_mkdtemp", "job_file_dir_mkdtemp"),
+                force_type=False,
             )
         if kwargs.get("cleanup") is None:
             kwargs["cleanup"] = cfg.get_expanded_bool(

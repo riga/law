@@ -19,7 +19,7 @@ import subprocess
 from law.config import Config
 from law.job.base import BaseJobManager, BaseJobFileFactory, JobInputFile
 from law.target.file import get_path
-from law.util import interruptable_popen, make_list, make_unique, quote_cmd
+from law.util import interruptable_popen, make_list, make_unique, quote_cmd, parse_duration
 from law.logger import get_logger
 from law._types import Any, Sequence
 
@@ -377,8 +377,8 @@ class HTCondorJobManager(BaseJobManager):
         chunking = isinstance(job_id, (list, tuple))
         job_ids = make_list(job_id)
 
-        # default ClassAds to getch
-        ads = "ClusterId,ProcId,JobStatus,ExitCode,ExitStatus,HoldReason,RemoveReason"
+        # default ClassAds to fetch
+        ads = "ClusterId ProcId JobStatus ExitCode ExitStatus HoldReason RemoveReason MemoryUsage"
 
         # build the condor_q command
         cmd = ["condor_q"] + job_ids
@@ -386,15 +386,23 @@ class HTCondorJobManager(BaseJobManager):
             cmd += ["-pool", pool]
         if scheduler:
             cmd += ["-name", scheduler]
-        cmd += ["-long"]
+        cmd += ["-af:lng"] + ads.split()
         # since v8.3.3 one can limit the number of jobs to query
         if self.htcondor_ge_v833:
             cmd += ["-limit", str(len(job_ids))]
-        # since v8.5.6 one can define the attributes to fetch
-        if self.htcondor_ge_v856:
-            cmd += ["-attributes", ads]
-        cmd_str = quote_cmd(cmd)
 
+        # optionally prepend timeout
+        cfg = Config.instance()
+        query_timeout = cfg.get_expanded(
+            "job",
+            cfg.find_option("job", "htcondor_job_query_timeout", "job_query_timeout"),
+        )
+        if query_timeout:
+            query_timeout_sec = parse_duration(query_timeout, input_unit="s")
+            cmd = self.prepend_timeout_command(cmd, query_timeout_sec)
+
+        # run it
+        cmd_str = quote_cmd(cmd)
         logger.debug(f"query htcondor job(s) with command '{cmd_str}'")
         out: str
         err: str
@@ -428,15 +436,17 @@ class HTCondorJobManager(BaseJobManager):
                 cmd += ["-pool", pool]
             if scheduler:
                 cmd += ["-name", scheduler]
-            cmd += ["-long"]
+            cmd += ["-af:lng"] + ads.split()
             # since v8.3.3 one can limit the number of jobs to query
             if self.htcondor_ge_v833:
                 cmd += ["-limit", str(len(missing_ids))]
-            # since v8.5.6 one can define the attributes to fetch
-            if self.htcondor_ge_v856:
-                cmd += ["-attributes", ads]
-            cmd_str = quote_cmd(cmd)
 
+            # optionally prepend timeout
+            if query_timeout:
+                cmd = self.prepend_timeout_command(cmd, query_timeout_sec)
+
+            # run it
+            cmd_str = quote_cmd(cmd)
             logger.debug(f"query htcondor job history with command '{cmd_str}'")
             code, out, err = interruptable_popen(  # type: ignore[assignment]
                 cmd,
@@ -493,7 +503,11 @@ class HTCondorJobManager(BaseJobManager):
             status = cls.map_status(data.get("JobStatus"))
 
             # get the exit code
-            code = int(data.get("ExitCode") or data.get("ExitStatus") or "0")
+            code = 0
+            for key in ["ExitCode", "ExitStatus"]:
+                if data.get(key, "undefined").isdigit():
+                    code = int(data[key])
+                    break
 
             # get the error message, undefined counts as None
             error = data.get("HoldReason", "undefined")
@@ -513,12 +527,19 @@ class HTCondorJobManager(BaseJobManager):
                     if not error:
                         error = f"job status set to '{cls.FAILED}' due to non-zero exit code {code}"
 
+            # extra info
+            extra = {}
+            if "MemoryUsage" in data:
+                mem = float(data["MemoryUsage"]) if data.get("MemoryUsage", "undefined").isdigit() else None
+                extra["mem_peak_mb"] = mem
+
             # store it
             query_data[job_id] = cls.job_status_dict(
                 job_id=job_id,
                 status=status,
                 code=code,
                 error=error,
+                extra=extra or None,
             )
 
         return query_data
@@ -577,6 +598,7 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
             kwargs["mkdtemp"] = cfg.get_expanded_bool(
                 "job",
                 cfg.find_option("job", "htcondor_job_file_dir_mkdtemp", "job_file_dir_mkdtemp"),
+                force_type=False,
             )
         if kwargs.get("cleanup") is None:
             kwargs["cleanup"] = cfg.get_expanded_bool(

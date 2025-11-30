@@ -30,7 +30,7 @@ from law.job.dashboard import BaseJobDashboard
 from law.workflow.remote import JobData
 from law.target.file import get_path
 from law.util import (
-    DotDict, interruptable_popen, make_list, make_unique, quote_cmd, no_value, rel_path,
+    DotDict, interruptable_popen, make_list, make_unique, quote_cmd, no_value, rel_path, parse_duration,
 )
 from law.logger import get_logger
 from law._types import Any, MutableMapping, Callable, Type, Hashable, T, Sequence
@@ -390,9 +390,16 @@ class CrabJobManager(BaseJobManager):
             cmd += ["--proxy", proxy_file]
         if instance:
             cmd += ["--instance", instance]
-        cmd_str = quote_cmd(cmd)
+
+        # optionally prepend timeout
+        cfg = Config.instance()
+        query_timeout = cfg.get_expanded("job", cfg.find_option("job", "crab_job_query_timeout", "job_query_timeout"))
+        if query_timeout:
+            query_timeout_sec = parse_duration(query_timeout, input_unit="s")
+            cmd = self.prepend_timeout_command(cmd, query_timeout_sec)
 
         # run it
+        cmd_str = quote_cmd(cmd)
         logger.debug(f"query crab job(s) with command '{cmd_str}'")
         out: str
         code, out, _ = interruptable_popen(  # type: ignore[assignment]
@@ -727,6 +734,7 @@ class CrabJobFileFactory(BaseJobFileFactory):
             kwargs["mkdtemp"] = cfg.get_expanded_bool(
                 "job",
                 cfg.find_option("job", "crab_job_file_dir_mkdtemp", "job_file_dir_mkdtemp"),
+                force_type=False,
             )
 
         super().__init__(**kwargs)
