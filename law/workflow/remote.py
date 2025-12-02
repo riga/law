@@ -1868,7 +1868,7 @@ def log_job_memory_summary(
         # for many jobs, try to print a uniplot histogram, or just print avg, std, min, and max values
         uniplot: ModuleType | None
         try:
-            import uniplot  # type: ignore[import-untyped]
+            import uniplot  # type: ignore[import-not-found,import-untyped]
         except ImportError:
             uniplot = None
 
