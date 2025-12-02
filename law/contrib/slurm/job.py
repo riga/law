@@ -477,10 +477,8 @@ class SlurmJobFileFactory(BaseJobFileFactory):
             content.append(("job-name", c.job_name))
         if c.partition:
             content.append(("partition", c.partition))
-        if c.stdout:
-            content.append(("output", c.stdout))
-        if c.stderr:
-            content.append(("error", c.stderr))
+        content.append(("output", c.stdout or "NONE"))
+        content.append(("error", c.stderr or "NONE"))
 
         # add custom content
         if c.custom_content:
