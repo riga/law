@@ -30,7 +30,7 @@ from law.target.remote.base import RemoteTarget
 from law.config import Config
 from law.util import (
     colored, make_list, make_tuple, iter_chunks, makedirs, create_hash, increment_path,
-    create_random_string, kill_process, NoValue, no_value, which,
+    create_random_string, kill_process, NoValue, no_value, which, multi_match,
 )
 from law.logger import get_logger
 from law._types import Any, Callable, Hashable, Sequence, TracebackType, Type, T
@@ -1027,7 +1027,11 @@ class BaseJobFileFactory(object, metaclass=ABCMeta):
         return s.replace("{{" + key + "}}", str(value))
 
     @classmethod
-    def linearize_render_variables(cls, render_variables: dict[str, str]) -> dict[str, str]:
+    def linearize_render_variables(
+        cls,
+        render_variables: dict[str, str],
+        drop_base64_keys: Sequence[str] | None = None,
+    ) -> dict[str, str]:
         """
         Linearizes variables contained in the dictionary *render_variables*. In some use cases,
         variables may contain render expressions pointing to other variables, e.g.:
@@ -1049,6 +1053,9 @@ class BaseJobFileFactory(object, metaclass=ABCMeta):
             #     "variable_a": "Tom",
             #     "variable_b": "Hello, Tom!",
             # }
+
+        A base64 encoded representation of all render variables is added to the final render variables themselves. If
+        *drop_base64_keys* is set, those keys are dropped from the base64 encoded representation.
         """
         linearized = {}
         for key, value in render_variables.items():
@@ -1066,8 +1073,14 @@ class BaseJobFileFactory(object, metaclass=ABCMeta):
                 value = cls.render_string(value, sub_key, render_variables.get(sub_key, ""))
             linearized[key] = value
 
-        # add base64 encoded render variables themselves
-        vars_str = base64.b64encode((json.dumps(linearized) or "-").encode("utf-8"))
+        # add base64 encoded render variables themselves, potentially with some entries dropped
+        linearized_b64 = linearized
+        if drop_base64_keys:
+            drop_base64_keys = make_list(drop_base64_keys)
+            linearized_b64 = {
+                k: v for k, v in linearized.items() if not multi_match(k, drop_base64_keys)
+            }
+        vars_str = base64.b64encode((json.dumps(linearized_b64) or "-").encode("utf-8"))
         linearized["render_variables"] = vars_str.decode("utf-8")
 
         return linearized
