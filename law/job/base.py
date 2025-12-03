@@ -28,7 +28,7 @@ from law.target.file import get_scheme, get_path
 from law.target.remote.base import RemoteTarget
 from law.util import (
     colored, make_list, make_tuple, iter_chunks, makedirs, create_hash, create_random_string,
-    increment_path, kill_process, no_value, which,
+    increment_path, kill_process, no_value, which, multi_match,
 )
 from law.logger import get_logger
 
@@ -917,7 +917,7 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
         return s.replace("{{" + key + "}}", str(value))
 
     @classmethod
-    def linearize_render_variables(cls, render_variables):
+    def linearize_render_variables(cls, render_variables, drop_base64_keys=None):
         """
         Linearizes variables contained in the dictionary *render_variables*. In some use cases,
         variables may contain render expressions pointing to other variables, e.g.:
@@ -939,6 +939,9 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
             #     "variable_a": "Tom",
             #     "variable_b": "Hello, Tom!",
             # }
+
+        A base64 encoded representation of all render variables is added to the final render variables themselves. If
+        *drop_base64_keys* is set, those keys are dropped from the base64 encoded representation.
         """
         linearized = {}
         for key, value in render_variables.items():
@@ -954,8 +957,14 @@ class BaseJobFileFactory(six.with_metaclass(ABCMeta, object)):
                 value = cls.render_string(value, sub_key, render_variables.get(sub_key, ""))
             linearized[key] = value
 
-        # add base64 encoded render variables themselves
-        vars_str = base64.b64encode(six.b(json.dumps(linearized) or "-"))
+        # add base64 encoded render variables themselves, potentially with some entries dropped
+        linearized_b64 = linearized
+        if drop_base64_keys:
+            drop_base64_keys = make_list(drop_base64_keys)
+            linearized_b64 = {
+                k: v for k, v in linearized.items() if not multi_match(k, drop_base64_keys)
+            }
+        vars_str = base64.b64encode(six.b(json.dumps(linearized_b64) or "-"))
         if six.PY3:
             vars_str = vars_str.decode("utf-8")
         linearized["render_variables"] = vars_str

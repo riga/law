@@ -788,7 +788,10 @@ class CrabJobFileFactory(BaseJobFileFactory):
         )
 
         # linearize render variables
-        render_variables = self.linearize_render_variables(c.render_variables)
+        render_variables = self.linearize_render_variables(
+            c.render_variables,
+            drop_base64_keys=["crab_job_arguments_map"],
+        )
 
         # prepare the job file
         job_file = self.postfix_input_file(os.path.join(c.dir, str(c.file_name)))

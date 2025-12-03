@@ -646,7 +646,10 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
             )
 
         # linearize render variables
-        render_variables = self.linearize_render_variables(c.render_variables)
+        render_variables = self.linearize_render_variables(
+            c.render_variables,
+            drop_base64_keys=["htcondor_job_arguments_map"],
+        )
 
         # prepare the job description file
         job_file = os.path.join(c.dir, str(c.file_name))
