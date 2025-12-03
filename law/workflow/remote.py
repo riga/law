@@ -1886,5 +1886,6 @@ def log_job_memory_summary(
                 "color": True,
                 "bins": 36,
                 "width": 80,
-            } | (uniplot_args or {})
+            }
+            _uniplot_args.update(uniplot_args or {})
             uniplot.histogram(list(mem_peak_values.values()), **_uniplot_args)
