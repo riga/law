@@ -37,7 +37,7 @@
 
 > [!NOTE]
 > This project is currently under development.
-> - Version 1.0.0 will support Python ≥3.8 and is developed in the [release_prep branch](https://github.com/riga/law/tree/release_prep).
+> - Version 1.0.0 will drop Python 2 support and is developed in the [release_prep branch](https://github.com/riga/law/tree/release_prep).
 > - There will be a legacy branch with Python 2.7 and ≤3.7 support that, however, won't receive any new features.
 > - The release is targetted for spring 2025.
 
