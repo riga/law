@@ -1787,7 +1787,7 @@ def log_job_memory_summary(job_data, log=None, summary_threshold=5, uniplot_args
         else:
             log("summary of per-job peak memory usage")
             uniplot_args = {
-                "title": f"Job peak memory in MB ({list(mem_peak_values.values())} jobs)",
+                "title": f"Job peak memory in MB ({len(mem_peak_values)} jobs)",
                 "color": True,
                 "bins": 36,
                 "width": 80,
