@@ -1420,3 +1420,18 @@
 ; The environment variables defined in this section are applied to all cmssw sandboxes. To
 ; configure variables per cmssw version, create a section "cmssw_sandbox_env_<cmssw_version>" with
 ; the desired values.
+
+; --- hdfs_fs section ------------------------------------------------------------------------------  
+
+[hdfs_fs]
+
+; Note: 
+; Remote file operations are handled by HDFS. For more info, see https://hadoop-user-guide.web.cern.ch
+;
+; Here you can define environmental variables to configure the Hadoop cluster parameters and access.
+; Most of the parameters are shared with the already detailed [wlcg_fs] section.
+;
+; It's probable that more parameters are needed to configure the Hadoop conextion. Those ones are
+; included in Luigi configuration, so they may be used by [luigi_hdfs] and [luigi_hadoop]. Complete
+; details, here:
+; https://luigi.readthedocs.io/en/stable/configuration.html#hadoop
