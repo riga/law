@@ -27,6 +27,8 @@ class MirroredTarget(FileSystemTarget):
 
     _existing_local_roots = {}
 
+    local_sync_default = True
+
     @classmethod
     def check_local_root(cls, path, depth=1):
         path = str(path)
@@ -57,7 +59,7 @@ class MirroredTarget(FileSystemTarget):
         local_fs=None,
         local_kwargs=None,
         local_read_only=True,
-        local_sync=True,
+        local_sync=None,
         **kwargs,
     ):
         path = path.lstrip(os.sep)
@@ -125,7 +127,7 @@ class MirroredTarget(FileSystemTarget):
 
         # additional attributes
         self.local_read_only = local_read_only
-        self.local_sync = local_sync
+        self.local_sync = local_sync if local_sync is not None else self.local_sync_default
 
         # temporary, forced file system
         self._force_fs = None
@@ -157,7 +159,12 @@ class MirroredTarget(FileSystemTarget):
         }
         return (), parent_kwargs
 
-    def _wait_for_local(self, missing=False, timeout=0.5, attempts=90):
+    def _wait_for_local(self, missing=False, timeout=0.5, attempts=90, local_sync=None):
+        # no need to wait if local sync is disabled
+        if not (self.local_sync if local_sync is None else local_sync):
+            return
+
+        # no need to wait if local root does not require checking
         if not self.check_local_root(self.local_target.abspath, depth=self._local_root_depth):
             return
 
@@ -231,13 +238,14 @@ class MirroredTarget(FileSystemTarget):
             self.remote_target.exists(*args, **kwargs)
         )
 
-    def remove(self, *args, **kwargs):
+    def remove(self, *args, local_sync=None, **kwargs):
         if not self.local_read_only:
             return self.local_target.remove(*args, **kwargs)
 
         ret = self.remote_target.remove(*args, **kwargs)
-        if self.local_sync:
-            self._wait_for_local(missing=True)
+
+        self._wait_for_local(missing=True, local_sync=local_sync)
+
         return ret
 
     def chmod(self, *args, **kwargs):
@@ -257,28 +265,31 @@ class MirroredTarget(FileSystemTarget):
             else self.remote_target.copy_to(*args, **kwargs)
         )
 
-    def copy_from(self, *args, **kwargs):
+    def copy_from(self, *args, local_sync=None, **kwargs):
         ret = self.remote_target.copy_from(*args, **kwargs)
-        if self.local_sync:
-            self._wait_for_local(missing=False)
+
+        self._wait_for_local(missing=False, local_sync=local_sync)
+
         return ret
 
-    def move_to(self, *args, **kwargs):
+    def move_to(self, *args, local_sync=None, **kwargs):
         if not self.local_read_only:
             return self.local_target.move_to(*args, **kwargs)
 
         ret = self.remote_target.move_to(*args, **kwargs)
-        if self.local_sync:
-            self._wait_for_local(missing=True)
+
+        self._wait_for_local(missing=True, local_sync=local_sync)
+
         return ret
 
-    def move_from(self, *args, **kwargs):
+    def move_from(self, *args, local_sync=None, **kwargs):
         if not self.local_read_only:
             return self.local_target.move_from(*args, **kwargs)
 
         ret = self.remote_target.move_from(*args, **kwargs)
-        if self.local_sync:
-            self._wait_for_local(missing=False)
+
+        self._wait_for_local(missing=False, local_sync=local_sync)
+
         return ret
 
     def copy_to_local(self, *args, **kwargs):
@@ -288,32 +299,35 @@ class MirroredTarget(FileSystemTarget):
             else self.remote_target.copy_to_local(*args, **kwargs)
         )
 
-    def copy_from_local(self, *args, **kwargs):
+    def copy_from_local(self, *args, local_sync=None, **kwargs):
         ret = self.remote_target.copy_from_local(*args, **kwargs)
-        if self.local_sync:
-            self._wait_for_local(missing=False)
+
+        self._wait_for_local(missing=False, local_sync=local_sync)
+
         return ret
 
-    def move_to_local(self, *args, **kwargs):
+    def move_to_local(self, *args, local_sync=None, **kwargs):
         if not self.local_read_only:
             return self.local_target.move_to_local(*args, **kwargs)
 
         ret = self.remote_target.move_to_local(*args, **kwargs)
-        if self.local_sync:
-            self._wait_for_local(missing=True)
+
+        self._wait_for_local(missing=True, local_sync=local_sync)
+
         return ret
 
-    def move_from_local(self, *args, **kwargs):
+    def move_from_local(self, *args, local_sync=None, **kwargs):
         if not self.local_read_only:
             return self.local_target.move_from_local(*args, **kwargs)
 
         ret = self.remote_target.move_from_local(*args, **kwargs)
-        if self.local_sync:
-            self._wait_for_local(missing=False)
+
+        self._wait_for_local(missing=False, local_sync=local_sync)
+
         return ret
 
     @contextlib.contextmanager
-    def localize(self, mode="r", **kwargs):
+    def localize(self, mode="r", local_sync=None, **kwargs):
         with (
             self.local_target.localize(mode, **kwargs)
             if (mode == "r" or not self.local_read_only) and self._local_target_exists()
@@ -321,16 +335,17 @@ class MirroredTarget(FileSystemTarget):
         ) as ret:
             yield ret
 
-        if mode == "w" and self.local_read_only and self.local_sync:
-            self._wait_for_local(missing=False)
+        if mode == "w" and self.local_read_only:
+            self._wait_for_local(missing=False, local_sync=local_sync)
 
-    def touch(self, *args, **kwargs):
+    def touch(self, *args, local_sync=None, **kwargs):
         if not self.local_read_only:
             return self.local_target.touch(*args, **kwargs)
 
         ret = self.remote_target.touch(*args, **kwargs)
-        if self.local_sync:
-            self._wait_for_local(missing=False)
+
+        self._wait_for_local(missing=False, local_sync=local_sync)
+
         return ret
 
     def load(self, *args, **kwargs):
@@ -340,13 +355,14 @@ class MirroredTarget(FileSystemTarget):
             else self.remote_target.load(*args, **kwargs)
         )
 
-    def dump(self, *args, **kwargs):
+    def dump(self, *args, local_sync=None, **kwargs):
         if not self.local_read_only:
             return self.local_target.dump(*args, **kwargs)
 
         ret = self.remote_target.dump(*args, **kwargs)
-        if self.local_sync:
-            self._wait_for_local(missing=False)
+
+        self._wait_for_local(missing=False, local_sync=local_sync)
+
         return ret
 
 
@@ -356,7 +372,7 @@ class MirroredFileTarget(FileSystemFileTarget, MirroredTarget):
         super(MirroredFileTarget, self).__init__(path, _is_file=True, **kwargs)
 
     @contextlib.contextmanager
-    def open(self, mode, **kwargs):
+    def open(self, mode, local_sync=None, **kwargs):
         with (
             self.local_target.open(mode, **kwargs)
             if (mode == "r" or not self.local_read_only) and self._local_target_exists()
@@ -364,8 +380,8 @@ class MirroredFileTarget(FileSystemFileTarget, MirroredTarget):
         ) as ret:
             yield ret
 
-        if mode == "w" and self.local_read_only and self.local_sync:
-            self._wait_for_local(missing=False)
+        if mode == "w" and self.local_read_only:
+            self._wait_for_local(missing=False, local_sync=local_sync)
 
 
 class MirroredDirectoryTarget(FileSystemDirectoryTarget, MirroredTarget):

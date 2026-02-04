@@ -158,16 +158,13 @@ class TargetCollection(Target):
 
         return flatten_collections(self._flat_target_list)[0]
 
-    def remove(self, silent=True, threads=None):
+    def remove(self, silent=True, threads=None, **kwargs):
         if threads is None:
             threads = self.remove_threads
 
         # atomic removal
         def remove(target):
-            if silent:
-                target.remove(silent=True)
-            elif target.exists():
-                target.remove()
+            target.remove(silent=silent, **kwargs)
 
         # target generator
         def target_gen():
@@ -347,13 +344,13 @@ class SiblingFileCollectionBase(FileCollection):
             return False
         return target.basename in basenames
 
-    def remove(self, silent=True, threads=None):
+    def remove(self, silent=True, threads=None, **kwargs):
         if threads is None:
             threads = self.remove_threads
 
         # atomic removal
         def remove(target):
-            target.remove(silent=silent)
+            target.remove(silent=silent, **kwargs)
 
         # target generator
         def target_gen():

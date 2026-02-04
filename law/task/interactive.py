@@ -502,7 +502,7 @@ def remove_task_output(task, stopping_condition=0, mode=None, run_task=False):
                     continue
 
             # finally remove
-            output.remove()
+            output.remove(local_sync=False)
             _print(ooffset + colored("removed", "red", style="bright"), ooffset)
 
     return run_task
