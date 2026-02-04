@@ -273,6 +273,12 @@
 ; Type: int
 ; Default: 0
 
+; interactive_removal_local_sync
+; Description: Whether the interactive removal via "--remove-output" of "MirroredTarget"'s should
+; enforce synchronization with the local representation.
+; Type: bool
+; Default: True
+
 
 ; --- Options of contrib packages
 

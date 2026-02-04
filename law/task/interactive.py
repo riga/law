@@ -371,6 +371,7 @@ def remove_task_output(task, stopping_condition=0, mode=None, run_task=False):
     cfg = Config.instance()
     fmt_name = cfg.get_expanded("task", "interactive_format")
     fmt = fmt_chars.get(fmt_name, fmt_chars["fancy"])
+    local_sync = cfg.get_expanded_bool("target", "interactive_removal_local_sync")
 
     # get the line break setting
     break_lines = cfg.get_expanded_bool("task", "interactive_line_breaks")
@@ -502,7 +503,7 @@ def remove_task_output(task, stopping_condition=0, mode=None, run_task=False):
                     continue
 
             # finally remove
-            output.remove(local_sync=False)
+            output.remove(local_sync=local_sync)
             _print(ooffset + colored("removed", "red", style="bright"), ooffset)
 
     return run_task
