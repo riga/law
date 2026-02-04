@@ -120,6 +120,7 @@ class Config(ConfigParser):
             "tmp_dir_perm": 0o0770,
             "default_local_fs": "local_fs",
             "collection_remove_threads": 0,
+            "interactive_removal_local_sync": True,
         },
         "local_fs": {
             "base": "/",
