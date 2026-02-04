@@ -32,6 +32,8 @@ class MirroredTarget(FileSystemTarget):
 
     _existing_local_roots: dict[str, bool] = {}
 
+    local_sync_default: bool = True
+
     @classmethod
     def check_local_root(cls, path: str | pathlib.Path, depth: int = 1) -> bool:
         path = str(path)
@@ -61,7 +63,7 @@ class MirroredTarget(FileSystemTarget):
         local_fs: LocalFileSystem | str | None = None,
         local_kwargs: dict[str, Any] | None = None,
         local_read_only: bool = True,
-        local_sync: bool = True,
+        local_sync: bool | None = None,
         **kwargs,
     ) -> None:
         path = str(path).lstrip(os.sep)
@@ -117,7 +119,7 @@ class MirroredTarget(FileSystemTarget):
 
         # additional attributes
         self.local_read_only = local_read_only
-        self.local_sync = local_sync
+        self.local_sync = self.local_sync_default if local_sync is None else local_sync
 
         # temporary, forced file system
         self._force_fs = None
@@ -154,7 +156,13 @@ class MirroredTarget(FileSystemTarget):
         missing: bool = False,
         timeout: int | float = 0.5,
         attempts: int = 90,
+        local_sync: bool | None = None,
     ) -> None:
+        # no need to wait if local sync is disabled
+        if not (self.local_sync if local_sync is None else local_sync):
+            return
+
+        # no need to wait if local root does not require checking
         if not self.check_local_root(self.local_target.abspath, depth=self._local_root_depth):
             return
 
@@ -227,13 +235,14 @@ class MirroredTarget(FileSystemTarget):
             self.remote_target.exists(*args, **kwargs)
         )
 
-    def remove(self, *args, **kwargs) -> bool:
+    def remove(self, *args, local_sync: bool | None = None, **kwargs) -> bool:
         if not self.local_read_only:
             return self.local_target.remove(*args, **kwargs)
 
         ret = self.remote_target.remove(*args, **kwargs)
-        if self.local_sync:
-            self._wait_for_local(missing=True)
+
+        self._wait_for_local(missing=True, local_sync=local_sync)
+
         return ret
 
     def chmod(self, *args, **kwargs) -> bool:
@@ -253,28 +262,31 @@ class MirroredTarget(FileSystemTarget):
             else self.remote_target.copy_to(*args, **kwargs)
         )
 
-    def copy_from(self, *args, **kwargs) -> str:
+    def copy_from(self, *args, local_sync: bool | None = None, **kwargs) -> str:
         ret = self.remote_target.copy_from(*args, **kwargs)
-        if self.local_sync:
-            self._wait_for_local(missing=False)
+
+        self._wait_for_local(missing=False, local_sync=local_sync)
+
         return ret
 
-    def move_to(self, *args, **kwargs) -> str:
+    def move_to(self, *args, local_sync: bool | None = None, **kwargs) -> str:
         if not self.local_read_only:
             return self.local_target.move_to(*args, **kwargs)
 
         ret = self.remote_target.move_to(*args, **kwargs)
-        if self.local_sync:
-            self._wait_for_local(missing=True)
+
+        self._wait_for_local(missing=True, local_sync=local_sync)
+
         return ret
 
-    def move_from(self, *args, **kwargs) -> str:
+    def move_from(self, *args, local_sync: bool | None = None, **kwargs) -> str:
         if not self.local_read_only:
             return self.local_target.move_from(*args, **kwargs)
 
         ret = self.remote_target.move_from(*args, **kwargs)
-        if self.local_sync:
-            self._wait_for_local(missing=False)
+
+        self._wait_for_local(missing=False, local_sync=local_sync)
+
         return ret
 
     def copy_to_local(self, *args, **kwargs) -> str:
@@ -284,48 +296,52 @@ class MirroredTarget(FileSystemTarget):
             else self.remote_target.copy_to_local(*args, **kwargs)
         )
 
-    def copy_from_local(self, *args, **kwargs) -> str:
+    def copy_from_local(self, *args, local_sync: bool | None = None, **kwargs) -> str:
         ret = self.remote_target.copy_from_local(*args, **kwargs)
-        if self.local_sync:
-            self._wait_for_local(missing=False)
+
+        self._wait_for_local(missing=False, local_sync=local_sync)
+
         return ret
 
-    def move_to_local(self, *args, **kwargs) -> str:
+    def move_to_local(self, *args, local_sync: bool | None = None, **kwargs) -> str:
         if not self.local_read_only:
             return self.local_target.move_to_local(*args, **kwargs)
 
         ret = self.remote_target.move_to_local(*args, **kwargs)
-        if self.local_sync:
-            self._wait_for_local(missing=True)
+
+        self._wait_for_local(missing=True, local_sync=local_sync)
+
         return ret
 
-    def move_from_local(self, *args, **kwargs) -> str:
+    def move_from_local(self, *args, local_sync: bool | None = None, **kwargs) -> str:
         if not self.local_read_only:
             return self.local_target.move_from_local(*args, **kwargs)
 
         ret = self.remote_target.move_from_local(*args, **kwargs)
-        if self.local_sync:
-            self._wait_for_local(missing=False)
+
+        self._wait_for_local(missing=False, local_sync=local_sync)
+
         return ret
 
     @contextlib.contextmanager
-    def localize(self, mode: str = "r", **kwargs) -> Iterator[FileSystemTarget]:
+    def localize(self, mode: str = "r", *, local_sync: bool | None = None, **kwargs) -> Iterator[FileSystemTarget]:
         with (
             self.local_target.localize(mode=mode, **kwargs)
             if (mode == "r" or not self.local_read_only) and self._local_target_exists()
             else self.remote_target.localize(mode=mode, **kwargs)
         ) as ret:
             yield ret
-        if mode == "w" and self.local_read_only and self.local_sync:
-            self._wait_for_local(missing=False)
+        if mode == "w" and self.local_read_only:
+            self._wait_for_local(missing=False, local_sync=local_sync)
 
-    def touch(self, **kwargs) -> bool:
+    def touch(self, *, local_sync: bool | None = None, **kwargs) -> bool:
         if not self.local_read_only:
             return self.local_target.touch(**kwargs)
 
         ret = self.remote_target.touch(**kwargs)
-        if self.local_sync:
-            self._wait_for_local(missing=False)
+
+        self._wait_for_local(missing=False, local_sync=local_sync)
+
         return ret
 
     def load(self, *args, **kwargs) -> Any:
@@ -335,35 +351,38 @@ class MirroredTarget(FileSystemTarget):
             else self.remote_target.load(*args, **kwargs)
         )
 
-    def dump(self, *args, **kwargs) -> Any:
+    def dump(self, *args, local_sync: bool | None = None, **kwargs) -> Any:
         if not self.local_read_only:
             return self.local_target.dump(*args, **kwargs)
 
         ret = self.remote_target.dump(*args, **kwargs)
-        if self.local_sync:
-            self._wait_for_local(missing=False)
+
+        self._wait_for_local(missing=False, local_sync=local_sync)
+
         return ret
 
 
-class MirroredFileTarget(FileSystemFileTarget, MirroredTarget):
+class MirroredFileTarget(FileSystemFileTarget, MirroredTarget):  # type: ignore[misc]
 
     def __init__(self, path: str | pathlib.Path, **kwargs) -> None:
         super().__init__(path, _is_file=True, **kwargs)
 
     @contextlib.contextmanager
-    def open(self, mode: str, **kwargs) -> Iterator[IO]:
+    def open(self, mode: str, *, local_sync: bool | None = None, **kwargs) -> Iterator[IO]:
         with (
             self.local_target.open(mode, **kwargs)  # type: ignore[misc]
             if (mode == "r" or not self.local_read_only) and self._local_target_exists()
             else self.remote_target.open(mode, **kwargs)  # type: ignore[misc]
         ) as ret:
             yield ret
-        if mode == "w" and self.local_read_only and self.local_sync:
-            self._wait_for_local(missing=False)
+
+        if mode == "w" and self.local_read_only:
+            self._wait_for_local(missing=False, local_sync=local_sync)
+
         return ret
 
 
-class MirroredDirectoryTarget(FileSystemDirectoryTarget, MirroredTarget):
+class MirroredDirectoryTarget(FileSystemDirectoryTarget, MirroredTarget):  # type: ignore[misc]
 
     def __init__(self, path: str | pathlib.Path, **kwargs) -> None:
         super().__init__(path, _is_file=False, **kwargs)

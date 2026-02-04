@@ -185,11 +185,7 @@ class TargetCollection(Target):
 
         # atomic removal
         def remove(target):
-            if silent:
-                return target.remove(silent=True)
-            if target.exists():
-                return target.remove()
-            return False
+            return target.remove(silent=silent, **kwargs)
 
         # target generator
         def target_gen():
@@ -390,7 +386,7 @@ class SiblingFileCollectionBase(FileCollection):
 
         # atomic removal
         def remove(target):
-            return target.remove(silent=silent)
+            return target.remove(silent=silent, **kwargs)
 
         # target generator
         def target_gen():

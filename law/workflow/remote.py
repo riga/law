@@ -1844,6 +1844,7 @@ def log_job_memory_summary(
     job_data: JobData,
     log: Callable | None = None,
     summary_threshold: int = 5,
+    use_uniplot: bool = True,
     uniplot_args: dict[str, Any] | None = None,
 ) -> None:
     if log is None:
@@ -1866,11 +1867,12 @@ def log_job_memory_summary(
 
     else:
         # for many jobs, try to print a uniplot histogram, or just print avg, std, min, and max values
-        uniplot: ModuleType | None
-        try:
-            import uniplot  # type: ignore[import-not-found,import-untyped]
-        except ImportError:
-            uniplot = None
+        uniplot: ModuleType | None = None
+        if use_uniplot:
+            try:
+                import uniplot  # type: ignore[import-not-found,import-untyped]
+            except ImportError:
+                uniplot = None
 
         if uniplot is None:
             vals = list(mem_peak_values.values())

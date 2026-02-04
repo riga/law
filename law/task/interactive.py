@@ -534,7 +534,7 @@ def remove_task_output(
                     continue
 
             # finally remove
-            output.remove()
+            output.remove(local_sync=False)  # type: ignore[call-arg]
             _print(ooffset + colored("removed", "red", style="bright"), ooffset)
 
     return run_task
