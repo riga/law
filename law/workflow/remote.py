@@ -1751,7 +1751,7 @@ class BaseRemoteWorkflow(BaseWorkflow):
         return super(BaseRemoteWorkflow, self).handle_scheduler_message(msg, (attr, value))
 
 
-def log_job_memory_summary(job_data, log=None, summary_threshold=5, uniplot_args=None):
+def log_job_memory_summary(job_data, log=None, summary_threshold=5, use_uniplot=True, uniplot_args=None):
     if log is None:
         log = print
 
@@ -1772,10 +1772,12 @@ def log_job_memory_summary(job_data, log=None, summary_threshold=5, uniplot_args
 
     else:
         # for many jobs, try to print a uniplot histogram, or just print avg, std, min, and max values
-        try:
-            import uniplot
-        except ImportError:
-            uniplot = None
+        uniplot = None
+        if use_uniplot:
+            try:
+                import uniplot
+            except ImportError:
+                pass
 
         if uniplot is None:
             vals = list(mem_peak_values.values())
