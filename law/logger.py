@@ -325,7 +325,7 @@ def setup_logger(
 
     # add a console handler
     if add_console_handler is None:
-        add_console_handler = not name.startswith("law.") and not get_tty_handlers(name)
+        add_console_handler = not get_tty_handlers(name)
     if add_console_handler or isinstance(add_console_handler, dict):
         kwargs = add_console_handler if isinstance(add_console_handler, dict) else {}
         logger.addHandler(create_stream_handler(**kwargs))
