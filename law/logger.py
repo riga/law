@@ -130,7 +130,7 @@ def setup_logger(logger, level=None, add_console_handler=None, clear=False, forc
 
     # add a console handler
     if add_console_handler is None:
-        add_console_handler = not name.startswith("law.") and not get_tty_handlers(name)
+        add_console_handler = not get_tty_handlers(logger)
     if add_console_handler or isinstance(add_console_handler, dict):
         kwargs = add_console_handler if isinstance(add_console_handler, dict) else {}
         logger.addHandler(create_stream_handler(**kwargs))
@@ -166,7 +166,7 @@ def is_tty_handler(handler):
     if isinstance(handler, logging.StreamHandler) and getattr(handler, "stream", None):
         if callable(getattr(handler.stream, "isatty", None)) and handler.stream.isatty():
             return True
-        elif ipykernel and isinstance(handler.stream, ipykernel.iostream.OutStream):
+        if ipykernel and isinstance(handler.stream, ipykernel.iostream.OutStream):
             return True
     if isinstance(handler, logging.Handler) and getattr(handler, "console", None):
         return True
