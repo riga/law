@@ -62,6 +62,7 @@ class BundleGitRepository(Task):
                     get_path(self.get_repo_path()),
                     "1",  # recursive flag
                     " ".join(self.include_files),
+                    " ".join(self.exclude_files),
                 ])
 
                 code, out, _ = interruptable_popen(
@@ -93,8 +94,8 @@ class BundleGitRepository(Task):
             rel_path(__file__, "scripts", "bundle_repository.sh"),
             get_path(self.get_repo_path()),
             get_path(dst_path),
-            " ".join(self.exclude_files),
             " ".join(self.include_files),
+            " ".join(self.exclude_files),
         ]
         cmd = quote_cmd(cmd)
 
