@@ -60,6 +60,8 @@ class BundleMercurialRepository(Task):
                 cmd = quote_cmd([
                     rel_path(__file__, "scripts", "repository_checksum.sh"),
                     get_path(self.get_repo_path()),
+                    " ".join(self.include_files),
+                    " ".join(self.exclude_files),
                 ])
 
                 code, out, _ = interruptable_popen(
@@ -87,9 +89,13 @@ class BundleMercurialRepository(Task):
 
     def bundle(self, dst_path):
         bundle_script = rel_path(__file__, "scripts", "bundle_repository.sh")
-        cmd = [bundle_script, get_path(self.get_repo_path()), get_path(dst_path)]
-        cmd += [" ".join(self.exclude_files)]
-        cmd += [" ".join(self.include_files)]
+        cmd = [
+            bundle_script,
+            get_path(self.get_repo_path()),
+            get_path(dst_path),
+            " ".join(self.include_files),
+            " ".join(self.exclude_files),
+        ]
 
         code = interruptable_popen(cmd, executable="/bin/bash")[0]
         if code != 0:
