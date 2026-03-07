@@ -62,6 +62,8 @@ class BundleMercurialRepository(Task):
                 cmd = quote_cmd([
                     rel_path(__file__, "scripts", "repository_checksum.sh"),
                     get_path(self.get_repo_path()),
+                    " ".join(self.include_files),  # type: ignore[arg-type]
+                    " ".join(self.exclude_files),  # type: ignore[arg-type]
                 ])
 
                 out: str
@@ -89,10 +91,14 @@ class BundleMercurialRepository(Task):
             self.bundle(tmp.path)
 
     def bundle(self, dst_path: str | pathlib.Path | FileSystemFileTarget) -> None:
-        bundle_script = rel_path(__file__, "scripts", "bundle_repository.sh")
-        cmd = [bundle_script, get_path(self.get_repo_path()), get_path(dst_path)]
-        cmd += [" ".join(self.exclude_files)]  # type: ignore[arg-type]
-        cmd += [" ".join(self.include_files)]  # type: ignore[arg-type]
+        cmd: list | str
+        cmd = [
+            rel_path(__file__, "scripts", "bundle_repository.sh"),
+            get_path(self.get_repo_path()),
+            get_path(dst_path),
+            " ".join(self.include_files),  # type: ignore[arg-type]
+            " ".join(self.exclude_files),  # type: ignore[arg-type]
+        ]
 
         code = interruptable_popen(cmd, executable="/bin/bash")[0]
         if code != 0:

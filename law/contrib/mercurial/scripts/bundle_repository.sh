@@ -6,8 +6,8 @@
 # Arguments:
 # 1. the absolute path to the repository
 # 2. the path where the bundle should be stored, should end with .tgz
-# 3. (optional) space-separated list of files or directories to ignore, supports globbing
-# 4. (optional) space-separated list of files or directories to force-add, supports globbing
+# 3. (optional) space-separated list of files or directories to force-add, supports globbing
+# 4. (optional) space-separated list of files or directories to ignore, supports globbing
 # 5. (optional) commit message, defaults to "[tmp] Commit before bundling."
 
 action() {
@@ -34,8 +34,8 @@ action() {
         return "4"
     fi
 
-    local ignore_files="$3"
-    local include_files="$4"
+    local include_files="$3"
+    local ignore_files="$4"
     local commit_msg="$5"
     [ -z "${commit_msg}" ] && commit_msg="[tmp] Commit before bundling."
 

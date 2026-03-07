@@ -64,6 +64,7 @@ class BundleGitRepository(Task):
                     get_path(self.get_repo_path()),
                     "1",  # recursive flag
                     " ".join(self.include_files),  # type: ignore[arg-type]
+                    " ".join(self.exclude_files),  # type: ignore[arg-type]
                 ])
 
                 out: str
@@ -97,8 +98,8 @@ class BundleGitRepository(Task):
             rel_path(__file__, "scripts", "bundle_repository.sh"),
             get_path(self.get_repo_path()),
             get_path(dst_path),
-            " ".join(self.exclude_files),  # type: ignore[arg-type]
             " ".join(self.include_files),  # type: ignore[arg-type]
+            " ".join(self.exclude_files),  # type: ignore[arg-type]
         ]
         cmd = quote_cmd(cmd)
 
