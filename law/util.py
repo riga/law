@@ -13,8 +13,8 @@ __all__ = [
     "rel_path", "law_src_path", "law_home_path", "law_run", "common_task_params", "increment_path",
     # generic helpers
     "abort", "import_file", "get_terminal_width", "custom_context", "empty_context", "which",
-    "create_hash", "create_random_string", "iter_chunks", "quote_cmd", "escape_markdown",
-    "send_mail", "patch_object", "join_generators",
+    "create_hash", "create_random_string", "iter_chunks", "chunk_slice_ranges", "quote_cmd",
+    "escape_markdown", "send_mail", "patch_object", "join_generators",
     # value identification and conversion
     "is_classmethod", "is_number", "is_float", "try_int", "round_discrete", "str_to_int",
     "flag_to_bool", "colored", "uncolored", "query_choice", "is_pattern",
@@ -60,7 +60,7 @@ import logging
 
 from law._types import (
     ModuleType, Any, Sequence, Callable, Iterable, GeneratorType, MappingView, T, Iterator,
-    Generator, Hashable, AbstractContextManager, TracebackType, GenericAlias,
+    Generator, Hashable, AbstractContextManager, TracebackType, GenericAlias, Sized,
 )
 
 ipykernel: ModuleType | None = None
@@ -1792,6 +1792,67 @@ def iter_chunks(l: int | Iterable[Any], size: int) -> Iterator[list[int | Any]]:
 
     for i in range(0, len(_l), size):
         yield _l[i:i + size]
+
+
+def chunk_slice_ranges(
+    sizes: Sequence[int | Sized],
+    start: int | None = None,
+    stop: int | None = None,
+) -> list[tuple[int, int] | None]:
+    """
+    Takes a list of chunk *sizes* (which can be iterables whose sizes are then used instead) and
+    desired *start* and *stop* indices to return a list of 2-tuples marking the slice indices for
+    each size so that the total *start* and *stop* indices are covered.
+
+    The returned list has the same length as *sizes* and contains 2-tuples or *None* in case a
+    chunk is not covered. *stop* is allowed to be negative, using the total size as a reference.
+    Example:
+
+    .. :code-block:: python
+
+        slice_ranges([10, 10, 10], 5, 15)
+        # -> [(5, 10), (0, 5), None]
+
+        slice_ranges([10, 10, 10], 15, 25)
+        # -> [None, (5, 10), (0, 5)]
+
+        slice_ranges([10, 10, 10], 5, -5)
+        # -> [(5, 10), (0, 10), (0, 5)]
+    """
+    # convert sizes to integers
+    _sizes = [(s if isinstance(s, int) else len(s)) for s in sizes]
+    total_size = sum(_sizes)
+
+    # boundary checks
+    if start is None:
+        start = 0
+    if stop is None:
+        stop = total_size
+    stop_orig = stop
+    if stop < 0:
+        stop += total_size
+    if not (0 <= start <= stop <= total_size):
+        raise ValueError(
+            "invalid start and stop indices {} and {} for total size {}".format(
+                start, stop_orig, total_size,
+            ),
+        )
+
+    # slicing algorithm
+    indices: list[tuple[int, int] | None] = len(_sizes) * [None]  # type: ignore[assignment]
+    for i, size in enumerate(_sizes):
+        if start >= size:
+            start -= size
+            stop -= size
+        elif stop > size:
+            indices[i] = (start, size)
+            start = 0
+            stop -= size
+        else:
+            indices[i] = (start, stop)
+            break
+
+    return indices
 
 
 byte_units = ["bytes", "kB", "MB", "GB", "TB", "PB", "EB"]

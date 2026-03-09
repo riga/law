@@ -11,7 +11,7 @@ __all__: list[str] = []
 
 import sys
 from io import TextIOWrapper  # noqa
-from collections.abc import KeysView, ValuesView, MappingView  # noqa
+from collections.abc import KeysView, ValuesView, MappingView, Sized  # noqa
 from types import ModuleType, GeneratorType, TracebackType  # noqa
 from typing import (  # noqa
     Any, Union, Type, TypeVar, ClassVar, Sequence, Callable, Generator, TextIO, Iterable, Iterator, Hashable,
