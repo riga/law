@@ -66,8 +66,14 @@ def merge_parquet_files(src_paths, dst_path, force=True, callback=None, writer_o
             shutil.copy(src_paths[0], dst_path)
             callback(0)
         else:
-            # for merging multiple files, iterate through them and add tables
-            schema = pq.read_schema(src_paths[0])
+            # extract the schema from the first non-table table
+            for i, path in enumerate(src_paths):
+                if i == len(src_paths) - 1 or pq.ParquetFile(path).metadata.num_rows > 0:
+                    schema = pq.read_schema(path)
+                    break
+            else:
+                raise RuntimeError("could not find a non-empty table to extract the schema from")
+            # iterate and add tables
             with pq.ParquetWriter(dst_path, schema, **(writer_opts or {})) as writer:
                 # write all tables
                 for i, path in enumerate(src_paths):
@@ -78,14 +84,17 @@ def merge_parquet_files(src_paths, dst_path, force=True, callback=None, writer_o
     else:
         # more complex behavior when aiming at specific row group sizes
         # create a work queue with file handle, file index and row group index
+        # also, extract the schema from the first non-empty table
         q = collections.deque()
-        for i, src_path in enumerate(src_paths):
-            f = pq.ParquetFile(src_path)
+        schema = None
+        for i, path in enumerate(src_paths):
+            f = pq.ParquetFile(path)
             q.extend([(f, i, g) for g in range(f.num_row_groups)])
+            if schema is None and (i == (len(src_paths) - 1) or f.metadata.num_rows > 0):
+                schema = pq.read_schema(path)
         # start iterative merging
         tables = collections.deque()
         cur_size = 0
-        schema = pq.read_schema(src_paths[0])
         with pq.ParquetWriter(dst_path, schema, **(writer_opts or {})) as writer:
             while q:
                 # read the next row group
