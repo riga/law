@@ -14,10 +14,10 @@ __all__ = [
     "flatten", "merge_dicts", "unzip", "which", "map_verbose", "map_struct", "mask_struct",
     "tmp_file", "perf_counter", "interruptable_popen", "kill_process", "readable_popen",
     "create_hash", "create_random_string", "copy_no_perm", "makedirs", "user_owns_file",
-    "increment_path", "iter_chunks", "human_bytes", "parse_bytes", "human_duration",
-    "parse_duration", "is_file_exists_error", "send_mail", "DotDict", "ShorthandDict",
-    "open_compat", "patch_object", "join_generators", "quote_cmd", "escape_markdown",
-    "classproperty", "BaseStream", "TeeStream", "FilteredStream",
+    "increment_path", "iter_chunks", "chunk_slice_ranges", "human_bytes", "parse_bytes",
+    "human_duration", "parse_duration", "is_file_exists_error", "send_mail", "DotDict",
+    "ShorthandDict", "open_compat", "patch_object", "join_generators", "quote_cmd",
+    "escape_markdown", "classproperty", "BaseStream", "TeeStream", "FilteredStream",
 ]
 
 
@@ -1662,6 +1662,63 @@ def iter_chunks(l, size):
         else:
             for i in six.moves.range(0, len(l), size):
                 yield l[i:i + size]
+
+
+def chunk_slice_ranges(sizes, start, stop):
+    """
+    Takes a list of chunk *sizes* (which can be iterables whose sizes are then used instead) and
+    desired *start* and *stop* indices to return a list of 2-tuples marking the slice indices for
+    each size so that the total *start* and *stop* indices are covered.
+
+    The returned list has the same length as *sizes* and contains 2-tuples or *None* in case a
+    chunk is not covered. *stop* is allowed to be negative, using the total size as a reference.
+    Example:
+
+    .. :code-block:: python
+
+        slice_ranges([10, 10, 10], 5, 15)
+        # -> [(5, 10), (0, 5), None]
+
+        slice_ranges([10, 10, 10], 15, 25)
+        # -> [None, (5, 10), (0, 5)]
+
+        slice_ranges([10, 10, 10], 5, -5)
+        # -> [(5, 10), (0, 10), (0, 5)]
+    """
+    # convert sizes to integers
+    sizes = [(s if isinstance(s, int) else len(s)) for s in sizes]
+    total_size = sum(sizes)
+
+    # boundary checks
+    if start is None:
+        start = 0
+    if stop is None:
+        stop = total_size
+    stop_orig = stop
+    if stop < 0:
+        stop += total_size
+    if not (0 <= start <= stop <= total_size):
+        raise ValueError(
+            "invalid start and stop indices {} and {} for total size {}".format(
+                start, stop_orig, total_size,
+            ),
+        )
+
+    # slicing algorithm
+    indices = len(sizes) * [None]
+    for i, size in enumerate(sizes):
+        if start >= size:
+            start -= size
+            stop -= size
+        elif stop > size:
+            indices[i] = (start, size)
+            start = 0
+            stop -= size
+        else:
+            indices[i] = (start, stop)
+            break
+
+    return indices
 
 
 byte_units = ["bytes", "kB", "MB", "GB", "TB", "PB", "EB"]
