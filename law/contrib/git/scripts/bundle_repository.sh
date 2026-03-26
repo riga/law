@@ -12,7 +12,7 @@
 
 action() {
     # handle arguments
-    local repo_path="$1"
+    local repo_path="${1%/}"
     if [ -z "${repo_path}" ]; then
         >&2 echo "please provide the path to the repository to bundle"
         return "1"
@@ -43,13 +43,32 @@ action() {
     local tmp_dir="$( mktemp -d )"
     local tmp_list="$( mktemp -u "${tmp_dir}/tmp.XXXXXXXXXX" ).txt"
 
+    # include and ignore files will be evalulated relative to the repo path, so make them relative
+    if [ ! -z "${include_files}" ]; then
+        read -r -a _include_files <<<"${include_files}"
+        for i in "${!_include_files[@]}"; do
+            _include_files[i]="${_include_files[i]#${repo_path}}"
+        done
+        include_files="${_include_files[*]}"
+        unset _include_files
+    fi
+    if [ ! -z "${ignore_files}" ]; then
+        read -r -a _ignore_files <<<"${ignore_files}"
+        for i in "${!_ignore_files[@]}"; do
+            _ignore_files[i]="${_ignore_files[i]#${repo_path}}"
+        done
+        ignore_files="${_ignore_files[*]}"
+        unset _ignore_files
+    fi
+
     # build rsync args containing --exclude statements built from files to ignore
     local rsync_args="-a"
     if [ ! -z "${ignore_files}" ]; then
         local files
         IFS=" " read -ra files <<< "${ignore_files}"
         for f in "${files[@]}"; do
-            rsync_args="${rsync_args} --exclude \"$f\""
+            [ -d "${repo_path}/${f#/}" ] && f="${f%/}/"
+            rsync_args="${rsync_args} --exclude \"${f}\""
         done
     fi
 
@@ -63,10 +82,11 @@ action() {
     # strategy: add and commit everything recursively to take into account rules defined in
     # .gitignore files, then create a list of files currently under source control and run tar -c
     (
-        eval rsync ${rsync_args} "${repo_path}" "${tmp_dir}/" && \
+        mkdir -p "${tmp_dir}/${repo_name}" && \
         cd "${tmp_dir}/${repo_name}" && \
+        eval rsync ${rsync_args} "${repo_path%/}/" . && \
         sgit add -A . &> /dev/null && \
-        ( [ -z "${include_files}" ] || sgit add -f ${include_files} &> /dev/null) && \
+        ( [ -z "${include_files}" ] || sgit add -f ${include_files} &> /dev/null ) && \
         sgit commit -m "${commit_msg}" &> /dev/null
         for elem in $( sgit ls-files ); do echo "${elem}" >> "${tmp_list}"; done && \
         sgit submodule foreach --recursive --quiet "\

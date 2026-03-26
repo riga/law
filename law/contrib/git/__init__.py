@@ -90,12 +90,17 @@ class BundleGitRepository(Task):
                 self.bundle(tmp.path)
 
     def bundle(self, dst_path):
+        # helper to filter out files that are not actually present in the repository
+        repo_path = os.path.abspath(os.path.expandvars(os.path.expanduser(str(self.get_repo_path()))))
+        is_in_repo = lambda p: not os.path.relpath(os.path.join(str(p)), repo_path).startswith("..")
+
+        # build the command
         cmd = [
             rel_path(__file__, "scripts", "bundle_repository.sh"),
-            get_path(self.get_repo_path()),
+            get_path(repo_path),
             get_path(dst_path),
-            " ".join(self.include_files),
-            " ".join(self.exclude_files),
+            " ".join(filter(is_in_repo, self.include_files)),
+            " ".join(filter(is_in_repo, self.exclude_files)),
         ]
         cmd = quote_cmd(cmd)
 
