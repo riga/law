@@ -297,7 +297,7 @@ class HTCondorJobManager(BaseJobManager):
         job_ids = make_list(job_id)
 
         # default ClassAds to getch
-        ads = "ClusterId ProcId JobStatus ExitCode ExitStatus HoldReason RemoveReason MemoryUsage"
+        ads = "ClusterId ProcId JobStatus ExitCode ExitStatus HoldReason RemoveReason MemoryUsage RemoteHost"
 
         # build the condor_q command
         cmd = ["condor_q"] + job_ids
@@ -431,6 +431,8 @@ class HTCondorJobManager(BaseJobManager):
             if "MemoryUsage" in data:
                 mem = float(data["MemoryUsage"]) if data.get("MemoryUsage", "undefined").isdigit() else None
                 extra["mem_peak_mb"] = mem
+            if "RemoteHost" in data:
+                extra["remote_host"] = data["RemoteHost"]
 
             # store it
             query_data[job_id] = cls.job_status_dict(job_id=job_id, status=status, code=code,
