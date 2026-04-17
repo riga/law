@@ -485,6 +485,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             ("error", job_data.get("error")),
             ("job script error", self.job_error_messages.get(job_data["code"], no_value)),
             ("log", job_data["extra"].get("log", no_value)),
+            ("remote host", job_data["extra"].get("remote_host", no_value)),
         ])
 
     def _print_status_errors(self, failed_jobs: dict[int, JobData]) -> None:
