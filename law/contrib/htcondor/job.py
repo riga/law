@@ -296,8 +296,8 @@ class HTCondorJobManager(BaseJobManager):
         chunking = isinstance(job_id, (list, tuple))
         job_ids = make_list(job_id)
 
-        # default ClassAds to getch
-        ads = "ClusterId ProcId JobStatus ExitCode ExitStatus HoldReason RemoveReason MemoryUsage RemoteHost"
+        # condor_q ClassAds to get
+        q_ads = "ClusterId ProcId JobStatus ExitCode ExitStatus HoldReason RemoveReason MemoryUsage RemoteHost"
 
         # build the condor_q command
         cmd = ["condor_q"] + job_ids
@@ -305,7 +305,7 @@ class HTCondorJobManager(BaseJobManager):
             cmd += ["-pool", pool]
         if scheduler:
             cmd += ["-name", scheduler]
-        cmd += ["-af:lng"] + ads.split()
+        cmd += ["-af:lng"] + q_ads.split()
         # since v8.3.3 one can limit the number of jobs to query
         if self.htcondor_ge_v833:
             cmd += ["-limit", str(len(job_ids))]
@@ -337,13 +337,16 @@ class HTCondorJobManager(BaseJobManager):
         # some jobs might already be in the condor history, so query for missing job ids
         missing_ids = [_job_id for _job_id in job_ids if _job_id not in query_data]
         if missing_ids:
+            # condor_history ClassAds to get
+            h_ads = "ClusterId ProcId JobStatus ExitCode ExitStatus HoldReason RemoveReason MemoryUsage LastRemoteHost"
+
             # build the condor_history command, which is fairly similar to the condor_q command
             cmd = ["condor_history"] + missing_ids
             if pool:
                 cmd += ["-pool", pool]
             if scheduler:
                 cmd += ["-name", scheduler]
-            cmd += ["-af:lng"] + ads.split()
+            cmd += ["-af:lng"] + h_ads.split()
             # since v8.3.3 one can limit the number of jobs to query
             if self.htcondor_ge_v833:
                 cmd += ["-limit", str(len(missing_ids))]
@@ -433,6 +436,8 @@ class HTCondorJobManager(BaseJobManager):
                 extra["mem_peak_mb"] = mem
             if "RemoteHost" in data:
                 extra["remote_host"] = data["RemoteHost"]
+            elif "LastRemoteHost" in data:
+                extra["remote_host"] = data["LastRemoteHost"]
 
             # store it
             query_data[job_id] = cls.job_status_dict(job_id=job_id, status=status, code=code,
