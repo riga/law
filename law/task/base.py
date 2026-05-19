@@ -829,12 +829,29 @@ class WrapperTask(Task):
     if all their requirements exist.
     """
 
+    wrap_once = luigi.BoolParameter(
+        default=False,
+        description="when set, the wrapper task does not define upstream ouptuts as its own outputs and simply runs "
+        "once; default: False",
+    )
+
     exclude_index = True
+
+    exclude_params_req_set: set[str] = {"wrap_once"}
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+        if self.wrap_once:
+            self._wrapper_has_run = False
 
     def _repr_flags(self) -> list[str]:
         return super()._repr_flags() + ["wrapper"]
 
     def complete(self) -> bool:
+        if self.wrap_once:
+            return self._wrapper_has_run
+
         # get potentially cached requirements
         if self.cache_requirements:
             if self._cached_requirements is no_value:
@@ -846,10 +863,16 @@ class WrapperTask(Task):
         return all(task.complete() for task in flatten(reqs))
 
     def output(self) -> Any:
+        if self.wrap_once:
+            return []
+
         inputs = self.input()
         return mask_struct(map_struct(bool, inputs), inputs) or []
 
     def run(self) -> None | Iterator[Any]:
+        if self.wrap_once:
+            self._wrapper_has_run = True
+
         return None
 
 
