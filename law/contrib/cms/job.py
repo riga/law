@@ -17,6 +17,7 @@ import threading
 import queue
 import re
 import json
+import shlex
 import subprocess
 import shutil
 import collections
@@ -37,10 +38,12 @@ from law._types import Any, MutableMapping, Callable, Type, Hashable, T, Sequenc
 
 import law.contrib.cms.sandbox
 
-
 law.contrib.load("wlcg")
 
+
 logger = get_logger(__name__)
+
+_cfg = Config.instance()
 
 
 class CrabJobManager(BaseJobManager):
@@ -80,8 +83,7 @@ class CrabJobManager(BaseJobManager):
 
         # default sandbox name
         if sandbox_name is None:
-            cfg = Config.instance()
-            sandbox_name = cfg.get_expanded("job", "crab_sandbox_name")
+            sandbox_name = _cfg.get_expanded("job", "crab_sandbox_name")
 
         # create the cmssw sandbox
         self.cmssw_sandbox = Sandbox.new(
@@ -202,7 +204,8 @@ class CrabJobManager(BaseJobManager):
         # define the actual submission in a loop to simplify retries
         while True:
             # build the command
-            cmd = ["crab", "submit", "--config", job_file_name]
+            cmd = shlex.split(_cfg.get_expanded("job", "crab_cmd_crab"))
+            cmd += ["submit", "--config", job_file_name]
             if proxy_file:
                 cmd += ["--proxy", proxy_file]
             if instance:
@@ -218,6 +221,7 @@ class CrabJobManager(BaseJobManager):
                 shell=True,
                 executable="/bin/bash",
                 stdout=subprocess.PIPE,
+                stdin=None,
                 cwd=job_file_dir,
                 env=self.cmssw_env,
                 kill_timeout=2,
@@ -304,7 +308,8 @@ class CrabJobManager(BaseJobManager):
             instance = self.instance
 
         # build the command
-        cmd = ["crab", "kill", "--dir", str(proj_dir)]
+        cmd = shlex.split(_cfg.get_expanded("job", "crab_cmd_crab"))
+        cmd += ["kill", "--dir", str(proj_dir)]
         if proxy_file:
             cmd += ["--proxy", proxy_file]
         if instance:
@@ -318,6 +323,7 @@ class CrabJobManager(BaseJobManager):
             shell=True,
             executable="/bin/bash",
             stdout=subprocess.PIPE,
+            stdin=None,
             env=self.cmssw_env,
             kill_timeout=2,
             processes=_processes,
@@ -385,15 +391,15 @@ class CrabJobManager(BaseJobManager):
             skip_transfers = str(log_data.get("disable_output_collection")).lower() == "true"
 
         # build the command
-        cmd = ["crab", "status", "--dir", proj_dir, "--json"]
+        cmd = shlex.split(_cfg.get_expanded("job", "crab_cmd_crab"))
+        cmd += ["status", "--dir", proj_dir, "--json"]
         if proxy_file:
             cmd += ["--proxy", proxy_file]
         if instance:
             cmd += ["--instance", instance]
 
         # optionally prepend timeout
-        cfg = Config.instance()
-        query_timeout = cfg.get_expanded("job", cfg.find_option("job", "crab_job_query_timeout", "job_query_timeout"))
+        query_timeout = _cfg.get_expanded("job", _cfg.find_option("job", "crab_job_query_timeout", "job_query_timeout"))
         if query_timeout:
             query_timeout_sec = parse_duration(query_timeout, input_unit="s")
             cmd = self.prepend_timeout_command(cmd, query_timeout_sec)
@@ -408,6 +414,7 @@ class CrabJobManager(BaseJobManager):
             executable="/bin/bash",
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
+            stdin=None,
             env=self.cmssw_env,
             kill_timeout=2,
             processes=_processes,
@@ -715,25 +722,24 @@ class CrabJobFileFactory(BaseJobFileFactory):
         **kwargs,
     ) -> None:
         # get some default kwargs from the config
-        cfg = Config.instance()
-        default_dir = cfg.get_expanded(
+        default_dir = _cfg.get_expanded(
             "job",
-            cfg.find_option("job", "crab_job_file_dir", "job_file_dir"),
+            _cfg.find_option("job", "crab_job_file_dir", "job_file_dir"),
         )
         if kwargs.get("dir") is None:
-            kwargs["dir"] = cfg.get_expanded(
+            kwargs["dir"] = _cfg.get_expanded(
                 "job",
-                cfg.find_option("job", "crab_job_file_dir", "job_file_dir"),
+                _cfg.find_option("job", "crab_job_file_dir", "job_file_dir"),
             )
         if kwargs.get("cleanup") is None:
-            kwargs["cleanup"] = cfg.get_expanded_bool(
+            kwargs["cleanup"] = _cfg.get_expanded_bool(
                 "job",
-                cfg.find_option("job", "crab_job_file_dir_cleanup", "job_file_dir_cleanup"),
+                _cfg.find_option("job", "crab_job_file_dir_cleanup", "job_file_dir_cleanup"),
             )
         if kwargs.get("mkdtemp") is None:
-            kwargs["mkdtemp"] = cfg.get_expanded_bool(
+            kwargs["mkdtemp"] = _cfg.get_expanded_bool(
                 "job",
-                cfg.find_option("job", "crab_job_file_dir_mkdtemp", "job_file_dir_mkdtemp"),
+                _cfg.find_option("job", "crab_job_file_dir_mkdtemp", "job_file_dir_mkdtemp"),
                 force_type=False,
             )
 

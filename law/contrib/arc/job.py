@@ -13,6 +13,7 @@ import os
 import stat
 import time
 import re
+import shlex
 import random
 import pathlib
 import subprocess
@@ -90,7 +91,8 @@ class ARCJobManager(BaseJobManager):
         # define the actual submission in a loop to simplify retries
         while True:
             # build the command
-            cmd = ["arcsub", "-c", random.choice(_ce)]
+            cmd = shlex.split(_cfg.get_expanded("job", "arc_cmd_arcsub"))
+            cmd += ["-c", random.choice(_ce)]
             if job_list:
                 cmd += ["-j", job_list]
             cmd += job_file_names
@@ -158,7 +160,7 @@ class ARCJobManager(BaseJobManager):
         job_ids = make_list(job_id)
 
         # build the command
-        cmd = ["arckill"]
+        cmd = shlex.split(_cfg.get_expanded("job", "arc_cmd_arckill"))
         if job_list:
             cmd += ["-j", job_list]
         cmd += job_ids
@@ -198,7 +200,7 @@ class ARCJobManager(BaseJobManager):
         job_ids = make_list(job_id)
 
         # build the command
-        cmd = ["arcclean"]
+        cmd = shlex.split(_cfg.get_expanded("job", "arc_cmd_arcclean"))
         if job_list:
             cmd += ["-j", job_list]
         cmd += job_ids
@@ -238,14 +240,13 @@ class ARCJobManager(BaseJobManager):
         job_ids = make_list(job_id)
 
         # build the command
-        cmd = ["arcstat"]
+        cmd = shlex.split(_cfg.get_expanded("job", "arc_cmd_arcstat"))
         if job_list:
             cmd += ["-j", job_list]
         cmd += job_ids
 
         # optionally prepend timeout
-        cfg = Config.instance()
-        query_timeout = cfg.get_expanded("job", cfg.find_option("job", "arc_job_query_timeout", "job_query_timeout"))
+        query_timeout = _cfg.get_expanded("job", _cfg.find_option("job", "arc_job_query_timeout", "job_query_timeout"))
         if query_timeout:
             query_timeout_sec = parse_duration(query_timeout, input_unit="s")
             cmd = self.prepend_timeout_command(cmd, query_timeout_sec)
@@ -398,22 +399,21 @@ class ARCJobFileFactory(BaseJobFileFactory):
         **kwargs,
     ) -> None:
         # get some default kwargs from the config
-        cfg = Config.instance()
         if kwargs.get("dir") is None:
-            kwargs["dir"] = cfg.get_expanded(
+            kwargs["dir"] = _cfg.get_expanded(
                 "job",
-                cfg.find_option("job", "arc_job_file_dir", "job_file_dir"),
+                _cfg.find_option("job", "arc_job_file_dir", "job_file_dir"),
             )
         if kwargs.get("mkdtemp") is None:
-            kwargs["mkdtemp"] = cfg.get_expanded_bool(
+            kwargs["mkdtemp"] = _cfg.get_expanded_bool(
                 "job",
-                cfg.find_option("job", "arc_job_file_dir_mkdtemp", "job_file_dir_mkdtemp"),
+                _cfg.find_option("job", "arc_job_file_dir_mkdtemp", "job_file_dir_mkdtemp"),
                 force_type=False,
             )
         if kwargs.get("cleanup") is None:
-            kwargs["cleanup"] = cfg.get_expanded_bool(
+            kwargs["cleanup"] = _cfg.get_expanded_bool(
                 "job",
-                cfg.find_option("job", "arc_job_file_dir_cleanup", "job_file_dir_cleanup"),
+                _cfg.find_option("job", "arc_job_file_dir_cleanup", "job_file_dir_cleanup"),
             )
 
         super().__init__(**kwargs)

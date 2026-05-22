@@ -39,6 +39,7 @@ from law._types import Any, Callable, Hashable, Sequence, TracebackType, Type, T
 logger = get_logger(__name__)
 
 _timeout_command: NoValue | str | None = no_value
+_timeout_lock = Lock()
 
 
 def get_timeout_command() -> str | None:
@@ -47,12 +48,13 @@ def get_timeout_command() -> str | None:
     """
     global _timeout_command
 
-    if _timeout_command == no_value:
-        _timeout_command = None
-        for cmd in ["timeout", "gtimeout"]:
-            if which(cmd):
-                _timeout_command = cmd
-                break
+    with _timeout_lock:
+        if _timeout_command == no_value:
+            _timeout_command = None
+            for cmd in ["timeout", "gtimeout"]:
+                if which(cmd):
+                    _timeout_command = cmd
+                    break
 
     return _timeout_command  # type: ignore[return-value]
 
@@ -373,7 +375,7 @@ class BaseJobManager(object, metaclass=ABCMeta):
             pool.join()
         except KeyboardInterrupt:
             for p in kwargs["_processes"]:
-                kill_process(p, kill_group=True, kill_timeout=2)
+                kill_process(p, kill_timeout=2)
             raise
 
         # store result data or an exception
@@ -578,7 +580,7 @@ class BaseJobManager(object, metaclass=ABCMeta):
             pool.join()
         except KeyboardInterrupt:
             for p in kwargs["_processes"]:
-                kill_process(p, kill_group=True, kill_timeout=2)
+                kill_process(p, kill_timeout=2)
             raise
 
         # store result data or an exception

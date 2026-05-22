@@ -20,5 +20,9 @@ def config_defaults(default_config: dict) -> dict[str, dict[str, Any]]:
             "arc_chunk_size_cancel": 25,
             "arc_chunk_size_cleanup": 25,
             "arc_chunk_size_query": 20,
+            "arc_cmd_arcsub": "arcsub",
+            "arc_cmd_arckill": "arckill",
+            "arc_cmd_arcclean": "arcclean",
+            "arc_cmd_arcstat": "arcstat",
         },
     }

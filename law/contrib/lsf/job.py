@@ -13,6 +13,7 @@ import stat
 import time
 import re
 import pathlib
+import shlex
 import subprocess
 
 from law.config import Config
@@ -79,7 +80,8 @@ class LSFJobManager(BaseJobManager):
         job_file_dir, job_file_name = os.path.split(os.path.abspath(str(job_file)))
 
         # build the command
-        cmd = f"LSB_JOB_REPORT_MAIL={'Y' if emails else 'N'} bsub"
+        cmd = _cfg.get_expanded("job", "lsf_cmd_bsub")
+        cmd = f"LSB_JOB_REPORT_MAIL={'Y' if emails else 'N'} {cmd}"
         if queue:
             cmd += f" -q {queue}"
         cmd += f" < {job_file_name}"
@@ -141,7 +143,7 @@ class LSFJobManager(BaseJobManager):
         job_ids = make_list(job_id)
 
         # build the command
-        cmd = ["bkill"]
+        cmd = shlex.split(_cfg.get_expanded("job", "lsf_cmd_bkill"))
         if queue:
             cmd += ["-q", queue]
         cmd += job_ids
@@ -180,7 +182,7 @@ class LSFJobManager(BaseJobManager):
         job_ids = make_list(job_id)
 
         # build the command
-        cmd = ["bjobs"]
+        cmd = shlex.split(_cfg.get_expanded("job", "lsf_cmd_bjobs"))
         if self.lsf_v912:
             cmd.append("-noheader")
         if queue:
@@ -188,8 +190,7 @@ class LSFJobManager(BaseJobManager):
         cmd += job_ids
 
         # optionally prepend timeout
-        cfg = Config.instance()
-        query_timeout = cfg.get_expanded("job", cfg.find_option("job", "lsf_job_query_timeout", "job_query_timeout"))
+        query_timeout = _cfg.get_expanded("job", _cfg.find_option("job", "lsf_job_query_timeout", "job_query_timeout"))
         if query_timeout:
             query_timeout_sec = parse_duration(query_timeout, input_unit="s")
             cmd = self.prepend_timeout_command(cmd, query_timeout_sec)
@@ -306,22 +307,21 @@ class LSFJobFileFactory(BaseJobFileFactory):
         **kwargs,
     ) -> None:
         # get some default kwargs from the config
-        cfg = Config.instance()
         if kwargs.get("dir") is None:
-            kwargs["dir"] = cfg.get_expanded(
+            kwargs["dir"] = _cfg.get_expanded(
                 "job",
-                cfg.find_option("job", "lsf_job_file_dir", "job_file_dir"),
+                _cfg.find_option("job", "lsf_job_file_dir", "job_file_dir"),
             )
         if kwargs.get("mkdtemp") is None:
-            kwargs["mkdtemp"] = cfg.get_expanded_bool(
+            kwargs["mkdtemp"] = _cfg.get_expanded_bool(
                 "job",
-                cfg.find_option("job", "lsf_job_file_dir_mkdtemp", "job_file_dir_mkdtemp"),
+                _cfg.find_option("job", "lsf_job_file_dir_mkdtemp", "job_file_dir_mkdtemp"),
                 force_type=False,
             )
         if kwargs.get("cleanup") is None:
-            kwargs["cleanup"] = cfg.get_expanded_bool(
+            kwargs["cleanup"] = _cfg.get_expanded_bool(
                 "job",
-                cfg.find_option("job", "lsf_job_file_dir_cleanup", "job_file_dir_cleanup"),
+                _cfg.find_option("job", "lsf_job_file_dir_cleanup", "job_file_dir_cleanup"),
             )
 
         super().__init__(**kwargs)

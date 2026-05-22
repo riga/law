@@ -14,6 +14,7 @@ import time
 import re
 import pathlib
 import tempfile
+import shlex
 import subprocess
 
 from law.config import Config
@@ -175,7 +176,7 @@ class HTCondorJobManager(BaseJobManager):
             job_files = [_job_file]
 
         # build the command
-        cmd = ["condor_submit"]
+        cmd = shlex.split(_cfg.get_expanded("job", "htcondor_cmd_submit"))
         if pool:
             cmd += ["-pool", pool]
         if scheduler:
@@ -252,7 +253,7 @@ class HTCondorJobManager(BaseJobManager):
             scheduler = self.scheduler
 
         # build the command
-        cmd = ["condor_submit"]
+        cmd = shlex.split(_cfg.get_expanded("job", "htcondor_cmd_submit"))
         if pool:
             cmd += ["-pool", pool]
         if scheduler:
@@ -327,7 +328,7 @@ class HTCondorJobManager(BaseJobManager):
         job_ids = make_list(job_id)
 
         # build the command
-        cmd = ["condor_rm"]
+        cmd = shlex.split(_cfg.get_expanded("job", "htcondor_cmd_rm"))
         if pool:
             cmd += ["-pool", pool]
         if scheduler:
@@ -381,7 +382,8 @@ class HTCondorJobManager(BaseJobManager):
         q_ads = "ClusterId ProcId JobStatus ExitCode ExitStatus HoldReason RemoveReason MemoryUsage RemoteHost"
 
         # build the condor_q command
-        cmd = ["condor_q"] + job_ids
+        cmd = shlex.split(_cfg.get_expanded("job", "htcondor_cmd_q"))
+        cmd += job_ids
         if pool:
             cmd += ["-pool", pool]
         if scheduler:
@@ -392,10 +394,9 @@ class HTCondorJobManager(BaseJobManager):
             cmd += ["-limit", str(len(job_ids))]
 
         # optionally prepend timeout
-        cfg = Config.instance()
-        query_timeout = cfg.get_expanded(
+        query_timeout = _cfg.get_expanded(
             "job",
-            cfg.find_option("job", "htcondor_job_query_timeout", "job_query_timeout"),
+            _cfg.find_option("job", "htcondor_job_query_timeout", "job_query_timeout"),
         )
         if query_timeout:
             query_timeout_sec = parse_duration(query_timeout, input_unit="s")
@@ -434,7 +435,8 @@ class HTCondorJobManager(BaseJobManager):
             h_ads = "ClusterId ProcId JobStatus ExitCode ExitStatus HoldReason RemoveReason MemoryUsage LastRemoteHost"
 
             # build the condor_history command, which is fairly similar to the condor_q command
-            cmd = ["condor_history"] + missing_ids
+            cmd = shlex.split(_cfg.get_expanded("job", "htcondor_cmd_history"))
+            cmd += missing_ids
             if pool:
                 cmd += ["-pool", pool]
             if scheduler:
@@ -595,22 +597,21 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
         **kwargs,
     ) -> None:
         # get some default kwargs from the config
-        cfg = Config.instance()
         if kwargs.get("dir") is None:
-            kwargs["dir"] = cfg.get_expanded(
+            kwargs["dir"] = _cfg.get_expanded(
                 "job",
-                cfg.find_option("job", "htcondor_job_file_dir", "job_file_dir"),
+                _cfg.find_option("job", "htcondor_job_file_dir", "job_file_dir"),
             )
         if kwargs.get("mkdtemp") is None:
-            kwargs["mkdtemp"] = cfg.get_expanded_bool(
+            kwargs["mkdtemp"] = _cfg.get_expanded_bool(
                 "job",
-                cfg.find_option("job", "htcondor_job_file_dir_mkdtemp", "job_file_dir_mkdtemp"),
+                _cfg.find_option("job", "htcondor_job_file_dir_mkdtemp", "job_file_dir_mkdtemp"),
                 force_type=False,
             )
         if kwargs.get("cleanup") is None:
-            kwargs["cleanup"] = cfg.get_expanded_bool(
+            kwargs["cleanup"] = _cfg.get_expanded_bool(
                 "job",
-                cfg.find_option("job", "htcondor_job_file_dir_cleanup", "job_file_dir_cleanup"),
+                _cfg.find_option("job", "htcondor_job_file_dir_cleanup", "job_file_dir_cleanup"),
             )
 
         super().__init__(**kwargs)
