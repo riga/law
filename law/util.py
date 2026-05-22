@@ -1502,11 +1502,11 @@ def get_subprocess_pids(pid, recursive=False, use_psutil=True):
     # fallback to cross-platform 'ps' lookup with 1s resolution
     def _get_subprocess_pids(pid):
         # get process info
-        cmd = f"ps -eo ppid=,pid=,lstart= | awk '$1 == {pid} || $2 == {pid} {{ print $0 }}'"
+        cmd = "ps -eo ppid=,pid=,lstart= | awk '$1 == {} || $2 == {} {{ print $0 }}'".format(pid, pid)
         code, out, err = interruptable_popen(cmd, shell=True, executable="/bin/bash", stdout=subprocess.PIPE,
             stderr=subprocess.PIPE)
         if code != 0:
-            raise RuntimeError(f"failed to get subprocess pids for pid {pid}: {err}")
+            raise RuntimeError("failed to get subprocess pids for pid {}: {}".format(pid, err))
         # parse output into pid -> start time mapping
         pids_times = {}
         for line in out.strip().splitlines():
@@ -1517,7 +1517,7 @@ def get_subprocess_pids(pid, recursive=False, use_psutil=True):
         if not pids_times:
             return []
         if pid not in pids_times:
-            logger.error(f"pid {pid} not found in 'ps' output:\n{out}")
+            logger.error("pid {} not found in 'ps' output:\n{}".format(pid, out))
             return []
         # return pids of existing subprocesses created after the main process
         # (to protect against pid reuse)
