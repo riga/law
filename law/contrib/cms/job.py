@@ -174,7 +174,7 @@ class CrabJobManager(BaseJobManager):
             # run the command
             # crab prints everything to stdout
             logger.debug("submit crab jobs with command '{}'".format(cmd))
-            code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
+            code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash", stdin=None,
                 stdout=subprocess.PIPE, cwd=job_file_dir, env=self.cmssw_env, kill_timeout=2,
                 processes=_processes)
 
@@ -263,7 +263,7 @@ class CrabJobManager(BaseJobManager):
 
         # run it
         logger.debug("cancel crab job(s) with command '{}'".format(cmd))
-        code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
+        code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash", stdin=None,
             stdout=subprocess.PIPE, env=self.cmssw_env, kill_timeout=2, processes=_processes)
 
         # check success
@@ -326,7 +326,7 @@ class CrabJobManager(BaseJobManager):
         # run it
         cmd = quote_cmd(cmd)
         logger.debug("query crab job(s) with command '{}'".format(cmd))
-        code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
+        code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash", stdin=None,
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=self.cmssw_env, kill_timeout=2,
             processes=_processes)
 

@@ -356,7 +356,7 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
             pool.join()
         except KeyboardInterrupt:
             for p in kwargs["_processes"]:
-                kill_process(p, kill_group=True, kill_timeout=2)
+                kill_process(p, kill_timeout=2)
             raise
 
         # store result data or an exception
@@ -529,7 +529,7 @@ class BaseJobManager(six.with_metaclass(ABCMeta, object)):
             pool.join()
         except KeyboardInterrupt:
             for p in kwargs["_processes"]:
-                kill_process(p, kill_group=True, kill_timeout=2)
+                kill_process(p, kill_timeout=2)
             raise
 
         # store result data or an exception
