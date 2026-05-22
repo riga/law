@@ -162,7 +162,10 @@ class GLiteJobManager(BaseJobManager):
         cmd += ["-n", "-L", "0"] + job_ids
 
         # optionally prepend timeout
-        query_timeout = _cfg.get_expanded("job", _cfg.find_option("job", "glite_job_query_timeout", "job_query_timeout"))
+        query_timeout = _cfg.get_expanded(
+            "job",
+            _cfg.find_option("job", "glite_job_query_timeout", "job_query_timeout"),
+        )
         if query_timeout:
             query_timeout_sec = parse_duration(query_timeout, input_unit="s")
             cmd = self.prepend_timeout_command(cmd, query_timeout_sec)
