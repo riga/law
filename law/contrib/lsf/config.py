@@ -14,5 +14,8 @@ def config_defaults(default_config):
             "lsf_job_query_timeout": None,
             "lsf_chunk_size_cancel": 25,
             "lsf_chunk_size_query": 25,
+            "lsf_cmd_bsub": "bsub",
+            "lsf_cmd_bkill": "bkill",
+            "lsf_cmd_bjobs": "bjobs",
         },
     }

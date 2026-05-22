@@ -843,6 +843,26 @@
 ; Type: integer
 ; Default: 25
 
+; arc_cmd_arcsub
+; Description: Custom "arcsub" command.
+; Type: string
+; Default: arcsub
+
+; arc_cmd_arckill
+; Description: Custom "arckill" command.
+; Type: string
+; Default: arckill
+
+; arc_cmd_arcclean
+; Description: Custom "arcclean" command.
+; Type: string
+; Default: arcclean
+
+; arc_cmd_arcstat
+; Description: Custom "arcstat" command.
+; Type: string
+; Default: arcstat
+
 ; glite_job_file_dir
 ; glite_job_file_dir_mkdtemp
 ; glite_job_file_dir_cleanup
@@ -868,6 +888,26 @@
 ; "law.glite.GLiteJobManager.query", i.e., in a single "glite-ce-job-status" command.
 ; Type: integer
 ; Default: 25
+
+; glite_cmd_submit
+; Description: Custom "glite-ce-job-submit" command.
+; Type: string
+; Default: glite-ce-job-submit
+
+; glite_cmd_cancel
+; Description: Custom "glite-ce-job-cancel" command.
+; Type: string
+; Default: glite-ce-job-cancel
+
+; glite_cmd_purge
+; Description: Custom "glite-ce-job-purge" command.
+; Type: string
+; Default: glite-ce-job-purge
+
+; glite_cmd_status
+; Description: Custom "glite-ce-job-status" command.
+; Type: string
+; Default: glite-ce-job-status
 
 ; htcondor_job_file_dir
 ; htcondor_job_file_dir_mkdtemp
@@ -912,6 +952,26 @@
 ; Type: boolean
 ; Default: True
 
+; htcondor_cmd_q
+; Description: Custom "condor_q" command.
+; Type: string
+; Default: condor_q
+
+; htcondor_cmd_history
+; Description: Custom "condor_history" command.
+; Type: string
+; Default: condor_history
+
+; htcondor_cmd_submit
+; Description: Custom "condor_submit" command.
+; Type: string
+; Default: condor_submit
+
+; htcondor_cmd_rm
+; Description: Custom "condor_rm" command.
+; Type: string
+; Default: condor_rm
+
 ; lsf_job_file_dir
 ; lsf_job_file_dir_mkdtemp
 ; lsf_job_file_dir_cleanup
@@ -940,6 +1000,21 @@
 ; only apply to the "law.slurm.SlurmJobFileFactory". When "None" or not existing, the values above
 ; are used. The only exception is "slurm_job_file_dir_cleanup" whose default value is False.
 
+; lsf_cmd_bsub
+; Description: Custom "bsub" command.
+; Type: string
+; Default: bsub
+
+; lsf_cmd_bkill
+; Description: Custom "bkill" command.
+; Type: string
+; Default: bkill
+
+; lsf_cmd_bjobs
+; Description: Custom "bjobs" command.
+; Type: string
+; Default: bjobs
+
 ; slurm_chunk_size_cancel
 ; Description: Number of jobs that can be cancelled in parallel inside a single call to
 ; "law.slurm.SlurmJobManager.cancel", i.e., in a single "scancel" command.
@@ -951,6 +1026,26 @@
 ; "law.slurm.SlurmJobManager.query", i.e., in a single "squeue" or "sacct" command.
 ; Type: integer
 ; Default: 25
+
+; slurm_cmd_sbatch
+; Description: Custom "sbatch" command.
+; Type: string
+; Default: sbatch
+
+; slurm_cmd_scancel
+; Description: Custom "scancel" command.
+; Type: string
+; Default: scancel
+
+; slurm_cmd_squeue
+; Description: Custom "squeue" command.
+; Type: string
+; Default: squeue
+
+; slurm_cmd_sacct
+; Description: Custom "sacct" command.
+; Type: string
+; Default: sacct
 
 ; crab_job_file_dir
 ; crab_job_file_dir_mkdtemp
@@ -982,6 +1077,11 @@
 ; the "law.crab.CrabJobManager".
 ; Type: string
 ; Default: None
+
+; crab_cmd_crab
+; Description: Custom "crab" command.
+; Type: string
+; Default: crab
 
 
 ; --- notifications section ------------------------------------------------------------------------

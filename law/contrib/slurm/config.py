@@ -14,5 +14,9 @@ def config_defaults(default_config):
             "slurm_job_query_timeout": None,
             "slurm_chunk_size_cancel": 25,
             "slurm_chunk_size_query": 25,
+            "slurm_cmd_sbatch": "sbatch",
+            "slurm_cmd_scancel": "scancel",
+            "slurm_cmd_squeue": "squeue",
+            "slurm_cmd_sacct": "sacct",
         },
     }

@@ -11,6 +11,7 @@ import os
 import time
 import re
 import stat
+import shlex
 import subprocess
 
 from law.config import Config
@@ -62,7 +63,7 @@ class SlurmJobManager(BaseJobManager):
         job_file_dir, job_file_name = os.path.split(os.path.abspath(str(job_file)))
 
         # build the command
-        cmd = ["sbatch"]
+        cmd = shlex.split(_cfg.get_expanded("job", "slurm_cmd_sbatch"))
         if partition:
             cmd += ["--partition", partition]
         cmd += [job_file_name]
@@ -115,7 +116,7 @@ class SlurmJobManager(BaseJobManager):
         job_ids = make_list(job_id)
 
         # build the command
-        cmd = ["scancel"]
+        cmd = shlex.split(_cfg.get_expanded("job", "slurm_cmd_scancel"))
         if partition:
             cmd += ["--partition", partition]
         cmd += job_ids
@@ -142,14 +143,14 @@ class SlurmJobManager(BaseJobManager):
         job_ids = make_list(job_id)
 
         # build the squeue command
-        cmd = ["squeue", "--Format", self.squeue_format, "--noheader"]
+        cmd = shlex.split(_cfg.get_expanded("job", "slurm_cmd_squeue"))
+        cmd += ["--Format", self.squeue_format, "--noheader"]
         if partition:
             cmd += ["--partition", partition]
         cmd += ["--jobs", ",".join(map(str, job_ids))]
 
         # optionally prepend timeout
-        cfg = Config.instance()
-        query_timeout = cfg.get_expanded("job", cfg.find_option("job", "slurm_job_query_timeout", "job_query_timeout"))
+        query_timeout = _cfg.get_expanded("job", _cfg.find_option("job", "slurm_job_query_timeout", "job_query_timeout"))
         if query_timeout:
             query_timeout_sec = parse_duration(query_timeout, input_unit="s")
             cmd = self.prepend_timeout_command(cmd, query_timeout_sec)
@@ -182,7 +183,8 @@ class SlurmJobManager(BaseJobManager):
         missing_ids = [_job_id for _job_id in job_ids if _job_id not in query_data]
         if missing_ids:
             # build the sacct command
-            cmd = ["sacct", "--format", self.sacct_format, "--noheader"]
+            cmd = shlex.split(_cfg.get_expanded("job", "slurm_cmd_sacct"))
+            cmd += ["--format", self.sacct_format, "--noheader"]
             if partition:
                 cmd += ["--partition", partition]
             cmd += ["--jobs", ",".join(map(str, missing_ids))]
@@ -307,15 +309,14 @@ class SlurmJobFileFactory(BaseJobFileFactory):
             stderr="stderr.txt", postfix_output_files=True, custom_content=None,
             absolute_paths=False, **kwargs):
         # get some default kwargs from the config
-        cfg = Config.instance()
         if kwargs.get("dir") is None:
-            kwargs["dir"] = cfg.get_expanded("job", cfg.find_option("job",
+            kwargs["dir"] = _cfg.get_expanded("job", _cfg.find_option("job",
                 "slurm_job_file_dir", "job_file_dir"))
         if kwargs.get("mkdtemp") is None:
-            kwargs["mkdtemp"] = cfg.get_expanded_bool("job", cfg.find_option("job",
+            kwargs["mkdtemp"] = _cfg.get_expanded_bool("job", _cfg.find_option("job",
                 "slurm_job_file_dir_mkdtemp", "job_file_dir_mkdtemp"), force_type=False)
         if kwargs.get("cleanup") is None:
-            kwargs["cleanup"] = cfg.get_expanded_bool("job", cfg.find_option("job",
+            kwargs["cleanup"] = _cfg.get_expanded_bool("job", _cfg.find_option("job",
                 "slurm_job_file_dir_cleanup", "job_file_dir_cleanup"))
 
         super(SlurmJobFileFactory, self).__init__(**kwargs)

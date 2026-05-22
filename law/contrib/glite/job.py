@@ -12,6 +12,7 @@ import stat
 import time
 import re
 import random
+import shlex
 import subprocess
 
 from law.config import Config
@@ -71,7 +72,8 @@ class GLiteJobManager(BaseJobManager):
         while True:
             # build the command
             i = random.randint(0, len(ce) - 1)
-            cmd = ["glite-ce-job-submit", "-r", ce[i]]
+            cmd = shlex.split(_cfg.get_expanded("job", "glite_cmd_submit"))
+            cmd += ["-r", ce[i]]
             if delegation_id:
                 cmd += ["-D", delegation_id[i]]
             cmd += [job_file_name]
@@ -112,7 +114,8 @@ class GLiteJobManager(BaseJobManager):
         job_ids = make_list(job_id)
 
         # build the command
-        cmd = ["glite-ce-job-cancel", "-N"] + job_ids
+        cmd = shlex.split(_cfg.get_expanded("job", "glite_cmd_cancel"))
+        cmd += ["-N"] + job_ids
         cmd = quote_cmd(cmd)
 
         # run it
@@ -133,7 +136,8 @@ class GLiteJobManager(BaseJobManager):
         job_ids = make_list(job_id)
 
         # build the command
-        cmd = ["glite-ce-job-purge", "-N"] + job_ids
+        cmd = shlex.split(_cfg.get_expanded("job", "glite_cmd_purge"))
+        cmd += ["-N"] + job_ids
         cmd = quote_cmd(cmd)
 
         # run it
@@ -154,11 +158,11 @@ class GLiteJobManager(BaseJobManager):
         job_ids = make_list(job_id)
 
         # build the command
-        cmd = ["glite-ce-job-status", "-n", "-L", "0"] + job_ids
+        cmd = shlex.split(_cfg.get_expanded("job", "glite_cmd_status"))
+        cmd += ["-n", "-L", "0"] + job_ids
 
         # optionally prepend timeout
-        cfg = Config.instance()
-        query_timeout = cfg.get_expanded("job", cfg.find_option("job", "glite_job_query_timeout", "job_query_timeout"))
+        query_timeout = _cfg.get_expanded("job", _cfg.find_option("job", "glite_job_query_timeout", "job_query_timeout"))
         if query_timeout:
             query_timeout_sec = parse_duration(query_timeout, input_unit="s")
             cmd = self.prepend_timeout_command(cmd, query_timeout_sec)
@@ -276,15 +280,14 @@ class GLiteJobFileFactory(BaseJobFileFactory):
             stdout="stdout.txt", stderr="stderr.txt", vo=None, custom_content=None,
             absolute_paths=False, **kwargs):
         # get some default kwargs from the config
-        cfg = Config.instance()
         if kwargs.get("dir") is None:
-            kwargs["dir"] = cfg.get_expanded("job", cfg.find_option("job",
+            kwargs["dir"] = _cfg.get_expanded("job", _cfg.find_option("job",
                 "glite_job_file_dir", "job_file_dir"))
         if kwargs.get("mkdtemp") is None:
-            kwargs["mkdtemp"] = cfg.get_expanded_bool("job", cfg.find_option("job",
+            kwargs["mkdtemp"] = _cfg.get_expanded_bool("job", _cfg.find_option("job",
                 "glite_job_file_dir_mkdtemp", "job_file_dir_mkdtemp"), force_type=False)
         if kwargs.get("cleanup") is None:
-            kwargs["cleanup"] = cfg.get_expanded_bool("job", cfg.find_option("job",
+            kwargs["cleanup"] = _cfg.get_expanded_bool("job", _cfg.find_option("job",
                 "glite_job_file_dir_cleanup", "job_file_dir_cleanup"))
 
         super(GLiteJobFileFactory, self).__init__(**kwargs)

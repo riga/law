@@ -51,6 +51,7 @@ def get_async_result_silent(result, timeout=None):
 
 
 _timeout_command = no_value
+_timeout_lock = Lock()
 
 
 def get_timeout_command():
@@ -59,12 +60,13 @@ def get_timeout_command():
     """
     global _timeout_command
 
-    if _timeout_command == no_value:
-        _timeout_command = None
-        for cmd in ["timeout", "gtimeout"]:
-            if which(cmd):
-                _timeout_command = cmd
-                break
+    with _timeout_lock:
+        if _timeout_command == no_value:
+            _timeout_command = None
+            for cmd in ["timeout", "gtimeout"]:
+                if which(cmd):
+                    _timeout_command = cmd
+                    break
 
     return _timeout_command
 
