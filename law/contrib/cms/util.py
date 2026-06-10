@@ -4,15 +4,28 @@
 CMS-related utilities.
 """
 
-__all__ = ["Site", "lfn_to_pfn", "renew_vomsproxy", "delegate_myproxy"]
+__all__ = ["Site", "lfn_to_pfn", "renew_vomsproxy", "delegate_myproxy", "RucioReporter", "rucio_report_access"]
 
 
 import os
+import sys
+import time
+import copy
+import base64
+import functools
+import atexit
+import urllib.parse
+import threading
+
+import six
 
 import law
+from law.logger import get_logger
 
 law.contrib.load("wlcg")
 
+
+logger = get_logger(__name__)
 
 # obtained via _get_crab_receivers below
 _default_crab_receivers = [
@@ -156,3 +169,154 @@ def _get_crab_receivers():
     cmd = createmyproxy(logger=initLoggers()[1])
     alldns = server_info(crabserver=cmd.crabserver, subresource="delegatedn")
     print(alldns.get("services"))
+
+
+class RucioReporter(threading.Thread):
+
+    default_client_args = None
+    default_server_url = "aHR0cDovL2Ntcy1ydWNpby10cmFjZS5jZXJuLmNo"
+    default_max_rate = 3
+
+    __instance = None
+
+    @classmethod
+    def instance(cls, *args, **kwargs):
+        if cls.__instance is None:
+            cls.__instance = cls(*args, **kwargs)
+            cls.__instance.start()
+        return cls.__instance
+
+    @classmethod
+    def stop_instance(cls):
+        if cls.__instance is not None:
+            cls.__instance.stop()
+            cls.__instance = None
+
+    def __init__(self, client_args=None, server_url=None, max_rate=None, **kwargs):
+        super().__init__(daemon=True, **kwargs)
+
+        # store attributes
+        self._server_url = server_url or self.default_server_url
+        self._max_rate = max_rate if max_rate is not None else self.default_max_rate
+        self._queue = six.moves.queue.Queue()
+        self._stop_event = threading.Event()
+        self._lock = threading.Lock()
+
+        # setup the client in a fail-safe way
+        self._client = None
+        _client_args = copy.deepcopy(self.default_client_args or {})
+        _client_args.update(copy.deepcopy(client_args or {}))
+        try:
+            import rucio.client
+        except ImportError as e:
+            logger.warning("rucio file access reporting disabled: {}".format(e))
+        else:
+            try:
+                self._client = rucio.client.Client(**_client_args)
+            except rucio.common.exception.ConfigNotFound as e:
+                logger.warning("rucio file access reporting disabled: {}".format(e))
+        if self._client is None:
+            self.stop()
+
+    def stop(self):
+        self._stop_event.set()
+
+    def run(self):
+        while True:
+            # handling stopping
+            self._stop_event.wait(1)
+            if self._stop_event.is_set():
+                break
+
+            # work on queue
+            while True:
+                with self._lock:
+                    # get work or wait
+                    if self._queue.empty():
+                        break
+                    event, data = self._queue.get()
+
+                # dispatch to handler, gather list of callbacks to invoke
+                callbacks = []
+                if event == "report_access":
+                    callbacks.extend(self._report_access_callbacks(**data))
+                else:
+                    raise ValueError("unknown event in {}: {}".format(self.__class__.__name__, event))
+
+                # invoke callbacks for this event, enforcing max rate calls per second
+                for callback in callbacks:
+                    if self._stop_event.is_set():
+                        break
+                    callback()
+                    if self._max_rate > 0:
+                        time.sleep(1.0 / self._max_rate)
+
+    def _report_access_callbacks(self, lfn, rse=None, silent=True):
+        # identify rse's when not set
+        if rse is None:
+            rses = []
+            replicas = self._client.list_replicas([{"scope": "cms", "name": lfn}])
+            for replica in replicas:
+                for pfn_data in replica["pfns"].values():
+                    # skip tape replicas
+                    if pfn_data.get("type", "").lower() == "tape":
+                        continue
+                    # skip unavailable replicas
+                    _rse = pfn_data["rse"]
+                    if replica["states"].get(_rse, "").lower() != "available":
+                        continue
+                    # store it
+                    if _rse not in rses:
+                        rses.append(_rse)
+        else:
+            rses = law.util.make_unique(law.util.make_list(rse))
+
+        # build callbacks
+        return [functools.partial(self._report_access, lfn=lfn, rse=rse, silent=silent) for rse in rses]
+
+    def _report_access(self, lfn, rse, silent=True):
+        # https://github.com/dmwm/CMSRucio/blob/master/UserDMTools/trace_example/TraceSendExample.py
+        import requests
+
+        url = self._server_url if "://" in self._server_url else base64.b64decode(self._server_url).decode("utf-8")
+        endpoint = urllib.parse.urljoin(url, "traces")
+
+        data = {
+            "eventType": "touch",
+            "clientState": "DONE",
+            "account": os.getenv("RUCIO_ACCOUNT"),
+            "localSite": rse,
+            "remoteSite": rse,
+            "scope": "cms",
+            "filename": lfn,
+        }
+        try:
+            res = requests.post(endpoint, json=data)
+            res.raise_for_status()
+        except requests.HTTPError as e:
+            msg = "rucio file access reporting failed for lfn '{}' and rse '{}': {}".format(lfn, rse, e)
+            if silent:
+                logger.debug(msg)
+            else:
+                logger.error(msg)
+                six.reraise(*sys.exc_info())
+        else:
+            logger.debug("rucio file access reported for lfn '{}' and rse '{}' at {}".format(lfn, rse, endpoint))
+
+    def report_access(self, lfn, rse=None, silent=True):
+        if self._stop_event.is_set():
+            logger.info(
+                "skipping rucio file access reporting for lfn '{}' and rse '{}': reporter is stopped".format(lfn, rse),
+            )
+            return
+
+        event = "report_access"
+        data = {"lfn": lfn, "rse": rse, "silent": silent}
+        self._queue.put((event, data))
+
+
+atexit.register(RucioReporter.stop_instance)
+
+
+def rucio_report_access(lfn, rse=None, silent=True):
+    return RucioReporter.instance().report_access(lfn=lfn, rse=rse, silent=silent)
