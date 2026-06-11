@@ -9,6 +9,7 @@ from __future__ import annotations
 __all__ = ["Site", "lfn_to_pfn", "renew_vomsproxy", "delegate_myproxy", "RucioReporter", "rucio_report_access"]
 
 import os
+import re
 import time
 import copy
 import base64
@@ -69,17 +70,13 @@ class Site(object):
         constructor or it is determined for the current site by reading environment variables.
     """
 
+    name_cre = re.compile(r"^(T\d)_([A-Z]{2,2})_(.+)$")
+
     redirectors = {
         "global": "cms-xrd-global.cern.ch",
         "eu": "xrootd-cms.infn.it",
         "us": "cmsxrootd.fnal.gov",
     }
-
-    def __init__(self, name: str | None = None) -> None:
-        super().__init__()
-
-        # site name cache
-        self.name: str | None = self.get_name_from_env() if name is None else name
 
     @classmethod
     def get_name_from_env(cls) -> str | None:
@@ -93,16 +90,30 @@ class Site(object):
                 return os.getenv(v)
         return None
 
+    @classmethod
+    def validate(cls, name: str) -> bool:
+        """
+        Returns whether *name* refers to a valid site name.
+        """
+        return bool(cls.name_cre.match(name))
+
+    def __init__(self, name: str | None = None) -> None:
+        super().__init__()
+
+        # site name cache
+        self.name: str | None = self.get_name_from_env() if name is None else name
+
+        # validate when set
+        if self.name:
+            self.validate(self.name)
+
     @property
     def info(self) -> tuple[str, str, str] | tuple[None, None, None]:
         """
         Tier, country and locality information in a 3-tuple, e.g. ``("T2", "DE", "RWTH")``.
         """
         if self.name is not None:
-            info = self.name.split("_", 2)
-            if len(info) != 3:
-                raise ValueError(f"invalid site name: {self.name}")
-            return tuple(info)  # type: ignore[return-value]
+            return tuple(self.name_cre.match(self.name).groups())  # type: ignore[union-attr]
 
         return (None, None, None)
 
@@ -111,24 +122,21 @@ class Site(object):
         """
         The tier of the site, e.g. ``T2``.
         """
-        info = self.info
-        return None if self.info is None else info[0]
+        return self.info[0]
 
     @property
     def country(self) -> str | None:
         """
         The country of the site, e.g. ``DE``.
         """
-        info = self.info
-        return None if self.info is None else info[1]
+        return self.info[1]
 
     @property
     def locality(self):
         """
         The locality of the site, e.g. ``RWTH``.
         """
-        info = self.info
-        return None if self.info is None else info[2]
+        return self.info[2]
 
     @property
     def redirector(self) -> str:
