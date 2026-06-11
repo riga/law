@@ -237,19 +237,18 @@ class RucioReporter(threading.Thread):
                     event, data = self._queue.get()
 
                 # dispatch to handler, gather list of callbacks to invoke
-                callbacks = []
                 if event == "report_access":
-                    callbacks.extend(self._report_access_callbacks(**data))
+                    callbacks = self._report_access_callbacks(**data)
                 else:
                     raise ValueError("unknown event in {}: {}".format(self.__class__.__name__, event))
 
-                # invoke callbacks for this event, enforcing max rate calls per second
-                for callback in callbacks:
+                # invoke callbacks for this event, enforcing max_rate calls per second
+                for i, callback in enumerate(callbacks):
                     if self._stop_event.is_set():
                         break
-                    callback()
-                    if self._max_rate > 0:
+                    if i > 0 and self._max_rate > 0:
                         time.sleep(1.0 / self._max_rate)
+                    callback()
 
     def _report_access_callbacks(self, lfn, rse=None, silent=True):
         # identify rse's when not set
