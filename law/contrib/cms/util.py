@@ -270,8 +270,10 @@ class RucioReporter(threading.Thread):
 
     def _report_access_callbacks(
         self,
+        *,
         lfn: str,
         rse: str | Sequence[str] | None = None,
+        local_rse: str | None = None,
         silent: bool = True,
     ) -> list[Callable[[], None]]:
         # identify rse's when not set
@@ -293,10 +295,25 @@ class RucioReporter(threading.Thread):
         else:
             rses = law.util.make_unique(law.util.make_list(rse))  # type: ignore[assignment]
 
-        # build callbacks
-        return [functools.partial(self._report_access, lfn=lfn, rse=rse, silent=silent) for rse in rses]
+        # identify the local rse when not set
+        if local_rse is None:
+            # note: this is not required yet as per the example references in _report_access
+            pass
 
-    def _report_access(self, *, lfn: str, rse: str, silent: bool = True) -> None:
+        # build callbacks
+        return [
+            functools.partial(self._report_access, lfn=lfn, rse=rse, local_rse=local_rse, silent=silent)
+            for rse in rses
+        ]
+
+    def _report_access(
+        self,
+        *,
+        lfn: str,
+        rse: str,
+        local_rse: str | None,
+        silent: bool = True,
+    ) -> None:
         # https://github.com/dmwm/CMSRucio/blob/master/UserDMTools/trace_example/TraceSendExample.py
         import requests  # type: ignore[import-not-found, import-untyped]
 
@@ -307,7 +324,7 @@ class RucioReporter(threading.Thread):
             "eventType": "touch",
             "clientState": "DONE",
             "account": os.getenv("RUCIO_ACCOUNT"),
-            "localSite": rse,
+            "localSite": local_rse or rse,
             "remoteSite": rse,
             "scope": "cms",
             "filename": lfn,
@@ -325,18 +342,29 @@ class RucioReporter(threading.Thread):
         else:
             logger.debug(f"rucio file access reported for lfn '{lfn}' and rse '{rse}' at {endpoint}")
 
-    def report_access(self, lfn: str, rse: str | Sequence[str] | None = None, silent: bool = True) -> None:
+    def report_access(
+        self,
+        lfn: str,
+        rse: str | Sequence[str] | None = None,
+        local_rse: str | None = None,
+        silent: bool = True,
+    ) -> None:
         if self._stop_event.is_set():
             logger.info(f"skipping rucio file access reporting for lfn '{lfn}' and rse '{rse}': reporter is stopped")
             return
 
         event = "report_access"
-        data = {"lfn": lfn, "rse": rse, "silent": silent}
+        data = {"lfn": lfn, "rse": rse, "local_rse": local_rse, "silent": silent}
         self._queue.put((event, data))
 
 
 atexit.register(RucioReporter.stop_instance)
 
 
-def rucio_report_access(lfn: str, rse: str | Sequence[str] | None = None, silent: bool = True) -> None:
-    RucioReporter.instance().report_access(lfn=lfn, rse=rse, silent=silent)
+def rucio_report_access(
+    lfn: str,
+    rse: str | Sequence[str] | None = None,
+    local_rse: str | None = None,
+    silent: bool = True,
+) -> None:
+    RucioReporter.instance().report_access(lfn=lfn, rse=rse, local_rse=local_rse, silent=silent)
