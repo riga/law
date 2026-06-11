@@ -8,6 +8,7 @@ __all__ = ["Site", "lfn_to_pfn", "renew_vomsproxy", "delegate_myproxy", "RucioRe
 
 
 import os
+import re
 import sys
 import time
 import copy
@@ -65,17 +66,13 @@ class Site(object):
         constructor or it is determined for the current site by reading environment variables.
     """
 
+    name_cre = re.compile(r"^(T\d)_([A-Z]{2,2})_(.+)$")
+
     redirectors = {
         "global": "cms-xrd-global.cern.ch",
         "eu": "xrootd-cms.infn.it",
         "us": "cmsxrootd.fnal.gov",
     }
-
-    def __init__(self, name=None):
-        super(Site, self).__init__()
-
-        # site name cache
-        self.name = name or self.get_name_from_env()
 
     @classmethod
     def get_name_from_env(cls):
@@ -89,33 +86,47 @@ class Site(object):
                 return os.getenv(v)
         return None
 
+    @classmethod
+    def validate(cls, name):
+        return bool(cls.name_cre.match(name))
+
+    def __init__(self, name=None):
+        super(Site, self).__init__()
+
+        # site name cache
+        self.name = name or self.get_name_from_env()
+
+        # validate the name when set
+        if self.name:
+            self.validate(self.name)
+
     @property
     def info(self):
         """
         Tier, country and locality information in a 3-tuple, e.g. ``("T2", "DE", "RWTH")``.
         """
-        return self.name and self.name.split("", 2)
+        return self.name and self.name_cre.match(self.name).groups()
 
     @property
     def tier(self):
         """
         The tier of the site, e.g. ``T2``.
         """
-        return self.name and self.info[0]
+        return self.name and self.name_cre.match(self.name).group(1)
 
     @property
     def country(self):
         """
         The country of the site, e.g. ``DE``.
         """
-        return self.name and self.info[1]
+        return self.name and self.name_cre.match(self.name).group(2)
 
     @property
     def locality(self):
         """
         The locality of the site, e.g. ``RWTH``.
         """
-        return self.name and self.info[2]
+        return self.name and self.name_cre.match(self.name).group(3)
 
     @property
     def redirector(self):
