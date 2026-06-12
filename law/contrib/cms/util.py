@@ -79,23 +79,32 @@ class Site(object):
     }
 
     @classmethod
-    def get_name_from_env(cls) -> str | None:
-        """
-        Tries to extract the site name from environment variables. Returns the name on succcess and
-        *None* otherwise.
-        """
-        # TODO: add fallbacks
-        for v in ["GLIDEIN_CMSSite"]:
-            if v in os.environ:
-                return os.getenv(v)
-        return None
-
-    @classmethod
     def validate(cls, name: str) -> bool:
         """
         Returns whether *name* refers to a valid site name.
         """
         return bool(cls.name_cre.match(name))
+
+    @classmethod
+    def get_name_from_env(cls) -> str | None:
+        """
+        Tries to extract the local site name from the environment. Returns the name on succcess and
+        *None* otherwise.
+        """
+        # check local site config
+        siteconf_path = "/cvmfs/cms.cern.ch/SITECONF/local"
+        if os.path.exists(siteconf_path):
+            name = os.path.basename(os.path.realpath(siteconf_path))
+            if cls.validate(name):
+                return name
+
+        # fallbacks from env variables
+        for v in ["GLIDEIN_CMSSite"]:
+            name = os.getenv(v)  # type: ignore[assignment]
+            if name and cls.validate(name):
+                return name
+
+        return None
 
     def __init__(self, name: str | None = None) -> None:
         super().__init__()
@@ -305,8 +314,7 @@ class RucioReporter(threading.Thread):
 
         # identify the local rse when not set
         if local_rse is None:
-            # note: this is not required yet as per the example references in _report_access
-            pass
+            local_rse = Site.get_name_from_env()
 
         # build callbacks
         return [
