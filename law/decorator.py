@@ -533,6 +533,7 @@ def localize(fn, opts, task, *args, **kwargs):
                     return localized_inputs
 
                 task.input = _patch_localized_method(task, input_patched)
+                task.input_unlocalized = input_orig
 
             # patch the output method to always return the localized outputs
             if opts["output"]:
@@ -540,6 +541,7 @@ def localize(fn, opts, task, *args, **kwargs):
                     return localized_outputs
 
                 task.output = _patch_localized_method(task, output_patched)
+                task.output_unlocalized = output_orig
 
             return fn(task, *args, **kwargs)
 
@@ -547,8 +549,10 @@ def localize(fn, opts, task, *args, **kwargs):
         # restore the methods
         if input_orig is not None:
             task.input = input_orig
+            delattr(task, "input_unlocalized")
         if output_orig is not None:
             task.output = output_orig
+            delattr(task, "output_unlocalized")
 
 
 def _patch_localized_method(task, func):
