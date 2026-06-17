@@ -15,8 +15,8 @@ branch parameter decides about the task's behavior. There are two cases:
       The task is considered to be **a** *branch* task. No attribute forwarding is applied. What
       you see is what you run.
 
-The definition of what the workflow is actually processing is done in its *branch map*. This is 
-just a dictionary that maps branch numbers (i.e. the value of the branch parameter) to arbitrary 
+The definition of what the workflow is actually processing is done in its *branch map*. This is
+just a dictionary that maps branch numbers (i.e. the value of the branch parameter) to arbitrary
 data, depending on which distinct information is required by a branch task.
 
 Here is an example using the local workflow:

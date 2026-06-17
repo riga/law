@@ -1,5 +1,6 @@
 *.sublime-project
 *.sublime-workspace
+*.vscode
 *.pyc
 *.log
 *.DS_Store
@@ -16,12 +17,12 @@ out
 local_tests
 .law
 .ipynb_checkpoints
-.vscode
-MANIFEST.in
 law_test.cfg
 *_dev.py
-.coverage
 coverage*.xml
 .dmypy.json
 .python-version
+.coverage
 .mypy_cache
+.ruff_cache
+.pytest_cache

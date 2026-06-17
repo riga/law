@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Helpers to extract useful information from the luigi command line parser.
 """
@@ -10,7 +8,7 @@ __all__: list[str] = []
 
 from argparse import ArgumentParser
 
-import luigi  # type: ignore[import-untyped]
+import luigi
 
 from law.logger import get_logger
 from law.util import multi_match
@@ -18,7 +16,6 @@ from law._types import Sequence, Any, Type
 
 
 logger = get_logger(__name__)
-
 
 # cached objects
 _root_task_cls: Type[luigi.Task] | None = None
@@ -31,9 +28,8 @@ _global_cmdline_values: dict[str, Any] | None = None
 
 def root_task_cls(task: luigi.Task | None = None) -> Type[luigi.Task] | None:
     """
-    Returns the class of the task that was triggered on the command line. The returned class is
-    cached. When *task* is defined and no root task class was cached yet, this methods acts as a
-    setter.
+    Returns the class of the task that was triggered on the command line. The returned class is cached. When *task* is
+    defined and no root task class was cached yet, this methods acts as a setter.
     """
     global _root_task_cls
 
@@ -55,8 +51,8 @@ def root_task_cls(task: luigi.Task | None = None) -> Type[luigi.Task] | None:
 
 def root_task(task: luigi.Task | None = None) -> luigi.Task | None:
     """
-    Returns the instance of the task that was triggered on the command line. The returned instance
-    is cached. When *task* is define and no root task was cached yet, this methods acts as a setter.
+    Returns the instance of the task that was triggered on the command line. The returned instance is cached. When
+    *task* is define and no root task was cached yet, this methods acts as a setter.
     """
     global _root_task
 
@@ -78,8 +74,7 @@ def root_task(task: luigi.Task | None = None) -> luigi.Task | None:
 
 def full_parser() -> luigi.cmdline_parser.CmdlineParser | None:
     """
-    Returns the full *ArgumentParser* used by the luigi ``CmdlineParser``. The returned instance is
-    cached.
+    Returns the full *ArgumentParser* used by the luigi ``CmdlineParser``. The returned instance is cached.
     """
     global _full_parser
 
@@ -99,8 +94,8 @@ def full_parser() -> luigi.cmdline_parser.CmdlineParser | None:
 
 def root_task_parser() -> ArgumentParser | None:
     """
-    Returns a new *ArgumentParser* instance that only contains parameter actions of the root task.
-    The returned instance is cached.
+    Returns a new *ArgumentParser* instance that only contains parameter actions of the root task. The returned instance
+    is cached.
     """
     global _root_task_parser
 
@@ -134,10 +129,10 @@ def root_task_parser() -> ArgumentParser | None:
 
 def global_cmdline_args(exclude: Sequence[str] | None = None) -> dict[str, str] | None:
     """
-    Returns a dictionary with keys and string values of command line arguments that do not belong to
-    the root task. For bool parameters, such as ``--local-scheduler``, ``"True"`` is assumed if they
-    are used as flags, i.e., without a parameter value. The returned dict is cached. *exclude* can
-    be a list of argument names (with or without the leading ``"--"``) to be removed. Example:
+    Returns a dictionary with keys and string values of command line arguments that do not belong to the root task. For
+    bool parameters, such as ``--local-scheduler``, ``"True"`` is assumed if they are used as flags, i.e., without a
+    parameter value. The returned dict is cached. *exclude* can be a list of argument names (with or without the leading
+    ``"--"``) to be removed. Example:
 
     .. code-block:: python
 
@@ -169,9 +164,9 @@ def global_cmdline_args(exclude: Sequence[str] | None = None) -> dict[str, str] 
             if not arg.startswith("--"):
                 raise Exception(f"global argument must start with '--', found '{arg}'")
 
-            # get the corresponding value which is either part of the argument itself in the format
-            # "--arg=value" or passed in the next argument which must not start with "--" (in this
-            # case it is interpreted as a boolean "True" value)
+            # get the corresponding value which is either part of the argument itself in the format "--arg=value" or
+            # passed in the next argument which must not start with "--" (in this case it is interpreted as a boolean
+            # "True" value)
             value: str
             if "=" in arg:
                 arg, value = arg.split("=", 1)
@@ -197,9 +192,8 @@ def global_cmdline_args(exclude: Sequence[str] | None = None) -> dict[str, str] 
 
 def global_cmdline_values() -> dict[str, Any] | None:
     """
-    Returns a dictionary of global command line arguments (computed with
-    :py:func:`global_cmdline_args`) to their current values. The returnd dictionary is cached.
-    Example:
+    Returns a dictionary of global command line arguments (computed with :py:func:`global_cmdline_args`) to their
+    current values. The returnd dictionary is cached. Example:
 
     .. code-block:: python
 

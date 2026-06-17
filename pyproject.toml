@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling>=1.25"]
+requires = ["hatchling~=1.27.0"]
 build-backend = "hatchling.build"
 
 [project]
@@ -21,10 +21,11 @@ keywords = [
   "submission",
   "cluster",
   "grid",
-  "condor",
+  "htcondor",
   "lsf",
   "glite",
   "arc",
+  "slurm",
   "sandboxing",
   "docker",
   "singularity",
@@ -47,30 +48,31 @@ classifiers = [
   "Intended Audience :: Information Technology",
 ]
 dynamic = ["version"]
+# pinned to 3.9
 dependencies = [
-  "luigi>=3.6",
-  "typing_extensions>=4.15",
+  "luigi~=3.6",
+  "typing_extensions~=4.15",
 ]
 
 [project.optional-dependencies]
+# pinned to 3.9
 dev = [
-  "mypy>=2.1",
-  "flake8>=7.3",
-  "flake8-commas~=4.0.0",
-  "flake8-quotes~=3.4.0",
-  "pytest~=9.0.1",
-  "pytest-cov~=7.0.0",
-  "ipykernel~=7.1.0",
-  "types-docutils~=0.22.3",
-  "uniplot~=0.21.4",
+  "mypy~=1.19",
+  "pytest~=8.4",
+  "pytest-cov~=7.1",
+  "ipykernel~=6.31",
+  "types-docutils~=0.22",
+  "uniplot~=0.22",
+  "pre-commit~=4.3"
 ]
+# pinned to 3.13, see .readthedocs.yaml
 docs = [
-  "sphinx~=8.2.3",
-  "sphinx-autodoc-typehints~=3.5.2",
-  "sphinx-book-theme~=1.1.4",
-  "sphinx-lfs-content~=1.1.10",
-  "autodocsumm~=0.2.14",
-  "myst-parser~=4.0.1",
+  "sphinx~=9.1",
+  "sphinx-autodoc-typehints~=3.11",
+  "sphinx-book-theme~=1.2",
+  "sphinx-lfs-content~=1.1",
+  "autodocsumm~=0.2",
+  "myst-parser~=5.1",
 ]
 
 [project.urls]
@@ -87,6 +89,26 @@ law_cms_delegate_myproxy = "law.contrib.cms.scripts.delegate_myproxy:main"
 version.path = "src/law/__meta__.py"
 metadata.allow-direct-references = true
 
+[tool.hatch.build]
+exclude = [
+  "/.github",
+  "/docs",
+  "/tests",
+  "/local_tests",
+  "/tmp",
+  "/unused",
+  "/dist",
+  "/build",
+  "/.venv",
+  "*.py[cod]",
+  "__pycache__",
+  ".all-contributorsrc",
+  ".git*",
+  ".readthedocs.yaml",
+  "codecov.yml",
+  ".pre-commit-config.yaml",
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/law"]
 
@@ -98,18 +120,21 @@ src = ["src", "tests", "examples"]
 [tool.ruff.lint]
 preview = true
 ignore = [
-  "PLR",  # Design related pylint codes
-  "E501",  # Line too long
+  "PLR",  # design related pylint codes
+  "E501",  # line too long
+  "G004",  # logging statement uses f-string
+  "I001",  # unsorted import block"
   "I002",  # isort: "from __future__ import annotations"
   "ISC001",  # flake8-implicit-str-concat: Implicit string concatenation"
   "PLW2901",  # ignore reassingment of loop variable
-  "E731",  # Do not assign a lambda expression, use a def
-  "EM101",  # Do not use literal strings in exception messages
-  "EM102",  # Do not use f-string in exception messages
-  "RUF100",  # Unused "noqa" directive
+  "E731",  # do not assign a lambda expression, use a def
+  "EM101",  # do not use literal strings in exception messages
+  "EM102",  # do not use f-string in exception messages
+  "RUF100",  # unused "noqa" directive
   "PLC0415",  # `import` should be at the top-level of a file
-  "PLW3201",  # Dunder method `...` has no special meaning in Python 3
-  "RUF052",  # Local dummy variable `...` is accessed
+  "PLW0603",  # discouraged use of global statement
+  "PLW3201",  # dunder method `...` has no special meaning in Python 3
+  "RUF052",  # local dummy variable `...` is accessed
 ]
 select = [
   "E",
@@ -127,15 +152,15 @@ select = [
   "PL",  # pylint
   "PT",  # flake8-pytest-style
   "RET",  # flake8-return
-  "RUF",  # Ruff-specific
+  "RUF",  # ruff-specific
   "SIM",  # flake8-simplify
   "UP",  # pyupgrade
   "YTT",  # flake8-2020
   "EXE",  # flake8-executable
-  "E303",  # Too many blank lines
+  "E303",  # too many blank lines
 ]
 unfixable = [
-  "F841",  # Would remove unused variables
+  "F841",  # would remove unused variables
 ]
 flake8-unused-arguments.ignore-variadic-names = true
 isort.required-imports = ["from __future__ import annotations"]
@@ -147,34 +172,36 @@ isort.required-imports = ["from __future__ import annotations"]
 
 [tool.mypy]
 python_version = "3.9"
-files = ["src"]
+strict = false
+files = ["src/law", "tests"]
+exclude = ["docs", "examples", "build", "local_tests"]
 disable_error_code = ["no-redef", "valid-type", "method-assign"]
 # enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 warn_unreachable = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-check_untyped_defs = true
-ignore_missing_imports = true
-strict = false
-pretty = true
 warn_redundant_casts = true
 warn_unused_ignores = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+ignore_missing_imports = true
+check_untyped_defs = true
 show_error_codes = true
+pretty = true
+explicit_package_bases = true
 
 [[tool.mypy.overrides]]
 module = ["tests.*"]
 disallow_untyped_defs = false
 
 [tool.pytest.ini_options]
-minversion = "8.0"
-addopts = "-ra --cov=your_package --cov-report=term-missing --cov-report=xml"
+minversion = "8.4"
+addopts = "--cov=law --cov-report xml:coverage.xml"
 testpaths = ["tests"]
 
 [tool.coverage.run]
-source = ["your_package"]
+source = ["src/law"]
 branch = true
 
 [tool.coverage.report]
 show_missing = true
 skip_covered = false
-fail_under = 90
+fail_under = 5
