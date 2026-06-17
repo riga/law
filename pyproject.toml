@@ -1,91 +1,180 @@
 [build-system]
-
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
-
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
 
 [project]
-
 name = "law"
 description = "Build large-scale task workflows using luigi, remote job submission, remote targets, and environment sandboxing."
+readme = "README.md"
+requires-python = ">=3.9"
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
 authors = [
-    {name = "Marcel Rieger", email = "github.riga@icloud.com"},
+  {name = "Marcel Rieger", email = "github.riga@icloud.com"},
 ]
 keywords = [
-    "luigi",
-    "workflow",
-    "pipeline",
-    "remote",
-    "gfal",
-    "submission",
-    "cluster",
-    "grid",
-    "condor",
-    "lsf",
-    "glite",
-    "arc",
-    "sandboxing",
-    "docker",
-    "singularity",
-    "apptainer"
+  "luigi",
+  "workflow",
+  "pipeline",
+  "remote",
+  "gfal",
+  "submission",
+  "cluster",
+  "grid",
+  "condor",
+  "lsf",
+  "glite",
+  "arc",
+  "sandboxing",
+  "docker",
+  "singularity",
+  "apptainer"
 ]
 classifiers = [
-    "Programming Language :: Python",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Development Status :: 4 - Beta",
-    "Operating System :: OS Independent",
-    "License :: OSI Approved :: BSD License",
-    "Intended Audience :: Developers",
-    "Intended Audience :: Science/Research",
-    "Intended Audience :: Information Technology",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Development Status :: 4 - Beta",
+  "Operating System :: OS Independent",
+  "License :: OSI Approved :: BSD License",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "Intended Audience :: Information Technology",
 ]
-license = {file = "LICENSE"}
-requires-python = ">=3.8"
-dynamic = ["version", "readme", "dependencies", "optional-dependencies"]
+dynamic = ["version"]
+dependencies = [
+  "luigi>=3.6",
+  "typing_extensions>=4.15",
+]
 
+[project.optional-dependencies]
+dev = [
+  "mypy>=2.1",
+  "flake8>=7.3",
+  "flake8-commas~=4.0.0",
+  "flake8-quotes~=3.4.0",
+  "pytest~=9.0.1",
+  "pytest-cov~=7.0.0",
+  "ipykernel~=7.1.0",
+  "types-docutils~=0.22.3",
+  "uniplot~=0.21.4",
+]
+docs = [
+  "sphinx~=8.2.3",
+  "sphinx-autodoc-typehints~=3.5.2",
+  "sphinx-book-theme~=1.1.4",
+  "sphinx-lfs-content~=1.1.10",
+  "autodocsumm~=0.2.14",
+  "myst-parser~=4.0.1",
+]
 
 [project.urls]
-
 Homepage = "https://github.com/riga/law"
 Documentation = "https://law.readthedocs.io"
 Repository = "https://github.com/riga/law.git"
-
-
-[tool.setuptools.dynamic]
-
-version = {attr = "law.__meta__.__version__"}
-readme = {file = ["README.md"], content-type = "text/markdown"}
-dependencies = {file = ["requirements.txt"]}
-optional-dependencies = {dev = {file = ["requirements_dev.txt"]}, docs = {file = ["requirements_docs.txt"]}}
-
+Issues = "https://github.com/riga/law/issues"
 
 [project.scripts]
-
-# main executable
 law = "law.__main__:main"
-
-# contrib
 law_cms_delegate_myproxy = "law.contrib.cms.scripts.delegate_myproxy:main"
 
+[tool.hatch]
+version.path = "src/law/__meta__.py"
+metadata.allow-direct-references = true
 
-[tool.setuptools]
+[tool.hatch.build.targets.wheel]
+packages = ["src/law"]
 
-include-package-data = true
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+src = ["src", "tests", "examples"]
 
+[tool.ruff.lint]
+preview = true
+ignore = [
+  "PLR",  # Design related pylint codes
+  "E501",  # Line too long
+  "I002",  # isort: "from __future__ import annotations"
+  "ISC001",  # flake8-implicit-str-concat: Implicit string concatenation"
+  "PLW2901",  # ignore reassingment of loop variable
+  "E731",  # Do not assign a lambda expression, use a def
+  "EM101",  # Do not use literal strings in exception messages
+  "EM102",  # Do not use f-string in exception messages
+  "RUF100",  # Unused "noqa" directive
+  "PLC0415",  # `import` should be at the top-level of a file
+  "PLW3201",  # Dunder method `...` has no special meaning in Python 3
+  "RUF052",  # Local dummy variable `...` is accessed
+]
+select = [
+  "E",
+  "F",
+  "W",  # flake8
+  "B",  # flake8-bugbear
+  "I",  # isort
+  "C4",  # flake8-comprehensions
+  "EM",  # flake8-errmsg
+  "ICN",  # flake8-import-conventions
+  "ISC",  # flake8-implicit-str-concat
+  "G",  # flake8-logging-format
+  "PGH",  # pygrep-hooks
+  "PIE",  # flake8-pie
+  "PL",  # pylint
+  "PT",  # flake8-pytest-style
+  "RET",  # flake8-return
+  "RUF",  # Ruff-specific
+  "SIM",  # flake8-simplify
+  "UP",  # pyupgrade
+  "YTT",  # flake8-2020
+  "EXE",  # flake8-executable
+  "E303",  # Too many blank lines
+]
+unfixable = [
+  "F841",  # Would remove unused variables
+]
+flake8-unused-arguments.ignore-variadic-names = true
+isort.required-imports = ["from __future__ import annotations"]
 
-[tool.setuptools.packages.find]
-
-where = ["."]
-include = ["law*"]
-
+# [tool.ruff.format]
+# quote-style = "double"
+# indent-style = "space"
+# line-ending = "auto"
 
 [tool.mypy]
-
+python_version = "3.9"
+files = ["src"]
 disable_error_code = ["no-redef", "valid-type", "method-assign"]
-exclude = ["docs", "examples", "tests", "build", "dist", "law/templates"]
+# enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+warn_unreachable = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+ignore_missing_imports = true
+strict = false
+pretty = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra --cov=your_package --cov-report=term-missing --cov-report=xml"
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["your_package"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+fail_under = 90
