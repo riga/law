@@ -269,7 +269,7 @@ class Config(ConfigParser):
                 skip_luigi_sync=True,
                 skip_resolve_deferred=True,
             )
-            include_configs(c.get_expanded("core", "extend", None))
+            include_configs(c.get_expanded("core", "inherit", None))
 
         # load the actual config file if given
         if self.config_file:

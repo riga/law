@@ -41,8 +41,8 @@ class FormatterRegister(type):
 
         # store classes by name
         if cls_name != "_base":
-            meta_cls.formatters[cls_name] = cls  # type: ignore[assignment]
-            logger.debug(f"registered target formatter '{cls_name}'")
+            meta_cls.formatters[cls.name] = cls  # type: ignore[attr-defined,assignment]
+            logger.debug(f"registered target formatter '{cls.name}'")  # type: ignore[attr-defined]
 
         return cls
 

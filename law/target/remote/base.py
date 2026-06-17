@@ -702,9 +702,13 @@ class RemoteTarget(FileSystemTarget):
         if not isinstance(fs, RemoteFileSystem):
             raise TypeError(f"fs must be a {RemoteFileSystem} instance, got '{fs}'")
 
-        self.fs = fs  # type: ignore[misc]
+        self._fs = fs
 
         super().__init__(path, **kwargs)
+
+    @property
+    def fs(self) -> FileSystem:
+        return self._fs
 
     def _parent_args(self) -> tuple[tuple[Any, ...], dict[str, Any]]:
         args, kwargs = super()._parent_args()

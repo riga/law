@@ -559,7 +559,7 @@ def colored(
         if color == "random":
             color = random.choice(list(colors.values()))
         else:
-            colors.get(color, colors["default"])
+            color = colors.get(color, colors["default"])
     elif not isinstance(color, int):
         color = colors["default"]
 
