@@ -11,12 +11,12 @@ on:
 
 jobs:
   lint_typecheck:
-    name: Linting and type checking
+    name: Lint & type check
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python: ["39", "310", "311", "312", "313", "314"]
+        python: ["3.9", "3.10", "3.11", "3.12", "3.13.", "3.14"]
     steps:
       - uses: actions/checkout@v6
         with:
@@ -31,12 +31,12 @@ jobs:
           extra_args: --hook-stage manual --all-files
 
   test_coverage:
-    name: Tests and coverage
+    name: Tests & coverage
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python: ["39", "310", "311", "312", "313", "314"]
+        python: ["3.9", "3.10", "3.11", "3.12", "3.13.", "3.14"]
     steps:
       - uses: actions/checkout@v6
         with:
