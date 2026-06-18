@@ -16,33 +16,38 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ["3.9", "3.10", "3.11", "3.12", "3.13.", "3.14"]
+        python: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
-      - uses: actions/checkout@v6
+      - name: Checkout
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-python@v6
+      - name: Setup python
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python }}
 
-      - uses: pre-commit/action@v3.0.1
+      - name: Run pre-commit hook 'manual'
+        uses: pre-commit/action@v3.0.1
         with:
           extra_args: --hook-stage manual --all-files
 
   test_coverage:
-    name: Tests & coverage
+    name: ${{ matrix.python == '3.13' && 'Tests & coverage' || 'Tests' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python: ["3.9", "3.10", "3.11", "3.12", "3.13.", "3.14"]
+        python: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
-      - uses: actions/checkout@v6
+      - name: Checkout
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-python@v6
+      - name: Setup python
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python }}
 
@@ -56,6 +61,7 @@ jobs:
 
       - name: Upload coverage report
         uses: codecov/codecov-action@v7
+        if: ${{ matrix.python == '3.13' }}
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
