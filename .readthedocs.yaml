@@ -17,6 +17,5 @@ build:
     python: "3.13"
   jobs:
     pre_install:
-      - pwd
-      - ls -al
-      - echo "pre install!"
+      - pip install pip-tools
+      - pip-compile pyproject.toml --quiet --no-annotate --no-header --strip-extras --extra dev -o docs/requirements.txt
