@@ -12,8 +12,8 @@ on:
       - master
 
 jobs:
-  pre-commit:
-    name: Lint + format code
+  lint_typecheck:
+    name: Linting and type checking
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -31,3 +31,35 @@ jobs:
       - uses: pre-commit/action@v3.0.1
         with:
           extra_args: --hook-stage manual --all-files
+
+  test_coverage:
+    name: Tests and coverage
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["39", "310", "311", "312", "313", "314"]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install
+        run: |
+          pip install -U pip setuptools wheel
+          pip install .[dev]
+
+      - name: Test
+        run: pytest
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.xml
+          flags: unittests
+          fail_ci_if_error: false

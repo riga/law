@@ -14,12 +14,12 @@ on:
         default: none
         options:
           - none
-          - py38
           - py39
           - py310
           - py311
           - py312
-          # - py313
+          - py313
+          - py314
           - example
 
       platforms:
@@ -32,31 +32,12 @@ on:
           - linux/arm64
 
 jobs:
-  a9-py38:
-    if: ${{ github.event.inputs.specific_job == 'none' || contains(github.event.inputs.specific_job, 'py38') }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout 🛎️
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-
-      - name: Build and deploy image 🐳
-        uses: ./.github/actions/build-image
-        with:
-          dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
-          dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
-          docker_file: docker/Dockerfile_alma9_py38
-          platforms: ${{ github.event.inputs.platforms }}
-          tags: riga/law:a9-py38-rc,riga/law:py38-rc
-          push_image: ${{ github.event.inputs.push_image == 'true' }}
-
   a9-py39:
     if: ${{ github.event.inputs.specific_job == 'none' || contains(github.event.inputs.specific_job, 'py39') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
 
@@ -67,7 +48,7 @@ jobs:
           dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
           docker_file: docker/Dockerfile_alma9_py39
           platforms: ${{ github.event.inputs.platforms }}
-          tags: riga/law:a9-py39-rc,riga/law:py39-rc
+          tags: riga/law:a9-py39,riga/law:py39
           push_image: ${{ github.event.inputs.push_image == 'true' }}
 
   a9-py310:
@@ -75,7 +56,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
 
@@ -86,7 +67,7 @@ jobs:
           dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
           docker_file: docker/Dockerfile_alma9_py310
           platforms: ${{ github.event.inputs.platforms }}
-          tags: riga/law:a9-py310-rc,riga/law:py310-rc
+          tags: riga/law:a9-py310,riga/law:py310
           push_image: ${{ github.event.inputs.push_image == 'true' }}
 
   a9-py311:
@@ -94,7 +75,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
 
@@ -105,7 +86,7 @@ jobs:
           dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
           docker_file: docker/Dockerfile_alma9_py311
           platforms: ${{ github.event.inputs.platforms }}
-          tags: riga/law:a9-py311-rc,riga/law:a9-py3-rc,riga/law:a9-rc,riga/law:py311-rc,riga/law:py3-rc,riga/law:latest-rc
+          tags: riga/law:a9-py311,riga/law:py311
           push_image: ${{ github.event.inputs.push_image == 'true' }}
 
   a9-py312:
@@ -113,7 +94,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
 
@@ -124,36 +105,54 @@ jobs:
           dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
           docker_file: docker/Dockerfile_alma9_py312
           platforms: ${{ github.event.inputs.platforms }}
-          tags: riga/law:a9-py312-rc,riga/law:py312-rc
+          tags: riga/law:a9-py312,riga/law:py312
           push_image: ${{ github.event.inputs.push_image == 'true' }}
 
-  # NO GFAL SUPPORT YET
-  # a9-py313:
-  #   if: ${{ github.event.inputs.specific_job == 'none' || contains(github.event.inputs.specific_job, 'py313') }}
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Checkout 🛎️
-  #       uses: actions/checkout@v4
-  #       with:
-  #         persist-credentials: false
-
-  #     - name: Build and deploy image 🐳
-  #       uses: ./.github/actions/build-image
-  #       with:
-  #         dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
-  #         dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
-  #         docker_file: docker/Dockerfile_alma9_py313
-  #         platforms: ${{ github.event.inputs.platforms }}
-  #         tags: riga/law:a9-py313,riga/law:py313
-  #         push_image: ${{ github.event.inputs.push_image == 'true' }}
-
-  example:
-    if: ${{ github.event.inputs.push_image == 'true' && (github.event.inputs.specific_job == 'none' || contains(github.event.inputs.specific_job, 'example')) }}
-    needs: a9-py311
+  a9-py313:
+    if: ${{ github.event.inputs.specific_job == 'none' || contains(github.event.inputs.specific_job, 'py313') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Build and deploy image 🐳
+        uses: ./.github/actions/build-image
+        with:
+          dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
+          docker_file: docker/Dockerfile_alma9_py313
+          platforms: ${{ github.event.inputs.platforms }}
+          tags: riga/law:a9-py313,riga/law:a9-py3,riga/law:a9,riga/law:py313,riga/law:py3,riga/law:latest
+          push_image: ${{ github.event.inputs.push_image == 'true' }}
+
+  a9-py314:
+    if: ${{ github.event.inputs.specific_job == 'none' || contains(github.event.inputs.specific_job, 'py314') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Build and deploy image 🐳
+        uses: ./.github/actions/build-image
+        with:
+          dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
+          docker_file: docker/Dockerfile_alma9_py314
+          platforms: ${{ github.event.inputs.platforms }}
+          tags: riga/law:a9-py314,riga/law:py314
+          push_image: ${{ github.event.inputs.push_image == 'true' }}
+
+  example:
+    if: ${{ github.event.inputs.push_image == 'true' && (github.event.inputs.specific_job == 'none' || contains(github.event.inputs.specific_job, 'example')) }}
+    needs: a9-py313
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
 
@@ -164,5 +163,5 @@ jobs:
           dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
           docker_file: docker/Dockerfile_example
           platforms: ${{ github.event.inputs.platforms }}
-          tags: riga/law:example-rc
+          tags: riga/law:example
           push_image: true
