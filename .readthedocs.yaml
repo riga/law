@@ -9,7 +9,7 @@ sphinx:
 
 python:
   install:
-    - requirements: docs/requirements.txt
+    - requirements: requirements_rtd.txt
 
 build:
   os: ubuntu-22.04
@@ -18,4 +18,4 @@ build:
   jobs:
     pre_install:
       - pip install pip-tools
-      - pip-compile pyproject.toml --quiet --no-annotate --no-header --strip-extras --extra dev -o docs/requirements.txt
+      - pip-compile pyproject.toml --quiet --no-annotate --no-header --strip-extras --extra dev --extra docs -o requirements_rtd.txt
