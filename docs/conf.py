@@ -1,5 +1,3 @@
-# coding: utf-8
-
 from __future__ import annotations
 
 import sys
@@ -10,8 +8,8 @@ thisdir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(thisdir, "_extensions"))
 sys.path.insert(0, os.path.dirname(thisdir))
 
-import law
-from law._types import Any
+import law  # noqa: E402
+from law._types import Any  # noqa: E402
 
 
 # load all contrib packages
@@ -34,7 +32,7 @@ exclude_patterns: list[str] = []
 pygments_style = "sphinx"
 add_module_names = False
 
-html_title = "{} v{}".format(project, version)
+html_title = f"{project} v{version}"
 html_logo = "../assets/logo.png"
 html_favicon = "../assets/favicon.ico"
 html_theme = "sphinx_book_theme"
@@ -95,4 +93,4 @@ def setup(app):
     # set style sheets
     app.add_css_file("styles_common.css")
     if html_theme in ("sphinx_rtd_theme", "alabaster", "sphinx_book_theme"):
-        app.add_css_file("styles_{}.css".format(html_theme))
+        app.add_css_file(f"styles_{html_theme}.css")

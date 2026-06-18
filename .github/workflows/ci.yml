@@ -34,7 +34,7 @@ jobs:
           extra_args: --hook-stage manual --all-files
 
   test_coverage:
-    name: Tests${{ matrix.python == '3.13' && ' & coverage' || '' }} (${{ matrix.python }})
+    name: Tests & coverage (${{ matrix.python }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
