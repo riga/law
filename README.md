@@ -2,7 +2,7 @@
 
 <p align="center">
   <a href="https://github.com/riga/law">
-    <img src="https://media.githubusercontent.com/media/riga/law/master/assets/logo.png" />
+    <img alt="law logo" src="https://media.githubusercontent.com/media/riga/law/master/assets/logo.png" />
   </a>
 </p>
 
@@ -66,10 +66,10 @@ Key features:
 - [Further topics](#further-topics)
   - [Auto completion on the command-line](#auto-completion-on-the-command-line)
 - [Development](#development)
-  - [Tests](#tests)
-  - [Git hooks](#git-hooks)
+  - [Linting, type checking \& tests](#linting-type-checking--tests)
   - [Docker images](#docker-images)
   - [Contributors](#contributors)
+- [Cite law](#cite-law)
 
 <!-- marker-after-contents -->
 
@@ -177,13 +177,13 @@ docker run -ti riga/law:example <example_name>
 
 ### Auto completion on the command-line
 
-**bash**
+#### bash
 
 ```shell
 source "$( law completion )"
 ```
 
-**zsh**
+#### zsh
 
 zsh is able to load and evaluate bash completion scripts via `bashcompinit`.
 In order for `bashcompinit` to work, you should run `compinstall` to enable completion scripts:
@@ -214,35 +214,28 @@ source "$( law completion )"
 - Source hosted at [GitHub](https://github.com/riga/law)
 - Report issues, questions, feature requests on [GitHub Issues](https://github.com/riga/law/issues)
 
-### Tests
+### Linting, type checking & tests
 
-The test pipeline consists of unit tests, linting, and type checking.
-Each of these steps be run in a local environment or via docker.
-
-- Unit tests:
-  - Local: `./tests/unittest.sh`
-  - Docker: `./tests/docker.sh riga/law ./tests/unittest.sh`
-- Linting:
-  - Local: `./tests/linting.sh`
-  - Docker: `./tests/docker.sh riga/law ./tests/linting.sh`
-- Type checks:
-  - Local: `./tests/typecheck.sh`
-  - Docker: `./tests/docker.sh riga/law ./tests/typecheck.sh`
-- All of the above:
-  - Local: `./tests/all.sh`
-  - Docker: `./tests/docker.sh riga/law ./tests/all.sh`
-
-### Git hooks
-
-Linting and type checking can be integrated into the git workflow by setting up the provided hook:
+The full testing pipeline is based on [pre-commit](https://pre-commit.com).
+Run the following to install development dependencies and set it up:
 
 ```shell
-# from within the law repo
-( cd .git/hooks && rm -f post-commit && ln -s ../../bin/githooks/post-commit . )
+# inside the cloned repository
+git lfs install
+pip install -e .[dev]
+pre-commit install
 ```
 
-By default, the hook is triggered *after* each commit and *always passes*.
-Use `git commit --amend` to add local changes to the previous commit if needed.
+Now, every time you make a commit, the pre-commit and pre-push hooks will automatically run linting, type checking and unit tests.
+To run them manually, use
+
+```shell
+# for linting, type checking and additional checks
+pre-commit run --all-files
+
+# for unit tests
+pytest
+```
 
 ### Docker images
 
@@ -250,16 +243,12 @@ There are various docker `riga/law` images available on the [DockerHub](https://
 
 | OS          | Python | Tags                                     |
 | ----------- | ------ | ---------------------------------------- |
-| AlmaLinux 9 | 3.12   | a9-py312, a9-py3, a9, py312, py3, latest |
+| AlmaLinux 9 | 3.14   | a9-py314, py314                          |
+| AlmaLinux 9 | 3.13   | a9-py314, a9-py3, a9, py314, py3, latest |
+| AlmaLinux 9 | 3.12   | a9-py312, py312                          |
 | AlmaLinux 9 | 3.11   | a9-py311, py311                          |
 | AlmaLinux 9 | 3.10   | a9-py310, py310                          |
 | AlmaLinux 9 | 3.9    | a9-py39, py39                            |
-| AlmaLinux 9 | 3.8    | a9-py38, py38                            |
-| CentOS 8    | 3.12   | c8-py312, c8-py3, c8                     |
-| CentOS 8    | 3.11   | c8-py311                                 |
-| CentOS 8    | 3.10   | c8-py310                                 |
-| CentOS 8    | 3.9    | c8-py39                                  |
-| CentOS 8    | 3.8    | c8-py38                                  |
 
 Start them via
 
