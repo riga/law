@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding: utf-8
 
 """
 Script for creating dynamic documentation pages.
@@ -13,21 +12,20 @@ import sys
 from collections import OrderedDict
 
 
-thisdir = os.path.dirname(os.path.abspath(__file__))
-docsdir = os.path.dirname(thisdir)
-basedir = os.path.dirname(docsdir)
+scriptsdir = os.path.dirname(os.path.abspath(__file__))
+docsdir = os.path.normpath(os.path.join(scriptsdir, ".."))
+basedir = os.path.normpath(os.path.join(docsdir, ".."))
+sys.path.insert(0, os.path.normpath(os.path.join(basedir, "src")))
 
-sys.path.insert(0, basedir)
-
-import law
-from law._types import Sequence, Any
+import law  # noqa: E402
+from law._types import Sequence, Any  # noqa: E402
 
 
 def create_py_ref(s: str) -> str:
     ref_text = s
     identifier = s
     ref_type = "class"
-    try:
+    try:  # noqa: PLW0717
         obj = None
         parent_obj = None
         exec(f"obj = {s}")
@@ -39,7 +37,7 @@ def create_py_ref(s: str) -> str:
             ref_type = "meth"
         elif getattr(obj, "__module__", None):
             ref_type = "class"
-    except:
+    except Exception:
         pass
     return f":py:{ref_type}:`{ref_text} <{identifier}>`"
 
@@ -64,10 +62,7 @@ def create_heading(
     slug = create_slug(slug_text or text)
     text = replace_py_refs(text)
     underline = len(text) * delim
-    if no_slug:
-        heading = f"\n\n{text}\n{underline}\n"
-    else:
-        heading = f"\n.. _{slug}:\n\n{text}\n{underline}\n"
+    heading = f"\n\n{text}\n{underline}\n" if no_slug else f"\n.. _{slug}:\n\n{text}\n{underline}\n"
     return heading
 
 
@@ -100,7 +95,7 @@ def create_config_page() -> None:
 
     # read the example config
     input_lines = []
-    with open(os.path.join(basedir, "law.cfg.example"), "r") as f:
+    with open(os.path.join(basedir, "law.cfg.example"), encoding="utf-8") as f:
         for line in f.readlines():
             line = line.rstrip()
             if line in ("", ";"):
@@ -211,7 +206,7 @@ def create_config_page() -> None:
                 if any(next_line.startswith("Description: ") for next_line in next_lines):
                     skip_lines.extend(list(range(i + 1, i + 1 + len(next_lines))))
                     option: dict[str, Any] = OrderedDict()
-                    for _line in [line] + next_lines:
+                    for _line in [line, *next_lines]:
                         _line = replace_py_refs(_line)
                         if _line.startswith("Description: "):
                             option["description"] = [_line[13:]]
@@ -228,7 +223,7 @@ def create_config_page() -> None:
 
         output_lines.append(line)
 
-    with open(os.path.join(docsdir, "config.rst"), "w") as f:
+    with open(os.path.join(docsdir, "config.rst"), "w", encoding="utf-8") as f:
         for line in output_lines:
             f.write(str(line) + "\n")
 

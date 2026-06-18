@@ -4,9 +4,9 @@ import sys
 import os
 import subprocess
 
-thisdir = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(thisdir, "_extensions"))
-sys.path.insert(0, os.path.dirname(thisdir))
+docsdir = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(docsdir, "_extensions"))
+sys.path.insert(0, os.path.normpath(os.path.join(docsdir, "..", "src")))
 
 import law  # noqa: E402
 from law._types import Any  # noqa: E402
@@ -81,7 +81,7 @@ intersphinx_mapping = {"python": ("https://docs.python.org/3", None)}
 
 # event handlers
 def generate_dynamic_pages(app):
-    script_path = os.path.join(thisdir, "_scripts", "generate_dynamic_pages.py")
+    script_path = os.path.join(docsdir, "_scripts", "generate_dynamic_pages.py")
     subprocess.check_output([script_path])
 
 

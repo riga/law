@@ -135,6 +135,7 @@ ignore = [
   "PLW0603",  # discouraged use of global statement
   "PLW3201",  # dunder method `...` has no special meaning in Python 3
   "RUF052",  # local dummy variable `...` is accessed
+  "RET504",  # unnecessary assignment before return
 ]
 select = [
   "E",
