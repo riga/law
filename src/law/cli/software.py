@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 "law sw" cli subprogram.
 """
@@ -24,11 +22,7 @@ logger = get_logger(__name__)
 default_dep_names = ["luigi", "law", "tenacity", "dateutil"]
 
 dep_names_str = os.getenv("LAW_SOFTWARE_DEPS", None)
-if dep_names_str:
-    dep_names = [name.strip() for name in dep_names_str.strip().split(",")]
-else:
-    dep_names = default_dep_names
-
+dep_names = [name.strip() for name in dep_names_str.strip().split(",")] if dep_names_str else default_dep_names
 _deps: list[ModuleType] | None = None
 
 if "_reloaded_deps" not in globals():
@@ -149,7 +143,7 @@ def build_software_cache(
         if not mod_file:
             continue
         path = os.path.dirname(mod_file)
-        name, ext = os.path.splitext(os.path.basename(mod_file))
+        name, _ = os.path.splitext(os.path.basename(mod_file))
         # single file or module?
         if name == "__init__":
             # copy the entire module

@@ -7,7 +7,7 @@ import unittest
 # adjust the path to import law
 this_dir = os.path.dirname(os.path.abspath(__file__))
 repo_dir = os.path.normpath(os.path.dirname(this_dir))
-sys.path.append(repo_dir)
+sys.path.insert(0, os.path.join(repo_dir, "src"))
 
 # define the luigi and law configs
 os.environ["LUIGI_CONFIG_PATH"] = os.path.join(this_dir, "luigi.cfg")
