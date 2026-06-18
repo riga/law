@@ -1,18 +1,18 @@
-name: Publish on PyPI
+name: Publish
 
 on:
   workflow_dispatch:
 
 jobs:
-  publish:
+  pypi:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout 🛎️
+      - name: Checkout
         uses: actions/checkout@v6
         with:
           persist-credentials: false
 
-      - name: Setup python 🐍
+      - name: Setup python
         uses: actions/setup-python@v6
         with:
           python-version: 3.12
@@ -24,7 +24,7 @@ jobs:
       - name: Bundle
         run: python -m build
 
-      - name: Publish package 🐍
+      - name: Upload to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           user: __token__
