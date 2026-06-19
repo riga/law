@@ -22,4 +22,4 @@ action() {
         source "$( law completion )" ""
     fi
 }
-action
+action "$@"
