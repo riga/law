@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Custom base target definition.
 """
@@ -8,16 +6,15 @@ from __future__ import annotations
 
 __all__ = ["Target"]
 
-from abc import abstractmethod
+import abc
 
-from law.config import Config
 import law.target.luigi_shims as shims
-from law.util import colored, create_hash
-from law.logger import get_logger, Logger
 from law._types import Any, Sequence
+from law.config import Config
+from law.logger import Logger, get_logger
+from law.util import colored, create_hash
 
-
-logger: Logger = get_logger(__name__)  # type: ignore[assignment]
+logger: Logger = get_logger(__name__)
 
 
 class Target(shims.Target):
@@ -43,7 +40,7 @@ class Target(shims.Target):
     def hash(self) -> int:
         return create_hash(self.uri(), to_int=True)  # type: ignore[return-value]
 
-    def repr(self, *, color: None | bool = None) -> str:
+    def repr(self, *, color: bool | None = None) -> str:
         if color is None:
             color = Config.instance().get_expanded_bool("target", "colored_repr")
 
@@ -110,14 +107,14 @@ class Target(shims.Target):
         """
         return self.optional or self.exists(**kwargs)
 
-    @abstractmethod
+    @abc.abstractmethod
     def exists(self) -> bool:
         ...
 
-    @abstractmethod
+    @abc.abstractmethod
     def remove(self, *, silent: bool = True) -> bool:
         ...
 
-    @abstractmethod
+    @abc.abstractmethod
     def uri(self, *, return_all: bool = False) -> str | list[str]:
         ...

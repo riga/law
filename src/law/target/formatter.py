@@ -1,27 +1,24 @@
-# coding: utf-8
-
 """
 Formatter classes for file targets.
 """
 
 from __future__ import annotations
 
-__all__ = ["AUTO_FORMATTER", "Formatter", "get_formatter", "find_formatters", "find_formatter"]
+__all__ = ["AUTO_FORMATTER", "Formatter", "find_formatter", "find_formatters", "get_formatter"]
 
-import os
-import json
-import pickle
-import zipfile
 import gzip
-import tarfile
+import json
+import os
 import pathlib
+import pickle
+import tarfile
+import zipfile
 
-from law.util import make_list, import_file
-from law.logger import get_logger, Logger
-from law._types import Type, Any, ModuleType
+from law._types import Any, ModuleType
+from law.logger import Logger, get_logger
+from law.util import import_file, make_list
 
-
-logger: Logger = get_logger(__name__)  # type: ignore[assignment]
+logger: Logger = get_logger(__name__)
 
 
 AUTO_FORMATTER = "auto"
@@ -29,7 +26,7 @@ AUTO_FORMATTER = "auto"
 
 class FormatterRegister(type):
 
-    formatters: dict[str, Type[Formatter]] = {}
+    formatters: dict[str, type[Formatter]] = {}
 
     def __new__(meta_cls, cls_name, bases, cls_dict) -> FormatterRegister:
         cls = super().__new__(meta_cls, cls_name, bases, cls_dict)
@@ -68,7 +65,7 @@ class Formatter(metaclass=FormatterRegister):
         raise NotImplementedError
 
     @classmethod
-    def chmod(cls, target: FileSystemTarget | Any, perm: None | int = None) -> None:
+    def chmod(cls, target: FileSystemTarget | Any, perm: int | None = None) -> None:
         if not isinstance(target, FileSystemTarget):
             return
 
@@ -83,7 +80,7 @@ class Formatter(metaclass=FormatterRegister):
             target.chmod(perm)
 
 
-def get_formatter(name: str, silent: bool = False) -> Type[Formatter] | None:
+def get_formatter(name: str, silent: bool = False) -> type[Formatter] | None:
     """
     Returns the formatter class whose name attribute is *name*. When no class could be found and
     *silent* is *True*, *None* is returned. Otherwise, an exception is raised.
@@ -98,7 +95,7 @@ def find_formatters(
     path: str | pathlib.Path | FileSystemTarget,
     mode: str,
     silent: bool = True,
-) -> list[Type[Formatter]]:
+) -> list[type[Formatter]]:
     """
     Returns a list of formatter classes which would accept the file given by *path* and *mode*,
     which should either be ``"load"`` or ``"dump"``. When no classes could be found and *silent* is
@@ -115,7 +112,7 @@ def find_formatter(
     path: str | pathlib.Path | FileSystemTarget,
     mode: str,
     name: str = AUTO_FORMATTER,
-) -> Type[Formatter]:
+) -> type[Formatter]:
     """
     Returns the formatter class whose name attribute is *name* when *name* is not *AUTO_FORMATTER*.
     Otherwise, the first formatter that accepts *path* is returned. Internally, this method simply
@@ -136,7 +133,7 @@ class TextFormatter(Formatter):
 
     @classmethod
     def load(cls, path: str | pathlib.Path | FileSystemTarget, *args, **kwargs) -> str:
-        with open(get_path(path), "r") as f:
+        with open(get_path(path), encoding=kwargs.pop("encoding", "utf-8")) as f:
             return f.read(*args, **kwargs)
 
     @classmethod
@@ -147,7 +144,7 @@ class TextFormatter(Formatter):
         *args,
         **kwargs,
     ) -> None:
-        with open(get_path(path), "w") as f:
+        with open(get_path(path), "w", encoding=kwargs.pop("encoding", "utf-8")) as f:
             f.write(str(content), *args, **kwargs)
 
 
@@ -162,13 +159,13 @@ class JSONFormatter(Formatter):
     @classmethod
     def load(_cls, path: str | pathlib.Path | FileSystemTarget, *args, **kwargs) -> Any:
         # kwargs might contain *cls*
-        with open(get_path(path), "r") as f:
+        with open(get_path(path), encoding=kwargs.pop("encoding", "utf-8")) as f:
             return json.load(f, *args, **kwargs)
 
     @classmethod
     def dump(_cls, path: str | pathlib.Path | FileSystemTarget, obj: Any, *args, **kwargs) -> None:
         # kwargs might contain *cls*
-        with open(get_path(path), "w") as f:
+        with open(get_path(path), "w", encoding=kwargs.pop("encoding", "utf-8")) as f:
             return json.dump(obj, f, *args, **kwargs)
 
 
@@ -201,16 +198,16 @@ class YAMLFormatter(Formatter):
 
     @classmethod
     def load(cls, path: str | pathlib.Path | FileSystemTarget, *args, **kwargs) -> Any:
-        import yaml  # type: ignore[import-untyped, import-not-found]
+        import yaml
 
-        with open(get_path(path), "r") as f:
+        with open(get_path(path), encoding=kwargs.pop("encoding", "utf-8")) as f:
             return yaml.safe_load(f, *args, **kwargs)
 
     @classmethod
     def dump(cls, path: str | pathlib.Path | FileSystemTarget, obj: Any, *args, **kwargs) -> None:
-        import yaml  # type: ignore[import-untyped, import-not-found]
+        import yaml
 
-        with open(get_path(path), "w") as f:
+        with open(get_path(path), "w", encoding=kwargs.pop("encoding", "utf-8")) as f:
             return yaml.dump(obj, f, *args, **kwargs)
 
 
@@ -291,7 +288,7 @@ class TarFormatter(Formatter):
         # open a new zip file and add all files in src
         with tarfile.open(get_path(path), mode, *args, **kwargs) as f:
             srcs = [os.path.abspath(get_path(src)) for src in make_list(src)]
-            common_prefix = os.path.commonprefix(srcs)
+            common_prefix = os.path.commonpath(srcs)
             for src in srcs:
                 _add_kwargs = {"arcname": os.path.relpath(src, common_prefix)}
                 _add_kwargs.update(add_kwargs)
@@ -326,7 +323,7 @@ class ZipFormatter(Formatter):
         extractall_kwargs = kwargs.pop("extractall_kwargs", None) or {}
 
         # open zip file and extract to dst
-        with zipfile.ZipFile(get_path(path), mode, *args, **kwargs) as f:  # type: ignore[arg-type, call-overload] # noqa
+        with zipfile.ZipFile(get_path(path), mode, *args, **kwargs) as f:  # type: ignore[call-overload]
             f.extractall(get_path(dst), **extractall_kwargs)
 
     @classmethod
@@ -349,7 +346,7 @@ class ZipFormatter(Formatter):
         write_kwargs = kwargs.pop("write_kwargs", None) or {}
 
         # open a new zip file and add all files in src
-        with zipfile.ZipFile(get_path(path), mode, *args, **kwargs) as f:  # type: ignore[arg-type, call-overload] # noqa
+        with zipfile.ZipFile(get_path(path), mode, *args, **kwargs) as f:  # type: ignore[call-overload]
             src = get_path(src)
             if os.path.isfile(src):
                 f.write(src, os.path.basename(src), **write_kwargs)
@@ -416,5 +413,8 @@ class PythonFormatter(Formatter):
 
 # trailing imports
 from law.target.file import (
-    get_path, FileSystemTarget, FileSystemFileTarget, FileSystemDirectoryTarget,
+    FileSystemDirectoryTarget,
+    FileSystemFileTarget,
+    FileSystemTarget,
+    get_path,
 )

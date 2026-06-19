@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Target classes that represent remote files and directories and have a local, optionally read-only
 mirror (e.g. through a local mount of the remote file system).
@@ -7,23 +5,25 @@ mirror (e.g. through a local mount of the remote file system).
 
 from __future__ import annotations
 
-__all__ = ["MirroredTarget", "MirroredFileTarget", "MirroredDirectoryTarget"]
+__all__ = ["MirroredDirectoryTarget", "MirroredFileTarget", "MirroredTarget"]
 
-import os
 import contextlib
-import time
+import os
 import pathlib
 import threading
+import time
 
+from law._types import IO, Any, Generator, Iterator
 from law.config import Config
-from law.target.file import FileSystemTarget, FileSystemFileTarget, FileSystemDirectoryTarget
-from law.target.local import LocalFileSystem, LocalTarget, LocalFileTarget, LocalDirectoryTarget
+from law.target.file import FileSystemDirectoryTarget, FileSystemFileTarget, FileSystemTarget
+from law.target.local import LocalDirectoryTarget, LocalFileSystem, LocalFileTarget, LocalTarget
 from law.target.remote import (
-    RemoteFileSystem, RemoteTarget, RemoteFileTarget, RemoteDirectoryTarget,
+    RemoteDirectoryTarget,
+    RemoteFileSystem,
+    RemoteFileTarget,
+    RemoteTarget,
 )
 from law.util import patch_object
-from law._types import Any, Type, Generator, Iterator, IO
-
 
 local_root_check_lock = threading.Lock()
 
@@ -56,7 +56,7 @@ class MirroredTarget(FileSystemTarget):
         path: str | pathlib.Path,
         _is_file: bool,
         remote_target: RemoteTarget | None = None,
-        remote_target_cls: Type[RemoteTarget] | None = None,
+        remote_target_cls: type[RemoteTarget] | None = None,
         remote_fs: RemoteFileSystem | str | None = None,
         remote_kwargs: dict[str, Any] | None = None,
         local_target: LocalTarget | None = None,
@@ -122,7 +122,7 @@ class MirroredTarget(FileSystemTarget):
         self.local_sync = self.local_sync_default if local_sync is None else local_sync
 
         # temporary, forced file system
-        self._force_fs = None
+        self._force_fs: LocalFileSystem | RemoteFileSystem | None = None
 
         super().__init__(path, **kwargs)
 
@@ -203,7 +203,7 @@ class MirroredTarget(FileSystemTarget):
         )
 
     @property
-    def dirname(self) -> str:
+    def dirname(self) -> str | None:
         return (
             self.local_target.dirname
             if self._local_target_exists()
@@ -211,7 +211,7 @@ class MirroredTarget(FileSystemTarget):
         )
 
     @property
-    def absdirname(self) -> str:
+    def absdirname(self) -> str | None:
         return (
             self.local_target.absdirname
             if self._local_target_exists()
@@ -393,8 +393,8 @@ class MirroredDirectoryTarget(FileSystemDirectoryTarget, MirroredTarget):  # typ
         type: str,
     ) -> tuple[tuple[Any, ...], dict[str, Any]]:
         child_kwargs = {
-            "remote_target": self.remote_target.child(path, type=type),  # type: ignore[attr-defined] # noqa
-            "local_target": self.local_target.child(path, type=type),  # type: ignore[attr-defined] # noqa
+            "remote_target": self.remote_target.child(path, type=type),  # type: ignore[attr-defined]
+            "local_target": self.local_target.child(path, type=type),  # type: ignore[attr-defined]
             "local_read_only": self.local_read_only,
             "local_sync": self.local_sync,
         }
@@ -422,5 +422,5 @@ class MirroredDirectoryTarget(FileSystemDirectoryTarget, MirroredTarget):  # typ
         )
 
 
-MirroredTarget.file_class = MirroredFileTarget  # type: ignore[type-abstract]
-MirroredTarget.directory_class = MirroredDirectoryTarget  # type: ignore[type-abstract]
+MirroredTarget.file_class = MirroredFileTarget
+MirroredTarget.directory_class = MirroredDirectoryTarget

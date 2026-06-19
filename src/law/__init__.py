@@ -42,6 +42,7 @@ __all__ = [
     "Sandbox",
     "SandboxTask",
     "SiblingFileCollection",
+    "Target",
     "TargetCollection",
     "Task",
     "TaskInstanceParameter",
@@ -112,6 +113,7 @@ from law.parameter import (
     RangeParameter, MultiRangeParameter, NotifyParameter, NotifyMultiParameter, NotifyMailParameter,
     NotifyCustomParameter,
 )
+from law.target.base import Target
 from law.target.file import (
     FileSystemTarget, FileSystemFileTarget, FileSystemDirectoryTarget, localize_file_targets,
 )

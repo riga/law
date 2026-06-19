@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Collections that wrap multiple targets.
 """
@@ -7,27 +5,32 @@ Collections that wrap multiple targets.
 from __future__ import annotations
 
 __all__ = [
-    "TargetCollection", "FileCollection", "SiblingFileCollection", "NestedSiblingFileCollection",
+    "FileCollection",
+    "NestedSiblingFileCollection",
+    "SiblingFileCollection",
+    "TargetCollection",
 ]
 
-import random
-import pathlib
-import functools
+import collections
 import contextlib
-from collections import deque, defaultdict
-from multiprocessing.pool import ThreadPool
+import functools
+import multiprocessing.pool
+import pathlib
+import random
 
+from law._types import Any, Callable, Generator, Hashable, Iterable, Iterator, Sequence
 from law.config import Config
+from law.logger import get_logger
 from law.target.base import Target
 from law.target.file import (
-    FileSystemTarget, FileSystemDirectoryTarget, localize_file_targets, get_path,
+    FileSystemDirectoryTarget,
+    FileSystemTarget,
+    get_path,
+    localize_file_targets,
 )
-from law.target.mirrored import MirroredTarget, MirroredDirectoryTarget
 from law.target.local import LocalDirectoryTarget
-from law.util import no_value, NoValue, colored, flatten, map_struct, is_lazy_iterable
-from law.logger import get_logger
-from law._types import Any, Iterator, Callable, Sequence, Generator
-
+from law.target.mirrored import MirroredDirectoryTarget, MirroredTarget
+from law.util import NoValue, colored, flatten, is_lazy_iterable, map_struct, no_value
 
 logger = get_logger(__name__)
 
@@ -67,6 +70,7 @@ class TargetCollection(Target):
         self.remove_threads = remove_threads
 
         # store flat targets per element in the input structure of targets
+        self._flat_targets: list | tuple | dict
         if isinstance(targets, (list, tuple)):
             self._flat_targets = targets.__class__(flatten(t) for t in targets)
         else:  # dict
@@ -93,10 +97,10 @@ class TargetCollection(Target):
         return kwargs
 
     def _repr_pairs(self) -> list[tuple[str, Any]]:
-        pairs = super()._repr_pairs() + [("len", len(self))]
+        pairs = [*super()._repr_pairs(), ("len", len(self))]
 
         # add non-default attributes
-        if self.threshold != 1.0:
+        if self.threshold != 1.0:  # noqa: RUF069
             pairs.append(("threshold", self.threshold))
         if self.optional_existing is not None:
             pairs.append(("optional_existing", self.optional_existing))
@@ -105,24 +109,24 @@ class TargetCollection(Target):
 
     def _iter_flat(self) -> Iterator[tuple[Any, Any]]:
         # prepare the generator for looping
+        gen: Iterable
         if isinstance(self._flat_targets, (list, tuple)):
             gen = enumerate(self._flat_targets)
         else:  # dict
             gen = self._flat_targets.items()
 
-        # loop and yield
-        for key, targets in gen:
-            yield (key, targets)
+        yield from gen
 
     def _iter_state(
         self,
         *,
         existing: bool | None = True,
-        optional_existing: bool | None | NoValue = no_value,
+        optional_existing: bool | NoValue | None = no_value,
         keys: bool = False,
+        state: bool = False,
         unpack: bool = True,
         exists_func: Callable[[Target], bool] | None = None,
-    ) -> Iterator[tuple[Any, Any] | Any]:
+    ) -> Iterator[Any | tuple[Hashable, Any] | tuple[Any, bool] | tuple[Hashable, Any, bool]]:
         if existing is not None:
             existing = bool(existing)
         if optional_existing is no_value:
@@ -139,18 +143,33 @@ class TargetCollection(Target):
 
         # loop and yield
         for key, targets in self._iter_flat():
-            if existing is None or all(map(exists_func, targets)) is existing:  # type: ignore[arg-type] # noqa
+            exists = all(map(exists_func, targets)) if existing is not None or state else None  # type: ignore[arg-type]
+            if existing is None or exists is existing:
                 if unpack:
                     targets = self.targets[key]
-                yield (key, targets) if keys else targets
+                obj = (targets,)
+                if keys:
+                    obj = (key, *obj)  # type: ignore[assignment]
+                if state:
+                    obj = (*obj, exists)  # type: ignore[assignment]
+                yield obj[0] if len(obj) == 1 else obj
 
-    def iter_existing(self, **kwargs) -> Iterator[tuple[Any, Any] | Any]:
+    def iter_existing(
+        self,
+        **kwargs,
+    ) -> Iterator[Any | tuple[Hashable, Any] | tuple[Any, bool] | tuple[Hashable, Any, bool]]:
         return self._iter_state(existing=True, **kwargs)
 
-    def iter_missing(self, **kwargs) -> Iterator[tuple[Any, Any] | Any]:
+    def iter_missing(
+        self,
+        **kwargs,
+    ) -> Iterator[Any | tuple[Hashable, Any] | tuple[Any, bool] | tuple[Hashable, Any, bool]]:
         return self._iter_state(existing=False, **kwargs)
 
-    def iter_all(self, **kwargs) -> Iterator[tuple[Any, Any] | Any]:
+    def iter_all(
+        self,
+        **kwargs,
+    ) -> Iterator[Any | tuple[Hashable, Any] | tuple[Any, bool] | tuple[Hashable, Any, bool]]:
         return self._iter_state(existing=None, **kwargs)
 
     def keys(self) -> list[Any]:
@@ -189,13 +208,12 @@ class TargetCollection(Target):
 
         # target generator
         def target_gen():
-            for target in self._flat_target_list:
-                yield target
+            yield from self._flat_target_list
 
         # parallel or sequential removal
         removed_any = False
         if threads > 0:
-            with ThreadPool(threads) as pool:
+            with multiprocessing.pool.ThreadPool(threads) as pool:
                 removed_any |= any(pool.map(remove, target_gen()))
         else:
             for target in target_gen():
@@ -227,9 +245,12 @@ class TargetCollection(Target):
             return True
 
         # simple counting with early stopping criteria for both success and fail cases
+        kwargs["keys"] = False
+        kwargs["state"] = True
         n = 0
-        for i, _ in enumerate(self.iter_existing(**kwargs)):
-            n += 1
+        for i, (_, exists) in enumerate(self.iter_all(**kwargs)):  # type: ignore[misc]
+            if exists:
+                n += 1
 
             # check for early success
             if n >= threshold:
@@ -245,7 +266,7 @@ class TargetCollection(Target):
         # simple counting of keys
         keys = kwargs.get("keys", False)
         kwargs["keys"] = True
-        target_keys = [key for key, _ in self._iter_state(**kwargs)]
+        target_keys = [ret[0] for ret in self._iter_state(**kwargs)]
 
         n = len(target_keys)
         return (n, target_keys) if keys else n
@@ -283,11 +304,7 @@ class TargetCollection(Target):
             text += f", missing branches: {','.join(missing_keys)}"
 
         if max_depth > 0:
-            if isinstance(self.targets, (list, tuple)):
-                gen = enumerate(self.targets)
-            else:  # dict
-                gen = self.targets.items()
-
+            gen = enumerate(self.targets) if isinstance(self.targets, (list, tuple)) else self.targets.items()
             for key, item in gen:
                 text += f"\n{key}: "
 
@@ -345,9 +362,9 @@ class SiblingFileCollectionBase(FileCollection):
     @classmethod
     def _exists_in_basenames(
         cls,
-        target: FileSystemTarget,
+        target: FileSystemTarget | FileCollection,
         basenames: set[str] | dict[str, set[str]] | None,
-        optional_existing: bool | None | NoValue,
+        optional_existing: bool | NoValue | None,
         target_dirs: dict[Target, str] | None,
     ) -> bool:
         if optional_existing not in (None, no_value) and target.optional:
@@ -391,13 +408,12 @@ class SiblingFileCollectionBase(FileCollection):
         # target generator
         def target_gen():
             for targets in self.iter_existing(unpack=False):
-                for target in targets:
-                    yield target
+                yield from targets
 
         # parallel or sequential removal
         removed_any = False
         if threads > 0:
-            with ThreadPool(threads) as pool:
+            with multiprocessing.pool.ThreadPool(threads) as pool:
                 removed_any |= any(pool.map(remove, target_gen()))
         else:
             for target in target_gen():
@@ -454,18 +470,19 @@ class SiblingFileCollection(SiblingFileCollectionBase):
     def _repr_pairs(self) -> list[tuple[str, Any]]:
         expand = Config.instance().get_expanded_bool("target", "expand_path_repr")
         dir_path = self.dir.path if expand else self.dir.unexpanded_path
-        return TargetCollection._repr_pairs(self) + [("fs", self.dir.fs.name), ("dir", dir_path)]
+        return [*TargetCollection._repr_pairs(self), ("fs", self.dir.fs.name), ("dir", dir_path)]
 
     def _iter_state(
         self,
         *,
         existing: bool | None = True,
-        optional_existing: bool | None | NoValue = no_value,
+        optional_existing: bool | NoValue | None = no_value,
         basenames: Sequence[str] | set[str] | None = None,
         keys: bool = False,
+        state: bool = False,
         unpack: bool = True,
         exists_func: Callable[[Target], bool] | None = None,
-    ) -> Iterator[tuple[Any, Any] | Any]:
+    ) -> Iterator[Any | tuple[Hashable, Any] | tuple[Any, bool] | tuple[Hashable, Any, bool]]:
         # the directory must exist
         if not self.dir.exists():
             return
@@ -492,10 +509,16 @@ class SiblingFileCollection(SiblingFileCollectionBase):
 
         # loop and yield
         for key, targets in self._iter_flat():
-            if existing is None or all(map(exists_func, targets)) is existing:  # type: ignore[arg-type] # noqa
+            exists = all(map(exists_func, targets)) if existing is not None or state else None  # type: ignore[arg-type]
+            if existing is None or exists is existing:
                 if unpack:
                     targets = self.targets[key]
-                yield (key, targets) if keys else targets
+                obj = (targets,)
+                if keys:
+                    obj = (key, *obj)  # type: ignore[assignment]
+                if state:
+                    obj = (*obj, exists)  # type: ignore[assignment]
+                yield obj[0] if len(obj) == 1 else obj
 
     def _exists_fwd(self, **kwargs) -> bool:
         fwd = ["optional_existing", "basenames", "exists_func"]
@@ -522,7 +545,7 @@ class NestedSiblingFileCollection(SiblingFileCollectionBase):
         # some methods by grouping them into targets in the same physical directory
         self.collections: list[SiblingFileCollection] = []
         self._flat_target_dirs = {}
-        grouped_targets = defaultdict(list)
+        grouped_targets = collections.defaultdict(list)
         for t in flatten_collections(self._flat_target_list):
             grouped_targets[t.parent.uri()].append(t)  # type: ignore[attr-defined]
         for targets in grouped_targets.values():
@@ -534,18 +557,19 @@ class NestedSiblingFileCollection(SiblingFileCollectionBase):
                 self._flat_target_dirs[t] = collection.dir.abspath
 
     def _repr_pairs(self) -> list[tuple[str, Any]]:
-        return super()._repr_pairs() + [("collections", len(self.collections))]
+        return [*super()._repr_pairs(), ("collections", len(self.collections))]
 
     def _iter_state(
         self,
         *,
         existing: bool | None = True,
-        optional_existing: bool | None | NoValue = no_value,
+        optional_existing: bool | NoValue | None = no_value,
         basenames: dict[str, Sequence[str] | set[str]] | None = None,
         keys: bool = False,
+        state: bool = False,
         unpack: bool = True,
         exists_func: Callable[[Target], bool] | None = None,
-    ) -> Iterator[tuple[Any, Any] | Any]:
+    ) -> Iterator[Any | tuple[Hashable, Any] | tuple[Any, bool] | tuple[Hashable, Any, bool]]:
         if existing is not None:
             existing = bool(existing)
         if optional_existing is no_value:
@@ -571,10 +595,16 @@ class NestedSiblingFileCollection(SiblingFileCollectionBase):
 
         # loop and yield
         for key, targets in self._iter_flat():
-            if existing is None or all(map(exists_func, targets)) is existing:  # type: ignore[arg-type] # noqa
+            exists = all(map(exists_func, targets)) if existing is not None or state else None  # type: ignore[arg-type]
+            if existing is None or exists is existing:
                 if unpack:
                     targets = self.targets[key]
-                yield (key, targets) if keys else targets
+                obj = (targets,)
+                if keys:
+                    obj = (key, *obj)  # type: ignore[assignment]
+                if state:
+                    obj = (*obj, exists)  # type: ignore[assignment]
+                yield obj[0] if len(obj) == 1 else obj
 
     def _exists_fwd(self, **kwargs) -> bool:
         fwd = ["optional_existing", "basenames", "exists_func"]
@@ -587,14 +617,13 @@ def _target_path_in_dir(
 ) -> bool:
     # comparisons of dirnames are transparently possible for most target classes since their
     # paths are consistent, but implement a custom check for mirrored targets
+    target_absdir: str | None
     if not isinstance(target, FileSystemTarget):
         target_absdir = str(target)
+    elif isinstance(target, MirroredTarget):
+        target_absdir = target.remote_target.absdirname
     else:
-        target_absdir = (
-            target.remote_target
-            if isinstance(target, MirroredTarget)
-            else target
-        ).absdirname
+        target_absdir = target.absdirname
     if not isinstance(directory, FileSystemDirectoryTarget):
         dir_abspath = str(directory)
     else:
@@ -608,7 +637,7 @@ def _target_path_in_dir(
 
 
 def flatten_collections(*targets) -> list[Target]:
-    lookup = deque(flatten(targets))
+    lookup = collections.deque(flatten(targets))
     _targets: list[Target] = []
 
     while lookup:

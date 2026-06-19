@@ -63,7 +63,9 @@ dev = [
   "ipykernel~=6.31",
   "types-docutils~=0.22",
   "uniplot~=0.22",
-  "pre-commit~=4.3"
+  "pre-commit~=4.3",
+  "pyyaml~=6.0",
+  "types-pyyaml~=6.0",
 ]
 # pinned to 3.13, see .readthedocs.yaml
 docs = [
@@ -121,6 +123,7 @@ src = ["src", "tests", "examples"]
 preview = true
 ignore = [
   "PLR",  # design related pylint codes
+  "B901",  # return in generator
   "E402",  # imports at the top of the file
   "G004",  # logging statement uses f-string
   "I002",  # isort: "from __future__ import annotations"
@@ -161,6 +164,7 @@ select = [
   "UP",  # pyupgrade
   "YTT",  # flake8-2020
   "EXE",  # flake8-executable
+  "COM812",  # trailing commas
   "E303",  # too many blank lines
 ]
 unfixable = [
@@ -169,18 +173,12 @@ unfixable = [
 flake8-unused-arguments.ignore-variadic-names = true
 isort.required-imports = ["from __future__ import annotations"]
 
-# [tool.ruff.format]
-# quote-style = "double"
-# indent-style = "space"
-# line-ending = "auto"
-
 [tool.mypy]
 python_version = "3.9"
 strict = false
 files = ["src/law", "tests"]
 exclude = ["docs", "examples", "build", "local_tests"]
 disable_error_code = ["no-redef", "no-untyped-def", "valid-type", "method-assign"]
-# enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 warn_unreachable = true
 warn_redundant_casts = true
 warn_unused_ignores = true
@@ -190,7 +188,6 @@ ignore_missing_imports = true
 check_untyped_defs = true
 show_error_codes = true
 pretty = true
-explicit_package_bases = true
 
 [[tool.mypy.overrides]]
 module = ["tests.*"]

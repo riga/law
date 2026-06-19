@@ -122,7 +122,7 @@ class TaskInstanceParameter(Parameter):
     def serialize(self, x: Any) -> str:
         """"""
         if isinstance(x, Task):
-            return getattr(x, "live_task_id", x.task_id)  # type: ignore[return-value]
+            return str(getattr(x, "live_task_id", x.task_id))
         return str(x)
 
 

@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Local workflow implementation.
 """
@@ -8,17 +6,14 @@ from __future__ import annotations
 
 __all__ = ["LocalWorkflow"]
 
-from collections.abc import Generator
+import luigi
 
-import luigi  # type: ignore[import-untyped]
-
-from law.task.base import BaseTask
-from law.workflow.base import BaseWorkflow, BaseWorkflowProxy
-from law.target.collection import SiblingFileCollectionBase
+from law._types import Any, Callable, Generator, Iterator
 from law.logger import get_logger
-from law.util import mp_manager, DotDict
-from law._types import Any, Iterator, Callable
-
+from law.target.collection import SiblingFileCollectionBase
+from law.task.base import BaseTask
+from law.util import DotDict, mp_manager
+from law.workflow.base import BaseWorkflow, BaseWorkflowProxy
 
 logger = get_logger(__name__)
 
@@ -58,7 +53,7 @@ class LocalWorkflowProxy(BaseWorkflowProxy):
 
         return reqs
 
-    def run(self) -> None | Iterator[Any]:
+    def run(self) -> Iterator[Any] | None:
         """
         When *local_workflow_require_branches* of the task was set to *False*, starts all branch
         tasks via dynamic dependencies by yielding them in a list, or simply does nothing otherwise.
@@ -97,10 +92,9 @@ class LocalWorkflowProxy(BaseWorkflowProxy):
                         url = "https://luigi.readthedocs.io/en/stable/configuration.html#worker"
                         logger.warning_once(
                             "cache_task_completion_hint",
-                            "detected SiblingFileCollection for LocalWorkflow with {} branches "
-                            "whose completness checks will be performed manually by luigi; "
-                            "consider enabling luigi's cache_task_completion feature to speed "
-                            "up these checks; fore more info, see {}".format(len(reqs), url),
+                            f"detected SiblingFileCollection for LocalWorkflow with {len(reqs)} branches whose "
+                            "completness checks will be performed manually by luigi; consider enabling luigi's "
+                            f"cache_task_completion feature to speed up these checks; fore more info, see {url}",
                         )
                     return False
 

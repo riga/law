@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Workflow and workflow proxy base class definitions.
 """
@@ -7,32 +5,42 @@ Workflow and workflow proxy base class definitions.
 from __future__ import annotations
 
 __all__ = [
-    "BaseWorkflow", "WorkflowParameter", "workflow_property", "dynamic_workflow_condition",
+    "BaseWorkflow",
     "DynamicWorkflowCondition",
+    "WorkflowParameter",
+    "dynamic_workflow_condition",
+    "workflow_property",
 ]
 
-import re
 import copy
 import functools
-import itertools
 import inspect
-from collections import defaultdict
+import itertools
+import re
 from abc import abstractmethod
+from collections import defaultdict
 
-import luigi  # type: ignore[import-untyped]
+import luigi
 
-from law.task.base import Register, Task
-from law.task.proxy import ProxyTask, ProxyAttributeTask
+from law._types import Any, Callable, Iterator, Sequence
+from law.logger import get_logger
+from law.parameter import NO_STR, CSVParameter, MultiRangeParameter
 from law.target.collection import TargetCollection
 from law.target.local import LocalFileTarget
-from law.parameter import NO_STR, MultiRangeParameter, CSVParameter
+from law.task.base import Register, Task
+from law.task.proxy import ProxyAttributeTask, ProxyTask
 from law.util import (
-    NoValue, no_value, make_list, make_set, iter_chunks, range_expand, range_join, create_hash,
-    is_classmethod, DotDict,
+    DotDict,
+    NoValue,
+    create_hash,
+    is_classmethod,
+    iter_chunks,
+    make_list,
+    make_set,
+    no_value,
+    range_expand,
+    range_join,
 )
-from law.logger import get_logger
-from law._types import Any, Sequence, Callable, Iterator, Type
-
 
 logger = get_logger(__name__)
 
@@ -72,7 +80,7 @@ class BaseWorkflowProxy(ProxyTask):
                     run_func = self.run.__func__  # type: ignore[attr-defined]
                     for decorator in decorators:
                         run_func = decorator(run_func)
-                    self.run = run_func.__get__(self, self.__class__)  # type: ignore[method-assign]
+                    self.run = run_func.__get__(self, self.__class__)
                     break
 
         self._workflow_has_reset_branch_map = False
@@ -183,10 +191,10 @@ class BaseWorkflowProxy(ProxyTask):
         if n is None:
             n = len(task.get_branch_map())
 
-        acceptance: int | float = task.acceptance  # type: ignore[assignment]
+        acceptance: int | float = task.acceptance
         return (acceptance * n) if acceptance <= 1 else acceptance
 
-    def run(self) -> None | Iterator[Any]:
+    def run(self) -> Iterator[Any] | None:
         """
         Default run implementation that resets the branch map once if requested.
         """
@@ -311,7 +319,7 @@ def dynamic_workflow_condition(
     return decorator if condition_fn is None else decorator(condition_fn)
 
 
-class DynamicWorkflowCondition(object):
+class DynamicWorkflowCondition:
     """
     Container for a workflow method that defines whether the branch map can be dynamically
     constructed or whether a placeholder should be used until the condition is met. Similar to
@@ -388,7 +396,7 @@ class DynamicWorkflowCondition(object):
 
     def __init__(
         self,
-        condition_fn: Callable[[], bool],
+        condition_fn: Callable[[], bool] | None,
         create_branch_map_fn: Callable[[], Any] | None = None,
         requires_fn: Callable[[], Any] | None = None,
         requires_eager_fn: Callable[[], Any] | None = None,
@@ -424,7 +432,7 @@ class DynamicWorkflowCondition(object):
 
             # evaluate the condition
             task = inst.as_workflow() if self.condition_as_workflow else inst
-            is_met = self._condition_fn(task, *args, **kwargs)  # type: ignore[call-arg]
+            is_met = self._condition_fn(task, *args, **kwargs)  # type: ignore[call-arg,misc]
 
             # write to cache if requested
             if self.cache_met_condition and is_met:
@@ -452,7 +460,7 @@ class DynamicWorkflowCondition(object):
             # enable branch map caching since the condition is met
             inst.cache_branch_map = True
 
-            return self._create_branch_map_fn(inst, *args, **kwargs)
+            return self._create_branch_map_fn(inst, *args, **kwargs)  # type: ignore[call-arg,misc]
 
         return create_branch_map
 
@@ -477,13 +485,13 @@ class DynamicWorkflowCondition(object):
             if not bound_condition_fn():
                 # eager requirements if present
                 if self._requires_eager_fn is not None:
-                    return self._requires_eager_fn(inst, *args, **kwargs)
+                    return self._requires_eager_fn(inst, *args, **kwargs)  # type: ignore[call-arg]
                 return []
 
             # enable branch map caching since the condition is met
             inst.cache_branch_map = True
 
-            return self._requires_fn(inst, *args, **kwargs)
+            return self._requires_fn(inst, *args, **kwargs)  # type: ignore[call-arg,misc]
 
         return requires
 
@@ -494,7 +502,7 @@ class DynamicWorkflowCondition(object):
         @functools.wraps(self._requires_eager_fn)
         def requires_eager(inst, *args, **kwargs):
             # just forward the call
-            return self._requires_eager_fn(inst, *args, **kwargs)
+            return self._requires_eager_fn(inst, *args, **kwargs)  # type: ignore[call-arg,misc]
 
         return requires_eager
 
@@ -516,7 +524,7 @@ class DynamicWorkflowCondition(object):
             # enable branch map caching since the condition is met
             inst.cache_branch_map = True
 
-            return self._output_fn(inst, *args, **kwargs)
+            return self._output_fn(inst, *args, **kwargs)  # type: ignore[call-arg,misc]
 
         return output
 
@@ -752,7 +760,7 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
 
     # configuration members
     workflow_proxy_cls = BaseWorkflowProxy
-    output_collection_cls: Type[TargetCollection] | None = None
+    output_collection_cls: type[TargetCollection] | None = None
     force_contiguous_branches = False
     reset_branch_map_before_run = False
     create_branch_map_before_repr = False
@@ -802,14 +810,14 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
 
         # determine the default workflow type when not set
         if params.get("workflow") in [None, NO_STR]:
-            params["workflow"] = cls.find_workflow_cls().workflow_proxy_cls.workflow_type  # type: ignore[attr-defined] # noqa
+            params["workflow"] = cls.find_workflow_cls().workflow_proxy_cls.workflow_type  # type: ignore[attr-defined]
 
         # set the effective workflow parameter based on the actual resolution
         workflow_cls = cls.find_workflow_cls(
             name=params["workflow"],
             fallback_to_first=cls.passthrough_requested_workflow,
         )
-        params["effective_workflow"] = workflow_cls.workflow_proxy_cls.workflow_type  # type: ignore[attr-defined] # noqa
+        params["effective_workflow"] = workflow_cls.workflow_proxy_cls.workflow_type  # type: ignore[attr-defined]
 
         # resolve workflow parameters
         params = cls._resolve_workflow_parameters(params)
@@ -904,7 +912,7 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
         _branches: list[int] = []
         if all_set and not any_seq:
             values = tuple(value for _, _, value in workflow_params)
-            _branches = branch_map_reversed.get(values, [])  # type: ignore[union-attr]
+            _branches = branch_map_reversed.get(values, [])
             if len(_branches) == 0:
                 raise ValueError(
                     f"workflow parameters {wparams_repr()} do not match any branch in "
@@ -998,7 +1006,7 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
         for workflow_cls in inspect.getmro(cls):
             if not issubclass(workflow_cls, BaseWorkflow):
                 continue
-            if not workflow_cls._defined_workflow_proxy:  # type: ignore[attr-defined] # noqa
+            if not workflow_cls._defined_workflow_proxy:  # type: ignore[attr-defined]
                 continue
             if name in (workflow_cls.workflow_proxy_cls.workflow_type, None, NO_STR):
                 return workflow_cls
@@ -1080,7 +1088,7 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
             self._workflow_proxy: BaseWorkflowProxy | None = None
 
             # initially set branches
-            self._initial_branches: tuple = tuple(self.branches)  # type: ignore[arg-type]
+            self._initial_branches: tuple = tuple(self.branches)
 
         else:
             # caches
@@ -1097,8 +1105,8 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
         if self._workflow_initialized and not force:
             return
 
-        self._workflow_cls = self.find_workflow_cls(self.effective_workflow)  # type: ignore[arg-type] # noqa
-        self._workflow_proxy = self._workflow_cls.workflow_proxy_cls(task=self)  # type: ignore[attr-defined] # noqa
+        self._workflow_cls = self.find_workflow_cls(self.effective_workflow)
+        self._workflow_proxy = self._workflow_cls.workflow_proxy_cls(task=self)  # type: ignore[attr-defined]
         logger.debug(f"created workflow proxy instance of type '{self.effective_workflow}'")
 
         self._workflow_initialized = True
@@ -1249,7 +1257,7 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
 
             # get expanded branch values
             branches = range_expand(
-                list(self.branches),  # type: ignore[call-overload]
+                list(self.branches),
                 min_value=min_branch,
                 max_value=max_branch,
             )
@@ -1259,7 +1267,7 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
                 len(branches) == len(full_branch_map) and
                 set(branches) == set(full_branch_map)
             )
-            self.branches = () if use_all else tuple(range_join(branches))  # type: ignore[assignment] # noqa
+            self.branches = () if use_all else tuple(range_join(branches))  # type: ignore[assignment]
 
     def _reduce_branch_map(self, branch_map: dict[int, Any]) -> None:
         if self.is_branch():
@@ -1275,7 +1283,7 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
             max_branch = max(branches) + 1
 
             requested = range_expand(
-                list(self.branches),  # type: ignore[call-overload]
+                list(self.branches),
                 min_value=min_branch,
                 max_value=max_branch,
             )
@@ -1307,10 +1315,10 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
             # create a new branch map
             args = []
             if is_classmethod(self.create_branch_map, self.__class__):
-                params = dict(
-                    (param_name, getattr(self, param_name))
+                params = {
+                    param_name: getattr(self, param_name)
                     for param_name, _ in self.get_params()
-                )
+                }
                 args.append(params)
             branch_map = self.create_branch_map(*args)
 
@@ -1342,7 +1350,7 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
         if self.branch not in branch_map:
             raise ValueError(f"invalid branch '{self.branch}', not found in branch map")
 
-        return branch_map[self.branch]  # type: ignore[index]
+        return branch_map[self.branch]
 
     def get_branch_tasks(self, **kwargs) -> dict[int, BaseWorkflow]:
         """
@@ -1416,7 +1424,7 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
         # create a new workflow instance
         kwargs["_exclude"] = set(kwargs.get("_exclude", set())) | {"branches"}
         kwargs["_skip_task_excludes"] = True
-        wf = self.req_workflow(**kwargs)  # type: ignore[call-arg]
+        wf = self.req_workflow(**kwargs)
 
         # return its branch chunks
         return wf.get_branch_chunks(chunk_size)
@@ -1435,7 +1443,7 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
         if not self.branches:
             return f"{min(branch_map.keys())}To{max(branch_map.keys()) + 1}"
 
-        ranges: list[tuple[int] | tuple[int, int]] = range_join(list(branch_map.keys()))  # type: ignore[assignment] # noqa
+        ranges: list[tuple[int] | tuple[int, int]] = range_join(list(branch_map.keys()))  # type: ignore[assignment]
         if len(ranges) > max_ranges:
             return f"{len(ranges)}_ranges_{create_hash(ranges)}"
 
@@ -1518,7 +1526,7 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
             if m:
                 attr = "tolerance"
                 try:
-                    self.tolerance = float(m.group(3))  # type: ignore[assignment]
+                    self.tolerance = float(m.group(3))
                     value = self.tolerance
                 except ValueError as e:
                     value = e
@@ -1529,7 +1537,7 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
             if m:
                 attr = "acceptance"
                 try:
-                    self.acceptance = float(m.group(3))  # type: ignore[assignment]
+                    self.acceptance = float(m.group(3))
                     value = self.acceptance
                 except ValueError as e:
                     value = e

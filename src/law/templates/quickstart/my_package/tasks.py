@@ -7,7 +7,7 @@ import law
 
 class MyTask(law.Task):
 
-    def output(self) -> law.Target:
+    def output(self) -> law.LocalFileTarget:
         return law.LocalFileTarget("$QS_DATA/output.txt")
 
     def run(self) -> None:

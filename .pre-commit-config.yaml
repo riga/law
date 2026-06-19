@@ -20,17 +20,14 @@ repos:
     hooks:
       - id: ruff-check
 
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.19.1
-    hooks:
-      - id: mypy
-        files: src/law|tests
-        args: [--config-file=pyproject.toml, --no-warn-unused-ignores]
-        additional_dependencies:
-          - pytest
-
   - repo: local
     hooks:
+      - id: mypy
+        name: mypy
+        language: python
+        types_or: [python, pyi]
+        entry: mypy --show-error-codes
+
       - id: pytest
         name: pytest
         entry: pytest

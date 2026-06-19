@@ -672,7 +672,7 @@ def query_choice(
     length as *choices*. When *default* is not *None* it must be one of the choices and is used when
     the input is empty. When *lower* is *True*, the input is compared to the choices in lower case.
     """
-    choices: list[str] = [str(c) for c in choices]  # type: ignore[assignment]
+    choices: list[str] = [str(c) for c in choices]
     _choices = [c.lower() for c in choices] if lower else choices
 
     if default is not None and default not in choices:
@@ -1670,7 +1670,7 @@ def get_subprocess_pids(pid: int, recursive: bool = False, use_psutil: bool = Tr
     # check for psutil
     if use_psutil:
         try:
-            import psutil  # type: ignore[import-untyped]
+            import psutil
         except ImportError:
             use_psutil = False
 
@@ -1833,7 +1833,7 @@ def create_hash(inp: Any, length: int = 10, algo: str = "sha256", to_int: bool =
     return int(h, 16) if to_int else h
 
 
-def create_random_string(prefix: str = "", length: int = 10) -> str:
+def create_random_string(length: int = 10, prefix: str = "") -> str:
     """
     Creates and returns a random string consisting of *length* characters using a uuid4 hash. When
     *prefix* is given, the string will have the format ``<prefix>_<random_string>``.
@@ -2472,12 +2472,7 @@ class DotDict(dict):
     """
 
     def __class_getitem__(cls, types: tuple[type, type]) -> GenericAlias:
-        # python <3.9
-        if GenericAlias is str:
-            key_type, value_type = types
-            return f"{cls.__name__}[{key_type.__name__}, {value_type.__name__}]"  # type: ignore[return-value]
-
-        return GenericAlias(cls, types)  # type: ignore[call-overload, return-value]
+        return GenericAlias(cls, types)
 
     @classmethod
     def wrap(cls, *args, **kwargs) -> DotDict:
@@ -2485,7 +2480,8 @@ class DotDict(dict):
         Takes a dictionary *d* and recursively replaces it and all other nested dictionary types
         with :py:class:`DotDict`'s for deep attribute-style access.
         """
-        wrap = lambda d: cls((k, wrap(v)) for k, v in d.items()) if isinstance(d, dict) else d  # type: ignore[has-type]
+        wrap: Callable[[Any], DotDict]
+        wrap = lambda d: cls((k, wrap(v)) for k, v in d.items()) if isinstance(d, dict) else d
         return wrap(dict(*args, **kwargs))
 
     def __getattr__(self, attr: str) -> Any:
