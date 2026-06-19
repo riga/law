@@ -1,38 +1,48 @@
-# coding: utf-8
-
 """
 Custom luigi base task definitions.
 """
 
 from __future__ import annotations
 
-__all__ = ["Task", "WrapperTask", "ExternalTask"]
+__all__ = ["ExternalTask", "Task", "WrapperTask"]
 
+import abc
+import collections
+import contextlib
+import inspect
+import logging
+import pathlib
 import sys
 import time
-import pathlib
-import logging
-import contextlib
-import collections
-from abc import ABCMeta, abstractmethod
-import inspect
 
-import luigi  # type: ignore[import-untyped]
+import luigi
 
+from law._types import Any, Callable, Generator, Iterable, Iterator, Sequence, T, TextIO
 from law.config import Config
+from law.logger import get_logger, setup_logger
 from law.parameter import NO_STR, CSVParameter
+from law.parser import global_cmdline_values, root_task
 from law.target.file import localize_file_targets
 from law.target.local import LocalFileTarget
-from law.parser import root_task, global_cmdline_values
-from law.logger import setup_logger
 from law.util import (
-    no_value, abort, law_run, common_task_params, colored, uncolored, make_list, multi_match,
-    flatten, BaseStream, human_duration, patch_object, round_discrete, empty_context, make_set,
-    map_struct, mask_struct,
+    BaseStream,
+    abort,
+    colored,
+    common_task_params,
+    empty_context,
+    flatten,
+    human_duration,
+    law_run,
+    make_list,
+    make_set,
+    map_struct,
+    mask_struct,
+    multi_match,
+    no_value,
+    patch_object,
+    round_discrete,
+    uncolored,
 )
-from law.logger import get_logger
-from law._types import Any, Sequence, Iterator, Generator, Callable, Iterable, T, TextIO
-
 
 logger = get_logger(__name__)
 
@@ -65,7 +75,7 @@ class BaseRegister(luigi.task_register.Register):
                     cls_dict[exclude_attr] -= include_params
 
         # create the class, bypassing the luigi task register
-        cls: BaseRegister = ABCMeta.__new__(metacls, cls_name, bases, cls_dict)
+        cls: BaseRegister = abc.ABCMeta.__new__(metacls, cls_name, bases, cls_dict)
 
         # default attributes, apart from inheritance
         if getattr(cls, "update_register", None) is None:
@@ -79,7 +89,7 @@ class BaseRegister(luigi.task_register.Register):
         cls.modify_task_attributes()  # type: ignore[attr-defined]
 
         # add to register (mimic luigi.task_register.Register.__new__)
-        cls._namespace_at_class_time = metacls._get_namespace(cls.__module__)  # type: ignore[attr-defined] # noqa
+        cls._namespace_at_class_time = metacls._get_namespace(cls.__module__)  # type: ignore[attr-defined]
         metacls._reg.append(cls)
 
         return cls
@@ -98,7 +108,7 @@ class BaseTask(luigi.Task, metaclass=BaseRegister):
     cache_requirements = False
 
     @classmethod
-    def deregister(cls, task_cls: BaseRegister | None = None) -> bool:
+    def deregister(cls, task_cls: BaseRegister | str | None = None) -> bool:
         """
         Removes a task class *task_cls* from the luigi task register. When *None*, *this* class is
         used. Task family strings and patterns are accepted as well. *True* is returned when at
@@ -239,7 +249,7 @@ class BaseTask(luigi.Task, metaclass=BaseRegister):
             cls_args = []
             prefix = cls.get_task_family() + "_"
             if luigi.cmdline_parser.CmdlineParser.get_instance():
-                for key in (global_cmdline_values() or {}).keys():
+                for key in (global_cmdline_values() or {}):
                     if key.startswith(prefix):
                         cls_args.append(key[len(prefix):])
             for name in prefer_cli:
@@ -278,8 +288,8 @@ class BaseTask(luigi.Task, metaclass=BaseRegister):
 
         return luigi.task.getpaths(reqs)
 
-    @abstractmethod
-    def run(self) -> None | Iterator[Any]:
+    @abc.abstractmethod
+    def run(self) -> Iterator[Any] | None:
         ...
 
     def get_logger_name(self) -> str:
@@ -554,7 +564,7 @@ class Task(BaseTask, metaclass=Register):
 
         # set status message based on the full, current message cache
         if callable(getattr(self, "set_status_message", None)):
-            self.set_status_message("\n".join(self._message_cache))
+            self.set_status_message("\n".join(self._message_cache))  # type: ignore[misc]
         elif not silent:
             logger.warning("set_status_message not set, cannot send task message to scheduler")
 
@@ -599,7 +609,7 @@ class Task(BaseTask, metaclass=Register):
             self._last_progress_percentage = percentage
 
             if callable(getattr(self, "set_progress_percentage", None)):
-                self.set_progress_percentage(percentage)
+                self.set_progress_percentage(percentage)  # type: ignore[misc]
             else:
                 logger.warning(
                     "set_progress_percentage not set, cannot send task progress to scheduler",
@@ -607,10 +617,10 @@ class Task(BaseTask, metaclass=Register):
 
     def create_progress_callback(
         self,
-        n_total: int,
+        n_total: int | T[Sequence],
         reach: tuple[int, int] = (0, 100),
         precision: int = 1,
-    ) -> Callable[[int], None]:
+    ) -> Callable[[int], None] | T[Callable[[int], None]]:
         def make_callback(n, start, end) -> Callable[[int], None]:
             def callback(i: int) -> None:
                 self.publish_progress(start + (i + 1) / float(n) * (end - start), precision)
@@ -638,7 +648,7 @@ class Task(BaseTask, metaclass=Register):
         context = (lambda: self.publish_step(msg)) if msg else empty_context
 
         # iterate and invoke the callback
-        with context():  # type: ignore[operator]
+        with context():
             for i, val in enumerate(iterable):
                 yield val
                 progress_callback(i)
@@ -772,7 +782,7 @@ class Task(BaseTask, metaclass=Register):
             flat_args.extend([str(arg) for arg in make_list(_global_args)])
 
         # build the full command
-        cmd = [cls.get_task_family()] + flat_args
+        cmd = [cls.get_task_family(), *flat_args]
 
         # run it
         return law_run(cmd, **(_run_kwargs or {}))
@@ -846,7 +856,7 @@ class WrapperTask(Task):
             self._wrapper_has_run = False
 
     def _repr_flags(self) -> list[str]:
-        return super()._repr_flags() + ["wrapper"]
+        return [*super()._repr_flags(), "wrapper"]
 
     def complete(self) -> bool:
         if self.wrap_once:
@@ -869,7 +879,7 @@ class WrapperTask(Task):
         inputs = self.input()
         return mask_struct(map_struct(bool, inputs), inputs) or []
 
-    def run(self) -> None | Iterator[Any]:
+    def run(self) -> Iterator[Any] | None:
         if self.wrap_once:
             self._wrapper_has_run = True
 
@@ -883,7 +893,7 @@ class ExternalTask(Task):
     run = None  # type: ignore[assignment]
 
     def _repr_flags(self) -> list[str]:
-        return super()._repr_flags() + ["external"]
+        return [*super()._repr_flags(), "external"]
 
 
 class TaskMessageStream(BaseStream):
@@ -916,5 +926,9 @@ class TaskMessageStream(BaseStream):
 
 # trailing imports
 from law.task.interactive import (
-    print_task_deps, print_task_status, print_task_output, remove_task_output, fetch_task_output,
+    fetch_task_output,
+    print_task_deps,
+    print_task_output,
+    print_task_status,
+    remove_task_output,
 )

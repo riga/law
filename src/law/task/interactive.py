@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Functions that are invoked by interactive task methods.
 """
@@ -7,26 +5,39 @@ Functions that are invoked by interactive task methods.
 from __future__ import annotations
 
 __all__ = [
-    "print_task_deps", "print_task_status", "print_task_output", "remove_task_output",
     "fetch_task_output",
+    "print_task_deps",
+    "print_task_output",
+    "print_task_status",
+    "remove_task_output",
 ]
 
 import os
-import re
 import pathlib
+import re
 
-from law.config import Config
-from law.task.base import Task, ExternalTask
-from law.target.base import Target
-from law.target.file import FileSystemTarget
-from law.target.collection import TargetCollection, FileCollection
-from law.util import (
-    colored, uncolored, uncolor_cre, flatten, flag_to_bool, query_choice, human_bytes,
-    is_lazy_iterable, make_list, merge_dicts, makedirs, get_terminal_width, multi_match,
-)
-from law.logger import get_logger
 from law._types import Any, Iterator
-
+from law.config import Config
+from law.logger import get_logger
+from law.target.base import Target
+from law.target.collection import FileCollection, TargetCollection
+from law.target.file import FileSystemTarget
+from law.task.base import ExternalTask, Task
+from law.util import (
+    colored,
+    flag_to_bool,
+    flatten,
+    get_terminal_width,
+    human_bytes,
+    is_lazy_iterable,
+    make_list,
+    makedirs,
+    merge_dicts,
+    multi_match,
+    query_choice,
+    uncolor_cre,
+    uncolored,
+)
 
 logger = get_logger(__name__)
 
@@ -213,7 +224,7 @@ def print_task_deps(task: Task, stopping_condition: int | str = 1) -> None:
         text_offset += f"{fmt['|'] if next_deps_shown else ' '}{text_prefix}"
 
         # print the task line
-        _print(task_offset + task_prefix + dep.repr(color=True), text_offset)  # type: ignore[union-attr] # noqa
+        _print(task_offset + task_prefix + dep.repr(color=True), text_offset)  # type: ignore[union-attr]
 
 
 def print_task_status(
@@ -298,7 +309,7 @@ def print_task_status(
         text_offset_ind = text_offset + int(fmt["ind"]) * " "
 
         # print the task line
-        _print(task_offset + task_prefix + dep.repr(color=True), text_offset)  # type: ignore[union-attr] # noqa
+        _print(task_offset + task_prefix + dep.repr(color=True), text_offset)  # type: ignore[union-attr]
 
         # skip if already seen
         if skip_seen and dep in done:
@@ -343,7 +354,7 @@ def print_task_output(task: Task, stopping_condition: int | str = 0, scheme: boo
 
     done_deps = set()
     done_uris = set()
-    for dep, next_deps, depth in task.walk_deps(max_depth=max_depth, order="pre"):  # type: ignore[misc] # noqa
+    for dep, next_deps, _ in task.walk_deps(max_depth=max_depth, order="pre"):  # type: ignore[misc]
         if dep in done_deps:
             continue
         done_deps.add(dep)
@@ -461,7 +472,7 @@ def remove_task_output(
         text_offset_ind = text_offset + int(fmt["ind"]) * " "
 
         # print the task line
-        _print(task_offset + task_prefix + dep.repr(color=True), text_offset)  # type: ignore[union-attr] # noqa
+        _print(task_offset + task_prefix + dep.repr(color=True), text_offset)  # type: ignore[union-attr]
 
         # always skip external tasks
         if isinstance(dep, ExternalTask):
@@ -544,7 +555,7 @@ def remove_task_output(
 def fetch_task_output(
     task: Task,
     stopping_condition: int | str = 0,
-    mode: str | None = None,
+    mode: str | int | None = None,
     target_dir: str | pathlib.Path = ".",
     unique_names: bool = True,
     include_external: bool = False,
@@ -649,7 +660,7 @@ def fetch_task_output(
         text_offset_ind = text_offset + int(fmt["ind"]) * " "
 
         # print the task line
-        _print(task_offset + task_prefix + dep.repr(color=True), text_offset)  # type: ignore[union-attr] # noqa
+        _print(task_offset + task_prefix + dep.repr(color=True), text_offset)  # type: ignore[union-attr]
 
         if not include_external and isinstance(dep, ExternalTask):
             _print(text_offset_ind + colored("task is external", "yellow"), text_offset_ind)
@@ -680,7 +691,7 @@ def fetch_task_output(
         ):
             try:
                 stat = output.stat()  # type: ignore[attr-defined]
-            except:
+            except Exception:
                 stat = None
 
             # print the target repr
@@ -757,7 +768,7 @@ def fetch_task_output(
                     basename = f"{dep.live_task_id}__{basename}"
 
                 # copy and log
-                outp.copy_to_local(os.path.join(target_dir, basename), retries=0)  # type: ignore[attr-defined] # noqa
+                outp.copy_to_local(os.path.join(target_dir, basename), retries=0)  # type: ignore[attr-defined]
                 _print(
                     ooffset + f"{colored('fetched', 'green', style='bright')} ({basename})",
                     ooffset,

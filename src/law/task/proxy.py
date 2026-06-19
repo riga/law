@@ -1,21 +1,18 @@
-# coding: utf-8
-
 """
 Proxy task definition and helpers.
 """
 
 from __future__ import annotations
 
-__all__ = ["ProxyTask", "ProxyCommand", "get_proxy_attribute"]
+__all__ = ["ProxyCommand", "ProxyTask", "get_proxy_attribute"]
 
 import shlex
 
-from law.task.base import BaseRegister, BaseTask, Task
+from law._types import Any, Sequence
 from law.parameter import TaskInstanceParameter
 from law.parser import global_cmdline_args
+from law.task.base import BaseRegister, BaseTask, Task
 from law.util import quote_cmd
-from law._types import Any, Sequence
-
 
 _forward_workflow_attributes = {"requires", "output", "complete", "run"}
 
@@ -58,7 +55,7 @@ class ProxyAttributeTask(Task):
         return get_proxy_attribute(ProxyAttributeTask, self, attr, proxy=proxy)
 
 
-class ProxyCommand(object):
+class ProxyCommand:
 
     arg_sep = "__law_arg_sep__"
 
@@ -120,7 +117,7 @@ class ProxyCommand(object):
             exe = list(executable)
         elif executable:
             exe = shlex.split(str(executable))
-        return exe + ["run", f"{self.task.__module__}.{self.task.__class__.__name__}"]
+        return [*exe, "run", f"{self.task.__module__}.{self.task.__class__.__name__}"]
 
     def build(self, skip_run: bool = False, executable: str | Sequence[str] | None = None) -> str:
         # start with the run command
@@ -177,5 +174,5 @@ def get_proxy_attribute(
 
 
 # trailing imports
-from law.workflow.base import BaseWorkflow
 from law.sandbox.base import SandboxTask
+from law.workflow.base import BaseWorkflow
