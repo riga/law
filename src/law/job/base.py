@@ -1,45 +1,53 @@
-# coding: utf-8
-
 """
 Base classes for implementing remote job management and job file creation.
 """
 
 from __future__ import annotations
 
-__all__ = ["BaseJobManager", "BaseJobFileFactory", "JobArguments", "JobInputFile"]
+__all__ = ["BaseJobFileFactory", "BaseJobManager", "JobArguments", "JobInputFile"]
 
+import abc
+import base64
+import collections
+import copy
+import fnmatch
+import json
+import multiprocessing.pool
 import os
-import time
+import pathlib
+import re
 import shutil
 import tempfile
-import fnmatch
-import base64
-import copy
-import re
-import json
-import pathlib
-from collections import defaultdict
-from multiprocessing.pool import ThreadPool, AsyncResult
-from threading import Lock
-from abc import ABCMeta, abstractmethod
+import threading
+import time
 
-from law.task.base import Task
-from law.target.file import get_scheme, get_path
+from law._types import Any, Callable, Hashable, Sequence, T, TracebackType
+from law.config import Config
+from law.logger import get_logger
+from law.target.file import get_path, get_scheme
 from law.target.local import LocalFileTarget
 from law.target.remote.base import RemoteTarget
-from law.config import Config
+from law.task.base import Task
 from law.util import (
-    colored, make_list, make_tuple, iter_chunks, makedirs, create_hash, increment_path,
-    create_random_string, kill_process, NoValue, no_value, which, multi_match,
+    NoValue,
+    colored,
+    create_hash,
+    create_random_string,
+    increment_path,
+    iter_chunks,
+    kill_process,
+    make_list,
+    make_tuple,
+    makedirs,
+    multi_match,
+    no_value,
+    which,
 )
-from law.logger import get_logger
-from law._types import Any, Callable, Hashable, Sequence, TracebackType, Type, T
-
 
 logger = get_logger(__name__)
 
 _timeout_command: NoValue | str | None = no_value
-_timeout_lock = Lock()
+_timeout_lock = threading.Lock()
 
 
 def get_timeout_command() -> str | None:
@@ -59,21 +67,20 @@ def get_timeout_command() -> str | None:
     return _timeout_command  # type: ignore[return-value]
 
 
-def get_async_result_silent(result: AsyncResult, timeout: int | float | None = None) -> Any:
+def get_async_result_silent(result: multiprocessing.pool.AsyncResult, timeout: int | float | None = None) -> Any:
     """
     Calls the ``get([timeout])`` method of an `AsyncResult
     <https://docs.python.org/latest/library/multiprocessing.html#multiprocessing.pool.AsyncResult>`__
     object *result* and returns its value. The only difference is that potentially raised exceptions
     are returned instead of re-raised.
-
-    """  # noqa
+    """
     try:
         return result.get(timeout)
     except Exception as e:
         return e
 
 
-class BaseJobManager(object, metaclass=ABCMeta):
+class BaseJobManager(metaclass=abc.ABCMeta):
     """
     Base class that defines how remote jobs are submitted, queried, cancelled and cleaned up. It
     also defines the most common job states:
@@ -236,7 +243,7 @@ class BaseJobManager(object, metaclass=ABCMeta):
         Returns a dictionay that describes the status of a job given its *job_id*, *status*, return
         *code*, *error*, and additional *extra* data.
         """
-        return dict(job_id=job_id, status=status, code=code, error=error, extra=extra)
+        return {"job_id": job_id, "status": status, "code": code, "error": error, "extra": extra}
 
     @classmethod
     def cast_job_id(cls, job_id: Any) -> Any:
@@ -260,7 +267,7 @@ class BaseJobManager(object, metaclass=ABCMeta):
                 raise Exception("cannot prepend timeout command, no suitable command detected on system")
             return cmd
 
-        return [timeout_cmd, "--preserve-status", "--signal={}".format(signal), str(duration)] + cmd
+        return [timeout_cmd, "--preserve-status", f"--signal={signal}", str(duration), *cmd]
 
     def __init__(
         self,
@@ -276,7 +283,7 @@ class BaseJobManager(object, metaclass=ABCMeta):
 
         self.last_counts = [0] * len(self.status_names)
 
-    @abstractmethod
+    @abc.abstractmethod
     def submit(self) -> Any:
         """
         Abstract atomic or group job submission.
@@ -285,7 +292,7 @@ class BaseJobManager(object, metaclass=ABCMeta):
         """
         ...
 
-    @abstractmethod
+    @abc.abstractmethod
     def cancel(self) -> dict[Any, Any]:
         """
         Abstract atomic or group job cancellation.
@@ -294,7 +301,7 @@ class BaseJobManager(object, metaclass=ABCMeta):
         """
         ...
 
-    @abstractmethod
+    @abc.abstractmethod
     def cleanup(self) -> dict[Any, Any]:
         """
         Abstract atomic or group job cleanup.
@@ -303,7 +310,7 @@ class BaseJobManager(object, metaclass=ABCMeta):
         """
         ...
 
-    @abstractmethod
+    @abc.abstractmethod
     def query(self) -> dict[Any, Any]:
         """
         Abstract atomic or group job status query.
@@ -364,7 +371,7 @@ class BaseJobManager(object, metaclass=ABCMeta):
             return wrapper
 
         # threaded processing
-        pool = ThreadPool(threads)
+        pool = multiprocessing.pool.ThreadPool(threads)
         kwargs["_processes"] = []
         results = [
             pool.apply_async(func, (arg,), kwargs, callback=cb_factory(i))
@@ -542,7 +549,7 @@ class BaseJobManager(object, metaclass=ABCMeta):
     def _apply_group(
         self,
         func: Callable,
-        result_type: Type[T],
+        result_type: type[T],
         group_func: Callable[[list[Any]], dict[Hashable, list[Any]]],
         job_objs: list[Any],
         threads: int | None = None,
@@ -569,7 +576,7 @@ class BaseJobManager(object, metaclass=ABCMeta):
             return wrapper
 
         # threaded processing
-        pool = ThreadPool(threads)
+        pool = multiprocessing.pool.ThreadPool(threads)
         kwargs["_processes"] = []
         results = [
             pool.apply_async(func, make_tuple(arg), kwargs, callback=cb_factory(i))
@@ -591,7 +598,7 @@ class BaseJobManager(object, metaclass=ABCMeta):
                 if isinstance(result_data, list):
                     result_data.append(data if isinstance(data, Exception) else data[i])
                 else:
-                    result_data[job_obj] = data if isinstance(data, Exception) else data[job_obj]  # type: ignore[index] # noqa
+                    result_data[job_obj] = data if isinstance(data, Exception) else data[job_obj]  # type: ignore[index]
 
         return result_data
 
@@ -619,7 +626,7 @@ class BaseJobManager(object, metaclass=ABCMeta):
         """
         # in order to use the generic grouping mechanism in _apply_group create a trivial group_func
         def group_func(job_files: list[Any]) -> dict[Hashable, list[Any]]:
-            groups = defaultdict(list)
+            groups = collections.defaultdict(list)
             for job_file in job_files:
                 groups[job_file].append(job_file)
             return groups
@@ -822,7 +829,7 @@ class BaseJobManager(object, metaclass=ABCMeta):
         return line
 
 
-class BaseJobFileFactory(object, metaclass=ABCMeta):
+class BaseJobFileFactory(metaclass=abc.ABCMeta):
     """
     Base class that handles the creation of job files. It is likely that inheriting classes only
     need to implement the :py:meth:`create` method as well as extend the constructor to handle
@@ -874,7 +881,7 @@ class BaseJobFileFactory(object, metaclass=ABCMeta):
 
     render_key_cre = re.compile(r"\{\{(\w+)\}\}")
 
-    class Config(object):
+    class Config:
 
         def __repr__(self) -> str:
             return repr(self.__dict__)
@@ -937,7 +944,7 @@ class BaseJobFileFactory(object, metaclass=ABCMeta):
         self.custom_log_file = str(custom_log_file) if custom_log_file else None
 
         # locks for thread-safe file operations
-        self.file_locks: dict[str, Lock] = defaultdict(Lock)
+        self.file_locks: dict[str, threading.Lock] = collections.defaultdict(threading.Lock)
 
     def __del__(self) -> None:
         self.cleanup_dir(force=False)
@@ -1116,9 +1123,9 @@ class BaseJobFileFactory(object, metaclass=ABCMeta):
         src = str(src)
         dst = str(src)
         if not os.path.isfile(src):
-            raise IOError(f"source file for rendering does not exist: {src}")
+            raise OSError(f"source file for rendering does not exist: {src}")
 
-        with open(src, "r") as f:
+        with open(src, encoding="utf-8") as f:
             try:
                 content = f.read()
             except UnicodeDecodeError:
@@ -1138,7 +1145,7 @@ class BaseJobFileFactory(object, metaclass=ABCMeta):
         # finally, replace all non-rendered keys with empty strings
         content = cls.render_key_cre.sub("", content)
 
-        with open(dst, "w") as f:
+        with open(dst, "w", encoding="utf-8") as f:
             f.write(content)
 
     @classmethod
@@ -1151,8 +1158,8 @@ class BaseJobFileFactory(object, metaclass=ABCMeta):
 
         # replace more than three X's with random characters
         if "XXX" in path:
-            repl = lambda m: create_random_string(l=len(m.group(1)))
-            path = re.sub("(X{3,})", repl, path)
+            repl = lambda m: create_random_string(len(m.group(1)))
+            path = re.sub(r"(X{3,})", repl, path)
 
         # replace variables
         if variables:
@@ -1253,7 +1260,7 @@ class BaseJobFileFactory(object, metaclass=ABCMeta):
         if isinstance(self.dir, str) and os.path.exists(self.dir):
             shutil.rmtree(self.dir)
 
-    @abstractmethod
+    @abc.abstractmethod
     def create(self, **kwargs) -> tuple[str, Config]:
         """
         Abstract job file creation method that must be implemented by inheriting classes.
@@ -1261,7 +1268,7 @@ class BaseJobFileFactory(object, metaclass=ABCMeta):
         ...
 
 
-class JobArguments(object):
+class JobArguments:
     """
     Wrapper class for job arguments. Currently, it stores a task class *task_cls*, a list of
     *task_params*, a list of covered *branches*, an *auto_retry* flag, and custom *dashboard_data*.
@@ -1309,7 +1316,7 @@ class JobArguments(object):
     def __init__(
         self,
         *,
-        task_cls: Type[Task],
+        task_cls: type[Task],
         task_params: str,
         branches: list[int],
         workers: int = 1,
@@ -1326,27 +1333,27 @@ class JobArguments(object):
         self.dashboard_data: dict[str, Any] = dashboard_data or {}
 
     @classmethod
-    def encode_bool(cls, b: bool) -> str:
+    def encode_bool(cls, value: bool, /) -> str:
         """
-        Encodes a boolean *b* into a string (``"yes"`` or ``"no"``).
+        Encodes a boolean *value* into a string (``"yes"`` or ``"no"``).
         """
-        return "yes" if b else "no"
+        return "yes" if value else "no"
 
     @classmethod
-    def encode_string(cls, s: str) -> str:
+    def encode_string(cls, value: str, /) -> str:
         """
-        Encodes a string *s* via base64 encoding.
+        Encodes a string *value* via base64 encoding.
         """
-        encoded = base64.b64encode((s or "-").encode("utf-8"))
+        encoded = base64.b64encode((value or "-").encode("utf-8"))
         return encoded.decode("utf-8")
 
     @classmethod
-    def encode_list(cls, l: list[Any]) -> str:
+    def encode_list(cls, value: list[Any], /) -> str:
         """
-        Encodes a list *l* into a string via base64 encoding.
+        Encodes a list *value* into a string via base64 encoding.
         """
         # none of the elements in l must have a space in their string representation
-        l_str = list(map(str, l))
+        l_str = list(map(str, value))
         for s in l_str:
             if " " in s:
                 raise ValueError(f"cannot encode list element containing spaces: {l_str}")
@@ -1355,12 +1362,11 @@ class JobArguments(object):
         return encoded.decode("utf-8")
 
     @classmethod
-    def encode_dict(cls, d: dict) -> str:
+    def encode_dict(cls, value: dict, /) -> str:
         """
-        Encodes a dict *d* into a string representation "key1=value1 key2=value2" via base64
-        encoding.
+        Encodes a dict *value* into a string representation "key1=value1 key2=value2" via base64 encoding.
         """
-        return cls.encode_list([f"{k}={v}" for k, v in d.items()])
+        return cls.encode_list([f"{k}={v}" for k, v in value.items()])
 
     def get_args(self) -> list[str]:
         """
@@ -1385,7 +1391,7 @@ class JobArguments(object):
         return " ".join(map(str, self.get_args()))
 
 
-class JobInputFile(object):
+class JobInputFile:  # noqa: PLW1641
     """
     Wrapper around a *path* referring to an input file of a job, accompanied by optional flags that
     control how the file should be handled during job submission (mostly within
@@ -1498,14 +1504,14 @@ class JobInputFile(object):
 
         # when path is a job file instance itself, use its values instead
         if isinstance(path, JobInputFile):
-            copy = path.copy  # type: ignore[has-type]
-            share = path.share  # type: ignore[has-type]
-            forward = path.forward  # type: ignore[has-type]
-            increment = path.increment  # type: ignore[has-type]
-            postfix = path.postfix  # type: ignore[has-type]
-            render_local = path.render_local  # type: ignore[has-type]
-            render_job = path.render_job  # type: ignore[has-type]
-            path = path.path  # type: ignore[has-type]
+            copy = path.copy
+            share = path.share
+            forward = path.forward
+            increment = path.increment
+            postfix = path.postfix
+            render_local = path.render_local
+            render_job = path.render_job
+            path = path.path
 
         # path must not be a remote file target
         if isinstance(path, RemoteTarget):
@@ -1550,14 +1556,14 @@ class JobInputFile(object):
             render_local = maybe_set(render_local, False)
 
         # store attributes, apply residual defaults
-        self.path = os.path.abspath(os.path.expandvars(os.path.expanduser(get_path(path))))
-        self.copy = True if copy is None else bool(copy)
-        self.share = False if share is None else bool(share)
-        self.forward = False if forward is None else bool(forward)
-        self.increment = False if increment is None else bool(increment)
-        self.postfix = True if postfix is None else bool(postfix)
-        self.render_local = True if render_local is None else bool(render_local)
-        self.render_job = False if render_job is None else bool(render_job)
+        self.path: str = os.path.abspath(os.path.expandvars(os.path.expanduser(get_path(path))))
+        self.copy: bool = True if copy is None else bool(copy)
+        self.share: bool = False if share is None else bool(share)
+        self.forward: bool = False if forward is None else bool(forward)
+        self.increment: bool = False if increment is None else bool(increment)
+        self.postfix: bool = True if postfix is None else bool(postfix)
+        self.render_local: bool = True if render_local is None else bool(render_local)
+        self.render_job: bool = False if render_job is None else bool(render_job)
 
         # some residual attribute checks
         if not self.copy and self.postfix:

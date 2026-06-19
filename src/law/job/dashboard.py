@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Definition of the job dashboard interface.
 """
@@ -8,12 +6,12 @@ from __future__ import annotations
 
 __all__ = ["BaseJobDashboard", "NoJobDashboard", "cache_by_status"]
 
-import time
+import abc
+import contextlib
 import functools
-from contextlib import contextmanager
-from abc import ABCMeta, abstractmethod
+import time
 
-from law._types import Callable, Any, Iterator
+from law._types import Any, Callable, Iterator
 
 
 def cache_by_status(
@@ -44,7 +42,7 @@ def cache_by_status(
 _cache_by_status_impl = cache_by_status
 
 
-class BaseJobDashboard(object, metaclass=ABCMeta):
+class BaseJobDashboard(metaclass=abc.ABCMeta):
     """
     Base class of a minimal job dashboard interface that is used from within
     :py:class:`law.workflow.remote.BaseRemoteWorkflow`'s.
@@ -64,8 +62,6 @@ class BaseJobDashboard(object, metaclass=ABCMeta):
         Maximum number of events that can be published per second. :py:meth:`rate_guard` uses this
         value to delay function calls.
     """
-
-    cache_by_status = None
 
     persistent_attributes: list[str] = []
 
@@ -99,7 +95,7 @@ class BaseJobDashboard(object, metaclass=ABCMeta):
             if hasattr(self, attr):
                 setattr(self, attr, value)
 
-    @contextmanager
+    @contextlib.contextmanager
     def rate_guard(self) -> Iterator[None]:
         """
         Context guard that ensures that decorated contexts are delayed in order to limit the number
@@ -148,7 +144,7 @@ class BaseJobDashboard(object, metaclass=ABCMeta):
         """
         return None
 
-    @abstractmethod
+    @abc.abstractmethod
     def map_status(self, job_status: str, event: str) -> str | None:
         """
         Maps the *job_status* (see :py:class:`law.job.base.BaseJobManager`) for a particular *event*
@@ -164,7 +160,7 @@ class BaseJobDashboard(object, metaclass=ABCMeta):
         """
         ...
 
-    @abstractmethod
+    @abc.abstractmethod
     def publish(self, job_data: dict, event: str, job_num: int) -> None:
         """
         Publishes the status of a job to the implemented job dashboard. *job_data* is a dictionary
@@ -191,7 +187,7 @@ class NoJobDashboard(BaseJobDashboard):
         """
         Returns *None*.
         """
-        return None
+        return
 
 
 # trailing imports
