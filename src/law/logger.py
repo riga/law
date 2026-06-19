@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Law logging setup.
 """
@@ -7,21 +5,21 @@ Law logging setup.
 from __future__ import annotations
 
 __all__ = [
-    "Logger",
     "LogFormatter",
-    "get_logger",
-    "setup_logging",
-    "setup_logger",
+    "Logger",
     "create_stream_handler",
-    "is_tty_handler",
+    "get_logger",
     "get_tty_handlers",
+    "is_tty_handler",
+    "setup_logger",
+    "setup_logging",
 ]
 
 from collections import defaultdict
 import logging
 
 from law.util import no_value, colored, ipykernel, ON_COLAB
-from law._types import Any, Callable
+from law._types import Any, Callable, ClassVar
 
 
 _logging_setup = False
@@ -153,7 +151,7 @@ class LogFormatter(logging.Formatter):
     LOG_TEMPLATE = "{level}: {name} - {msg}"
     ERR_TEMPLATE = "{level}: {name} - {msg}\n{traceback}"
 
-    LEVEL_STYLES: dict[str, dict[str, str]] = {
+    LEVEL_STYLES: ClassVar[dict[str, dict[str, str]]] = {
         "DEBUG": {"color": "cyan"},
         "INFO": {"color": "green"},
         "WARNING": {"color": "yellow"},
@@ -161,8 +159,8 @@ class LogFormatter(logging.Formatter):
         "CRITICAL": {"color": "red", "style": "bright"},
         "FATAL": {"color": "red", "style": "bright"},
     }
-    NAME_STYLES: dict[str, dict[str, str]] = {}
-    MSG_STYLES: dict[str, dict[str, str]] = {
+    NAME_STYLES: ClassVar[dict[str, dict[str, str]]] = {}
+    MSG_STYLES: ClassVar[dict[str, dict[str, str]]] = {
         "WARNING": {"color": "yellow"},
         "ERROR": {"color": "red"},
         "CRITICAL": {"color": "red", "style": "bright"},
@@ -201,7 +199,7 @@ class LogFormatter(logging.Formatter):
 
         # build template data
         tmpl = self.log_template
-        data = dict(level=level, name=name, msg=msg)
+        data = {"level": level, "name": name, "msg": msg}
 
         # add traceback and change the template when the record contains exception info
         if record.exc_info:

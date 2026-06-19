@@ -121,7 +121,7 @@ src = ["src", "tests", "examples"]
 preview = true
 ignore = [
   "PLR",  # design related pylint codes
-  "E501",  # line too long
+  "E402",  # imports at the top of the file
   "G004",  # logging statement uses f-string
   "I001",  # unsorted import block"
   "I002",  # isort: "from __future__ import annotations"
@@ -130,11 +130,15 @@ ignore = [
   "E731",  # do not assign a lambda expression, use a def
   "EM101",  # do not use literal strings in exception messages
   "EM102",  # do not use f-string in exception messages
+  "SIM103",  # return needless bool
   "RUF100",  # unused "noqa" directive
   "PLC0415",  # `import` should be at the top-level of a file
   "PLW0603",  # discouraged use of global statement
   "PLW3201",  # dunder method `...` has no special meaning in Python 3
+  "RUF012",  # mutable class default
+  "RUF017",  # avoid nested comprehensions
   "RUF052",  # local dummy variable `...` is accessed
+  "RUF067",  # __init__ should only contain imports
   "RET504",  # unnecessary assignment before return
 ]
 select = [
@@ -176,7 +180,7 @@ python_version = "3.9"
 strict = false
 files = ["src/law", "tests"]
 exclude = ["docs", "examples", "build", "local_tests"]
-disable_error_code = ["no-redef", "valid-type", "method-assign"]
+disable_error_code = ["no-redef", "no-untyped-def", "valid-type", "method-assign"]
 # enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 warn_unreachable = true
 warn_redundant_casts = true

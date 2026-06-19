@@ -17,8 +17,8 @@ docsdir = os.path.normpath(os.path.join(scriptsdir, ".."))
 basedir = os.path.normpath(os.path.join(docsdir, ".."))
 sys.path.insert(0, os.path.normpath(os.path.join(basedir, "src")))
 
-import law  # noqa: E402
-from law._types import Sequence, Any  # noqa: E402
+import law
+from law._types import Sequence, Any
 
 
 def create_py_ref(s: str) -> str:

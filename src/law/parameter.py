@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Custom luigi parameters.
 """
@@ -7,11 +5,23 @@ Custom luigi parameters.
 from __future__ import annotations
 
 __all__ = [
-    "NO_STR", "NO_INT", "NO_FLOAT",
-    "is_no_param", "get_param",
-    "Parameter", "TaskInstanceParameter", "OptionalBoolParameter", "DurationParameter",
-    "BytesParameter", "CSVParameter", "MultiCSVParameter", "RangeParameter", "MultiRangeParameter",
-    "NotifyParameter", "NotifyMultiParameter", "NotifyMailParameter",
+    "NO_FLOAT",
+    "NO_INT",
+    "NO_STR",
+    "BytesParameter",
+    "CSVParameter",
+    "DurationParameter",
+    "MultiCSVParameter",
+    "MultiRangeParameter",
+    "NotifyMailParameter",
+    "NotifyMultiParameter",
+    "NotifyParameter",
+    "OptionalBoolParameter",
+    "Parameter",
+    "RangeParameter",
+    "TaskInstanceParameter",
+    "get_param",
+    "is_no_param",
 ]
 
 import functools
@@ -113,7 +123,7 @@ class OptionalBoolParameter(luigi.BoolParameter, Parameter):
     """
 
     # TODO: more precise inp
-    def parse(self, inp: Any) -> bool | None:
+    def parse(self, inp: Any) -> bool | None:  # type: ignore[override]
         """"""
         if isinstance(inp, bool) or inp is None:
             return inp
@@ -178,7 +188,7 @@ class DurationParameter(Parameter):
         self._unit = unit
 
     # TODO: more precise inp
-    def parse(self, inp: Any) -> float:
+    def parse(self, inp: Any) -> float:  # type: ignore[override]
         """"""
         if inp in (None, "", NO_STR, no_value):
             inp = "0"
@@ -238,7 +248,7 @@ class BytesParameter(Parameter):
         self._unit = unit
 
     # TODO: more precise inp
-    def parse(self, inp: Any) -> float:
+    def parse(self, inp: Any) -> float:  # type: ignore[override]
         """"""
         if inp in (None, "", NO_STR, no_value):
             inp = "0"
@@ -252,7 +262,7 @@ class BytesParameter(Parameter):
             value = 0
 
         value_bytes = parse_bytes(value, input_unit=self.unit, unit="bytes")
-        v, u = human_bytes(value_bytes, unit=self.unit)  # type: ignore
+        v, u = human_bytes(value_bytes, unit=self.unit)  # type: ignore[misc]
 
         return f"{try_int(v)}{u}"
 
@@ -423,11 +433,11 @@ class CSVParameter(Parameter):
             )
 
     # TODO: more precise inp
-    def parse(self, inp: Any) -> tuple[T] | T:
+    def parse(self, inp: Any) -> tuple[T] | T:  # type: ignore[override]
         """"""
         return_single_value = False
         if inp in (None, "", NO_STR, no_value):
-            value: tuple = tuple()
+            value: tuple = ()
         elif isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
             value = make_tuple(inp)
         elif isinstance(inp, str):
@@ -439,7 +449,7 @@ class CSVParameter(Parameter):
                     escaped_sep = "__law_escaped_csv_sep__"
                     inp = inp.replace("\\,", escaped_sep)
                 # proper csv split
-                elems = list(csv.reader([inp]))[0]
+                elems = next(iter(csv.reader([inp])))
                 # add back escaped separators per element
                 if self._escape_sep:
                     elems = [elem.replace(escaped_sep, ",") for elem in elems]
@@ -464,7 +474,7 @@ class CSVParameter(Parameter):
     def serialize(self, value: Any) -> str:
         """"""
         if value in (None, NO_STR, no_value):
-            value = tuple()
+            value = ()
 
         # ensure value is a tuple
         was_sequence = isinstance(value, (tuple, list))
@@ -567,7 +577,7 @@ class MultiCSVParameter(CSVParameter):
     def parse(self, inp: Any) -> tuple[tuple[T]] | tuple[T] | T:  # type: ignore[override]
         """"""
         if not inp or inp == NO_STR:
-            value: tuple = tuple()
+            value: tuple = ()
         elif isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
             value = tuple(super().parse(v) for v in inp)
         elif isinstance(inp, str):
@@ -576,7 +586,7 @@ class MultiCSVParameter(CSVParameter):
                 escaped_sep = "__law_escaped_multi_csv_sep__"
                 inp = inp.replace("\\" + ":", escaped_sep)
             # split
-            elems = list(csv.reader([inp], dialect=self._dialect))[0]
+            elems = next(iter(csv.reader([inp], dialect=self._dialect)))
             # add back escaped separators per element
             if self._escape_sep:
                 elems = [elem.replace(escaped_sep, ":") for elem in elems]
@@ -686,7 +696,7 @@ class RangeParameter(Parameter):
         if not isinstance(value, tuple):
             raise TypeError(f"invalid type of range {value}, must be a tuple")
 
-        elif len(value) == 1 and self._single_value:
+        if len(value) == 1 and self._single_value:
             if not isinstance(value[0], int):
                 raise TypeError(f"invalid type of single value in range {value}")
 
@@ -704,15 +714,13 @@ class RangeParameter(Parameter):
                 raise TypeError(f"invalid type of end value in range {value}")
 
         elif value:
-            raise ValueError(
-                f"cannot interpret {value} with {len(value)} elements as {self.__class__.__name__}",
-            )
+            raise ValueError(f"cannot interpret {value} with {len(value)} elements as {self.__class__.__name__}")
 
     # TODO: more precise inp
-    def parse(self, inp: Any) -> tuple[int]:
+    def parse(self, inp: Any) -> tuple[int]:  # type: ignore[override]
         """"""
         if inp in (None, "", NO_STR, no_value):
-            value: tuple = tuple()
+            value: tuple = ()
         elif isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
             value = make_tuple(inp)
         elif isinstance(inp, int):
@@ -722,8 +730,8 @@ class RangeParameter(Parameter):
             # convert integers
             try:
                 value = tuple((int(p) if p else self.OPEN) for p in parts)
-            except ValueError:
-                raise ValueError(f"range '{inp}' contains non-integer elements")
+            except ValueError as e:
+                raise ValueError(f"range '{inp}' contains non-integer elements") from e
         else:
             value = (inp,)
 
@@ -735,7 +743,7 @@ class RangeParameter(Parameter):
     def serialize(self, value: Any) -> str:
         """"""
         if not value:
-            value = tuple()
+            value = ()
 
         self._check(value)
 
@@ -794,7 +802,7 @@ class MultiRangeParameter(RangeParameter):
     def parse(self, inp: Any) -> tuple[tuple[int]]:  # type: ignore[override]
         """"""
         if inp in (None, "", NO_STR, no_value):
-            value: tuple = tuple()
+            value: tuple = ()
         elif isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
             value = tuple(super().parse(v) for v in inp)
         elif isinstance(inp, str):
@@ -935,7 +943,7 @@ class NotifyCustomParameter(NotifyParameter):
 
         super().__init__(*args, **kwargs)
 
-        if not self.description:
+        if not self.description:  # type: ignore[has-type]
             self.description = (
                 "when true, and the task's run method is decorated with law.decorator.notify, "
                 "a custom notification is sent once the task finishes"

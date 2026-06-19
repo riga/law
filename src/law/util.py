@@ -1,34 +1,91 @@
-# coding: utf-8
-
 """
 Helpful utility functions.
 """
 
 from __future__ import annotations
 
-__all__ = [
+__all__ = [  # noqa: RUF022
     # singleton values
-    "default_lock", "io_lock", "console_lock", "mp_manager", "no_value",
+    "default_lock",
+    "io_lock",
+    "console_lock",
+    "mp_manager",
+    "no_value",
     # path and task helpers
-    "rel_path", "law_src_path", "law_home_path", "law_run", "common_task_params", "increment_path",
+    "common_task_params",
+    "increment_path",
+    "law_home_path",
+    "law_run",
+    "law_src_path",
+    "rel_path",
     # generic helpers
-    "abort", "import_file", "get_terminal_width", "custom_context", "empty_context", "which",
-    "create_hash", "create_random_string", "iter_chunks", "chunk_slice_ranges", "quote_cmd",
-    "escape_markdown", "send_mail", "patch_object", "join_generators",
+    "abort",
+    "chunk_slice_ranges",
+    "create_hash",
+    "create_random_string",
+    "custom_context",
+    "empty_context",
+    "escape_markdown",
+    "get_terminal_width",
+    "import_file",
+    "iter_chunks",
+    "join_generators",
+    "patch_object",
+    "quote_cmd",
+    "send_mail",
+    "which",
     # value identification and conversion
-    "is_classmethod", "is_number", "is_float", "try_int", "round_discrete", "str_to_int",
-    "flag_to_bool", "colored", "uncolored", "query_choice", "is_pattern",
-    "human_bytes", "parse_bytes", "human_duration", "parse_duration",
+    "colored",
+    "flag_to_bool",
+    "human_bytes",
+    "human_duration",
+    "is_classmethod",
+    "is_float",
+    "is_number",
+    "is_pattern",
+    "parse_bytes",
+    "parse_duration",
+    "query_choice",
+    "round_discrete",
+    "str_to_int",
+    "try_int",
+    "uncolored",
     # sequence helpers
-    "brace_expand", "range_expand", "range_join", "multi_match", "is_iterable",
-    "is_lazy_iterable", "make_list", "make_tuple", "make_set", "make_unique", "is_nested",
-    "flatten", "merge_dicts", "unzip", "map_verbose", "map_struct", "mask_struct",
+    "brace_expand",
+    "flatten",
+    "is_iterable",
+    "is_lazy_iterable",
+    "is_nested",
+    "make_list",
+    "make_set",
+    "make_tuple",
+    "make_unique",
+    "map_struct",
+    "map_verbose",
+    "mask_struct",
+    "merge_dicts",
+    "multi_match",
+    "range_expand",
+    "range_join",
+    "unzip",
     # parallelization helpers
-    "interruptable_popen", "send_signal_silent", "get_subprocess_pids", "kill_process", "readable_popen",
+    "get_subprocess_pids",
+    "interruptable_popen",
+    "kill_process",
+    "readable_popen",
+    "send_signal_silent",
     # io helpers
-    "tmp_file", "copy_no_perm", "makedirs", "user_owns_file",
+    "copy_no_perm",
+    "makedirs",
+    "tmp_file",
+    "user_owns_file",
     # classes
-    "DotDict", "ShorthandDict", "classproperty", "BaseStream", "TeeStream", "FilteredStream",
+    "DotDict",
+    "ShorthandDict",
+    "classproperty",
+    "BaseStream",
+    "TeeStream",
+    "FilteredStream",
 ]
 
 import os
@@ -72,7 +129,7 @@ except ImportError:
     pass
 
 try:
-    import google.colab  # type: ignore[import-untyped, import-not-found] # noqa
+    import google.colab  # noqa: F401
     ON_COLAB = True
 except ImportError:
     ON_COLAB = False
@@ -86,7 +143,7 @@ io_lock = threading.Lock()
 console_lock = threading.Lock()
 
 
-class NoValue(object):
+class NoValue:
 
     _instance: NoValue | None = None
 
@@ -94,6 +151,13 @@ class NoValue(object):
         if cls._instance is None:
             cls._instance = super().__new__(cls, *args, **kwargs)
         return cls._instance
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.__hash = hash(object())
+
+    def __hash__(self) -> int:
+        return self.__hash
 
     def __eq__(self, other: Any) -> bool:
         return isinstance(other, NoValue)
@@ -127,12 +191,12 @@ def MPManager(**kwargs) -> multiprocessing.managers.SyncManager:
 
 
 _mp_managed_objects = {
-    "list", "dict", "Namespace", "Lock", "RLock", "Semaphore", "BoundedSemaphore", "Condition",
-    "Event", "Barrier", "Queue", "Value", "Array",
+    "list", "dict", "Namespace", "Lock", "RLock", "Semaphore", "BoundedSemaphore", "Condition", "Event", "Barrier",
+    "Queue", "Value", "Array",
 }
 
 
-class DeferredManager(object):
+class DeferredManager:
     """
     Wrapper for a :py:class:`multiprocessing.managers.SyncManager` created by the
     :py:func:`MPManager` factory that is started lazily once a synchronization attribute is
@@ -207,16 +271,14 @@ def law_run(argv: Sequence[str], **kwargs) -> int:
     from law.parser import _reset as reset_parser
 
     # ensure that argv is a list of strings
-    if isinstance(argv, str):
-        argv = shlex.split(argv)
-    else:
-        argv = [str(arg) for arg in argv]
+    argv = shlex.split(argv) if isinstance(argv, str) else [str(arg) for arg in argv]
 
     # luigi's pid locking must be disabled
     argv.append("--no-lock")
 
     # run with a patch to the ArgumentParser to overwrite the prog default
     _build_parser_orig = CmdlineParser._build_parser
+
     @functools.wraps(_build_parser_orig)
     def _build_parser(*args, **kwargs) -> CmdlineParser:
         parser = _build_parser_orig(*args, **kwargs)
@@ -253,7 +315,7 @@ def abort(msg: str | None = None, exitcode: int = 1, color: bool = True) -> int:
                 msg = colored(msg, color="red")
             print(msg, file=sys.stderr)
     sys.exit(exitcode)
-    return exitcode
+    return exitcode  # type: ignore[unreachable]
 
 
 def import_file(path: str | pathlib.Path, attr: str | None = None) -> ModuleType | Any:
@@ -268,7 +330,7 @@ def import_file(path: str | pathlib.Path, attr: str | None = None) -> ModuleType
     # load the package contents
     path = os.path.expandvars(os.path.expanduser(str(path)))
     pkg = DotDict()
-    with open(path, "r") as f:
+    with open(path, encoding="utf-8") as f:
         exec(f.read(), pkg)
 
     # extract a particular attribute
@@ -290,10 +352,8 @@ def get_terminal_width(fallback: bool = False) -> int | None:
     width = None
     func = getattr(shutil if fallback else os, "get_terminal_size", None)
     if callable(func):
-        try:
+        with contextlib.suppress(OSError):
             width = func().columns
-        except OSError:
-            pass
 
     return width
 
@@ -305,10 +365,9 @@ def is_classmethod(func: Any, cls: type | None = None) -> bool:
     """
     # when no cls is given, try to lookup it up in its associated module
     _hasattr = lambda attr: getattr(func, attr, None) is not None
-    if cls is None:
-        if _hasattr("__qualname__") and _hasattr("__module__") and "." in func.__qualname__:
-            cls_name = func.__qualname__.rsplit(".", 1)[0]
-            cls = getattr(sys.modules.get(func.__module__), cls_name, None)
+    if cls is None and _hasattr("__qualname__") and _hasattr("__module__") and "." in func.__qualname__:
+        cls_name = func.__qualname__.rsplit(".", 1)[0]
+        cls = getattr(sys.modules.get(func.__module__), cls_name, None)
 
     # when no class exists at this point, func cannot be a classmethod
     if cls is None:
@@ -349,7 +408,7 @@ def is_float(v: Any) -> bool:
     try:
         float(v)
         return True
-    except:
+    except Exception:
         return False
 
 
@@ -395,7 +454,7 @@ def round_discrete(
         elif round_fn == "ceil":
             round_fn = math.ceil
         else:
-            raise ValueError("unknown round function '{}'".format(round_fn))
+            raise ValueError(f"unknown round function '{round_fn}'")
 
     return base * round_fn(float(n) / base)
 
@@ -462,7 +521,7 @@ def common_task_params(task_instance, task_cls) -> dict[str, Any]:
     ``luigi.util.common_params`` is that the values are not parsed using the parameter objects of
     the task class, which might be faster for some purposes.
     """
-    task_cls_param_names = set(name for name, _ in task_cls.get_params())
+    task_cls_param_names = {name for name, _ in task_cls.get_params()}
     common_param_names = [
         name
         for name, _ in task_instance.get_params()
@@ -544,10 +603,8 @@ def colored(
         tty = False
         ipy = False
 
-        try:
+        with contextlib.suppress(Exception):
             tty = os.isatty(sys.stdout.fileno())
-        except:
-            pass
 
         if not tty and ipykernel is not None:
             ipy = isinstance(sys.stdout, ipykernel.iostream.OutStream)
@@ -556,28 +613,23 @@ def colored(
             return msg
 
     if isinstance(color, str):
-        if color == "random":
-            color = random.choice(list(colors.values()))
-        else:
-            color = colors.get(color, colors["default"])
+        color = random.choice(list(colors.values())) if color == "random" else colors.get(color, colors["default"])
     elif not isinstance(color, int):
         color = colors["default"]
 
     if isinstance(background, str):
-        if background == "random":
-            background = random.choice(list(backgrounds.values()))
-        else:
-            background = backgrounds.get(background, backgrounds["default"])
+        background = (
+            random.choice(list(backgrounds.values()))
+            if background == "random"
+            else backgrounds.get(background, backgrounds["default"])
+        )
     elif not isinstance(background, int):
         background = backgrounds["default"]
 
     _styles = []
     for s in make_list(style):
         if isinstance(s, str):
-            if s == "random":
-                s = random.choice(list(styles.values()))
-            else:
-                s = styles.get(s, styles["default"])
+            s = random.choice(list(styles.values())) if s == "random" else styles.get(s, styles["default"])
         elif not isinstance(s, int):
             s = styles["default"]
         _styles.append(s)
@@ -609,9 +661,8 @@ def query_choice(
     choices: list[str] = [str(c) for c in choices]  # type: ignore[assignment]
     _choices = [c.lower() for c in choices] if lower else choices
 
-    if default is not None:
-        if default not in choices:
-            raise Exception("default must be one of the choices")
+    if default is not None and default not in choices:
+        raise Exception("default must be one of the choices")
 
     hints = [(choice if choice != default else choice + "*") for choice in choices]
     if descriptions is not None:
@@ -626,7 +677,7 @@ def query_choice(
         if choice != not_set:
             print(f"invalid choice: '{choice}'")
         choice = input(msg)
-        if default is not None and choice == "":
+        if default is not None and not choice:
             choice = default
         if lower:
             choice = choice.lower()
@@ -773,8 +824,8 @@ def range_expand(
     def to_int(v: Any, s: Any | None = None) -> int:
         try:
             return int(v)
-        except ValueError:
-            raise ValueError(f"invalid number or range '{v if s is None else s}'")
+        except ValueError as e:
+            raise ValueError(f"invalid number or range '{v if s is None else s}'") from e
 
     # make_list is used below, but we need to distinguish between lists and tuples
     numbers = []
@@ -882,8 +933,8 @@ def range_join(
         if isinstance(n, str):
             try:
                 n = int(n)
-            except ValueError:
-                raise ValueError(f"invalid number format '{n}'")
+            except ValueError as e:
+                raise ValueError(f"invalid number format '{n}'") from e
         if not isinstance(n, int):
             raise TypeError(f"cannot handle non-integer value '{n}' in numbers to join")
         _numbers.append(n)
@@ -1028,7 +1079,7 @@ def make_unique(obj: Iterable[T]) -> Iterable[T]:
             raise TypeError("object is neither list, tuple, nor generic iterable")
         obj = list(obj)
 
-    ret = sorted(obj.__class__(set(obj)), key=lambda elem: obj.index(elem))
+    ret = sorted(obj.__class__(set(obj)), key=obj.index)
 
     return obj.__class__(ret) if isinstance(obj, tuple) else ret
 
@@ -1055,12 +1106,12 @@ def flatten(
     if len(structs) == 0:
         return []
 
-    kwargs = dict(
-        flatten_dict=flatten_dict,
-        flatten_list=flatten_list,
-        flatten_tuple=flatten_tuple,
-        flatten_set=flatten_set,
-    )
+    kwargs = {
+        "flatten_dict": flatten_dict,
+        "flatten_list": flatten_list,
+        "flatten_tuple": flatten_tuple,
+        "flatten_set": flatten_set,
+    }
     if len(structs) > 1:
         return flatten(structs, **kwargs)
 
@@ -1119,7 +1170,7 @@ def merge_dicts(*dicts, **kwargs):
         merged_dict = dicts[0]
     else:
         # get or infer the class
-        cls = kwargs.get("cls", None)
+        cls = kwargs.get("cls")
         if cls is None:
             for d in dicts:
                 if isinstance(d, dict):
@@ -1172,21 +1223,19 @@ def unzip(struct: Iterable, fill_none: bool = False) -> tuple[list[Any], ...] | 
         # -> ([1, 3], [2, None])
     """
     lists: tuple | None = None
-    for i, obj in enumerate(struct):
+    for obj in struct:
         # determine the number of lists to return
         if lists is None:
             lists = tuple([] for _ in range(len(obj)))
 
         # fill them
-        for j, l in enumerate(lists):
-            if len(obj) > j:
-                l.append(obj[j])
+        for i, _list in enumerate(lists):
+            if len(obj) > i:
+                _list.append(obj[i])
             elif fill_none:
-                l.append(None)
+                _list.append(None)
             else:
-                raise ValueError(
-                    f"insufficient length {j} of sequence at index {len(lists)} to unzip",
-                )
+                raise ValueError(f"insufficient length {i} of sequence at index {len(lists)} to unzip")
 
     return lists
 
@@ -1253,9 +1302,8 @@ def map_verbose(
         do_call = (start and i == 0) or (i + 1) % every == 0
         if do_call:
             callback(i)
-    else:
-        if end and results and not do_call:
-            callback(i)
+    if end and results and not do_call:
+        callback(i)
 
     return results
 
@@ -1303,7 +1351,7 @@ def map_struct(
         struct = list(struct)
 
     # determine valid types for struct traversal
-    valid_types: tuple[type, ...] = tuple()
+    valid_types: tuple[type, ...] = ()
     if map_dict:
         valid_types += (dict,)
         if is_number(map_dict):
@@ -1350,13 +1398,13 @@ def map_struct(
         # create type-dependent generator and addition callback
         if isinstance(struct, (list, tuple)):
             gen = enumerate(struct)
-            add = lambda _, value: new_struct.append(value)  # type: ignore
+            add = lambda _, value: new_struct.append(value)  # type: ignore[attr-defined]
         elif isinstance(struct, set):
             gen = enumerate(struct)
-            add = lambda _, value: new_struct.add(value)  # type: ignore
+            add = lambda _, value: new_struct.add(value)  # type: ignore[attr-defined]
         elif isinstance(struct, dict):
-            gen = struct.items()  # type: ignore
-            add = lambda key, value: new_struct.__setitem__(key, value)  # type: ignore
+            gen = struct.items()  # type: ignore[assignment]
+            add = new_struct.__setitem__  # type: ignore[index]
         else:
             raise TypeError(f"invalid struct type '{type(struct)}'")
 
@@ -1376,7 +1424,7 @@ def map_struct(
 
         # convert tuples
         if isinstance(struct, tuple):
-            new_struct = struct.__class__(new_struct)  # type: ignore
+            new_struct = struct.__class__(new_struct)  # type: ignore[arg-type]
 
         return new_struct
 
@@ -1418,7 +1466,7 @@ def mask_struct(
     """
     # interpret lazy iterables lists
     if is_lazy_iterable(struct):
-        struct = list(struct)  # type: ignore
+        struct = list(struct)  # type: ignore[arg-type]
 
     # cast convert types
     if convert_types and isinstance(struct, tuple(flatten(convert_types.keys()))):
@@ -1494,7 +1542,7 @@ def tmp_file(*args, **kwargs) -> Iterator[tuple[int, str]]:
     fileno, path = tempfile.mkstemp(*args, **kwargs)
 
     # create the file
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         f.write("")
 
     # yield it
@@ -1632,8 +1680,14 @@ def get_subprocess_pids(pid: int, recursive: bool = False, use_psutil: bool = Tr
     def _get_subprocess_pids(pid):
         # get process info
         cmd = f"ps -eo ppid=,pid=,lstart= | awk '$1 == {pid} || $2 == {pid} {{ print $0 }}'"
-        code, out, err = interruptable_popen(cmd, shell=True, executable="/bin/bash", stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE)
+        out: str
+        code, out, err = interruptable_popen(  # type: ignore[assignment]
+            cmd,
+            shell=True,
+            executable="/bin/bash",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
         if code != 0:
             raise RuntimeError(f"failed to get subprocess pids for pid {pid}: {err}")
         # parse output into pid -> start time mapping
@@ -1701,7 +1755,7 @@ def kill_process(
             pids += get_subprocess_pids(p.pid, recursive=True)
         # send signal in order
         for pid in pids:
-            send_signal_silent(p.pid, sig)
+            send_signal_silent(pid, sig)
 
     # start with SIGTERM to allow graceful shutdown
     kill(signal.SIGTERM)
@@ -1745,7 +1799,7 @@ def readable_popen(*args, **kwargs) -> tuple[subprocess.Popen, Iterable[str]]:
     p = subprocess.Popen(*args, **kwargs)
 
     def line_gen():
-        for line in p.stdout:
+        for line in p.stdout:  # type: ignore[union-attr]
             yield line.decode("utf-8").rstrip()
 
         # communicate in the end
@@ -1754,26 +1808,26 @@ def readable_popen(*args, **kwargs) -> tuple[subprocess.Popen, Iterable[str]]:
     return p, line_gen()
 
 
-def create_hash(inp: Any, l: int = 10, algo: str = "sha256", to_int: bool = False) -> str | int:
+def create_hash(inp: Any, length: int = 10, algo: str = "sha256", to_int: bool = False) -> str | int:
     """
     Takes an arbitrary input *inp* and creates a hexadecimal string hash based on an algorithm
-    *algo*. For valid algorithms, see python's hashlib. *l* corresponds to the maximum length of the
+    *algo*. For valid algorithms, see python's hashlib. *length* corresponds to the maximum length of the
     returned hash and is limited by the length of the hexadecimal representation produced by the
     hashing algorithm. When *to_int* is *True*, the decimal integer representation is returned.
     """
-    h = getattr(hashlib, algo)(str(inp).encode("utf-8")).hexdigest()[:l]
+    h = getattr(hashlib, algo)(str(inp).encode("utf-8")).hexdigest()[:length]
     return int(h, 16) if to_int else h
 
 
-def create_random_string(prefix: str = "", l: int = 10) -> str:
+def create_random_string(prefix: str = "", length: int = 10) -> str:
     """
-    Creates and returns a random string consisting of *l* characters using a uuid4 hash. When
+    Creates and returns a random string consisting of *length* characters using a uuid4 hash. When
     *prefix* is given, the string will have the format ``<prefix>_<random_string>``.
     """
     s = ""
-    while len(s) < l:
+    while len(s) < length:
         s += uuid.uuid4().hex
-    s = s[:l]
+    s = s[:length]
     if prefix:
         s = f"{prefix}_{s}"
     return s
@@ -1869,12 +1923,12 @@ def increment_path(path: str | pathlib.Path, n: int | None = None) -> str:
         _path = next_path(i)
 
 
-def iter_chunks(l: int | Iterable[Any], size: int) -> Iterator[list[int | Any]]:
+def iter_chunks(obj: int | Iterable[Any], size: int) -> Iterator[list[int | Any]]:
     """
-    Returns a generator containing chunks of *size* of a list, integer or generator *l*. A *size*
+    Returns a generator containing chunks of *size* of a list, integer or generator *obj*. A *size*
     smaller than 1 results in no chunking at all.
     """
-    _l: Iterable = range(l) if isinstance(l, int) else l
+    _l: Iterable = range(obj) if isinstance(obj, int) else obj
 
     if is_lazy_iterable(_l):
         # non-positive size means no chunking
@@ -1941,11 +1995,7 @@ def chunk_slice_ranges(
     if stop < 0:
         stop += total_size
     if not (0 <= start <= stop <= total_size):
-        raise ValueError(
-            "invalid start and stop indices {} and {} for total size {}".format(
-                start, stop_orig, total_size,
-            ),
-        )
+        raise ValueError(f"invalid start and stop indices {start} and {stop_orig} for total size {total_size}")
 
     # slicing algorithm
     indices: list[tuple[int, int] | None] = len(_sizes) * [None]  # type: ignore[assignment]
@@ -2002,7 +2052,7 @@ def human_bytes(
     elif unit:
         idx = byte_units.index(unit)
     else:
-        idx = int(math.floor(math.log(abs(n), 1024)))
+        idx = math.floor(math.log(abs(n), 1024))
         idx = min(idx, len(byte_units))
 
     # get the value and the unit name
@@ -2011,7 +2061,7 @@ def human_bytes(
 
     # vast value to int when the unit is bytes
     if idx == 0:
-        value = int(round(value))
+        value = round(value)
 
     if fmt:
         if not isinstance(fmt, str):
@@ -2060,7 +2110,7 @@ def parse_bytes(s: str | int | float, input_unit: str = "bytes", unit: str = "by
     elif not isinstance(s, float):
         m = re.match(r"^\s*(-?\d+\.?\d*)\s*(|{})\s*$".format("|".join(byte_units_lower)), s.lower())
         if not m:
-            raise ValueError("cannot parse bytes from string '{}'".format(s))
+            raise ValueError(f"cannot parse bytes from string '{s}'")
 
         input_value = float(m.group(1))
         _input_unit = m.group(2)
@@ -2072,16 +2122,16 @@ def parse_bytes(s: str | int | float, input_unit: str = "bytes", unit: str = "by
     size_bytes = input_value * 1024.0 ** idx
 
     # use human_bytes to convert the size
-    return human_bytes(size_bytes, unit=unit)[0]  # type: ignore
+    return human_bytes(size_bytes, unit=unit)[0]  # type: ignore[return-value]
 
 
-time_units: dict[str, int] = dict([
-    ("week", 7 * 24 * 60 * 60),
-    ("day", 24 * 60 * 60),
-    ("hour", 60 * 60),
-    ("minute", 60),
-    ("second", 1),
-])
+time_units: dict[str, int] = {
+    "week": 7 * 24 * 60 * 60,
+    "day": 24 * 60 * 60,
+    "hour": 60 * 60,
+    "minute": 60,
+    "second": 1,
+}
 
 time_unit_aliases: dict[str, str] = {
     "w": "week",
@@ -2411,7 +2461,7 @@ class DotDict(dict):
         # python <3.9
         if GenericAlias is str:
             key_type, value_type = types
-            return f"{cls.__name__}[{key_type.__name__}, {value_type.__name__}]"  # type: ignore[return-value] # noqa
+            return f"{cls.__name__}[{key_type.__name__}, {value_type.__name__}]"  # type: ignore[return-value]
 
         return GenericAlias(cls, types)  # type: ignore[call-overload, return-value]
 
@@ -2421,14 +2471,14 @@ class DotDict(dict):
         Takes a dictionary *d* and recursively replaces it and all other nested dictionary types
         with :py:class:`DotDict`'s for deep attribute-style access.
         """
-        wrap = lambda d: cls((k, wrap(v)) for k, v in d.items()) if isinstance(d, dict) else d  # type: ignore # noqa
+        wrap = lambda d: cls((k, wrap(v)) for k, v in d.items()) if isinstance(d, dict) else d  # type: ignore[has-type]
         return wrap(dict(*args, **kwargs))
 
     def __getattr__(self, attr: str) -> Any:
         try:
             return self[attr]
-        except KeyError:
-            raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{attr}'")
+        except KeyError as e:
+            raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{attr}'") from e
 
     def __setattr__(self, attr: str, value: Any) -> None:
         self[attr] = value
@@ -2514,10 +2564,10 @@ class InsertableDict(dict):
         print(d)  # -> InsertableDict([('foo', 'new_value'), ('bar', 456), ('test', 999)])
     """
 
-    def _insert(self, search_key: Hashable, key: Hashable, value: Any, offset: int) -> None:
+    def _insert(self, search_key: Hashable, key: Hashable | list | dict, value: Any, offset: int) -> None:
         # when key is a list or dict and value is no_value, assume key refers to key-value pairs
         if isinstance(key, (list, dict)) and value == no_value:
-            new_items = key.items() if isinstance(key, dict) else key
+            new_items = list(key.items()) if isinstance(key, dict) else key
             new_keys = [k for k, v in new_items]
         else:
             new_items = [(key, value)]
@@ -2617,14 +2667,12 @@ def patch_object(
 
             yield obj
         finally:
-            try:
+            with contextlib.suppress(Exception):
                 if reset:
                     if orig is no_value:
                         delattr(obj, attr)
                     else:
                         setattr(obj, attr, orig)
-            except:
-                pass
 
 
 def join_generators(
@@ -2642,19 +2690,16 @@ def join_generators(
         last_result: Any = no_value
         while True:
             try:
-                if last_result == no_value:
-                    last_result = yield next(gen)
-                else:
-                    last_result = yield gen.send(last_result)
+                last_result = yield (next(gen) if last_result == no_value else gen.send(last_result))
             except StopIteration:
                 break
-            except (Exception, KeyboardInterrupt) as error:
-                if not callable(on_error) or not on_error(error):
-                    raise
+            except (Exception, KeyboardInterrupt) as e:
                 last_result = no_value
+                if not callable(on_error) or not on_error(e):
+                    raise
 
 
-def quote_cmd(cmd: str | Sequence[str]) -> str:
+def quote_cmd(cmd: str | Sequence[str | Sequence[str]]) -> str:
     """
     Takes a shell command *cmd* given as a list and returns a single string representation of that
     command with proper quoting. To denote nested commands (such as shown below), *cmd* can also
@@ -2686,7 +2731,7 @@ def escape_markdown(s: str) -> str:
     return re.sub(r"([^\\]?)(\(|\)|=|\.|_|-)", r"\1\\\2", s)
 
 
-class ClassPropertyDescriptor(object):
+class ClassPropertyDescriptor:
     """
     Generic descriptor class that is used by :py:func:`classproperty`. Setters are currently not
     supported.
@@ -2718,12 +2763,12 @@ def classproperty(func: Callable) -> ClassPropertyDescriptor:
     Propety decorator for class-level methods.
     """
     if not isinstance(func, (classmethod, staticmethod)):
-        func = classmethod(func)  # type: ignore
+        func = classmethod(func)  # type: ignore[assignment]
 
     return ClassPropertyDescriptor(func)
 
 
-class BaseStream(object):
+class BaseStream:
 
     FLUSH_AFTER_WRITE: bool = True
 
@@ -2800,7 +2845,7 @@ class TeeStream(BaseStream):
         for consumer in consumers:
             # interpret strings as file paths
             if isinstance(consumer, str):
-                consumer = open(consumer, mode)
+                consumer = open(consumer, mode)  # noqa: SIM115
                 self.open_files.append(consumer)
             self.consumers.append(consumer)
 

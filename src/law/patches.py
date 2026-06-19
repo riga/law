@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Collection of minor patches for luigi. These patches are only intended to support extra features for
 law, rather than changing default luigi behavior.
@@ -15,11 +13,12 @@ import copy
 import multiprocessing
 import logging
 
-import luigi  # type: ignore[import-untyped]
+import luigi
 import law
+import law.sandbox
 from law.util import patch_object, mp_manager
 from law.logger import get_logger
-from law._types import Callable
+from law._types import Callable, Any
 
 
 logger = get_logger(__name__)
@@ -90,7 +89,7 @@ def patch_schedule_and_run() -> None:
                     logger.debug(f"calling before_run function {func}")
                     func()
                 else:
-                    logger.warning(f"registered before_run function {func} is not callable")
+                    logger.warning(f"registered before_run function {func} is not callable")  # type: ignore[unreachable]
 
             return run_orig(self)
 
@@ -146,16 +145,16 @@ def patch_default_retcodes() -> None:
         - scheduling_error: 50
         - unhandled_exception: 60
     """
-    import luigi.retcodes  # type: ignore[import-untyped]
+    import luigi.retcodes
 
     retcode = luigi.retcodes.retcode
 
-    retcode.already_running._default = 10
-    retcode.missing_data._default = 20
-    retcode.not_run._default = 30
-    retcode.task_failed._default = 40
-    retcode.scheduling_error._default = 50
-    retcode.unhandled_exception._default = 60
+    retcode.already_running._default = 10  # type: ignore[attr-defined]
+    retcode.missing_data._default = 20  # type: ignore[attr-defined]
+    retcode.not_run._default = 30  # type: ignore[attr-defined]
+    retcode.task_failed._default = 40  # type: ignore[attr-defined]
+    retcode.scheduling_error._default = 50  # type: ignore[attr-defined]
+    retcode.unhandled_exception._default = 60  # type: ignore[attr-defined]
 
     logger.debug("patched luigis default return codes")
 
@@ -198,9 +197,10 @@ def patch_worker_add_task() -> None:
         task = self._scheduled_tasks.get(kwargs["task_id"])
         is_dup = (task, kwargs["status"], kwargs["runnable"]) in self._add_task_history
         info_orig = interface_logger.info
+
         def info(msg, *args, **kwargs):
             if is_dup and msg.startswith("Informed scheduler"):
-                return
+                return None
             return info_orig(msg, *args, **kwargs)
 
         # check if sandboxed and adjust level
@@ -241,8 +241,7 @@ def patch_worker_add() -> None:
             for _ in _add_orig(self, task, *args, **kwargs):
                 pass
             return []
-        else:
-            return _add_orig(self, task, *args, **kwargs)
+        return _add_orig(self, task, *args, **kwargs)
 
     luigi.worker.Worker._add = _add
 
@@ -301,8 +300,7 @@ def patch_worker_get_work() -> None:
                 n_pending_last_scheduled=0,
                 worker_state=luigi.worker.WORKER_STATE_ACTIVE,
             )
-        else:
-            return _get_work_orig(self)
+        return _get_work_orig(self)
 
     luigi.worker.Worker._get_work = _get_work
 
@@ -385,7 +383,7 @@ def patch_cmdline_parser() -> None:
 
     @functools.wraps(_get_task_kwargs_orig)
     def _get_task_kwargs(self):
-        res = {}
+        res: dict[str, Any] = {}
         for (param_name, param_obj) in self._get_task_cls().get_params():
             attr = getattr(self.known_args, param_name)
             # always skip None
@@ -431,7 +429,7 @@ def patch_interface_logging() -> None:
     # precompiled expressions
     re_sched_action = r"^(Informed scheduler that task\s+)([^\s]+)(\s+has\sstatus\s+)({})(.*)$"
     cre_sched_action = re.compile(re_sched_action.format("|".join(sched_action_colors.keys())))
-    cre_sched_done = re.compile("^(Done scheduling tasks)$")
+    cre_sched_done = re.compile(r"^(Done scheduling tasks)$")
     re_worker_action = r"^(\[pid \d+\] Worker Worker\(.+\)\s+)({})(\s+)([^\(]+)(\(.+)$"
     cre_worker_action = re.compile(re_worker_action.format("|".join(worker_action_colors.keys())))
 
@@ -444,7 +442,7 @@ def patch_interface_logging() -> None:
         if m:
             s1, action, s2, task, s3 = m.groups()
             task = law.util.colored(task, **worker_task_style)  # type: ignore[arg-type]
-            action = law.util.colored(action, **worker_action_colors[action])  # type: ignore[arg-type] # noqa
+            action = law.util.colored(action, **worker_action_colors[action])  # type: ignore[arg-type]
             return s1 + action + s2 + task + s3
 
         # scheduler task registration messages
@@ -452,7 +450,7 @@ def patch_interface_logging() -> None:
         if m:
             s1, task, s2, action, s3 = m.groups()
             task = law.util.colored(task, **sched_task_style)  # type: ignore[arg-type]
-            action = law.util.colored(action, **sched_action_colors[action])  # type: ignore[arg-type] # noqa
+            action = law.util.colored(action, **sched_action_colors[action])  # type: ignore[arg-type]
             return s1 + task + s2 + action + s3
 
         # scheduler done building tree
@@ -489,7 +487,7 @@ def patch_interface_logging() -> None:
 
         return ret
 
-    luigi.setup_logging.InterfaceLogging._default = classmethod(_default)  # type: ignore[assignment]  # noqa
+    luigi.setup_logging.InterfaceLogging._default = classmethod(_default)  # type: ignore[assignment]
 
     logger.debug("patched luigi.setup_logging.InterfaceLogging._default")
 
@@ -541,10 +539,10 @@ def patch_parameter_parse_or_no_value() -> None:
     replaced with default values.
     """
     def _parse_or_no_value(self, x):
-        empty = x is None or x is luigi.parameter._no_value
-        return luigi.parameter._no_value if empty else self.parse(x)
+        empty = x is None or x is luigi.parameter._no_value  # type: ignore[attr-defined]
+        return luigi.parameter._no_value if empty else self.parse(x)  # type: ignore[attr-defined]
 
-    luigi.parameter.Parameter._parse_or_no_value = _parse_or_no_value
+    luigi.parameter.Parameter._parse_or_no_value = _parse_or_no_value  # type: ignore[attr-defined]
 
     logger.debug("patched luigi.parameter.Parameter._parse_or_no_value")
 

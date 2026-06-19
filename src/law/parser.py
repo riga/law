@@ -12,13 +12,13 @@ import luigi
 
 from law.logger import get_logger
 from law.util import multi_match
-from law._types import Sequence, Any, Type
+from law._types import Sequence, Any
 
 
 logger = get_logger(__name__)
 
 # cached objects
-_root_task_cls: Type[luigi.Task] | None = None
+_root_task_cls: type[luigi.Task] | None = None
 _root_task: luigi.Task | None = None
 _full_parser: luigi.cmdline_parser.CmdlineParser | None = None
 _root_task_parser: ArgumentParser | None = None
@@ -26,7 +26,7 @@ _global_cmdline_args: dict[str, str] | None = None
 _global_cmdline_values: dict[str, Any] | None = None
 
 
-def root_task_cls(task: luigi.Task | None = None) -> Type[luigi.Task] | None:
+def root_task_cls(task: luigi.Task | None = None) -> type[luigi.Task] | None:
     """
     Returns the class of the task that was triggered on the command line. The returned class is cached. When *task* is
     defined and no root task class was cached yet, this methods acts as a setter.

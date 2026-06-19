@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Helpful decorators to use with tasks.
 
@@ -22,7 +20,14 @@ arguments when configuring decorators. Default arguments are applied in either c
 from __future__ import annotations
 
 __all__ = [
-    "factory", "log", "safe_output", "delay", "notify", "timeit", "localize", "require_sandbox",
+    "delay",
+    "factory",
+    "localize",
+    "log",
+    "notify",
+    "require_sandbox",
+    "safe_output",
+    "timeit",
 ]
 
 import sys
@@ -163,8 +168,7 @@ def factory(**default_opts) -> Callable:
                 is_gen = inspect.isgeneratorfunction(orig_fn)
                 if is_gen and not accept_generator:
                     raise Exception(
-                        f"decorator {decorator} is not configured to decorate a generator "
-                        "function {orig_fn}",
+                        f"decorator {decorator} is not configured to decorate a generator function {orig_fn}",
                     )
 
                 # when decorator_run is None, guess the decision based on the name of the wrapped fn
@@ -192,8 +196,8 @@ def factory(**default_opts) -> Callable:
                         callbacks = tuple(decorator(fn, _opts, *args, **kwargs))
                         if len(callbacks) not in (3, 4):
                             raise Exception(
-                                "decorators accepting generator functions must return 3 or 4 "
-                                f"callbacks, got {len(callbacks)}",
+                                "decorators accepting generator functions must return 3 or 4 callbacks, got "
+                                f"{len(callbacks)}",
                             )
 
                         # extract the callbacks
@@ -235,25 +239,23 @@ def factory(**default_opts) -> Callable:
                                 on_error=_on_error,
                             )
 
-                        else:
-                            # although configured to handle it, the wrapped function is not a
-                            # generator, so just invoke the callbacks serially and handle errors
-                            state = before_call()
+                        # although configured to handle it, the wrapped function is not a
+                        # generator, so just invoke the callbacks serially and handle errors
+                        state = before_call()
 
-                            try:
-                                result = call(state)
-                            except (Exception, KeyboardInterrupt) as error:
-                                if not on_error(error, state):
-                                    raise
-                                result = None
+                        try:
+                            result = call(state)
+                        except (Exception, KeyboardInterrupt) as e:
+                            if not on_error(e, state):
+                                raise
+                            result = None
 
-                            after_call(state)
+                        after_call(state)
 
-                            return result
+                        return result
 
-                    else:
-                        # the wrapped function is a plain callable, so just call it
-                        return decorator(fn, _opts, *args, **kwargs)
+                    # the wrapped function is a plain callable, so just call it
+                    return decorator(fn, _opts, *args, **kwargs)
 
                 # store the originally wrapped function as an attribute of the wrapper
                 setattr(wrapper, orig_attr, orig_fn)
@@ -291,7 +293,7 @@ def log(
 
     # use the local target functionality to create the parent directory
     LocalFileTarget(log).parent.touch()  # type: ignore[call-arg, union-attr]
-    with open(log, "a", 1) as f:
+    with open(log, "a", 1, encoding="utf-8") as f:
         tee = TeeStream(f, sys.__stdout__)
         sys.stdout = tee  # type: ignore[assignment]
         sys.stderr = tee  # type: ignore[assignment]
@@ -426,7 +428,7 @@ def notify(
     def call(state: tuple[list[dict], float]) -> Any:
         return fn(task, *args, **kwargs)
 
-    def send(error: Exception | None, transports: list[dict], t0: float) -> None:
+    def send(error: Exception | KeyboardInterrupt | None, transports: list[dict], t0: float) -> None:
         # do nothing when there are no transports
         if not transports:
             return
@@ -443,7 +445,7 @@ def notify(
         # prepare message content
         duration = human_duration(seconds=round(time.perf_counter() - t0, 1))
         status_string = "succeeded" if success else "failed"
-        title = "Task {} {}!".format(_task.get_task_family(), status_string)
+        title = f"Task {_task.get_task_family()} {status_string}!"
         parts = collections.OrderedDict([
             ("Task", str(_task)),
             ("Host", socket.gethostname()),
@@ -512,7 +514,7 @@ def timeit(
 
     def log_duration(t0: float) -> None:
         duration = human_duration(seconds=round(time.perf_counter() - t0, 1))
-        task.logger.info("runtime: {}".format(duration))
+        task.logger.info(f"runtime: {duration}")
 
     def after_call(t0: float) -> None:
         log_duration(t0)
@@ -597,10 +599,10 @@ def localize(
         # restore the methods
         if input_orig is not None:
             task.input = input_orig
-            delattr(task, "input_unlocalized")
+            del task.input_unlocalized  # type: ignore[attr-defined]
         if output_orig is not None:
             task.output = output_orig
-            delattr(task, "output_unlocalized")
+            del task.output_unlocalized  # type: ignore[attr-defined]
 
 
 def _patch_localized_method(task: Task, func: Callable) -> Callable:
@@ -648,7 +650,7 @@ def require_sandbox(
                 f"match '{opts['sandbox']}'",
             )
 
-        return None
+        return
 
     def call(state: Any) -> None:
         return fn(task, *args, **kwargs)

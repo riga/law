@@ -1,40 +1,77 @@
-# coding: utf-8
-# flake8: noqa
+from __future__ import annotations
 
 __all__ = [
-    "Register", "Task", "WrapperTask", "ExternalTask",
-    "SandboxTask",
-    "BaseWorkflow", "WorkflowParameter", "LocalWorkflow", "workflow_property",
-    "dynamic_workflow_condition",
-    "FileSystemTarget", "FileSystemFileTarget", "FileSystemDirectoryTarget",
-    "LocalFileSystem", "LocalTarget", "LocalFileTarget", "LocalDirectoryTarget",
-    "TargetCollection", "FileCollection", "SiblingFileCollection", "NestedSiblingFileCollection",
-    "MirroredTarget", "MirroredFileTarget", "MirroredDirectoryTarget",
-    "Sandbox", "BashSandbox", "VenvSandbox",
-    "BaseJobManager", "BaseJobFileFactory", "JobInputFile", "JobArguments",
-    "NO_STR", "NO_INT", "NO_FLOAT", "is_no_param", "get_param", "Parameter",
-    "TaskInstanceParameter", "OptionalBoolParameter", "DurationParameter", "BytesParameter",
-    "CSVParameter", "MultiCSVParameter", "RangeParameter", "MultiRangeParameter", "NotifyParameter",
-    "NotifyMultiParameter", "NotifyMailParameter", "NotifyCustomParameter",
+    "NO_FLOAT",
+    "NO_INT",
+    "NO_STR",
+    "BaseJobFileFactory",
+    "BaseJobManager",
+    "BaseWorkflow",
+    "BashSandbox",
+    "BytesParameter",
+    "CSVParameter",
     "Config",
-    "run", "no_value",
+    "DurationParameter",
+    "ExternalTask",
+    "FileCollection",
+    "FileSystemDirectoryTarget",
+    "FileSystemFileTarget",
+    "FileSystemTarget",
+    "JobArguments",
+    "JobInputFile",
+    "LocalDirectoryTarget",
+    "LocalFileSystem",
+    "LocalFileTarget",
+    "LocalTarget",
+    "LocalWorkflow",
+    "MirroredDirectoryTarget",
+    "MirroredFileTarget",
+    "MirroredTarget",
+    "MultiCSVParameter",
+    "MultiRangeParameter",
+    "NestedSiblingFileCollection",
+    "NotifyCustomParameter",
+    "NotifyMailParameter",
+    "NotifyMultiParameter",
+    "NotifyParameter",
+    "OptionalBoolParameter",
+    "Parameter",
+    "RangeParameter",
+    "Register",
+    "Sandbox",
+    "SandboxTask",
+    "SiblingFileCollection",
+    "TargetCollection",
+    "Task",
+    "TaskInstanceParameter",
+    "VenvSandbox",
+    "WorkflowParameter",
+    "WrapperTask",
+    "dynamic_workflow_condition",
+    "get_param",
+    "is_no_param",
+    "localize_file_targets",
+    "luigi_version",
+    "luigi_version_info",
+    "no_value",
     "notify_mail",
-    "luigi_version", "luigi_version_info",
+    "run",
+    "workflow_property",
 ]
 
 import os
 import re
 
-import luigi  # type: ignore[import-untyped]
+import luigi
 
 # package infos
-from law.__meta__ import (
+from law.__meta__ import (  # noqa: F401
     __doc__, __author__, __email__, __copyright__, __credits__, __contact__, __license__,
     __status__, __version__,
 )
 
 # luigi version infos
-luigi_version = getattr(luigi, "__version__")
+luigi_version = luigi.__version__
 version_match = re.match(r"^(\d+)\.(\d+)\.(\d+)(.*)$", luigi_version)
 if version_match is None:
     raise RuntimeError(f"could not parse luigi version '{luigi_version}'")

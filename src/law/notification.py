@@ -1,12 +1,10 @@
-# coding: utf-8
-
 """
 Notification functions.
 """
 
 from __future__ import annotations
 
-__all__ = ["notify_mail", "notify_custom"]
+__all__ = ["notify_custom", "notify_mail"]
 
 import importlib
 
@@ -42,9 +40,7 @@ def notify_mail(
     if not sender:
         sender = cfg.get_expanded("notifications", "mail_sender")
     if not recipient or not sender:
-        logger.warning(
-            f"cannot send mail notification, recipient ({recipient}) or sender ({sender}) empty",
-        )
+        logger.warning(f"cannot send mail notification, recipient ({recipient}) or sender ({sender}) empty")
         return False
 
     # get host and port
@@ -95,9 +91,7 @@ def notify_custom(
         try:
             module_id, func_name = notify_func.rsplit(".", 1)
         except ValueError:
-            logger.warning(
-                f"cannot send custom notification, notify_func '{notify_func}' has invalid format",
-            )
+            logger.warning(f"cannot send custom notification, notify_func '{notify_func}' has invalid format")
             return False
         try:
             notify_module = importlib.import_module(module_id)
@@ -106,9 +100,7 @@ def notify_custom(
             return False
         notify_func = getattr(notify_module, func_name, None)
         if not notify_func:
-            logger.warning(
-                f"cannot send custom notification, notify_func '{notify_func}' not found",
-            )
+            logger.warning(f"cannot send custom notification, notify_func '{notify_func}' not found")
             return False
     if not callable(notify_func):
         logger.warning(f"cannot send custom notification, notify_func '{notify_func}' not callable")
@@ -118,9 +110,7 @@ def notify_custom(
     try:
         notify_func(title, content, **kwargs)
     except TypeError:
-        logger.warning(
-            f"cannot send custom notification, notify_func '{notify_func}' has invalid signature",
-        )
+        logger.warning(f"cannot send custom notification, notify_func '{notify_func}' has invalid signature")
         return False
 
     return True

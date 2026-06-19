@@ -8,8 +8,8 @@ docsdir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(docsdir, "_extensions"))
 sys.path.insert(0, os.path.normpath(os.path.join(docsdir, "..", "src")))
 
-import law  # noqa: E402
-from law._types import Any  # noqa: E402
+import law
+from law._types import Any
 
 
 # load all contrib packages

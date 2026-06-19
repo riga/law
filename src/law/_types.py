@@ -1,5 +1,4 @@
-# coding: utf-8
-
+# ruff: noqa: F401
 """
 Custom type definitions and shorthands to simplify imports of types that are spread across multiple
 packages.
@@ -10,28 +9,21 @@ from __future__ import annotations
 __all__: list[str] = []
 
 import sys
-from io import TextIOWrapper  # noqa
-from collections.abc import KeysView, ValuesView, MappingView, Sized  # noqa
-from types import ModuleType, GeneratorType, TracebackType  # noqa
-from typing import (  # noqa
-    Any, Union, Type, TypeVar, ClassVar, Sequence, Callable, Generator, TextIO, Iterable, Iterator, Hashable,
-    MutableMapping, IO, Generic,
+from io import TextIOWrapper
+from collections.abc import (
+    Generator, Hashable, Iterable, Iterator, KeysView, MappingView, MutableMapping, Sequence, Sized, ValuesView,
 )
-from contextlib import AbstractContextManager  # noqa
+from types import ModuleType, GeneratorType, TracebackType, GenericAlias
+from typing import (
+    Annotated, Any, Callable, ClassVar, Generic, IO, Literal, TextIO, TypeVar, Union,
+)
+from contextlib import AbstractContextManager
 
-from typing_extensions import Annotated, _AnnotatedAlias as AnnotatedType  # noqa
-
-# version dependent imports
-if sys.version_info[:2] == (3, 7):
-    from typing_extensions import Literal  # noqa
+# version specific imports
+if sys.version_info >= (3, 12):
+    from typing import override
 else:
-    from typing import Literal  # noqa
-
-if sys.version_info[:2] >= (3, 9):
-    from types import GenericAlias  # noqa
-else:
-    GenericAlias = str
-
+    from typing_extensions import override
 
 #: Generic type variables, more stringent than Any.
 T = TypeVar("T")

@@ -230,7 +230,10 @@ Now, every time you make a commit, the pre-commit and pre-push hooks will automa
 To run them manually, use
 
 ```shell
-# for linting, type checking and additional checks
+# for linting, type checking and additional checks on all files
+pre-commit run --all-files
+
+# only for staged files
 pre-commit run --all-files
 
 # for unit tests
@@ -244,7 +247,7 @@ There are various docker `riga/law` images available on the [DockerHub](https://
 | OS          | Python | Tags                                     |
 | ----------- | ------ | ---------------------------------------- |
 | AlmaLinux 9 | 3.14   | a9-py314, py314                          |
-| AlmaLinux 9 | 3.13   | a9-py314, a9-py3, a9, py314, py3, latest |
+| AlmaLinux 9 | 3.13   | a9-py313, a9-py3, a9, py313, py3, latest |
 | AlmaLinux 9 | 3.12   | a9-py312, py312                          |
 | AlmaLinux 9 | 3.11   | a9-py311, py311                          |
 | AlmaLinux 9 | 3.10   | a9-py310, py310                          |

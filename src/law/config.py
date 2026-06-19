@@ -1,17 +1,34 @@
-# coding: utf-8
-
 """
 law config parser implementation.
 """
 
 from __future__ import annotations
 
-__all__ = [  # noqa
+__all__ = [  # noqa: F822
     "Config",
-    "sections", "options", "keys", "items", "update", "include", "get", "getint", "getfloat",
-    "getboolean", "get_default", "get_expanded", "get_expanded_int", "get_expanded_float",
-    "get_expanded_bool", "is_missing_or_none", "find_option", "add_section", "has_section",
-    "remove_section", "set", "has_option", "remove_option",
+    "add_section",
+    "find_option",
+    "get",
+    "get_default",
+    "get_expanded",
+    "get_expanded_bool",
+    "get_expanded_float",
+    "get_expanded_int",
+    "getboolean",
+    "getfloat",
+    "getint",
+    "has_option",
+    "has_section",
+    "include",
+    "is_missing_or_none",
+    "items",
+    "keys",
+    "options",
+    "remove_option",
+    "remove_section",
+    "sections",
+    "set",
+    "update",
 ]
 
 import os
@@ -21,7 +38,7 @@ import pathlib
 import tempfile
 from configparser import ConfigParser
 
-import luigi  # type: ignore[import-untyped]
+import luigi
 
 from law.util import NoValue, no_value, brace_expand, str_to_int, merge_dicts, is_lazy_iterable
 from law._types import Callable, Any
@@ -71,7 +88,7 @@ class Config(ConfigParser):
 
     _instance: Config | None = None
 
-    class Deferred(object):
+    class Deferred:
         """
         Wrapper around callables representing deferred options.
         """
@@ -466,14 +483,14 @@ class Config(ConfigParser):
 
         When *default_when_none* is *True*, a *default* value is provided, and the option was found
         but its value is *None* or ``"None"`` (case-insensitive), the *default* is returned.
-        """  # noqa
+        """
         # return the default when either the section or the option does not exist
         default_set = default != no_value
         if (not self.has_section(section) or not self.has_option(section, option)) and default_set:
             return default
 
         # get the value
-        value = self.get(section, option)
+        value: Any = self.get(section, option)
 
         # handle variable expansion and dereferencing when value is a string
         # (which should always be the case, but subclasses might overwrite get())
@@ -663,7 +680,7 @@ class Config(ConfigParser):
         for section in self.sections():
             for option, value in self.items(section):
                 if value == self.Deferred.str_repr:
-                    value = self._default_config.get(section, {}).get(option, value)  # type: ignore[attr-defined] # noqa
+                    value = self._default_config.get(section, {}).get(option, value)  # type: ignore[attr-defined]
                 if isinstance(value, self.Deferred):
                     self.set(section, option, str(value(self)))
 
@@ -677,7 +694,7 @@ for contrib_init in glob.glob(os.path.join(this_dir, "contrib", "*", "__init__.p
         continue
     # load its content (not via import!)
     mod: dict[str, Any] = {}
-    with open(path, "r") as f:
+    with open(path, encoding="utf-8") as f:
         exec(f.read(), mod)
     defaults_func = mod.get("config_defaults")
     if not callable(defaults_func):
@@ -709,7 +726,7 @@ for name in __all__[__all__.index("sections"):]:
             return func(*args, **kwargs)
 
         wrapper.__name__ = name
-        wrapper.__doc__ = wrapper.__doc__.format(name)
+        wrapper.__doc__ = wrapper.__doc__.format(name)  # type: ignore[union-attr]
 
         return wrapper
 
