@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Virtualenv / venv sandbox implementation.
 """
@@ -11,15 +9,15 @@ __all__ = ["VenvSandbox"]
 import os
 import pickle
 
+from law._types import Any
 from law.sandbox.base import Sandbox
 from law.task.proxy import ProxyCommand
-from law.util import tmp_file, interruptable_popen, quote_cmd, makedirs
-from law._types import Any
+from law.util import interruptable_popen, makedirs, quote_cmd, tmp_file
 
 
 class VenvSandbox(Sandbox):
 
-    sandbox_type: str = "venv"  # type: ignore[assignment]
+    sandbox_type: str = "venv"
 
     config_section_prefix = sandbox_type
 
@@ -58,10 +56,7 @@ class VenvSandbox(Sandbox):
 
             # build the full command
             cmd = " && ".join(
-                pre_setup_cmds +
-                [quote_cmd(venv_cmd)] +
-                post_setup_cmds +
-                [quote_cmd(["python", "-c", py_cmd])],
+                [*pre_setup_cmds, quote_cmd(venv_cmd), *post_setup_cmds, quote_cmd(["python", "-c", py_cmd])],
             )
 
             # run it
@@ -75,7 +70,7 @@ class VenvSandbox(Sandbox):
                 try:
                     return dict(pickle.load(f, encoding="utf-8"))
                 except Exception as e:
-                    raise Exception(f"{self} env deserialization failed: {e}")
+                    raise Exception(f"{self} env deserialization failed: {e}") from e
 
         # use the cache path if set
         if self.env_cache_path:
@@ -125,10 +120,7 @@ class VenvSandbox(Sandbox):
 
         # build the full command
         cmd = " && ".join(
-            pre_setup_cmds +
-            [quote_cmd(venv_cmd)] +
-            post_setup_cmds +
-            [proxy_cmd.build()],
+            [*pre_setup_cmds, quote_cmd(venv_cmd), *post_setup_cmds, proxy_cmd.build()],
         )
 
         return cmd

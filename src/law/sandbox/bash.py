@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Bash sandbox implementation.
 """
@@ -11,16 +9,16 @@ __all__ = ["BashSandbox"]
 import os
 import pickle
 
+from law._types import Any
+from law.config import Config
 from law.sandbox.base import Sandbox
 from law.task.proxy import ProxyCommand
-from law.util import tmp_file, interruptable_popen, quote_cmd, flatten, makedirs
-from law.config import Config
-from law._types import Any
+from law.util import flatten, interruptable_popen, makedirs, quote_cmd, tmp_file
 
 
 class BashSandbox(Sandbox):
 
-    sandbox_type: str = "bash"  # type: ignore[assignment]
+    sandbox_type: str = "bash"
 
     config_section_prefix = sandbox_type
 
@@ -58,7 +56,7 @@ class BashSandbox(Sandbox):
             )
 
             # build the full command
-            cmd = quote_cmd(bash_cmd + ["-c", " && ".join(flatten(
+            cmd = quote_cmd(bash_cmd + ["-c", " && ".join(flatten(  # noqa: RUF005
                 pre_setup_cmds,
                 f"source \"{self.script}\" \"\"",
                 post_setup_cmds,
@@ -76,7 +74,7 @@ class BashSandbox(Sandbox):
                 try:
                     return dict(pickle.load(f, encoding="utf-8"))
                 except Exception as e:
-                    raise Exception(f"{self} env deserialization failed: {e}")
+                    raise Exception(f"{self} env deserialization failed: {e}") from e
 
         # use the cache path if set
         if self.env_cache_path:
@@ -132,7 +130,7 @@ class BashSandbox(Sandbox):
             proxy_cmd.add_arg("--local-scheduler", "True", overwrite=True)
 
         # build the final command
-        cmd = quote_cmd(bash_cmd + ["-c", " && ".join(flatten(
+        cmd = quote_cmd(bash_cmd + ["-c", " && ".join(flatten(  # noqa: RUF005
             pre_setup_cmds,
             f"source \"{self.script}\" \"\"",
             post_setup_cmds,

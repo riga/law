@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Abstract defintions that enable task sandboxing.
 """
@@ -8,30 +6,35 @@ from __future__ import annotations
 
 __all__ = ["Sandbox", "SandboxTask"]
 
+import abc
+import contextlib
+import fnmatch
 import os
 import pathlib
-import sys
 import shlex
-from abc import ABCMeta, abstractmethod, abstractproperty
-from contextlib import contextmanager
-from fnmatch import fnmatch
+import sys
 
-import luigi  # type: ignore[import-untyped]
+import luigi
 
+from law._types import Any, Hashable, Iterator, MutableMapping, TextIO
 from law.config import Config
-from law.task.proxy import ProxyTask, ProxyAttributeTask, ProxyCommand
-from law.target.local import FileSystemTarget
-from law.target.local import LocalDirectoryTarget
-from law.target.collection import TargetCollection
+from law.logger import get_logger
 from law.parameter import NO_STR
 from law.parser import root_task
+from law.target.collection import TargetCollection
+from law.target.local import FileSystemTarget, LocalDirectoryTarget
+from law.task.proxy import ProxyAttributeTask, ProxyCommand, ProxyTask
 from law.util import (
-    colored, is_pattern, multi_match, mask_struct, map_struct, interruptable_popen, patch_object,
-    flatten, classproperty,
+    classproperty,
+    colored,
+    flatten,
+    interruptable_popen,
+    is_pattern,
+    map_struct,
+    mask_struct,
+    multi_match,
+    patch_object,
 )
-from law.logger import get_logger
-from law._types import Any, Hashable, Iterator, MutableMapping, TextIO
-
 
 logger = get_logger(__name__)
 
@@ -64,7 +67,7 @@ if _sandbox_switched:
         raise Exception("LAW_SANDBOX_WORKER_FIRST_TASK_ID must not be empty in a sandbox")
 
 
-class StageInfo(object):
+class StageInfo:
 
     def __init__(
         self,
@@ -93,7 +96,7 @@ class StageInfo(object):
         return str(self)
 
 
-class SandboxVariables(object):
+class SandboxVariables:  # noqa: PLW1641
 
     fields: tuple[str, ...] = ()
     eq_fields: tuple[str, ...] = ("name",)
@@ -148,7 +151,7 @@ class SandboxVariables(object):
         )
 
 
-class Sandbox(object, metaclass=ABCMeta):
+class Sandbox(metaclass=abc.ABCMeta):
     """
     Sandbox definition.
 
@@ -233,7 +236,7 @@ class Sandbox(object, metaclass=ABCMeta):
         task: SandboxTask | None = None,
         env_cache_path: str | pathlib.Path | None = None,
     ) -> None:
-        super(Sandbox, self).__init__()
+        super().__init__()
 
         # when a task is set, it must be a SandboxTask instance
         if task and not isinstance(task, SandboxTask):
@@ -267,24 +270,24 @@ class Sandbox(object, metaclass=ABCMeta):
 
     def scheduler_on_host(self) -> bool:
         config = luigi.interface.core()
-        return multi_match(config.scheduler_host, ["0.0.0.0", "127.0.0.1", "localhost"])  # type: ignore[arg-type] # noqa
+        return multi_match(config.scheduler_host, ["0.0.0.0", "127.0.0.1", "localhost"])
 
     def force_local_scheduler(self) -> bool:
         return False
 
-    @abstractproperty
+    @abc.abstractproperty
     def config_section_prefix(self) -> str:
         ...
 
-    @abstractproperty
+    @abc.abstractproperty
     def env_cache_key(self) -> str:
         ...
 
-    @abstractmethod
+    @abc.abstractmethod
     def create_env(self) -> dict[str, Any]:
         ...
 
-    @abstractmethod
+    @abc.abstractmethod
     def cmd(self, proxy_cmd: ProxyCommand) -> str:
         ...
 
@@ -350,10 +353,7 @@ class Sandbox(object, metaclass=ABCMeta):
         cfg = Config.instance()
         section = self.get_config_section(postfix="env")
         for name, value in cfg.items(section):
-            if is_pattern(name):
-                names = [key for key in os.environ.keys() if fnmatch(key, name)]
-            else:
-                names = [name]
+            names = [key for key in os.environ if fnmatch.fnmatch(key, name)] if is_pattern(name) else [name]
             for name in names:
                 # when there is only a key present, i.e., no value is set,
                 # get it from the current environment
@@ -485,7 +485,7 @@ class SandboxProxy(ProxyTask):
 
         # run with log section before and after actual run call
         with self._run_context(cmd):
-            code, out, err = self.sandbox_inst.run(cmd)
+            code, _, _ = self.sandbox_inst.run(cmd)
             if code != 0:
                 raise Exception(
                     f"sandbox '{self.sandbox_inst.key}' failed with exit code {code}, please see "
@@ -530,7 +530,7 @@ class SandboxProxy(ProxyTask):
         # create the stage-in directory
         if not isinstance(tmp_dir, LocalDirectoryTarget):
             tmp_dir = LocalDirectoryTarget(tmp_dir)
-        stagein_dir: LocalDirectoryTarget = tmp_dir.child(stagein_dir_name, type="d")  # type: ignore[assignment] # noqa
+        stagein_dir: LocalDirectoryTarget = tmp_dir.child(stagein_dir_name, type="d")  # type: ignore[assignment]
         stagein_dir.touch()
 
         # create localized sandbox input representations
@@ -585,7 +585,7 @@ class SandboxProxy(ProxyTask):
         # create the stage-out directory
         if not isinstance(tmp_dir, LocalDirectoryTarget):
             tmp_dir = LocalDirectoryTarget(tmp_dir)
-        stageout_dir: LocalDirectoryTarget = tmp_dir.child(stageout_dir_name, type="d")  # type: ignore[assignment] # noqa
+        stageout_dir: LocalDirectoryTarget = tmp_dir.child(stageout_dir_name, type="d")  # type: ignore[assignment]
         stageout_dir.touch()
 
         # create localized sandbox output representations
@@ -616,12 +616,12 @@ class SandboxProxy(ProxyTask):
 
         logger.info(f"staged-out {len(stageout_info.stage_dir.listdir())} file(s)")
 
-    @contextmanager
+    @contextlib.contextmanager
     def _run_context(self, cmd: str | None = None) -> Iterator[None]:
         def print_banner(msg, color):
             print("")
             print(colored(f" {msg} ".center(80, "="), color=color))
-            print(colored("task   : ", color=color) + colored(self.task.task_id, style="bright"))
+            print(colored("task   : ", color=color) + colored(self.task.task_id, style="bright"))  # type: ignore[attr-defined]
             print(colored("sandbox: ", color=color) + colored(self.sandbox_inst.key, style="bright"))
             print(colored(80 * "=", color=color))
             print("")
@@ -669,7 +669,7 @@ class SandboxTask(ProxyAttributeTask):
         if self._sandbox_initialized and not force:
             return
         self._sandbox_initialized = True
-        sandbox: str = self.sandbox  # type: ignore[assignment]
+        sandbox: str = self.sandbox
 
         # reset values
         self._effective_sandbox = None
@@ -690,7 +690,7 @@ class SandboxTask(ProxyAttributeTask):
 
         # just set the effective sandbox
         else:
-            self._effective_sandbox = sandbox
+            self._effective_sandbox = sandbox  # type: ignore[unreachable]
 
         # at this point, the sandbox must be set unless it is explicitely allowed to be empty
         if self._effective_sandbox in (None, NO_STR):
@@ -703,7 +703,7 @@ class SandboxTask(ProxyAttributeTask):
             sandbox_inst = Sandbox.new(self._effective_sandbox, self)
             if not sandbox_inst.is_active():
                 self._sandbox_inst = sandbox_inst
-                self._sandbox_proxy = SandboxProxy(task=self)
+                self._sandbox_proxy = SandboxProxy(task=self)  # type: ignore[call-arg]
                 logger.debug(f"created sandbox proxy instance of type '{self._effective_sandbox}'")
 
     @property
@@ -876,4 +876,4 @@ def create_staged_target(
     if not isinstance(stage_dir, LocalDirectoryTarget):
         stage_dir = LocalDirectoryTarget(str(stage_dir))
 
-    return stage_dir.child(target.unique_basename, type=target.type, **target._copy_kwargs())  # type: ignore[attr-defined] # noqa
+    return stage_dir.child(target.unique_basename, type=target.type, **target._copy_kwargs())  # type: ignore[attr-defined]

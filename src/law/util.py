@@ -158,16 +158,13 @@ console_lock = threading.Lock()
 
 class NoValue:
 
+    __hash: int = hash(object())
     _instance: NoValue | None = None
 
     def __new__(cls, *args, **kwargs) -> NoValue:
         if cls._instance is None:
             cls._instance = super().__new__(cls, *args, **kwargs)
         return cls._instance
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.__hash = hash(object())
 
     def __hash__(self) -> int:
         return self.__hash
