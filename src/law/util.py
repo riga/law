@@ -88,37 +88,50 @@ __all__ = [  # noqa: RUF022
     "FilteredStream",
 ]
 
-import os
-import sys
-import re
-import math
-import fnmatch
-import itertools
-import functools
 import collections
-import tempfile
-import subprocess
-import signal
-import hashlib
-import uuid
-import shutil
-import pathlib
-import copy
 import contextlib
-import smtplib
-import time
+import copy
 import datetime
-import random
-import threading
+import fnmatch
+import functools
+import hashlib
+import inspect
+import itertools
+import logging
+import math
 import multiprocessing
 import multiprocessing.managers
+import os
+import pathlib
+import random
+import re
 import shlex
-import inspect
-import logging
+import shutil
+import signal
+import smtplib
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+import uuid
 
 from law._types import (
-    ModuleType, Any, Sequence, Callable, Iterable, GeneratorType, MappingView, T, Iterator,
-    Generator, Hashable, AbstractContextManager, TracebackType, GenericAlias, Sized,
+    AbstractContextManager,
+    Any,
+    Callable,
+    Generator,
+    GeneratorType,
+    GenericAlias,
+    Hashable,
+    Iterable,
+    Iterator,
+    MappingView,
+    ModuleType,
+    Sequence,
+    Sized,
+    T,
+    TracebackType,
 )
 
 ipykernel: ModuleType | None = None
@@ -266,8 +279,9 @@ def law_run(argv: Sequence[str], **kwargs) -> int:
         law_run(["MyTask", "--param", "value"])
         law_run("MyTask --param value")
     """
-    from luigi.interface import run as luigi_run  # type: ignore[import-untyped]
-    from luigi.cmdline_parser import CmdlineParser  # type: ignore[import-untyped]
+    from luigi.cmdline_parser import CmdlineParser
+    from luigi.interface import run as luigi_run
+
     from law.parser import _reset as reset_parser
 
     # ensure that argv is a list of strings

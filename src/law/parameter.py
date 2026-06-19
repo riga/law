@@ -24,21 +24,31 @@ __all__ = [
     "is_no_param",
 ]
 
-import functools
+import collections
 import csv
-from collections import OrderedDict
+import functools
 
-import luigi  # type: ignore[import-untyped]
+import luigi
 
-from law.notification import notify_mail, notify_custom
-from law.util import (
-    human_duration, parse_duration, time_units, time_unit_aliases, human_bytes, parse_bytes,
-    byte_units, is_lazy_iterable, make_tuple, make_unique, brace_expand, range_expand, try_int,
-    no_value,
-)
-from law.logger import get_logger
 from law._types import Any, Sequence, T
-
+from law.logger import get_logger
+from law.notification import notify_custom, notify_mail
+from law.util import (
+    brace_expand,
+    byte_units,
+    human_bytes,
+    human_duration,
+    is_lazy_iterable,
+    make_tuple,
+    make_unique,
+    no_value,
+    parse_bytes,
+    parse_duration,
+    range_expand,
+    time_unit_aliases,
+    time_units,
+    try_int,
+)
 
 logger = get_logger(__name__)
 
@@ -913,7 +923,7 @@ class NotifyMailParameter(NotifyParameter):
     @classmethod
     def format_message(cls, success: bool, title: str, content: dict[str, Any]) -> tuple[str, str]:
         """"""
-        content = OrderedDict(content)
+        content = collections.OrderedDict(content)
 
         # status text
         content["Status"] = "success" if success else "failure"

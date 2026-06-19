@@ -1,3 +1,4 @@
+# ruff: noqa: I001
 from __future__ import annotations
 
 __all__ = [
@@ -66,8 +67,15 @@ import luigi
 
 # package infos
 from law.__meta__ import (  # noqa: F401
-    __doc__, __author__, __email__, __copyright__, __credits__, __contact__, __license__,
-    __status__, __version__,
+    __author__,
+    __contact__,
+    __copyright__,
+    __credits__,
+    __doc__,
+    __email__,
+    __license__,
+    __status__,
+    __version__,
 )
 
 # luigi version infos

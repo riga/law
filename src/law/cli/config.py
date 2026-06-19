@@ -7,7 +7,6 @@ import argparse
 from law.config import Config
 from law.util import abort
 
-
 _cfg = Config.instance()
 
 

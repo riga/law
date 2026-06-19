@@ -2,8 +2,9 @@ from __future__ import annotations
 
 __all__ = ["TestUtil"]
 
-from .base import TestCase
 import law
+
+from .base import TestCase
 
 
 class TestUtil(TestCase):

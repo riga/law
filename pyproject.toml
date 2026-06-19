@@ -123,7 +123,6 @@ ignore = [
   "PLR",  # design related pylint codes
   "E402",  # imports at the top of the file
   "G004",  # logging statement uses f-string
-  "I001",  # unsorted import block"
   "I002",  # isort: "from __future__ import annotations"
   "ISC001",  # flake8-implicit-str-concat: Implicit string concatenation"
   "PLW2901",  # ignore reassingment of loop variable

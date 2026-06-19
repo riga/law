@@ -30,31 +30,37 @@ __all__ = [
     "timeit",
 ]
 
-import sys
-import time
-import traceback
+import collections
 import functools
 import inspect
 import random
 import socket
-import collections
+import sys
+import time
+import traceback
 import uuid
 
-import luigi  # type: ignore[import-untyped]
+import luigi
 
-from law.task.base import Task
-from law.task.proxy import ProxyTask
+from law._types import Any, Callable, T
+from law.logger import get_logger
+from law.parameter import NotifyParameter, get_param
 from law.sandbox.base import SandboxTask
-from law.parameter import get_param, NotifyParameter
 from law.target.file import localize_file_targets
 from law.target.local import LocalFileTarget
+from law.task.base import Task
+from law.task.proxy import ProxyTask
 from law.util import (
-    NoValue, no_value, uncolored, make_list, multi_match, human_duration, join_generators,
-    empty_context, TeeStream,
+    NoValue,
+    TeeStream,
+    empty_context,
+    human_duration,
+    join_generators,
+    make_list,
+    multi_match,
+    no_value,
+    uncolored,
 )
-from law.logger import get_logger
-from law._types import Callable, Any, T
-
 
 logger = get_logger(__name__)
 

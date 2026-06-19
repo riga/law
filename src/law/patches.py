@@ -7,19 +7,19 @@ from __future__ import annotations
 
 __all__ = ["before_run", "patch_all"]
 
-import re
-import functools
 import copy
-import multiprocessing
+import functools
 import logging
+import multiprocessing
+import re
 
 import luigi
+
 import law
 import law.sandbox
-from law.util import patch_object, mp_manager
+from law._types import Any, Callable
 from law.logger import get_logger
-from law._types import Callable, Any
-
+from law.util import mp_manager, patch_object
 
 logger = get_logger(__name__)
 

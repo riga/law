@@ -5,11 +5,10 @@ Law command line interface entry point.
 from __future__ import annotations
 
 import sys
-from importlib import import_module
 from argparse import ArgumentParser
+from importlib import import_module
 
 import law
-
 
 progs = ["run", "index", "config", "software", "completion", "location", "quickstart", "luigid"]
 

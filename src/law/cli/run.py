@@ -4,16 +4,15 @@
 
 from __future__ import annotations
 
-import os
-import sys
-import pathlib
 import argparse
+import os
+import pathlib
+import sys
 
 from law.config import Config
+from law.logger import get_logger
 from law.task.base import Task
 from law.util import abort
-from law.logger import get_logger
-
 
 logger = get_logger(__name__)
 

@@ -4,21 +4,20 @@
 
 from __future__ import annotations
 
+import argparse
+import collections
+import importlib
 import os
 import sys
 import traceback
-import importlib
-import argparse
-import collections
 
-import luigi  # type: ignore[import-untyped]
+import luigi
 
-from law.config import Config
-from law.task.base import Task, ExternalTask
-from law.util import multi_match, colored, abort, makedirs, brace_expand
-from law.logger import get_logger
 from law._types import Sequence
-
+from law.config import Config
+from law.logger import get_logger
+from law.task.base import ExternalTask, Task
+from law.util import abort, brace_expand, colored, makedirs, multi_match
 
 logger = get_logger(__name__)
 

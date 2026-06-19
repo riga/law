@@ -15,12 +15,11 @@ __all__ = [
     "setup_logging",
 ]
 
-from collections import defaultdict
+import collections
 import logging
 
-from law.util import no_value, colored, ipykernel, ON_COLAB
 from law._types import Any, Callable, ClassVar
-
+from law.util import ON_COLAB, colored, ipykernel, no_value
 
 _logging_setup = False
 
@@ -36,7 +35,7 @@ class Logger(logging.Logger):
         super().__init__(*args, **kwargs)
 
         # names of logs per level that are issued only once
-        self._once_logs: dict[str, set] = defaultdict(set)
+        self._once_logs: dict[str, set] = collections.defaultdict(set)
 
     def debug_once(self, log_id: str, *args, **kwargs) -> None:
         # when no log_id is set, but just a message, it is received as log_id

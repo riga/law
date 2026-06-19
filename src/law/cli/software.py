@@ -4,17 +4,16 @@
 
 from __future__ import annotations
 
-import os
-import sys
-import shutil
-import pathlib
 import argparse
 import importlib
+import os
+import pathlib
+import shutil
+import sys
 
+from law._types import ModuleType
 from law.config import Config
 from law.logger import get_logger
-from law._types import ModuleType
-
 
 logger = get_logger(__name__)
 

@@ -2,8 +2,8 @@
 "law location" cli subprogram.
 """
 
-import os
 import argparse
+import os
 
 from law.util import law_src_path
 

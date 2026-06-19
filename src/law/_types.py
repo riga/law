@@ -9,15 +9,33 @@ from __future__ import annotations
 __all__: list[str] = []
 
 import sys
-from io import TextIOWrapper
 from collections.abc import (
-    Generator, Hashable, Iterable, Iterator, KeysView, MappingView, MutableMapping, Sequence, Sized, ValuesView,
-)
-from types import ModuleType, GeneratorType, TracebackType, GenericAlias
-from typing import (
-    Annotated, Any, Callable, ClassVar, Generic, IO, Literal, TextIO, TypeVar, Union,
+    Generator,
+    Hashable,
+    Iterable,
+    Iterator,
+    KeysView,
+    MappingView,
+    MutableMapping,
+    Sequence,
+    Sized,
+    ValuesView,
 )
 from contextlib import AbstractContextManager
+from io import TextIOWrapper
+from types import GeneratorType, GenericAlias, ModuleType, TracebackType
+from typing import (
+    IO,
+    Annotated,
+    Any,
+    Callable,
+    ClassVar,
+    Generic,
+    Literal,
+    TextIO,
+    TypeVar,
+    Union,
+)
 
 # version specific imports
 if sys.version_info >= (3, 12):

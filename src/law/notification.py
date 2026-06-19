@@ -8,11 +8,10 @@ __all__ = ["notify_custom", "notify_mail"]
 
 import importlib
 
-from law.config import Config
-from law.util import send_mail, uncolored
-from law.logger import get_logger
 from law._types import Any, Callable
-
+from law.config import Config
+from law.logger import get_logger
+from law.util import send_mail, uncolored
 
 logger = get_logger(__name__)
 

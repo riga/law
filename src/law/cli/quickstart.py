@@ -2,13 +2,12 @@
 "law quickstart" cli subprogram.
 """
 
+import argparse
 import os
 import shutil
-import argparse
 
 from law.config import Config
 from law.util import law_src_path
-
 
 _cfg = Config.instance()
 

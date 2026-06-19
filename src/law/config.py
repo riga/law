@@ -31,18 +31,17 @@ __all__ = [  # noqa: F822
     "update",
 ]
 
-import os
-import re
+import configparser
 import glob
+import os
 import pathlib
+import re
 import tempfile
-from configparser import ConfigParser
 
 import luigi
 
-from law.util import NoValue, no_value, brace_expand, str_to_int, merge_dicts, is_lazy_iterable
-from law._types import Callable, Any
-
+from law._types import Any, Callable
+from law.util import NoValue, brace_expand, is_lazy_iterable, merge_dicts, no_value, str_to_int
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -54,7 +53,7 @@ def law_home_path(*paths: Any) -> str:
     return os.path.normpath(os.path.join(home, *map(str, paths)))
 
 
-class Config(ConfigParser):
+class Config(configparser.ConfigParser):
     """
     Custom law configuration parser with a few additions on top of the standard python
     ``ConfigParser``. Most notably, this class adds config *inheritance* via :py:meth:`update` and
@@ -341,7 +340,7 @@ class Config(ConfigParser):
         returned option name, depending on whether *expand_vars* and *expand_user* are *True*.
         """
         options = []
-        for option in ConfigParser.options(self, section):
+        for option in configparser.ConfigParser.options(self, section):
             if prefix and not option.startswith(prefix):
                 continue
             option = self._expand_path(option, expand_vars=expand_vars, expand_user=expand_user)
@@ -394,7 +393,7 @@ class Config(ConfigParser):
             else:
                 value = str(value)
 
-        ConfigParser.set(self, section, option, value)
+        configparser.ConfigParser.set(self, section, option, value)
 
     def update(  # type: ignore[override]
         self,

@@ -6,14 +6,13 @@ from __future__ import annotations
 
 __all__: list[str] = []
 
-from argparse import ArgumentParser
+import argparse
 
 import luigi
 
+from law._types import Any, Sequence
 from law.logger import get_logger
 from law.util import multi_match
-from law._types import Sequence, Any
-
 
 logger = get_logger(__name__)
 
@@ -21,7 +20,7 @@ logger = get_logger(__name__)
 _root_task_cls: type[luigi.Task] | None = None
 _root_task: luigi.Task | None = None
 _full_parser: luigi.cmdline_parser.CmdlineParser | None = None
-_root_task_parser: ArgumentParser | None = None
+_root_task_parser: argparse.ArgumentParser | None = None
 _global_cmdline_args: dict[str, str] | None = None
 _global_cmdline_values: dict[str, Any] | None = None
 
@@ -92,7 +91,7 @@ def full_parser() -> luigi.cmdline_parser.CmdlineParser | None:
     return _full_parser
 
 
-def root_task_parser() -> ArgumentParser | None:
+def root_task_parser() -> argparse.ArgumentParser | None:
     """
     Returns a new *ArgumentParser* instance that only contains parameter actions of the root task. The returned instance
     is cached.
@@ -117,7 +116,7 @@ def root_task_parser() -> ArgumentParser | None:
                 root_dests.append(param_name)
 
         # create a new parser and add all root actions
-        _root_task_parser = ArgumentParser(add_help=False)
+        _root_task_parser = argparse.ArgumentParser(add_help=False)
         for action in list(_full_parser._actions):  # type: ignore[attr-defined]
             if not action.option_strings or action.dest in root_dests:
                 _root_task_parser._add_action(action)
