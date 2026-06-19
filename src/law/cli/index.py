@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 "law index" cli subprogram.
 """
@@ -102,7 +100,7 @@ def execute(args: argparse.Namespace) -> int:
     # just show the file content?
     if args.show:
         if os.path.exists(index_file):
-            with open(index_file, "r") as f:
+            with open(index_file, encoding="utf-8") as f:
                 print(f.read())
             return 0
         return abort(f"index file {index_file} does not exist")
@@ -232,12 +230,12 @@ def execute(args: argparse.Namespace) -> int:
     def index_line(cls, params):
         return f"{cls.__module__}:{cls.get_task_family()}:{' '.join(params)}"
 
-    stats: dict[str, list[tuple[str, list[str]]]] = dict()
+    stats: dict[str, list[tuple[str, list[str]]]] = {}
 
     # write the index file
     makedirs(os.path.dirname(index_file))
 
-    with open(index_file, "w") as f:
+    with open(index_file, "w", encoding="utf-8") as f:
         for cls in task_classes:
             # get prams
             params = get_task_params(cls)

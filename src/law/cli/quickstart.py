@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 "law quickstart" cli subprogram.
 """

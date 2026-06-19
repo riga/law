@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Law command line interface entry point.
 """
@@ -56,10 +54,10 @@ def run(argv: list[str] | None = None) -> int:
     prog: str | None = argv[0] if argv else None
     if prog == "run":
         args = parser.parse_args(argv[:2])
-        prog_argv = ["law run"] + argv
+        prog_argv = ["law run", *argv]
     elif prog == "luigid":
         args = parser.parse_args(argv[:1])
-        prog_argv = ["law luigid"] + argv
+        prog_argv = ["law luigid", *argv]
     else:
         args = parser.parse_args(argv)
 

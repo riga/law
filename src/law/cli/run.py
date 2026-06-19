@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 "law run" cli subprogram.
 """
@@ -93,7 +91,7 @@ def execute(args: argparse.Namespace, argv: list[str]) -> int:
     # run luigi
     from luigi.cmdline import luigi_run  # type: ignore[import-untyped]
     sys.argv[0] += " run"
-    success = luigi_run([task_family] + argv[3:])
+    success = luigi_run([task_family, *argv[3:]])
 
     return 0 if success else 1
 
@@ -113,7 +111,7 @@ def read_task_from_index(
         index_file = cfg.get_expanded("core", "index_file")
 
     # open and go through lines
-    with open(index_file, "r") as f:
+    with open(index_file, encoding="utf-8") as f:
         for line in f.readlines():
             line = line.strip()
             if line.count(":") >= 2:
