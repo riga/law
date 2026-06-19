@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Shallow luigi target subclasses that consume arguments for use in multi-inheritance scenarios.
 """
@@ -10,7 +8,7 @@ __all__: list[str] = []
 
 import pathlib
 
-import luigi  # type: ignore[import-untyped]
+import luigi
 
 
 class Target(luigi.target.Target):
@@ -55,4 +53,4 @@ class LocalTarget(luigi.local_target.LocalTarget, FileSystemTarget):
         # luigi.local_target.LocalTarget accepts "path", "format", and "is_tmp"
         # path can be None, although FileSystemTarget does not accept hit, since
         # luigi.local_target.LocalTarget receives it first and always sets it to a string
-        super().__init__(path=path, format=format, is_tmp=is_tmp)  # type: ignore[arg-type]
+        super().__init__(path=path, format=format, is_tmp=is_tmp)

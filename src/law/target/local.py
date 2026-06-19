@@ -1,31 +1,34 @@
-# coding: utf-8
-
 """
 Local target implementations.
 """
 
 from __future__ import annotations
 
-__all__ = ["LocalFileSystem", "LocalTarget", "LocalFileTarget", "LocalDirectoryTarget"]
+__all__ = ["LocalDirectoryTarget", "LocalFileSystem", "LocalFileTarget", "LocalTarget"]
 
-import os
-import fnmatch
-import shutil
-import pathlib
-import glob
-import random
 import contextlib
+import fnmatch
+import glob
+import os
+import pathlib
+import random
+import shutil
 
-from law.config import Config
 import law.target.luigi_shims as shims
+from law._types import IO, AbstractContextManager, Any, Callable, Generator, Iterator, Literal
+from law.config import Config
+from law.logger import get_logger
 from law.target.file import (
-    FileSystem, FileSystemTarget, FileSystemFileTarget, FileSystemDirectoryTarget, get_path,
-    get_scheme, add_scheme, remove_scheme,
+    FileSystem,
+    FileSystemDirectoryTarget,
+    FileSystemFileTarget,
+    FileSystemTarget,
+    add_scheme,
+    get_path,
+    get_scheme,
+    remove_scheme,
 )
 from law.target.formatter import AUTO_FORMATTER, find_formatter
-from law.logger import get_logger
-from law._types import Any, Callable, Literal, Iterator, AbstractContextManager, IO, Generator
-
 
 logger = get_logger(__name__)
 
@@ -90,7 +93,7 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
         self.config_section = section
 
         # parse the config
-        kwargs = self.parse_config(self.config_section, kwargs)  # type: ignore[arg-type]
+        kwargs = self.parse_config(self.config_section, kwargs)
         kwargs.setdefault("name", self.config_section)
 
         # when no base is given, use the config value
@@ -220,7 +223,7 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
         path: str | pathlib.Path,
         *,
         pattern: str | None = None,
-        type: Literal["f", "d"] | None = None,
+        type: Literal["f", "d"] | None = None,  # noqa: F821, UP037
         **kwargs,
     ) -> list[str]:
         abspath = self.abspath(path)
@@ -401,7 +404,7 @@ LocalFileSystem.default_instance = LocalFileSystem()
 
 class LocalTarget(FileSystemTarget, shims.LocalTarget):
 
-    fs = LocalFileSystem.default_instance  # type: ignore[assignment]
+    fs = LocalFileSystem.default_instance
 
     open: Callable | None = None  # type: ignore[assignment]
 
@@ -440,7 +443,7 @@ class LocalTarget(FileSystemTarget, shims.LocalTarget):
 
             # create a random path
             while True:
-                basename = "luigi-tmp-{:09d}".format(random.randint(0, 999999999))
+                basename = f"luigi-tmp-{random.randint(0, 999999999):09d}"
                 path = os.path.join(_tmp_dir, basename)
                 if not fs.exists(path):
                     break
@@ -593,7 +596,7 @@ class LocalFileTarget(FileSystemFileTarget, LocalTarget):  # type: ignore[misc]
                 self.parent.touch(perm=dir_perm)  # type: ignore[union-attr, call-arg]
 
                 # simply yield
-                yield self
+                yield self  # noqa: RUF075
 
                 if perm is None:
                     perm = self.fs.default_file_perm
@@ -607,7 +610,7 @@ class LocalDirectoryTarget(FileSystemDirectoryTarget, LocalTarget):  # type: ign
         path: str | pathlib.Path,
         type: str,
     ) -> tuple[tuple[Any, ...], dict[str, Any]]:
-        args, kwargs = super(LocalDirectoryTarget, self)._child_args(path, type)
+        args, kwargs = super()._child_args(path, type)
         kwargs["fs"] = self.fs
         return args, kwargs
 
@@ -684,8 +687,8 @@ class LocalDirectoryTarget(FileSystemDirectoryTarget, LocalTarget):  # type: ign
 
 # TODO: since some abstract methods defined on their superclass are simply overwritten via
 # assignment, the type checker does not recognize them as concrete
-LocalTarget.file_class = LocalFileTarget  # type: ignore[type-abstract]
-LocalTarget.directory_class = LocalDirectoryTarget  # type: ignore[type-abstract]
+LocalTarget.file_class = LocalFileTarget
+LocalTarget.directory_class = LocalDirectoryTarget
 
 
 # trailing imports
