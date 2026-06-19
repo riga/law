@@ -1,32 +1,35 @@
-# coding: utf-8
-
 """
 Remote filesystem and targets, using a configurable remote file interface for atomic operations.
 """
 
 from __future__ import annotations
 
-__all__ = ["RemoteFileSystem", "RemoteTarget", "RemoteFileTarget", "RemoteDirectoryTarget"]
+__all__ = ["RemoteDirectoryTarget", "RemoteFileSystem", "RemoteFileTarget", "RemoteTarget"]
 
-import os
-import time
 import abc
-import fnmatch
-import pathlib
 import contextlib
+import fnmatch
+import os
+import pathlib
+import time
 
+from law._types import IO, Any, Callable, Generator, Iterator, Literal, Sequence, TracebackType
 from law.config import Config
-from law.target.file import (
-    FileSystem, FileSystemTarget, FileSystemFileTarget, FileSystemDirectoryTarget, get_path,
-    get_scheme, add_scheme, remove_scheme,
-)
-from law.target.local import LocalFileSystem, LocalFileTarget, LocalDirectoryTarget
-from law.target.remote.interface import RemoteFileInterface
-from law.target.remote.cache import RemoteCache
-from law.util import make_list, merge_dicts, is_pattern
 from law.logger import get_logger
-from law._types import Any, Callable, Iterator, TracebackType, Sequence, Literal, Generator, IO
-
+from law.target.file import (
+    FileSystem,
+    FileSystemDirectoryTarget,
+    FileSystemFileTarget,
+    FileSystemTarget,
+    add_scheme,
+    get_path,
+    get_scheme,
+    remove_scheme,
+)
+from law.target.local import LocalDirectoryTarget, LocalFileSystem, LocalFileTarget
+from law.target.remote.cache import RemoteCache
+from law.target.remote.interface import RemoteFileInterface
+from law.util import is_pattern, make_list, merge_dicts
 
 logger = get_logger(__name__)
 
@@ -110,7 +113,7 @@ class RemoteFileSystem(FileSystem):
         skip = make_list(skip) if skip else []
         transfer_kwargs = {
             name: kwargs.pop(name)
-            for name in ["cache", "prefer_cache", "retries", "retry_delay"] + include
+            for name in ["cache", "prefer_cache", "retries", "retry_delay", *include]
             if name in kwargs and name not in skip
         }
         return transfer_kwargs, kwargs
@@ -150,7 +153,7 @@ class RemoteFileSystem(FileSystem):
             self.cache = None
 
     def __repr__(self) -> str:
-        return "{}({}, name={}, base={}, {})".format(
+        return "{}({}, name={}, base={}, {})".format(  # noqa: UP032
             self.__class__.__name__,
             self.file_interface.__class__.__name__,
             self.name,
@@ -308,14 +311,14 @@ class RemoteFileSystem(FileSystem):
             perm = self.default_dir_perm or 0o0770
 
         func = self.file_interface.mkdir_rec if recursive else self.file_interface.mkdir
-        return func(self.abspath(path), perm, **kwargs)  # type: ignore[operator]
+        return func(self.abspath(path), perm, **kwargs)
 
     def listdir(
         self,
         path: str | pathlib.Path,
         *,
         pattern: str | None = None,
-        type: Literal["f", "d"] | None = None,
+        type: Literal["f", "d"] | None = None,  # noqa: F821, UP037
         **kwargs,
     ) -> list[str]:
         # forward to local_fs
@@ -346,8 +349,7 @@ class RemoteFileSystem(FileSystem):
     ) -> Iterator[tuple[str, list[str], list[str], int]]:
         # forward to local_fs
         if self.is_local(path):
-            for obj in self.local_fs.walk(path, max_depth=max_depth):
-                yield obj
+            yield from self.local_fs.walk(path, max_depth=max_depth)
             return
 
         # mimic os.walk with a max_depth and yield the current depth
@@ -442,9 +444,8 @@ class RemoteFileSystem(FileSystem):
 
         # copy validation
         dst_fs = self.local_fs if self.is_local(dst_uri) else self
-        if validate:
-            if not dst_fs.exists(dst):
-                raise Exception(f"validation failed after copying {src_uri} to {dst_uri}")
+        if validate and not dst_fs.exists(dst):
+            raise Exception(f"validation failed after copying {src_uri} to {dst_uri}")
 
         # handle permissions
         if perm is None:
@@ -518,42 +519,42 @@ class RemoteFileSystem(FileSystem):
             cache_inst.allocate(lstat.st_size)
             cdst_uri = add_scheme(cache_inst.cache_path(_dst), "file")
             with cache_inst.lock(_dst):
-                logger.debug("loading source file {} to cache".format(src))
+                logger.debug(f"loading source file {src} to cache")
                 self._atomic_copy(src, cdst_uri, validate=False)
                 cache_inst.touch(_dst, (int(time.time()), rstat.st_mtime))
 
             return dst_uri
 
-        else:  # rl, rc
-            # strategy: copy to cache when not up to date, sync stats, opt. copy to local
+        # rl, rc
+        # strategy: copy to cache when not up to date, sync stats, opt. copy to local
 
-            # build the uri to the cache path of the src file
-            csrc_uri = add_scheme(cache_inst.cache_path(src), "file")
+        # build the uri to the cache path of the src file
+        csrc_uri = add_scheme(cache_inst.cache_path(src), "file")
 
-            # if the file is cached and prefer_cache is true,
-            # return the cache path, no questions asked
-            # otherwise, check if the file is there and up to date
-            if not prefer_cache or src not in cache_inst:
-                with cache_inst.lock(src):
-                    # in cache and outdated?
-                    rstat = self.stat(src, **kwargs_no_retries)
-                    if src in cache_inst and not cache_inst.check_mtime(src, rstat.st_mtime):
-                        logger.debug("source file {} is outdated in cache, removing".format(src))
-                        cache_inst.remove(src, lock=False)
-                    # in cache at all?
-                    if src not in cache_inst:
-                        cache_inst.allocate(rstat.st_size)
-                        self._atomic_copy(src, csrc_uri, validate=validate, **kwargs)
-                        logger.debug("loading source file {} to cache".format(src))
-                        cache_inst.touch(src, (int(time.time()), rstat.st_mtime))
+        # if the file is cached and prefer_cache is true,
+        # return the cache path, no questions asked
+        # otherwise, check if the file is there and up to date
+        if not prefer_cache or src not in cache_inst:
+            with cache_inst.lock(src):
+                # in cache and outdated?
+                rstat = self.stat(src, **kwargs_no_retries)
+                if src in cache_inst and not cache_inst.check_mtime(src, rstat.st_mtime):
+                    logger.debug(f"source file {src} is outdated in cache, removing")
+                    cache_inst.remove(src, lock=False)
+                # in cache at all?
+                if src not in cache_inst:
+                    cache_inst.allocate(rstat.st_size)
+                    self._atomic_copy(src, csrc_uri, validate=validate, **kwargs)
+                    logger.debug(f"loading source file {src} to cache")
+                    cache_inst.touch(src, (int(time.time()), rstat.st_mtime))
 
-            if mode == "rl":
-                # simply use the local_fs for copying
-                self.local_fs.copy(csrc_uri, _dst, perm=perm)
-                return _dst
+        if mode == "rl":
+            # simply use the local_fs for copying
+            self.local_fs.copy(csrc_uri, _dst, perm=perm)
+            return _dst
 
-            # mode is rc
-            return csrc_uri
+        # mode is rc
+        return csrc_uri
 
     def _prepare_dst_dir(
         self,
@@ -603,7 +604,7 @@ class RemoteFileSystem(FileSystem):
         # dst might be an existing directory
         if dst:
             dst_fs = self.local_fs if self.is_local(dst) else self
-            dst_fs._prepare_dst_dir(dst, src=src, perm=dir_perm, **kwargs)  # type: ignore[attr-defined] # noqa
+            dst_fs._prepare_dst_dir(dst, src=src, perm=dir_perm, **kwargs)
 
         # copy the file
         return self._cached_copy(src, dst, perm=perm, **kwargs)
@@ -641,7 +642,7 @@ class RemoteFileSystem(FileSystem):
         cache: bool | None = None,
         **kwargs,
     ) -> RemoteProxyBase:
-        if self.cache is None:
+        if self.cache is None:  # noqa: SIM108
             cache = False
         else:
             cache = self.use_cache if cache is None else bool(cache)
@@ -677,7 +678,7 @@ class RemoteFileSystem(FileSystem):
         def copy_and_cleanup() -> None:
             exists = True
             try:
-                exists: bool = tmp.exists()  # type: ignore[assignment]
+                exists: bool = tmp.exists()
                 if exists:
                     self.copy(
                         tmp.uri(),
@@ -722,7 +723,7 @@ class RemoteTarget(FileSystemTarget):
     @path.setter
     def path(self, path: str | pathlib.Path) -> None:
         if os.path.normpath(str(path)).startswith(".."):
-            raise ValueError("path {} forbidden, surpasses file system root".format(path))
+            raise ValueError(f"path '{path}' forbidden, surpasses file system root")
 
         path = self.fs.abspath(path)
         super(RemoteTarget, self.__class__).path.fset(self, path)  # type: ignore[attr-defined]
@@ -740,7 +741,7 @@ class RemoteTarget(FileSystemTarget):
         **kwargs,
     ) -> str:
         if dst is not None:
-            dst = add_scheme(self.fs.local_fs.abspath(get_path(dst)), "file")  # type: ignore[attr-defined] # noqa
+            dst = add_scheme(self.fs.local_fs.abspath(get_path(dst)), "file")  # type: ignore[attr-defined]
         dst = self.copy_to(dst, **kwargs)  # type: ignore[arg-type]
         return remove_scheme(dst)
 
@@ -749,7 +750,7 @@ class RemoteTarget(FileSystemTarget):
         src: str | pathlib.Path | FileSystemTarget | None = None,
         **kwargs,
     ) -> str:
-        src = add_scheme(self.fs.local_fs.abspath(get_path(src)), "file")  # type: ignore[attr-defined] # noqa
+        src = add_scheme(self.fs.local_fs.abspath(get_path(src)), "file")  # type: ignore[attr-defined]
         return self.copy_from(src, **kwargs)
 
     def move_to_local(
@@ -758,7 +759,7 @@ class RemoteTarget(FileSystemTarget):
         **kwargs,
     ) -> str:
         if dst is not None:
-            dst = add_scheme(self.fs.local_fs.abspath(get_path(dst)), "file")  # type: ignore[attr-defined] # noqa
+            dst = add_scheme(self.fs.local_fs.abspath(get_path(dst)), "file")  # type: ignore[attr-defined]
         dst = self.move_to(dst, **kwargs)  # type: ignore[arg-type]
         return remove_scheme(dst)
 
@@ -767,7 +768,7 @@ class RemoteTarget(FileSystemTarget):
         src: str | pathlib.Path | FileSystemTarget | None = None,
         **kwargs,
     ) -> str:
-        src = add_scheme(self.fs.local_fs.abspath(get_path(src)), "file")  # type: ignore[attr-defined] # noqa
+        src = add_scheme(self.fs.local_fs.abspath(get_path(src)), "file")  # type: ignore[attr-defined]
         return self.move_from(src, **kwargs)
 
     def load(self, *args, **kwargs) -> Any:
@@ -828,10 +829,7 @@ class RemoteFileTarget(FileSystemFileTarget, RemoteTarget):
                 if tmp.exists():
                     self.copy_from_local(tmp, perm=perm, dir_perm=dir_perm, **kwargs)
                 else:
-                    logger.warning(
-                        "cannot move non-existing localized target to actual representation "
-                        f"{self!r}",
-                    )
+                    logger.warning(f"cannot move non-existing localized target to actual representation {self!r}")
             finally:
                 tmp.remove()
 
@@ -905,11 +903,11 @@ class RemoteDirectoryTarget(FileSystemDirectoryTarget, RemoteTarget):
 
 # TODO: since some abstract methods defined on their superclass are simply overwritten via
 # assignment, the type checker does not recognize them as concrete
-RemoteTarget.file_class = RemoteFileTarget  # type: ignore[type-abstract]
-RemoteTarget.directory_class = RemoteDirectoryTarget  # type: ignore[type-abstract]
+RemoteTarget.file_class = RemoteFileTarget
+RemoteTarget.directory_class = RemoteDirectoryTarget
 
 
-class RemoteProxyBase(object, metaclass=abc.ABCMeta):
+class RemoteProxyBase(metaclass=abc.ABCMeta):
 
     def __init__(
         self,
@@ -965,9 +963,9 @@ class RemoteFileProxy(RemoteProxyBase):
         # invoke the exit of the file object
         # when its return value is True, it overwrites the success flag
         if getattr(self.f, "__exit__", None) is not None:
-            exit_ret = self.f.__exit__(exc_type, exc_value, traceback)  # type: ignore[func-returns-value] # noqa
+            exit_ret = self.f.__exit__(exc_type, exc_value, traceback)
             if exit_ret is True:
-                success = True
+                success = True  # type: ignore[unreachable]
 
         self._on_success_or_failure(success)
 

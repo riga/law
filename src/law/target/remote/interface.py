@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Interface for communicating with a remote file service.
 """
@@ -8,22 +6,21 @@ from __future__ import annotations
 
 __all__ = ["RemoteFileInterface"]
 
+import abc
+import functools
 import os
+import pathlib
+import random as _random
 import sys
 import time
-import abc
-import pathlib
-import functools
-import random as _random
 
+from law._types import Any, Callable, Sequence, TracebackType
 from law.config import Config
+from law.logger import Logger, get_logger
 from law.target.file import remove_scheme
-from law.util import make_list, is_lazy_iterable, brace_expand, parse_duration
-from law.logger import get_logger, Logger
-from law._types import Any, TracebackType, Callable, Sequence
+from law.util import brace_expand, is_lazy_iterable, make_list, parse_duration
 
-
-logger: Logger = get_logger(__name__)  # type: ignore[assignment]
+logger: Logger = get_logger(__name__)
 
 
 class RetryException(Exception):
@@ -41,7 +38,7 @@ class RetryException(Exception):
         super().__init__(msg or str(self.exc_value))
 
 
-class RemoteFileInterface(object, metaclass=abc.ABCMeta):
+class RemoteFileInterface(metaclass=abc.ABCMeta):
 
     @classmethod
     def parse_config(
@@ -143,11 +140,11 @@ class RemoteFileInterface(object, metaclass=abc.ABCMeta):
                                 f"{kwargs}) failed: {e}, retry",
                             )
                             time.sleep(delay)
-                except:
+                except Exception as e:
                     # at this point, no more retry attempts are available,
                     # so update the exception to reflect that, then reraise
-                    exc: tuple[type, BaseException, TracebackType] = sys.exc_info()  # type: ignore[assignment] # noqa
-                    exc_type, exc_value, exc_traceback = exc
+                    exc: tuple[type, BaseException, TracebackType] = sys.exc_info()  # type: ignore[assignment]
+                    exc_type, exc_value, _ = exc
                     msg = (
                         f"{exc_value}\n"
                         f"function: {self.__class__.__name__}.{func_name}\n"
@@ -156,12 +153,12 @@ class RemoteFileInterface(object, metaclass=abc.ABCMeta):
                         f"kwargs  : {kwargs}\n"
                         f"error   : {exc_type.__name__}: '{exc_value}'"
                     )
-                    exc_value.args = (msg,) + exc_value.args[1:]
-                    raise exc_value
+                    exc_value.args = (msg, *exc_value.args[1:])
+                    raise exc_value from e
 
             return wrapper
 
-        return decorator(func) if func else decorator  # type: ignore[return-value]
+        return decorator(func) if func else decorator
 
     def __init__(
         self,
@@ -233,12 +230,7 @@ class RemoteFileInterface(object, metaclass=abc.ABCMeta):
             return bases
 
         # select one
-        if len(bases) == 1 or not random:
-            # select the first base
-            base = bases[0]
-        else:
-            # select a random base
-            base = _random.choice(bases)
+        base = bases[0] if len(bases) == 1 or not random else _random.choice(bases)
 
         return base if not return_index else (base, all_bases.index(base))
 
@@ -262,7 +254,7 @@ class RemoteFileInterface(object, metaclass=abc.ABCMeta):
             return uri if scheme else remove_scheme(uri)
 
         if isinstance(base, (list, tuple)) or is_lazy_iterable(base):
-            return [uri(b) for b in base]  # type: ignore[union-attr]
+            return [uri(b) for b in base]
 
         if return_all:
             return [uri(base)]

@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Cache for remote files on local disk.
 """
@@ -8,28 +6,33 @@ from __future__ import annotations
 
 __all__ = ["RemoteCache"]
 
-import os
-import shutil
-import time
-import pathlib
-import tempfile
-import weakref
-import contextlib
 import atexit
+import contextlib
+import os
+import pathlib
+import shutil
+import tempfile
+import time
+import weakref
 
-from law.config import Config
 import law.target.remote.base as _remote_base
-from law.util import (
-    makedirs, human_bytes, parse_bytes, parse_duration, create_hash, user_owns_file, io_lock,
-)
+from law._types import AbstractContextManager, Any, Callable, Iterator
+from law.config import Config
 from law.logger import get_logger
-from law._types import Any, Callable, Iterator, AbstractContextManager
-
+from law.util import (
+    create_hash,
+    human_bytes,
+    io_lock,
+    makedirs,
+    parse_bytes,
+    parse_duration,
+    user_owns_file,
+)
 
 logger = get_logger(__name__)
 
 
-class RemoteCache(object):
+class RemoteCache:
 
     TMP = "__TMP__"
 
@@ -49,10 +52,8 @@ class RemoteCache(object):
     def cleanup_all(cls) -> None:
         # clear all caches
         for inst in cls._instances:
-            try:
+            with contextlib.suppress(Exception):
                 inst._cleanup()
-            except:
-                pass
 
     @classmethod
     def parse_config(
@@ -75,7 +76,7 @@ class RemoteCache(object):
             cache_option = "cache_" + option
             if cfg.is_missing_or_none(section, cache_option):
                 return
-            elif option not in config or overwrite:
+            if option not in config or overwrite:
                 config[option] = func(section, cache_option)
 
         def get_size(section, cache_option):
@@ -156,10 +157,8 @@ class RemoteCache(object):
         logger.debug(f"created {self.__class__.__name__} at '{self.base}'")
 
     def __del__(self) -> None:
-        try:
+        with contextlib.suppress(OSError, TypeError):
             self._cleanup()
-        except (OSError, TypeError):
-            pass
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__} '{self.base}' at {hex(id(self))}>"
@@ -202,16 +201,12 @@ class RemoteCache(object):
         return self._is_locked(self.cache_path(rpath))
 
     def _unlock_global(self) -> None:
-        try:
+        with contextlib.suppress(OSError):
             os.remove(self._global_lock_path)
-        except OSError:
-            pass
 
     def _unlock(self, cpath: str | pathlib.Path) -> None:
-        try:
+        with contextlib.suppress(OSError):
             os.remove(self._lock_path(cpath))
-        except OSError:
-            pass
 
     def _await_global(
         self,
@@ -283,7 +278,7 @@ class RemoteCache(object):
 
         try:
             with io_lock:
-                with open(self._global_lock_path, "w") as f:
+                with open(self._global_lock_path, "w", encoding="utf-8") as f:
                     f.write("")
                 os.utime(self._global_lock_path, None)
 
@@ -300,13 +295,11 @@ class RemoteCache(object):
 
         try:
             with io_lock:
-                with open(lock_path, "w") as f:
+                with open(lock_path, "w", encoding="utf-8") as f:
                     f.write("")
                 self._locked_cpaths.add(cpath)
-                try:
+                with contextlib.suppress(OSError):
                     os.utime(lock_path, None)
-                except OSError:
-                    pass
 
             yield
         except:
@@ -326,7 +319,7 @@ class RemoteCache(object):
         def _human_bytes(size: int | float) -> tuple[float, str]:
             return human_bytes(size)  # type: ignore[return-value]
 
-        logger.debug("allocating {0[0]:.2f} {0[1]} in cache '{1}'".format(_human_bytes(size), self))
+        logger.debug("allocating {0[0]:.2f} {0[1]} in cache '{1}'".format(_human_bytes(size), self))  # noqa: G001
 
         # determine stats and current cache size
         file_stats = []
@@ -351,18 +344,10 @@ class RemoteCache(object):
         # determine the size of files that need to be deleted
         delete_size = current_size + size - max_size
         if delete_size <= 0:
-            logger.debug(
-                "cache space sufficient, {0[0]:.2f} {0[1]} remaining".format(
-                    _human_bytes(-delete_size),
-                ),
-            )
+            logger.debug("cache space sufficient, {0[0]:.2f} {0[1]} remaining".format(_human_bytes(-delete_size)))  # noqa: G001
             return True
 
-        logger.info(
-            "need to delete {0[0]:.2f} {0[1]} from cache".format(
-                _human_bytes(delete_size),
-            ),
-        )
+        logger.info("need to delete {0[0]:.2f} {0[1]} from cache".format(_human_bytes(delete_size)))  # noqa: G001
 
         # delete files, ordered by their access time, skip locked ones
         for cpath, cstat in sorted(file_stats, key=lambda tpl: tpl[1].st_atime):
@@ -373,11 +358,7 @@ class RemoteCache(object):
             if delete_size <= 0:
                 return True
 
-        logger.warning(
-            "could not allocate remaining {0[0]:.2f} {0[1]} in cache".format(
-                _human_bytes(delete_size),
-            ),
-        )
+        logger.warning("could not allocate remaining {0[0]:.2f} {0[1]} in cache".format(_human_bytes(delete_size)))  # noqa: G001
 
         return False
 
@@ -413,10 +394,8 @@ class RemoteCache(object):
 
     def _remove(self, cpath: str | pathlib.Path, lock: bool = True) -> None:
         def remove() -> None:
-            try:
+            with contextlib.suppress(OSError):
                 os.remove(str(cpath))
-            except OSError:
-                pass
 
         if lock:
             with self._lock(cpath):
