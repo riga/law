@@ -27,6 +27,7 @@ repos:
         language: python
         types_or: [python, pyi]
         entry: mypy
+        pass_filenames: false
         args: [--config-file=pyproject.toml, --show-error-codes]
 
       - id: pytest

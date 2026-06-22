@@ -51,7 +51,7 @@ def main() -> None:
             "status": args["status"],
             "code": args.get("code", 0),
         },
-        "event": args.get("event", "status.{}".format(args["status"])),
+        "event": args.get("event", f"status.{args['status']}"),
         "attempt": int(args["attempt"]),
     }
 
