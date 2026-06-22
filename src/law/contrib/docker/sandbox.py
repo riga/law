@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Docker sandbox implementation.
 """
@@ -9,25 +7,25 @@ from __future__ import annotations
 __all__ = ["DockerSandbox"]
 
 import os
-import sys
-import uuid
 import socket
 import subprocess
+import sys
+import uuid
 
-import luigi  # type: ignore[import-untyped]
+import luigi
 
+from law._types import Any
+from law.cli.software import get_software_deps
 from law.config import Config
-from law.task.proxy import ProxyCommand
 from law.sandbox.base import Sandbox
 from law.target.local import LocalFileTarget
-from law.cli.software import get_software_deps
-from law.util import make_list, interruptable_popen, quote_cmd, flatten, makedirs
-from law._types import Any
+from law.task.proxy import ProxyCommand
+from law.util import flatten, interruptable_popen, make_list, makedirs, quote_cmd
 
 
 class DockerSandbox(Sandbox):
 
-    sandbox_type: str = "docker"  # type: ignore[assignment]
+    sandbox_type: str = "docker"
 
     config_section_prefix = sandbox_type
 
@@ -55,7 +53,7 @@ class DockerSandbox(Sandbox):
             try:
                 return tmp.load(formatter="pickle")
             except Exception as e:
-                raise Exception(f"{self} env deserialization failed: {e}")
+                raise Exception(f"{self} env deserialization failed: {e}") from e
 
         # load the env when the cache file is configured and existing
         if self.env_cache_path:
@@ -91,7 +89,7 @@ class DockerSandbox(Sandbox):
         py_executable = f"$( whereis -b python | cut -d \" \" -f 2 ) -c \"{py_cmd}\""
 
         # build the full command
-        cmd = quote_cmd(docker_run_cmd + [
+        cmd = quote_cmd(docker_run_cmd + [  # noqa: RUF005
             self.image,
             "bash", "-l", "-c",
             " && ".join(flatten(
@@ -108,6 +106,7 @@ class DockerSandbox(Sandbox):
             executable="/bin/bash",
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
+            stdin=None,
         )
         if code != 0:
             raise Exception(f"docker sandbox env loading failed with exit code {code}:\n{out}")
@@ -209,9 +208,9 @@ class DockerSandbox(Sandbox):
 
         # forward python directories of law and dependencies
         for mod in get_software_deps():
-            mod_file: str = mod.__file__  # type: ignore[var-type, assignment]
+            mod_file: str = mod.__file__  # type: ignore[assignment]
             path = os.path.dirname(mod_file)
-            name, ext = os.path.splitext(os.path.basename(mod_file))
+            name, _ = os.path.splitext(os.path.basename(mod_file))
             if name == "__init__":
                 vsrc = path
                 vdst = dst(python_dir, os.path.basename(path))
@@ -263,7 +262,7 @@ class DockerSandbox(Sandbox):
         post_setup_cmds = self._build_post_setup_cmds(env)
 
         # build the final command
-        cmd = quote_cmd(docker_run_cmd + [
+        cmd = quote_cmd(docker_run_cmd + [  # noqa: RUF005
             self.image,
             "bash", "-l", "-c",
             " && ".join(flatten(

@@ -1,23 +1,23 @@
-# coding: utf-8
-
 """
 Dropbox file system and targets based on the GFAL file interface.
 """
 
 from __future__ import annotations
 
-__all__ = ["DropboxFileSystem", "DropboxTarget", "DropboxFileTarget", "DropboxDirectoryTarget"]
+__all__ = ["DropboxDirectoryTarget", "DropboxFileSystem", "DropboxFileTarget", "DropboxTarget"]
 
 import pathlib
 
 import law
-from law.config import Config
-from law.target.remote import (
-    RemoteFileSystem, RemoteTarget, RemoteFileTarget, RemoteDirectoryTarget,
-)
-from law.logger import get_logger
 from law._types import Any, Callable
-
+from law.config import Config
+from law.logger import get_logger
+from law.target.remote import (
+    RemoteDirectoryTarget,
+    RemoteFileSystem,
+    RemoteFileTarget,
+    RemoteTarget,
+)
 
 logger = get_logger(__name__)
 
@@ -86,7 +86,7 @@ class DropboxFileSystem(RemoteFileSystem):
             fs_config["access_token"] = access_token
 
         # base path, app key, app secret and access token are mandatory
-        msg_tmpl = (
+        msg_tmpl = (  # noqa: UP032
             "attribute '{{0}}' must not be empty, set it either directly in the {} constructor, "
             "or add the option '{{0}}' to your config section '{}'"
         ).format(self.__class__.__name__, self.config_section)
@@ -132,7 +132,7 @@ class DropboxTarget(RemoteTarget):
     def __init__(
         self,
         path: str | pathlib.Path,
-        fs: str | pathlib.Path | DropboxFileSystem | None = DropboxFileSystem.default_instance,  # type: ignore[assignment] # noqa
+        fs: str | pathlib.Path | DropboxFileSystem | None = DropboxFileSystem.default_instance,  # type: ignore[assignment]
         **kwargs,
     ) -> None:
         if fs is None:
@@ -153,5 +153,5 @@ class DropboxDirectoryTarget(DropboxTarget, RemoteDirectoryTarget):
     pass
 
 
-DropboxTarget.file_class = DropboxFileTarget  # type: ignore[type-abstract]
-DropboxTarget.directory_class = DropboxDirectoryTarget  # type: ignore[type-abstract]
+DropboxTarget.file_class = DropboxFileTarget
+DropboxTarget.directory_class = DropboxDirectoryTarget
