@@ -132,6 +132,7 @@ preview = true
 ignore = [
   "PLR",  # design related pylint codes
   "B901",  # return in generator
+  "B905",  # use of zip() without strict parameter
   "E402",  # imports at the top of the file
   "G004",  # logging statement uses f-string
   "I002",  # isort: "from __future__ import annotations"
