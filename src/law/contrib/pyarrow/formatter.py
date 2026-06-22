@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 PyArrow target formatters.
 """
@@ -10,12 +8,11 @@ __all__ = ["ParquetFormatter", "ParquetTableFormatter"]
 
 import pathlib
 
-from law.target.formatter import Formatter
-from law.target.file import FileSystemFileTarget, get_path
-from law.logger import get_logger
-from law.util import no_value
 from law._types import Any
-
+from law.logger import get_logger
+from law.target.file import FileSystemFileTarget, get_path
+from law.target.formatter import Formatter
+from law.util import no_value
 
 logger = get_logger(__name__)
 
@@ -30,7 +27,7 @@ class ParquetFormatter(Formatter):
 
     @classmethod
     def load(cls, path: str | pathlib.Path | FileSystemFileTarget, *args, **kwargs) -> Any:
-        import pyarrow.parquet as pq  # type: ignore[import-untyped, import-not-found]
+        import pyarrow.parquet as pq
 
         return pq.ParquetFile(get_path(path), *args, **kwargs)
 
@@ -45,7 +42,7 @@ class ParquetTableFormatter(Formatter):
 
     @classmethod
     def load(cls, path: str | pathlib.Path | FileSystemFileTarget, *args, **kwargs) -> Any:
-        import pyarrow.parquet as pq  # type: ignore[import-untyped, import-not-found]
+        import pyarrow.parquet as pq
 
         return pq.read_table(get_path(path), *args, **kwargs)
 
@@ -57,7 +54,7 @@ class ParquetTableFormatter(Formatter):
         *args,
         **kwargs,
     ) -> Any:
-        import pyarrow.parquet as pq  # type: ignore[import-untyped, import-not-found]
+        import pyarrow.parquet as pq
 
         perm = kwargs.pop("perm", no_value)
 

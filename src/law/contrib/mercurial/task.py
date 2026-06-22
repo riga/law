@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Mercurial-related tasks.
 """
@@ -8,20 +6,20 @@ from __future__ import annotations
 
 __all__ = ["BundleMercurialRepository"]
 
+import abc
 import os
 import pathlib
-import threading
 import subprocess
-from abc import abstractmethod
+import threading
 
-import luigi  # type: ignore[import-untyped]
+import luigi
 
-from law.task.base import Task
+from law.decorator import log
+from law.parameter import NO_STR, CSVParameter
 from law.target.file import FileSystemFileTarget, get_path
 from law.target.local import LocalFileTarget
-from law.parameter import NO_STR, CSVParameter
-from law.decorator import log
-from law.util import rel_path, interruptable_popen, quote_cmd
+from law.task.base import Task
+from law.util import interruptable_popen, quote_cmd, rel_path
 
 
 class BundleMercurialRepository(Task):
@@ -48,22 +46,22 @@ class BundleMercurialRepository(Task):
         self._checksum: str | None = None
         self._checksum_lock = threading.RLock()
 
-    @abstractmethod
+    @abc.abstractmethod
     def get_repo_path(self) -> str | pathlib.Path | FileSystemFileTarget:
         ...
 
     @property
     def checksum(self) -> str:
         if self.custom_checksum != NO_STR:
-            return self.custom_checksum  # type: ignore[return-value]
+            return self.custom_checksum
 
         with self._checksum_lock:
             if self._checksum is None:
                 cmd = quote_cmd([
                     rel_path(__file__, "scripts", "repository_checksum.sh"),
                     get_path(self.get_repo_path()),
-                    " ".join(self.include_files),  # type: ignore[arg-type]
-                    " ".join(self.exclude_files),  # type: ignore[arg-type]
+                    " ".join(self.include_files),
+                    " ".join(self.exclude_files),
                 ])
 
                 out: str
@@ -96,8 +94,8 @@ class BundleMercurialRepository(Task):
             rel_path(__file__, "scripts", "bundle_repository.sh"),
             get_path(self.get_repo_path()),
             get_path(dst_path),
-            " ".join(self.include_files),  # type: ignore[arg-type]
-            " ".join(self.exclude_files),  # type: ignore[arg-type]
+            " ".join(self.include_files),
+            " ".join(self.exclude_files),
         ]
 
         code = interruptable_popen(cmd, executable="/bin/bash")[0]

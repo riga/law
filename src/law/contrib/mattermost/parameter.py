@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Mattermost related parameters.
 """
@@ -8,12 +6,12 @@ from __future__ import annotations
 
 __all__ = ["NotifyMattermostParameter"]
 
-from collections import OrderedDict
+import collections
 
-from law.config import Config
-from law.parameter import NotifyParameter
-from law.contrib.mattermost.notification import notify_mattermost
 from law._types import Any
+from law.config import Config
+from law.contrib.mattermost.notification import notify_mattermost
+from law.parameter import NotifyParameter
 
 
 class NotifyMattermostParameter(NotifyParameter):
@@ -37,7 +35,7 @@ class NotifyMattermostParameter(NotifyParameter):
 
     @classmethod
     def notify(cls, success: bool, title: str, content: dict[str, Any], **kwargs) -> bool:
-        content = OrderedDict(content)
+        content = collections.OrderedDict(content)
 
         # overwrite title
         cfg = Config.instance()

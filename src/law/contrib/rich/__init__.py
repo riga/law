@@ -1,6 +1,3 @@
-# coding: utf-8
-# flake8: noqa
-
 """
 Rich contrib functionality.
 """

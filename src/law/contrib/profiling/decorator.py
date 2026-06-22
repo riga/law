@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Profiling decorators.
 """
@@ -8,10 +6,10 @@ from __future__ import annotations
 
 __all__ = ["profile_by_line"]
 
-from law.task.base import Task
+from law._types import Any, Callable
 from law.decorator import factory, get_task
+from law.task.base import Task
 from law.util import colored
-from law._types import Callable, Any
 
 
 @factory(output_unit=None, stripzeros=False, accept_generator=True)
@@ -29,7 +27,7 @@ def profile_by_line(
     *stripzeros* are forwarded to :py:meth:`line_profiler.LineProfiler.print_stats`. Accepts
     generator functions.
     """
-    import line_profiler  # type: ignore[import-untyped, import-not-found]
+    import line_profiler
 
     def print_stats(profiler: line_profiler.LineProfiler, text: str | None = None) -> None:
         task_repr = get_task(task).repr()

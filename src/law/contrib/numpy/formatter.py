@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 NumPy target formatters.
 """
@@ -10,12 +8,11 @@ __all__ = ["NumpyFormatter"]
 
 import pathlib
 
-from law.target.formatter import Formatter
-from law.target.file import FileSystemFileTarget, get_path
-from law.logger import get_logger
-from law.util import no_value
 from law._types import Any, Callable
-
+from law.logger import get_logger
+from law.target.file import FileSystemFileTarget, get_path
+from law.target.formatter import Formatter
+from law.util import no_value
 
 logger = get_logger(__name__)
 
@@ -30,11 +27,11 @@ class NumpyFormatter(Formatter):
 
     @classmethod
     def load(cls, path: str | pathlib.Path | FileSystemFileTarget, *args, **kwargs) -> Any:
-        import numpy as np  # type: ignore[import-untyped, import-not-found]
+        import numpy as np
 
         path = get_path(path)
         func = np.loadtxt if str(path).endswith(".txt") else np.load
-        return func(path, *args, **kwargs)  # type: ignore[operator]
+        return func(path, *args, **kwargs)
 
     @classmethod
     def dump(cls, path: str | pathlib.Path | FileSystemFileTarget, *args, **kwargs) -> Any:

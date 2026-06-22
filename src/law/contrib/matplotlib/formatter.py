@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Matplotlib target formatter.
 """
@@ -10,10 +8,10 @@ __all__ = ["MatplotlibFormatter"]
 
 import pathlib
 
-from law.target.formatter import Formatter
-from law.target.file import FileSystemFileTarget, get_path
-from law.util import no_value
 from law._types import Any
+from law.target.file import FileSystemFileTarget, get_path
+from law.target.formatter import Formatter
+from law.util import no_value
 
 
 class MatplotlibFormatter(Formatter):

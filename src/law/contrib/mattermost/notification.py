@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Mattermost notifications.
 """
@@ -11,11 +9,10 @@ __all__ = ["notify_mattermost"]
 import threading
 import traceback
 
-from law.config import Config
-from law.util import escape_markdown
-from law.logger import get_logger
 from law._types import Any
-
+from law.config import Config
+from law.logger import get_logger
+from law.util import escape_markdown
 
 logger = get_logger(__name__)
 
@@ -93,7 +90,7 @@ def notify_mattermost(
 
 
 def _notify_mattermost(hook_url: str, request_data: dict[str, Any]) -> None:
-    import requests  # type: ignore[import-untyped]
+    import requests
 
     try:
         res = requests.post(hook_url, json=request_data)

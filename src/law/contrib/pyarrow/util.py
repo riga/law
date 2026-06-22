@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 PyArrow related utilities.
 """
@@ -8,16 +6,16 @@ from __future__ import annotations
 
 __all__ = ["merge_parquet_files", "merge_parquet_task"]
 
-import os
-import shutil
-import pathlib
 import collections
+import os
+import pathlib
+import shutil
 
-from law.task.base import Task
+from law._types import Any, Callable, Sequence
 from law.target.file import FileSystemFileTarget, get_path
-from law.target.local import LocalFileTarget, LocalDirectoryTarget
-from law.util import map_verbose, human_bytes
-from law._types import Sequence, Any, Callable
+from law.target.local import LocalDirectoryTarget, LocalFileTarget
+from law.task.base import Task
+from law.util import human_bytes, map_verbose
 
 
 def merge_parquet_files(
@@ -47,8 +45,8 @@ def merge_parquet_files(
 
     The absolute, expanded *dst_path* is returned.
     """
-    import pyarrow as pa  # type: ignore[import-untyped, import-not-found]
-    import pyarrow.parquet as pq  # type: ignore[import-untyped, import-not-found]
+    import pyarrow as pa
+    import pyarrow.parquet as pq
 
     if not src_paths:
         raise Exception("cannot merge empty list of parquet files")
@@ -213,14 +211,14 @@ def merge_parquet_task(
         # fetch
         with task.publish_step("fetching inputs ...", runtime=True):
             def fetch(inp: FileSystemFileTarget) -> LocalFileTarget:
-                local_inp: LocalFileTarget = cwd.child(inp.unique_basename, type="f")  # type: ignore[assignment] # noqa
+                local_inp: LocalFileTarget = cwd.child(inp.unique_basename, type="f")  # type: ignore[assignment]
                 inp.copy_to_local(local_inp, cache=False)
                 return local_inp
 
             def callback(i: int) -> None:
                 task.publish_message(f"fetch file {i + 1} / {len(inputs)}")
 
-            local_inputs = map_verbose(fetch, inputs, every=5, callback=callback)  # type: ignore[arg-type] # noqa
+            local_inputs = map_verbose(fetch, inputs, every=5, callback=callback)  # type: ignore[arg-type]
 
         # merge into a localized output
         with output.localize("w", cache=False) as local_output:

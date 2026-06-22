@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Logging optimization using rich.
 """
@@ -10,10 +8,10 @@ __all__ = ["replace_console_handlers"]
 
 import logging
 
+from law._types import Callable, Sequence
 from law.config import Config
-from law.logger import is_tty_handler, Logger
+from law.logger import Logger, is_tty_handler
 from law.util import make_list, multi_match
-from law._types import Sequence, Callable
 
 
 def replace_console_handlers(
@@ -39,7 +37,7 @@ def replace_console_handlers(
 
     The removed handlers are returned in a list of 2-tuples (*logger*, *removed_handlers*).
     """
-    from rich import logging as rich_logging  # type: ignore[import-untyped, import-not-found]
+    from rich import logging as rich_logging
 
     # prepare the return value
     ret = []
@@ -54,8 +52,8 @@ def replace_console_handlers(
             continue
 
         # check if the logger is selected
-        for l in loggers:
-            if logger == l or (isinstance(l, str) and multi_match(name, l)):
+        for _logger in loggers:
+            if logger == _logger or (isinstance(_logger, str) and multi_match(name, _logger)):
                 break
         else:
             # when this point is reached, the logger was not selected

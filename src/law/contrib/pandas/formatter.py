@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Pandas target formatters.
 """
@@ -10,12 +8,11 @@ __all__ = ["DataFrameFormatter"]
 
 import pathlib
 
-from law.target.formatter import Formatter
-from law.target.file import get_path, FileSystemFileTarget
-from law.logger import get_logger
-from law.util import no_value
 from law._types import Any
-
+from law.logger import get_logger
+from law.target.file import FileSystemFileTarget, get_path
+from law.target.formatter import Formatter
+from law.util import no_value
 
 logger = get_logger(__name__)
 
@@ -32,24 +29,24 @@ class DataFrameFormatter(Formatter):
 
     @classmethod
     def load(cls, path: str | pathlib.Path | FileSystemFileTarget, *args, **kwargs) -> Any:
-        import pandas  # type: ignore[import-untyped]
+        import pandas as pd
 
         path = get_path(path)
 
         if path.endswith(".csv"):
-            return pandas.read_csv(path, *args, **kwargs)
+            return pd.read_csv(path, *args, **kwargs)
 
         if path.endswith(".json"):
-            return pandas.read_json(path, *args, **kwargs)
+            return pd.read_json(path, *args, **kwargs)
 
         if path.endswith(".parquet"):
-            return pandas.read_parquet(path, *args, **kwargs)
+            return pd.read_parquet(path, *args, **kwargs)
 
         if path.endswith((".h5", ".hdf5")):
-            return pandas.read_hdf(path, *args, **kwargs)
+            return pd.read_hdf(path, *args, **kwargs)
 
         if path.endswith((".pickle", ".pkl")):
-            return pandas.read_pickle(path, *args, **kwargs)
+            return pd.read_pickle(path, *args, **kwargs)
 
         suffix = pathlib.Path(path).suffix
         raise NotImplementedError(f"suffix \"{suffix}\" not implemented in DataFrameFormatter")
