@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 HTCondor utilities.
 """
@@ -12,10 +10,9 @@ import re
 import subprocess
 import threading
 
-from law.util import NoValue, no_value, interruptable_popen
+from law.util import NoValue, interruptable_popen, no_value
 
-
-_htcondor_version: tuple[int, int, int] | None | NoValue = no_value
+_htcondor_version: tuple[int, int, int] | NoValue | None = no_value
 _htcondor_version_lock = threading.Lock()
 
 

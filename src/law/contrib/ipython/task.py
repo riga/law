@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Tasks with IPython features.
 """
@@ -8,11 +6,10 @@ from __future__ import annotations
 
 __all__ = ["Task"]
 
+from law._types import Any
+from law.logger import get_logger
 from law.task.base import Task as _Task
 from law.util import NoValue, no_value
-from law.logger import get_logger
-from law._types import Any
-
 
 logger = get_logger(__name__)
 
@@ -29,7 +26,7 @@ class Task(_Task):
         r = self.repr(all_params=all_params, color=color, html=True)
         return f"<span style='font-family: monospace;'>{r}</span>"
 
-    def _repr_family(self, family: str, color: bool = False, html: bool = False) -> str:  # type: ignore[override] # noqa
+    def _repr_family(self, family: str, color: bool = False, html: bool = False) -> str:  # type: ignore[override]
         if html:
             style = " style='color: green;'" if color else ""
             return f"<span{style}>{family}</span>"
@@ -55,7 +52,7 @@ class Task(_Task):
 
         return super()._repr_param(name, value, color=color, serialize=False)
 
-    def _repr_flag(self, name: str, color: bool = False, html: bool = False) -> str:  # type: ignore[override] # noqa
+    def _repr_flag(self, name: str, color: bool = False, html: bool = False) -> str:  # type: ignore[override]
         if html:
             style = " style='color: magenta;'" if color else ""
             return f"<span{style}>{name}</span>"

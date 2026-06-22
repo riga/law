@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 HTCondor workflow implementation. See https://research.cs.wisc.edu/htcondor.
 """
@@ -8,28 +6,27 @@ from __future__ import annotations
 
 __all__ = ["HTCondorWorkflow"]
 
-import os
 import abc
 import contextlib
+import os
 import pathlib
 
-import luigi  # type: ignore[import-untyped]
+import luigi
 
+from law._types import Any, Generator
 from law.config import Config
-from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy, PollData
 from law.job.base import JobArguments, JobInputFile
-from law.task.proxy import ProxyCommand
-from law.target.file import get_path, get_scheme, FileSystemDirectoryTarget
-from law.target.local import LocalDirectoryTarget, LocalFileTarget
-from law.parameter import NO_STR
-from law.util import no_value, law_src_path, rel_path, merge_dicts, DotDict, InsertableDict
 from law.logger import get_logger
-from law._types import Type, Any, Generator
-
-from law.contrib.htcondor.job import HTCondorJobManager, HTCondorJobFileFactory
-
+from law.parameter import NO_STR
+from law.target.file import FileSystemDirectoryTarget, get_path, get_scheme
+from law.target.local import LocalDirectoryTarget, LocalFileTarget
+from law.task.proxy import ProxyCommand
+from law.util import DotDict, InsertableDict, law_src_path, merge_dicts, no_value, rel_path
+from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy, PollData
 
 logger = get_logger(__name__)
+
+from law.contrib.htcondor.job import HTCondorJobFileFactory, HTCondorJobManager
 
 
 class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
@@ -113,8 +110,11 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
                 branches=branches,
                 workers=task.job_workers,
                 auto_retry=False,
-                dashboard_data=self.dashboard.remote_hook_data(
-                    job_num, self.job_data.attempts.get(job_num, 0)),
+                dashboard_data=(
+                    self.dashboard.remote_hook_data(job_num, self.job_data.attempts.get(job_num, 0))
+                    if self.dashboard is not None
+                    else None
+                ),
             )
 
         if grouped_submission:
@@ -168,7 +168,7 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         output_dir_is_local = isinstance(output_dir, LocalDirectoryTarget)
         if output_dir_is_local:
             c.absolute_paths = True
-            c.custom_content.append(("initialdir", output_dir.abspath))  # type: ignore[union-attr] # noqa
+            c.custom_content.append(("initialdir", output_dir.abspath))  # type: ignore[union-attr]
 
         # prepare the log dir
         log_dir_orig = task.htcondor_log_directory()
@@ -203,13 +203,13 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
             c.output_files.clear()
 
         # build the job file and get the sanitized config
-        job_file, c = self.job_file_factory(grouped_submission=grouped_submission, **c.__dict__)  # type: ignore[misc] # noqa
+        job_file, c = self.job_file_factory(grouped_submission=grouped_submission, **c.__dict__)  # type: ignore[misc]
 
         # get the finale, absolute location of the custom log file
         # (note that c.custom_log_file is always just a basename after the factory hook)
         abs_log_file = None
         if log_dir_is_local and c.custom_log_file:
-            abs_log_file = os.path.join(log_dir.abspath, c.custom_log_file)  # type: ignore[union-attr] # noqa
+            abs_log_file = os.path.join(log_dir.abspath, c.custom_log_file)  # type: ignore[union-attr]
 
         # return job and log files
         return {"job": job_file, "config": c, "log": abs_log_file}
@@ -348,14 +348,14 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
     def htcondor_output_postfix(self) -> str:
         return ""
 
-    def htcondor_job_manager_cls(self) -> Type[HTCondorJobManager]:
+    def htcondor_job_manager_cls(self) -> type[HTCondorJobManager]:
         return HTCondorJobManager
 
     def htcondor_create_job_manager(self, **kwargs) -> HTCondorJobManager:
         kwargs = merge_dicts(self.htcondor_job_manager_defaults, kwargs)
         return self.htcondor_job_manager_cls()(**kwargs)
 
-    def htcondor_job_file_factory_cls(self) -> Type[HTCondorJobFileFactory]:
+    def htcondor_job_file_factory_cls(self) -> type[HTCondorJobFileFactory]:
         return HTCondorJobFileFactory
 
     def htcondor_create_job_file_factory(self, **kwargs) -> HTCondorJobFileFactory:
@@ -400,7 +400,7 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
         Configurable delay in seconds to wait after submitting jobs and before starting the status
         polling.
         """
-        return self.poll_interval * 60  # type: ignore[operator]
+        return self.poll_interval * 60  # type: ignore[return-value]
 
     def htcondor_check_job_completeness(self) -> bool:
         return False

@@ -1,4 +1,4 @@
-# coding: utf-8
+# mypy: disable-error-code="union-attr,attr-defined"
 
 """
 IPython magics for law.
@@ -8,14 +8,13 @@ from __future__ import annotations
 
 __all__ = ["register_magics"]
 
-import shlex
 import logging
+import shlex
 
 import law.cli
-from law.util import law_run, quote_cmd
+from law._types import Any, Callable, Sequence
 from law.logger import get_logger
-from law._types import Callable, Sequence, Any
-
+from law.util import law_run, quote_cmd
 
 logger = get_logger(__name__)
 
@@ -27,7 +26,7 @@ def create_magics(
     line_fn: Callable[[str], Any] | None = None,
     log_level: int | str | None = None,
 ) -> type:
-    import IPython.core as ipc  # type: ignore[import-untyped, import-not-found]
+    import IPython.core as ipc
 
     # prepare commands
     if init_cmd:
@@ -48,6 +47,8 @@ def create_magics(
         def __init__(self, *args, **kwargs) -> None:
             super().__init__(*args, **kwargs)
 
+            # self.shell: ShellLike | None
+
             # run the init_cmd when set
             if init_cmd:
                 logger.info(f"running initialization command '{init_cmd}'")
@@ -67,7 +68,7 @@ def create_magics(
             line = line.strip()
             if not line:
                 logger.error(r"the command passed to %law must not be empty")
-                return
+                return None
 
             # build the full command
             cmd = "law " + line
@@ -109,7 +110,7 @@ def create_magics(
                     # perform the run call interactively
                     return law_run(argv)
                 # forward all other progs to the cli interface
-                return law.cli.cli.run([prog] + argv)
+                return law.cli.cli.run([prog, *argv])
 
             except SystemExit as e:
                 # reraise when the exit code is non-zero
@@ -124,7 +125,7 @@ def create_magics(
             cmd = quote_cmd(["bash", "-c", cmd])
 
             # run it
-            return self.shell.system_piped(cmd)  # type: ignore[attr-defined, union-attr]
+            return self.shell.system_piped(cmd)
 
     return LawMagics
 
@@ -160,7 +161,7 @@ def register_magics(*args, **kwargs) -> None:
     if ipy is not None and magics is not None:
         ipy.register_magics(magics)
 
-        names = list(magics.magics["cell"].keys()) + list(magics.magics["line"].keys())  # type: ignore[attr-defined] # noqa
+        names = list(magics.magics["cell"].keys()) + list(magics.magics["line"].keys())
         names_str = ", ".join(f"%{name}" for name in names)
         logger.info(f"magics successfully registered: {names_str}")
     else:

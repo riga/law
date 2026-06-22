@@ -1,33 +1,30 @@
-# coding: utf-8
-
 """
 HTCondor job manager. See https://research.cs.wisc.edu/htcondor.
 """
 
 from __future__ import annotations
 
-__all__ = ["HTCondorJobManager", "HTCondorJobFileFactory"]
+__all__ = ["HTCondorJobFileFactory", "HTCondorJobManager"]
 
 import os
-import stat
-import time
-import re
 import pathlib
-import tempfile
+import re
 import shlex
+import stat
 import subprocess
+import tempfile
+import time
 
-from law.config import Config
-from law.job.base import BaseJobManager, BaseJobFileFactory, JobInputFile
-from law.target.file import get_path
-from law.util import interruptable_popen, make_list, make_unique, quote_cmd, parse_duration
-from law.logger import get_logger
 from law._types import Any, Sequence
-
-from law.contrib.htcondor.util import get_htcondor_version
-
+from law.config import Config
+from law.job.base import BaseJobFileFactory, BaseJobManager, JobInputFile
+from law.logger import get_logger
+from law.target.file import get_path
+from law.util import interruptable_popen, make_list, make_unique, parse_duration, quote_cmd
 
 logger = get_logger(__name__)
+
+from law.contrib.htcondor.util import get_htcondor_version
 
 _cfg = Config.instance()
 
@@ -121,9 +118,9 @@ class HTCondorJobManager(BaseJobManager):
         else:
             _job_file = job_file
 
-        return self._submit_impl_grouped(_job_file, job_files=job_files, **kwargs)  # type: ignore[arg-type] # noqa
+        return self._submit_impl_grouped(_job_file, job_files=job_files, **kwargs)  # type: ignore[arg-type]
 
-    def _submit_impl_batched(  # type: ignore[override]
+    def _submit_impl_batched(
         self,
         job_file: str | pathlib.Path | Sequence[str | pathlib.Path],
         pool: str | None = None,
@@ -144,7 +141,7 @@ class HTCondorJobManager(BaseJobManager):
         # however, this only for job files being located in the same directory or if they have an
         # "initialdir" defined
         def has_initialdir(job_file):
-            with open(job_file, "r") as f:
+            with open(job_file, encoding="utf-8") as f:
                 for line in f.readlines():
                     if line.lower().strip().replace(" ", "").startswith("initialdir="):
                         return True
@@ -154,24 +151,22 @@ class HTCondorJobManager(BaseJobManager):
         job_files = list(map(get_path, make_list(job_file)))
         job_file_dir = None
         for i, job_file in enumerate(job_files):
-            dirname, basename = os.path.split(job_file)
+            dirname, _ = os.path.split(job_file)
             if job_file_dir is None:
                 if i == len(job_files) - 1 or not has_initialdir(job_file):
                     job_file_dir = dirname
-            elif dirname != job_file_dir:
-                if not has_initialdir(job_file):
-                    raise Exception(
-                        f"cannot performed chunked submission as job file '{job_file}' is not "
-                        f"located in a previously seen directory '{job_file_dir}' and has no "
-                        "initialdir",
-                    )
+            elif dirname != job_file_dir and not has_initialdir(job_file):
+                raise Exception(
+                    f"cannot performed chunked submission as job file '{job_file}' is not located in a previously seen "
+                    f"directory '{job_file_dir}' and has no initialdir",
+                )
 
         # define a single, merged job file if necessary
         if self.merge_job_files and len(job_files) > 1:
             _job_file = tempfile.mkstemp(prefix="merged_job_", suffix=".jdl", dir=job_file_dir)[1]
-            with open(_job_file, "w") as f:
+            with open(_job_file, "w", encoding="utf-8") as f:
                 for job_file in job_files:
-                    with open(job_file, "r") as _f:
+                    with open(job_file, encoding="utf-8") as _f:
                         f.write(f"{_f.read()}\n")
             job_files = [_job_file]
 
@@ -234,7 +229,7 @@ class HTCondorJobManager(BaseJobManager):
 
             raise Exception(f"submission of htcondor job(s) '{job_files_repr}' failed:\n{err}")
 
-    def _submit_impl_grouped(  # type: ignore[override]
+    def _submit_impl_grouped(
         self,
         job_file: str | pathlib.Path,
         job_files: Sequence[str | pathlib.Path] | None = None,
@@ -338,13 +333,11 @@ class HTCondorJobManager(BaseJobManager):
 
         # run it
         logger.debug(f"cancel htcondor job(s) with command '{cmd_str}'")
-        out: str
         err: str
-        code, out, err = interruptable_popen(  # type: ignore[assignment]
+        code, _, err = interruptable_popen(  # type: ignore[assignment]
             cmd_str,
             shell=True,
             executable="/bin/bash",
-            stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             kill_timeout=2,
             processes=_processes,
@@ -352,11 +345,9 @@ class HTCondorJobManager(BaseJobManager):
 
         # check success
         if code != 0 and not silent:
-            raise Exception(
-                f"cancellation of htcondor job(s) '{job_id}' failed with code {code}:\n{err}",
-            )
+            raise Exception(f"cancellation of htcondor job(s) '{job_id}' failed with code {code}:\n{err}")
 
-        return {job_id: None for job_id in job_ids} if chunking else None
+        return dict.fromkeys(job_ids) if chunking else None
 
     def query(  # type: ignore[override]
         self,
@@ -388,7 +379,7 @@ class HTCondorJobManager(BaseJobManager):
             cmd += ["-pool", pool]
         if scheduler:
             cmd += ["-name", scheduler]
-        cmd += ["-af:lng"] + q_ads.split()
+        cmd += ["-af:lng", *q_ads.split()]
         # since v8.3.3 one can limit the number of jobs to query
         if self.htcondor_ge_v833:
             cmd += ["-limit", str(len(job_ids))]
@@ -441,7 +432,7 @@ class HTCondorJobManager(BaseJobManager):
                 cmd += ["-pool", pool]
             if scheduler:
                 cmd += ["-name", scheduler]
-            cmd += ["-af:lng"] + h_ads.split()
+            cmd += ["-af:lng", *h_ads.split()]
             # since v8.3.3 one can limit the number of jobs to query
             if self.htcondor_ge_v833:
                 cmd += ["-limit", str(len(missing_ids))]
@@ -467,9 +458,7 @@ class HTCondorJobManager(BaseJobManager):
             if code != 0:
                 if silent:
                     return None
-                raise Exception(
-                    f"history query of htcondor job(s) '{job_id}' failed with code {code}:\n{err}",
-                )
+                raise Exception(f"history query of htcondor job(s) '{job_id}' failed with code {code}:\n{err}")
 
             # parse the output and update query data
             query_data.update(self.parse_long_output(out))
@@ -526,11 +515,10 @@ class HTCondorJobManager(BaseJobManager):
                 error = remove_error
 
             # handle inconsistencies between status, code and the presence of an error message
-            if code != 0:
-                if status != cls.FAILED:
-                    status = cls.FAILED
-                    if not error:
-                        error = f"job status set to '{cls.FAILED}' due to non-zero exit code {code}"
+            if code != 0 and status != cls.FAILED:
+                status = cls.FAILED
+                if not error:
+                    error = f"job status set to '{cls.FAILED}' due to non-zero exit code {code}"
 
             # extra info
             extra = {}
@@ -571,10 +559,23 @@ class HTCondorJobManager(BaseJobManager):
 
 class HTCondorJobFileFactory(BaseJobFileFactory):
 
-    config_attrs = BaseJobFileFactory.config_attrs + [
-        "file_name", "command", "executable", "arguments", "input_files", "output_files", "log",
-        "stdout", "stderr", "postfix_output_files", "postfix", "universe", "notification",
-        "custom_content", "absolute_paths",
+    config_attrs = [
+        *BaseJobFileFactory.config_attrs,
+        "file_name",
+        "command",
+        "executable",
+        "arguments",
+        "input_files",
+        "output_files",
+        "log",
+        "stdout",
+        "stderr",
+        "postfix_output_files",
+        "postfix",
+        "universe",
+        "notification",
+        "custom_content",
+        "absolute_paths",
     ]
 
     def __init__(
@@ -724,12 +725,12 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
             return abs_path
 
         # absolute input paths
-        for key, f in c.input_files.items():
+        for f in c.input_files.values():
             f.path_sub_abs = prepare_input(f)
 
         # input paths relative to the submission or initial dir
         # forwarded files are skipped as they are not treated as normal inputs
-        for key, f in c.input_files.items():
+        for f in c.input_files.values():
             if f.forward:
                 continue
             f.path_sub_rel = (
@@ -739,7 +740,7 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
             )
 
         # input paths as seen by the job, before and after potential rendering
-        for key, f in c.input_files.items():
+        for f in c.input_files.values():
             f.path_job_pre_render = (
                 f.path_sub_abs
                 if f.forward else
@@ -798,7 +799,7 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
             job_file = self.postfix_input_file(job_file, c.postfix)
 
         # render copied, non-forwarded input files
-        for key, f in c.input_files.items():
+        for f in c.input_files.values():
             if not f.copy or f.forward or not f.render_local:
                 continue
             self.render_file(
@@ -821,14 +822,14 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
             items = make_list(items)
             s = sep.join(map(str, items))
             if quote:
-                s = "\"{s}\""
+                s = f"\"{s}\""
             return s
 
         # helper to encode dicts
         def encode_dict(d: dict, sep: str = " ; ", quote: bool = True) -> str:
             s = sep.join(f"{k} = {v}" for k, v in d.items())
             if quote:
-                s = f"\"{s}\""  # noqa: Q003
+                s = f"\"{s}\""
             return s
 
         # job file content
@@ -921,7 +922,7 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
             content.append("queue")
 
         # write the job file
-        with open(job_file, "w") as f:
+        with open(job_file, "w", encoding="utf-8") as f:
             for obj in content:
                 line = self.create_line(*make_list(obj))
                 f.write(f"{line}\n")

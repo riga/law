@@ -32,6 +32,7 @@ from typing import (
     ClassVar,
     Generic,
     Literal,
+    Protocol,
     TextIO,
     TypeVar,
     Union,
