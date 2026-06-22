@@ -1,24 +1,30 @@
-# coding: utf-8
-
 """
 CMS-related contrib package. https://home.cern/about/experiments/cms
 """
 
 __all__ = [
-    "CMSSWSandbox",
-    "CrabJobManager", "CrabJobFileFactory", "CMSJobDashboard",
-    "CrabWorkflow",
     "BundleCMSSW",
-    "Site", "lfn_to_pfn", "renew_vomsproxy", "delegate_myproxy", "RucioReporter", "rucio_report_access",
+    "CMSJobDashboard",
+    "CMSSWSandbox",
+    "CrabJobFileFactory",
+    "CrabJobManager",
+    "CrabWorkflow",
+    "RucioReporter",
+    "Site",
+    "delegate_myproxy",
+    "lfn_to_pfn",
+    "renew_vomsproxy",
+    "rucio_report_access",
 ]
 
 # dependencies to other contrib modules
 import law
+
 law.contrib.load("wlcg")
 
 # provisioning imports
+from law.contrib.cms.job import CMSJobDashboard, CrabJobFileFactory, CrabJobManager
 from law.contrib.cms.sandbox import CMSSWSandbox
-from law.contrib.cms.job import CrabJobManager, CrabJobFileFactory, CMSJobDashboard
-from law.contrib.cms.workflow import CrabWorkflow
 from law.contrib.cms.tasks import BundleCMSSW
-from law.contrib.cms.util import Site, lfn_to_pfn, renew_vomsproxy, delegate_myproxy, RucioReporter, rucio_report_access
+from law.contrib.cms.util import RucioReporter, Site, delegate_myproxy, lfn_to_pfn, renew_vomsproxy, rucio_report_access
+from law.contrib.cms.workflow import CrabWorkflow

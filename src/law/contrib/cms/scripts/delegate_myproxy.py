@@ -44,7 +44,7 @@ def delegate(
             print(f"existing myproxy delegation found for username {info['username']}")
             return
 
-    if voms_proxy and (renew or not law.wlcg.check_vomsproxy_validity()):  # type: ignore[attr-defined] # noqa
+    if voms_proxy and (renew or not law.wlcg.check_vomsproxy_validity()):  # type: ignore[attr-defined]
         print("\nrenewing voms-proxy")
         law.cms.renew_vomsproxy(vo=vo, password_file=password_file)  # type: ignore[attr-defined]
 

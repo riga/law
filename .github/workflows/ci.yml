@@ -11,7 +11,7 @@ on:
 
 jobs:
   lint_typecheck:
-    name: Lint & type check (${{ matrix.python }})
+    name: Lint, type check (${{ matrix.python }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -34,7 +34,7 @@ jobs:
           extra_args: --hook-stage manual --all-files
 
   test_coverage:
-    name: Tests & coverage (${{ matrix.python }})
+    name: Tests, coverage${{ matrix.python == '3.13' && ', upload' || '' }} (${{ matrix.python }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
