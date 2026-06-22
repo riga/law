@@ -394,7 +394,7 @@ class CrabWorkflow(BaseRemoteWorkflow):
         Configurable delay in seconds to wait after submitting jobs and before starting the status
         polling.
         """
-        return self.poll_interval * 60  # type: ignore[return-value]
+        return self.poll_interval * 60  # type: ignore[return-value,operator]
 
     def crab_check_job_completeness(self) -> bool:
         """

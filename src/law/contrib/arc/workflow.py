@@ -286,7 +286,7 @@ class ARCWorkflow(BaseRemoteWorkflow):
         Configurable delay in seconds to wait after submitting jobs and before starting the status
         polling.
         """
-        return self.poll_interval * 60  # type: ignore[return-value]
+        return self.poll_interval * 60  # type: ignore[return-value,operator]
 
     def arc_check_job_completeness(self) -> bool:
         return False
