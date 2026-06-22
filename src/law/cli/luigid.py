@@ -39,7 +39,7 @@ def execute(args: argparse.Namespace, argv: list[str]) -> int:
     Config.instance()
 
     # forward to luigid
-    from luigi.cmdline import luigid  # type: ignore[import-untyped]
+    from luigi.cmdline import luigid
     luigid(argv[2:])
 
     return 0

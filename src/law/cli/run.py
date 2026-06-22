@@ -88,7 +88,7 @@ def execute(args: argparse.Namespace, argv: list[str]) -> int:
         return abort(f"task '{args.task_family}' not found")
 
     # run luigi
-    from luigi.cmdline import luigi_run  # type: ignore[import-untyped]
+    from luigi.cmdline import luigi_run
     sys.argv[0] += " run"
     success = luigi_run([task_family, *argv[3:]])
 
