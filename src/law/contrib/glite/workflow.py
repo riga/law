@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 gLite remote workflow implementation. See
 https://wiki.italiangrid.it/twiki/bin/view/CREAM/UserGuide.
@@ -9,27 +7,25 @@ from __future__ import annotations
 
 __all__ = ["GLiteWorkflow"]
 
-import os
-import sys
 import abc
 import contextlib
+import os
 import pathlib
+import sys
 
 import law
+from law._types import Any, Generator
 from law.config import Config
-from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy, PollData
+from law.contrib.glite.job import GLiteJobFileFactory, GLiteJobManager
+from law.contrib.wlcg import WLCGDirectoryTarget, delegate_vomsproxy_glite
 from law.job.base import JobArguments, JobInputFile
-from law.task.proxy import ProxyCommand
+from law.logger import get_logger
+from law.parameter import CSVParameter
 from law.target.file import get_path
 from law.target.local import LocalFileTarget
-from law.parameter import CSVParameter
-from law.util import no_value, law_src_path, merge_dicts, DotDict, InsertableDict
-from law.logger import get_logger
-from law._types import Type, Any, Generator
-
-from law.contrib.wlcg import WLCGDirectoryTarget, delegate_vomsproxy_glite
-from law.contrib.glite.job import GLiteJobManager, GLiteJobFileFactory
-
+from law.task.proxy import ProxyCommand
+from law.util import DotDict, InsertableDict, law_src_path, merge_dicts, no_value
+from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy, PollData
 
 logger = get_logger(__name__)
 
@@ -57,7 +53,7 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
         task: GLiteWorkflow = self.task  # type: ignore[assignment]
         if callable(task.glite_delegate_proxy):
             delegation_ids = []
-            for ce in task.glite_ce:  # type: ignore[attr-defined]
+            for ce in task.glite_ce:
                 endpoint = law.wlcg.get_ce_endpoint(ce)  # type: ignore[attr-defined]
                 delegation_ids.append(task.glite_delegate_proxy(endpoint))
             kwargs["delegation_id"] = delegation_ids
@@ -123,7 +119,7 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
             task_cls=task.__class__,
             task_params=proxy_cmd.build(skip_run=True),
             branches=branches,
-            workers=task.job_workers,  # type: ignore[arg-type]
+            workers=task.job_workers,
             auto_retry=False,
             dashboard_data=dashboard_data,
         )
@@ -180,7 +176,7 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
         info = super().destination_info()
 
         task: GLiteWorkflow = self.task  # type: ignore[assignment]
-        info["ce"] = f"ce: {','.join(task.glite_ce)}"  # type: ignore[arg-type]
+        info["ce"] = f"ce: {','.join(task.glite_ce)}"
 
         info = task.glite_destination_info(info)
 
@@ -256,21 +252,21 @@ class GLiteWorkflow(BaseRemoteWorkflow):
         return {}
 
     def glite_delegate_proxy(self, endpoint: str) -> str:
-        return delegate_vomsproxy_glite(  # type: ignore[attr-defined]
+        return delegate_vomsproxy_glite(
             endpoint,
             stdout=sys.stdout,
             stderr=sys.stderr,
             cache=True,
         )
 
-    def glite_job_manager_cls(self) -> Type[GLiteJobManager]:
+    def glite_job_manager_cls(self) -> type[GLiteJobManager]:
         return GLiteJobManager
 
     def glite_create_job_manager(self, **kwargs) -> GLiteJobManager:
         kwargs = merge_dicts(self.glite_job_manager_defaults, kwargs)
         return self.glite_job_manager_cls()(**kwargs)
 
-    def glite_job_file_factory_cls(self) -> Type[GLiteJobFileFactory]:
+    def glite_job_file_factory_cls(self) -> type[GLiteJobFileFactory]:
         return GLiteJobFileFactory
 
     def glite_create_job_file_factory(self, **kwargs) -> GLiteJobFileFactory:
@@ -315,7 +311,7 @@ class GLiteWorkflow(BaseRemoteWorkflow):
         Configurable delay in seconds to wait after submitting jobs and before starting the status
         polling.
         """
-        return self.poll_interval * 60  # type: ignore[operator]
+        return self.poll_interval * 60  # type: ignore[return-value]
 
     def glite_check_job_completeness(self) -> bool:
         return False

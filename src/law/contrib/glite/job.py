@@ -1,29 +1,27 @@
-# coding: utf-8
-
 """
 Simple gLite job manager. See https://wiki.italiangrid.it/twiki/bin/view/CREAM/UserGuide.
 """
 
 from __future__ import annotations
 
-__all__ = ["GLiteJobManager", "GLiteJobFileFactory"]
+__all__ = ["GLiteJobFileFactory", "GLiteJobManager"]
 
+import contextlib
 import os
-import stat
-import time
-import re
-import random
 import pathlib
+import random
+import re
 import shlex
+import stat
 import subprocess
+import time
 
-from law.config import Config
-from law.job.base import BaseJobManager, BaseJobFileFactory, JobInputFile
-from law.target.file import get_path
-from law.util import interruptable_popen, make_list, make_unique, quote_cmd, parse_duration
-from law.logger import get_logger
 from law._types import Any, Sequence
-
+from law.config import Config
+from law.job.base import BaseJobFileFactory, BaseJobManager, JobInputFile
+from law.logger import get_logger
+from law.target.file import get_path
+from law.util import interruptable_popen, make_list, make_unique, parse_duration, quote_cmd
 
 logger = get_logger(__name__)
 
@@ -76,12 +74,10 @@ class GLiteJobManager(BaseJobManager):
         # prepare round robin for ces and delegations
         _ce = make_list(ce)
         _delegation_id = make_list(delegation_id) if delegation_id else None
-        if _delegation_id:
-            if len(_ce) != len(_delegation_id):
-                raise Exception(
-                    f"numbers of CEs ({len(_ce)}) and delegation ids ({len(_delegation_id)}) "
-                    "do not match",
-                )
+        if _delegation_id and len(_ce) != len(_delegation_id):
+            raise Exception(
+                f"numbers of CEs ({len(_ce)}) and delegation ids ({len(_delegation_id)}) do not match",
+            )
 
         # get the job file location as the submission command is run it the same directory
         job_file_dir, job_file_name = os.path.split(os.path.abspath(get_path(job_file)))
@@ -145,7 +141,7 @@ class GLiteJobManager(BaseJobManager):
 
         # build the command
         cmd = shlex.split(_cfg.get_expanded("job", "glite_cmd_cancel"))
-        cmd += ["-N"] + job_ids
+        cmd += ["-N", *job_ids]
         cmd_str = quote_cmd(cmd)
 
         # run it
@@ -167,7 +163,7 @@ class GLiteJobManager(BaseJobManager):
                 f"cancellation of glite job(s) '{job_id}' failed with code {code}:\n{out}",
             )
 
-        return {job_id: None for job_id in job_ids} if chunking else None
+        return dict.fromkeys(job_ids) if chunking else None
 
     def cleanup(  # type: ignore[override]
         self,
@@ -180,7 +176,7 @@ class GLiteJobManager(BaseJobManager):
 
         # build the command
         cmd = shlex.split(_cfg.get_expanded("job", "glite_cmd_purge"))
-        cmd += ["-N"] + job_ids
+        cmd += ["-N", *job_ids]
         cmd_str = quote_cmd(cmd)
 
         # run it
@@ -200,7 +196,7 @@ class GLiteJobManager(BaseJobManager):
             # glite prints everything to stdout
             raise Exception(f"cleanup of glite job(s) '{job_id}' failed with code {code}:\n{out}")
 
-        return {job_id: None for job_id in job_ids} if chunking else None
+        return dict.fromkeys(job_ids) if chunking else None
 
     def query(  # type: ignore[override]
         self,
@@ -213,7 +209,7 @@ class GLiteJobManager(BaseJobManager):
 
         # build the command
         cmd = shlex.split(_cfg.get_expanded("job", "glite_cmd_status"))
-        cmd += ["-n", "-L", "0"] + job_ids
+        cmd += ["-n", "-L", "0", *job_ids]
 
         # optionally prepend timeout
         query_timeout = _cfg.get_expanded(
@@ -242,9 +238,7 @@ class GLiteJobManager(BaseJobManager):
             if silent:
                 return None
             # glite prints everything to stdout
-            raise Exception(
-                f"status query of glite job(s) '{job_id}' failed with code {code}:\n{out}",
-            )
+            raise Exception(f"status query of glite job(s) '{job_id}' failed with code {code}:\n{out}")
 
         # parse the output and extract the status per job
         query_data = self.parse_query_output(out)
@@ -256,12 +250,11 @@ class GLiteJobManager(BaseJobManager):
                     if silent:
                         return None
                     raise Exception(f"glite job(s) '{job_id}' not found in query response")
-                else:
-                    query_data[_job_id] = self.job_status_dict(
-                        job_id=_job_id,
-                        status=self.FAILED,
-                        error="job not found in query response",
-                    )
+                query_data[_job_id] = self.job_status_dict(
+                    job_id=_job_id,
+                    status=self.FAILED,
+                    error="job not found in query response",
+                )
 
         return query_data if chunking else query_data[job_id]  # type: ignore[index]
 
@@ -288,24 +281,22 @@ class GLiteJobManager(BaseJobManager):
             # extract the exit code and try to cast it to int
             code = block.get("ExitCode") or None
             if code is not None:
-                try:
+                with contextlib.suppress(Exception):
                     code = int(code)
-                except:
-                    pass
 
             # extract the fail reason
             reason = block.get("FailureReason") or block.get("Description")
 
             # special cases
             if status is None and code is None and reason is None:
-                reason = "cannot parse data for job {}".format(job_id)
+                reason = f"cannot parse data for job {job_id}"
                 if block:
                     found = ["{}={}".format(*tpl) for tpl in block.items()]
                     reason += ", found " + ", ".join(found)
             elif status is None:
                 status = "DONE-FAILED"
                 if reason is None:
-                    reason = "cannot find status of job {}".format(job_id)
+                    reason = f"cannot find status of job {job_id}"
             elif status == "DONE-OK" and code not in (0, None):
                 status = "DONE-FAILED"
 
@@ -335,9 +326,20 @@ class GLiteJobManager(BaseJobManager):
 
 class GLiteJobFileFactory(BaseJobFileFactory):
 
-    config_attrs = BaseJobFileFactory.config_attrs + [
-        "file_name", "command", "executable", "arguments", "input_files", "output_files",
-        "postfix_output_files", "output_uri", "stderr", "stdout", "vo", "custom_content",
+    config_attrs = [
+        *BaseJobFileFactory.config_attrs,
+        "file_name",
+        "command",
+        "executable",
+        "arguments",
+        "input_files",
+        "output_files",
+        "postfix_output_files",
+        "output_uri",
+        "stderr",
+        "stdout",
+        "vo",
+        "custom_content",
         "absolute_paths",
     ]
 
@@ -458,12 +460,12 @@ class GLiteJobFileFactory(BaseJobFileFactory):
             return abs_path
 
         # absolute input paths
-        for key, f in c.input_files.items():
+        for f in c.input_files.values():
             f.path_sub_abs = prepare_input(f)
 
         # input paths relative to the submission or initial dir
         # forwarded files are included
-        for key, f in c.input_files.items():
+        for f in c.input_files.values():
             f.path_sub_rel = (
                 os.path.basename(f.path_sub_abs)
                 if f.copy and not c.absolute_paths else
@@ -471,7 +473,7 @@ class GLiteJobFileFactory(BaseJobFileFactory):
             )
 
         # input paths as seen by the job, before and after potential rendering
-        for key, f in c.input_files.items():
+        for f in c.input_files.values():
             f.path_job_pre_render = (
                 f.path_sub_abs
                 if f.is_remote else
@@ -521,7 +523,7 @@ class GLiteJobFileFactory(BaseJobFileFactory):
         job_file = self.postfix_input_file(os.path.join(c.dir, str(c.file_name)), postfix)
 
         # render copied input files
-        for key, f in c.input_files.items():
+        for f in c.input_files.values():
             if not f.copy or not f.render_local:
                 continue
             self.render_file(
@@ -568,7 +570,7 @@ class GLiteJobFileFactory(BaseJobFileFactory):
             content += c.custom_content
 
         # write the job file
-        with open(job_file, "w") as f:
+        with open(job_file, "w", encoding="utf-8") as f:
             f.write("[\n")
             for key, value in content:
                 f.write(f"{self.create_line(key, value)}\n")

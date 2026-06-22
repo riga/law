@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 HDF5 target formatters.
 """
@@ -10,10 +8,10 @@ __all__ = ["H5pyFormatter"]
 
 import pathlib
 
-from law.target.formatter import Formatter
-from law.target.file import FileSystemFileTarget, get_path
-from law.util import no_value
 from law._types import Any
+from law.target.file import FileSystemFileTarget, get_path
+from law.target.formatter import Formatter
+from law.util import no_value
 
 
 class H5pyFormatter(Formatter):
@@ -26,13 +24,13 @@ class H5pyFormatter(Formatter):
 
     @classmethod
     def load(cls, path: str | pathlib.Path | FileSystemFileTarget, *args, **kwargs) -> Any:
-        import h5py  # type: ignore[import-untyped, import-not-found]
+        import h5py
 
         return h5py.File(get_path(path), "r", *args, **kwargs)
 
     @classmethod
     def dump(cls, path: str | pathlib.Path | FileSystemFileTarget, *args, **kwargs) -> Any:
-        import h5py  # type: ignore[import-untyped, import-not-found]
+        import h5py
 
         perm = kwargs.pop("perm", no_value)
 
