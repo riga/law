@@ -1,9 +1,9 @@
-# coding: utf-8
-
+from __future__ import annotations
 
 import os
 
 import luigi
+
 import law
 
 law.contrib.load("matplotlib")
@@ -17,7 +17,7 @@ class Task(law.Task):
 
     def local_path(self, *path):
         # ANALYSIS_DATA_PATH is defined in setup.sh
-        parts = (os.getenv("ANALYSIS_DATA_PATH"), self.__class__.__name__) + path
+        parts = (os.getenv("ANALYSIS_DATA_PATH"), self.__class__.__name__, *path)
         return os.path.join(*parts)
 
     def local_target(self, *path, **kwargs):
@@ -43,13 +43,14 @@ class Optimizer(Task, law.LocalWorkflow):
         return Optimizer.req(self, branch=self.branch - 1)
 
     def output(self):
-        return self.local_target("optimizer_{}.pkl".format(self.branch))
+        return self.local_target(f"optimizer_{self.branch}.pkl")
 
     def run(self):
         import skopt
         optimizer = self.input().load() if self.branch != 0 else skopt.Optimizer(
             dimensions=[skopt.space.Real(-5.0, 10.0), skopt.space.Real(0.0, 15.0)],
-            random_state=1, n_initial_points=self.n_initial_points
+            random_state=1,
+            n_initial_points=self.n_initial_points,
         )
 
         x = optimizer.ask(n_points=self.n_parallel)
@@ -60,7 +61,7 @@ class Optimizer(Task, law.LocalWorkflow):
 
         optimizer.tell(x, y)
 
-        print("minimum after {} iterations: {}".format(self.branch + 1, min(optimizer.yi)))
+        print(f"minimum after {self.branch + 1} iterations: {min(optimizer.yi)}")
 
         with self.output().localize("w") as tmp:
             tmp.dump(optimizer)
@@ -86,18 +87,18 @@ class OptimizerPlot(Task, law.LocalWorkflow):
 
     def output(self):
         collection = {
-            "evaluations": self.local_target("evaluations_{}.pdf".format(self.branch)),
-            "convergence": self.local_target("convergence_{}.pdf".format(self.branch))
+            "evaluations": self.local_target(f"evaluations_{self.branch}.pdf"),
+            "convergence": self.local_target(f"convergence_{self.branch}.pdf"),
         }
 
         if self.has_fitted_model():
-            collection["objective"] = self.local_target("objective_{}.pdf".format(self.branch))
+            collection["objective"] = self.local_target(f"objective_{self.branch}.pdf")
 
         return law.SiblingFileCollection(collection)
 
     def run(self):
-        from skopt.plots import plot_objective, plot_evaluations, plot_convergence
         import matplotlib.pyplot as plt
+        from skopt.plots import plot_convergence, plot_evaluations, plot_objective
 
         result = self.input().load().run(None, 0)
         output = self.output()
@@ -131,10 +132,10 @@ class Objective(Task, law.LocalWorkflow):
     iteration = luigi.IntParameter()
 
     def create_branch_map(self):
-        return {i: x for i, x in enumerate(self.x)}
+        return dict(enumerate(self.x))
 
     def output(self):
-        return self.local_target("x_{}_{}.json".format(self.iteration, self.branch))
+        return self.local_target(f"x_{self.iteration}_{self.branch}.json")
 
     def run(self):
         from skopt.benchmarks import branin

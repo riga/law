@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Law example tasks to demonstrate HTCondor workflows at CERN.
 
@@ -8,13 +6,14 @@ other tasks to receive the same features. This is usually called "framework"
 and only needs to be defined once per user / group / etc.
 """
 
+from __future__ import annotations
 
-import os
 import math
+import os
 
 import luigi
-import law
 
+import law
 
 # the htcondor workflow implementation is part of a law contrib package
 # so we need to explicitly load it
@@ -34,7 +33,7 @@ class Task(law.Task):
 
     def local_path(self, *path):
         # DATA_PATH is defined in setup.sh
-        parts = ("$DATA_PATH",) + self.store_parts() + path
+        parts = ("$DATA_PATH", *self.store_parts(), *path)
         return os.path.join(*parts)
 
     def local_target(self, *path):
@@ -81,7 +80,7 @@ class HTCondorWorkflow(law.htcondor.HTCondorWorkflow):
         config.custom_content.append(("MY.WantOS", "el7"))
 
         # maximum runtime
-        config.custom_content.append(("+MaxRuntime", int(math.floor(self.max_runtime * 3600)) - 1))
+        config.custom_content.append(("+MaxRuntime", math.floor(self.max_runtime * 3600) - 1))
 
         # copy the entire environment
         config.custom_content.append(("getenv", "true"))

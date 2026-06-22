@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Example showing (local) law workflows.
 
@@ -8,11 +6,11 @@ The actual payload of the tasks is rather trivial.
 
 
 import os
-import time
 import random
+import time
 
-import six
 import luigi
+
 import law
 
 
@@ -42,7 +40,7 @@ class Task(law.Task):
 
     def local_path(self, *path):
         # WORKFLOWEXAMPLE_DATA_PATH is defined in setup.sh
-        parts = (os.getenv("WORKFLOWEXAMPLE_DATA_PATH"),) + self.store_parts() + path
+        parts = (os.getenv("WORKFLOWEXAMPLE_DATA_PATH"), *self.store_parts(), *path)
         return os.path.join(*parts)
 
     def local_target(self, *path):
@@ -67,11 +65,11 @@ class CreateChars(Task, law.LocalWorkflow):
 
     def create_branch_map(self):
         # map branch indexes to ascii numbers from 97 to 122 ("a" to "z")
-        return {i: num for i, num in enumerate(range(97, 122 + 1))}
+        return dict(enumerate(range(97, 122 + 1)))
 
     def output(self):
         # it's best practice to encode the branch number into the output target
-        return self.local_target("output_{}.json".format(self.branch))
+        return self.local_target(f"output_{self.branch}.json")
 
     @maybe_wait
     def run(self):
@@ -114,7 +112,7 @@ class CreateAlphabet(Task):
         # loop over all targets in the collection, load the json data, and append the character
         # to the alphabet
         alphabet = ""
-        for inp in six.itervalues(inputs):
+        for inp in inputs.values():
             alphabet += inp.load()["char"]
 
         # again, dump the alphabet string into the output file
@@ -125,4 +123,4 @@ class CreateAlphabet(Task):
         # publish_message not only prints the message to stdout, but sends it to the scheduler
         # where it will become visible in the browser visualization
         alphabet = "".join(law.util.colored(c, color="random") for c in alphabet)
-        self.publish_message("\nbuilt alphabet: {}\n".format(alphabet))
+        self.publish_message(f"\nbuilt alphabet: {alphabet}\n")

@@ -1,9 +1,9 @@
-# coding: utf-8
-
+from __future__ import annotations
 
 import os
 
 import luigi
+
 import law
 
 
@@ -13,7 +13,7 @@ class Task(law.Task):
         return (self.__class__.__name__,)
 
     def local_path(self, *path):
-        parts = ("$WORKFLOWEXAMPLE_DATA_PATH",) + self.store_parts() + path
+        parts = ("$WORKFLOWEXAMPLE_DATA_PATH", *self.store_parts(), *path)
         return os.path.join(*map(str, parts))
 
     def local_target(self, *path):
@@ -67,4 +67,4 @@ class CreateAlphabet(Task):
         )
         self.output().dump(alphabet + "\n")
         alphabet = "".join(law.util.colored(c, color="random") for c in alphabet)
-        self.publish_message("\nbuilt alphabet: {}\n".format(alphabet))
+        self.publish_message(f"\nbuilt alphabet: {alphabet}\n")

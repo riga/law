@@ -1,16 +1,16 @@
-# coding: utf-8
-
 """
 Example showing docker sandboxing.
 
 Example status: review
 """
 
+from __future__ import annotations
 
 import os
-from random import random
+import random
 
 import luigi
+
 import law
 
 law.contrib.load("docker")
@@ -23,12 +23,12 @@ class CreateNumbers(law.SandboxTask):
     n_nums = luigi.IntParameter(default=100, description="amount of random numbers to be generated")
 
     def output(self):
-        return law.LocalFileTarget("data/docker/numbers_%i.txt" % self.n_nums)
+        return law.LocalFileTarget(f"data/docker/numbers_{self.n_nums}.txt")
 
     def run(self):
         with self.output().open("w") as f:
             for _ in range(self.n_nums):
-                f.write("%s\n" % random())
+                f.write(f"{random.random()}\n")
 
 
 class BinNumbers(law.SandboxTask):
@@ -38,15 +38,13 @@ class BinNumbers(law.SandboxTask):
 
     sandbox = "docker::34b598324f19"
     force_sandbox = True
-    docker_args = law.docker.DockerSandbox.default_docker_args + [
-        "-v", os.getcwd() + "/data:/notebooks/data",
-    ]
+    docker_args = [*law.docker.DockerSandbox.default_docker_args, "-v", os.getcwd() + "/data:/notebooks/data"]
 
     def requires(self):
         return CreateNumbers.req(self)
 
     def output(self):
-        return law.LocalFileTarget("data/docker/binned_%i_%i.txt" % (self.n_nums, self.n_bins))
+        return law.LocalFileTarget(f"data/docker/binned_{self.n_nums}_{self.n_bins}.txt")
 
     def run(self):
         with self.input().open("r") as f:

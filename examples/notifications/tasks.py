@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Demonstration of slack and telegram task notifications.
 The run method of the task "MyTask" below is decorated with law.decorator.notify. The only purpose
@@ -10,10 +8,12 @@ and telegram notifications. They can be enabled on the command line by adding "-
 or "--notify-telegram". See the README.md file for information on their configuration.
 """
 
+from __future__ import annotations
 
 import time
 
 import luigi
+
 import law
 
 law.contrib.load("slack", "tasks", "telegram")
@@ -29,7 +29,7 @@ class MyTask(law.tasks.RunOnceTask):
     @law.decorator.notify
     @law.tasks.RunOnceTask.complete_on_success
     def run(self):
-        self.publish_message("running {}".format(self.__class__.__name__))
+        self.publish_message(f"running {self.__class__.__name__}")
 
         time.sleep(2)
 

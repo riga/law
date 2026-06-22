@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Law example tasks to demonstrate Slurm workflows at the Desy Maxwell cluster.
 
@@ -8,11 +6,11 @@ The actual payload of the tasks is rather trivial.
 
 
 import six
+
 import law
 
-
 # import our "framework" tasks
-from analysis.framework import Task, SlurmWorkflow
+from analysis.framework import SlurmWorkflow, Task
 
 
 class CreateChars(Task, SlurmWorkflow, law.LocalWorkflow):
@@ -34,11 +32,11 @@ class CreateChars(Task, SlurmWorkflow, law.LocalWorkflow):
 
     def create_branch_map(self):
         # map branch indexes to ascii numbers from 97 to 122 ("a" to "z")
-        return {i: num for i, num in enumerate(range(97, 122 + 1))}
+        return dict(enumerate(range(97, 122 + 1)))
 
     def output(self):
         # it's best practice to encode the branch number into the output target
-        return self.local_target("output_{}.json".format(self.branch))
+        return self.local_target(f"output_{self.branch}.json")
 
     def run(self):
         # the branch data holds the integer number to convert
@@ -90,4 +88,4 @@ class CreateAlphabet(Task):
         # publish_message not only prints the message to stdout, but sends it to the scheduler
         # where it will become visible in the browser visualization
         alphabet = "".join(law.util.colored(c, color="random") for c in alphabet)
-        self.publish_message("\nbuilt alphabet: {}\n".format(alphabet))
+        self.publish_message(f"\nbuilt alphabet: {alphabet}\n")

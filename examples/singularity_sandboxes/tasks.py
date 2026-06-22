@@ -1,8 +1,9 @@
-# coding: utf-8
+from __future__ import annotations
 
 from random import random
 
 import luigi
+
 import law
 
 law.contrib.load("singularity")

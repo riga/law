@@ -27,4 +27,4 @@ action() {
 
     source "$( law completion )" ""
 }
-action
+action "$@"

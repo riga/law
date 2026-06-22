@@ -15,4 +15,4 @@ action() {
     source "/afs/desy.de/user/r/riegerma/public/law_sw/setup.sh" ""
     source "$( law completion )" ""
 }
-action
+action "$@"

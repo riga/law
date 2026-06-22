@@ -17,6 +17,6 @@ action() {
     export LAW_CONFIG_FILE="${this_dir}/law.cfg"
     export ANALYSIS_DATA_PATH="${this_dir}/data"
 
-    source "$( law completion )"
+    source "$( law completion )" ""
 }
-action
+action "$@"

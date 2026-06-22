@@ -1,9 +1,7 @@
-# coding: utf-8
-
-
 import json
 
 import law
+
 law.contrib.load("dropbox")
 
 
@@ -29,7 +27,7 @@ print(data_file.exists())
 data = {"foo": "bar", "baz": [1, 2, 3]}
 
 local_path = "file.json"
-with open(local_path, "w") as f:
+with open(local_path, "w", encoding="utf-8") as f:
     json.dump(data, f, indent=4)
 data_file.copy_from_local(local_path)
 
@@ -40,7 +38,7 @@ data_file.dump(data, indent=4)
 
 
 data_file.copy_to_local(local_path)
-with open(local_path, "r") as f:
+with open(local_path, encoding="utf-8") as f:
     print(json.load(f))
 
 with data_file.open("r") as f:

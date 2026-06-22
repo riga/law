@@ -57,6 +57,8 @@ dependencies = [
 [project.optional-dependencies]
 # pinned to 3.9
 dev = [
+  "build~=1.4",
+  "twine~=6.2",
   "mypy~=1.19",
   "pytest~=8.4",
   "pytest-cov~=7.1",
@@ -179,7 +181,7 @@ isort.required-imports = ["from __future__ import annotations"]
 python_version = "3.9"
 strict = false
 files = ["src/law", "tests"]
-exclude = ["docs", "examples", "build", "local_tests"]
+exclude = ["docs", "build", "examples", "local_tests"]
 disable_error_code = ["no-redef", "no-untyped-def", "valid-type", "method-assign"]
 warn_unreachable = true
 warn_redundant_casts = true

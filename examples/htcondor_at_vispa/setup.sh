@@ -15,4 +15,4 @@ action() {
     source "/home/Marcel/public/law_sw/setup.sh" ""
     source "$( law completion )" ""
 }
-action
+action "$@"

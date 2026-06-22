@@ -26,7 +26,8 @@ repos:
         name: mypy
         language: python
         types_or: [python, pyi]
-        entry: mypy --show-error-codes
+        entry: mypy
+        args: ["--show-error-codes"]
 
       - id: pytest
         name: pytest

@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Law example tasks to demonstrate HTCondor workflows at CERN with sequential jobs
 that start eagerly once jobs running previous requirements succeeded.
@@ -11,13 +9,14 @@ and only needs to be defined once per user / group / etc.
 See the "htcondor_at_cern" example for a more streamlined version of the same payload.
 """
 
+from __future__ import annotations
 
-import os
 import math
+import os
 
 import luigi
-import law
 
+import law
 
 # the htcondor workflow implementation is part of a law contrib package
 # so we need to explicitly load it
@@ -36,7 +35,7 @@ class Task(law.Task):
         return (self.__class__.__name__, self.version)
 
     def local_path(self, *path):
-        parts = (os.getenv("ANALYSIS_DATA_PATH"),) + self.store_parts() + path
+        parts = (os.getenv("ANALYSIS_DATA_PATH"), *self.store_parts(), *path)
         return os.path.join(*parts)
 
     def local_target(self, *path):
@@ -89,7 +88,7 @@ class HTCondorWorkflow(law.htcondor.HTCondorWorkflow):
         config.custom_content.append(("MY.WantOS", "el7"))
 
         # maximum runtime
-        config.custom_content.append(("+MaxRuntime", int(math.floor(self.max_runtime * 3600)) - 1))
+        config.custom_content.append(("+MaxRuntime", math.floor(self.max_runtime * 3600) - 1))
 
         # copy the entire environment
         config.custom_content.append(("getenv", "true"))

@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Law example tasks to demonstrate HTCondor workflows at CERN with sequential jobs
 that start eagerly once jobs running previous requirements succeeded.
@@ -11,12 +9,12 @@ same payload.
 See the task doc strings below for more info.
 """
 
+from __future__ import annotations
 
 import law
 
-
 # import our "framework" tasks
-from analysis.framework import Task, HTCondorWorkflow
+from analysis.framework import HTCondorWorkflow, Task
 
 
 class CreateChars(Task, HTCondorWorkflow, law.LocalWorkflow):
@@ -38,11 +36,11 @@ class CreateChars(Task, HTCondorWorkflow, law.LocalWorkflow):
 
     def create_branch_map(self):
         # map branch indexes to ascii numbers from 97 to 122 ("a" to "z")
-        return {i: num for i, num in enumerate(range(97, 122 + 1))}
+        return dict(enumerate(range(97, 122 + 1)))
 
     def output(self):
         # it's best practice to encode the branch number into the output target
-        return self.local_target("output_{}.json".format(self.branch))
+        return self.local_target(f"output_{self.branch}.json")
 
     def run(self):
         # the branch data holds the integer number to convert
@@ -87,7 +85,7 @@ class CreatePartialAlphabet(Task, HTCondorWorkflow, law.LocalWorkflow):
         return list(law.util.iter_chunks(26, 5))
 
     def workflow_requires(self):
-        reqs = super(CreatePartialAlphabet, self).workflow_requires()
+        reqs = super().workflow_requires()
 
         # require multiple CreateChars workflows
         reqs["chars"] = {
@@ -106,7 +104,7 @@ class CreatePartialAlphabet(Task, HTCondorWorkflow, law.LocalWorkflow):
 
     def output(self):
         # output a plain text file
-        return self.local_target("alphabet_part{}.txt".format(self.branch))
+        return self.local_target(f"alphabet_part{self.branch}.txt")
 
     def run(self):
         # gather characters and save them
@@ -117,7 +115,7 @@ class CreatePartialAlphabet(Task, HTCondorWorkflow, law.LocalWorkflow):
         # dump the alphabet string into the output file
         self.output().dump(alphabet + "\n")
 
-        self.publish_message("\nbuilt alphabet part {}: {}\n".format(self.branch, alphabet))
+        self.publish_message(f"\nbuilt alphabet part {self.branch}: {alphabet}\n")
 
 
 class CreateFullAlphabet(Task):
@@ -150,4 +148,4 @@ class CreateFullAlphabet(Task):
         self.output().dump(alphabet + "\n")
 
         # some status message
-        self.publish_message("\nbuilt full alphabet: {}\n".format(alphabet))
+        self.publish_message(f"\nbuilt full alphabet: {alphabet}\n")

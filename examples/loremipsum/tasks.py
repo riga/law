@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Simple law tasks that demonstrate how to build up a task tree with some outputs and dependencies.
 
@@ -9,14 +7,16 @@ After that, the count files are merged (MergeCounts). The last task (ShowFrequen
 the "measured" frequencies and prints the result which is also sent as a message to the scheduler.
 """
 
+from __future__ import annotations
 
+import collections
 import os
-import time
 import random
-from collections import defaultdict
+import time
+import urllib
 
-from six.moves import urllib
 import luigi
+
 import law
 
 law.contrib.load("tasks")  # to have the RunOnceTask
@@ -58,7 +58,7 @@ class LoremIpsumBase(law.Task):
 
     def local_path(self, *path):
         # DATA_PATH is defined in setup.sh
-        parts = ("$DATA_PATH",) + path
+        parts = ("$DATA_PATH", *path)
         return os.path.join(*(str(p) for p in parts))
 
     def local_target(self, *path, **kwargs):
@@ -72,7 +72,7 @@ class FetchLoremIpsum(LoremIpsumBase):
     """
 
     def output(self):
-        return self.local_target("loremipsum_{}.txt".format(self.file_index))
+        return self.local_target(f"loremipsum_{self.file_index}.txt")
 
     @maybe_wait
     def run(self):
@@ -91,7 +91,7 @@ class CountChars(LoremIpsumBase):
         return FetchLoremIpsum.req(self)
 
     def output(self):
-        return self.local_target("chars_{}.json".format(self.file_index))
+        return self.local_target(f"chars_{self.file_index}.json")
 
     @maybe_wait
     def run(self):
@@ -138,7 +138,7 @@ class MergeCounts(LoremIpsumBase):
     def run(self):
         # load the content of all input files, sum up the character counts, and save them again
         # as we learned the basic mechanisms above, this could is streamlined
-        merged_counts = defaultdict(int)
+        merged_counts = collections.defaultdict(int)
         for inp in self.input():
             # each *inp* is the output of a CountChars instance
             for c, count in inp.load().items():
@@ -167,11 +167,11 @@ class ShowFrequencies(LoremIpsumBase, law.tasks.RunOnceTask):
         # normalize, convert to frequency in %, and sort by descending frequency
         count_sum = sum(counts.values())
         freqs = {c: 100. * count / count_sum for c, count in counts.items()}
-        freqs = sorted(list(freqs.items()), key=lambda tpl: -tpl[1])
+        freqs = sorted(freqs.items(), key=lambda tpl: -tpl[1])
 
         # prepare the output text
         text = "\n".join(
-            "{}: {} {:.1f} %".format(c, self.x(freq), freq)
+            f"{c}: {self.x(freq)} {freq:.1f} %"
             for c, freq in freqs
         )
 
@@ -184,7 +184,7 @@ class ShowFrequencies(LoremIpsumBase, law.tasks.RunOnceTask):
 
     @staticmethod
     def x(freq):
-        text = "-" if not freq else "x" * max(int(round(freq * 3)), 1)
+        text = "-" if not freq else "x" * max(round(freq * 3), 1)
 
         color = None
         if freq >= 7:
