@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 LSF remote workflow implementation. See https://www.ibm.com/support/knowledgecenter/en/SSETD4_9.1.3.
 """
@@ -12,23 +10,22 @@ import abc
 import contextlib
 import pathlib
 
-import luigi  # type: ignore[import-untyped]
+import luigi
 
+from law._types import Generator
 from law.config import Config
-from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy, PollData
 from law.job.base import JobArguments, JobInputFile
-from law.task.proxy import ProxyCommand
-from law.target.file import get_path, get_scheme, FileSystemDirectoryTarget
-from law.target.local import LocalDirectoryTarget, LocalFileTarget
-from law.parameter import NO_STR
-from law.util import no_value, law_src_path, merge_dicts, DotDict, InsertableDict
 from law.logger import get_logger
-from law._types import Type, Generator
-
-from law.contrib.lsf.job import LSFJobManager, LSFJobFileFactory
-
+from law.parameter import NO_STR
+from law.target.file import FileSystemDirectoryTarget, get_path, get_scheme
+from law.target.local import LocalDirectoryTarget, LocalFileTarget
+from law.task.proxy import ProxyCommand
+from law.util import DotDict, InsertableDict, law_src_path, merge_dicts, no_value
+from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy, PollData
 
 logger = get_logger(__name__)
+
+from law.contrib.lsf.job import LSFJobFileFactory, LSFJobManager
 
 
 class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
@@ -97,7 +94,7 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
             task_cls=task.__class__,
             task_params=proxy_cmd.build(skip_run=True),
             branches=branches,
-            workers=task.job_workers,  # type: ignore[arg-type]
+            workers=task.job_workers,
             auto_retry=False,
             dashboard_data=dashboard_data,
         )
@@ -170,7 +167,7 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
         # get the location of the custom local log file if any
         abs_log_file = None
         if output_dir_is_local and c.custom_log_file:
-            abs_log_file = output_dir.child(c.custom_log_file, type="f").abspath  # type: ignore[union-attr] # noqa
+            abs_log_file = output_dir.child(c.custom_log_file, type="f").abspath  # type: ignore[union-attr]
 
         # return job and log files
         return {"job": job_file, "config": c, "log": abs_log_file}
@@ -255,14 +252,14 @@ class LSFWorkflow(BaseRemoteWorkflow):
         """
         return {}
 
-    def lsf_job_manager_cls(self) -> Type[LSFJobManager]:
+    def lsf_job_manager_cls(self) -> type[LSFJobManager]:
         return LSFJobManager
 
     def lsf_create_job_manager(self, **kwargs) -> LSFJobManager:
         kwargs = merge_dicts(self.lsf_job_manager_defaults, kwargs)
         return self.lsf_job_manager_cls()(**kwargs)
 
-    def lsf_job_file_factory_cls(self) -> Type[LSFJobFileFactory]:
+    def lsf_job_file_factory_cls(self) -> type[LSFJobFileFactory]:
         return LSFJobFileFactory
 
     def lsf_create_job_file_factory(self, **kwargs) -> LSFJobFileFactory:
@@ -307,7 +304,7 @@ class LSFWorkflow(BaseRemoteWorkflow):
         Configurable delay in seconds to wait after submitting jobs and before starting the status
         polling.
         """
-        return self.poll_interval * 60  # type: ignore[operator]
+        return self.poll_interval * 60  # type: ignore[return-value]
 
     def lsf_check_job_completeness(self) -> bool:
         return False

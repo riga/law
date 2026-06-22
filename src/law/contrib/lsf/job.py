@@ -1,33 +1,30 @@
-# coding: utf-8
-
 """
 LSF job manager. See https://www.ibm.com/support/knowledgecenter/en/SSETD4_9.1.3.
 """
 
 from __future__ import annotations
 
-__all__ = ["LSFJobManager", "LSFJobFileFactory"]
+__all__ = ["LSFJobFileFactory", "LSFJobManager"]
 
 import os
-import stat
-import time
-import re
 import pathlib
+import re
 import shlex
+import stat
 import subprocess
+import time
 
+from law._types import Any, Sequence
 from law.config import Config
-from law.job.base import BaseJobManager, BaseJobFileFactory, JobInputFile
+from law.job.base import BaseJobFileFactory, BaseJobManager, JobInputFile
+from law.logger import get_logger
 from law.target.file import get_path
 from law.target.local import LocalDirectoryTarget
-from law.util import interruptable_popen, make_list, make_unique, quote_cmd, parse_duration
-from law.logger import get_logger
-from law._types import Any, Sequence
-
-from law.contrib.lsf.util import get_lsf_version
-
+from law.util import interruptable_popen, make_list, make_unique, parse_duration, quote_cmd
 
 logger = get_logger(__name__)
+
+from law.contrib.lsf.util import get_lsf_version
 
 _cfg = Config.instance()
 
@@ -151,11 +148,10 @@ class LSFJobManager(BaseJobManager):
 
         # run it
         logger.debug(f"cancel lsf job(s) with command '{cmd_str}'")
-        code, out, err = interruptable_popen(
+        code, _, err = interruptable_popen(
             cmd_str,
             shell=True,
             executable="/bin/bash",
-            stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             kill_timeout=2,
             processes=_processes,
@@ -165,7 +161,7 @@ class LSFJobManager(BaseJobManager):
         if code != 0 and not silent:
             raise Exception(f"cancellation of lsf job(s) '{job_id}' failed with code {code}:\n{err}")
 
-        return {job_id: None for job_id in job_ids} if chunking else None
+        return dict.fromkeys(job_ids) if chunking else None
 
     def query(  # type: ignore[override]
         self,
@@ -226,12 +222,11 @@ class LSFJobManager(BaseJobManager):
                     if silent:
                         return None
                     raise Exception(f"lsf job(s) '{job_id}' not found in query response")
-                else:
-                    query_data[_job_id] = self.job_status_dict(
-                        job_id=_job_id,
-                        status=self.FAILED,
-                        error="job not found in query response",
-                    )
+                query_data[_job_id] = self.job_status_dict(
+                    job_id=_job_id,
+                    status=self.FAILED,
+                    error="job not found in query response",
+                )
 
         return query_data if chunking else query_data[job_id]  # type: ignore[index]
 
@@ -277,10 +272,26 @@ class LSFJobManager(BaseJobManager):
 
 class LSFJobFileFactory(BaseJobFileFactory):
 
-    config_attrs = BaseJobFileFactory.config_attrs + [
-        "file_name", "command", "executable", "arguments", "queue", "cwd", "input_files",
-        "output_files", "postfix_output_files", "manual_stagein", "manual_stageout", "job_name",
-        "stdout", "stderr", "shell", "emails", "custom_content", "absolute_paths",
+    config_attrs = [
+        *BaseJobFileFactory.config_attrs,
+        "file_name",
+        "command",
+        "executable",
+        "arguments",
+        "queue",
+        "cwd",
+        "input_files",
+        "output_files",
+        "postfix_output_files",
+        "manual_stagein",
+        "manual_stageout",
+        "job_name",
+        "stdout",
+        "stderr",
+        "shell",
+        "emails",
+        "custom_content",
+        "absolute_paths",
     ]
 
     def __init__(
@@ -413,12 +424,12 @@ class LSFJobFileFactory(BaseJobFileFactory):
             return abs_path
 
         # absolute input paths
-        for key, f in c.input_files.items():
+        for f in c.input_files.values():
             f.path_sub_abs = prepare_input(f)
 
         # input paths relative to the submission or initial dir
         # forwarded files are skipped as they are not treated as normal inputs
-        for key, f in c.input_files.items():
+        for f in c.input_files.values():
             if f.forward:
                 continue
             f.path_sub_rel = (
@@ -428,7 +439,7 @@ class LSFJobFileFactory(BaseJobFileFactory):
             )
 
         # input paths as seen by the job, before and after potential rendering
-        for key, f in c.input_files.items():
+        for f in c.input_files.values():
             f.path_job_pre_render = (
                 f.path_sub_abs
                 if f.forward else
@@ -474,7 +485,7 @@ class LSFJobFileFactory(BaseJobFileFactory):
         job_file = self.postfix_input_file(os.path.join(c.dir, str(c.file_name)), postfix)
 
         # render copied, non-forwarded input files
-        for key, f in c.input_files.items():
+        for f in c.input_files.values():
             if not f.copy or f.forward or not f.render_local:
                 continue
             self.render_file(
@@ -494,7 +505,7 @@ class LSFJobFileFactory(BaseJobFileFactory):
 
         # job file content
         content: list[str | tuple[str] | tuple[str, Any]] = []
-        content.append("#!/usr/bin/env {}".format(c.shell))
+        content.append("#!/usr/bin/env {c.shell}")
 
         if c.job_name:
             content.append(("-J", c.job_name))
@@ -540,7 +551,7 @@ class LSFJobFileFactory(BaseJobFileFactory):
                 content.append(tmpl.format(path, path))
 
         # write the job file
-        with open(job_file, "w") as f:
+        with open(job_file, "w", encoding="utf-8") as f:
             for line in content:
                 if not isinstance(line, str):
                     line = self.create_line(*make_list(line))

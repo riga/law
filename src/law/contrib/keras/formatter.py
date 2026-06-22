@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Keras target formatters.
 """
@@ -10,12 +8,11 @@ __all__ = ["KerasModelFormatter", "KerasWeightsFormatter"]
 
 import pathlib
 
-from law.target.formatter import Formatter
-from law.target.file import FileSystemFileTarget, get_path
-from law.logger import get_logger
-from law.util import no_value
 from law._types import Any
-
+from law.logger import get_logger
+from law.target.file import FileSystemFileTarget, get_path
+from law.target.formatter import Formatter
+from law.util import no_value
 
 logger = get_logger(__name__)
 
@@ -30,17 +27,17 @@ class KerasModelFormatter(Formatter):
 
     @classmethod
     def load(cls, path: str | pathlib.Path | FileSystemFileTarget, *args, **kwargs) -> Any:
-        import keras  # type: ignore[import-untyped, import-not-found]
+        import keras
 
         path = get_path(path)
 
         # the method for loading the model depends on the file extension
         if path.endswith(".json"):
-            with open(path, "r") as f:
+            with open(path, encoding="utf-8") as f:
                 return keras.models.model_from_json(f.read(), *args, **kwargs)
 
         if path.endswith((".yml", ".yaml")):
-            with open(path, "r") as f:
+            with open(path, encoding="utf-8") as f:
                 return keras.models.model_from_yaml(f.read(), *args, **kwargs)
 
         # .hdf5, .h5, bundle
@@ -54,11 +51,11 @@ class KerasModelFormatter(Formatter):
         # the method for saving the model depends on the file extension
         ret = None
         if _path.endswith(".json"):
-            with open(_path, "w") as f:
+            with open(_path, "w", encoding="utf-8") as f:
                 f.write(model.to_json(*args, **kwargs))
 
         elif _path.endswith((".yml", ".yaml")):
-            with open(_path, "w") as f:
+            with open(_path, "w", encoding="utf-8") as f:
                 f.write(model.to_yaml(*args, **kwargs))
 
         else:  # .hdf5, .h5, bundle
