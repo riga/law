@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 ROOT target formatters.
 """
@@ -10,18 +8,17 @@ __all__ = [
     "GuardedTFile", "ROOTFormatter", "ROOTNumpyFormatter", "ROOTPandasFormatter", "UprootFormatter",
 ]
 
+import contextlib
 import pathlib
-from contextlib import contextmanager
 
-from law.target.formatter import Formatter
-from law.target.file import FileSystemFileTarget, get_path
-from law.util import no_value
-from law._types import Any, TracebackType, Iterator
-
+from law._types import Any, Iterator, TracebackType
 from law.contrib.root.util import import_ROOT
+from law.target.file import FileSystemFileTarget, get_path
+from law.target.formatter import Formatter
+from law.util import no_value
 
 
-class GuardedTFile(object):
+class GuardedTFile:
 
     @classmethod
     def Open(cls, *args, **kwargs) -> Any:
@@ -86,7 +83,7 @@ class ROOTNumpyFormatter(Formatter):
     @classmethod
     def load(cls, path: str | pathlib.Path | FileSystemFileTarget, *args, **kwargs) -> Any:
         ROOT = import_ROOT()  # noqa: F841
-        import root_numpy  # type: ignore[import-untyped, import-not-found]
+        import root_numpy
 
         return root_numpy.root2array(get_path(path), *args, **kwargs)
 
@@ -99,7 +96,7 @@ class ROOTNumpyFormatter(Formatter):
         **kwargs,
     ) -> Any:
         ROOT = import_ROOT()  # noqa: F841
-        import root_numpy  # type: ignore[import-untyped, import-not-found]
+        import root_numpy
 
         perm = kwargs.pop("perm", no_value)
 
@@ -122,15 +119,14 @@ class ROOTPandasFormatter(Formatter):
     @classmethod
     def load(cls, path: str | pathlib.Path | FileSystemFileTarget, *args, **kwargs) -> Any:
         ROOT = import_ROOT()  # noqa: F841
-        import root_pandas  # type: ignore[import-untyped, import-not-found]
+        import root_pandas
 
         return root_pandas.read_root(get_path(path), *args, **kwargs)
 
     @classmethod
     def dump(cls, path: str | pathlib.Path | FileSystemFileTarget, df: Any, *args, **kwargs) -> Any:
         ROOT = import_ROOT()  # noqa: F841
-        # importing root_pandas adds the to_root() method to data frames
-        import root_pandas  # type: ignore[import-untyped, import-not-found] # noqa
+        import root_pandas  # noqa: F401
 
         perm = kwargs.pop("perm", no_value)
 
@@ -152,19 +148,19 @@ class UprootFormatter(Formatter):
 
     @classmethod
     def load(cls, path: str | pathlib.Path | FileSystemFileTarget, *args, **kwargs) -> Any:
-        import uproot  # type: ignore[import-untyped, import-not-found]
+        import uproot
 
         return uproot.open(get_path(path), *args, **kwargs)
 
     @classmethod
-    @contextmanager
+    @contextlib.contextmanager
     def dump(
         cls,
         path: str | pathlib.Path | FileSystemFileTarget,
         mode: str = "recreate",
         **kwargs,
     ) -> Iterator[Any]:
-        import uproot  # type: ignore[import-untyped, import-not-found]
+        import uproot
 
         # check the mode and get the saving function
         allowed_modes = ["create", "recreate", "update"]
@@ -179,9 +175,7 @@ class UprootFormatter(Formatter):
         try:
             yield f
         finally:
-            try:
+            with contextlib.suppress(Exception):
                 f.file.close()
                 if perm != no_value:
                     cls.chmod(path, perm)
-            except:
-                pass

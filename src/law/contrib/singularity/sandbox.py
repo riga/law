@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Singularity sandbox implementation.
 """
@@ -11,20 +9,20 @@ __all__ = ["SingularitySandbox"]
 import os
 import subprocess
 
-import luigi  # type: ignore[import-untyped]
+import luigi
 
+from law._types import Any
+from law.cli.software import get_software_deps
 from law.config import Config
-from law.task.proxy import ProxyCommand
 from law.sandbox.base import Sandbox
 from law.target.local import LocalDirectoryTarget, LocalFileTarget
-from law.cli.software import get_software_deps
-from law.util import make_list, interruptable_popen, quote_cmd, flatten, law_src_path, makedirs
-from law._types import Any
+from law.task.proxy import ProxyCommand
+from law.util import flatten, interruptable_popen, law_src_path, make_list, makedirs, quote_cmd
 
 
 class SingularitySandbox(Sandbox):
 
-    sandbox_type: str = "singularity"  # type: ignore[assignment]
+    sandbox_type: str = "singularity"
 
     config_section_prefix = sandbox_type
 
@@ -49,7 +47,7 @@ class SingularitySandbox(Sandbox):
             try:
                 return tmp.load(formatter="pickle")
             except Exception as e:
-                raise Exception(f"env deserialization of sandbox {self!r} failed: {e}")
+                raise Exception(f"env deserialization of sandbox {self!r} failed: {e}") from e
 
         # load the env when the cache file is configured and existing
         if self.env_cache_path:
@@ -99,7 +97,7 @@ class SingularitySandbox(Sandbox):
         py_executable = f"$( whereis -b python | cut -d \" \" -f 2 ) -c \"{py_cmd}\""
 
         # build the full command
-        cmd = quote_cmd(singularity_exec_cmd + [
+        cmd = quote_cmd(singularity_exec_cmd + [  # noqa: RUF005
             self.image,
             "bash", "-l", "-c",
             " && ".join(flatten(
@@ -116,6 +114,7 @@ class SingularitySandbox(Sandbox):
             executable="/bin/bash",
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
+            stdin=None,
         )
         if code != 0:
             raise Exception(f"{self} env loading failed with exit code {code}:\n{out}")
@@ -178,10 +177,7 @@ class SingularitySandbox(Sandbox):
 
         # determine whether volume binding is allowed
         allow_binds_cb = getattr(self.task, "singularity_allow_binds", None)
-        if callable(allow_binds_cb):
-            allow_binds = allow_binds_cb()
-        else:
-            allow_binds = cfg.get_expanded(cfg_section, "allow_binds")
+        allow_binds = allow_binds_cb() if callable(allow_binds_cb) else cfg.get_expanded(cfg_section, "allow_binds")
 
         # determine whether law software forwarding is allowed
         forward_law_cb = getattr(self.task, "singularity_forward_law", None)
@@ -207,9 +203,9 @@ class SingularitySandbox(Sandbox):
 
             # forward python directories of law and dependencies
             for mod in get_software_deps():
-                mod_file: str = mod.__file__  # type: ignore[type-var, assignment]
+                mod_file: str = mod.__file__  # type: ignore[assignment]
                 path: str = os.path.dirname(mod_file)
-                name, ext = os.path.splitext(os.path.basename(mod_file))
+                name, _ = os.path.splitext(os.path.basename(mod_file))
                 if name == "__init__":
                     vsrc = path
                     vdst = dst(python_dir, os.path.basename(path))
@@ -284,7 +280,7 @@ class SingularitySandbox(Sandbox):
         post_setup_cmds = self._build_post_setup_cmds(env)
 
         # build the final command
-        cmd = quote_cmd(singularity_exec_cmd + [
+        cmd = quote_cmd(singularity_exec_cmd + [  # noqa: RUF005
             self.image,
             "bash", "-l", "-c",
             " && ".join(flatten(

@@ -1,17 +1,23 @@
-# coding: utf-8
-# flake8: noqa
-
 """
 ROOT contrib functionality.
 """
 
 __all__ = [
-    "import_ROOT", "hadd_task",
-    "ROOTFormatter", "ROOTNumpyFormatter", "ROOTPandasFormatter", "UprootFormatter", "GuardedTFile",
+    "GuardedTFile",
+    "ROOTFormatter",
+    "ROOTNumpyFormatter",
+    "ROOTPandasFormatter",
+    "UprootFormatter",
+    "hadd_task",
+    "import_ROOT",
 ]
 
 # provisioning imports
-from law.contrib.root.util import import_ROOT, hadd_task
 from law.contrib.root.formatter import (
-    ROOTFormatter, ROOTNumpyFormatter, ROOTPandasFormatter, UprootFormatter, GuardedTFile,
+    GuardedTFile,
+    ROOTFormatter,
+    ROOTNumpyFormatter,
+    ROOTPandasFormatter,
+    UprootFormatter,
 )
+from law.contrib.root.util import hadd_task, import_ROOT

@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Slack notifications.
 """
@@ -8,17 +6,16 @@ from __future__ import annotations
 
 __all__ = ["notify_slack"]
 
-import os
 import json
+import os
 import pathlib
 import threading
 import traceback
 
-from law.config import Config
-from law.util import escape_markdown
-from law.logger import get_logger
 from law._types import Any, ModuleType
-
+from law.config import Config
+from law.logger import get_logger
+from law.util import escape_markdown
 
 logger = get_logger(__name__)
 
@@ -110,7 +107,7 @@ def _notify_slack(token: str | pathlib.Path, request: dict[str, Any]) -> None:
         # token might be a file
         token_file = os.path.expanduser(os.path.expandvars(token))
         if os.path.isfile(token_file):
-            with open(token_file, "r") as f:
+            with open(token_file, encoding="utf-8") as f:
                 token = f.read().strip()
 
         if "attachments" in request and not isinstance(request["attachments"], str):
@@ -133,16 +130,13 @@ def _notify_slack(token: str | pathlib.Path, request: dict[str, Any]) -> None:
 def import_slack() -> tuple[ModuleType, int]:
     try:
         # slackclient 1.x
-        import slackclient  # type: ignore[import-untyped, import-not-found] # noqa
+        import slackclient
         return slackclient, 1
     except ImportError:
         try:
             # slackclient 2.x
-            import slack  # type: ignore[import-untyped, import-not-found] # noqa
+            import slack
             return slack, 2
         except ImportError as e:
-            e.args = (
-                "neither module 'slackclient' nor 'slack' found, run 'pip install slackclient' to "
-                "install them",
-            )
+            e.args = ("neither module 'slackclient' nor 'slack' found, run 'pip install slackclient' to install them",)
             raise e

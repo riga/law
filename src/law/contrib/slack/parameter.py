@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Slack-related parameters.
 """
@@ -8,10 +6,10 @@ from __future__ import annotations
 
 __all__ = ["NotifySlackParameter"]
 
+from law._types import Any
+from law.contrib.slack.notification import notify_slack
 from law.parameter import NotifyParameter
 from law.util import escape_markdown
-from law.contrib.slack.notification import notify_slack
-from law._types import Any
 
 
 class NotifySlackParameter(NotifyParameter):

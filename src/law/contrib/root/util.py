@@ -1,24 +1,26 @@
-# coding: utf-8
-
 """
 ROOT-related utilities.
 """
 
 from __future__ import annotations
 
-__all__ = ["import_ROOT", "hadd_task"]
+__all__ = ["hadd_task", "import_ROOT"]
 
 import os
 import pathlib
 
-from law.task.base import Task
-from law.target.file import FileSystemFileTarget, get_path
-from law.target.local import LocalFileTarget, LocalDirectoryTarget
-from law.util import (
-    map_verbose, make_list, interruptable_popen, human_bytes, quote_cmd, iter_chunks,
-)
 from law._types import ModuleType, Sequence
-
+from law.target.file import FileSystemFileTarget, get_path
+from law.target.local import LocalDirectoryTarget, LocalFileTarget
+from law.task.base import Task
+from law.util import (
+    human_bytes,
+    interruptable_popen,
+    iter_chunks,
+    make_list,
+    map_verbose,
+    quote_cmd,
+)
 
 _ROOT: ModuleType | None = None
 
@@ -36,14 +38,14 @@ def import_ROOT(batch: bool = True, ignore_cli: bool = True, reset: bool = False
     was_empty = _ROOT is None
 
     if was_empty:
-        import ROOT  # type: ignore[import-untyped, import-not-found]
+        import ROOT
         _ROOT = ROOT
 
     if was_empty or reset:
-        _ROOT.gROOT.SetBatch(batch)  # type: ignore[attr-defined, union-attr]
+        _ROOT.gROOT.SetBatch(batch)  # type: ignore[union-attr]
 
     if was_empty or reset:
-        _ROOT.PyConfig.IgnoreCommandLineOptions = ignore_cli  # type: ignore[attr-defined, union-attr] # noqa
+        _ROOT.PyConfig.IgnoreCommandLineOptions = ignore_cli  # type: ignore[union-attr]
 
     return _ROOT  # type: ignore[return-value]
 
@@ -160,7 +162,7 @@ def hadd_task(
             def callback(i: int) -> None:
                 task.publish_message(f"fetch file {i + 1} / {len(inputs)}")
 
-            bases: list[str] = map_verbose(fetch, inputs, every=5, callback=callback)  # type: ignore[arg-type] # noqa
+            bases: list[str] = map_verbose(fetch, inputs, every=5, callback=callback)  # type: ignore[arg-type]
 
         # start merging into the localized output
         with output.localize("w", cache=False) as tmp_out:
@@ -170,7 +172,7 @@ def hadd_task(
                 else:
                     hadd(bases, tmp_out.abspath)
 
-            stat: os.stat_result = tmp_out.exists(stat=True)  # type: ignore[assignment]
+            stat: os.stat_result = tmp_out.exists(stat=True)
             if not stat:
                 raise Exception(f"output '{tmp_out.abspath}' not created during merging")
 
