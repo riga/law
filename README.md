@@ -11,14 +11,14 @@
 <!-- marker-before-badges -->
 
 <p align="center">
-  <a href="https://github.com/riga/law/actions?query=workflow%3A%22Lint+and+test%22">
-    <img alt="Build status" src="https://github.com/riga/law/workflows/Lint%20and%20test/badge.svg" />
-  </a>
-  <a href="https://github.com/riga/law/actions/workflows/deploy_images_a9.yml?query=workflow%3A%22Deploy+images%22">
-    <img alt="Docker images" src="https://github.com/riga/law/actions/workflows/deploy_images_a9.yml/badge.svg" />
-  </a>
   <a href="http://law.readthedocs.io/en/latest">
     <img alt="Documentation status" src="https://readthedocs.org/projects/law/badge/?version=latest" />
+  </a>
+  <a href="https://github.com/riga/law/actions/workflows/ci.yml">
+    <img alt="CI" src="https://github.com/riga/law/actions/workflows/ci.yml/badge.svg" />
+  </a>
+  <a href="https://github.com/riga/law/actions/workflows/deploy_images_a9.yml">
+    <img alt="Docker images" src="https://github.com/riga/law/actions/workflows/deploy_images_a9.yml/badge.svg" />
   </a>
   <img alt="Python version" src="https://img.shields.io/badge/Python-%E2%89%A53.7-blue" />
   <a href="https://pypi.python.org/pypi/law">
@@ -213,6 +213,7 @@ source "$( law completion )"
 
 - Source hosted at [GitHub](https://github.com/riga/law)
 - Report issues, questions, feature requests on [GitHub Issues](https://github.com/riga/law/issues)
+- The current Python version for development is **3.13**.
 
 ### Linting, type checking & tests
 
