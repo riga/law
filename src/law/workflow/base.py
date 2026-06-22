@@ -275,7 +275,7 @@ class WorkflowParameter(CSVParameter):
         super().__init__(*args, **kwargs)
 
         # linearize the default
-        self._default = no_value
+        self._default: NoValue = no_value  # type: ignore[assignment]
 
     # TODO: more precise inp
     def parse(self, inp: Any) -> Any:

@@ -133,7 +133,7 @@ class OptionalBoolParameter(luigi.BoolParameter, Parameter):
     """
 
     # TODO: more precise inp
-    def parse(self, inp: Any) -> bool | None:  # type: ignore[override]
+    def parse(self, inp: Any) -> bool | None:
         """"""
         if isinstance(inp, bool) or inp is None:
             return inp
@@ -198,7 +198,7 @@ class DurationParameter(Parameter):
         self._unit = unit
 
     # TODO: more precise inp
-    def parse(self, inp: Any) -> float:  # type: ignore[override]
+    def parse(self, inp: Any) -> float:
         """"""
         if inp in (None, "", NO_STR, no_value):
             inp = "0"
@@ -258,7 +258,7 @@ class BytesParameter(Parameter):
         self._unit = unit
 
     # TODO: more precise inp
-    def parse(self, inp: Any) -> float:  # type: ignore[override]
+    def parse(self, inp: Any) -> float:
         """"""
         if inp in (None, "", NO_STR, no_value):
             inp = "0"
@@ -272,7 +272,9 @@ class BytesParameter(Parameter):
             value = 0
 
         value_bytes = parse_bytes(value, input_unit=self.unit, unit="bytes")
-        v, u = human_bytes(value_bytes, unit=self.unit)  # type: ignore[misc]
+        v: float
+        u: str
+        v, u = human_bytes(value_bytes, unit=self.unit)  # type: ignore[assignment,str-unpack]
 
         return f"{try_int(v)}{u}"
 
@@ -443,7 +445,7 @@ class CSVParameter(Parameter):
             )
 
     # TODO: more precise inp
-    def parse(self, inp: Any) -> tuple[T] | T:  # type: ignore[override]
+    def parse(self, inp: Any) -> tuple[T] | T:
         """"""
         return_single_value = False
         if inp in (None, "", NO_STR, no_value):
@@ -727,7 +729,7 @@ class RangeParameter(Parameter):
             raise ValueError(f"cannot interpret {value} with {len(value)} elements as {self.__class__.__name__}")
 
     # TODO: more precise inp
-    def parse(self, inp: Any) -> tuple[int]:  # type: ignore[override]
+    def parse(self, inp: Any) -> tuple[int]:
         """"""
         if inp in (None, "", NO_STR, no_value):
             value: tuple = ()
@@ -953,7 +955,7 @@ class NotifyCustomParameter(NotifyParameter):
 
         super().__init__(*args, **kwargs)
 
-        if not self.description:  # type: ignore[has-type]
+        if not self.description:
             self.description = (
                 "when true, and the task's run method is decorated with law.decorator.notify, "
                 "a custom notification is sent once the task finishes"

@@ -149,12 +149,12 @@ def patch_default_retcodes() -> None:
 
     retcode = luigi.retcodes.retcode
 
-    retcode.already_running._default = 10  # type: ignore[attr-defined]
-    retcode.missing_data._default = 20  # type: ignore[attr-defined]
-    retcode.not_run._default = 30  # type: ignore[attr-defined]
-    retcode.task_failed._default = 40  # type: ignore[attr-defined]
-    retcode.scheduling_error._default = 50  # type: ignore[attr-defined]
-    retcode.unhandled_exception._default = 60  # type: ignore[attr-defined]
+    retcode.already_running._default = 10
+    retcode.missing_data._default = 20
+    retcode.not_run._default = 30
+    retcode.task_failed._default = 40
+    retcode.scheduling_error._default = 50
+    retcode.unhandled_exception._default = 60
 
     logger.debug("patched luigis default return codes")
 
@@ -539,10 +539,10 @@ def patch_parameter_parse_or_no_value() -> None:
     replaced with default values.
     """
     def _parse_or_no_value(self, x):
-        empty = x is None or x is luigi.parameter._no_value  # type: ignore[attr-defined]
-        return luigi.parameter._no_value if empty else self.parse(x)  # type: ignore[attr-defined]
+        empty = x is None or x is luigi.parameter._no_value
+        return luigi.parameter._no_value if empty else self.parse(x)
 
-    luigi.parameter.Parameter._parse_or_no_value = _parse_or_no_value  # type: ignore[attr-defined]
+    luigi.parameter.Parameter._parse_or_no_value = _parse_or_no_value
 
     logger.debug("patched luigi.parameter.Parameter._parse_or_no_value")
 
