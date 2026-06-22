@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 CMS-related tasks.
 https://home.cern/about/experiments/cms
@@ -9,19 +7,19 @@ from __future__ import annotations
 
 __all__ = ["BundleCMSSW"]
 
-import os
-import subprocess
-import pathlib
 import abc
+import os
+import pathlib
+import subprocess
 
-import luigi  # type: ignore[import-untyped]
+import luigi
 
-from law.task.base import Task
-from law.target.file import get_path, FileSystemFileTarget
-from law.target.local import LocalFileTarget
-from law.parameter import NO_STR, CSVParameter
 from law.decorator import log
-from law.util import rel_path, interruptable_popen, quote_cmd
+from law.parameter import NO_STR, CSVParameter
+from law.target.file import FileSystemFileTarget, get_path
+from law.target.local import LocalFileTarget
+from law.task.base import Task
+from law.util import interruptable_popen, quote_cmd, rel_path
 
 
 class BundleCMSSW(Task):
@@ -31,14 +29,12 @@ class BundleCMSSW(Task):
     exclude = luigi.Parameter(
         default=NO_STR,
         significant=False,
-        description="regular expression for excluding files or directories relative to CMSSW_BASE; "
-        "default: empty",
+        description="regular expression for excluding files or directories relative to CMSSW_BASE; default: empty",
     )
     include = CSVParameter(
         default=(),
         significant=False,
-        description="comma-separated list of files or directories relative to CMSSW_BASE to "
-        "include; default: empty",
+        description="comma-separated list of files or directories relative to CMSSW_BASE to include; default: empty",
     )
     custom_checksum = luigi.Parameter(
         default=NO_STR,
@@ -57,12 +53,12 @@ class BundleCMSSW(Task):
         ...
 
     @property
-    def checksum(self) -> None | str:
+    def checksum(self) -> str | None:
         if not self.cmssw_checksumming:
             return None
 
         if self.custom_checksum != NO_STR:
-            return self.custom_checksum  # type: ignore[return-value]
+            return self.custom_checksum
 
         if self._checksum is None:
             cmd = [
@@ -70,7 +66,7 @@ class BundleCMSSW(Task):
                 get_path(self.get_cmssw_path()),
             ]
             if self.exclude != NO_STR:
-                cmd += [self.exclude]  # type: ignore[list-item]
+                cmd += [self.exclude]
             _cmd = quote_cmd(cmd)
 
             out: str
@@ -96,17 +92,16 @@ class BundleCMSSW(Task):
 
     @log
     def run(self) -> None:
-        with self.output().localize("w") as tmp:
-            with self.publish_step("bundle CMSSW ..."):
-                self.bundle(tmp.path)
+        with self.output().localize("w") as tmp, self.publish_step("bundle CMSSW ..."):
+            self.bundle(tmp.path)
 
     def get_cmssw_bundle_command(self, dst_path: str | pathlib.Path | LocalFileTarget) -> list[str]:
         return [
             rel_path(__file__, "scripts", "bundle_cmssw.sh"),
             get_path(self.get_cmssw_path()),
             get_path(dst_path),
-            self.exclude if self.exclude not in (None, NO_STR) else "",  # type: ignore[list-item]
-            " ".join(self.include),  # type: ignore[arg-type]
+            self.exclude if self.exclude not in (None, NO_STR) else "",
+            " ".join(self.include),
         ]
 
     def bundle(self, dst_path: str | pathlib.Path | LocalFileTarget) -> None:

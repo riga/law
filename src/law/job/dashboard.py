@@ -16,7 +16,7 @@ from law._types import Any, Callable, Iterator
 
 def cache_by_status(
     func: Callable[[Any, JobData, str, int], Any],
-) -> Callable[[JobData, str, int], Any]:
+) -> Callable[[Any, JobData, str, int], Any]:
     """
     Decorator for :py:meth:`BaseJobDashboard.publish` (and inheriting classes) that caches the last
     published status to decide if the a new publication is necessary or not. When the status did not
@@ -36,7 +36,7 @@ def cache_by_status(
 
         return func(self, job_data, event, job_num, *args, **kwargs)
 
-    return wrapper  # type: ignore[return-value]
+    return wrapper
 
 
 _cache_by_status_impl = cache_by_status

@@ -1,11 +1,8 @@
-# coding: utf-8
-
 """
 Minimal valid configuration.
 """
 
-import FWCore.ParameterSet.Config as cms  # type: ignore[import-untyped, import-not-found]
-
+import FWCore.ParameterSet.Config as cms
 
 process = cms.Process("LAW")
 

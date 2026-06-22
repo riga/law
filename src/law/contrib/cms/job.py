@@ -1,45 +1,49 @@
-# coding: utf-8
-
 """
 Crab job manager and CMS-related job helpers.
 """
 
 from __future__ import annotations
 
-__all__ = ["CrabJobManager", "CrabJobFileFactory", "CMSJobDashboard"]
+__all__ = ["CMSJobDashboard", "CrabJobFileFactory", "CrabJobManager"]
 
+import collections
+import json
 import os
-import stat
-import time
 import pathlib
-import socket
-import threading
 import queue
 import re
-import json
 import shlex
-import subprocess
 import shutil
-import collections
+import socket
+import stat
+import subprocess
+import threading
+import time
 
 import law
+from law._types import Any, Callable, Hashable, MutableMapping, Sequence, T
 from law.config import Config
-from law.task.base import Task
-from law.sandbox.base import Sandbox
-from law.job.base import BaseJobManager, BaseJobFileFactory, JobInputFile
+from law.job.base import BaseJobFileFactory, BaseJobManager, JobInputFile
 from law.job.dashboard import BaseJobDashboard
-from law.workflow.remote import JobData
-from law.target.file import get_path
-from law.util import (
-    DotDict, interruptable_popen, make_list, make_unique, quote_cmd, no_value, rel_path, parse_duration,
-)
 from law.logger import get_logger
-from law._types import Any, MutableMapping, Callable, Type, Hashable, T, Sequence
-
-import law.contrib.cms.sandbox
+from law.sandbox.base import Sandbox
+from law.target.file import get_path
+from law.task.base import Task
+from law.util import (
+    DotDict,
+    interruptable_popen,
+    make_list,
+    make_unique,
+    no_value,
+    parse_duration,
+    quote_cmd,
+    rel_path,
+)
+from law.workflow.remote import JobData
 
 law.contrib.load("wlcg")
 
+import law.contrib.cms.sandbox
 
 logger = get_logger(__name__)
 
@@ -54,15 +58,15 @@ class CrabJobManager(BaseJobManager):
     query_server_failure_cre = re.compile(r"^Failure\s+message\s+from\s+server\s*\:\s+([^\s].*)$")
     query_user_cre = re.compile(r"^Task\s+name\s*:\s+\d+_\d+\:([^_]+)_.+$")
     query_scheduler_cre = re.compile(r"^Grid\s+scheduler\s+-\s+Task\s+Worker\s*\:\s+([^\s]+).+$")
-    query_scheduler_id_cre = re.compile(r"^Grid\s+scheduler\s+-\s+Task\s+Worker\s*\:\s+crab.*\@.+[^\d](\d+)\..+$")  # noqa
+    query_scheduler_id_cre = re.compile(r"^Grid\s+scheduler\s+-\s+Task\s+Worker\s*\:\s+crab.*\@.+[^\d](\d+)\..+$")
     query_scheduler_status_cre = re.compile(r"^Status\s+on\s+the\s+scheduler\s*\:\s+([^\s].*)$")
     query_monitoring_url_cre = re.compile(r"^Dashboard\s+monitoring\s+URL\s*\:\s+([^\s].*)$")
     query_json_line_cre = re.compile(r"^\s*(\{.+\})\s*$")
     log_n_jobs_cre = re.compile(r"^config\.Data\.totalUnits\s+\=\s+(\d+)\s*$")
-    log_disable_output_collection_cre = re.compile(r"^config\.JobType\.disableAutomaticOutputCollection\s+\=\s+([^\s]+)\s*$")  # noqa
+    log_disable_output_collection_cre = re.compile(r"^config\.JobType\.disableAutomaticOutputCollection\s+\=\s+([^\s]+)\s*$")  # noqa: E501
     log_task_name_cre = re.compile(r"^.+\s+Task\s+name\s*\:\s+([^\s]+)\s*$")
 
-    log_file_pattern = "https://cmsweb.cern.ch:8443/scheddmon/{scheduler_id}/{user}/{task_name}/job_out.{crab_num}.{attempt}.txt"  # noqa
+    log_file_pattern = "https://cmsweb.cern.ch:8443/scheddmon/{scheduler_id}/{user}/{task_name}/job_out.{crab_num}.{attempt}.txt"  # noqa: E501
 
     job_grouping_submit = True
     job_grouping_query = True
@@ -99,7 +103,7 @@ class CrabJobManager(BaseJobManager):
         self.threads = threads
 
     @classmethod
-    def cast_job_id(cls, job_id: tuple[str]) -> CrabJobManager.JobId:
+    def cast_job_id(cls, job_id: tuple[str] | JobId) -> CrabJobManager.JobId:
         """
         Converts a *job_id*, for instance after json deserialization, into a :py:class:`JobId`
         object.
@@ -116,7 +120,7 @@ class CrabJobManager(BaseJobManager):
     def cmssw_env(self) -> MutableMapping[str, Any]:
         return self.cmssw_sandbox.env
 
-    def group_job_ids(self, job_ids: list[JobId]) -> dict[str, list[JobId]]:  # type: ignore[override]  # noqa
+    def group_job_ids(self, job_ids: list[JobId]) -> dict[str, list[JobId]]:  # type: ignore[override]
         groups: dict[str, list[CrabJobManager.JobId]] = {}
 
         # group by project directory
@@ -130,7 +134,7 @@ class CrabJobManager(BaseJobManager):
     def _apply_group(
         self,
         func: Callable,
-        result_type: Type[T],
+        result_type: type[T],
         group_func: Callable[[list[Any]], dict[Hashable, list[Any]]],
         job_objs: list[Any],
         threads: int | None = None,
@@ -141,7 +145,7 @@ class CrabJobManager(BaseJobManager):
         # their log files to extract task names, build actual job ids and forward them
         if func != self.submit:
             job_ids = []
-            for i, job_id in enumerate(make_list(job_objs)):
+            for job_id in make_list(job_objs):
                 if not isinstance(job_id, (str, pathlib.Path)):
                     job_ids.append(job_id)
                     continue
@@ -337,7 +341,7 @@ class CrabJobManager(BaseJobManager):
                 f"{out}",
             )
 
-        return {job_id: None for job_id in job_ids}
+        return dict.fromkeys(job_ids)
 
     def cleanup(  # type: ignore[override]
         self,
@@ -358,7 +362,7 @@ class CrabJobManager(BaseJobManager):
         if os.path.isdir(proj_dir):
             shutil.rmtree(proj_dir)
 
-        return {job_id: None for job_id in job_ids}
+        return dict.fromkeys(job_ids)
 
     def query(  # type: ignore[override]
         self,
@@ -584,7 +588,7 @@ class CrabJobManager(BaseJobManager):
         request_name = None
 
         job_file = str(job_file)
-        with open(job_file, "r") as f:
+        with open(job_file, encoding="utf-8") as f:
             # fast approach: parse the job file
             for line in f.readlines():
                 if work_area and request_name:
@@ -601,8 +605,8 @@ class CrabJobManager(BaseJobManager):
                         continue
 
             # when the combination is correct, return
-            if work_area and request_name and 0:
-                path = os.path.join(work_area, "crab_{}".format(request_name))
+            if work_area and request_name:
+                path = os.path.join(work_area, f"crab_{request_name}")
                 path = os.path.expandvars(os.path.expanduser(path))
                 if os.path.isdir(path):
                     return path
@@ -645,7 +649,7 @@ print(join(cfg.General.workArea, "crab_" + cfg.General.requestName))'"""
         values: list[str | int | None] = len(cres) * [None]  # type: ignore[assignment]
         types = [int, str, bool]
 
-        with open(log_file, "r") as f:
+        with open(log_file, encoding="utf-8") as f:
             for line in f.readlines():
                 for i, (cre, value, t) in enumerate(zip(cres, values, types)):
                     if value is not None:
@@ -697,10 +701,22 @@ print(join(cfg.General.workArea, "crab_" + cfg.General.requestName))'"""
 
 class CrabJobFileFactory(BaseJobFileFactory):
 
-    config_attrs = BaseJobFileFactory.config_attrs + [
-        "file_name", "executable", "arguments", "work_area", "request_name", "input_files",
-        "output_files", "storage_site", "output_lfn_base", "vo_group", "vo_role", "crab",
-        "custom_content", "absolute_paths",
+    config_attrs = [
+        *BaseJobFileFactory.config_attrs,
+        "file_name",
+        "executable",
+        "arguments",
+        "work_area",
+        "request_name",
+        "input_files",
+        "output_files",
+        "storage_site",
+        "output_lfn_base",
+        "vo_group",
+        "vo_role",
+        "crab",
+        "custom_content",
+        "absolute_paths",
     ]
 
     def __init__(
@@ -818,8 +834,7 @@ class CrabJobFileFactory(BaseJobFileFactory):
             raise ValueError(f"request_name should not contain '.', got {c.request_name}")
         if len(c.request_name) > 100:
             raise ValueError(
-                f"request_name must be less then 100 characters long, got {len(c.request_name)}: "
-                f"{c.request_name}",
+                f"request_name must be less then 100 characters long, got {len(c.request_name)}: {c.request_name}",
             )
         if not c.output_lfn_base:
             raise ValueError("output_lfn_base must not be empty")
@@ -878,11 +893,11 @@ class CrabJobFileFactory(BaseJobFileFactory):
             return abs_path
 
         # absolute input paths
-        for key, f in c.input_files.items():
+        for f in c.input_files.values():
             f.path_sub_abs = prepare_input(f)
 
         # input paths relative to the submission dir
-        for key, f in c.input_files.items():
+        for f in c.input_files.values():
             f.path_sub_rel = (
                 os.path.basename(f.path_sub_abs)
                 if f.copy and not c.absolute_paths
@@ -890,7 +905,7 @@ class CrabJobFileFactory(BaseJobFileFactory):
             )
 
         # input paths as seen by the job, before and after potential job-side rendering
-        for key, f in c.input_files.items():
+        for f in c.input_files.values():
             f.path_job_pre_render = os.path.basename(f.path_sub_abs)
             f.path_job_post_render = f.path_job_pre_render
 
@@ -933,7 +948,7 @@ class CrabJobFileFactory(BaseJobFileFactory):
         job_file = self.postfix_input_file(os.path.join(c.dir, str(c.file_name)))
 
         # render copied input files
-        for key, f in c.input_files.items():
+        for f in c.input_files.values():
             if not f.copy or not f.render_local:
                 continue
             self.render_file(
@@ -1004,9 +1019,9 @@ class CrabJobFileFactory(BaseJobFileFactory):
         crab_config: DotDict,
         custom_content: str | Sequence[str] | None = None,
     ) -> None:
-        fmt_flat = lambda s: "\"{}\"".format(s) if isinstance(s, str) else str(s)
+        fmt_flat = lambda s: f"\"{s}\"" if isinstance(s, str) else str(s)
 
-        with open(job_file, "w") as f:
+        with open(job_file, "w", encoding="utf-8") as f:
             # header
             f.write("# coding: utf-8\n")
             f.write("\n")
@@ -1025,7 +1040,7 @@ class CrabJobFileFactory(BaseJobFileFactory):
                     if value is None:
                         continue
                     value_str = (
-                        "[\n{}\n]".format("\n".join("    {},".format(fmt_flat(v)) for v in value))
+                        "[\n{}\n]".format("\n".join(f"    {fmt_flat(v)}," for v in value))
                         if isinstance(value, (list, tuple))
                         else fmt_flat(value)
                     )
@@ -1083,7 +1098,7 @@ class CMSJobDashboard(BaseJobDashboard):
         try:
             self.apmon = Apmon(apmon_config, self.max_rate, log_level)
         except ImportError as e:
-            e.args = (f"{e} (required for {self.__class__.__name__})",) + e.args[1:]
+            e.args = (f"{e} (required for {self.__class__.__name__})", *e.args[1:])
             raise e
 
         # get the task family for use as default application name
@@ -1258,8 +1273,8 @@ class CMSJobDashboard(BaseJobDashboard):
 
         return (dashboard_task_id, dashboard_job_id, params)
 
-    @BaseJobDashboard.cache_by_status  # type: ignore[misc]
-    def publish(self, job_data: JobData, event: str, job_num: int, *args, **kwargs) -> None:  # type: ignore[override] # noqa
+    @BaseJobDashboard.cache_by_status
+    def publish(self, job_data: JobData, event: str, job_num: int, *args, **kwargs) -> None:  # type: ignore[override]
         message = self.create_message(job_data, event, job_num, *args, **kwargs)
         if message:
             self.apmon.send(*message)
@@ -1286,13 +1301,13 @@ class Apmon(threading.Thread):
     ) -> None:
         super().__init__()
 
-        import apmon  # type: ignore[import-untyped, import-not-found]
+        import apmon
         log_level = getattr(apmon.Logger, log_level.upper())
         self._apmon = apmon.ApMon(config or self.default_config, log_level)
         self._apmon.maxMsgRate = int(max_rate * 1.5)
 
         # hotfix of a bug occurring in apmon for too large pids
-        for key, value in self._apmon.senderRef.items():
+        for value in self._apmon.senderRef.values():
             value["INSTANCE_ID"] = value["INSTANCE_ID"] & 0x7fffffff
 
         self._max_rate = max_rate

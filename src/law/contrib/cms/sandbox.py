@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 CMS related sandbox implementations.
 """
@@ -8,19 +6,25 @@ from __future__ import annotations
 
 __all__ = ["CMSSWSandbox"]
 
+import collections
 import os
 import pathlib
 import pickle
-import collections
 
-from law.task.proxy import ProxyCommand
-from law.sandbox.base import _current_sandbox, SandboxVariables
-from law.sandbox.bash import BashSandbox
-from law.util import (
-    tmp_file, interruptable_popen, quote_cmd, flatten, makedirs, rel_path, law_home_path,
-    create_hash,
-)
 from law._types import Any
+from law.sandbox.base import SandboxVariables, _current_sandbox
+from law.sandbox.bash import BashSandbox
+from law.task.proxy import ProxyCommand
+from law.util import (
+    create_hash,
+    flatten,
+    interruptable_popen,
+    law_home_path,
+    makedirs,
+    quote_cmd,
+    rel_path,
+    tmp_file,
+)
 
 
 class CMSSWSandboxVariables(SandboxVariables):
@@ -88,7 +92,7 @@ class CMSSWSandbox(BashSandbox):
         super().__init__(*args, **kwargs)
 
         # parse name into variables
-        self.variables: CMSSWSandboxVariables = self.create_variables(self.name)  # type: ignore[assignment] # noqa
+        self.variables: CMSSWSandboxVariables = self.create_variables(self.name)  # type: ignore[assignment]
 
         # when no env cache path was given, set it to a deterministic path in LAW_HOME
         if not self.env_cache_path:
@@ -160,7 +164,7 @@ class CMSSWSandbox(BashSandbox):
             )
 
             # build the full command
-            cmd = quote_cmd(bash_cmd + ["-c", " && ".join(flatten(
+            cmd = quote_cmd(bash_cmd + ["-c", " && ".join(flatten(  # noqa: RUF005
                 pre_setup_cmds,
                 f"source \"{self.script}\" \"\"",
                 post_setup_cmds,
@@ -168,7 +172,7 @@ class CMSSWSandbox(BashSandbox):
             ))])
 
             # run it
-            returncode = interruptable_popen(cmd, shell=True, executable="/bin/bash")[0]
+            returncode = interruptable_popen(cmd, shell=True, executable="/bin/bash", stdin=None)[0]
             if returncode != 0:
                 raise Exception(f"{self} env loading failed with exit code {returncode}")
 
@@ -178,7 +182,7 @@ class CMSSWSandbox(BashSandbox):
                 try:
                     return dict(pickle.load(f, encoding="utf-8"))
                 except Exception as e:
-                    raise Exception(f"{self} env deserialization failed: {e}")
+                    raise Exception(f"{self} env deserialization failed: {e}") from e
 
         # use the cache path if set
         if self.env_cache_path:
@@ -234,7 +238,7 @@ class CMSSWSandbox(BashSandbox):
             proxy_cmd.add_arg("--local-scheduler", "True", overwrite=True)
 
         # build the final command
-        cmd = quote_cmd(bash_cmd + ["-c", " && ".join(flatten(
+        cmd = quote_cmd(bash_cmd + ["-c", " && ".join(flatten(  # noqa: RUF005
             pre_setup_cmds,
             f"source \"{self.script}\" \"\"",
             post_setup_cmds,

@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Coffea target formatters.
 """
@@ -10,12 +8,11 @@ __all__ = ["CoffeaFormatter"]
 
 import pathlib
 
-from law.target.formatter import Formatter
-from law.target.file import FileSystemFileTarget, get_path
-from law.logger import get_logger
-from law.util import no_value
 from law._types import Any
-
+from law.logger import get_logger
+from law.target.file import FileSystemFileTarget, get_path
+from law.target.formatter import Formatter
+from law.util import no_value
 
 logger = get_logger(__name__)
 
@@ -33,15 +30,15 @@ class CoffeaFormatter(Formatter):
         path = get_path(path)
 
         if path.endswith(".root"):
-            from coffea.nanoevents import NanoEventsFactory  # type: ignore[import-untyped, import-not-found] # noqa
+            from coffea.nanoevents import NanoEventsFactory
             return NanoEventsFactory.from_root(path, *args, **kwargs)
 
         if path.endswith(".parquet"):
-            from coffea.nanoevents import NanoEventsFactory  # type: ignore[import-untyped, import-not-found] # noqa
+            from coffea.nanoevents import NanoEventsFactory
             return NanoEventsFactory.from_parquet(path, *args, **kwargs)
 
         # .coffea
-        from coffea.util import load  # type: ignore[import-untyped, import-not-found]
+        from coffea.util import load
         return load(path, *args, **kwargs)
 
     @classmethod
@@ -52,7 +49,7 @@ class CoffeaFormatter(Formatter):
         *args,
         **kwargs,
     ) -> Any:
-        from coffea.util import save  # type: ignore[import-untyped, import-not-found]
+        from coffea.util import save
 
         perm = kwargs.pop("perm", None)
 

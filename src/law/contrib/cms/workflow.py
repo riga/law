@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 CMS CRAB remote workflow implementation. See
 https://twiki.cern.ch/twiki/bin/view/CMSPublic/SWGuideCrab.
@@ -9,27 +7,26 @@ from __future__ import annotations
 
 __all__ = ["CrabWorkflow"]
 
-import uuid
 import abc
 import contextlib
 import pathlib
+import uuid
 
+from law._types import Any, Generator
 from law.config import Config
-from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy, JobData, PollData
 from law.job.base import JobArguments, JobInputFile
-from law.target.file import get_path, get_scheme, remove_scheme, FileSystemDirectoryTarget
+from law.logger import get_logger
+from law.target.file import FileSystemDirectoryTarget, get_path, get_scheme, remove_scheme
 from law.target.local import LocalDirectoryTarget, LocalFileTarget
 from law.task.proxy import ProxyCommand
-from law.util import no_value, law_src_path, merge_dicts, human_duration, DotDict, InsertableDict
-from law.logger import get_logger
-from law._types import Any, Type, Generator
-
-from law.contrib.wlcg import get_vomsproxy_file, check_vomsproxy_validity, get_myproxy_info
-from law.contrib.cms.job import CrabJobManager, CrabJobFileFactory
-from law.contrib.cms.util import renew_vomsproxy, delegate_myproxy
-
+from law.util import DotDict, InsertableDict, human_duration, law_src_path, merge_dicts, no_value
+from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy, JobData, PollData
 
 logger = get_logger(__name__)
+
+from law.contrib.cms.job import CrabJobFileFactory, CrabJobManager
+from law.contrib.cms.util import delegate_myproxy, renew_vomsproxy
+from law.contrib.wlcg import check_vomsproxy_validity, get_myproxy_info, get_vomsproxy_file
 
 
 class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
@@ -99,7 +96,7 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
 
         # get remote job file, force remote rendering
         law_job_file = JobInputFile(task.crab_job_file())
-        law_job_file = JobInputFile(str(law_job_file.path), copy=False, render_job=True)  # type: ignore[has-type]
+        law_job_file = JobInputFile(str(law_job_file.path), copy=False, render_job=True)
         c.executable = law_job_file
         c.input_files["job_file"] = c.executable
 
@@ -134,7 +131,7 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
                 task_cls=task.__class__,
                 task_params=proxy_cmd.build(skip_run=True),
                 branches=branches,
-                workers=task.job_workers,  # type: ignore[arg-type]
+                workers=task.job_workers,
                 auto_retry=False,
                 dashboard_data=dashboard_data,
             )
@@ -175,7 +172,7 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
             c.custom_log_file = "stdall.txt"
 
         # task hook
-        c = task.crab_job_config(c, list(submit_jobs.keys()), list(submit_jobs.values()))  # type: ignore[call-arg, arg-type] # noqa
+        c = task.crab_job_config(c, list(submit_jobs.keys()), list(submit_jobs.values()))
 
         # build the job file and get the sanitized config
         job_file, c = self.job_file_factory(**c.__dict__)  # type: ignore[misc]
@@ -232,7 +229,7 @@ class CrabWorkflow(BaseRemoteWorkflow):
         ...
 
     @abc.abstractmethod
-    def crab_output_directory(self) -> FileSystemDirectoryTarget:
+    def crab_output_directory(self) -> FileSystemDirectoryTarget | str | pathlib.Path:
         """
         Hook to define the location of submission output files, such as the json files containing
         job data. This method should return a :py:class:`FileSystemDirectoryTarget`.
@@ -253,16 +250,13 @@ class CrabWorkflow(BaseRemoteWorkflow):
         value of the "job.crab_work_area" configuration options is used.
         """
         # when job files are cleaned, try to use the output directory when local
-        if self.workflow_proxy.job_file_factory and self.workflow_proxy.job_file_factory.cleanup:  # type: ignore[attr-defined] # noqa
+        if self.workflow_proxy.job_file_factory and self.workflow_proxy.job_file_factory.cleanup:  # type: ignore[attr-defined]
             out_dir = self.crab_output_directory()
             # when local, return the directory
             if isinstance(out_dir, LocalDirectoryTarget):
                 return out_dir
             # when not a target and no remote scheme, return the directory
-            if (
-                not isinstance(out_dir, FileSystemDirectoryTarget) and
-                get_scheme(out_dir) in (None, "file")
-            ):
+            if not isinstance(out_dir, FileSystemDirectoryTarget) and get_scheme(out_dir) in (None, "file"):
                 return remove_scheme(out_dir)
 
         # relative to the job file directory
@@ -317,7 +311,7 @@ class CrabWorkflow(BaseRemoteWorkflow):
         """
         Hook to return the URI of the remote crab output directory.
         """
-        return self.crab_output_directory().uri(return_all=False)  # type: ignore[return-value]
+        return self.crab_output_directory().uri(return_all=False)  # type: ignore[union-attr,return-value]
 
     def crab_job_resources(self, job_num: int, branches: list[int]) -> dict[str, int]:
         """
@@ -326,7 +320,7 @@ class CrabWorkflow(BaseRemoteWorkflow):
         """
         return {}
 
-    def crab_job_manager_cls(self) -> Type[CrabJobManager]:
+    def crab_job_manager_cls(self) -> type[CrabJobManager]:
         """
         Hook to define a custom job managet class to use.
         """
@@ -339,7 +333,7 @@ class CrabWorkflow(BaseRemoteWorkflow):
         kwargs = merge_dicts(self.crab_job_manager_defaults, kwargs)
         return self.crab_job_manager_cls()(**kwargs)
 
-    def crab_job_file_factory_cls(self) -> Type[CrabJobFileFactory]:
+    def crab_job_file_factory_cls(self) -> type[CrabJobFileFactory]:
         """
         Hook to define a custom job file factory class to use.
         """
@@ -400,7 +394,7 @@ class CrabWorkflow(BaseRemoteWorkflow):
         Configurable delay in seconds to wait after submitting jobs and before starting the status
         polling.
         """
-        return self.poll_interval * 60  # type: ignore[operator]
+        return self.poll_interval * 60  # type: ignore[return-value]
 
     def crab_check_job_completeness(self) -> bool:
         """

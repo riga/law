@@ -1,27 +1,25 @@
-# coding: utf-8
-
 """
 CMS-related utilities.
 """
 
 from __future__ import annotations
 
-__all__ = ["Site", "lfn_to_pfn", "renew_vomsproxy", "delegate_myproxy", "RucioReporter", "rucio_report_access"]
+__all__ = ["RucioReporter", "Site", "delegate_myproxy", "lfn_to_pfn", "renew_vomsproxy", "rucio_report_access"]
 
-import os
-import re
-import time
-import copy
-import base64
-import functools
 import atexit
+import base64
+import copy
+import functools
+import os
 import queue
-import urllib.parse
+import re
 import threading
+import time
+import urllib.parse
 
 import law
+from law._types import Any, Callable, Sequence
 from law.logger import get_logger
-from law._types import Any, Sequence, Callable
 
 law.contrib.load("wlcg")
 
@@ -30,7 +28,7 @@ logger = get_logger(__name__)
 
 # obtained via _get_crab_receivers below
 _default_crab_receivers = [
-    "/DC=ch/DC=cern/OU=computers/CN=crab-(preprod|prod)-tw(01|02).cern.ch|/DC=ch/DC=cern/OU=computers/CN=crab-dev-tw(01|02|03|04).cern.ch|/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=cmscrab/CN=(817881|373708)/CN=Robot: cms crab|/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=crabint1/CN=373708/CN=Robot: CMS CRAB Integration 1",  # noqa
+    "/DC=ch/DC=cern/OU=computers/CN=crab-(preprod|prod)-tw(01|02).cern.ch|/DC=ch/DC=cern/OU=computers/CN=crab-dev-tw(01|02|03|04).cern.ch|/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=cmscrab/CN=(817881|373708)/CN=Robot: cms crab|/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=crabint1/CN=373708/CN=Robot: CMS CRAB Integration 1",  # noqa: E501
 ]
 
 
@@ -38,7 +36,7 @@ def _default_vo() -> str:
     return os.getenv("LAW_CMS_VO", "cms")
 
 
-class Site(object):
+class Site:
     """
     Helper class that provides site-related data, mostly via simple properties. When *name* is
     *None*, the name of the site is used that the instance of this class is instantiated on.
@@ -192,8 +190,8 @@ def delegate_myproxy(**kwargs) -> str | None:
 
 
 def _get_crab_receivers() -> None:
-    from CRABClient.ClientUtilities import initLoggers, server_info  # type: ignore[import-not-found] # noqa
-    from CRABClient.Commands.createmyproxy import createmyproxy  # type: ignore[import-not-found]
+    from CRABClient.ClientUtilities import initLoggers, server_info
+    from CRABClient.Commands.createmyproxy import createmyproxy
 
     cmd = createmyproxy(logger=initLoggers()[1])
     alldns = server_info(crabserver=cmd.crabserver, subresource="delegatedn")
@@ -242,7 +240,7 @@ class RucioReporter(threading.Thread):
         _client_args = copy.deepcopy(self.default_client_args or {})
         _client_args.update(copy.deepcopy(client_args or {}))
         try:
-            import rucio.client  # type: ignore[import-not-found, import-untyped]
+            import rucio.client
         except ImportError as e:
             logger.warning(f"rucio file access reporting disabled: {e}")
         else:
@@ -331,7 +329,7 @@ class RucioReporter(threading.Thread):
         silent: bool = True,
     ) -> None:
         # https://github.com/dmwm/CMSRucio/blob/master/UserDMTools/trace_example/TraceSendExample.py
-        import requests  # type: ignore[import-not-found, import-untyped]
+        import requests
 
         url = self._server_url if "://" in self._server_url else base64.b64decode(self._server_url).decode("utf-8")
         endpoint = urllib.parse.urljoin(url, "traces")
