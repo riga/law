@@ -28,6 +28,11 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
 
+      - name: Install
+        run: |
+          pip install -U pip setuptools wheel
+          pip install .[dev]
+
       - name: Run pre-commit hook 'manual'
         uses: pre-commit/action@v3.0.1
         with:
