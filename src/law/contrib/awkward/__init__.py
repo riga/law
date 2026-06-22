@@ -1,5 +1,3 @@
-# ruff: noqa: I001
-
 """
 Awkward array contrib functionality.
 """

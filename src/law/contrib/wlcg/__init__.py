@@ -29,8 +29,7 @@ import law
 law.contrib.load("gfal")
 
 # provisioning imports
-from law.contrib.wlcg.decorator import ensure_vomsproxy
-from law.contrib.wlcg.target import WLCGDirectoryTarget, WLCGFileSystem, WLCGFileTarget, WLCGTarget
+from law.contrib.wlcg.target import WLCGDirectoryTarget, WLCGFileSystem, WLCGFileTarget, WLCGTarget   # noqa: I001
 from law.contrib.wlcg.util import (
     check_vomsproxy_validity,
     delegate_myproxy,
@@ -46,3 +45,4 @@ from law.contrib.wlcg.util import (
     get_vomsproxy_vo,
     renew_vomsproxy,
 )
+from law.contrib.wlcg.decorator import ensure_vomsproxy

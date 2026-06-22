@@ -7,9 +7,13 @@ from __future__ import annotations
 __all__ = ["ensure_vomsproxy"]
 
 from law._types import Any, Callable
-from law.contrib.wlcg import check_vomsproxy_validity
 from law.decorator import factory
+from law.logger import get_logger
 from law.task.base import Task
+
+logger = get_logger(__name__)
+
+from law.contrib.wlcg import check_vomsproxy_validity
 
 
 @factory(accept_generator=True)

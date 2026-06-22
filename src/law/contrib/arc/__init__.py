@@ -1,5 +1,3 @@
-# ruff: noqa: I001
-
 """
 ARC contrib functionality.
 """
@@ -19,11 +17,11 @@ __all__ = [
 
 # dependencies to other contrib modules
 import law
+
 law.contrib.load("wlcg")
 
 # provisioning imports
-from law.contrib.arc.decorator import ensure_arcproxy
-from law.contrib.arc.job import ARCJobFileFactory, ARCJobManager
+from law.contrib.arc.job import ARCJobFileFactory, ARCJobManager  # noqa: I001
 from law.contrib.arc.util import (
     check_arcproxy_validity,
     get_arcproxy_file,
@@ -33,3 +31,4 @@ from law.contrib.arc.util import (
     renew_arcproxy,
 )
 from law.contrib.arc.workflow import ARCWorkflow
+from law.contrib.arc.decorator import ensure_arcproxy
