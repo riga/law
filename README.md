@@ -20,15 +20,15 @@
   <a href="https://github.com/riga/law/actions/workflows/deploy_images_a9.yml">
     <img alt="Docker images" src="https://github.com/riga/law/actions/workflows/deploy_images_a9.yml/badge.svg" />
   </a>
-  <img alt="Python version" src="https://img.shields.io/badge/Python-%E2%89%A53.7-blue" />
+  <img alt="Python version" src="https://img.shields.io/badge/Python-%E2%89%A53.9-blue" />
   <a href="https://pypi.python.org/pypi/law">
     <img alt="Package version" src="https://img.shields.io/pypi/v/law.svg?style=flat" />
   </a>
   <a href="https://github.com/riga/law/blob/master/LICENSE">
     <img alt="License" src="https://img.shields.io/github/license/riga/law.svg" />
   </a>
-  <a href="https://zenodo.org/badge/latestdoi/75482295">
-    <img alt="DOI" src="https://zenodo.org/badge/75482295.svg" />
+  <a href="https://doi.org/10.5281/zenodo.14548877">
+    <img alt="DOI" src="https://zenodo.org/badge/DOI/10.5281/zenodo.14548877.svg" />
   </a>
 </p>
 
@@ -49,6 +49,8 @@ Key features:
   - HTCondor, LSF, gLite, ARC, Slurm, CMS-CRAB
 - Environment sandboxing, configurable on task level
   - Docker, Singularity, Sub-Shells, Virtual envs
+
+Version 0.1 (with Python support down to 2.7) continues to be available via the legacy/v0.1 branch and all v0.1.* tags.
 
 <!-- marker-after-header -->
 
