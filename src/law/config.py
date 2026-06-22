@@ -718,7 +718,11 @@ if contrib_defaults:
 
 
 # register convenience functions on module-level
-for name in __all__[__all__.index("sections"):]:
+unexpose_attrs = {"Config"}
+for name in __all__:
+    if name in unexpose_attrs:
+        continue
+
     def closure(name):
         config = Config.instance()
         func = getattr(config, name)
