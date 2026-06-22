@@ -27,7 +27,7 @@ repos:
         language: python
         types_or: [python, pyi]
         entry: mypy
-        args: ["--show-error-codes"]
+        args: [--config-file=pyproject.toml, --show-error-codes]
 
       - id: pytest
         name: pytest
