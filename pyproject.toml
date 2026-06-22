@@ -59,7 +59,8 @@ dependencies = [
 dev = [
   "build~=1.4",
   "twine~=6.2",
-  "mypy~=1.19",
+  "mypy~=1.19;python_version < '3.10'",
+  "mypy~=2.1;python_version >= '3.10'",
   "pytest~=8.4",
   "pytest-cov~=7.1",
   "ipykernel~=6.31",
