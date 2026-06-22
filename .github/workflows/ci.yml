@@ -11,7 +11,7 @@ on:
 
 jobs:
   lint_typecheck:
-    name: Lint${{ contains(fromJSON('["3.9","3.14"]'), matrix.python) && '' || ', type check' }}${{ matrix.python == '3.13' && ', release check' || '' }} (${{ matrix.python }})
+    name: Lint${{ (matrix.python == '3.9' || matrix.python == '3.14') && '' || ', type check' }}${{ matrix.python == '3.13' && ', release check' || '' }} (${{ matrix.python }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -36,7 +36,7 @@ jobs:
       - name: Run pre-commit hook 'manual'
         uses: pre-commit/action@v3.0.1
         env:
-          SKIP: ${{ contains(fromJSON('["3.9","3.14"]'), matrix.python) && 'mypy' || '' }}
+          SKIP: ${{ (matrix.python == '3.9' || matrix.python == '3.14') && 'mypy' || '' }}
         with:
           extra_args: --hook-stage manual --all-files
 
