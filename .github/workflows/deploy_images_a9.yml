@@ -1,4 +1,4 @@
-name: Deploy images (alma9)
+name: Deploy images
 
 on:
   workflow_dispatch:
