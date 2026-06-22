@@ -152,6 +152,9 @@ def get_proxy_attribute(
     used.
     """
     if proxy:
+        from law.sandbox.base import SandboxTask
+        from law.workflow.base import BaseWorkflow
+
         # priority to workflow proxy forwarding, fallback to sandbox proxy or super class
         if (
             attr in _forward_workflow_attributes and
@@ -171,8 +174,3 @@ def get_proxy_attribute(
                 return task._staged_output
 
     return super(cls, task).__getattribute__(attr)  # type: ignore[arg-type]
-
-
-# trailing imports
-from law.sandbox.base import SandboxTask
-from law.workflow.base import BaseWorkflow
