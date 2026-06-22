@@ -382,7 +382,12 @@ class Config(configparser.ConfigParser):
             for opt in options
         ]
 
-    def set(self, section: str | configparser._UNNAMED_SECTION, option: str, value: Any = None) -> None:
+    def set(  # type: ignore[override]
+        self,
+        section: str,
+        option: str,
+        value: Any = None,
+    ) -> None:
         """
         Sets an *option* of an existing *section* to *value*. When *value* is *None*.
         """

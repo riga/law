@@ -10,6 +10,7 @@ __all__: list[str] = []
 
 import sys
 from collections.abc import (
+    Callable,
     Generator,
     Hashable,
     Iterable,
@@ -28,7 +29,6 @@ from typing import (
     IO,
     Annotated,
     Any,
-    Callable,
     ClassVar,
     Generic,
     Literal,
@@ -39,10 +39,10 @@ from typing import (
 )
 
 # version specific imports
-if sys.version_info >= (3, 12):
+try:
     from typing import override
-else:
-    from typing_extensions import override
+except ImportError:
+    from typing_extensions import override  # noqa: UP035
 
 #: Generic type variables, more stringent than Any.
 T = TypeVar("T")
