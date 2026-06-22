@@ -66,7 +66,7 @@ def get_usercert_subject(usercert=None):
     # extract the subject via openssl
     cmd = ["openssl", "x509", "-in", usercert, "-noout", "-subject"]
     code, out, err = interruptable_popen(quote_cmd(cmd), shell=True, executable="/bin/bash",
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=None)
     if code != 0:
         raise Exception("subject extraction from usercert failed: {}".format(err))
 
@@ -226,8 +226,7 @@ def renew_vomsproxy(
         cmd = quote_cmd(cmd)
         stdin_callback = (lambda: password) if password else functools.partial(getpass.getpass, "")
         code = interruptable_popen(cmd, shell=True, executable="/bin/bash", stdout=silent_pipe,
-            stderr=silent_pipe, stdin=subprocess.PIPE, stdin_callback=stdin_callback,
-            stdin_delay=0.2)[0]
+            stderr=silent_pipe, stdin_callback=stdin_callback, stdin_delay=0.2)[0]
 
     if code == 0:
         return proxy_file
@@ -293,7 +292,7 @@ def delegate_vomsproxy_glite(endpoint, proxy_file=None, stdout=None, stderr=None
     # do the actual delegation
     delegation_id = uuid.uuid4().hex
     cmd = ["glite-ce-delegate-proxy", "-e", endpoint, delegation_id]
-    code = interruptable_popen(cmd, stdout=stdout, stderr=stderr)[0]
+    code = interruptable_popen(cmd, stdout=stdout, stderr=stderr, stdin=None)[0]
     if code != 0:
         raise Exception("glite proxy delegation to endpoint {} failed".format(endpoint))
 
@@ -460,7 +459,7 @@ def get_myproxy_info(
     # build and run the command
     cmd = ["myproxy-info", "-s", endpoint, "-l", username]
     code, out, _ = interruptable_popen(quote_cmd(cmd), shell=True, executable="/bin/bash",
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE if silent else None)
+        stdout=subprocess.PIPE, stderr=(subprocess.PIPE if silent else None), stdin=None)
     if code != 0:
         if silent:
             return

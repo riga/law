@@ -293,6 +293,7 @@ class Sandbox(six.with_metaclass(ABCMeta, object)):
             executable="/bin/bash",
             stdout=stdout,
             stderr=stderr,
+            stdin=None,
             env=self.env,
         )
 

@@ -99,7 +99,7 @@ class DockerSandbox(Sandbox):
 
         # run it
         code, out, _ = interruptable_popen(cmd, shell=True, executable="/bin/bash",
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=None)
         if code != 0:
             raise Exception(
                 "docker sandbox env loading failed with exit code {}:\n{}".format(

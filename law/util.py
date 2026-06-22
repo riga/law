@@ -1568,7 +1568,7 @@ def kill_process(p, recursive=True, kill_timeout=None):
             pids += get_subprocess_pids(p.pid, recursive=True)
         # send signal in order
         for pid in pids:
-            send_signal_silent(p.pid, sig)
+            send_signal_silent(pid, sig)
 
     # start with SIGTERM to allow graceful shutdown
     kill(signal.SIGTERM)
