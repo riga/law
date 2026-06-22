@@ -2116,9 +2116,9 @@ def parse_bytes(s: str | int | float, input_unit: str = "bytes", unit: str = "by
 
     # when s is a number, interpret it as bytes right away
     # otherwise parse it
-    if isinstance(s, int):
+    if isinstance(s, (int, float)):
         input_value = float(s)
-    elif not isinstance(s, float):
+    else:
         m = re.match(r"^\s*(-?\d+\.?\d*)\s*(|{})\s*$".format("|".join(byte_units_lower)), s.lower())
         if not m:
             raise ValueError(f"cannot parse bytes from string '{s}'")
