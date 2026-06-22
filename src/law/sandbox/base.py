@@ -305,7 +305,7 @@ class Sandbox(metaclass=abc.ABCMeta):
         cmd: str,
         stdout: int | TextIO | None = None,
         stderr: int | TextIO | None = None,
-    ):
+    ) -> tuple[int, str | None, str | None]:
         if stdout is None:
             stdout = sys.stdout
         if stderr is None:
@@ -317,6 +317,7 @@ class Sandbox(metaclass=abc.ABCMeta):
             executable="/bin/bash",
             stdout=stdout,
             stderr=stderr,
+            stdin=None,
             env=self.env,
         )
 
