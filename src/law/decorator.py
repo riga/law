@@ -267,7 +267,7 @@ def factory(**default_opts) -> Callable:
                 setattr(wrapper, orig_attr, orig_fn)
 
                 return wrapper
-            return wrapper if fn is None else wrapper(fn)  # type: ignore[return-value]
+            return wrapper if fn is None else wrapper(fn)
         return wrapper
     return wrapper
 
@@ -301,8 +301,8 @@ def log(
     LocalFileTarget(log).parent.touch()  # type: ignore[call-arg, union-attr]
     with open(log, "a", 1, encoding="utf-8") as f:
         tee = TeeStream(f, sys.__stdout__)
-        sys.stdout = tee  # type: ignore[assignment]
-        sys.stderr = tee  # type: ignore[assignment]
+        sys.stdout = tee
+        sys.stderr = tee
         try:
             ret = fn(task, *args, **kwargs)
         except:

@@ -6,11 +6,10 @@ Script for creating dynamic documentation pages.
 
 from __future__ import annotations
 
+import collections
 import os
 import re
 import sys
-from collections import OrderedDict
-
 
 scriptsdir = os.path.dirname(os.path.abspath(__file__))
 docsdir = os.path.normpath(os.path.join(scriptsdir, ".."))
@@ -18,7 +17,7 @@ basedir = os.path.normpath(os.path.join(docsdir, ".."))
 sys.path.insert(0, os.path.normpath(os.path.join(basedir, "src")))
 
 import law
-from law._types import Sequence, Any
+from law._types import Any, Sequence
 
 
 def create_py_ref(s: str) -> str:
@@ -26,7 +25,7 @@ def create_py_ref(s: str) -> str:
     identifier = s
     ref_type = "class"
     try:  # noqa: PLW0717
-        obj = None
+        obj: Any = None
         parent_obj = None
         exec(f"obj = {s}")
         exec(f"parent_obj = {s.rsplit('.', 1)[0]}")
@@ -205,7 +204,7 @@ def create_config_page() -> None:
                 next_lines = get_next_lines(i)
                 if any(next_line.startswith("Description: ") for next_line in next_lines):
                     skip_lines.extend(list(range(i + 1, i + 1 + len(next_lines))))
-                    option: dict[str, Any] = OrderedDict()
+                    option: dict[str, Any] = collections.OrderedDict()
                     for _line in [line, *next_lines]:
                         _line = replace_py_refs(_line)
                         if _line.startswith("Description: "):

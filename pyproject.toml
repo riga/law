@@ -120,7 +120,7 @@ packages = ["src/law"]
 [tool.ruff]
 line-length = 120
 target-version = "py39"
-src = ["src", "tests", "examples"]
+src = ["src", "tests"]
 
 [tool.ruff.lint]
 preview = true
