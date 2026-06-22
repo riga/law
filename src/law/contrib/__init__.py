@@ -1,21 +1,18 @@
-# coding: utf-8
-
 """
 Main entry point and dynamic loading of contrib packages.
 """
 
 from __future__ import annotations
 
-__all__ = ["available_packages", "loaded_packages", "load", "load_all"]
+__all__ = ["available_packages", "load", "load_all", "loaded_packages"]
 
-import os
 import glob
+import os
 
 import law
-from law.util import law_src_path, flatten
-from law.logger import get_logger
 from law._types import ModuleType
-
+from law.logger import get_logger
+from law.util import flatten, law_src_path
 
 logger = get_logger(__name__)
 
@@ -53,8 +50,7 @@ def load(*packages: str) -> ModuleType | list[ModuleType]:
             raise Exception(f"contrib package '{pkg}' does not exist")
         if getattr(law, pkg, None):
             raise Exception(
-                f"cannot load contrib package '{pkg}', attribute with that name already exists in "
-                "the law module",
+                f"cannot load contrib package '{pkg}', attribute with that name already exists in the law module",
             )
 
         # load the module

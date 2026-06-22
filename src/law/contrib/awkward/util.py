@@ -1,18 +1,17 @@
-# coding: utf-8
-
 """
 Helpers for working with awkward.
 """
+
+from __future__ import annotations
 
 __all__ = [
     "from_parquet",
 ]
 
-
 import inspect
 
-from law.util import patch_object
 from law._types import Any
+from law.util import patch_object
 
 
 def from_parquet(*args, use_threads: bool = False, **kwargs) -> Any:
@@ -20,8 +19,8 @@ def from_parquet(*args, use_threads: bool = False, **kwargs) -> Any:
     Same as :func:`awkward.from_parquet`, but allowing to configure the *use_threads* option of the
     underlying ``pyarrow.parquet.ParquetFile.read`` operation.
     """
-    import pyarrow.parquet as pq  # type: ignore[import-untyped, import-not-found]
-    import awkward as ak  # type: ignore[import-untyped, import-not-found]
+    import awkward as ak
+    import pyarrow.parquet as pq
 
     # identify current signature defaults
     defaults = pq.ParquetFile.read.__defaults__
@@ -34,7 +33,7 @@ def from_parquet(*args, use_threads: bool = False, **kwargs) -> Any:
     if "use_threads" not in default_arg_names:
         raise RuntimeError("cannot find 'use_threads' argument in 'ParquetFile.read'")
     idx = default_arg_names.index("use_threads")
-    defaults = defaults[:idx] + (use_threads,) + defaults[idx + 1:]
+    defaults = (*defaults[:idx], use_threads, *defaults[idx + 1:])
 
     # patch for the duration of the call
     with patch_object(pq.ParquetFile.read, "__defaults__", defaults):

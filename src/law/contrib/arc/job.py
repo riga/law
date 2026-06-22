@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Simple ARC job manager. See http://www.nordugrid.org/arc and
 http://www.nordugrid.org/documents/xrsl.pdf.
@@ -7,24 +5,23 @@ http://www.nordugrid.org/documents/xrsl.pdf.
 
 from __future__ import annotations
 
-__all__ = ["ARCJobManager", "ARCJobFileFactory"]
+__all__ = ["ARCJobFileFactory", "ARCJobManager"]
 
 import os
-import stat
-import time
+import pathlib
+import random
 import re
 import shlex
-import random
-import pathlib
+import stat
 import subprocess
+import time
 
-from law.config import Config
-from law.job.base import BaseJobManager, BaseJobFileFactory, JobInputFile
-from law.target.file import get_path
-from law.util import interruptable_popen, make_list, make_unique, quote_cmd, parse_duration
-from law.logger import get_logger
 from law._types import Any, Sequence
-
+from law.config import Config
+from law.job.base import BaseJobFileFactory, BaseJobManager, JobInputFile
+from law.logger import get_logger
+from law.target.file import get_path
+from law.util import interruptable_popen, make_list, make_unique, parse_duration, quote_cmd
 
 logger = get_logger(__name__)
 
@@ -39,12 +36,10 @@ class ARCJobManager(BaseJobManager):
     chunk_size_cleanup = _cfg.get_expanded_int("job", "arc_chunk_size_cleanup")
     chunk_size_query = _cfg.get_expanded_int("job", "arc_chunk_size_query")
 
-    submission_job_id_cre = re.compile("^Job submitted with jobid: (.+)$")
+    submission_job_id_cre = re.compile(r"^Job submitted with jobid: (.+)$")
     status_block_cre = re.compile(r"\s*([^:]+): (.*)\n")
-    status_invalid_job_cre = re.compile("^.+: Job not found in job list: (.+)$")
-    status_missing_job_cre = re.compile(
-        "^.+: Job information not found in the information system: (.+)$",
-    )
+    status_invalid_job_cre = re.compile(r"^.+: Job not found in job list: (.+)$")
+    status_missing_job_cre = re.compile(r"^.+: Job information not found in the information system: (.+)$")
 
     def __init__(
         self,
@@ -183,7 +178,7 @@ class ARCJobManager(BaseJobManager):
             # arc prints everything to stdout
             raise Exception(f"cancellation of arc job(s) '{job_id}' failed with code {code}:\n{out}")
 
-        return {job_id: None for job_id in job_ids} if chunking else None
+        return dict.fromkeys(job_ids) if chunking else None
 
     def cleanup(  # type: ignore[override]
         self,
@@ -223,7 +218,7 @@ class ARCJobManager(BaseJobManager):
             # arc prints everything to stdout
             raise Exception(f"cleanup of arc job(s) '{job_id}' failed with code {code}:\n{out}")
 
-        return {job_id: None for job_id in job_ids} if chunking else None
+        return dict.fromkeys(job_ids) if chunking else None
 
     def query(  # type: ignore[override]
         self,
@@ -282,12 +277,11 @@ class ARCJobManager(BaseJobManager):
                     if silent:
                         return None
                     raise Exception(f"arc job(s) '{job_id}' not found in query response")
-                else:
-                    query_data[_job_id] = self.job_status_dict(
-                        job_id=_job_id,
-                        status=self.FAILED,
-                        error="job not found in query response",
-                    )
+                query_data[_job_id] = self.job_status_dict(
+                    job_id=_job_id,
+                    status=self.FAILED,
+                    error="job not found in query response",
+                )
 
         return query_data if chunking else query_data[job_id]  # type: ignore[index]
 
@@ -373,10 +367,23 @@ class ARCJobManager(BaseJobManager):
 
 class ARCJobFileFactory(BaseJobFileFactory):
 
-    config_attrs = BaseJobFileFactory.config_attrs + [
-        "file_name", "command", "executable", "arguments", "input_files", "output_files",
-        "postfix_output_files", "output_uri", "overwrite_output_files", "job_name", "log", "stdout",
-        "stderr", "custom_content", "absolute_paths",
+    config_attrs = [
+        *BaseJobFileFactory.config_attrs,
+        "file_name",
+        "command",
+        "executable",
+        "arguments",
+        "input_files",
+        "output_files",
+        "postfix_output_files",
+        "output_uri",
+        "overwrite_output_files",
+        "job_name",
+        "log",
+        "stdout",
+        "stderr",
+        "custom_content",
+        "absolute_paths",
     ]
 
     def __init__(
@@ -503,12 +510,12 @@ class ARCJobFileFactory(BaseJobFileFactory):
             return abs_path
 
         # absolute input paths
-        for key, f in c.input_files.items():
+        for f in c.input_files.values():
             f.path_sub_abs = prepare_input(f)
 
         # input paths relative to the submission or initial dir
         # forwarded files are included but remote ones are skipped
-        for key, f in c.input_files.items():
+        for f in c.input_files.values():
             if f.is_remote:
                 continue
             f.path_sub_rel = (
@@ -518,7 +525,7 @@ class ARCJobFileFactory(BaseJobFileFactory):
             )
 
         # input paths as seen by the job, before and after potential rendering
-        for key, f in c.input_files.items():
+        for f in c.input_files.values():
             f.path_job_pre_render = (
                 f.path_sub_abs
                 if f.is_remote else
@@ -568,7 +575,7 @@ class ARCJobFileFactory(BaseJobFileFactory):
         job_file = self.postfix_input_file(os.path.join(c.dir, str(c.file_name)), postfix)
 
         # render copied, non-remote input files
-        for key, f in c.input_files.items():
+        for f in c.input_files.values():
             if not f.copy or f.is_remote or not f.render_local:
                 continue
             self.render_file(
@@ -632,7 +639,7 @@ class ARCJobFileFactory(BaseJobFileFactory):
             content += c.custom_content
 
         # write the job file
-        with open(job_file, "w") as f:
+        with open(job_file, "w", encoding="utf-8") as f:
             f.write("&\n")
             for key, value in content:
                 line = self.create_line(key, value)

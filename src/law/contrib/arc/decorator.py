@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Decorators for task methods for convenient working with ARC.
 """
@@ -8,9 +6,12 @@ from __future__ import annotations
 
 __all__ = ["ensure_arcproxy"]
 
-from law.task.base import Task
-from law.decorator import factory
 from law._types import Any, Callable
+from law.decorator import factory
+from law.logger import get_logger
+from law.task.base import Task
+
+logger = get_logger(__name__)
 
 from law.contrib.arc import check_arcproxy_validity
 
@@ -32,8 +33,6 @@ def ensure_arcproxy(
         # check the proxy validity
         if not check_arcproxy_validity():
             raise Exception("arc proxy not valid")
-
-        return None
 
     def call(state: None) -> Any:
         return fn(task, *args, **kwargs)

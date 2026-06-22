@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Awkward target formatters.
 """
@@ -10,16 +8,15 @@ __all__ = ["AwkwardFormatter"]
 
 import pathlib
 
-from law.target.formatter import Formatter, PickleFormatter
-from law.target.file import FileSystemFileTarget, get_path
-from law.logger import get_logger
-from law.util import no_value
 from law._types import Any
-
-from law.contrib.awkward.util import from_parquet
-
+from law.logger import get_logger
+from law.target.file import FileSystemFileTarget, get_path
+from law.target.formatter import Formatter, PickleFormatter
+from law.util import no_value
 
 logger = get_logger(__name__)
+
+from law.contrib.awkward.util import from_parquet
 
 
 class AwkwardFormatter(Formatter):
@@ -38,7 +35,7 @@ class AwkwardFormatter(Formatter):
             return from_parquet(path, *args, **kwargs)
 
         if path.endswith(".json"):
-            import awkward as ak  # type: ignore[import-untyped, import-not-found]
+            import awkward as ak
             return ak.from_json(path, *args, **kwargs)
 
         # .pickle, .pkl
@@ -56,11 +53,11 @@ class AwkwardFormatter(Formatter):
         perm = kwargs.pop("perm", no_value)
 
         if _path.endswith((".parquet", ".parq")):
-            import awkward as ak  # type: ignore[import-untyped, import-not-found]
+            import awkward as ak
             ret = ak.to_parquet(obj, _path, *args, **kwargs)
 
         elif _path.endswith(".json"):
-            import awkward as ak  # type: ignore[import-untyped, import-not-found]
+            import awkward as ak
             ret = ak.to_json(obj, _path, *args, **kwargs)
 
         else:  # .pickle, .pkl
@@ -82,7 +79,7 @@ class DaskAwkwardFormatter(Formatter):
 
     @classmethod
     def load(cls, path: str | pathlib.Path | FileSystemFileTarget, *args, **kwargs) -> Any:
-        import dask_awkward as dak  # type: ignore[import-untyped, import-not-found]
+        import dask_awkward as dak
 
         path = get_path(path)
 
@@ -100,7 +97,7 @@ class DaskAwkwardFormatter(Formatter):
         *args,
         **kwargs,
     ) -> Any:
-        import dask_awkward as dak  # type: ignore[import-untyped, import-not-found]
+        import dask_awkward as dak
 
         _path = get_path(path)
         perm = kwargs.pop("perm", no_value)

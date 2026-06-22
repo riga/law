@@ -1,12 +1,11 @@
-# coding: utf-8
-# flake8: noqa
+# ruff: noqa: I001
 
 """
 Awkward array contrib functionality.
 """
 
-__all__ = ["from_parquet", "AwkwardFormatter"]
+__all__ = ["AwkwardFormatter", "from_parquet"]
 
 # provisioning imports
-from law.contrib.awkward.util import from_parquet
 from law.contrib.awkward.formatter import AwkwardFormatter
+from law.contrib.awkward.util import from_parquet
