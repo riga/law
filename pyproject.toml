@@ -123,7 +123,7 @@ packages = ["src/law"]
 
 [tool.ruff]
 line-length = 120
-target-version = "py39"
+target-version = "py313"
 src = ["src", "tests"]
 exclude = ["docs", "build", "examples", "local_tests"]
 
@@ -183,7 +183,7 @@ flake8-unused-arguments.ignore-variadic-names = true
 isort.required-imports = ["from __future__ import annotations"]
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.13"
 strict = false
 files = ["src/law", "tests"]
 exclude = ["docs", "build", "examples", "local_tests"]
