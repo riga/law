@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Telegram-related parameters.
 """
@@ -8,10 +6,10 @@ from __future__ import annotations
 
 __all__ = ["NotifyTelegramParameter"]
 
+from law._types import Any
+from law.contrib.telegram.notification import notify_telegram
 from law.parameter import NotifyParameter
 from law.util import escape_markdown
-from law.contrib.telegram.notification import notify_telegram
-from law._types import Any
 
 
 class NotifyTelegramParameter(NotifyParameter):

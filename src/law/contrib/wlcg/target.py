@@ -1,21 +1,21 @@
-# coding: utf-8
-
 """
 WLCG remote file system and targets.
 """
 
 from __future__ import annotations
 
-__all__ = ["WLCGFileSystem", "WLCGTarget", "WLCGFileTarget", "WLCGDirectoryTarget"]
+__all__ = ["WLCGDirectoryTarget", "WLCGFileSystem", "WLCGFileTarget", "WLCGTarget"]
 
 import pathlib
 
 import law
-from law.target.remote import (
-    RemoteFileSystem, RemoteTarget, RemoteFileTarget, RemoteDirectoryTarget,
-)
 from law.logger import get_logger
-
+from law.target.remote import (
+    RemoteDirectoryTarget,
+    RemoteFileSystem,
+    RemoteFileTarget,
+    RemoteTarget,
+)
 
 logger = get_logger(__name__)
 
@@ -27,12 +27,7 @@ class WLCGFileSystem(RemoteFileSystem):
     def __init__(self, section: str | None = None, **kwargs) -> None:
         # read configs from section and combine them with kwargs to get the file system and
         # file interface configs
-        section, fs_config, fi_config = self._init_configs(
-            section,
-            "default_wlcg_fs",
-            "_wlcg_fs_defaults",
-            kwargs,
-        )
+        section, fs_config, fi_config = self._init_configs(section, "default_wlcg_fs", "_wlcg_fs_defaults", kwargs)
 
         # store the config section
         self.config_section = section
@@ -69,7 +64,7 @@ class WLCGTarget(RemoteTarget):
     def __init__(
         self,
         path: str | pathlib.Path,
-        fs: str | pathlib.Path | WLCGFileSystem | None = WLCGFileSystem.default_instance,  # type: ignore[assignment] # noqa
+        fs: str | pathlib.Path | WLCGFileSystem | None = WLCGFileSystem.default_instance,  # type: ignore[assignment]
         **kwargs,
     ) -> None:
         if fs is None:
@@ -90,5 +85,5 @@ class WLCGDirectoryTarget(WLCGTarget, RemoteDirectoryTarget):
     pass
 
 
-WLCGTarget.file_class = WLCGFileTarget  # type: ignore[type-abstract]
-WLCGTarget.directory_class = WLCGDirectoryTarget  # type: ignore[type-abstract]
+WLCGTarget.file_class = WLCGFileTarget
+WLCGTarget.directory_class = WLCGDirectoryTarget

@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Decorators for task methods for convenient working with the WLCG.
 """
@@ -8,10 +6,10 @@ from __future__ import annotations
 
 __all__ = ["ensure_vomsproxy"]
 
+from law._types import Any, Callable
+from law.contrib.wlcg import check_vomsproxy_validity
 from law.decorator import factory
 from law.task.base import Task
-from law.contrib.wlcg import check_vomsproxy_validity
-from law._types import Callable, Any
 
 
 @factory(accept_generator=True)
@@ -31,8 +29,6 @@ def ensure_vomsproxy(
         # check the proxy validity
         if not check_vomsproxy_validity():
             raise Exception("voms proxy not valid")
-
-        return None
 
     def call(state: None) -> Any:
         return fn(task, *args, **kwargs)

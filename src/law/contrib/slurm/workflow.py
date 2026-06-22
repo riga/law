@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Slurm workflow implementation. See https://slurm.schedmd.com.
 """
@@ -8,26 +6,24 @@ from __future__ import annotations
 
 __all__ = ["SlurmWorkflow"]
 
-import os
 import abc
 import contextlib
+import os
 import pathlib
 
-import luigi  # type: ignore[import-untyped]
+import luigi
 
+from law._types import Generator
 from law.config import Config
-from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy, PollData
+from law.contrib.slurm.job import SlurmJobFileFactory, SlurmJobManager
 from law.job.base import JobArguments, JobInputFile
-from law.task.proxy import ProxyCommand
-from law.target.file import get_path, get_scheme, FileSystemDirectoryTarget
-from law.target.local import LocalDirectoryTarget, LocalFileTarget
-from law.parameter import NO_STR
-from law.util import no_value, law_src_path, merge_dicts, DotDict, InsertableDict
 from law.logger import get_logger
-from law._types import Type, Generator
-
-from law.contrib.slurm.job import SlurmJobManager, SlurmJobFileFactory
-
+from law.parameter import NO_STR
+from law.target.file import FileSystemDirectoryTarget, get_path, get_scheme
+from law.target.local import LocalDirectoryTarget, LocalFileTarget
+from law.task.proxy import ProxyCommand
+from law.util import DotDict, InsertableDict, law_src_path, merge_dicts, no_value
+from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy, PollData
 
 logger = get_logger(__name__)
 
@@ -97,7 +93,7 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
             task_cls=task.__class__,
             task_params=proxy_cmd.build(skip_run=True),
             branches=branches,
-            workers=task.job_workers,  # type: ignore[arg-type]
+            workers=task.job_workers,
             auto_retry=False,
             dashboard_data=dashboard_data,
         )
@@ -173,9 +169,9 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
         def log_path(path):
             if not path or path.startswith("/dev/"):
                 return path or None
-            log_target = log_dir.child(path, type="f")
+            log_target = log_dir.child(path, type="f")  # type: ignore[union-attr]
             if log_target.parent != log_dir:
-                log_target.parent.touch()
+                log_target.parent.touch()  # type: ignore[union-attr,call-arg]
             return log_target.abspath
 
         c.stdout = log_path(c.stdout)
@@ -188,7 +184,7 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
         # get the finale, absolute location of the custom log file
         abs_log_file = None
         if log_dir_is_local and c.custom_log_file:
-            abs_log_file = os.path.join(log_dir.abspath, c.custom_log_file)  # type: ignore[union-attr] # noqa
+            abs_log_file = os.path.join(log_dir.abspath, c.custom_log_file)  # type: ignore[union-attr]
 
         # return job and log files
         return {"job": job_file, "config": c, "log": abs_log_file}
@@ -278,14 +274,14 @@ class SlurmWorkflow(BaseRemoteWorkflow):
     def slurm_output_postfix(self) -> str:
         return ""
 
-    def slurm_job_manager_cls(self) -> Type[SlurmJobManager]:
+    def slurm_job_manager_cls(self) -> type[SlurmJobManager]:
         return SlurmJobManager
 
     def slurm_create_job_manager(self, **kwargs) -> SlurmJobManager:
         kwargs = merge_dicts(self.slurm_job_manager_defaults, kwargs)
         return self.slurm_job_manager_cls()(**kwargs)
 
-    def slurm_job_file_factory_cls(self) -> Type[SlurmJobFileFactory]:
+    def slurm_job_file_factory_cls(self) -> type[SlurmJobFileFactory]:
         return SlurmJobFileFactory
 
     def slurm_create_job_file_factory(self, **kwargs) -> SlurmJobFileFactory:
@@ -330,7 +326,7 @@ class SlurmWorkflow(BaseRemoteWorkflow):
         Configurable delay in seconds to wait after submitting jobs and before starting the status
         polling.
         """
-        return self.poll_interval * 60  # type: ignore[operator]
+        return self.poll_interval * 60  # type: ignore[return-value]
 
     def slurm_check_job_completeness(self) -> bool:
         return False

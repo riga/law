@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 TensorFlow target formatters.
 """
@@ -7,16 +5,19 @@ TensorFlow target formatters.
 from __future__ import annotations
 
 __all__ = [
-    "TFGraphFormatter", "TFSavedModelFormatter", "TFKerasModelFormatter", "TFKerasWeightsFormatter",
+    "TFGraphFormatter",
+    "TFKerasModelFormatter",
+    "TFKerasWeightsFormatter",
+    "TFSavedModelFormatter",
 ]
 
 import os
 import pathlib
 
-from law.target.formatter import Formatter
+from law._types import Any, ModuleType, Sequence
 from law.target.file import FileSystemFileTarget, get_path
+from law.target.formatter import Formatter
 from law.util import no_value
-from law._types import ModuleType, Any, Sequence
 
 
 class TFGraphFormatter(Formatter):
@@ -25,7 +26,7 @@ class TFGraphFormatter(Formatter):
 
     @classmethod
     def import_tf(cls) -> tuple[ModuleType, ModuleType | None, tuple[str, str, str]]:
-        import tensorflow as tf  # type: ignore[import-untyped, import-not-found]
+        import tensorflow as tf
 
         # keep a reference to the v1 API as long as v2 provides compatibility
         tf1 = None
@@ -84,14 +85,14 @@ class TFGraphFormatter(Formatter):
 
             if as_text:
                 # use a simple pb reader to load the file into graph_def
-                from google.protobuf import text_format  # type: ignore[import-untyped, import-not-found] # noqa
+                from google.protobuf import text_format
                 with open(path, "rb") as f:
                     text_format.Merge(f.read(), graph_def)
 
             else:
                 # use the gfile api depending on the TF version
                 if tf_version[0] == "1":
-                    from tensorflow.python.platform import gfile  # type: ignore[import-untyped, import-not-found] # noqa
+                    from tensorflow.python.platform import gfile
                     with gfile.FastGFile(path, "rb") as f:
                         graph_def.ParseFromString(f.read())
                 else:
@@ -147,9 +148,9 @@ class TFGraphFormatter(Formatter):
 
         # convert keras models and polymorphic functions to concrete functions, v2 only
         if tf_version[0] != "1":
-            from tensorflow.python.keras.saving import saving_utils  # type: ignore[import-untyped, import-not-found] # noqa
-            from tensorflow.python.eager.def_function import Function  # type: ignore[import-untyped, import-not-found] # noqa
-            from tensorflow.python.eager.function import ConcreteFunction  # type: ignore[import-untyped, import-not-found] # noqa
+            from tensorflow.python.eager.def_function import Function
+            from tensorflow.python.eager.function import ConcreteFunction
+            from tensorflow.python.keras.saving import saving_utils
 
             if isinstance(obj, tf.keras.Model):
                 learning_phase_orig = tf.keras.backend.learning_phase()
@@ -186,7 +187,7 @@ class TFGraphFormatter(Formatter):
                 )
 
             elif tf_version[0] != "1":
-                from tensorflow.python.framework import convert_to_constants  # type: ignore[import-untyped, import-not-found] # noqa
+                from tensorflow.python.framework import convert_to_constants
 
                 if not isinstance(obj, ConcreteFunction):
                     raise TypeError(
@@ -202,16 +203,14 @@ class TFGraphFormatter(Formatter):
                 )
 
         # extract the graph
-        if tf1 and isinstance(obj, tf1.Session):
-            graph = obj.graph
-        elif tf_version[0] != "1" and isinstance(obj, ConcreteFunction):
+        if (tf1 and isinstance(obj, tf1.Session)) or (tf_version[0] != "1" and isinstance(obj, ConcreteFunction)):
             graph = obj.graph
         else:
             graph = obj
 
         # write it
         if tf_version[0] == "1":
-            ret = tf1.train.write_graph(graph, graph_dir, graph_name, *args, **kwargs)  # type: ignore[union-attr] # noqa
+            ret = tf1.train.write_graph(graph, graph_dir, graph_name, *args, **kwargs)  # type: ignore[union-attr]
         else:
             ret = tf.io.write_graph(graph, graph_dir, graph_name, *args, **kwargs)
 
@@ -278,11 +277,11 @@ class TFKerasModelFormatter(Formatter):
 
         # the method for loading the model depends on the file extension
         if str(path).endswith(".json"):
-            with open(path, "r") as f:
+            with open(path, encoding="utf-8") as f:
                 return tf.keras.models.model_from_json(f.read(), *args, **kwargs)
 
         if str(path).endswith((".yml", ".yaml")):
-            with open(path, "r") as f:
+            with open(path, encoding="utf-8") as f:
                 return tf.keras.models.model_from_yaml(f.read(), *args, **kwargs)
 
         # .hdf5, .h5, bundle
@@ -302,11 +301,11 @@ class TFKerasModelFormatter(Formatter):
         # the method for saving the model depends on the file extension
         ret = None
         if str(_path).endswith(".json"):
-            with open(_path, "w") as f:
+            with open(_path, "w", encoding="utf-8") as f:
                 f.write(model.to_json())
 
         elif str(_path).endswith((".yml", ".yaml")):
-            with open(_path, "w") as f:
+            with open(_path, "w", encoding="utf-8") as f:
                 f.write(model.to_yaml())
 
         else:  # .hdf5, .h5, bundle

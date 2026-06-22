@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Telegram notifications.
 """
@@ -9,15 +7,14 @@ from __future__ import annotations
 __all__ = ["notify_telegram"]
 
 import os
+import pathlib
 import threading
 import traceback
-import pathlib
 
-from law.config import Config
-from law.util import escape_markdown
-from law.logger import get_logger
 from law._types import Any
-
+from law.config import Config
+from law.logger import get_logger
+from law.util import escape_markdown
 
 logger = get_logger(__name__)
 
@@ -34,8 +31,7 @@ def notify_telegram(
     Sends a telegram notification and returns *True* on success. The communication with the telegram
     API might have some delays and is therefore handled by a thread.
     """
-    # test import
-    import telegram  # type: ignore[import-untyped, import-not-found] # noqa: F401
+    import telegram  # noqa: F401
 
     cfg = Config.instance()
 
@@ -81,13 +77,13 @@ def notify_telegram(
 
 
 def _notify_telegram(token: str | pathlib.Path, chat: str, request: dict[str, Any]) -> bool:
-    import telegram  # type: ignore[import-untyped, import-not-found] # noqa: F401
+    import telegram  # noqa: F401
 
     try:
         # token might be a file
         token_file = os.path.expanduser(os.path.expandvars(token))
         if os.path.isfile(token_file):
-            with open(token_file, "r") as f:
+            with open(token_file, encoding="utf-8") as f:
                 token = f.read().strip()
 
         bot = telegram.Bot(token=token)

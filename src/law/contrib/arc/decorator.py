@@ -38,6 +38,6 @@ def ensure_arcproxy(
         return fn(task, *args, **kwargs)
 
     def after_call(state: None) -> None:
-        return None
+        return
 
     return before_call, call, after_call

@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Helpers for working with the WLCG.
 """
@@ -7,29 +5,41 @@ Helpers for working with the WLCG.
 from __future__ import annotations
 
 __all__ = [
-    "get_userkey", "get_usercert", "get_usercert_subject",
-    "get_vomsproxy_file", "get_vomsproxy_identity", "get_vomsproxy_lifetime", "get_vomsproxy_vo",
-    "check_vomsproxy_validity", "renew_vomsproxy", "delegate_vomsproxy_glite",
-    "delegate_myproxy", "get_myproxy_info",
+    "check_vomsproxy_validity",
+    "delegate_myproxy",
+    "delegate_vomsproxy_glite",
     "get_ce_endpoint",
+    "get_myproxy_info",
+    "get_usercert",
+    "get_usercert_subject",
+    "get_userkey",
+    "get_vomsproxy_file",
+    "get_vomsproxy_identity",
+    "get_vomsproxy_lifetime",
+    "get_vomsproxy_vo",
+    "renew_vomsproxy",
 ]
 
+import functools
+import getpass
+import hashlib
+import json
 import os
+import pathlib
 import re
 import subprocess
 import uuid
-import json
-import hashlib
-import pathlib
-import getpass
-import functools
 
-from law.util import (
-    interruptable_popen, create_hash, human_duration, parse_duration, quote_cmd, make_list,
-)
+from law._types import Sequence, TextIO
 from law.logger import get_logger
-from law._types import TextIO, Sequence
-
+from law.util import (
+    create_hash,
+    human_duration,
+    interruptable_popen,
+    make_list,
+    parse_duration,
+    quote_cmd,
+)
 
 logger = get_logger(__name__)
 
@@ -72,6 +82,7 @@ def get_usercert_subject(usercert: str | pathlib.Path | None = None) -> str:
         executable="/bin/bash",
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        stdin=None,
     )
     if code != 0:
         raise Exception(f"subject extraction from usercert failed: {err}")
@@ -110,6 +121,7 @@ def _vomsproxy_info(
         executable="/bin/bash",
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        stdin=None,
     )
 
     if not silent and code != 0:
@@ -147,10 +159,10 @@ def get_vomsproxy_lifetime(
 
     try:
         return int(out)
-    except:
+    except Exception as e:
         if silent:
             return None
-        raise Exception(f"no valid lifetime found in voms proxy: {out}")
+        raise Exception(f"no valid lifetime found in voms proxy: {out}") from e
 
 
 def get_vomsproxy_vo(
@@ -266,8 +278,7 @@ def renew_vomsproxy(
             executable="/bin/bash",
             stdout=silent_pipe,
             stderr=silent_pipe,
-            stdin=subprocess.PIPE,
-            stdin_callback=stdin_callback,  # type: ignore[arg-type]
+            stdin_callback=stdin_callback,
             stdin_delay=0.2,
         )[0]
 
@@ -314,16 +325,16 @@ def delegate_vomsproxy_glite(
                 pass
 
         # create the hash of the proxy file content
-        with open(proxy_file, "r") as f:
+        with open(proxy_file, encoding="utf-8") as f:
             proxy_hash = create_hash(f.read())
 
         # already delegated?
         cache_data = {}
         if os.path.exists(cache_file):
-            with open(cache_file, "r") as f:
+            with open(cache_file, encoding="utf-8") as f:
                 try:
                     cache_data = json.load(f)
-                except:
+                except Exception:
                     remove_cache()
 
         # is the hash up-to-date?
@@ -338,7 +349,7 @@ def delegate_vomsproxy_glite(
     # do the actual delegation
     delegation_id = uuid.uuid4().hex
     cmd = ["glite-ce-delegate-proxy", "-e", endpoint, delegation_id]
-    code = interruptable_popen(cmd, stdout=stdout, stderr=stderr)[0]
+    code = interruptable_popen(cmd, stdout=stdout, stderr=stderr, stdin=None)[0]
     if code != 0:
         raise Exception(f"glite proxy delegation to endpoint {endpoint} failed")
 
@@ -346,7 +357,7 @@ def delegate_vomsproxy_glite(
         # write the id back to the delegation file
         cache_data["hash"] = proxy_hash
         cache_data.setdefault("ids", {})[endpoint] = delegation_id
-        with open(cache_file, "w") as f:
+        with open(cache_file, "w", encoding="utf-8") as f:
             json.dump(cache_data, f, indent=4)
         os.chmod(cache_file, 0o0600)
 
@@ -447,8 +458,7 @@ def delegate_myproxy(
             executable="/bin/bash",
             stdout=silent_pipe,
             stderr=silent_pipe,
-            stdin=subprocess.PIPE,
-            stdin_callback=stdin_callback,  # type: ignore[arg-type]
+            stdin_callback=stdin_callback,
             stdin_delay=0.2,
         )[0]
 
@@ -495,6 +505,7 @@ def get_myproxy_info(
         executable="/bin/bash",
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE if silent else None,
+        stdin=None,
     )
     if code != 0:
         if silent:

@@ -1,28 +1,25 @@
-# coding: utf-8
-
 """
 Slurm job manager. See https://slurm.schedmd.com/quickstart.html.
 """
 
 from __future__ import annotations
 
-__all__ = ["SlurmJobManager", "SlurmJobFileFactory"]
+__all__ = ["SlurmJobFileFactory", "SlurmJobManager"]
 
 import os
-import time
-import re
-import stat
 import pathlib
+import re
 import shlex
+import stat
 import subprocess
+import time
 
-from law.config import Config
-from law.job.base import BaseJobManager, BaseJobFileFactory, JobInputFile
-from law.target.file import get_path
-from law.util import interruptable_popen, make_list, quote_cmd, parse_duration
-from law.logger import get_logger
 from law._types import Any, Sequence
-
+from law.config import Config
+from law.job.base import BaseJobFileFactory, BaseJobManager, JobInputFile
+from law.logger import get_logger
+from law.target.file import get_path
+from law.util import interruptable_popen, make_list, parse_duration, quote_cmd
 
 logger = get_logger(__name__)
 
@@ -147,13 +144,11 @@ class SlurmJobManager(BaseJobManager):
 
         # run it
         logger.debug(f"cancel slurm job(s) with command '{cmd_str}'")
-        out: str
         err: str
-        code, out, err = interruptable_popen(  # type: ignore[assignment]
+        code, _, err = interruptable_popen(  # type: ignore[assignment]
             cmd_str,
             shell=True,
             executable="/bin/bash",
-            stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             kill_timeout=2,
             processes=_processes,
@@ -161,11 +156,9 @@ class SlurmJobManager(BaseJobManager):
 
         # check success
         if code != 0 and not silent:
-            raise Exception(
-                f"cancellation of slurm job(s) '{job_id}' failed with code {code}:\n{err}",
-            )
+            raise Exception(f"cancellation of slurm job(s) '{job_id}' failed with code {code}:\n{err}")
 
-        return {job_id: None for job_id in job_ids} if chunking else None
+        return dict.fromkeys(job_ids) if chunking else None
 
     def query(  # type: ignore[override]
         self,
@@ -223,9 +216,7 @@ class SlurmJobManager(BaseJobManager):
             if code != 0:
                 if silent:
                     return None
-                raise Exception(
-                    f"queue query of slurm job(s) '{job_id}' failed with code {code}:\n{err}",
-                )
+                raise Exception(f"queue query of slurm job(s) '{job_id}' failed with code {code}:\n{err}")
 
             # parse the output and extract the status per job
             query_data = self.parse_squeue_output(out)
@@ -270,12 +261,11 @@ class SlurmJobManager(BaseJobManager):
                     if silent:
                         return None
                     raise Exception(f"slurm job(s) '{job_id}' not found in query response")
-                else:
-                    query_data[_job_id] = self.job_status_dict(
-                        job_id=_job_id,
-                        status=self.FAILED,
-                        error="job not found in query response",
-                    )
+                query_data[_job_id] = self.job_status_dict(
+                    job_id=_job_id,
+                    status=self.FAILED,
+                    error="job not found in query response",
+                )
 
         return query_data if chunking else query_data[job_id]  # type: ignore[index]
 
@@ -363,9 +353,21 @@ class SlurmJobManager(BaseJobManager):
 
 class SlurmJobFileFactory(BaseJobFileFactory):
 
-    config_attrs = BaseJobFileFactory.config_attrs + [
-        "file_name", "command", "executable", "arguments", "shell", "input_files", "job_name",
-        "partition", "stdout", "stderr", "postfix_output_files", "custom_content", "absolute_paths",
+    config_attrs = [
+        *BaseJobFileFactory.config_attrs,
+        "file_name",
+        "command",
+        "executable",
+        "arguments",
+        "shell",
+        "input_files",
+        "job_name",
+        "partition",
+        "stdout",
+        "stderr",
+        "postfix_output_files",
+        "custom_content",
+        "absolute_paths",
     ]
 
     def __init__(
@@ -479,12 +481,12 @@ class SlurmJobFileFactory(BaseJobFileFactory):
             return abs_path
 
         # absolute absolute paths
-        for key, f in c.input_files.items():
+        for f in c.input_files.values():
             f.path_sub_abs = prepare_input(f)
 
         # input paths relative to the submission or initial dir
         # forwarded files are skipped as they are not treated as normal inputs
-        for key, f in c.input_files.items():
+        for f in c.input_files.values():
             if f.forward:
                 continue
             f.path_sub_rel = (
@@ -494,7 +496,7 @@ class SlurmJobFileFactory(BaseJobFileFactory):
             )
 
         # input paths as seen by the job, before and after poptential rendering
-        for key, f in c.input_files.items():
+        for f in c.input_files.values():
             f.path_job_pre_render = (
                 f.path_sub_abs
                 if f.forward else
@@ -540,7 +542,7 @@ class SlurmJobFileFactory(BaseJobFileFactory):
         job_file = self.postfix_input_file(os.path.join(c.dir, str(c.file_name)), postfix)
 
         # render copied input files
-        for key, f in c.input_files.items():
+        for f in c.input_files.values():
             if not f.copy or f.forward or not f.render_local:
                 continue
             self.render_file(
@@ -575,7 +577,7 @@ class SlurmJobFileFactory(BaseJobFileFactory):
             content += c.custom_content
 
         # write the job file
-        with open(job_file, "w") as f:
+        with open(job_file, "w", encoding="utf-8") as f:
             for obj in content:
                 line = self.create_line(obj)
                 f.write(f"{line}\n")
