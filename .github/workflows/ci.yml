@@ -11,7 +11,7 @@ on:
 
 jobs:
   lint_typecheck:
-    name: Lint${{ ( matrix.python != '3.14' && matrix.python != '3.19' ) && ', type check' || '' }}${{ matrix.python == '3.13' && ', release check' || '' }} (${{ matrix.python }})
+    name: Lint${{ ( matrix.python == '3.14' || matrix.python == '3.9' ) && '' || ', type check' }}${{ matrix.python == '3.13' && ', release check' || '' }} (${{ matrix.python }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
