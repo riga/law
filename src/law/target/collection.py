@@ -133,7 +133,8 @@ class TargetCollection(Target):
             optional_existing = self.optional_existing
 
         # helper to check for existence
-        if existing is not None and exists_func is None:
+        check_existing = existing is not None or state
+        if exists_func is None and check_existing:
             def exists_func(t: Target) -> bool:
                 if optional_existing is not None and t.optional:
                     return bool(optional_existing)
@@ -493,7 +494,8 @@ class SiblingFileCollection(SiblingFileCollectionBase):
             optional_existing = self.optional_existing
 
         # default helper to check for existence
-        if existing is not None and exists_func is None:
+        check_existing = existing is not None or state
+        if exists_func is None and check_existing:
             # get all basenames
             if basenames is None:
                 basenames = self.dir.listdir() if self.dir.exists() else []
@@ -509,7 +511,7 @@ class SiblingFileCollection(SiblingFileCollectionBase):
 
         # loop and yield
         for key, targets in self._iter_flat():
-            exists = all(map(exists_func, targets)) if existing is not None or state else None  # type: ignore[arg-type]
+            exists = all(map(exists_func, targets)) if check_existing else None  # type: ignore[arg-type]
             if existing is None or exists is existing:
                 if unpack:
                     targets = self.targets[key]
@@ -576,7 +578,8 @@ class NestedSiblingFileCollection(SiblingFileCollectionBase):
             optional_existing = self.optional_existing
 
         # default helper to check for existence
-        if existing is not None and exists_func is None:
+        check_existing = existing is not None or state
+        if exists_func is None and check_existing:
             # get all basenames
             if basenames is None:
                 basenames = {
@@ -595,7 +598,7 @@ class NestedSiblingFileCollection(SiblingFileCollectionBase):
 
         # loop and yield
         for key, targets in self._iter_flat():
-            exists = all(map(exists_func, targets)) if existing is not None or state else None  # type: ignore[arg-type]
+            exists = all(map(exists_func, targets)) if check_existing else None  # type: ignore[arg-type]
             if existing is None or exists is existing:
                 if unpack:
                     targets = self.targets[key]
