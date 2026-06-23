@@ -504,8 +504,9 @@ class LocalTarget(FileSystemTarget, shims.LocalTarget):
         kwargs = RemoteFileSystem.split_remote_kwargs(kwargs)[1]
 
         # invoke formatter
-        formatter = kwargs.pop("_formatter", None) or kwargs.pop("formatter", AUTO_FORMATTER)
-        return find_formatter(self.abspath, "load", formatter).load(self.abspath, *args, **kwargs)
+        formatter_name = kwargs.pop("_formatter", None) or kwargs.pop("formatter", AUTO_FORMATTER)
+        formatter = find_formatter(self.abspath, "load", formatter_name)
+        return formatter.load(self.abspath, *args, **kwargs)
 
     def dump(self, *args, **kwargs) -> Any:
         # remove kwargs that might be designated for remote files
@@ -519,8 +520,9 @@ class LocalTarget(FileSystemTarget, shims.LocalTarget):
         self.parent.touch(perm=dir_perm)  # type: ignore[union-attr, call-arg]
 
         # invoke the formatter
-        formatter = kwargs.pop("_formatter", None) or kwargs.pop("formatter", AUTO_FORMATTER)
-        ret = find_formatter(self.abspath, "dump", formatter).dump(self.abspath, *args, **kwargs)
+        formatter_name = kwargs.pop("_formatter", None) or kwargs.pop("formatter", AUTO_FORMATTER)
+        formatter = find_formatter(self.abspath, "dump", formatter_name)
+        ret = formatter.dump(self.abspath, *args, **kwargs)
 
         # chmod
         if perm is None:

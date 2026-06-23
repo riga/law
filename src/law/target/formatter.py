@@ -26,22 +26,33 @@ AUTO_FORMATTER = "auto"
 
 class FormatterRegister(type):
 
-    formatters: dict[str, type[Formatter]] = {}
+    formatters: dict[str, FormatterRegister] = {}
+    name: str
 
     def __new__(meta_cls, cls_name, bases, cls_dict) -> FormatterRegister:
-        cls = super().__new__(meta_cls, cls_name, bases, cls_dict)
+        cls: FormatterRegister = super().__new__(meta_cls, cls_name, bases, cls_dict)
 
         if cls_name in meta_cls.formatters:
             raise ValueError(f"duplicate formatter name '{cls_name}' for class {cls}")
         if cls_name == AUTO_FORMATTER:
             raise ValueError(f"formatter class {cls} must not be named '{AUTO_FORMATTER}'")
 
-        # store classes by name
-        if cls_name != "_base":
-            meta_cls.formatters[cls.name] = cls  # type: ignore[attr-defined,assignment]
-            logger.debug(f"registered target formatter '{cls.name}'")  # type: ignore[attr-defined]
+        # store classes by name attribute
+        name = cls.name
+        if name != "_base":
+            meta_cls.formatters[name] = cls
+            logger.debug(f"registered target formatter '{name}'")
 
         return cls
+
+    def accepts(cls, path: str | pathlib.Path | FileSystemTarget, mode: str) -> bool:
+        raise NotImplementedError
+
+    def load(cls, path: str | pathlib.Path | FileSystemTarget, *args, **kwargs) -> Any:
+        raise NotImplementedError
+
+    def dump(cls, path: str | pathlib.Path | FileSystemTarget, *args, **kwargs) -> Any:
+        raise NotImplementedError
 
 
 class Formatter(metaclass=FormatterRegister):
@@ -51,18 +62,6 @@ class Formatter(metaclass=FormatterRegister):
     # modes
     LOAD = "load"
     DUMP = "dump"
-
-    @classmethod
-    def accepts(cls, path, mode):
-        raise NotImplementedError
-
-    @classmethod
-    def load(cls, path, *args, **kwargs):
-        raise NotImplementedError
-
-    @classmethod
-    def dump(cls, path, *args, **kwargs):
-        raise NotImplementedError
 
     @classmethod
     def chmod(cls, target: FileSystemTarget | Any, perm: int | None = None) -> None:
@@ -80,7 +79,7 @@ class Formatter(metaclass=FormatterRegister):
             target.chmod(perm)
 
 
-def get_formatter(name: str, silent: bool = False) -> type[Formatter] | None:
+def get_formatter(name: str, silent: bool = False) -> FormatterRegister | None:
     """
     Returns the formatter class whose name attribute is *name*. When no class could be found and
     *silent* is *True*, *None* is returned. Otherwise, an exception is raised.
@@ -95,14 +94,14 @@ def find_formatters(
     path: str | pathlib.Path | FileSystemTarget,
     mode: str,
     silent: bool = True,
-) -> list[type[Formatter]]:
+) -> list[FormatterRegister]:
     """
     Returns a list of formatter classes which would accept the file given by *path* and *mode*,
     which should either be ``"load"`` or ``"dump"``. When no classes could be found and *silent* is
     *True*, an empty list is returned. Otherwise, an exception is raised.
     """
     path = get_path(path)
-    formatters = [f for f in FormatterRegister.formatters.values() if f.accepts(path, mode)]
+    formatters = [f for f in FormatterRegister.formatters.values() if f.accepts(path, mode)]  # type: ignore[attr-defined]
     if formatters or silent:
         return formatters
     raise Exception(f"cannot find any '{mode}' formatter for {path}")
@@ -112,7 +111,7 @@ def find_formatter(
     path: str | pathlib.Path | FileSystemTarget,
     mode: str,
     name: str = AUTO_FORMATTER,
-) -> type[Formatter]:
+) -> FormatterRegister:
     """
     Returns the formatter class whose name attribute is *name* when *name* is not *AUTO_FORMATTER*.
     Otherwise, the first formatter that accepts *path* is returned. Internally, this method simply
