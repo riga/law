@@ -791,7 +791,7 @@ def localize_file_targets(struct, *args, **kwargs) -> Generator[Any, None, None]
         if callable(getattr(target, "localize", None)):
             manager = target.localize(*args, **kwargs)
             managers.append(manager)
-            return manager
+            return manager.__enter__()  # noqa: PLC2801
 
         return target
 

@@ -587,10 +587,7 @@ class LocalFileTarget(FileSystemFileTarget, LocalTarget):  # type: ignore[misc]
                     if tmp.exists():
                         self.copy_from_local(tmp, perm=perm, dir_perm=dir_perm)
                     else:
-                        logger.warning(
-                            "cannot move non-existing localized target to actual representation "
-                            f"{self!r}",
-                        )
+                        logger.warning(f"cannot move non-existing localized target to actual representation {self!r}")
                 finally:
                     tmp.remove()
             else:
@@ -673,8 +670,8 @@ class LocalDirectoryTarget(FileSystemDirectoryTarget, LocalTarget):  # type: ign
                         self.copy_from_local(tmp, perm=perm, dir_perm=dir_perm)
                     else:
                         logger.warning(
-                            "cannot move non-existing localized target to actual representation "
-                            f"{self!r}, leaving original contents unchanged",
+                            f"cannot move non-existing localized target to actual representation {self!r}, leaving "
+                            "original contents unchanged",
                         )
                 finally:
                     tmp.remove()
