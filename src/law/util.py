@@ -2444,9 +2444,9 @@ def send_mail(
     return True
 
 
-class DotDict(dict):
+class DotDict(collections.OrderedDict):
     """
-    Dictionary subclass that provides read access for items via attributes by implementing
+    OrderedDict subclass that provides read access for items via attributes by implementing
     ``__getattr__``. In case a item is accessed via attribute and it does not exist, an
     *AttriuteError* is raised rather than a *KeyError*. Example:
 
