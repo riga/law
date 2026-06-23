@@ -344,7 +344,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         """
         Returns the destination info ready to be appended to a string.
         """
-        dst_info = ", ".join(map(str, self.destination_info().keys()))
+        dst_info = ", ".join(map(str, self.destination_info().values()))
         if dst_info:
             dst_info = f", {dst_info}"
         return dst_info
