@@ -41,15 +41,30 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
 
     def create_job_file(
         self,
-        *args,
+        job_num: int,
+        branches: list[int],
+    ) -> dict[str, str | pathlib.Path | HTCondorJobFileFactory.Config | None]:
+        return self._create_job_file_impl(submit_jobs={job_num: branches}, grouped_submission=False)
+
+    def create_job_file_group(
+        self,
+        submit_jobs: dict[int, list[int]],
+    ) -> dict[str, str | pathlib.Path | HTCondorJobFileFactory.Config | None]:
+        return self._create_job_file_impl(submit_jobs=submit_jobs, grouped_submission=True)
+
+    def _create_job_file_impl(
+        self,
+        submit_jobs: dict[int, list[int]],
+        grouped_submission: bool,
     ) -> dict[str, str | pathlib.Path | HTCondorJobFileFactory.Config | None]:
         task: HTCondorWorkflow = self.task  # type: ignore[assignment]
 
-        grouped_submission = len(args) == 1
-        if grouped_submission:
-            submit_jobs = args[0]
-        else:
-            job_num, branches = args
+        # check inputs
+        if not submit_jobs:
+            raise ValueError("no jobs to submit")
+        if not grouped_submission and len(submit_jobs) != 2:
+            raise ValueError(f"received more than one job for non-grouped submission: {submit_jobs}")
+        first_job_num, first_branches = next(iter(submit_jobs.items()))
 
         # create the config
         c = self.job_file_factory.get_config()  # type: ignore[union-attr]
@@ -84,7 +99,7 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
             {"workflow", "effective_workflow"}
         )
         proxy_cmd = ProxyCommand(
-            task.as_branch(0 if grouped_submission else branches[0]),
+            task.as_branch(0 if grouped_submission else first_branches[0]),
             exclude_task_args=list(exclude_args),
             exclude_global_args=["workers", "local-scheduler", f"{task.task_family}-*"],
         )
@@ -100,7 +115,7 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
                 for branches in submit_jobs.values()
             ]
         else:
-            c.postfix = f"_{branches[0]}To{branches[-1] + 1}"
+            c.postfix = f"_{first_branches[0]}To{first_branches[-1] + 1}"
 
         # job script arguments per job number
         def get_job_args(job_num, branches):
@@ -117,13 +132,12 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
                 ),
             )
 
-        if grouped_submission:
-            c.arguments = [
-                get_job_args(job_num, branches).join()
-                for job_num, branches in submit_jobs.items()
-            ]
-        else:
-            c.arguments = get_job_args(job_num, branches).join()
+        c.arguments = [
+            get_job_args(job_num, branches).join()
+            for job_num, branches in submit_jobs.items()
+        ]
+        if not grouped_submission:
+            c.arguments = c.arguments[0]
 
         # add the bootstrap file
         bootstrap_file = task.htcondor_bootstrap_file()
@@ -179,7 +193,7 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         if grouped_submission:
             c = task.htcondor_job_config(c, list(submit_jobs.keys()), list(submit_jobs.values()))
         else:
-            c = task.htcondor_job_config(c, job_num, branches)
+            c = task.htcondor_job_config(c, first_job_num, first_branches)
 
         # logging defaults
         # we do not use htcondor's logging mechanism since it might require that the submission
