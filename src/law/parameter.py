@@ -588,10 +588,11 @@ class MultiCSVParameter(CSVParameter):
 
     def parse(self, inp: Any) -> tuple[tuple[T]] | tuple[T] | T:  # type: ignore[override]
         """"""
+        _parse = super().parse
         if not inp or inp == NO_STR:
             value: tuple = ()
         elif isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
-            value = tuple(super().parse(v) for v in inp)
+            value = tuple(_parse(v) for v in inp)
         elif isinstance(inp, str):
             # replace escaped separators
             if self._escape_sep:
@@ -602,9 +603,9 @@ class MultiCSVParameter(CSVParameter):
             # add back escaped separators per element
             if self._escape_sep:
                 elems = [elem.replace(escaped_sep, ":") for elem in elems]
-            value = tuple(super().parse(e) for e in elems)
+            value = tuple(_parse(e) for e in elems)
         else:
-            value = (super().parse(inp),)
+            value = (_parse(inp),)
 
         return value
 
@@ -614,7 +615,8 @@ class MultiCSVParameter(CSVParameter):
         if not value:
             return ""
 
-        return ":".join(super().serialize(v) for v in make_tuple(value))
+        _serialize = super().serialize
+        return ":".join(_serialize(v) for v in make_tuple(value))
 
 
 class RangeParameter(Parameter):
@@ -813,15 +815,16 @@ class MultiRangeParameter(RangeParameter):
     # TODO: more precise inp
     def parse(self, inp: Any) -> tuple[tuple[int]]:  # type: ignore[override]
         """"""
+        _parse = super().parse
         if inp in (None, "", NO_STR, no_value):
             value: tuple = ()
         elif isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
-            value = tuple(super().parse(v) for v in inp)
+            value = tuple(_parse(v) for v in inp)
         elif isinstance(inp, str):
             elems = inp.split(self.MULTI_RANGE_SEP)
-            value = tuple(super().parse(e) for e in elems)
+            value = tuple(_parse(e) for e in elems)
         else:
-            value = (super().parse(inp),)
+            value = (_parse(inp),)
 
         return value
 
@@ -834,7 +837,8 @@ class MultiRangeParameter(RangeParameter):
         # ensure that value is a nested tuple
         value = tuple(map(make_tuple, make_tuple(value)))
 
-        return self.MULTI_RANGE_SEP.join(super().serialize(v) for v in value)
+        _serialize = super().serialize
+        return self.MULTI_RANGE_SEP.join(_serialize(v) for v in value)
 
 
 class NotifyParameter(luigi.BoolParameter, Parameter):
