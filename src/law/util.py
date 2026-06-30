@@ -1565,6 +1565,7 @@ def tmp_file(*args, **kwargs) -> Iterator[tuple[int, str]]:
 
 
 def interruptable_popen(
+    cmd: str | list[str] | os.PathLike,
     *args,
     stdin_callback: Callable[[], Any] | None = None,
     stdin_delay: int | float = 0,
@@ -1597,14 +1598,20 @@ def interruptable_popen(
     This can be useful to keep track of multiple processes and sending signals to them from an
     outer context.
 
-    All other *args* and *kwargs* are forwarded to the :py:class:`Popen` constructor.
+    *cmd* and all other *args* and *kwargs* are forwarded to the :py:class:`Popen` constructor.
     """
     # default stdin setting
     kwargs.setdefault("stdin", subprocess.PIPE if callable(stdin_callback) else subprocess.DEVNULL)
 
-    # start the subprocess in a new process group
-    kwargs["preexec_fn"] = os.setsid
-    p = subprocess.Popen(*args, **kwargs)
+    # transform the command depending on the shell setting
+    shell = kwargs.get("shell", False)
+    if shell and isinstance(cmd, (list, tuple)):
+        cmd = quote_cmd(cmd)
+    elif not shell and isinstance(cmd, str):
+        cmd = shlex.split(cmd)
+
+    # start the subprocess
+    p = subprocess.Popen(cmd, *args, **kwargs)
 
     # add to processes list
     if processes is not None:
