@@ -152,7 +152,7 @@ def execute(args: argparse.Namespace) -> int:
     q = collections.deque([Task])
     while q:
         cls = q.popleft()
-        lookup.extend(cls.__subclasses__())  # type: ignore[arg-type]
+        q.extend(cls.__subclasses__())
 
         # skip tasks starting with an underscore
         if cls.__name__.startswith("_"):
