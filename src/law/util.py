@@ -820,16 +820,19 @@ def range_expand(
         range_expand("5:8", include_end=True)
         # -> [5, 6, 7, 8]
 
-        range_expand(["5-8", "10"])
+        range_expand(["5:8", "10"])
         # -> [5, 6, 7, 10]
 
-        range_expand(["5-8", "10-"])
+        range_expand(["5-8", "10"], sep="-")
+        # -> [5, 6, 7, 10]
+
+        range_expand(["5:8", "10:"])
         # -> Exception, no max_value set
 
-        range_expand(["5-8", "10-"], max_value=12)
+        range_expand(["5:8", "10:"], max_value=12)
         # -> [5, 6, 7, 10, 11]
 
-        range_expand(["5-8", "10-"], max_value=12, include_end=True)
+        range_expand(["5:8", "10:"], max_value=12, include_end=True)
         # -> [5, 6, 7, 8, 10, 11, 12]
     """
     def to_int(v: Any, s: Any | None = None) -> int:
@@ -856,13 +859,13 @@ def range_expand(
 
         else:
             # parse as string
-            s = str(s)
-            if sep in s:
-                parts = s.split(sep, 1)
+            v = str(v)
+            if sep in v:
+                parts = v.split(sep, 1)
                 start = parts[0] or None
                 stop = parts[1] or None
             else:
-                value = s
+                value = v
                 single_value = True
 
         if single_value:
@@ -873,15 +876,11 @@ def range_expand(
             # build the range
             if start is None:
                 if min_value is None:
-                    raise Exception(
-                        f"range '{s}' with missing start value requires min_value to be set",
-                    )
+                    raise Exception(f"range '{v}' with missing start value requires min_value to be set")
                 start = min_value
             if stop is None:
                 if max_value is None:
-                    raise Exception(
-                        f"range '{s}' with missing stop value requires max_value to be set",
-                    )
+                    raise Exception(f"range '{v}' with missing stop value requires max_value to be set")
                 stop = max_value
 
             # convert to integers and potentially swap
