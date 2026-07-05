@@ -190,31 +190,35 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
         silent: bool = True,
         **kwargs,
     ) -> bool:
+        # when existing and silent, immediately return
         if silent and self.exists(path):
             return False
 
-        if perm is None:
+        # handle permissions
+        if not self.has_permissions:
+            perm = None
+        elif perm is None:
             perm: int = self.default_dir_perm
 
-        # prepare arguments passed to makedirs or mkdir
-        args: tuple[Any, ...] = (self.abspath(path),)
-        if perm is not None:
-            args += (perm,)
+        # build a list of non-existing directories to create sequentially, starting from the base path
+        if recursive:
+            rel_parts = os.path.relpath(self.abspath(path), self.abspath("")).strip(os.sep).split(os.sep)
+            path_seq = [
+                p for i in range(len(rel_parts))
+                if not self.isdir(p := os.path.join(*rel_parts[:i + 1])) or i == len(rel_parts) - 1
+            ]
+        else:
+            path_seq = [self.abspath(path)]
 
-        # the mode passed to os.mkdir or os.makedirs is ignored on some systems, so the strategy
-        # here is to disable the process' current umask, create the directories and use chmod again
-        orig = os.umask(0o0770 - perm) if perm is not None else None
-        func = os.makedirs if recursive else os.mkdir
-        try:
+        # create directories with plain os.mkdir and set permissions on newly created ones
+        for p in path_seq:
             try:
-                func(*args)
+                os.mkdir(self.abspath(p))
             except Exception as e:
                 if not silent or not isinstance(e, FileExistsError):
                     raise
-            self.chmod(path, perm)  # type: ignore[arg-type]
-        finally:
-            if orig is not None:
-                os.umask(orig)
+            if perm is not None:
+                self.chmod(p, perm)
 
         return True
 
