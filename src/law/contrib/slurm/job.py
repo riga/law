@@ -491,21 +491,21 @@ class SlurmJobFileFactory(BaseJobFileFactory):
                 continue
             f.path_sub_rel = (
                 os.path.basename(f.path_sub_abs)
-                if f.copy and not c.absolute_paths else
-                f.path_sub_abs
+                if f.copy and not c.absolute_paths
+                else f.path_sub_abs
             )
 
         # input paths as seen by the job, before and after poptential rendering
         for f in c.input_files.values():
             f.path_job_pre_render = (
                 f.path_sub_abs
-                if f.forward else
-                f.path_sub_rel
+                if f.forward
+                else f.path_sub_rel
             )
             f.path_job_post_render = (
                 f.path_sub_abs
-                if f.forward and not f.render_job else
-                os.path.basename(f.path_sub_abs)
+                if f.forward and not f.render_job
+                else os.path.basename(f.path_sub_abs)
             )
 
         # update files in render variables with version after potential rendering

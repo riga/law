@@ -468,21 +468,21 @@ class GLiteJobFileFactory(BaseJobFileFactory):
         for f in c.input_files.values():
             f.path_sub_rel = (
                 os.path.basename(f.path_sub_abs)
-                if f.copy and not c.absolute_paths else
-                f.path_sub_abs
+                if f.copy and not c.absolute_paths
+                else f.path_sub_abs
             )
 
         # input paths as seen by the job, before and after potential rendering
         for f in c.input_files.values():
             f.path_job_pre_render = (
                 f.path_sub_abs
-                if f.is_remote else
-                os.path.basename(f.path_sub_abs)
+                if f.is_remote
+                else os.path.basename(f.path_sub_abs)
             )
             f.path_job_post_render = (
                 os.path.basename(f.path_sub_abs)
-                if f.render_job else
-                f.path_sub_abs
+                if f.render_job
+                else f.path_sub_abs
             )
 
         # update files in render variables with version after potential rendering
