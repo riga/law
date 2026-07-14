@@ -1468,6 +1468,17 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
 
         return DotDict()
 
+    def pilot_workflow_requires(self, task: Task) -> Any:
+        """
+        Helper for situtations where *this* task is a workflow with ``--pilot`` activated to decide if an upstream task
+        itself should be required, or its own upstream dependencies.
+        """
+        return (
+            task.workflow_requires()
+            if getattr(self, "pilot", False) and isinstance(task, BaseWorkflow) and task.is_workflow()
+            else task
+        )
+
     def workflow_input(self) -> Any:
         """
         Returns the output targets of all workflow requirements, comparable to the normal
