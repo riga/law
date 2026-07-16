@@ -409,6 +409,13 @@ law_job() {
     fi
     echo
 
+    _law_job_subsection "user infos"
+    echo "> id"
+    id
+    echo "> echo \$HOME"
+    echo "${HOME}"
+    echo
+
     # print some variables
     _law_job_subsection "job infos"
     echo "shell    : ${SHELL}"
@@ -418,25 +425,24 @@ law_job() {
     echo "init dir : ${LAW_JOB_INIT_DIR}"
     echo "job home : ${LAW_JOB_HOME}"
     echo "tmp dir  : $( _law_python -c "from tempfile import gettempdir; print(gettempdir())" )"
-    echo "user home: ${HOME}"
     echo "pwd      : $( pwd )"
     echo "script   : $0"
     echo "args     : $@"
     echo "law exe  : ${law_exe}"
+    echo
 
     # print additional task variables
-    echo
     _law_job_subsection "task infos"
-    echo "task module   : ${LAW_JOB_TASK_MODULE}"
-    echo "task family   : ${LAW_JOB_TASK_CLASS}"
-    echo "task params   : ${LAW_JOB_TASK_PARAMS}"
-    echo "branches      : ${LAW_JOB_TASK_BRANCHES_CSV}"
-    echo "job workers   : ${LAW_JOB_WORKERS}"
-    echo "auto retry    : ${LAW_JOB_AUTO_RETRY}"
-    echo "dashboard data: ${LAW_JOB_DASHBOARD_DATA}"
+    echo "task module    : ${LAW_JOB_TASK_MODULE}"
+    echo "task family    : ${LAW_JOB_TASK_CLASS}"
+    echo "task params    : ${LAW_JOB_TASK_PARAMS}"
+    echo "branches       : ${LAW_JOB_TASK_BRANCHES_CSV}"
+    echo "job workers    : ${LAW_JOB_WORKERS}"
+    echo "auto retry     : ${LAW_JOB_AUTO_RETRY}"
+    echo "dashboard data : ${LAW_JOB_DASHBOARD_DATA}"
+    echo
 
     # show files in initial directory
-    echo
     _law_job_subsection "files in LAW_JOB_INIT_DIR"
     echo "> pwd"
     pwd
