@@ -346,7 +346,7 @@ class RucioReporter(threading.Thread):
         try:
             res = requests.post(endpoint, json=data)
             res.raise_for_status()
-        except requests.HTTPError as e:
+        except (requests.HTTPError, requests.ConnectionError) as e:
             msg = f"rucio file access reporting failed for lfn '{lfn}' and rse '{rse}': {e}"
             if silent:
                 logger.debug(msg)
