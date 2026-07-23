@@ -367,10 +367,10 @@ class RemoteFileSystem(FileSystem):
             if not dst_fs.exists(resolved_dst):
                 raise Exception("validation failed after copying {} to {}".format(src_uri, dst_uri))
 
-        # handle permissions
+        # handle permissions; default_file_perm belongs to self, not dst_fs
         if perm is None:
-            perm = dst_fs.default_file_perm
-        dst_fs.chmod(dst, perm)
+            perm = self.default_file_perm
+        dst_fs.chmod(resolved_dst, perm)
 
         return dst_uri
 
