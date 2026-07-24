@@ -356,16 +356,20 @@ class RemoteFileSystem(FileSystem):
         # actual copy
         src_uri, dst_uri = self.file_interface.filecopy(src, dst, **kwargs)
 
+        # dst is base-relative, so use dst_uri instead when dst_fs is local_fs
+        dst_is_local = self.is_local(dst_uri)
+        dst_fs = self.local_fs if dst_is_local else self
+        resolved_dst = dst_uri if dst_is_local else dst
+
         # copy validation
-        dst_fs = self.local_fs if self.is_local(dst_uri) else self
         if validate:
-            if not dst_fs.exists(dst):
+            if not dst_fs.exists(resolved_dst):
                 raise Exception("validation failed after copying {} to {}".format(src_uri, dst_uri))
 
         # handle permissions
         if perm is None:
-            perm = dst_fs.default_file_perm
-        dst_fs.chmod(dst, perm)
+            perm = self.default_file_perm
+        dst_fs.chmod(resolved_dst, perm)
 
         return dst_uri
 
