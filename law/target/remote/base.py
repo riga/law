@@ -368,7 +368,7 @@ class RemoteFileSystem(FileSystem):
 
         # handle permissions
         if perm is None:
-            perm = self.default_file_perm
+            perm = dst_fs.default_file_perm
         dst_fs.chmod(resolved_dst, perm)
 
         return dst_uri
