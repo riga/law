@@ -143,6 +143,7 @@ ignore = [
   "EM102",  # do not use f-string in exception messages
   "SIM103",  # return needless bool
   "RUF100",  # unused "noqa" directive
+  "RUF105",  # any "noqa" comment
   "PLC0415",  # `import` should be at the top-level of a file
   "PLW0603",  # discouraged use of global statement
   "PLW3201",  # dunder method `...` has no special meaning in Python 3
