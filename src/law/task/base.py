@@ -114,16 +114,20 @@ class BaseRegister(luigi.task_register.Register):
 
         def instantiate():
             if cls._transfer_params_to_inst:
-                kwargs["_inst_dict"] = {
-                    attr: unknown_param_dict[attr]
-                    for attr in make_unique(cls._transfer_params_to_inst)
-                }
+                kwargs["_inst_dict"] = {}
+                for attr in make_unique(cls._transfer_params_to_inst):
+                    if attr not in unknown_param_dict:
+                        raise KeyError(
+                            f"attribute '{attr}' is not available in the unknown parameter dictionary for transfer to "
+                            f"the instance of class {cls}",
+                        )
+                    kwargs["_inst_dict"][attr] = unknown_param_dict[attr]
             return abc.ABCMeta.__call__(cls, *args, **kwargs)
 
         if h is None:  # disabled
             return instantiate()  # type: ignore[unreachable]
 
-        k = (cls, tuple(param_values))
+        k = (cls, tuple((param, value) for param, value in param_values if param not in cls.exclude_params_hash))  # type: ignore[attr-defined]
 
         try:
             hash(k)
@@ -144,6 +148,7 @@ class BaseTask(luigi.Task, metaclass=BaseRegister):
     exclude_params_req: set[str] = set()
     exclude_params_req_set: set[str] = set()
     exclude_params_req_get: set[str] = set()
+    exclude_params_hash: set[str] = set()
     prefer_params_cli: set[str] = set()
 
     # whether to cache the result of requires() for input() and potentially also other calls
