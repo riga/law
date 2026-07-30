@@ -35,6 +35,7 @@ from law.util import (
     law_run,
     make_list,
     make_set,
+    make_unique,
     map_struct,
     mask_struct,
     multi_match,
@@ -48,6 +49,9 @@ logger = get_logger(__name__)
 
 
 class BaseRegister(luigi.task_register.Register):
+
+    __instance_cache: dict[tuple[BaseRegister, tuple], Any] = {}
+    _transfer_params_to_inst: list[str] = []
 
     def __new__(
         metacls,
@@ -93,6 +97,44 @@ class BaseRegister(luigi.task_register.Register):
         metacls._reg.append(cls)
 
         return cls
+
+    def __call__(cls, *args, **kwargs):
+        # re-structuring of luigi's task register instance creation to allow for objects created during parameter
+        # evaluation to be transferred to the instance
+        # https://github.com/spotify/luigi/blob/715f65c4a56a908ef0a1df4df6fc33b8420e2e6c/luigi/task_register.py#L73-L103
+        h = cls.__instance_cache
+
+        if h is not None or cls._transfer_params_to_inst:  # type: ignore[unreachable]
+            params = cls.get_params()  # type: ignore[attr-defined]
+            if cls._transfer_params_to_inst:
+                param_values, unknown_param_values = cls.get_param_values(params, args, kwargs, return_unknown=True)  # type: ignore[attr-defined]
+                unknown_param_dict = dict(unknown_param_values)
+            else:
+                param_values = cls.get_param_values(params, args, kwargs)  # type: ignore[attr-defined]
+
+        def instantiate():
+            if cls._transfer_params_to_inst:
+                kwargs["_inst_dict"] = {
+                    attr: unknown_param_dict[attr]
+                    for attr in make_unique(cls._transfer_params_to_inst)
+                }
+            return abc.ABCMeta.__call__(cls, *args, **kwargs)
+
+        if h is None:  # disabled
+            return instantiate()  # type: ignore[unreachable]
+
+        k = (cls, tuple(param_values))
+
+        try:
+            hash(k)
+        except TypeError:
+            logger.debug("Not all parameter values are hashable so instance isn't coming from the cache")
+            return instantiate()  # unhashable types in parameters
+
+        if k not in h:
+            h[k] = instantiate()
+
+        return h[k]
 
 
 class BaseTask(luigi.Task, metaclass=BaseRegister):
@@ -173,7 +215,8 @@ class BaseTask(luigi.Task, metaclass=BaseRegister):
         params: list[tuple[str, luigi.Parameter]],
         args: tuple[Any, ...],
         kwargs: dict[str, Any],
-    ) -> list[Any]:
+        return_unknown: bool = False,
+    ) -> list[tuple[str, Any]] | tuple[list[tuple[str, Any]], list[tuple[str, Any]]]:
         # call the hook optionally modifying the values before values are assigned
         params, args, kwargs = cls.modify_param_args(params, args, kwargs)
 
@@ -187,15 +230,17 @@ class BaseTask(luigi.Task, metaclass=BaseRegister):
         ]
 
         # call the hook optionally modifying the values afterwards,
-        # but remove temporary objects that might have been placed into it
+        # optionally separating them into known and unknown parameters
         param_names = {name for name, _ in params}
-        values = [
-            (name, value)
-            for name, value in cls.modify_param_values(dict(values)).items()
-            if name in param_names
-        ]
+        known = []
+        unknown = []
+        for name, value in cls.modify_param_values(dict(values)).items():
+            if name in param_names:
+                known.append((name, value))
+            elif return_unknown:
+                unknown.append((name, value))
 
-        return values
+        return (known, unknown) if return_unknown else known
 
     @classmethod
     def req(cls, inst: BaseTask, **kwargs) -> BaseTask:
@@ -258,7 +303,11 @@ class BaseTask(luigi.Task, metaclass=BaseRegister):
 
         return params
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args, _inst_dict: dict[str, Any] | None = None, **kwargs) -> None:
+        if _inst_dict:
+            for attr, value in _inst_dict.items():
+                setattr(self, attr, value)
+
         super().__init__(*args, **kwargs)
 
         # task level logger, created lazily
