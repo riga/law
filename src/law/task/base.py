@@ -107,8 +107,13 @@ class BaseRegister(luigi.task_register.Register):
         if h is not None or cls._transfer_params_to_inst:  # type: ignore[unreachable]
             params = cls.get_params()  # type: ignore[attr-defined]
             if cls._transfer_params_to_inst:
+                transfer_param_values = {
+                    param: kwargs.pop(param)
+                    for param in cls._transfer_params_to_inst
+                    if param in kwargs
+                }
                 param_values, unknown_param_values = cls.get_param_values(params, args, kwargs, return_unknown=True)  # type: ignore[attr-defined]
-                unknown_param_dict = dict(unknown_param_values)
+                unknown_param_dict = transfer_param_values | dict(unknown_param_values)
             else:
                 param_values = cls.get_param_values(params, args, kwargs)  # type: ignore[attr-defined]
 
