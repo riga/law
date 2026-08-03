@@ -275,11 +275,13 @@ class Sandbox(metaclass=abc.ABCMeta):
     def force_local_scheduler(self) -> bool:
         return False
 
-    @abc.abstractproperty
+    @property
+    @abc.abstractmethod
     def config_section_prefix(self) -> str:
         ...
 
-    @abc.abstractproperty
+    @property
+    @abc.abstractmethod
     def env_cache_key(self) -> str:
         ...
 

@@ -108,7 +108,8 @@ class FileSystem(shims.FileSystem):
     def _unscheme(self, path: str | pathlib.Path) -> str:
         return remove_scheme(path)
 
-    @abc.abstractproperty
+    @property
+    @abc.abstractmethod
     def default_instance(self) -> FileSystem:
         ...
 
@@ -348,11 +349,13 @@ class FileSystemTarget(Target, shims.FileSystemTarget):
         dir_target = self if isinstance(self, self.directory_class) else self.parent
         dir_target.touch(**kwargs)  # type: ignore[union-attr]
 
-    @abc.abstractproperty
+    @property
+    @abc.abstractmethod
     def fs(self) -> FileSystem:
         ...
 
-    @abc.abstractproperty
+    @property
+    @abc.abstractmethod
     def abspath(self) -> str:
         ...
 
