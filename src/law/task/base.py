@@ -35,7 +35,6 @@ from law.util import (
     law_run,
     make_list,
     make_set,
-    make_unique,
     map_struct,
     mask_struct,
     multi_match,
@@ -51,7 +50,6 @@ logger = get_logger(__name__)
 class BaseRegister(luigi.task_register.Register):
 
     __instance_cache: dict[tuple[BaseRegister, tuple], Any] = {}
-    _transfer_params_to_inst: list[str] = []
 
     def __new__(
         metacls,
@@ -62,10 +60,10 @@ class BaseRegister(luigi.task_register.Register):
         # default attributes, irrespective of inheritance
         cls_dict.setdefault("exclude_index", False)
 
-        # unite "exclude_params_*" sets with those of all base classes
+        # unite "exclude_params_*" and "transfer_params_*" sets with those of all base classes
         for base in bases:
             for attr, base_params in vars(base).items():
-                if attr.startswith("exclude_params_") and isinstance(base_params, set):
+                if attr.startswith(("exclude_params_", "transfer_params_")) and isinstance(base_params, set):
                     params = cls_dict.setdefault(attr, set())
                     if isinstance(params, set):
                         params.update(base_params)
@@ -104,12 +102,12 @@ class BaseRegister(luigi.task_register.Register):
         # https://github.com/spotify/luigi/blob/715f65c4a56a908ef0a1df4df6fc33b8420e2e6c/luigi/task_register.py#L73-L103
         h = cls.__instance_cache
 
-        if h is not None or cls._transfer_params_to_inst:  # type: ignore[unreachable]
+        if h is not None or cls.transfer_params_to_inst:  # type: ignore[unreachable]
             params = cls.get_params()  # type: ignore[attr-defined]
-            if cls._transfer_params_to_inst:
+            if cls.transfer_params_to_inst:  # type: ignore[attr-defined]
                 transfer_param_values = {
                     param: kwargs.pop(param)
-                    for param in cls._transfer_params_to_inst
+                    for param in cls.transfer_params_to_inst  # type: ignore[attr-defined]
                     if param in kwargs
                 }
                 param_values, unknown_param_values = cls.get_param_values(params, args, kwargs, return_unknown=True)  # type: ignore[attr-defined]
@@ -118,9 +116,9 @@ class BaseRegister(luigi.task_register.Register):
                 param_values = cls.get_param_values(params, args, kwargs)  # type: ignore[attr-defined]
 
         def instantiate():
-            if cls._transfer_params_to_inst:
+            if cls.transfer_params_to_inst:  # type: ignore[attr-defined]
                 kwargs["_inst_dict"] = {}
-                for attr in make_unique(cls._transfer_params_to_inst):
+                for attr in cls.transfer_params_to_inst:  # type: ignore[attr-defined]
                     if attr not in unknown_param_dict:
                         raise KeyError(
                             f"attribute '{attr}' is not available in the unknown parameter dictionary for transfer to "
@@ -153,7 +151,9 @@ class BaseTask(luigi.Task, metaclass=BaseRegister):
     exclude_params_req: set[str] = set()
     exclude_params_req_set: set[str] = set()
     exclude_params_req_get: set[str] = set()
+    transfer_params_to_inst: set[str] = set()
     exclude_params_hash: set[str] = set()
+
     prefer_params_cli: set[str] = set()
 
     # whether to cache the result of requires() for input() and potentially also other calls
