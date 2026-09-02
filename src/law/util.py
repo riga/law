@@ -1836,6 +1836,26 @@ def create_hash(inp: Any, length: int = 10, algo: str = "sha256", to_int: bool =
     return int(h, 16) if to_int else h
 
 
+def compute_sha1_hash(path: str | pathlib.Path, to_int: bool = False) -> str | int:
+    """
+    For a file located at *path*, computes the SHA1 hash and returns it as a hexadecimal string. When
+    *to_int* is *True*, the decimal integer representation is returned.
+    """
+    path = os.path.abspath(os.path.expandvars(os.path.expanduser(str(path))))
+    cmd = ["sha1sum", path]
+    code, out, _ = interruptable_popen(  # type: ignore[assignment]
+        cmd,
+        shell=True,
+        executable="/bin/bash",
+        stdout=subprocess.PIPE,
+    )
+    if code != 0:
+        raise Exception(f"failed to compute sha1 hash for file '{path}'")
+
+    h = out.split()[0]  # type: ignore[union-attr]
+    return int(h, 16) if to_int else h
+
+
 def create_random_string(length: int = 10, prefix: str = "") -> str:
     """
     Creates and returns a random string consisting of *length* characters using a uuid4 hash. When

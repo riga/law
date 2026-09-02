@@ -387,7 +387,7 @@ def delegate_myproxy(
     *userkey* and *usercert* default to the return values of :py:func:`get_userkey` and
     :py:func:`get_usercert`, respectively. When *username* is *None*, the identity field of an
     existing voms proxy is used, or the subject string of the certificate otherwise. If
-    *encode_username* is set, *username* is the sha1 encoded.
+    *encode_username* is set, *username* is sha1 encoded.
 
     The credential and proxy lifetimes can be defined in hours by *cred_lifetime* and
     *proxy_lifetime*. When *retrievers* are given, they are passed as both ``--renewable_by`` and
