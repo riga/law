@@ -221,9 +221,13 @@ class SlurmJobManager(BaseJobManager):
             # parse the output and extract the status per job
             query_data = self.parse_squeue_output(out)
 
-        # some jobs might already be in the accounting history, so query for missing job ids
+        # determine how missing jobs should be queried; by default, retain the original behavior
+        # and use sacct, while optionally allowing status files written by the batch scripts
         missing_ids = [_job_id for _job_id in job_ids if _job_id not in query_data]
-        if missing_ids:
+        use_sacct = _cfg.get_expanded_bool("job", "slurm_use_sacct", default=True)
+        status_dir = _cfg.get_expanded("job", "slurm_job_status_dir", default=None)
+
+        if missing_ids and use_sacct:
             # build the sacct command
             cmd = shlex.split(_cfg.get_expanded("job", "slurm_cmd_sacct"))
             cmd += ["--format", self.sacct_format, "--noheader"]
@@ -253,6 +257,65 @@ class SlurmJobManager(BaseJobManager):
 
             # parse the output and update query data
             query_data.update(self.parse_sacct_output(out))
+
+        elif missing_ids:
+            if not status_dir:
+                if silent:
+                    return None
+                raise Exception(
+                    "slurm_use_sacct is disabled, but no slurm_job_status_dir is configured",
+                )
+
+            # jobs disappear from squeue when they finish; retrieve their state from files that
+            # are written by the generated batch scripts instead
+            for _job_id in missing_ids:
+                status_file = os.path.join(status_dir, f"{_job_id}.status")
+
+                # a job can briefly be absent from squeue before its batch script has started
+                if not os.path.isfile(status_file):
+                    query_data[_job_id] = self.job_status_dict(
+                        job_id=_job_id,
+                        status=self.PENDING,
+                    )
+                    continue
+
+                try:
+                    with open(status_file, encoding="utf-8") as f:
+                        fields = f.read().strip().split()
+
+                    if len(fields) != 2:
+                        raise ValueError("expected '<state> <exit-code>'")
+
+                    state, exit_code_str = fields
+                    exit_code = int(exit_code_str)
+                except (OSError, TypeError, ValueError) as e:
+                    error = f"cannot parse Slurm status file '{status_file}': {e}"
+                    logger.warning(error)
+                    query_data[_job_id] = self.job_status_dict(
+                        job_id=_job_id,
+                        status=self.FAILED,
+                        error=error,
+                    )
+                    continue
+
+                if state == "RUNNING":
+                    query_data[_job_id] = self.job_status_dict(
+                        job_id=_job_id,
+                        status=self.RUNNING,
+                    )
+                elif state == "COMPLETED" and exit_code == 0:
+                    query_data[_job_id] = self.job_status_dict(
+                        job_id=_job_id,
+                        status=self.FINISHED,
+                        code=0,
+                    )
+                else:
+                    query_data[_job_id] = self.job_status_dict(
+                        job_id=_job_id,
+                        status=self.FAILED,
+                        code=exit_code,
+                        error=f"Slurm job exited with code {exit_code}",
+                    )
 
         # compare to the requested job ids and perform some checks
         for _job_id in job_ids:
@@ -472,13 +535,34 @@ class SlurmJobFileFactory(BaseJobFileFactory):
             if not f.copy or f.forward:
                 return abs_path
             # copy the file
-            abs_path = self.provide_input(
+            provided_path = self.provide_input(
                 src=abs_path,
                 postfix=postfix if f.postfix and not f.share else None,
                 dir=c.dir,
                 skip_existing=f.share,
             )
-            return abs_path
+
+            # optionally preserve the logical spelling of the submission directory; this is
+            # useful when submission and worker nodes expose a shared file system through
+            # different mount aliases
+            preserve_logical_paths = _cfg.get_expanded_bool(
+                "job",
+                "slurm_preserve_logical_paths",
+                default=False,
+            )
+            if not preserve_logical_paths:
+                return provided_path
+
+            logical_dir = os.path.abspath(c.dir)
+            physical_dir = os.path.realpath(logical_dir)
+            physical_path = os.path.realpath(provided_path)
+            relative_path = os.path.relpath(physical_path, physical_dir)
+
+            # only reconstruct paths that are located inside the submission directory
+            if relative_path == os.pardir or relative_path.startswith(os.pardir + os.sep):
+                return provided_path
+
+            return os.path.normpath(os.path.join(logical_dir, relative_path))
 
         # absolute absolute paths
         for f in c.input_files.values():
@@ -581,6 +665,34 @@ class SlurmJobFileFactory(BaseJobFileFactory):
             for obj in content:
                 line = self.create_line(obj)
                 f.write(f"{line}\n")
+
+            # optionally let the batch script report its state in a shared directory; this is a
+            # fallback for installations where Slurm accounting is unavailable from the
+            # submission host and is disabled by configuration
+            status_dir = _cfg.get_expanded("job", "slurm_job_status_dir", default=None)
+            if status_dir:
+                os.makedirs(status_dir, exist_ok=True)
+                quoted_status_dir = shlex.quote(status_dir)
+                f.write(
+                    "\n# Slurm status-file reporting\n"
+                    f"_law_slurm_status_dir={quoted_status_dir}\n"
+                    "_law_slurm_status_file=\"${_law_slurm_status_dir}/${SLURM_JOB_ID}.status\"\n"
+                    "_law_write_slurm_status() {\n"
+                    "    _law_slurm_exit_code=$?\n"
+                    "    if [ \"${_law_slurm_exit_code}\" -eq 0 ]; then\n"
+                    "        _law_slurm_state=COMPLETED\n"
+                    "    else\n"
+                    "        _law_slurm_state=FAILED\n"
+                    "    fi\n"
+                    "    _law_slurm_tmp=\"${_law_slurm_status_file}.tmp.$$\"\n"
+                    "    printf '%s %s\\n' \"${_law_slurm_state}\" \"${_law_slurm_exit_code}\" "
+                    "> \"${_law_slurm_tmp}\"\n"
+                    "    mv -f \"${_law_slurm_tmp}\" \"${_law_slurm_status_file}\"\n"
+                    "}\n"
+                    "mkdir -p \"${_law_slurm_status_dir}\"\n"
+                    "printf 'RUNNING -1\\n' > \"${_law_slurm_status_file}\"\n"
+                    "trap _law_write_slurm_status EXIT\n"
+                )
 
             # prepare arguments
             args = c.arguments or ""
