@@ -376,12 +376,14 @@ class SiblingFileCollectionBase(FileCollection):
                 optional_existing=optional_existing,
             )
         if isinstance(target, TargetCollection):
-            return target.exists(exists_func=functools.partial(
-                cls._exists_in_basenames,
-                basenames=basenames,
-                optional_existing=optional_existing,
-                target_dirs=target_dirs,
-            ))
+            return target.exists(
+                exists_func=functools.partial(
+                    cls._exists_in_basenames,
+                    basenames=basenames,
+                    optional_existing=optional_existing,
+                    target_dirs=target_dirs,
+                ),
+            )
         if isinstance(basenames, dict):
             if target_dirs and target in target_dirs:
                 basenames = basenames[target_dirs[target]]
@@ -484,10 +486,6 @@ class SiblingFileCollection(SiblingFileCollectionBase):
         unpack: bool = True,
         exists_func: Callable[[Target], bool] | None = None,
     ) -> Iterator[Any | tuple[Hashable, Any] | tuple[Any, bool] | tuple[Hashable, Any, bool]]:
-        # the directory must exist
-        if not self.dir.exists():
-            return
-
         if existing is not None:
             existing = bool(existing)
         if optional_existing is no_value:
