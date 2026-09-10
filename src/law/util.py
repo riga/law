@@ -979,19 +979,33 @@ def multi_match(
     patterns: str | Iterable[str],
     mode: Callable[[Iterable], bool] = any,
     regex: bool | None = None,
+    skip_negation: bool = False,
 ) -> bool:
     """
-    Compares *name* to multiple *patterns* and returns *True* in case of at least one match (*mode*
-    = *any*, the default), or in case all patterns match (*mode* = *all*). Otherwise, *False* is
-    returned. When *regex* is *True*, *re.match* is used instead of *fnmatch.fnmatch*. When *None*,
-    the matching function is chosen per pattern: when containing both "^" and "$", regex
-    matching is used, and fnmatch otherwise.
+    Compares *name* to multiple *patterns* and returns *True* in case of at least one match (*mode* = *any*, the
+    default), or in case all patterns match (*mode* = *all*). Otherwise, *False* is returned.
+
+    When *regex* is *True*, *re.match* is used instead of *fnmatch.fnmatch*. When *None*, the matching function is
+    chosen per pattern: when containing both "^" and "$", regex matching is used, and fnmatch otherwise.
+
+    Patterns starting with "!" are negated unless *skip_negation* is *True*.
     """
     patterns = make_list(patterns)
 
+    # negation helper
+    if skip_negation:
+        negate = lambda pattern: (True, pattern)
+    else:
+        negate = lambda pattern: (False, pattern[1:]) if pattern.startswith("!") else (True, pattern)
+
     # generic matching functions with identical signature
-    match_func_fn = lambda pattern: fnmatch.fnmatch(name, pattern)
-    match_func_re = lambda pattern: bool(re.match(pattern, name))
+    def match_func_fn(pattern):
+        state, pattern = negate(pattern)
+        return bool(fnmatch.fnmatch(name, pattern)) is state
+
+    def match_func_re(pattern):
+        state, pattern = negate(pattern)
+        return bool(re.match(pattern, name)) is state
 
     # determine the matching function
     match_func = match_func_fn
