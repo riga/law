@@ -18,4 +18,4 @@ build:
   jobs:
     pre_install:
       - python -m pip install --upgrade --no-cache-dir pip setuptools wheel pip-tools
-      - pip-compile pyproject.toml --quiet --no-annotate --no-header --strip-extras --extra dev --extra docs -o requirements_rtd.txt
+      - pip-compile pyproject.toml --quiet --no-annotate --no-header --strip-extras --extra docs -o requirements_rtd.txt

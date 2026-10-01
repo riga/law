@@ -237,9 +237,9 @@ To run them manually, use
 pre-commit run --all-files
 
 # only for staged files
-pre-commit run --all-files
+pre-commit run
 
-# for unit tests
+# or run unit tests standalone
 pytest
 ```
 
