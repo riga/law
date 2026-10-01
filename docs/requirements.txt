@@ -1,8 +1,0 @@
-# main packages
--r ../requirements.txt
-
-# dev packages
--r ../requirements_dev.txt
-
-# documentation packages
--r ../requirements_docs.txt

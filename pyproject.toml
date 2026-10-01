@@ -130,29 +130,30 @@ exclude = ["docs", "build", "examples", "local_tests"]
 [tool.ruff.lint]
 preview = true
 ignore = [
-  "PLR",  # design related pylint codes
-  "B901",  # return in generator
-  "B905",  # use of zip() without strict parameter
-  "E402",  # imports at the top of the file
-  "G004",  # logging statement uses f-string
-  "I002",  # isort: "from __future__ import annotations"
-  "ISC001",  # flake8-implicit-str-concat: Implicit string concatenation"
-  "PLW2901",  # ignore reassingment of loop variable
-  "E731",  # do not assign a lambda expression, use a def
-  "EM101",  # do not use literal strings in exception messages
-  "EM102",  # do not use f-string in exception messages
-  "SIM103",  # return needless bool
-  "RUF100",  # unused "noqa" directive
-  "RUF105",  # any "noqa" comment
-  "PLC0415",  # `import` should be at the top-level of a file
-  "PLW0603",  # discouraged use of global statement
-  "PLW3201",  # dunder method `...` has no special meaning in Python 3
-  "PLW0717",  # too many lines in try block
-  "RUF012",  # mutable class default
-  "RUF017",  # avoid nested comprehensions
-  "RUF052",  # local dummy variable `...` is accessed
-  "RUF067",  # __init__ should only contain imports
-  "RET504",  # unnecessary assignment before return
+  "PLR",
+  "return-in-generator",
+  "zip-without-explicit-strict",
+  "module-import-not-at-top-of-file",
+  "logging-f-string",
+  "missing-required-import",
+  "single-line-implicit-string-concatenation",
+  "redefined-loop-name",
+  "lambda-assignment",
+  "raw-string-in-exception",
+  "f-string-in-exception",
+  "needless-bool",
+  "unused-noqa",
+  "noqa-comments",
+  "import-outside-top-level",
+  "global-statement",
+  "bad-dunder-method-name",
+  "too-many-statements-in-try-clause",
+  "mutable-class-default",
+  "quadratic-list-summation",
+  "used-dummy-variable",
+  "non-empty-init-module",
+  "unnecessary-assign",
+  "non-pep695-type-alias",
 ]
 select = [
   "E",
@@ -175,11 +176,11 @@ select = [
   "UP",  # pyupgrade
   "YTT",  # flake8-2020
   "EXE",  # flake8-executable
-  "COM812",  # trailing commas
-  "E303",  # too many blank lines
+  "missing-trailing-comma",
+  "too-many-blank-lines",
 ]
 unfixable = [
-  "F841",  # would remove unused variables
+  "unused-variable",
 ]
 flake8-unused-arguments.ignore-variadic-names = true
 isort.required-imports = ["from __future__ import annotations"]
