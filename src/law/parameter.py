@@ -30,10 +30,11 @@ import functools
 
 import luigi
 
-from law._types import Any, Sequence, T
+from law._types import TYPE_CHECKING, Any, Sequence, T, cast
 from law.logger import get_logger
 from law.notification import notify_custom, notify_mail
 from law.util import (
+    RangeTuple,
     brace_expand,
     byte_units,
     human_bytes,
@@ -88,7 +89,15 @@ def get_param(value: Any, default: Any = None) -> Any:
     return default if is_no_param(value) else value
 
 
-class Parameter(luigi.Parameter):
+# luigi's type stubs (shipped with some versions) define parameters as generic over their value
+# type, defaulting to str, so declare law parameters to accept arbitrary values during type checking
+if TYPE_CHECKING:
+    _LuigiParameter = luigi.Parameter[Any]
+else:
+    _LuigiParameter = luigi.Parameter
+
+
+class Parameter(_LuigiParameter):
     """ __init__(*args, parse_empty=False, **kwargs)
     Custom base class of law-based parameters that adds additional features.
 
@@ -105,6 +114,8 @@ class Parameter(luigi.Parameter):
         Whether the parameter parsing should be triggered for empty command line arguments (usually
         empty strings, but not for *None*s).
     """
+
+    description: str | None
 
     def __init__(self, *args, **kwargs) -> None:
         self.parse_empty = kwargs.pop("parse_empty", False)
@@ -133,7 +144,7 @@ class OptionalBoolParameter(luigi.BoolParameter, Parameter):
     """
 
     # TODO: more precise inp
-    def parse(self, inp: Any) -> bool | None:
+    def parse(self, inp: Any) -> bool | None:  # type: ignore[override]
         """"""
         if isinstance(inp, bool) or inp is None:
             return inp
@@ -147,6 +158,10 @@ class OptionalBoolParameter(luigi.BoolParameter, Parameter):
             return None
 
         raise ValueError(f"cannot interpret '{inp}' as boolean")
+
+    def serialize(self, x: bool | None) -> str:
+        """"""
+        return str(x)
 
 
 class DurationParameter(Parameter):
@@ -164,8 +179,8 @@ class DurationParameter(Parameter):
         p.parse("5s")                     # -> 5.0
         p.parse("5m")                     # -> 300.0
         p.parse("05:10")                  # -> 310.0
-        p.parse("5 minutes, 15 seconds")  # -> 310.0
-        p.serialize(310)                  # -> "05:15"
+        p.parse("5 minutes, 15 seconds")  # -> 315.0
+        p.serialize(310)                  # -> "05:10"
 
         p = DurationParameter(unit="m")
         p.parse("5")                      # -> 5.0 (using the unit implicitly)
@@ -173,7 +188,7 @@ class DurationParameter(Parameter):
         p.parse("5m")                     # -> 5.0
         p.parse("05:10")                  # -> 5.167
         p.parse("5 minutes, 15 seconds")  # -> 5.25
-        p.serialize(310)                  # -> "05:15:00"
+        p.serialize(310)                  # -> "05:10:00"
 
     For more info, see :py:func:`law.util.parse_duration` and :py:func:`law.util.human_duration`.
     """
@@ -272,9 +287,7 @@ class BytesParameter(Parameter):
             value = 0
 
         value_bytes = parse_bytes(value, input_unit=self.unit, unit="bytes")
-        v: float
-        u: str
-        v, u = human_bytes(value_bytes, unit=self.unit)  # type: ignore[assignment,str-unpack]
+        v, u = cast(tuple[float, str], human_bytes(value_bytes, unit=self.unit))
 
         return f"{try_int(v)}{u}"
 
@@ -465,12 +478,13 @@ class CSVParameter(Parameter):
                 # add back escaped separators per element
                 if self._escape_sep:
                     elems = [elem.replace(escaped_sep, ",") for elem in elems]
-            # skip trailing empty strings
-            if not elems[-1]:
+            # skip trailing empty strings, but remember them since they enforce tuples
+            trailing_sep = not elems[-1]
+            if trailing_sep:
                 elems.pop()
             # parse
             value = tuple(map(self._inst.parse, elems))
-            return_single_value = len(value) == 1 and not self._force_tuple
+            return_single_value = len(value) == 1 and not self._force_tuple and not trailing_sep
         else:
             value = (inp,)
 
@@ -498,8 +512,11 @@ class CSVParameter(Parameter):
         self._check_len(value)
         self._check_choices(value)
 
-        # convert to string
-        s = ",".join(str(self._inst.serialize(elem)) for elem in value)
+        # convert to string, escaping separators contained in values
+        elems = [str(self._inst.serialize(elem)) for elem in value]
+        if self._escape_sep:
+            elems = [elem.replace(",", "\\,") for elem in elems]
+        s = ",".join(elems)
 
         # add a trailing comma if necessary
         if len(value) == 1 and not self._force_tuple and was_sequence:
@@ -532,7 +549,7 @@ class MultiCSVParameter(CSVParameter):
         p = MultiCSVParameter(cls=luigi.IntParameter)
         p.parse("4,5:6,6")
         # => ((4, 5), (6, 6))
-        p.serialize((7, 8, (9,)))
+        p.serialize(((7, 8), (9,)))
         # => "7,8:9"
 
         # ":" that should not be used as delimiter
@@ -615,8 +632,11 @@ class MultiCSVParameter(CSVParameter):
         if not value:
             return ""
 
-        _serialize = super().serialize
-        return ":".join(_serialize(v) for v in make_tuple(value))
+        # serialize sequences, escaping separators contained in values
+        elems = [super(MultiCSVParameter, self).serialize(v) for v in make_tuple(value)]
+        if self._escape_sep:
+            elems = [elem.replace(":", "\\:") for elem in elems]
+        return ":".join(elems)
 
 
 class RangeParameter(Parameter):
@@ -624,7 +644,7 @@ class RangeParameter(Parameter):
     Parameter that parses a range in the format ``start:stop`` and returns a tuple with two integer
     elements.
 
-    When *require_start* or *require_stop* are *False*, the formats ``:stop`` and ``start:``,
+    When *require_start* or *require_end* are *False*, the formats ``:end`` and ``start:``,
     respectively, are accepted as well. In these cases, the tuple will contain an attribute
     :py:attr:`OPEN` do denote that either side is unconstrained.
 
@@ -643,7 +663,7 @@ class RangeParameter(Parameter):
         p.parse("4")
         # => ValueError
 
-        p = RangeParameter(require_start=False, require_stop=False)
+        p = RangeParameter(require_start=False, require_end=False)
         p.parse("4:5")
         # => (4, 5)
         p.parse("4:")
@@ -659,7 +679,7 @@ class RangeParameter(Parameter):
         p.parse("4")
         # => (4,)
         p.serialize((5,))
-        # => "4"
+        # => "5"
 
     .. py:classattribute:: RANGE_SEP
 
@@ -681,7 +701,7 @@ class RangeParameter(Parameter):
     @classmethod
     def expand(
         cls,
-        range: str | Sequence[str] | Sequence[tuple[int] | tuple[int, int]],
+        range: str | Sequence[str] | RangeTuple | Sequence[RangeTuple],
         **kwargs,
     ) -> list[int]:
         """
@@ -798,7 +818,7 @@ class MultiRangeParameter(RangeParameter):
     @classmethod
     def expand(  # type: ignore[override]
         cls,
-        ranges: str | Sequence[str] | Sequence[tuple[int] | tuple[int, int]],
+        ranges: str | Sequence[str] | Sequence[RangeTuple],
         **kwargs,
     ) -> list[int]:
         """
@@ -808,7 +828,7 @@ class MultiRangeParameter(RangeParameter):
         .. code-block:: python
 
             MultiRangeParameter.expand(((4, 8), (12, 14)))
-            # -> [4, 5, 6, 7, 8, 12, 13, 14]
+            # -> [4, 5, 6, 7, 12, 13]
         """
         return sorted(set.union(*map(set, map(functools.partial(range_expand, **kwargs), ranges))))
 
@@ -905,7 +925,6 @@ class NotifyMailParameter(NotifyParameter):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-        self.description: str | None
         if not self.description:
             self.description = (
                 "when true, and the task's run method is decorated with law.decorator.notify, an "

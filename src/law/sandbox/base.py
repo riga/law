@@ -446,10 +446,10 @@ class SandboxProxy(ProxyTask):
 
     @property
     def sandbox_inst(self) -> Sandbox:
-        return self.task.sandbox_inst  # type: ignore[attr-defined]
+        return self.task.sandbox_inst
 
     def create_proxy_cmd(self) -> ProxyCommand:
-        task: SandboxTask = self.task  # type: ignore[assignment]
+        task: SandboxTask = self.task
 
         return ProxyCommand(
             task,
@@ -459,7 +459,7 @@ class SandboxProxy(ProxyTask):
         )
 
     def run(self) -> None:
-        task: SandboxTask = self.task  # type: ignore[assignment]
+        task: SandboxTask = self.task
 
         # pre_run hook
         if callable(task.sandbox_pre_run):
@@ -507,7 +507,7 @@ class SandboxProxy(ProxyTask):
         self,
         tmp_dir: str | pathlib.Path | LocalDirectoryTarget,
     ) -> StageInfo | None:
-        task: SandboxTask = self.task  # type: ignore[assignment]
+        task: SandboxTask = self.task
 
         # check if the stage-in dir is set
         cfg = Config.instance()
@@ -533,7 +533,7 @@ class SandboxProxy(ProxyTask):
         # create the stage-in directory
         if not isinstance(tmp_dir, LocalDirectoryTarget):
             tmp_dir = LocalDirectoryTarget(tmp_dir)
-        stagein_dir: LocalDirectoryTarget = tmp_dir.child(stagein_dir_name, type="d")  # type: ignore[assignment]
+        stagein_dir: LocalDirectoryTarget = tmp_dir.child(stagein_dir_name, type="d")
         stagein_dir.touch()
 
         # create localized sandbox input representations
@@ -562,7 +562,7 @@ class SandboxProxy(ProxyTask):
         self,
         tmp_dir: str | pathlib.Path | LocalDirectoryTarget,
     ) -> StageInfo | None:
-        task: SandboxTask = self.task  # type: ignore[assignment]
+        task: SandboxTask = self.task
 
         # check if the stage-out dir is set
         cfg = Config.instance()
@@ -588,7 +588,7 @@ class SandboxProxy(ProxyTask):
         # create the stage-out directory
         if not isinstance(tmp_dir, LocalDirectoryTarget):
             tmp_dir = LocalDirectoryTarget(tmp_dir)
-        stageout_dir: LocalDirectoryTarget = tmp_dir.child(stageout_dir_name, type="d")  # type: ignore[assignment]
+        stageout_dir: LocalDirectoryTarget = tmp_dir.child(stageout_dir_name, type="d")
         stageout_dir.touch()
 
         # create localized sandbox output representations
@@ -624,7 +624,7 @@ class SandboxProxy(ProxyTask):
         def print_banner(msg, color):
             print("")
             print(colored(f" {msg} ".center(80, "="), color=color))
-            print(colored("task   : ", color=color) + colored(self.task.task_id, style="bright"))  # type: ignore[attr-defined]
+            print(colored("task   : ", color=color) + colored(self.task.task_id, style="bright"))
             print(colored("sandbox: ", color=color) + colored(self.sandbox_inst.key, style="bright"))
             print(colored(80 * "=", color=color))
             print("")

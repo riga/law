@@ -25,6 +25,7 @@ def setup_parser(sub_parsers: argparse._SubParsersAction) -> None:
     parser.add_argument(
         "--directory",
         "-d",
+        default=".",
         help="the directory where the quickstart files are created; default: current directory",
     )
     parser.add_argument(

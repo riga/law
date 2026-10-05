@@ -37,7 +37,7 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
     job_error_messages = {}
 
     def create_job_manager(self, **kwargs) -> CrabJobManager:
-        return self.task.crab_create_job_manager(**kwargs)  # type: ignore[attr-defined]
+        return self.task.crab_create_job_manager(**kwargs)
 
     def setup_job_manager(self) -> dict[str, Any]:
         cfg = Config.instance()
@@ -79,13 +79,13 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
         return {"proxy_file": proxy_file, "myproxy_username": myproxy_username}
 
     def create_job_file_factory(self, **kwargs) -> CrabJobFileFactory:
-        return self.task.crab_create_job_file_factory(**kwargs)  # type: ignore[attr-defined]
+        return self.task.crab_create_job_file_factory(**kwargs)
 
     def create_job_file_group(
         self,
         submit_jobs: dict[int, list[int]],
     ) -> dict[str, str | pathlib.Path | CrabJobFileFactory.Config | None]:
-        task: CrabWorkflow = self.task  # type: ignore[assignment]
+        task: CrabWorkflow = self.task
 
         # create the config
         c = self.job_file_factory.get_config()  # type: ignore[union-attr]
@@ -192,7 +192,7 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
     def destination_info(self) -> InsertableDict:
         info = super().destination_info()
 
-        info = self.task.crab_destination_info(info)  # type: ignore[attr-defined]
+        info = self.task.crab_destination_info(info)
 
         return info
 
@@ -394,7 +394,7 @@ class CrabWorkflow(BaseRemoteWorkflow):
         Configurable delay in seconds to wait after submitting jobs and before starting the status
         polling.
         """
-        return self.poll_interval * 60  # type: ignore[return-value,operator]
+        return self.poll_interval * 60
 
     def crab_check_job_completeness(self) -> bool:
         """

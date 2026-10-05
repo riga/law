@@ -318,7 +318,7 @@ class RemoteFileSystem(FileSystem):
         path: str | pathlib.Path,
         *,
         pattern: str | None = None,
-        type: Literal["f", "d"] | None = None,  # noqa: F821, UP037
+        type: Literal["f", "d"] | None = None,
         **kwargs,
     ) -> list[str]:
         # forward to local_fs
@@ -821,7 +821,7 @@ class RemoteFileTarget(FileSystemFileTarget, RemoteTarget):
                 yield LocalFileTarget(lpath)  # type: ignore[arg-type]
 
         else:  # mode "w" or "a"
-            tmp = LocalFileTarget(is_tmp=self.ext(n=1) or True, tmp_dir=tmp_dir)
+            tmp = LocalFileTarget(is_tmp=self.ext(n=0) or True, tmp_dir=tmp_dir)
 
             # copy to local in append mode
             if mode == "a" and self.exists():

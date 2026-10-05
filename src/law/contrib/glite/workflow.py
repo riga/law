@@ -38,19 +38,19 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
         super().__init__(*args, **kwargs)
 
         # check if there is at least one ce
-        if not self.task.glite_ce:  # type: ignore[attr-defined]
+        if not self.task.glite_ce:
             raise Exception("please set at least one glite computing element (--glite-ce)")
 
         self.delegation_ids = None
 
     def create_job_manager(self, **kwargs) -> GLiteJobManager:
-        return self.task.glite_create_job_manager(**kwargs)  # type: ignore[attr-defined]
+        return self.task.glite_create_job_manager(**kwargs)
 
     def setup_job_mananger(self) -> dict[str, Any]:
         kwargs = {}
 
         # delegate the voms proxy to all endpoints
-        task: GLiteWorkflow = self.task  # type: ignore[assignment]
+        task: GLiteWorkflow = self.task
         if callable(task.glite_delegate_proxy):
             delegation_ids = []
             for ce in task.glite_ce:
@@ -61,14 +61,14 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
         return kwargs
 
     def create_job_file_factory(self, **kwargs) -> GLiteJobFileFactory:
-        return self.task.glite_create_job_file_factory(**kwargs)  # type: ignore[attr-defined]
+        return self.task.glite_create_job_file_factory(**kwargs)
 
     def create_job_file(
         self,
         job_num: int,
         branches: list[int],
     ) -> dict[str, str | pathlib.Path | GLiteJobFileFactory.Config | None]:
-        task: GLiteWorkflow = self.task  # type: ignore[assignment]
+        task: GLiteWorkflow = self.task
 
         # the file postfix is pythonic range made from branches, e.g. [0, 1, 2, 4] -> "_0To5"
         postfix = f"_{branches[0]}To{branches[-1] + 1}"
@@ -175,7 +175,7 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
     def destination_info(self) -> InsertableDict:
         info = super().destination_info()
 
-        task: GLiteWorkflow = self.task  # type: ignore[assignment]
+        task: GLiteWorkflow = self.task
         info["ce"] = f"ce: {','.join(task.glite_ce)}"
 
         info = task.glite_destination_info(info)
@@ -311,7 +311,7 @@ class GLiteWorkflow(BaseRemoteWorkflow):
         Configurable delay in seconds to wait after submitting jobs and before starting the status
         polling.
         """
-        return self.poll_interval * 60  # type: ignore[return-value,operator]
+        return self.poll_interval * 60
 
     def glite_check_job_completeness(self) -> bool:
         return False

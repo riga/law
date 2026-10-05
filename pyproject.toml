@@ -29,7 +29,7 @@ keywords = [
   "sandboxing",
   "docker",
   "singularity",
-  "apptainer"
+  "apptainer",
 ]
 classifiers = [
   "Programming Language :: Python",
@@ -65,6 +65,7 @@ dev = [
   "pytest~=8.4;python_version < '3.10'",
   "pytest~=9.1;python_version >= '3.10'",
   "pytest-cov~=7.1",
+  "coverage>=7.10",
   "ipykernel~=6.31",
   "types-docutils~=0.22",
   "uniplot~=0.22",
@@ -73,6 +74,21 @@ dev = [
   "pyyaml~=6.0",
   "types-pyyaml~=6.0",
   "types-requests~=2.32",
+]
+# pinned to 3.9
+test = [
+  "numpy~=2.0;python_version < '3.10'",
+  "numpy~=2.2;python_version >= '3.10'",
+  "pandas~=2.3;python_version < '3.11'",
+  "pandas~=3.0;python_version >= '3.11'",
+  "pyarrow~=21.0;python_version < '3.10'",
+  "pyarrow~=25.0;python_version >= '3.10'",
+  "awkward~=2.8;python_version < '3.10'",
+  "awkward~=2.14;python_version >= '3.10'",
+  "h5py~=3.14;python_version < '3.10'",
+  "h5py~=3.16;python_version >= '3.10'",
+  "matplotlib~=3.9;python_version < '3.10'",
+  "matplotlib~=3.10;python_version >= '3.10'",
 ]
 # pinned to 3.13, see .readthedocs.yaml
 docs = [
@@ -123,7 +139,6 @@ packages = ["src/law"]
 
 [tool.ruff]
 line-length = 120
-target-version = "py313"
 src = ["src", "tests"]
 exclude = ["docs", "build", "examples", "local_tests"]
 
@@ -183,10 +198,10 @@ unfixable = [
   "unused-variable",
 ]
 flake8-unused-arguments.ignore-variadic-names = true
+typing-modules = ["law._types"]
 isort.required-imports = ["from __future__ import annotations"]
 
 [tool.mypy]
-python_version = "3.13"
 strict = false
 files = ["src/law", "tests"]
 exclude = ["docs", "build", "examples", "local_tests"]
@@ -207,14 +222,18 @@ disallow_untyped_defs = false
 
 [tool.pytest.ini_options]
 minversion = "8.4"
-addopts = "--cov=law --cov-report xml:coverage.xml"
 testpaths = ["tests"]
+pythonpath = ["src"]
 
 [tool.coverage.run]
 source = ["src/law"]
 branch = true
+patch = ["subprocess"]
+
+[tool.coverage.paths]
+source = ["src/law", "*/software/law"]
 
 [tool.coverage.report]
 show_missing = true
 skip_covered = false
-fail_under = 5
+fail_under = 35

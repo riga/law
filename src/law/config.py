@@ -216,13 +216,13 @@ class Config(configparser.ConfigParser):
         expand_user: bool = True,
     ) -> str:
         path = str(path)
-        if expand_vars:
+        if expand_user:
             ph = "__law_tilde__"
             path = path.replace(r"\~", ph)
             path = os.path.expanduser(path)
             path = path.replace(ph, "~")
 
-        if expand_user:
+        if expand_vars:
             ph = "__law_dollar__"
             path = path.replace(r"\$", ph)
             path = os.path.expandvars(path)
@@ -510,7 +510,12 @@ class Config(configparser.ConfigParser):
                     if _skip_refs is None:
                         _skip_refs = []
                     elif ref in _skip_refs:
-                        return default
+                        if default_set:
+                            return default
+                        raise ValueError(
+                            f"circular reference '{value}' detected while resolving option "
+                            f"'{option}' in section '{section}'",
+                        )
                     _skip_refs.append(ref)
 
                     # return the referenced value
@@ -605,10 +610,12 @@ class Config(configparser.ConfigParser):
             is_missing_or_none("my_section", "e")  # True
             is_missing_or_none("my_section", "f")  # True
         """
-        value = self.get_expanded(section, option, default=no_value)
+        # use a dedicated marker as the default, since no_value means that no default is set
+        missing = object()
+        value = self.get_expanded(section, option, default=missing)
         if isinstance(value, str):
-            value = value.lower()
-        return value in ("none", None, no_value)
+            return value.lower() == "none"
+        return value is missing or value is None
 
     def find_option(self, section: str, *options: str) -> str | None:
         """
@@ -682,7 +689,7 @@ class Config(configparser.ConfigParser):
         """
         # TODO: priority based order?
         for section in self.sections():
-            for option, value in self.items(section):
+            for option, value in self.items(section, expand_vars=False, expand_user=False, dereference=False):
                 if value == self.Deferred.str_repr:
                     value = self._default_config.get(section, {}).get(option, value)  # type: ignore[attr-defined]
                 if isinstance(value, self.Deferred):

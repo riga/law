@@ -70,6 +70,8 @@ def execute(args: argparse.Namespace) -> int:
 
     # print section options when none is given
     section, option = args.name.split(".", 1) if "." in args.name else (args.name, None)
+    if not cfg.has_section(section):
+        return abort(f"config section '{section}' does not exist")
     if not option:
         print("\n".join(cfg.options(section)))
         return 0
@@ -83,6 +85,8 @@ def execute(args: argparse.Namespace) -> int:
         return abort("config setting not yet implemented")
 
     # getting
+    if not cfg.has_option(section, option):
+        return abort(f"config option '{option}' does not exist in section '{section}'")
     print(cfg.get_default(section, option, expand_vars=args.expand, expand_user=args.expand))
 
     return 0

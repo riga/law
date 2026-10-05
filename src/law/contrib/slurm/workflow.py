@@ -33,17 +33,17 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
     workflow_type: str = "slurm"
 
     def create_job_manager(self, **kwargs) -> SlurmJobManager:
-        return self.task.slurm_create_job_manager(**kwargs)  # type: ignore[attr-defined]
+        return self.task.slurm_create_job_manager(**kwargs)
 
     def create_job_file_factory(self, **kwargs) -> SlurmJobFileFactory:
-        return self.task.slurm_create_job_file_factory(**kwargs)  # type: ignore[attr-defined]
+        return self.task.slurm_create_job_file_factory(**kwargs)
 
     def create_job_file(
         self,
         job_num: int,
         branches: list[int],
     ) -> dict[str, str | pathlib.Path | SlurmJobFileFactory.Config | None]:
-        task: SlurmWorkflow = self.task  # type: ignore[assignment]
+        task: SlurmWorkflow = self.task
 
         # the file postfix is pythonic range made from branches, e.g. [0, 1, 2, 4] -> "_0To5"
         postfix = f"_{branches[0]}To{branches[-1] + 1}"
@@ -171,7 +171,7 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
                 return path or None
             log_target = log_dir.child(path, type="f")  # type: ignore[union-attr]
             if log_target.parent != log_dir:
-                log_target.parent.touch()  # type: ignore[union-attr,call-arg]
+                log_target.parent.touch()  # type: ignore[union-attr]
             return log_target.abspath
 
         c.stdout = log_path(c.stdout)
@@ -192,7 +192,7 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
     def destination_info(self) -> InsertableDict:
         info = super().destination_info()
 
-        info = self.task.slurm_destination_info(info)  # type: ignore[attr-defined]
+        info = self.task.slurm_destination_info(info)
 
         return info
 
@@ -326,7 +326,7 @@ class SlurmWorkflow(BaseRemoteWorkflow):
         Configurable delay in seconds to wait after submitting jobs and before starting the status
         polling.
         """
-        return self.poll_interval * 60  # type: ignore[return-value,operator]
+        return self.poll_interval * 60
 
     def slurm_check_job_completeness(self) -> bool:
         return False

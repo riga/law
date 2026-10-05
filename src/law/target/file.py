@@ -34,7 +34,9 @@ from law._types import (
     Generator,
     Iterator,
     Literal,
+    Self,
     T,
+    overload,
 )
 from law.config import Config
 from law.target.base import Target
@@ -172,7 +174,7 @@ class FileSystem(shims.FileSystem):
         path: str | pathlib.Path,
         *,
         pattern: str | None = None,
-        type: Literal["f", "d"] | None = None,  # noqa: F821, UP037
+        type: Literal["f", "d"] | None = None,
         **kwargs,
     ) -> list[str]:
         ...
@@ -306,7 +308,7 @@ class FileSystemTarget(Target, shims.FileSystemTarget):
         return f"{hex(self.hash)[2:]}_{self.basename}"
 
     @property
-    def parent(self) -> type[FileSystemDirectoryTarget] | None:
+    def parent(self) -> FileSystemDirectoryTarget | None:
         # get the dirname, but favor the unexpanded one to propagate variables
         dirname = self.dirname
         unexpanded_dirname: str = self.fs.dirname(self.unexpanded_path)  # type: ignore[assignment]
@@ -318,7 +320,7 @@ class FileSystemTarget(Target, shims.FileSystemTarget):
             return None
 
         args, kwargs = self._parent_args()
-        return self.directory_class(dirname, *args, **kwargs)  # type: ignore[return-value]
+        return self.directory_class(dirname, *args, **kwargs)
 
     def sibling(self, *args, **kwargs) -> FileSystemTarget:
         parent = self.parent
@@ -569,10 +571,40 @@ class FileSystemDirectoryTarget(FileSystemTarget):
     ) -> tuple[tuple[Any, ...], dict[str, Any]]:
         return (), {}
 
+    @overload
     def child(
         self,
         path: str | pathlib.Path,
-        type: Literal["f", "d"] | None = None,  # noqa: F821, UP037
+        type: Literal["f"],
+        *,
+        mktemp_pattern: str | None = None,
+        **kwargs,
+    ) -> FileSystemFileTarget: ...
+
+    @overload
+    def child(
+        self,
+        path: str | pathlib.Path,
+        type: Literal["d"],
+        *,
+        mktemp_pattern: str | None = None,
+        **kwargs,
+    ) -> Self: ...
+
+    @overload
+    def child(
+        self,
+        path: str | pathlib.Path,
+        type: str | None = None,
+        *,
+        mktemp_pattern: str | None = None,
+        **kwargs,
+    ) -> FileSystemTarget: ...
+
+    def child(
+        self,
+        path: str | pathlib.Path,
+        type: str | None = None,
         *,
         mktemp_pattern: str | None = None,
         **kwargs,
@@ -638,9 +670,9 @@ class FileSystemDirectoryTarget(FileSystemTarget):
         # walk and operate recursively
         for _, dirs, files, _ in self.walk(max_depth=0, **kwargs):
             # recurse through directories and files
-            for basenames, type_flag in [(dirs, "d"), [files, "f"]]:
+            for basenames, type_flag in [(dirs, "d"), (files, "f")]:
                 for basename in basenames:
-                    t = self.child(basename, type=type_flag)  # type: ignore[arg-type]
+                    t = self.child(basename, type=type_flag)
                     t.copy_to(os.path.join(_dst, basename), perm=perm, dir_perm=dir_perm, **kwargs)
 
         return _dst
@@ -667,9 +699,9 @@ class FileSystemDirectoryTarget(FileSystemTarget):
         _src = get_path(src)
         for _, dirs, files, _ in self.fs.walk(_src, max_depth=0, **kwargs):
             # recurse through directories and files
-            for basenames, type_flag in [(dirs, "d"), [files, "f"]]:
+            for basenames, type_flag in [(dirs, "d"), (files, "f")]:
                 for basename in basenames:
-                    t = self.child(basename, type=type_flag)  # type: ignore[arg-type]
+                    t = self.child(basename, type=type_flag)
                     t.copy_from(os.path.join(_src, basename), perm=perm, dir_perm=dir_perm, **kwargs)
 
         return self.abspath
@@ -693,9 +725,9 @@ class FileSystemDirectoryTarget(FileSystemTarget):
         # walk and operate recursively
         for _, dirs, files, _ in self.walk(max_depth=0, **kwargs):
             # recurse through directories and files
-            for basenames, type_flag in [(dirs, "d"), [files, "f"]]:
+            for basenames, type_flag in [(dirs, "d"), (files, "f")]:
                 for basename in basenames:
-                    t = self.child(basename, type=type_flag)  # type: ignore[arg-type]
+                    t = self.child(basename, type=type_flag)
                     t.move_to(os.path.join(_dst, basename), perm=perm, dir_perm=dir_perm, **kwargs)
 
         # finally remove
@@ -725,9 +757,9 @@ class FileSystemDirectoryTarget(FileSystemTarget):
         _src = get_path(src)
         for _, dirs, files, _ in self.fs.walk(_src, max_depth=0, **kwargs):
             # recurse through directories and files
-            for basenames, type_flag in [(dirs, "d"), [files, "f"]]:
+            for basenames, type_flag in [(dirs, "d"), (files, "f")]:
                 for basename in basenames:
-                    t = self.child(basename, type=type_flag)  # type: ignore[arg-type]
+                    t = self.child(basename, type=type_flag)
                     t.copy_from(os.path.join(_src, basename), perm=perm, dir_perm=dir_perm, **kwargs)
 
         # finally remove

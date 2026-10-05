@@ -34,6 +34,17 @@ logger = get_logger(__name__)
 
 
 class LocalFileSystem(FileSystem, shims.LocalFileSystem):
+    """
+    File system interface for local files and directories. Its options are read from the law config
+    section *section*, defaulting to the one configured in ``[target] default_local_fs``.
+    Alternatively, a *base* directory can be set directly.
+
+    Relative paths are resolved against the *base* of the file system and **not** against the
+    current working directory. As the base of the default local file system must be ``"/"``,
+    relative paths are interpreted relative to the root directory in that case, e.g. ``"a/b.txt"``
+    refers to ``"/a/b.txt"``. To refer to paths relative to the current directory, use absolute
+    paths or environment variables such as ``"$PWD/a/b.txt"``.
+    """
 
     # set right below the class definition
     default_instance: LocalFileSystem = None  # type: ignore[assignment]
@@ -227,7 +238,7 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
         path: str | pathlib.Path,
         *,
         pattern: str | None = None,
-        type: Literal["f", "d"] | None = None,  # noqa: F821, UP037
+        type: Literal["f", "d"] | None = None,
         **kwargs,
     ) -> list[str]:
         abspath = self.abspath(path)
@@ -407,6 +418,16 @@ LocalFileSystem.default_instance = LocalFileSystem()
 
 
 class LocalTarget(FileSystemTarget, shims.LocalTarget):
+    """
+    Base class of local file and directory targets. Paths are interpreted by the underlying
+    :py:class:`LocalFileSystem` *fs*, so relative paths are resolved against its base (``"/"`` for
+    the default local file system) and **not** against the current working directory. Environment
+    variables and ``"~"`` in paths are expanded.
+
+    When no *path* is given, *is_tmp* must be set and a random path in the configured temporary
+    directory (or *tmp_dir*) is chosen. *is_tmp* can also be a file extension. Temporary targets are
+    removed when they are garbage collected.
+    """
 
     fs = LocalFileSystem.default_instance
 
@@ -521,7 +542,7 @@ class LocalTarget(FileSystemTarget, shims.LocalTarget):
         dir_perm = kwargs.pop("dir_perm", None)
 
         # create intermediate directories
-        self.parent.touch(perm=dir_perm)  # type: ignore[union-attr, call-arg]
+        self.parent.touch(perm=dir_perm)  # type: ignore[union-attr]
 
         # invoke the formatter
         formatter_name = kwargs.pop("_formatter", None) or kwargs.pop("formatter", AUTO_FORMATTER)
@@ -560,7 +581,7 @@ class LocalFileTarget(FileSystemFileTarget, LocalTarget):  # type: ignore[misc]
         if mode == "r":
             if is_tmp:
                 # create a temporary target
-                tmp = self.__class__(is_tmp=self.ext(n=1) or True, tmp_dir=tmp_dir)
+                tmp = self.__class__(is_tmp=self.ext(n=0) or True, tmp_dir=tmp_dir)
 
                 # always copy
                 self.copy_to_local(tmp)
@@ -577,7 +598,7 @@ class LocalFileTarget(FileSystemFileTarget, LocalTarget):  # type: ignore[misc]
         else:  # mode "w" or "a"
             if is_tmp:
                 # create a temporary target
-                tmp = self.__class__(is_tmp=self.ext(n=1) or True, tmp_dir=tmp_dir)
+                tmp = self.__class__(is_tmp=self.ext(n=0) or True, tmp_dir=tmp_dir)
 
                 # copy in append mode
                 if mode == "a" and self.exists():
@@ -596,7 +617,7 @@ class LocalFileTarget(FileSystemFileTarget, LocalTarget):  # type: ignore[misc]
                     tmp.remove()
             else:
                 # create the parent dir
-                self.parent.touch(perm=dir_perm)  # type: ignore[union-attr, call-arg]
+                self.parent.touch(perm=dir_perm)  # type: ignore[union-attr]
 
                 # simply yield
                 yield self  # noqa: RUF075
@@ -681,7 +702,7 @@ class LocalDirectoryTarget(FileSystemDirectoryTarget, LocalTarget):  # type: ign
                     tmp.remove()
             else:
                 # create the parent dir and the directory itself
-                self.parent.touch(perm=dir_perm)  # type: ignore[union-attr, call-arg]
+                self.parent.touch(perm=dir_perm)  # type: ignore[union-attr]
                 self.touch(perm=perm)
 
                 # simply yield, do not differentiate "w" and "a" modes

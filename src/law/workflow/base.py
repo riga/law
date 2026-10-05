@@ -120,7 +120,7 @@ class BaseWorkflowProxy(ProxyTask):
         anything else than *NotImplemented* returns the value, or just does the default completion
         check otherwise.
         """
-        complete = self.task.workflow_complete()  # type: ignore[attr-defined]
+        complete = self.task.workflow_complete()
         if complete is not NotImplemented:
             return complete
 
@@ -132,7 +132,7 @@ class BaseWorkflowProxy(ProxyTask):
         the return value of the task's *workflow_requires* method.
         """
         reqs = DotDict()
-        workflow_reqs = self.task.workflow_requires()  # type: ignore[attr-defined]
+        workflow_reqs = self.task.workflow_requires()
         if workflow_reqs:
             reqs.update(workflow_reqs)
         return reqs
@@ -142,7 +142,7 @@ class BaseWorkflowProxy(ProxyTask):
         Returns the default workflow outputs in an ordered dictionary. At the moment this is just
         the collection of outputs of the branch tasks, stored with the key ``"collection"``.
         """
-        task: BaseWorkflow = self.task  # type: ignore[assignment]
+        task: BaseWorkflow = self.task
 
         # get targets
         targets = luigi.task.getpaths(task.get_branch_tasks())
@@ -172,7 +172,7 @@ class BaseWorkflowProxy(ProxyTask):
 
         # get output and cache it if possible
         output = self.output()
-        if self.task.cache_branch_map:  # type: ignore[attr-defined]
+        if self.task.cache_branch_map:
             self._cached_output = output
 
         return output
@@ -186,7 +186,7 @@ class BaseWorkflowProxy(ProxyTask):
         :py:meth:`output`. By default, the maximum number of tasks is taken from the length of the
         branch map. For performance purposes, you can set this value, *n*, directly.
         """
-        task: BaseWorkflow = self.task  # type: ignore[assignment]
+        task: BaseWorkflow = self.task
 
         if n is None:
             n = len(task.get_branch_map())
@@ -198,7 +198,7 @@ class BaseWorkflowProxy(ProxyTask):
         """
         Default run implementation that resets the branch map once if requested.
         """
-        task: BaseWorkflow = self.task  # type: ignore[assignment]
+        task: BaseWorkflow = self.task
 
         if task.reset_branch_map_before_run and not self._workflow_has_reset_branch_map:
             self._workflow_has_reset_branch_map = True
@@ -206,7 +206,7 @@ class BaseWorkflowProxy(ProxyTask):
             # reset cached branch map, branch tasks and boundaries
             task._branch_map = None
             task._branch_tasks = None
-            task.branches = task._initial_branches  # type: ignore[assignment]
+            task.branches = task._initial_branches
 
         return None
 
@@ -275,7 +275,7 @@ class WorkflowParameter(CSVParameter):
         super().__init__(*args, **kwargs)
 
         # linearize the default
-        self._default: NoValue = no_value  # type: ignore[assignment]
+        self._default: NoValue = no_value
 
     # TODO: more precise inp
     def parse(self, inp: Any) -> Any:
@@ -1267,7 +1267,7 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
                 len(branches) == len(full_branch_map) and
                 set(branches) == set(full_branch_map)
             )
-            self.branches = () if use_all else tuple(range_join(branches))  # type: ignore[assignment]
+            self.branches = () if use_all else tuple(range_join(branches))
 
     def _reduce_branch_map(self, branch_map: dict[int, Any]) -> None:
         if self.is_branch():
@@ -1448,7 +1448,7 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
             return f"{len(ranges)}_ranges_{create_hash(ranges)}"
 
         return "_".join(
-            str(r[0]) if len(r) == 1 else f"{r[0]}To{r[1] + 1}"
+            str(r[0]) if len(r) == 1 else f"{r[0]}To{r[1]}"
             for r in ranges
         )
 

@@ -5,7 +5,7 @@
 import argparse
 import os
 
-from law.util import law_src_path
+from law.util import abort, law_src_path
 
 
 def setup_parser(sub_parsers: argparse._SubParsersAction) -> None:
@@ -34,7 +34,7 @@ def execute(args: argparse.Namespace) -> int:
     if args.contrib:
         path = os.path.join(path, "contrib", args.contrib)
         if not os.path.exists(path):
-            raise FileNotFoundError(f"contrib package '{args.contrib}' does not exist")
+            return abort(f"contrib package '{args.contrib}' does not exist")
 
     print(path)
 

@@ -209,7 +209,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-        task: BaseRemoteWorkflow = self.task  # type: ignore[assignment]
+        task: BaseRemoteWorkflow = self.task
 
         # the job submission file factory
         self.job_file_factory: BaseJobFileFactory | None = None
@@ -372,7 +372,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
     @tracking_url.setter
     def tracking_url(self, tracking_url: str | None) -> None:
-        task: BaseRemoteWorkflow | None = self.task  # type: ignore[assignment]
+        task: BaseRemoteWorkflow | None = self.task
 
         old_url = self.tracking_url
         self._tracking_url = tracking_url
@@ -386,7 +386,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         """
         Property that is *True* when the :py:attr:`cancel_jobs` attribute exists and is *True*.
         """
-        task: BaseRemoteWorkflow = self.task  # type: ignore[assignment]
+        task: BaseRemoteWorkflow = self.task
         return isinstance(getattr(task, "cancel_jobs", None), bool) and task.cancel_jobs
 
     @property
@@ -394,7 +394,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         """
         Property that is *True* when the :py:attr:`cleanup_jobs` attribute exists and is *True*.
         """
-        task: BaseRemoteWorkflow = self.task  # type: ignore[assignment]
+        task: BaseRemoteWorkflow = self.task
         return isinstance(getattr(task, "cleanup_jobs", None), bool) and task.cleanup_jobs
 
     def _get_existing_branches(
@@ -496,7 +496,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
     def _print_status_errors(self, failed_jobs: dict[int, JobData]) -> None:
         err_line = colored(f"{len(failed_jobs)} failed job(s)", color="red", style="bright")
-        print(f"{err_line} in task {self.task.task_id}:")  # type: ignore[attr-defined]
+        print(f"{err_line} in task {self.task.task_id}:")
 
         # prepare the decision for showing the error summary
         threshold = self.summarize_status_errors
@@ -609,7 +609,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         return dict(zip(keys, merged_counts))
 
     def process_resources(self, force: bool = False) -> dict[str, int]:
-        task: BaseRemoteWorkflow = self.task  # type: ignore[assignment]
+        task: BaseRemoteWorkflow = self.task
 
         # collect resources over all branches if not just controlling running jobs
         resources = self._initial_process_resources
@@ -631,14 +631,14 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         return self._maximum_resources(resources, self.poll_data.n_parallel)
 
     def complete(self) -> bool:
-        task: BaseRemoteWorkflow = self.task  # type: ignore[assignment]
+        task: BaseRemoteWorkflow = self.task
         if task.is_controlling_remote_jobs():
             return self._controlled_jobs
 
         return super().complete()
 
     def requires(self) -> Any:
-        task: BaseRemoteWorkflow = self.task  # type: ignore[assignment]
+        task: BaseRemoteWorkflow = self.task
         # use upstream and workflow specific requirements only when not controlling running jobs
         if task.is_controlling_remote_jobs():
             reqs = DotDict()
@@ -657,7 +657,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         ``"submission"``), and the status file (key ``"status"``). These two *control outputs* are
         optional, i.e., they are not considered when checking the task's completeness.
         """
-        task: BaseRemoteWorkflow = self.task  # type: ignore[assignment]
+        task: BaseRemoteWorkflow = self.task
 
         # get the directory where the control outputs are stored
         out_dir = self._get_task_attribute("output_directory")()
@@ -710,7 +710,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         Actual run method that starts the processing of jobs and initiates the status polling, or
         performs job cancelling or cleaning, depending on the task parameters.
         """
-        task: BaseRemoteWorkflow = self.task  # type: ignore[assignment]
+        task: BaseRemoteWorkflow = self.task
 
         output = self.get_cached_output()
         if not isinstance(output, dict):
@@ -802,7 +802,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         Cancels running jobs. The job ids are read from the submission file which has to exist
         for obvious reasons.
         """
-        task: BaseRemoteWorkflow = self.task  # type: ignore[assignment]
+        task: BaseRemoteWorkflow = self.task
 
         # get job ids from submission data
         job_ids = [
@@ -846,7 +846,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         Cleans up jobs on the remote run location. The job ids are read from the submission file
         which has to exist for obvious reasons.
         """
-        task: BaseRemoteWorkflow = self.task  # type: ignore[assignment]
+        task: BaseRemoteWorkflow = self.task
 
         # get job ids from submission data
         job_ids = [
@@ -889,7 +889,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         previously failed jobs defined in the *retry_jobs* dictionary, which maps job numbers to
         lists of branch numbers, are used.
         """
-        task: BaseRemoteWorkflow = self.task  # type: ignore[assignment]
+        task: BaseRemoteWorkflow = self.task
 
         # collect data of jobs that should be submitted: num -> branches
         submit_jobs: dict[int, list[int]] = {}
@@ -1013,7 +1013,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         submit_jobs: dict[int, list[int]],
         **kwargs,
     ) -> tuple[list[Any], dict]:
-        task: BaseRemoteWorkflow = self.task  # type: ignore[assignment]
+        task: BaseRemoteWorkflow = self.task
 
         # create job submission files mapped to job nums
         all_job_files: dict[int, dict] = {}
@@ -1072,7 +1072,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         submit_jobs: dict[int, list[int]],
         **kwargs,
     ) -> tuple[list[Any], dict[int, dict]]:
-        task: BaseRemoteWorkflow = self.task  # type: ignore[assignment]
+        task: BaseRemoteWorkflow = self.task
 
         # create the single multi submission file, passing the job_num -> branches dict
         job_file = self.create_job_file_group(submit_jobs)
@@ -1104,7 +1104,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         """
         Initiates the job status polling loop.
         """
-        task: BaseRemoteWorkflow = self.task  # type: ignore[assignment]
+        task: BaseRemoteWorkflow = self.task
         dump_intermediate_job_data = self._get_task_attribute("dump_intermediate_job_data")()
 
         # total job count
@@ -1138,12 +1138,12 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             task._handle_scheduler_messages()
 
             # sleep after the first iteration
-            poll_interval: int | float = task.poll_interval  # type: ignore[assignment]
+            poll_interval: int | float = task.poll_interval
             if i > 0:
                 time.sleep(poll_interval * 60)
 
             # extract latest task parameters
-            walltime: int | float = task.walltime  # type: ignore[assignment]
+            walltime: int | float = task.walltime
             acceptance: int | float = task.acceptance
             tolerance: int | float = task.tolerance
             poll_fails: int = task.poll_fails

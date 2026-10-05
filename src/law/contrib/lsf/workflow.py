@@ -33,17 +33,17 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
     workflow_type: str = "lsf"
 
     def create_job_manager(self, **kwargs) -> LSFJobManager:
-        return self.task.lsf_create_job_manager(**kwargs)  # type: ignore[attr-defined]
+        return self.task.lsf_create_job_manager(**kwargs)
 
     def create_job_file_factory(self, **kwargs) -> LSFJobFileFactory:
-        return self.task.lsf_create_job_file_factory(**kwargs)  # type: ignore[attr-defined]
+        return self.task.lsf_create_job_file_factory(**kwargs)
 
     def create_job_file(
         self,
         job_num: int,
         branches: list[int],
     ) -> dict[str, str | pathlib.Path | LSFJobFileFactory.Config | None]:
-        task: LSFWorkflow = self.task  # type: ignore[assignment]
+        task: LSFWorkflow = self.task
 
         # the file postfix is pythonic range made from branches, e.g. [0, 1, 2, 4] -> "_0To5"
         postfix = f"_{branches[0]}To{branches[-1] + 1}"
@@ -175,7 +175,7 @@ class LSFWorkflowProxy(BaseRemoteWorkflowProxy):
     def destination_info(self) -> InsertableDict:
         info = super().destination_info()
 
-        task: LSFWorkflow = self.task  # type: ignore[assignment]
+        task: LSFWorkflow = self.task
         if task.lsf_queue != NO_STR:
             info["queue"] = f"queue: {task.lsf_queue}"
 
@@ -304,7 +304,7 @@ class LSFWorkflow(BaseRemoteWorkflow):
         Configurable delay in seconds to wait after submitting jobs and before starting the status
         polling.
         """
-        return self.poll_interval * 60  # type: ignore[return-value,operator]
+        return self.poll_interval * 60
 
     def lsf_check_job_completeness(self) -> bool:
         return False

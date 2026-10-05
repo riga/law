@@ -43,7 +43,7 @@ def run(argv: list[str] | None = None) -> int:
         mods[prog].setup_parser(sub_parsers)
 
     # default argv
-    if not argv:
+    if argv is None:
         argv = sys.argv[1:]
 
     # argv that is passed to the prog execution when set

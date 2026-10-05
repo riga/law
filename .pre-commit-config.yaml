@@ -16,7 +16,7 @@ repos:
       - id: check-merge-conflict
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.16.1
+    rev: v0.16.10
     hooks:
       - id: ruff-check
 
@@ -24,7 +24,7 @@ repos:
     hooks:
       - id: mypy
         name: mypy
-        language: python
+        language: system
         types_or: [python, pyi]
         entry: mypy
         pass_filenames: false

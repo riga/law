@@ -36,6 +36,13 @@ class Target(shims.Target):
     def __hash__(self) -> int:
         return self.hash
 
+    def __eq__(self, other: object) -> bool:
+        # targets are equal when they are of the same type and refer to the same location, which is
+        # consistent with the uri-based hash
+        if not isinstance(other, Target):
+            return NotImplemented
+        return type(self) is type(other) and self.uri() == other.uri()
+
     @property
     def hash(self) -> int:
         return create_hash(self.uri(), to_int=True)  # type: ignore[return-value]

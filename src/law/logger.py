@@ -292,8 +292,8 @@ def setup_logger(
     logger = logger if isinstance(logger, logging.Logger) else get_logger(logger, skip_setup=True)
     name = logger.name
 
-    # do nothing when the logger was already set up or force is defined
-    if _logger_setup(logger) or force:
+    # do nothing when the logger was already set up, unless forced
+    if _logger_setup(logger) and not force:
         return logger
     _logger_setup(logger, True)
 

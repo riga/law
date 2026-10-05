@@ -46,7 +46,7 @@ from law._types import Any, Callable, T
 from law.logger import get_logger
 from law.parameter import NotifyParameter, get_param
 from law.sandbox.base import SandboxTask
-from law.target.file import localize_file_targets
+from law.target.file import get_path, localize_file_targets
 from law.target.local import LocalFileTarget
 from law.task.base import Task
 from law.task.proxy import ProxyTask
@@ -222,16 +222,20 @@ def factory(**default_opts) -> Callable:
                                 yield _CompleteTask() if decorate_run else None
                                 after_call(state)
 
+                            # the state is stored on the task instance (args[0]) so that runs
+                            # of other instances do not interfere
+                            state_holder = args[0] if args else wrapper
+
                             # reset function
                             def reset():
                                 yield _CompleteTask() if decorate_run else None
-                                setattr(fn, state_attr, no_value)
+                                setattr(state_holder, state_attr, no_value)
 
                             # call before_call once
-                            state = getattr(wrapper, state_attr, no_value)
+                            state = getattr(state_holder, state_attr, no_value)
                             if state == no_value:
                                 state = before_call()
-                                setattr(wrapper, state_attr, state)
+                                setattr(state_holder, state_attr, state)
 
                             # wrap on_error() to include the state
                             def _on_error(error):
@@ -273,7 +277,7 @@ def factory(**default_opts) -> Callable:
 
 
 def get_task(task: Task | ProxyTask) -> Task:
-    return task.task if isinstance(task, ProxyTask) else task  # type: ignore[return-value]
+    return task.task if isinstance(task, ProxyTask) else task
 
 
 @factory(accept_generator=False)
@@ -291,16 +295,18 @@ def log(
     """
     _task = get_task(task)
     log = get_param(_task.log_file, _task.default_log_file)
-    if log and not isinstance(log, LocalFileTarget):
-        log = str(log)
+    log_path = get_path(log) if log else None
 
-    if log == "-" or not log:
+    if not log_path or log_path == "-":
         return fn(task, *args, **kwargs)
 
     # use the local target functionality to create the parent directory
-    LocalFileTarget(log).parent.touch()  # type: ignore[call-arg, union-attr]
-    with open(log, "a", 1, encoding="utf-8") as f:
-        tee = TeeStream(f, sys.__stdout__)
+    LocalFileTarget(log_path).parent.touch()  # type: ignore[union-attr]
+
+    # remember the currently active streams to restore them afterwards
+    stdout, stderr = sys.stdout, sys.stderr
+    with open(log_path, "a", 1, encoding="utf-8") as f:
+        tee = TeeStream(f, stdout)
         sys.stdout = tee
         sys.stderr = tee
         try:
@@ -309,8 +315,8 @@ def log(
             traceback.print_exc(file=tee)
             raise
         finally:
-            sys.stdout = sys.__stdout__
-            sys.stderr = sys.__stderr__
+            sys.stdout = stdout
+            sys.stderr = stderr
             tee.flush()
     return ret
 
@@ -382,6 +388,10 @@ def delay(
         return
 
     return before_call, call, after_call
+
+
+# options of the notify decorator that are not forwarded to notification transports
+notify_internal_opts = {"on_success", "on_failure", "accept_generator", "decorate_run"}
 
 
 @factory(on_success=True, on_failure=True, accept_generator=True)
@@ -483,9 +493,10 @@ def notify(
                 _title = title
                 _content = parts.copy() if raw else message
 
-            # invoke the function
+            # invoke the function, forwarding only options that are not used by the decorator itself
+            transport_opts = {k: v for k, v in opts.items() if k not in notify_internal_opts}
             try:
-                fn(success, _title, _content, **opts)
+                fn(success, _title, _content, **transport_opts)
             except Exception as e:
                 t = traceback.format_exc()
                 logger.warning(f"notification via transport '{fn}' failed: {e}\n{t}")

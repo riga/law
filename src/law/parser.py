@@ -227,12 +227,14 @@ def _reset() -> None:
     """
     Resets all singletons defined by the parser functions above.
     """
+    global _root_task_cls
     global _root_task
     global _full_parser
     global _root_task_parser
     global _global_cmdline_args
     global _global_cmdline_values
 
+    _root_task_cls = None
     _root_task = None
     _full_parser = None
     _root_task_parser = None

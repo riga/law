@@ -41,7 +41,7 @@ class LocalWorkflowProxy(BaseWorkflowProxy):
     def requires(self) -> Any:
         reqs = super().requires()
 
-        task: BaseWorkflow = self.task  # type: ignore[assignment]
+        task: BaseWorkflow = self.task
 
         local_reqs = task.local_workflow_requires()
         if local_reqs:
@@ -58,7 +58,7 @@ class LocalWorkflowProxy(BaseWorkflowProxy):
         When *local_workflow_require_branches* of the task was set to *False*, starts all branch
         tasks via dynamic dependencies by yielding them in a list, or simply does nothing otherwise.
         """
-        task: BaseWorkflow = self.task  # type: ignore[assignment]
+        task: BaseWorkflow = self.task
 
         pre_run_gen = task.local_workflow_pre_run()
         if isinstance(pre_run_gen, Generator):

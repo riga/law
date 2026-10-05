@@ -48,7 +48,7 @@ def notify_mail(
     if not smtp_host:
         smtp_host = cfg.get_expanded("notifications", "mail_smtp_host")
     # infer host from sender when not set
-    if not smtp_host:
+    if not smtp_host and "@" in sender:
         smtp_host = sender.split("@", 1)[1]
 
     mail_kwargs: dict[str, str | int] = {}
@@ -97,9 +97,10 @@ def notify_custom(
         except ImportError:
             logger.warning(f"cannot send custom notification, module '{module_id}' not found")
             return False
+        func_path = notify_func
         notify_func = getattr(notify_module, func_name, None)
         if not notify_func:
-            logger.warning(f"cannot send custom notification, notify_func '{notify_func}' not found")
+            logger.warning(f"cannot send custom notification, notify_func '{func_path}' not found")
             return False
     if not callable(notify_func):
         logger.warning(f"cannot send custom notification, notify_func '{notify_func}' not callable")

@@ -55,7 +55,7 @@ def execute(args: argparse.Namespace, argv: list[str]) -> int:
             mod = __import__(modid, globals(), locals(), [cls_name])
             task_cls = getattr(mod, cls_name, None)
             if task_cls is not None:
-                if not issubclass(task_cls, Task):
+                if not isinstance(task_cls, type) or not issubclass(task_cls, Task):
                     return abort(f"object '{args.task_family}' is not a Task")
                 task_family = task_cls.get_task_family()
         except ImportError as e:

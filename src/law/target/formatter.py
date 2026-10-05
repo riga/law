@@ -101,7 +101,7 @@ def find_formatters(
     *True*, an empty list is returned. Otherwise, an exception is raised.
     """
     path = get_path(path)
-    formatters = [f for f in FormatterRegister.formatters.values() if f.accepts(path, mode)]  # type: ignore[attr-defined]
+    formatters = [f for f in FormatterRegister.formatters.values() if f.accepts(path, mode)]
     if formatters or silent:
         return formatters
     raise Exception(f"cannot find any '{mode}' formatter for {path}")
@@ -122,17 +122,33 @@ def find_formatter(
     return get_formatter(name, silent=False)  # type: ignore[return-value]
 
 
+def _accepts_ext(path: str | pathlib.Path | FileSystemTarget, *exts: str) -> bool:
+    # checks if *path* ends with one of the extensions *exts*, optionally followed by ".gz"
+    return get_path(path).endswith(exts + tuple(f"{ext}.gz" for ext in exts))
+
+
+def _open(path: str | pathlib.Path | FileSystemTarget, mode: str, **kwargs) -> Any:
+    # opens the file at *path*, using gzip for (de)compression when the path ends with ".gz"
+    path = get_path(path)
+    if path.endswith(".gz"):
+        # gzip.open uses binary mode by default, so select text mode unless binary mode is requested
+        if "b" not in mode and "t" not in mode:
+            mode += "t"
+        return gzip.open(path, mode, **kwargs)
+    return open(path, mode, **kwargs)  # noqa: SIM115
+
+
 class TextFormatter(Formatter):
 
     name = "text"
 
     @classmethod
     def accepts(cls, path: str | pathlib.Path | FileSystemTarget, mode: str) -> bool:
-        return get_path(path).endswith(".txt")
+        return _accepts_ext(path, ".txt")
 
     @classmethod
     def load(cls, path: str | pathlib.Path | FileSystemTarget, *args, **kwargs) -> str:
-        with open(get_path(path), encoding=kwargs.pop("encoding", "utf-8")) as f:
+        with _open(path, "r", encoding=kwargs.pop("encoding", "utf-8")) as f:
             return f.read(*args, **kwargs)
 
     @classmethod
@@ -143,7 +159,7 @@ class TextFormatter(Formatter):
         *args,
         **kwargs,
     ) -> None:
-        with open(get_path(path), "w", encoding=kwargs.pop("encoding", "utf-8")) as f:
+        with _open(path, "w", encoding=kwargs.pop("encoding", "utf-8")) as f:
             f.write(str(content), *args, **kwargs)
 
 
@@ -153,18 +169,18 @@ class JSONFormatter(Formatter):
 
     @classmethod
     def accepts(cls, path: str | pathlib.Path | FileSystemTarget, mode: str) -> bool:
-        return get_path(path).endswith(".json")
+        return _accepts_ext(path, ".json")
 
     @classmethod
     def load(_cls, path: str | pathlib.Path | FileSystemTarget, *args, **kwargs) -> Any:
         # kwargs might contain *cls*
-        with open(get_path(path), encoding=kwargs.pop("encoding", "utf-8")) as f:
+        with _open(path, "r", encoding=kwargs.pop("encoding", "utf-8")) as f:
             return json.load(f, *args, **kwargs)
 
     @classmethod
     def dump(_cls, path: str | pathlib.Path | FileSystemTarget, obj: Any, *args, **kwargs) -> None:
         # kwargs might contain *cls*
-        with open(get_path(path), "w", encoding=kwargs.pop("encoding", "utf-8")) as f:
+        with _open(path, "w", encoding=kwargs.pop("encoding", "utf-8")) as f:
             return json.dump(obj, f, *args, **kwargs)
 
 
@@ -174,16 +190,16 @@ class PickleFormatter(Formatter):
 
     @classmethod
     def accepts(cls, path: str | pathlib.Path | FileSystemTarget, mode: str) -> bool:
-        return get_path(path).endswith((".pkl", ".pickle", ".p"))
+        return _accepts_ext(path, ".pkl", ".pickle", ".p")
 
     @classmethod
     def load(cls, path: str | pathlib.Path | FileSystemTarget, *args, **kwargs) -> Any:
-        with open(get_path(path), "rb") as f:
+        with _open(path, "rb") as f:
             return pickle.load(f, *args, **kwargs)
 
     @classmethod
     def dump(cls, path: str | pathlib.Path | FileSystemTarget, obj: Any, *args, **kwargs) -> None:
-        with open(get_path(path), "wb") as f:
+        with _open(path, "wb") as f:
             return pickle.dump(obj, f, *args, **kwargs)
 
 
@@ -193,20 +209,20 @@ class YAMLFormatter(Formatter):
 
     @classmethod
     def accepts(cls, path: str | pathlib.Path | FileSystemTarget, mode: str) -> bool:
-        return get_path(path).endswith((".yaml", ".yml"))
+        return _accepts_ext(path, ".yaml", ".yml")
 
     @classmethod
     def load(cls, path: str | pathlib.Path | FileSystemTarget, *args, **kwargs) -> Any:
         import yaml
 
-        with open(get_path(path), encoding=kwargs.pop("encoding", "utf-8")) as f:
+        with _open(path, "r", encoding=kwargs.pop("encoding", "utf-8")) as f:
             return yaml.safe_load(f, *args, **kwargs)
 
     @classmethod
     def dump(cls, path: str | pathlib.Path | FileSystemTarget, obj: Any, *args, **kwargs) -> None:
         import yaml
 
-        with open(get_path(path), "w", encoding=kwargs.pop("encoding", "utf-8")) as f:
+        with _open(path, "w", encoding=kwargs.pop("encoding", "utf-8")) as f:
             return yaml.dump(obj, f, *args, **kwargs)
 
 
@@ -227,7 +243,8 @@ class TarFormatter(Formatter):
 
     @classmethod
     def accepts(cls, path: str | pathlib.Path | FileSystemTarget, mode: str) -> bool:
-        return cls.infer_compression(path) is not None
+        # accept uncompressed tar files as well as those with a known compression
+        return get_path(path).endswith(".tar") or cls.infer_compression(path) is not None
 
     @classmethod
     def load(
@@ -247,10 +264,13 @@ class TarFormatter(Formatter):
             compression = cls.infer_compression(path)
             mode = "r" if not compression else "r:" + compression
 
-        # arguments passed to extractall()
-        extractall_kwargs = kwargs.pop("extractall_kwargs", None) or {}
+        # arguments passed to extractall(), using the "data" filter by default where supported (the
+        # default as of python 3.14) for consistent and safe extraction across versions
+        extractall_kwargs = dict(kwargs.pop("extractall_kwargs", None) or {})
+        if getattr(tarfile, "data_filter", None) is not None:
+            extractall_kwargs.setdefault("filter", "data")
 
-        # open zip file and extract to dst
+        # open tar file and extract to dst
         with tarfile.open(get_path(path), mode, *args, **kwargs) as f:
             f.extractall(get_path(dst), **extractall_kwargs)
 

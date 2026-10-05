@@ -36,21 +36,21 @@ class ARCWorkflowProxy(BaseRemoteWorkflowProxy):
         super().__init__(*args, **kwargs)
 
         # check if there is at least one ce
-        if not self.task.arc_ce:  # type: ignore[attr-defined]
+        if not self.task.arc_ce:
             raise Exception("please set at least one arc computing element (--arc-ce)")
 
     def create_job_manager(self, **kwargs) -> ARCJobManager:
-        return self.task.arc_create_job_manager(**kwargs)  # type: ignore[attr-defined]
+        return self.task.arc_create_job_manager(**kwargs)
 
     def create_job_file_factory(self, **kwargs) -> ARCJobFileFactory:
-        return self.task.arc_create_job_file_factory(**kwargs)  # type: ignore[attr-defined]
+        return self.task.arc_create_job_file_factory(**kwargs)
 
     def create_job_file(
         self,
         job_num: int,
         branches: list[int],
     ) -> dict[str, str | pathlib.Path | ARCJobFileFactory.Config | None]:
-        task: ARCWorkflow = self.task  # type: ignore[assignment]
+        task: ARCWorkflow = self.task
 
         # the file postfix is pythonic range made from branches, e.g. [0, 1, 2, 4] -> "_0To5"
         postfix = f"_{branches[0]}To{branches[-1] + 1}"
@@ -160,7 +160,7 @@ class ARCWorkflowProxy(BaseRemoteWorkflowProxy):
     def destination_info(self) -> InsertableDict:
         info = super().destination_info()
 
-        task: ARCWorkflow = self.task  # type: ignore[assignment]
+        task: ARCWorkflow = self.task
         info["ce"] = f"ce: {','.join(task.arc_ce)}"
         info = task.arc_destination_info(info)
 
@@ -286,7 +286,7 @@ class ARCWorkflow(BaseRemoteWorkflow):
         Configurable delay in seconds to wait after submitting jobs and before starting the status
         polling.
         """
-        return self.poll_interval * 60  # type: ignore[return-value,operator]
+        return self.poll_interval * 60
 
     def arc_check_job_completeness(self) -> bool:
         return False

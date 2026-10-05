@@ -38,6 +38,22 @@ logger = get_logger(__name__)
 class TargetCollection(Target):
     """
     Collection of arbitrary targets.
+
+    The *threshold* defines the number of targets that need to exist for the collection itself to
+    be considered existing. Values smaller than or equal to one are interpreted as fractions of the
+    collection length, whereas larger values denote absolute numbers (limited to the collection
+    length). In particular, a value of ``1`` refers to *all* targets and not to a single one.
+    Negative values result in a threshold of zero, i.e., the collection always exists. Example:
+
+    .. code-block:: python
+
+        targets = [target_a, target_b, target_c, target_d]  # only a and b exist
+
+        TargetCollection(targets).exists()                 # -> False (all 4 required)
+        TargetCollection(targets, threshold=0.5).exists()  # -> True (2 required)
+        TargetCollection(targets, threshold=1).exists()    # -> False (all 4 required)
+        TargetCollection(targets, threshold=2).exists()    # -> True (2 required)
+        TargetCollection(targets, threshold=3).exists()    # -> False (3 required)
     """
 
     def __init__(
@@ -444,7 +460,7 @@ class SiblingFileCollection(SiblingFileCollectionBase):
         _path = path
         d = LocalDirectoryTarget(get_path(path))
         if not d.exists():
-            raise TypeError(
+            raise FileNotFoundError(
                 f"directory passed to {cls.__name__}.from_directory does not exist: {_path}",
             )
 
@@ -644,7 +660,8 @@ def flatten_collections(*targets) -> list[Target]:
     while lookup:
         t = lookup.popleft()
         if isinstance(t, TargetCollection):
-            lookup.extendleft(t._flat_target_list)
+            # extendleft reverses the order, so reverse in advance to preserve it
+            lookup.extendleft(reversed(t._flat_target_list))
         else:
             _targets.append(t)
 

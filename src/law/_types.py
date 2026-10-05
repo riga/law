@@ -27,6 +27,7 @@ from io import TextIOWrapper
 from types import GeneratorType, GenericAlias, ModuleType, TracebackType
 from typing import (
     IO,
+    TYPE_CHECKING,
     Annotated,
     Any,
     ClassVar,
@@ -36,13 +37,20 @@ from typing import (
     TextIO,
     TypeVar,
     Union,
+    cast,
+    overload,
 )
 
 # version specific imports
-try:
+if sys.version_info >= (3, 12):
     from typing import override
-except ImportError:
-    from typing_extensions import override  # noqa: UP035
+else:
+    from typing_extensions import override
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 #: Generic type variables, more stringent than Any.
 T = TypeVar("T")

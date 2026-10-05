@@ -23,6 +23,8 @@ coverage*.xml
 .dmypy.json
 .python-version
 .coverage
+.coverage.*
 .mypy_cache
 .ruff_cache
 .pytest_cache
+CLAUDE.local.md

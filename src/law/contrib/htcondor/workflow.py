@@ -34,10 +34,10 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
     workflow_type: str = "htcondor"
 
     def create_job_manager(self, **kwargs) -> HTCondorJobManager:
-        return self.task.htcondor_create_job_manager(**kwargs)  # type: ignore[attr-defined]
+        return self.task.htcondor_create_job_manager(**kwargs)
 
     def create_job_file_factory(self, **kwargs) -> HTCondorJobFileFactory:
-        return self.task.htcondor_create_job_file_factory(**kwargs)  # type: ignore[attr-defined]
+        return self.task.htcondor_create_job_file_factory(**kwargs)
 
     def create_job_file(
         self,
@@ -57,7 +57,7 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         submit_jobs: dict[int, list[int]],
         grouped_submission: bool,
     ) -> dict[str, str | pathlib.Path | HTCondorJobFileFactory.Config | None]:
-        task: HTCondorWorkflow = self.task  # type: ignore[assignment]
+        task: HTCondorWorkflow = self.task
 
         # check inputs
         if not submit_jobs:
@@ -204,7 +204,7 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
                 return None
             log_target = log_dir.child(path, type="f")  # type: ignore[union-attr]
             if log_target.parent != log_dir:
-                log_target.parent.touch()  # type: ignore[union-attr,call-arg]
+                log_target.parent.touch()  # type: ignore[union-attr]
             return log_target.abspath
 
         c.log = c.log or None
@@ -260,7 +260,7 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
     def destination_info(self) -> InsertableDict:
         info = super().destination_info()
 
-        task: HTCondorWorkflow = self.task  # type: ignore[assignment]
+        task: HTCondorWorkflow = self.task
         if task.htcondor_pool and task.htcondor_pool != NO_STR:
             info["pool"] = f"pool: {task.htcondor_pool}"
 
@@ -414,7 +414,7 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
         Configurable delay in seconds to wait after submitting jobs and before starting the status
         polling.
         """
-        return self.poll_interval * 60  # type: ignore[return-value,operator]
+        return self.poll_interval * 60
 
     def htcondor_check_job_completeness(self) -> bool:
         return False

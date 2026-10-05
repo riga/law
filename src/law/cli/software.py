@@ -22,7 +22,7 @@ default_dep_names = ["luigi", "law", "tenacity", "dateutil"]
 
 dep_names_str = os.getenv("LAW_SOFTWARE_DEPS", None)
 dep_names = [name.strip() for name in dep_names_str.strip().split(",")] if dep_names_str else default_dep_names
-_deps: list[ModuleType] | None = None
+_deps: dict[tuple[str, ...], list[ModuleType]] = {}
 
 if "_reloaded_deps" not in globals():
     _reloaded_deps = False
@@ -96,15 +96,15 @@ def execute(args: argparse.Namespace) -> int:
 
 
 def get_software_deps(names: list[str] | None = None) -> list[ModuleType]:
-    global _deps
-
-    if _deps is not None:
-        return _deps
-    _deps = []
-
     if names is None:
         names = list(dep_names)
 
+    # imported modules are cached per list of names
+    key = tuple(names)
+    if key in _deps:
+        return _deps[key]
+
+    deps = []
     for name in names:
         try:
             mod = importlib.import_module(name)
@@ -112,9 +112,11 @@ def get_software_deps(names: list[str] | None = None) -> list[ModuleType]:
             print(f"could not import software dependency '{name}': {e}")
             continue
 
-        _deps.append(mod)
+        deps.append(mod)
 
-    return _deps
+    _deps[key] = deps
+
+    return deps
 
 
 def build_software_cache(
@@ -132,7 +134,7 @@ def build_software_cache(
     os.makedirs(sw_dir)
 
     # reload dependencies to find the proper module paths
-    reload_dependencies(force=True)
+    reload_dependencies(force=True, dep_names=dep_names)
 
     # get dependencies
     deps = get_software_deps(names=dep_names)

@@ -20,7 +20,7 @@ from law._types import Any, Iterator
 from law.config import Config
 from law.logger import get_logger
 from law.target.base import Target
-from law.target.collection import FileCollection, TargetCollection
+from law.target.collection import TargetCollection
 from law.target.file import FileSystemTarget
 from law.task.base import ExternalTask, Task
 from law.util import (
@@ -364,7 +364,7 @@ def print_task_output(task: Task, stopping_condition: int | str = 0, scheme: boo
 
         for outp in flatten(dep.output()):
             kwargs = {}
-            if isinstance(outp, (FileSystemTarget, FileCollection)):
+            if isinstance(outp, (FileSystemTarget, TargetCollection)):
                 kwargs = {"scheme": scheme}
             for uri in make_list(outp.uri(**kwargs)):
                 if uri in done_uris:
@@ -577,6 +577,8 @@ def fetch_task_output(
     print(f"target directory is {target_dir}")
     makedirs(target_dir)
 
+    unique_names = flag_to_bool(unique_names)  # type: ignore[assignment]
+
     include_external = flag_to_bool(include_external)  # type: ignore[assignment]
     if include_external:
         print("include external tasks")
@@ -764,6 +766,11 @@ def fetch_task_output(
 
                 # define the basename
                 basename: str = outp.basename  # type: ignore[attr-defined]
+
+                # skip missing targets, e.g. of partially existing collections
+                if not outp.exists():
+                    _print(ooffset + colored(f"not existing, skip ({basename})", "yellow"), ooffset)
+                    continue
                 if unique_names:
                     basename = f"{dep.live_task_id}__{basename}"
 

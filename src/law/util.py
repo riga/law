@@ -132,6 +132,7 @@ from law._types import (
     Sized,
     T,
     TracebackType,
+    Union,
 )
 
 ipykernel: ModuleType | None = None
@@ -397,7 +398,7 @@ def is_classmethod(func: Any, cls: type | None = None) -> bool:
         for _cls in inspect.getmro(cls):
             if func.__name__ not in _cls.__dict__:
                 continue
-            return cls.__dict__[func.__name__].__class__.__name__ == "classmethod"
+            return _cls.__dict__[func.__name__].__class__.__name__ == "classmethod"
     except AttributeError:
         return False
 
@@ -475,10 +476,12 @@ def str_to_int(s: str) -> int:
     Converts a string *s* into an integer under consideration of binary, octal, decimal and
     hexadecimal representations, such as ``"0o0660"``.
     """
-    s = str(s).lower()
-    m = re.match(r"^0(b|o|d|x)\d+$", s)
-    base = {"b": 2, "o": 8, "d": 10, "x": 16}[m.group(1)] if m else 10
-    return int(s, base=base)
+    s = str(s).strip().lower()
+    m = re.match(r"^([+-]?)0([bodx])([0-9a-f_]+)$", s)
+    if not m:
+        return int(s, base=10)
+    sign, prefix, digits = m.groups()
+    return int(sign + digits, base={"b": 2, "o": 8, "d": 10, "x": 16}[prefix])
 
 
 def flag_to_bool(s: str | bool, silent: bool = False) -> bool | None:
@@ -787,8 +790,12 @@ def brace_expand(s: str, split_csv: bool = False, escape_csv_sep: bool = True) -
     return res
 
 
+#: Type of range tuples, either a single value or start and stop values, which might be open (*None*).
+RangeTuple = Union[tuple[int], tuple[Union[int, None], Union[int, None]]]
+
+
 def range_expand(
-    s: str | Sequence[str] | Sequence[tuple[int] | tuple[int, int]],
+    s: str | Sequence[str] | RangeTuple | Sequence[RangeTuple],
     include_end: bool = False,
     min_value: int | None = None,
     max_value: int | None = None,
@@ -841,9 +848,9 @@ def range_expand(
         except ValueError as e:
             raise ValueError(f"invalid number or range '{v if s is None else s}'") from e
 
-    # make_list is used below, but we need to distinguish between lists and tuples
+    # make_list is used below, but need to distinguish between single range tuples and tuples of them
     numbers = []
-    for v in ([s] if isinstance(s, tuple) else make_list(s)):
+    for v in ([s] if isinstance(s, tuple) and not is_nested(s) else make_list(s)):
         start, stop, value = None, None, None
         single_value = False
 
@@ -1213,10 +1220,13 @@ def merge_dicts(*dicts, **kwargs):
 
         if deep:
             for k, v in d.items():
-                # just take the value as is when it is not a dict, or the field is either not
-                # existing yet or not a dict in the merged dict
-                if not isinstance(v, dict) or not isinstance(merged_dict.get(k), dict):
+                # just take the value as is when it is not a dict, and when the field is either not
+                # existing yet or not a dict in the merged dict, use a (deep) copy so that subsequent
+                # merges do not alter the input dict
+                if not isinstance(v, dict):
                     merged_dict[k] = v
+                elif not isinstance(merged_dict.get(k), dict):
+                    merged_dict[k] = merge_dicts(v, deep=True)
                 else:
                     # merge by recursion
                     merge_dicts(merged_dict[k], v, inplace=True, deep=deep)
@@ -1247,7 +1257,7 @@ def unzip(struct: Iterable, fill_none: bool = False) -> tuple[list[Any], ...] | 
         # -> ([1, 3], [2, None])
     """
     lists: tuple | None = None
-    for obj in struct:
+    for j, obj in enumerate(struct):
         # determine the number of lists to return
         if lists is None:
             lists = tuple([] for _ in range(len(obj)))
@@ -1259,7 +1269,10 @@ def unzip(struct: Iterable, fill_none: bool = False) -> tuple[list[Any], ...] | 
             elif fill_none:
                 _list.append(None)
             else:
-                raise ValueError(f"insufficient length {i} of sequence at index {len(lists)} to unzip")
+                raise ValueError(
+                    f"insufficient length {len(obj)} of sequence at index {j} to unzip, expected "
+                    f"{len(lists)}",
+                )
 
     return lists
 
@@ -1457,12 +1470,12 @@ def map_struct(
 
 
 def mask_struct(
-    mask: bool | Iterable[bool],
-    struct: T | Iterable[T],
+    mask: bool | Sequence[Any] | dict[Any, Any],
+    struct: Any,
     replace: Any | NoValue = no_value,
     keep_missing: bool = True,
     convert_types: dict[type | tuple[type, ...], Callable[[Any], Any]] | None = None,
-):
+) -> Any:
     """
     Masks a complex structured object *struct* with a *mask* and returns the remaining values. When
     *replace* is set, masked values are replaced with that value instead of being removed. The
@@ -1490,7 +1503,7 @@ def mask_struct(
     """
     # interpret lazy iterables lists
     if is_lazy_iterable(struct):
-        struct = list(struct)  # type: ignore[arg-type]
+        struct = list(struct)
 
     # cast convert types
     if convert_types and isinstance(struct, tuple(flatten(convert_types.keys()))):
@@ -1857,7 +1870,7 @@ def compute_sha1_hash(path: str | pathlib.Path, to_int: bool = False) -> str | i
     """
     path = os.path.abspath(os.path.expandvars(os.path.expanduser(str(path))))
     cmd = ["sha1sum", path]
-    code, out, _ = interruptable_popen(  # type: ignore[assignment]
+    code, out, _ = interruptable_popen(
         cmd,
         shell=True,
         executable="/bin/bash",
@@ -1951,7 +1964,7 @@ def increment_path(path: str | pathlib.Path, n: int | None = None) -> str:
     basename, ext = os.path.splitext(basename)
 
     # check if basename already contains a trailing counter
-    m = re.match(r"^([^\.]+)_(\d+)$", basename)
+    m = re.match(r"^(.+)_(\d+)$", basename)
     counter = 0
     if m:
         basename = m.group(1)
@@ -2092,19 +2105,19 @@ def human_bytes(
         # -> "3.25 -- MB"
 
         human_bytes(3407872, fmt=True)
-        # -> "3.25 MB"
+        # -> "3.2 MB"
     """
     # check if the unit exists
     if unit and unit not in byte_units:
         raise ValueError(f"unknown unit '{unit}', valid values are {byte_units}")
 
-    if n == 0:
-        idx = 0
-    elif unit:
+    if unit:
         idx = byte_units.index(unit)
+    elif n == 0:
+        idx = 0
     else:
         idx = math.floor(math.log(abs(n), 1024))
-        idx = min(idx, len(byte_units))
+        idx = min(max(idx, 0), len(byte_units) - 1)
 
     # get the value and the unit name
     value = n / 1024.0 ** idx
@@ -2172,8 +2185,8 @@ def parse_bytes(s: str | int | float, input_unit: str = "bytes", unit: str = "by
     idx = byte_units_lower.index(input_unit.lower())
     size_bytes = input_value * 1024.0 ** idx
 
-    # use human_bytes to convert the size
-    return human_bytes(size_bytes, unit=unit)[0]  # type: ignore[return-value]
+    # convert to the output unit
+    return size_bytes / 1024.0 ** byte_units_lower.index(unit.lower())
 
 
 time_units: dict[str, int] = {
@@ -2256,7 +2269,8 @@ def human_duration(colon_format: bool | str = False, plural: bool = True, **kwar
 
     seconds = float(datetime.timedelta(**kwargs).total_seconds())
     sign = 1 if seconds >= 0 else -1
-    seconds = abs(seconds)
+    # round to 2 digits before splitting into units so that rounding carries over to larger units
+    seconds = round(abs(seconds), 2)
 
     # when using colon_format, check if a limiting unit is set
     colon_unit_limit = None
@@ -2644,7 +2658,7 @@ class InsertableDict(dict):
         self.clear()
         self.update(items)
 
-    def insert_before(self, before_key: Hashable, key: Hashable, value: Any = None) -> None:
+    def insert_before(self, before_key: Hashable, key: Hashable | list | dict, value: Any = None) -> None:
         """
         Inserts a *key* - *value* pair before the key *before_key*. If this key does not exist, the new pair is added at
         the end. When *key* is list of item pairs or a dictionary, and value is :py:attr:`no_value`, multiple new values
@@ -2652,7 +2666,7 @@ class InsertableDict(dict):
         """
         self._insert(before_key, key, value, 0)
 
-    def insert_after(self, after_key: Hashable, key: Hashable, value: Any = None) -> None:
+    def insert_after(self, after_key: Hashable, key: Hashable | list | dict, value: Any = None) -> None:
         """
         Inserts a *key* - *value* pair after the key *after_key*. If this key does not exist, the new pair is added at
         the end. When *key* is list of item pairs or a dictionary, and value is :py:attr:`no_value`, multiple new values
@@ -2660,23 +2674,27 @@ class InsertableDict(dict):
         """
         self._insert(after_key, key, value, 1)
 
-    def prepend(self, key: Hashable, value: Any = no_value) -> None:
+    def prepend(self, key: Hashable | list | dict, value: Any = no_value) -> None:
         """
         Adds a new *key* - *value* pair at the beginning of the dictionary. When *value* is :py:attr:`no_value`, *key*
         is assumed to exist already in the dictionary and moved to the beginning. When *key* is list of item pairs or a
         dictionary, and value is :py:attr:`no_value`, multiple new values are prepended (in the given order).
         """
         first_key = next(iter(self)) if self else no_value
-        self.insert_before(first_key, key, value=self.get(key, None) if value is no_value else value)
+        if value is no_value and not isinstance(key, (list, dict)):
+            value = self.get(key, None)
+        self.insert_before(first_key, key, value=value)
 
-    def append(self, key: Hashable, value: Any = no_value) -> None:
+    def append(self, key: Hashable | list | dict, value: Any = no_value) -> None:
         """
         Adds a new *key* - *value* pair at the end of the dictionary. When *value* is :py:attr:`no_value`, *key* is
         assumed to exist already in the dictionary and moved to the end. When *key* is list of item pairs or a
         dictionary, and value is :py:attr:`no_value`, multiple new values are appended (in the given order).
         """
         last_key = list(self)[-1] if self else no_value
-        self.insert_after(last_key, key, value=self.get(key, None) if value is no_value else value)
+        if value is no_value and not isinstance(key, (list, dict)):
+            value = self.get(key, None)
+        self.insert_after(last_key, key, value=value)
 
 
 @contextlib.contextmanager
@@ -2722,7 +2740,7 @@ def patch_object(
 
 def join_generators(
     *generators: GeneratorType,
-    on_error: Callable[[Exception | KeyboardInterrupt], None] | None = None,
+    on_error: Callable[[Exception | KeyboardInterrupt], Any] | None = None,
 ) -> Generator[Any, None, None]:
     """
     Joins multiple *generators* and returns a single generator for simplified iteration. Yielded
