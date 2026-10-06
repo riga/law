@@ -1,6 +1,5 @@
 """
-Build large-scale task workflows using luigi, remote job submission, remote targets, and environment
-sandboxing.
+Build large-scale task workflows using luigi, remote job submission, remote targets, and environment sandboxing.
 """
 
 __author__ = "Marcel Rieger"

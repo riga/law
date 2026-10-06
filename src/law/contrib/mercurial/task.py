@@ -24,11 +24,10 @@ from law.util import interruptable_popen, quote_cmd, rel_path
 
 class BundleMercurialRepository(Task):
     """
-    Task that bundles a Mercurial repository into a tarball, e.g. to send it along with jobs.
-    Inheriting classes must implement :py:meth:`get_repo_path`. Files matching patterns in
-    *exclude_files* are excluded, while files matching patterns in *include_files* are included even
-    when ignored via ``.hgignore``. The name of the output file contains a checksum of the
-    repository.
+    Task that bundles a Mercurial repository into a tarball, e.g. to send it along with jobs. Inheriting classes must
+    implement :py:meth:`get_repo_path`. Files matching patterns in *exclude_files* are excluded, while files matching
+    patterns in *include_files* are included even when ignored via ``.hgignore``. The name of the output file contains a
+    checksum of the repository.
     """
 
     task_namespace = "law.mercurial"
@@ -56,8 +55,7 @@ class BundleMercurialRepository(Task):
     @abc.abstractmethod
     def get_repo_path(self) -> str | pathlib.Path | FileSystemFileTarget:
         """
-        Hook that returns the path of the repository to bundle. Must be implemented by inheriting
-        classes.
+        Hook that returns the path of the repository to bundle. Must be implemented by inheriting classes.
 
         :return: The path.
         """

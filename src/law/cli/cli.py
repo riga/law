@@ -15,8 +15,8 @@ progs = ["run", "index", "config", "software", "completion", "location", "quicks
 
 def run(argv: list[str] | None = None) -> int:
     """
-    Entry point to the law cli. Sets up all parsers, parses all arguments given by *argv*, and
-    executes the requested subprogram.
+    Entry point to the law cli. Sets up all parsers, parses all arguments given by *argv*, and executes the requested
+    subprogram.
 
     :param argv: The command line arguments, defaulting to ``sys.argv[1:]`` when *None*.
     :return: The exit code.

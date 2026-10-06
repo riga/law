@@ -53,12 +53,11 @@ _cfg = Config.instance()
 
 class CrabJobManager(BaseJobManager):
     """
-    Job manager that submits, cancels and queries jobs via CRAB. Jobs are grouped into CRAB tasks,
-    so that operations are performed per CRAB project directory. Commands run inside a CMSSW
-    environment, given by the :py:class:`~law.contrib.cms.CMSSWSandbox` with name *sandbox_name*,
-    defaulting to the ``crab_sandbox_name`` option of the ``[job]`` config section. *proxy_file* is
-    the voms proxy file to use, *myproxy_username* the user name of the delegated proxy on the
-    myproxy server, and *instance* the CRAB server instance. *threads* is the default number of
+    Job manager that submits, cancels and queries jobs via CRAB. Jobs are grouped into CRAB tasks, so that operations
+    are performed per CRAB project directory. Commands run inside a CMSSW environment, given by the
+    :py:class:`~law.contrib.cms.CMSSWSandbox` with name *sandbox_name*, defaulting to the ``crab_sandbox_name`` option
+    of the ``[job]`` config section. *proxy_file* is the voms proxy file to use, *myproxy_username* the user name of the
+    delegated proxy on the myproxy server, and *instance* the CRAB server instance. *threads* is the default number of
     threads for batched operations.
     """
 
@@ -115,8 +114,7 @@ class CrabJobManager(BaseJobManager):
     @classmethod
     def cast_job_id(cls, job_id: tuple[str] | JobId) -> CrabJobManager.JobId:
         """
-        Converts a *job_id*, for instance after json deserialization, into a :py:class:`JobId`
-        object.
+        Converts a *job_id*, for instance after json deserialization, into a :py:class:`JobId` object.
 
         :param job_id: The job id.
         :raises ValueError: When *job_id* cannot be converted.
@@ -721,9 +719,8 @@ print(join(cfg.General.workArea, "crab_" + cfg.General.requestName))'"""
 
 class CrabJobFileFactory(BaseJobFileFactory):
     """
-    Job file factory that creates CRAB configuration files. The constructor arguments are also
-    attributes of the config object that is passed to the
-    :py:meth:`~law.contrib.cms.CrabWorkflow.crab_job_config` hook of
+    Job file factory that creates CRAB configuration files. The constructor arguments are also attributes of the config
+    object that is passed to the :py:meth:`~law.contrib.cms.CrabWorkflow.crab_job_config` hook of
     :py:class:`~law.contrib.cms.CrabWorkflow`, so they can be changed per CRAB task:
 
     - *file_name*: The name of the configuration file.
@@ -742,10 +739,9 @@ class CrabJobFileFactory(BaseJobFileFactory):
     - *absolute_paths*: Whether absolute paths of input files are used in the configuration file
       instead of paths relative to the job file directory.
 
-    Default values of the *dir*, *mkdtemp* and *cleanup* arguments of
-    :py:class:`~law.job.base.BaseJobFileFactory` are taken from the ``crab_job_file_dir``,
-    ``crab_job_file_dir_mkdtemp`` and ``crab_job_file_dir_cleanup`` options of the ``[job]`` config
-    section, falling back to the same options without the ``crab_`` prefix. All other *kwargs* are
+    Default values of the *dir*, *mkdtemp* and *cleanup* arguments of :py:class:`~law.job.base.BaseJobFileFactory` are
+    taken from the ``crab_job_file_dir``, ``crab_job_file_dir_mkdtemp`` and ``crab_job_file_dir_cleanup`` options of the
+    ``[job]`` config section, falling back to the same options without the ``crab_`` prefix. All other *kwargs* are
     forwarded to :py:class:`~law.job.base.BaseJobFileFactory`.
     """
 
@@ -1071,8 +1067,8 @@ class CrabJobFileFactory(BaseJobFileFactory):
         Writes a CRAB configuration file to *job_file*.
 
         :param job_file: The path of the configuration file.
-        :param crab_config: A nested dictionary mapping section names to options and their values.
-            Options with value *None* are skipped.
+        :param crab_config: A nested dictionary mapping section names to options and their values. Options with value
+            *None* are skipped.
         :param custom_content: Lines that are appended.
         :raises ValueError: When a value cannot be assigned to an option.
         """
@@ -1112,8 +1108,8 @@ class CrabJobFileFactory(BaseJobFileFactory):
 
 class CMSJobDashboard(BaseJobDashboard):
     """
-    This CMS job dashboard interface requires ``apmon`` to be installed on your system.
-    See http://monalisa.caltech.edu/monalisa__Documentation__ApMon_User_Guide__apmon_ug_py.html and
+    This CMS job dashboard interface requires ``apmon`` to be installed on your system. See
+    http://monalisa.caltech.edu/monalisa__Documentation__ApMon_User_Guide__apmon_ug_py.html and
     https://twiki.cern.ch/twiki/bin/view/ArdaGrid/CMSJobMonitoringCollector.
     """
 

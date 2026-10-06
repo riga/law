@@ -17,9 +17,8 @@ from law.parameter import NotifyParameter
 class NotifyMattermostParameter(NotifyParameter):
     """
     Notification parameter that, when *True* and the run method of the task is decorated with
-    :py:func:`law.decorator.notify`, sends a Mattermost notification once the task finished. The
-    connection is configured through the ``[notifications]`` config section, see
-    :py:func:`law.mattermost.notify_mattermost`.
+    :py:func:`law.decorator.notify`, sends a Mattermost notification once the task finished. The connection is
+    configured through the ``[notifications]`` config section, see :py:func:`law.mattermost.notify_mattermost`.
     """
 
     def __init__(self, *args, **kwargs) -> None:

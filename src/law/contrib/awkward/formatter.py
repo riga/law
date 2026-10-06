@@ -21,11 +21,10 @@ from law.contrib.awkward.util import from_parquet
 
 class AwkwardFormatter(Formatter):
     """
-    Formatter for awkward arrays in parquet (``.parquet``, ``.parq``), json (``.json``) or pickle
-    files (``.pickle``, ``.pkl``). Parquet files are loaded with :py:func:`law.awkward.from_parquet`
-    and dumped with ``ak.to_parquet``, json files are handled by ``ak.from_json`` and
-    ``ak.to_json``. Additional arguments are forwarded. When dumping, the file permission can be set
-    via *perm*. Its name is ``"awkward"``, which can be passed as *formatter* to select it
+    Formatter for awkward arrays in parquet (``.parquet``, ``.parq``), json (``.json``) or pickle files (``.pickle``,
+    ``.pkl``). Parquet files are loaded with :py:func:`law.awkward.from_parquet` and dumped with ``ak.to_parquet``, json
+    files are handled by ``ak.from_json`` and ``ak.to_json``. Additional arguments are forwarded. When dumping, the file
+    permission can be set via *perm*. Its name is ``"awkward"``, which can be passed as *formatter* to select it
     explicitly.
     """
 

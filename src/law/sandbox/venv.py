@@ -18,9 +18,9 @@ from law.util import interruptable_popen, makedirs, quote_cmd, tmp_file
 
 class VenvSandbox(Sandbox):
     """
-    Sandbox that runs tasks in a Python virtual environment. Its name is the path to the environment
-    directory, e.g. ``"venv::/path/to/venv"``. It is configured through the ``[venv_sandbox]``
-    config section, and additional variables can be set in ``[venv_sandbox_env]``.
+    Sandbox that runs tasks in a Python virtual environment. Its name is the path to the environment directory, e.g.
+    ``"venv::/path/to/venv"``. It is configured through the ``[venv_sandbox]`` config section, and additional variables
+    can be set in ``[venv_sandbox_env]``.
     """
 
     sandbox_type: str = "venv"
@@ -30,8 +30,7 @@ class VenvSandbox(Sandbox):
     @property
     def venv_dir(self) -> str:
         """
-        The path of the virtual environment directory with expanded environment variables and
-        ``"~"``.
+        The path of the virtual environment directory with expanded environment variables and ``"~"``.
         """
         return os.path.expandvars(os.path.expanduser(str(self.name)))
 

@@ -32,11 +32,10 @@ _cfg = Config.instance()
 
 class LSFJobManager(BaseJobManager):
     """
-    Job manager that submits, cancels and queries jobs on an LSF batch system via ``bsub``,
-    ``bkill``, ``bjobs``. The exact commands can be configured through the ``lsf_cmd_*`` options of
-    the ``[job]`` config section, as well as chunk sizes for batched operations through the
-    ``lsf_chunk_size_*`` options. *queue* selects the LSF queue, and *emails* decides whether LSF
-    sends emails about jobs. *threads* is the default number of threads for batched operations.
+    Job manager that submits, cancels and queries jobs on an LSF batch system via ``bsub``, ``bkill``, ``bjobs``. The
+    exact commands can be configured through the ``lsf_cmd_*`` options of the ``[job]`` config section, as well as chunk
+    sizes for batched operations through the ``lsf_chunk_size_*`` options. *queue* selects the LSF queue, and *emails*
+    decides whether LSF sends emails about jobs. *threads* is the default number of threads for batched operations.
     """
 
     # chunking settings
@@ -286,9 +285,9 @@ class LSFJobManager(BaseJobManager):
 
 class LSFJobFileFactory(BaseJobFileFactory):
     """
-    Job file factory that creates LSF job files. The constructor arguments are also attributes of
-    the config object that is passed to the :py:meth:`~law.contrib.lsf.LSFWorkflow.lsf_job_config`
-    hook of :py:class:`~law.contrib.lsf.LSFWorkflow`, so they can be changed per job:
+    Job file factory that creates LSF job files. The constructor arguments are also attributes of the config object that
+    is passed to the :py:meth:`~law.contrib.lsf.LSFWorkflow.lsf_job_config` hook of
+    :py:class:`~law.contrib.lsf.LSFWorkflow`, so they can be changed per job:
 
     - *file_name*: The name of the job file. A postfix is added to it per job.
     - *command*: The command to run in jobs, as an alternative to *executable*.
@@ -312,10 +311,9 @@ class LSFJobFileFactory(BaseJobFileFactory):
     - *absolute_paths*: Whether absolute paths of input files are used in the job file instead of
       paths relative to the job file directory.
 
-    Default values of the *dir*, *mkdtemp* and *cleanup* arguments of
-    :py:class:`~law.job.base.BaseJobFileFactory` are taken from the ``lsf_job_file_dir``,
-    ``lsf_job_file_dir_mkdtemp`` and ``lsf_job_file_dir_cleanup`` options of the ``[job]`` config
-    section, falling back to the same options without the ``lsf_`` prefix. All other *kwargs* are
+    Default values of the *dir*, *mkdtemp* and *cleanup* arguments of :py:class:`~law.job.base.BaseJobFileFactory` are
+    taken from the ``lsf_job_file_dir``, ``lsf_job_file_dir_mkdtemp`` and ``lsf_job_file_dir_cleanup`` options of the
+    ``[job]`` config section, falling back to the same options without the ``lsf_`` prefix. All other *kwargs* are
     forwarded to :py:class:`~law.job.base.BaseJobFileFactory`.
     """
 

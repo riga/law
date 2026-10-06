@@ -41,14 +41,12 @@ class RemoteFileSystem(FileSystem):
     """
     Base class of file systems on remote storage, which delegate the actual file operations to a
     :py:class:`~law.target.remote.RemoteFileInterface` *file_interface*. Implementations, such as
-    :py:class:`law.wlcg.WLCGFileSystem`, usually read their options from a section in the law
-    config.
+    :py:class:`law.wlcg.WLCGFileSystem`, usually read their options from a section in the law config.
 
-    *validate_copy* decides whether the existence of files is validated after copying them, and
-    *use_cache* whether the local :py:class:`~law.target.remote.RemoteCache` is used by default. The
-    cache is configured with *cache_config* and only created when it contains a ``root`` directory.
-    Paths with a ``file://`` scheme are forwarded to the local file system *local_fs*. All other
-    *kwargs* are forwarded to :py:class:`~law.target.file.FileSystem`.
+    *validate_copy* decides whether the existence of files is validated after copying them, and *use_cache* whether the
+    local :py:class:`~law.target.remote.RemoteCache` is used by default. The cache is configured with *cache_config* and
+    only created when it contains a ``root`` directory. Paths with a ``file://`` scheme are forwarded to the local file
+    system *local_fs*. All other *kwargs* are forwarded to :py:class:`~law.target.file.FileSystem`.
 
     .. py:attribute:: cache
 
@@ -121,16 +119,14 @@ class RemoteFileSystem(FileSystem):
         skip: str | Sequence[str] | None = None,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         """
-        Takes keyword arguments *kwargs* and splits them into two separate dictionaries depending on
-        their content. This function is used internally to decide which arguments to pass to target
-        formatters.
+        Takes keyword arguments *kwargs* and splits them into two separate dictionaries depending on their content. This
+        function is used internally to decide which arguments to pass to target formatters.
 
         :param kwargs: The keyword arguments to split.
         :param include: Argument keys that are considered as remote arguments as well.
         :param skip: Argument keys that are ignored.
-        :return: A 2-tuple with a dictionary of arguments related to potential remote file
-            operations (e.g. ``"cache"`` or ``"retries"``), and a dictionary with all remaining
-            arguments.
+        :return: A 2-tuple with a dictionary of arguments related to potential remote file operations (e.g. ``"cache"``
+            or ``"retries"``), and a dictionary with all remaining arguments.
         """
         include = make_list(include) if include else []
         skip = make_list(skip) if skip else []
@@ -230,8 +226,7 @@ class RemoteFileSystem(FileSystem):
 
     def is_local(self, path: str | pathlib.Path) -> bool:
         """
-        Returns whether *path* refers to the local file system, i.e., whether it has a ``file://``
-        scheme.
+        Returns whether *path* refers to the local file system, i.e., whether it has a ``file://`` scheme.
 
         :param path: The path.
         :return: Whether *path* is local.
@@ -511,12 +506,12 @@ class RemoteFileSystem(FileSystem):
         **kwargs,
     ) -> str:
         """
-        Copies *src* to *dst*, taking into account the cache when enabled. When this method is
-        called, both *src* and *dst* should refer to files.
+        Copies *src* to *dst*, taking into account the cache when enabled. When this method is called, both *src* and
+        *dst* should refer to files.
 
         :param src: The source path.
-        :param dst: The destination path. It can be *None* when caching is enabled, in which case
-            the file is copied into the cache.
+        :param dst: The destination path. It can be *None* when caching is enabled, in which case the file is copied
+            into the cache.
         :param perm: The permission of the copied file.
         :param cache: Whether to use the cache, defaulting to :py:attr:`use_cache`.
         :param prefer_cache: Whether to prefer an existing cached file.
@@ -621,15 +616,13 @@ class RemoteFileSystem(FileSystem):
         **kwargs,
     ) -> str:
         """
-        Prepares the directory of a target located at *dst* for copying. When *dst* is already a
-        directory, calling this method has no effect and the *dst* path is returned, optionally
-        joined with the basename of *src*. When *dst* is a file, *dst* path is returned unchanged.
-        Otherwise, when *dst* does not exist yet, it is interpreted as a file path and missing
-        directories are created when :py:attr:`create_file_dir` is *True*.
+        Prepares the directory of a target located at *dst* for copying. When *dst* is already a directory, calling this
+        method has no effect and the *dst* path is returned, optionally joined with the basename of *src*. When *dst* is
+        a file, *dst* path is returned unchanged. Otherwise, when *dst* does not exist yet, it is interpreted as a file
+        path and missing directories are created when :py:attr:`create_file_dir` is *True*.
 
         :param dst: The destination path.
-        :param src: The location of a source file target, which is (e.g.) used by a file copy or
-            move operation.
+        :param src: The location of a source file target, which is (e.g.) used by a file copy or move operation.
         :param perm: The permission of created directories.
         :param kwargs: Additional options forwarded to the file system operations.
         :return: The full destination path.
@@ -759,9 +752,8 @@ class RemoteFileSystem(FileSystem):
 
 class RemoteTarget(FileSystemTarget):
     """
-    Base class of targets on a :py:class:`RemoteFileSystem` *fs*. Paths are absolute within the file
-    system and must not point above its root. All *kwargs* are forwarded to
-    :py:class:`~law.target.file.FileSystemTarget`.
+    Base class of targets on a :py:class:`RemoteFileSystem` *fs*. Paths are absolute within the file system and must not
+    point above its root. All *kwargs* are forwarded to :py:class:`~law.target.file.FileSystemTarget`.
     """
 
     def __init__(self, path: str | pathlib.Path, fs: RemoteFileSystem, **kwargs) -> None:
@@ -861,8 +853,7 @@ class RemoteFileTarget(FileSystemFileTarget, RemoteTarget):
     @property
     def cache_path(self) -> str | None:
         """
-        The path of this file in the local cache of its file system, or *None* when no cache is
-        configured.
+        The path of this file in the local cache of its file system, or *None* when no cache is configured.
         """
         if not self.fs.cache:  # type: ignore[attr-defined]
             return None

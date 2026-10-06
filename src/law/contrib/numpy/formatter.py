@@ -19,12 +19,12 @@ logger = get_logger(__name__)
 
 class NumpyFormatter(Formatter):
     """
-    Formatter for numpy arrays in ``.npy``, ``.npz`` or text files (``.txt``). Text files are
-    handled by :py:func:`numpy.loadtxt` and :py:func:`numpy.savetxt`, other files by
-    :py:func:`numpy.load` and :py:func:`numpy.save` or :py:func:`numpy.savez`. When dumping ``.npz``
-    files, *savez_compressed* can be set to *True* to use :py:func:`numpy.savez_compressed` instead.
-    Additional arguments are forwarded. When dumping, the file permission can be set via *perm*. Its
-    name is ``"numpy"``, which can be passed as *formatter* to select it explicitly.
+    Formatter for numpy arrays in ``.npy``, ``.npz`` or text files (``.txt``). Text files are handled by
+    :py:func:`numpy.loadtxt` and :py:func:`numpy.savetxt`, other files by :py:func:`numpy.load` and
+    :py:func:`numpy.save` or :py:func:`numpy.savez`. When dumping ``.npz`` files, *savez_compressed* can be set to
+    *True* to use :py:func:`numpy.savez_compressed` instead. Additional arguments are forwarded. When dumping, the file
+    permission can be set via *perm*. Its name is ``"numpy"``, which can be passed as *formatter* to select it
+    explicitly.
     """
 
     name = "numpy"

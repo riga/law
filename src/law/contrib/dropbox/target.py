@@ -27,11 +27,10 @@ law.contrib.load("gfal")
 
 class DropboxFileSystem(RemoteFileSystem):
     """
-    Remote file system for Dropbox, using :py:class:`law.gfal.GFALFileInterface` for file
-    operations. Its options are read from the config section *section*, defaulting to the one
-    configured in ``[target] default_dropbox_fs``, and can be overwritten by *kwargs*. The ``base``
-    option and the credentials *app_key*, *app_secret* and *access_token* (``dropbox_*`` options in
-    the config) are mandatory. Permissions are not supported.
+    Remote file system for Dropbox, using :py:class:`law.gfal.GFALFileInterface` for file operations. Its options are
+    read from the config section *section*, defaulting to the one configured in ``[target] default_dropbox_fs``, and can
+    be overwritten by *kwargs*. The ``base`` option and the credentials *app_key*, *app_secret* and *access_token*
+    (``dropbox_*`` options in the config) are mandatory. Permissions are not supported.
     """
 
     file_interface_cls = law.gfal.GFALFileInterface  # type: ignore[attr-defined]

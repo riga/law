@@ -31,13 +31,12 @@ _cfg = Config.instance()
 
 class GLiteJobManager(BaseJobManager):
     """
-    Job manager that submits, cancels and queries jobs on grid computing elements via
-    ``glite-ce-job-submit``, ``glite-ce-job-cancel``, ``glite-ce-job-status``,
-    ``glite-ce-job-purge``. The exact commands can be configured through the ``glite_cmd_*`` options
-    of the ``[job]`` config section, as well as chunk sizes for batched operations through the
-    ``glite_chunk_size_*`` options. *ce* selects the computing element(s), and *delegation_id* the
-    id(s) of delegated proxies. *threads* is the default number of threads for batched operations.
-    Jobs can also be cleaned up after they finished.
+    Job manager that submits, cancels and queries jobs on grid computing elements via ``glite-ce-job-submit``,
+    ``glite-ce-job-cancel``, ``glite-ce-job-status``, ``glite-ce-job-purge``. The exact commands can be configured
+    through the ``glite_cmd_*`` options of the ``[job]`` config section, as well as chunk sizes for batched operations
+    through the ``glite_chunk_size_*`` options. *ce* selects the computing element(s), and *delegation_id* the id(s) of
+    delegated proxies. *threads* is the default number of threads for batched operations. Jobs can also be cleaned up
+    after they finished.
     """
 
     # chunking settings
@@ -337,9 +336,8 @@ class GLiteJobManager(BaseJobManager):
 
 class GLiteJobFileFactory(BaseJobFileFactory):
     """
-    Job file factory that creates gLite job description files. The constructor arguments are also
-    attributes of the config object that is passed to the
-    :py:meth:`~law.contrib.glite.GLiteWorkflow.glite_job_config` hook of
+    Job file factory that creates gLite job description files. The constructor arguments are also attributes of the
+    config object that is passed to the :py:meth:`~law.contrib.glite.GLiteWorkflow.glite_job_config` hook of
     :py:class:`~law.contrib.glite.GLiteWorkflow`, so they can be changed per job:
 
     - *file_name*: The name of the job file. A postfix is added to it per job.
@@ -358,11 +356,10 @@ class GLiteJobFileFactory(BaseJobFileFactory):
     - *absolute_paths*: Whether absolute paths of input files are used in the job file instead of
       paths relative to the job file directory.
 
-    Default values of the *dir*, *mkdtemp* and *cleanup* arguments of
-    :py:class:`~law.job.base.BaseJobFileFactory` are taken from the ``glite_job_file_dir``,
-    ``glite_job_file_dir_mkdtemp`` and ``glite_job_file_dir_cleanup`` options of the ``[job]``
-    config section, falling back to the same options without the ``glite_`` prefix. All other
-    *kwargs* are forwarded to :py:class:`~law.job.base.BaseJobFileFactory`.
+    Default values of the *dir*, *mkdtemp* and *cleanup* arguments of :py:class:`~law.job.base.BaseJobFileFactory` are
+    taken from the ``glite_job_file_dir``, ``glite_job_file_dir_mkdtemp`` and ``glite_job_file_dir_cleanup`` options of
+    the ``[job]`` config section, falling back to the same options without the ``glite_`` prefix. All other *kwargs* are
+    forwarded to :py:class:`~law.job.base.BaseJobFileFactory`.
     """
 
     config_attrs = [

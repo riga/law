@@ -174,8 +174,8 @@ def remove_software_cache(sw_dir: str | pathlib.Path | None = None) -> None:
 
 def reload_dependencies(force: bool = False, dep_names: list[str] | None = None) -> None:
     """
-    Reloads all python modules that law depends on. Unless *force* is *True*, multiple calls to this
-    function will not have any effect.
+    Reloads all python modules that law depends on. Unless *force* is *True*, multiple calls to this function will not
+    have any effect.
 
     :param force: When *True*, the modules are reloaded again.
     :param dep_names: The names of the modules, defaulting to a predefined list of package names.

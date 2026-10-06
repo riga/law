@@ -30,14 +30,10 @@ def notify_mail(
 
     :param title: The title.
     :param message: The message.
-    :param recipient: The recipient, defaulting to the configuration value in the
-        ``[notifications]`` section.
-    :param sender: The sender, defaulting to the configuration value in the ``[notifications]``
-        section.
-    :param smtp_host: The SMTP host, defaulting to the configuration value in the
-        ``[notifications]`` section.
-    :param smtp_port: The SMTP port, defaulting to the configuration value in the
-        ``[notifications]`` section.
+    :param recipient: The recipient, defaulting to the configuration value in the ``[notifications]`` section.
+    :param sender: The sender, defaulting to the configuration value in the ``[notifications]`` section.
+    :param smtp_host: The SMTP host, defaulting to the configuration value in the ``[notifications]`` section.
+    :param smtp_port: The SMTP port, defaulting to the configuration value in the ``[notifications]`` section.
     :param kwargs: Unused keyword arguments.
     :return: *False* with a warning when *recipient* or *sender* are not set, and the result of
         :py:func:`law.util.send_mail` otherwise.
@@ -88,10 +84,10 @@ def notify_custom(
 
     :param title: The title.
     :param content: The content.
-    :param notify_func: The notification function. When empty, the configuration value
-        ``custom_func`` in the ``[notifications]`` section is used. When it is a string (which it
-        will be when obtained from the config), it should have the format ``"module.id.func"``. The
-        function is then imported and called with the *title* and *content*.
+    :param notify_func: The notification function. When empty, the configuration value ``custom_func`` in the
+        ``[notifications]`` section is used. When it is a string (which it will be when obtained from the config), it
+        should have the format ``"module.id.func"``. The function is then imported and called with the *title* and
+        *content*.
     :param kwargs: Keyword arguments forwarded to *notify_func*.
     :return: Whether the notification was sent successfully.
     """

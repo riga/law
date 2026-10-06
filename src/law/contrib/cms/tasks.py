@@ -1,6 +1,5 @@
 """
-CMS-related tasks.
-https://home.cern/about/experiments/cms
+CMS-related tasks. https://home.cern/about/experiments/cms
 """
 
 from __future__ import annotations
@@ -24,11 +23,10 @@ from law.util import interruptable_popen, quote_cmd, rel_path
 
 class BundleCMSSW(Task):
     """
-    Task that bundles a CMSSW checkout into a tarball, e.g. to send it along with jobs. Inheriting
-    classes must implement :py:meth:`get_cmssw_path`. Files and directories relative to
-    ``CMSSW_BASE`` can be excluded via the *exclude* regular expression, or included via *include*.
-    The name of the output file contains a checksum of the checkout, unless
-    :py:attr:`cmssw_checksumming` is *False*.
+    Task that bundles a CMSSW checkout into a tarball, e.g. to send it along with jobs. Inheriting classes must
+    implement :py:meth:`get_cmssw_path`. Files and directories relative to ``CMSSW_BASE`` can be excluded via the
+    *exclude* regular expression, or included via *include*. The name of the output file contains a checksum of the
+    checkout, unless :py:attr:`cmssw_checksumming` is *False*.
 
     .. py:classattribute:: cmssw_checksumming
 
@@ -65,8 +63,8 @@ class BundleCMSSW(Task):
     @abc.abstractmethod
     def get_cmssw_path(self) -> str | pathlib.Path | LocalFileTarget:
         """
-        Hook that returns the path of the CMSSW checkout to bundle, i.e., its ``CMSSW_BASE``
-        directory. Must be implemented by inheriting classes.
+        Hook that returns the path of the CMSSW checkout to bundle, i.e., its ``CMSSW_BASE`` directory. Must be
+        implemented by inheriting classes.
 
         :return: The path.
         """
@@ -75,8 +73,8 @@ class BundleCMSSW(Task):
     @property
     def checksum(self) -> str | None:
         """
-        The checksum of the CMSSW checkout, or the *custom_checksum* parameter when set. It is
-        *None* when :py:attr:`cmssw_checksumming` is *False*.
+        The checksum of the CMSSW checkout, or the *custom_checksum* parameter when set. It is *None* when
+        :py:attr:`cmssw_checksumming` is *False*.
         """
         if not self.cmssw_checksumming:
             return None

@@ -19,10 +19,9 @@ from law.util import flatten, interruptable_popen, makedirs, quote_cmd, tmp_file
 
 class BashSandbox(Sandbox):
     """
-    Sandbox that runs tasks in a bash environment that is set up by sourcing a script. Its name is
-    the path to that script, e.g. ``"bash::/path/to/setup.sh"``. It is configured through the
-    ``[bash_sandbox]`` config section, and additional variables can be set in
-    ``[bash_sandbox_env]``.
+    Sandbox that runs tasks in a bash environment that is set up by sourcing a script. Its name is the path to that
+    script, e.g. ``"bash::/path/to/setup.sh"``. It is configured through the ``[bash_sandbox]`` config section, and
+    additional variables can be set in ``[bash_sandbox_env]``.
     """
 
     sandbox_type: str = "bash"

@@ -47,8 +47,7 @@ def execute(args: argparse.Namespace, argv: list[str]) -> int:
     Executes the *run* subprogram with parsed commandline *args*.
 
     :param args: The parsed arguments.
-    :param argv: The full list of command line arguments, from which the task parameters are
-        extracted.
+    :param argv: The full list of command line arguments, from which the task parameters are extracted.
     :return: The exit code.
     """
     task_family = None
@@ -107,14 +106,12 @@ def read_task_from_index(
     index_file: str | pathlib.Path | None = None,
 ) -> tuple[str, str, str] | None:
     """
-    Returns the module id, task family and space-separated parameters for a task given by
-    *task_family* from the *index_file*.
+    Returns the module id, task family and space-separated parameters for a task given by *task_family* from the
+    *index_file*.
 
     :param task_family: The task family.
-    :param index_file: The index file. When *None*, it refers to the default as defined in
-        :py:mod:`law.config`.
-    :return: A 3-tuple with the module id, task family and parameters, or *None* when the task could
-        not be found.
+    :param index_file: The index file. When *None*, it refers to the default as defined in :py:mod:`law.config`.
+    :return: A 3-tuple with the module id, task family and parameters, or *None* when the task could not be found.
     """
     # read task information from the index file given a task family
     if index_file is None:

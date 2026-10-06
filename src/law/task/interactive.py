@@ -164,13 +164,12 @@ def _parse_stopping_condition(condition: int | str) -> tuple[int, list[str]]:
 
 def print_task_deps(task: Task, stopping_condition: int | str = 1) -> None:
     """
-    Prints the dependency tree of a *task*, which is the action behind the ``--print-deps``
-    parameter.
+    Prints the dependency tree of a *task*, which is the action behind the ``--print-deps`` parameter.
 
     :param task: The task.
-    :param stopping_condition: Controls the recursion depth. It can be an integer depth (*0* means
-        non-recursive, a negative value means no limit), a pattern matching a task family after
-        which the recursion stops, or a sequence of them separated by ``|``.
+    :param stopping_condition: Controls the recursion depth. It can be an integer depth (*0* means non-recursive, a
+        negative value means no limit), a pattern matching a task family after which the recursion stops, or a sequence
+        of them separated by ``|``.
     """
     # parse the stopping condition
     max_depth, family_patterns = _parse_stopping_condition(stopping_condition)
@@ -243,13 +242,12 @@ def print_task_status(
     flags: str | None = None,
 ) -> None:
     """
-    Prints the status of a *task* and its dependencies, which is the action behind the
-    ``--print-status`` parameter.
+    Prints the status of a *task* and its dependencies, which is the action behind the ``--print-status`` parameter.
 
     :param task: The task.
-    :param stopping_condition: Controls the recursion depth. It can be an integer depth (*0* means
-        non-recursive, a negative value means no limit), a pattern matching a task family after
-        which the recursion stops, or a sequence of them separated by ``|``.
+    :param stopping_condition: Controls the recursion depth. It can be an integer depth (*0* means non-recursive, a
+        negative value means no limit), a pattern matching a task family after which the recursion stops, or a sequence
+        of them separated by ``|``.
     :param target_depth: The depth up to which target collections are expanded.
     :param flags: A ``-``-separated string of flags that is passed to the creation of status texts.
     """
@@ -360,13 +358,12 @@ def print_task_status(
 
 def print_task_output(task: Task, stopping_condition: int | str = 0, scheme: bool = True) -> None:
     """
-    Prints the outputs of a *task* and its dependencies, which is the action behind the
-    ``--print-output`` parameter.
+    Prints the outputs of a *task* and its dependencies, which is the action behind the ``--print-output`` parameter.
 
     :param task: The task.
-    :param stopping_condition: Controls the recursion depth. It can be an integer depth (*0* means
-        non-recursive, a negative value means no limit), a pattern matching a task family after
-        which the recursion stops, or a sequence of them separated by ``|``.
+    :param stopping_condition: Controls the recursion depth. It can be an integer depth (*0* means non-recursive, a
+        negative value means no limit), a pattern matching a task family after which the recursion stops, or a sequence
+        of them separated by ``|``.
     :param scheme: Whether file system schemes are shown in paths.
     """
     # parse the stopping condition
@@ -410,13 +407,12 @@ def remove_task_output(
     run_task: bool = False,
 ) -> bool:
     """
-    Removes the outputs of a *task* and its dependencies, which is the action behind the
-    ``--remove-output`` parameter.
+    Removes the outputs of a *task* and its dependencies, which is the action behind the ``--remove-output`` parameter.
 
     :param task: The task.
-    :param stopping_condition: Controls the recursion depth. It can be an integer depth (*0* means
-        non-recursive, a negative value means no limit), a pattern matching a task family after
-        which the recursion stops, or a sequence of them separated by ``|``.
+    :param stopping_condition: Controls the recursion depth. It can be an integer depth (*0* means non-recursive, a
+        negative value means no limit), a pattern matching a task family after which the recursion stops, or a sequence
+        of them separated by ``|``.
     :param mode: One of ``"i"`` (interactive, the default), ``"a"`` (all) or ``"d"`` (dry run).
     :param run_task: Whether the task should be run after its outputs were removed.
     :raises ValueError: When *mode* is unknown.
@@ -604,18 +600,17 @@ def fetch_task_output(
     include_external: bool = False,
 ) -> None:
     """
-    Copies the outputs of a *task* and its dependencies into a local directory, which is the action
-    behind the ``--fetch-output`` parameter.
+    Copies the outputs of a *task* and its dependencies into a local directory, which is the action behind the
+    ``--fetch-output`` parameter.
 
     :param task: The task.
-    :param stopping_condition: Controls the recursion depth. It can be an integer depth (*0* means
-        non-recursive, a negative value means no limit), a pattern matching a task family after
-        which the recursion stops, or a sequence of them separated by ``|``.
+    :param stopping_condition: Controls the recursion depth. It can be an integer depth (*0* means non-recursive, a
+        negative value means no limit), a pattern matching a task family after which the recursion stops, or a sequence
+        of them separated by ``|``.
     :param mode: One of ``"i"`` (interactive, the default), ``"a"`` (all) or ``"d"`` (dry run).
     :param target_dir: The local directory.
     :param unique_names: When *True*, fetched files are renamed to avoid collisions.
-    :param include_external: When *True*, external outputs and outputs of external tasks are fetched
-        as well.
+    :param include_external: When *True*, external outputs and outputs of external tasks are fetched as well.
     :raises ValueError: When *mode* is unknown.
     """
     from law.workflow.base import BaseWorkflow

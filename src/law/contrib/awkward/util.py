@@ -16,8 +16,8 @@ from law.util import patch_object
 
 def from_parquet(*args, use_threads: bool = False, **kwargs) -> Any:
     """
-    Same as :func:`awkward.from_parquet`, but allowing to configure the *use_threads* option of the
-    underlying ``pyarrow.parquet.ParquetFile.read`` operation.
+    Same as :func:`awkward.from_parquet`, but allowing to configure the *use_threads* option of the underlying
+    ``pyarrow.parquet.ParquetFile.read`` operation.
 
     :param args: Arguments forwarded to :func:`awkward.from_parquet`.
     :param use_threads: The *use_threads* option of ``pyarrow.parquet.ParquetFile.read``.

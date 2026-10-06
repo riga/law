@@ -21,10 +21,9 @@ def profile_by_line(
     **kwargs,
 ) -> tuple[Callable, Callable, Callable, Callable]:
     """ profile_by_line(output_unit=None, stripzeros=False)
-    Decorator for law task methods that performs a line-by-line profiling and prints the results
-    after the method was called. This requires `line-profiler
-    <https://pypi.org/project/line-profiler/>`__ to be installed on your system. Accepts generator
-    functions.
+    Decorator for law task methods that performs a line-by-line profiling and prints the results after the method was
+    called. This requires `line-profiler <https://pypi.org/project/line-profiler/>`__ to be installed on your system.
+    Accepts generator functions.
 
     :param output_unit: Forwarded to :py:meth:`line_profiler.LineProfiler.print_stats`.
     :param stripzeros: Forwarded to :py:meth:`line_profiler.LineProfiler.print_stats`.

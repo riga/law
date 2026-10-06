@@ -55,15 +55,13 @@ def law_home_path(*paths: Any) -> str:
 
 class Config(configparser.ConfigParser):
     """
-    Custom law configuration parser with a few additions on top of the standard python
-    ``ConfigParser``. Most notably, this class adds config *inheritance* via :py:meth:`update` and
-    :py:meth:`include`, a mechanism to synchronize with the luigi configuration parser, option
-    referencing, and environment variable expansion.
+    Custom law configuration parser with a few additions on top of the standard python ``ConfigParser``. Most notably,
+    this class adds config *inheritance* via :py:meth:`update` and :py:meth:`include`, a mechanism to synchronize with
+    the luigi configuration parser, option referencing, and environment variable expansion.
 
-    When *config_file* is set, it is loaded during setup. When empty, and *skip_fallbacks* is
-    *False*, the default config file locations defined in :py:attr:`_config_files` are checked. By
-    default, the default configuration :py:attr:`_default_config` is loaded, which can be prevented
-    by setting *skip_defaults* to *True*.
+    When *config_file* is set, it is loaded during setup. When empty, and *skip_fallbacks* is *False*, the default
+    config file locations defined in :py:attr:`_config_files` are checked. By default, the default configuration
+    :py:attr:`_default_config` is loaded, which can be prevented by setting *skip_defaults* to *True*.
 
     .. py:classattribute:: _instance
 
@@ -189,8 +187,8 @@ class Config(configparser.ConfigParser):
     @classmethod
     def instance(cls, *args, **kwargs) -> Config:
         """
-        Creates an instance of this class, saves it in :py:attr:`_instance`, and returns it. When
-        :py:attr:`_instance` was already set before, no new instance is created.
+        Creates an instance of this class, saves it in :py:attr:`_instance`, and returns it. When :py:attr:`_instance`
+        was already set before, no new instance is created.
 
         :param args: Arguments forwarded to the constructor.
         :param kwargs: Keyword arguments forwarded to the constructor.
@@ -368,8 +366,8 @@ class Config(configparser.ConfigParser):
         **kwargs,
     ) -> list[tuple[str, Any]]:
         """
-        Returns key-value pairs for the given *section*. Internally, :py:meth:`get_expanded` is used
-        to perform value expansion and type interpolation.
+        Returns key-value pairs for the given *section*. Internally, :py:meth:`get_expanded` is used to perform value
+        expansion and type interpolation.
 
         :param section: The section name.
         :param prefix: When set, only options starting with that prefix are considered.
@@ -409,8 +407,8 @@ class Config(configparser.ConfigParser):
 
         :param section: The section name.
         :param option: The option name.
-        :param value: The value. Lists, tuples, sets and lazy iterables are joined by comma, and
-            other values are converted to strings unless *None*.
+        :param value: The value. Lists, tuples, sets and lazy iterables are joined by comma, and other values are
+            converted to strings unless *None*.
         """
         # serialize the value to a string representation
         if value is not None:
@@ -433,8 +431,8 @@ class Config(configparser.ConfigParser):
 
         :param data: The new data as a dictionary.
         :param overwrite: The default value of *overwrite_sections* and *overwrite_options*.
-        :param overwrite_sections: When *False*, sections in *data* that are already present in the
-            current config are skipped.
+        :param overwrite_sections: When *False*, sections in *data* that are already present in the current config are
+            skipped.
         :param overwrite_options: When *False*, existing options are not overwritten.
         """
         if overwrite_sections is None:
@@ -488,10 +486,9 @@ class Config(configparser.ConfigParser):
         """
         Returns the config value defined by *section* and *option*.
 
-        Options retrieved by this method are allowed to refer to values of other options within the
-        config, even to those in other sections. The syntax for config references is
-        ``&[::section]::option``. When no section is given, the value refers to an option in the
-        same section. Example:
+        Options retrieved by this method are allowed to refer to values of other options within the config, even to
+        those in other sections. The syntax for config references is ``&[::section]::option``. When no section is given,
+        the value refers to an option in the same section. Example:
 
         .. code-block:: ini
 
@@ -505,19 +502,17 @@ class Config(configparser.ConfigParser):
         :param section: The section name.
         :param option: The option name.
         :param default: The value returned when either the section or the option do not exist.
-        :param type: When set, it must be either ``"str"``, ``"int"``, ``"float"``, or
-            ``"boolean"``.
-        :param force_type: Unless *False*, a ValueError is raised in case the type conversion fails.
-            Otherwise, the uncast value is returned.
+        :param type: When set, it must be either ``"str"``, ``"int"``, ``"float"``, or ``"boolean"``.
+        :param force_type: Unless *False*, a ValueError is raised in case the type conversion fails. Otherwise, the
+            uncast value is returned.
         :param expand_vars: Whether environment variables are expanded.
         :param expand_user: Whether user variables are expanded.
-        :param split_csv: When *True*, sequences of values are identified, split by comma and
-            returned as a list, which will also trigger brace expansion.
-        :param dereference: Whether references to other options are resolved. When the reference is
-            not resolvable, the default value is returned.
-        :param default_when_none: When *True*, a *default* value is provided, and the option was
-            found but its value is *None* or ``"None"`` (case-insensitive), the *default* is
-            returned.
+        :param split_csv: When *True*, sequences of values are identified, split by comma and returned as a list, which
+            will also trigger brace expansion.
+        :param dereference: Whether references to other options are resolved. When the reference is not resolvable, the
+            default value is returned.
+        :param default_when_none: When *True*, a *default* value is provided, and the option was found but its value is
+            *None* or ``"None"`` (case-insensitive), the *default* is returned.
         :raises ValueError: When a circular reference is detected.
         :return: The config value.
         """
@@ -591,8 +586,7 @@ class Config(configparser.ConfigParser):
 
     def get_expanded(self, *args, **kwargs) -> Any:
         """
-        Same as :py:meth:`get_default`, but *expand_vars* and *expand_user* arguments are set to
-        *True* by default.
+        Same as :py:meth:`get_default`, but *expand_vars* and *expand_user* arguments are set to *True* by default.
 
         :param args: Arguments forwarded to :py:meth:`get_default`.
         :param kwargs: Keyword arguments forwarded to :py:meth:`get_default`.
@@ -637,9 +631,8 @@ class Config(configparser.ConfigParser):
 
     def is_missing_or_none(self, section: str, option: str) -> bool:
         """
-        Returns whether the value defined by *section* and *option* is missing or ``"None"``
-        (case-insensitive). Options without values and those pointing to unresolvable references are
-        considered missing. Example:
+        Returns whether the value defined by *section* and *option* is missing or ``"None"`` (case-insensitive). Options
+        without values and those pointing to unresolvable references are considered missing. Example:
 
         .. code-block:: ini
 
@@ -672,8 +665,8 @@ class Config(configparser.ConfigParser):
 
     def find_option(self, section: str, *options: str) -> str | None:
         """
-        Returns the name of the first existing option for a given *section*.
-        :py:meth:`is_missing_or_none` is used to check the existence.
+        Returns the name of the first existing option for a given *section*. :py:meth:`is_missing_or_none` is used to
+        check the existence.
 
         :param section: The section name.
         :param options: The option names to check.
@@ -688,9 +681,9 @@ class Config(configparser.ConfigParser):
 
     def sync_env(self) -> None:
         """
-        Synchronizes options defined via environment variables in the format
-        ``LAW__<section>__<option>``. The synchronization only works in case neither the section nor
-        the option contain double underscores (which is anyway discouraged).
+        Synchronizes options defined via environment variables in the format ``LAW__<section>__<option>``. The
+        synchronization only works in case neither the section nor the option contain double underscores (which is
+        anyway discouraged).
         """
         for name, value in os.environ.items():
             m = self._env_option_regex.match(name)
@@ -704,14 +697,14 @@ class Config(configparser.ConfigParser):
 
     def sync_luigi_config(self, push: bool = True, pull: bool = True) -> None:
         """
-        Synchronizes sections starting with ``"luigi_"`` with the luigi configuration parser. This
-        way, options set via luigi defaults (environment variables, global configuration files,
-        ``LUIGI_CONFIG_PATH``) always have precedence.
+        Synchronizes sections starting with ``"luigi_"`` with the luigi configuration parser. This way, options set via
+        luigi defaults (environment variables, global configuration files, ``LUIGI_CONFIG_PATH``) always have
+        precedence.
 
-        :param push: When *True*, (variable-expanded and dereferenced) options that exist in law but
-            **not** in luigi are stored as defaults in the luigi config first.
-        :param pull: When *True*, all luigi-related options in the law config are then overwritten
-            with those from luigi.
+        :param push: When *True*, (variable-expanded and dereferenced) options that exist in law but **not** in luigi
+            are stored as defaults in the luigi config first.
+        :param pull: When *True*, all luigi-related options in the law config are then overwritten with those from
+            luigi.
         """
         prefix = "luigi_"
         lparser = luigi.configuration.LuigiConfigParser.instance()
@@ -742,8 +735,7 @@ class Config(configparser.ConfigParser):
 
     def resolve_deferred_defaults(self) -> None:
         """
-        Traverses all options, checks whether they are deferred callables and if so, resolves and
-        sets them.
+        Traverses all options, checks whether they are deferred callables and if so, resolves and sets them.
         """
         # TODO: priority based order?
         for section in self.sections():

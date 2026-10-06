@@ -18,11 +18,9 @@ _htcondor_version_lock = threading.Lock()
 
 def get_htcondor_version() -> tuple[int, int, int] | None:
     """
-    Returns the version of the HTCondor installation. The value is cached to accelerate repeated
-    function invocations.
+    Returns the version of the HTCondor installation. The value is cached to accelerate repeated function invocations.
 
-    :return: The version as a 3-tuple, or *None* when the ``condor_version`` executable is not
-        available.
+    :return: The version as a 3-tuple, or *None* when the ``condor_version`` executable is not available.
     """
     global _htcondor_version
 

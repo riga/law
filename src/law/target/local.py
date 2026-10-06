@@ -36,15 +36,14 @@ logger = get_logger(__name__)
 
 class LocalFileSystem(FileSystem, shims.LocalFileSystem):
     """
-    File system interface for local files and directories. Its options are read from the law config
-    section *section*, defaulting to the one configured in ``[target] default_local_fs``.
-    Alternatively, a *base* directory can be set directly.
+    File system interface for local files and directories. Its options are read from the law config section *section*,
+    defaulting to the one configured in ``[target] default_local_fs``. Alternatively, a *base* directory can be set
+    directly.
 
-    Relative paths are resolved against the *base* of the file system and **not** against the
-    current working directory. As the base of the default local file system must be ``"/"``,
-    relative paths are interpreted relative to the root directory in that case, e.g. ``"a/b.txt"``
-    refers to ``"/a/b.txt"``. To refer to paths relative to the current directory, use absolute
-    paths or environment variables such as ``"$PWD/a/b.txt"``.
+    Relative paths are resolved against the *base* of the file system and **not** against the current working directory.
+    As the base of the default local file system must be ``"/"``, relative paths are interpreted relative to the root
+    directory in that case, e.g. ``"a/b.txt"`` refers to ``"/a/b.txt"``. To refer to paths relative to the current
+    directory, use absolute paths or environment variables such as ``"$PWD/a/b.txt"``.
     """
 
     # set right below the class definition
@@ -318,15 +317,13 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
         **kwargs,
     ) -> str:
         """
-        Prepares the directory of a target located at *dst* for copying. When *dst* is already a
-        directory, calling this method has no effect and the *dst* path is returned, optionally
-        joined with the basename of *src*. When *dst* is a file, the absolute *dst* path is
-        returned. Otherwise, when *dst* does not exist yet, it is interpreted as a file path and
-        missing directories are created when :py:attr:`create_file_dir` is *True*.
+        Prepares the directory of a target located at *dst* for copying. When *dst* is already a directory, calling this
+        method has no effect and the *dst* path is returned, optionally joined with the basename of *src*. When *dst* is
+        a file, the absolute *dst* path is returned. Otherwise, when *dst* does not exist yet, it is interpreted as a
+        file path and missing directories are created when :py:attr:`create_file_dir` is *True*.
 
         :param dst: The destination path.
-        :param src: The location of a source file target, which is (e.g.) used by a file copy or
-            move operation.
+        :param src: The location of a source file target, which is (e.g.) used by a file copy or move operation.
         :param perm: The permission of created directories.
         :param kwargs: Additional options.
         :return: The absolute destination path.
@@ -424,14 +421,12 @@ LocalFileSystem.default_instance = LocalFileSystem()
 
 class LocalTarget(FileSystemTarget, shims.LocalTarget):
     """
-    Base class of local file and directory targets. Paths are interpreted by the underlying
-    :py:class:`LocalFileSystem` *fs*, so relative paths are resolved against its base (``"/"`` for
-    the default local file system) and **not** against the current working directory. Environment
-    variables and ``"~"`` in paths are expanded.
+    Base class of local file and directory targets. Paths are interpreted by the underlying :py:class:`LocalFileSystem`
+    *fs*, so relative paths are resolved against its base (``"/"`` for the default local file system) and **not**
+    against the current working directory. Environment variables and ``"~"`` in paths are expanded.
 
-    When no *path* is given, *is_tmp* must be set and a random path in the configured temporary
-    directory (or *tmp_dir*) is chosen. *is_tmp* can also be a file extension. Temporary targets are
-    removed when they are garbage collected.
+    When no *path* is given, *is_tmp* must be set and a random path in the configured temporary directory (or *tmp_dir*)
+    is chosen. *is_tmp* can also be a file extension. Temporary targets are removed when they are garbage collected.
     """
 
     fs = LocalFileSystem.default_instance
@@ -565,8 +560,7 @@ class LocalTarget(FileSystemTarget, shims.LocalTarget):
 
 class LocalFileTarget(FileSystemFileTarget, LocalTarget):  # type: ignore[misc]
     """
-    Target that refers to a local file. See :py:class:`LocalTarget` for the interpretation of paths.
-    Example:
+    Target that refers to a local file. See :py:class:`LocalTarget` for the interpretation of paths. Example:
 
     .. code-block:: python
 
@@ -644,8 +638,7 @@ class LocalFileTarget(FileSystemFileTarget, LocalTarget):  # type: ignore[misc]
 
 class LocalDirectoryTarget(FileSystemDirectoryTarget, LocalTarget):  # type: ignore[misc]
     """
-    Target that refers to a local directory. See :py:class:`LocalTarget` for the interpretation of
-    paths.
+    Target that refers to a local directory. See :py:class:`LocalTarget` for the interpretation of paths.
     """
 
     def _child_args(

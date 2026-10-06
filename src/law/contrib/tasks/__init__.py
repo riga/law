@@ -28,9 +28,9 @@ logger = get_logger(__name__)
 
 class RunOnceTask(Task):
     """
-    Base class of tasks without outputs that are complete once they ran. Completeness is tracked per
-    instance, so they run again in new processes. The run method should be decorated with
-    :py:meth:`complete_on_success`, or call :py:meth:`mark_complete` itself. Example:
+    Base class of tasks without outputs that are complete once they ran. Completeness is tracked per instance, so they
+    run again in new processes. The run method should be decorated with :py:meth:`complete_on_success`, or call
+    :py:meth:`mark_complete` itself. Example:
 
     .. code-block:: python
 
@@ -88,10 +88,9 @@ class RunOnceTask(Task):
 
 class TransferLocalFile(Task):
     """
-    Base class of tasks that transfer a local file to the output of the task, e.g. on a remote file
-    system. The file is given by the *source_path* parameter or, when empty, the input of the task.
-    Inheriting classes must implement :py:meth:`single_output`. When *replicas* is positive,
-    multiple copies are created and the output is a
+    Base class of tasks that transfer a local file to the output of the task, e.g. on a remote file system. The file is
+    given by the *source_path* parameter or, when empty, the input of the task. Inheriting classes must implement
+    :py:meth:`single_output`. When *replicas* is positive, multiple copies are created and the output is a
     :py:class:`~law.target.collection.SiblingFileCollection`.
     """
 
@@ -113,8 +112,7 @@ class TransferLocalFile(Task):
         """
         Returns the target of the file to transfer.
 
-        :return: The target referring to *source_path* when set, and the input of the task
-            otherwise.
+        :return: The target referring to *source_path* when set, and the input of the task otherwise.
         """
         # when self.source_path is set, return a target around it
         # otherwise assume self.requires() returns a task with a single local target
@@ -126,8 +124,7 @@ class TransferLocalFile(Task):
     @abc.abstractmethod
     def single_output(self) -> FileSystemFileTarget:
         """
-        Hook that returns the output target of a single transferred file. Must be implemented by
-        inheriting classes.
+        Hook that returns the output target of a single transferred file. Must be implemented by inheriting classes.
 
         :return: The output target.
         """
@@ -135,8 +132,8 @@ class TransferLocalFile(Task):
 
     def get_replicated_path(self, basename: str, i: int | None = None) -> str:
         """
-        Returns the name of the replica *i* of a file with *basename* by inserting the replica
-        number before the extension.
+        Returns the name of the replica *i* of a file with *basename* by inserting the replica number before the
+        extension.
 
         :param basename: The base name of the file.
         :param i: The replica number. When *None*, *basename* is returned unchanged.
@@ -178,12 +175,12 @@ class TransferLocalFile(Task):
         output: SiblingFileCollection | FileSystemFileTarget | None = None,
     ) -> None:
         """
-        Copies a local file to the output. When the output is a collection of replicas, the file is
-        copied to each of them and the progress is published.
+        Copies a local file to the output. When the output is a collection of replicas, the file is copied to each of
+        them and the progress is published.
 
         :param src_path: The path of the local file.
-        :param output: The target or collection to copy to, defaulting to the output of the task
-            traced through :py:meth:`trace_transfer_output`.
+        :param output: The target or collection to copy to, defaulting to the output of the task traced through
+            :py:meth:`trace_transfer_output`.
         """
         # get the output target to transfer
         if output is None:
@@ -205,16 +202,14 @@ class TransferLocalFile(Task):
 
 class ForestMerge(LocalWorkflow):
     """
-    Workflow that merges a potentially large number of inputs in a tree-like structure, where each
-    node merges up to :py:attr:`merge_factor` inputs. Inputs are the leaves of the tree, and the
-    root node produces the final output. Multiple trees (a forest) are built when
-    :py:meth:`merge_output` returns multiple targets, in which case the inputs are distributed among
-    the trees.
+    Workflow that merges a potentially large number of inputs in a tree-like structure, where each node merges up to
+    :py:attr:`merge_factor` inputs. Inputs are the leaves of the tree, and the root node produces the final output.
+    Multiple trees (a forest) are built when :py:meth:`merge_output` returns multiple targets, in which case the inputs
+    are distributed among the trees.
 
-    The *tree_index* parameter selects the tree, while the default value *-1* refers to the forest,
-    which requires all trees. *tree_depth* denotes the depth of the workflow in the tree, with *0*
-    being the root. Intermediate outputs are removed after they were merged unless *keep_nodes* is
-    set.
+    The *tree_index* parameter selects the tree, while the default value *-1* refers to the forest, which requires all
+    trees. *tree_depth* denotes the depth of the workflow in the tree, with *0* being the root. Intermediate outputs are
+    removed after they were merged unless *keep_nodes* is set.
 
     Inheriting classes must implement :py:meth:`merge_workflow_requires`, :py:meth:`merge_requires`,
     :py:meth:`merge_output` and :py:meth:`merge`.
@@ -305,9 +300,9 @@ class ForestMerge(LocalWorkflow):
     @classmethod
     def _mark_merge_output_placeholder(cls, target: FileSystemTarget) -> FileSystemTarget:
         """
-        Marks a *target*, such as the output of :py:meth:`merge_output` as temporary placeholder.
-        When such a target is received while building the merge forest, no actual merging structure
-        is constructed, but rather deferred to a future call.
+        Marks a *target*, such as the output of :py:meth:`merge_output` as temporary placeholder. When such a target is
+        received while building the merge forest, no actual merging structure is constructed, but rather deferred to a
+        future call.
 
         :param target: The target to mark.
         :return: The marked target.
@@ -351,8 +346,7 @@ class ForestMerge(LocalWorkflow):
 
     def is_leaf(self) -> bool:
         """
-        Returns whether this task refers to the leaves of a tree, i.e., the nodes that merge the
-        actual inputs.
+        Returns whether this task refers to the leaves of a tree, i.e., the nodes that merge the actual inputs.
 
         :return: Whether this task is a leaf.
         """
@@ -377,8 +371,8 @@ class ForestMerge(LocalWorkflow):
     @property
     def merge_forest(self) -> list[dict[int, list[tuple[int, ...]]]]:
         """
-        The structure of the forest as a list of trees, each mapping depths to lists of nodes, which
-        are tuples of branch indices that describe the path from the root.
+        The structure of the forest as a list of trees, each mapping depths to lists of nodes, which are tuples of
+        branch indices that describe the path from the root.
         """
         self._build_merge_forest()
         return self._merge_forest  # type: ignore[return-value]
@@ -394,8 +388,8 @@ class ForestMerge(LocalWorkflow):
     @property
     def leaf_range(self) -> tuple[int, int]:
         """
-        The range of input numbers that are merged by this leaf as a 2-tuple, with the end being
-        exclusive. Only accessible for leaves.
+        The range of input numbers that are merged by this leaf as a 2-tuple, with the end being exclusive. Only
+        accessible for leaves.
         """
         if not self.is_leaf():
             raise RuntimeError("leaf_range can only be accessed by leaves")
@@ -530,9 +524,8 @@ class ForestMerge(LocalWorkflow):
 
     def trace_merge_workflow_inputs(self, inputs: Any) -> Sequence[Any] | TargetCollection:
         """
-        Hook to convert the outputs of :py:meth:`merge_workflow_requires` into an object with a
-        length that represents all inputs to merge. By default, the ``"collection"`` of workflow
-        outputs is extracted when present.
+        Hook to convert the outputs of :py:meth:`merge_workflow_requires` into an object with a length that represents
+        all inputs to merge. By default, the ``"collection"`` of workflow outputs is extracted when present.
 
         :param inputs: The outputs of :py:meth:`merge_workflow_requires`.
         :return: An object with a length, or an integer number of inputs.
@@ -561,8 +554,8 @@ class ForestMerge(LocalWorkflow):
     @abc.abstractmethod
     def merge_workflow_requires(self) -> Any:
         """
-        Hook that returns the requirements that provide all inputs to merge, usually a workflow.
-        Must be implemented by inheriting classes.
+        Hook that returns the requirements that provide all inputs to merge, usually a workflow. Must be implemented by
+        inheriting classes.
 
         :return: The requirements.
         """
@@ -572,9 +565,8 @@ class ForestMerge(LocalWorkflow):
     @abc.abstractmethod
     def merge_requires(self, start_leaf: int, end_leaf: int) -> Any:
         """
-        Hook that returns the requirements that provide a range of inputs, e.g. the corresponding
-        branches of the workflow returned by :py:meth:`merge_workflow_requires`. Must be implemented
-        by inheriting classes.
+        Hook that returns the requirements that provide a range of inputs, e.g. the corresponding branches of the
+        workflow returned by :py:meth:`merge_workflow_requires`. Must be implemented by inheriting classes.
 
         :param start_leaf: The number of the first input.
         :param end_leaf: The number of the last input (exclusive).
@@ -588,8 +580,7 @@ class ForestMerge(LocalWorkflow):
         """
         Hook that returns the final merged output. Must be implemented by inheriting classes.
 
-        :return: The output. When it is a list, tuple or target collection, one tree is built per
-            element.
+        :return: The output. When it is a list, tuple or target collection, one tree is built per element.
         """
         # this should return a single target when the output should be a single tree
         # or a target collection, list or tuple with item access through tree indices

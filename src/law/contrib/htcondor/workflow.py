@@ -274,9 +274,9 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
 
 class HTCondorWorkflow(BaseRemoteWorkflow):
     """
-    Base class of workflows that submit their branch tasks as jobs to an HTCondor batch system.
-    Inheriting classes must implement :py:meth:`htcondor_output_directory`. See
-    :py:class:`law.workflow.remote.BaseRemoteWorkflow` for general options. Example:
+    Base class of workflows that submit their branch tasks as jobs to an HTCondor batch system. Inheriting classes must
+    implement :py:meth:`htcondor_output_directory`. See :py:class:`law.workflow.remote.BaseRemoteWorkflow` for general
+    options. Example:
 
     .. code-block:: python
 
@@ -366,8 +366,8 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
     @abc.abstractmethod
     def htcondor_output_directory(self) -> str | pathlib.Path | FileSystemDirectoryTarget:
         """
-        Hook to define the location of submission output files, such as the json files containing
-        job data, and optional log files.
+        Hook to define the location of submission output files, such as the json files containing job data, and optional
+        log files.
 
         :return: The output directory, preferably as a :py:class:`FileSystemDirectoryTarget`.
         """
@@ -375,20 +375,19 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
 
     def htcondor_log_directory(self) -> str | pathlib.Path | FileSystemDirectoryTarget | None:
         """
-        Hook to define the location of log files if any are written. When set, it has precedence
-        over :py:meth:`htcondor_output_directory` for log files.
+        Hook to define the location of log files if any are written. When set, it has precedence over
+        :py:meth:`htcondor_output_directory` for log files.
 
-        :return: The log directory, preferably as a :py:class:`FileSystemDirectoryTarget`, or a
-            value that evaluates to *False* in case no custom log directory is desired.
+        :return: The log directory, preferably as a :py:class:`FileSystemDirectoryTarget`, or a value that evaluates to
+            *False* in case no custom log directory is desired.
         """
         return None
 
     @contextlib.contextmanager
     def htcondor_workflow_run_context(self) -> Generator[None, None, None]:
         """
-        Hook to provide a context manager in which the workflow run implementation is placed. This
-        can be helpful in situations where resources should be acquired before and released after
-        running a workflow.
+        Hook to provide a context manager in which the workflow run implementation is placed. This can be helpful in
+        situations where resources should be acquired before and released after running a workflow.
 
         :return: A context manager.
         """
@@ -396,8 +395,8 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
 
     def htcondor_workflow_requires(self) -> DotDict:
         """
-        Hook to define requirements of the workflow that are only considered when it is submitted as
-        HTCondor jobs. They are added to the requirements returned by :py:meth:`workflow_requires`.
+        Hook to define requirements of the workflow that are only considered when it is submitted as HTCondor jobs. They
+        are added to the requirements returned by :py:meth:`workflow_requires`.
 
         :return: The requirements, an empty :py:class:`~law.util.DotDict` by default.
         """
@@ -415,8 +414,8 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
 
     def htcondor_bootstrap_file(self) -> str | pathlib.Path | LocalFileTarget | JobInputFile | None:
         """
-        Hook to define a file that is sourced in jobs before tasks are run, e.g. to set up the
-        software environment. It is sent along with jobs.
+        Hook to define a file that is sourced in jobs before tasks are run, e.g. to set up the software environment. It
+        is sent along with jobs.
 
         :return: The bootstrap file, or *None* by default, i.e., no bootstrap file is used.
         """
@@ -424,8 +423,8 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
 
     def htcondor_group_wrapper_file(self) -> str | pathlib.Path | LocalFileTarget | JobInputFile:
         """
-        Hook to define the executable that is run in jobs of grouped submissions, i.e., when
-        multiple jobs are submitted with a single job file. Defaults to a wrapper shipped with law.
+        Hook to define the executable that is run in jobs of grouped submissions, i.e., when multiple jobs are submitted
+        with a single job file. Defaults to a wrapper shipped with law.
 
         :return: The executable.
         """
@@ -448,8 +447,8 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
 
     def htcondor_job_file(self) -> str | pathlib.Path | LocalFileTarget | JobInputFile:
         """
-        Hook to define the job file that is executed in jobs and runs the tasks. Defaults to
-        ``law_job.sh`` shipped with law.
+        Hook to define the job file that is executed in jobs and runs the tasks. Defaults to ``law_job.sh`` shipped with
+        law.
 
         :return: The job file.
         """
@@ -462,8 +461,8 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
 
     def htcondor_stageout_file(self) -> str | pathlib.Path | LocalFileTarget | JobInputFile | None:
         """
-        Hook to define a file that is executed in jobs after tasks were run, e.g. to transfer
-        outputs. It is sent along with jobs.
+        Hook to define a file that is executed in jobs after tasks were run, e.g. to transfer outputs. It is sent along
+        with jobs.
 
         :return: The stage-out file, or *None* by default.
         """
@@ -471,8 +470,8 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
 
     def htcondor_output_postfix(self) -> str:
         """
-        Hook to define a postfix that is added to the names of control output files, such as the
-        json file containing job data.
+        Hook to define a postfix that is added to the names of control output files, such as the json file containing
+        job data.
 
         :return: The postfix, empty by default.
         """
@@ -488,11 +487,10 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
 
     def htcondor_create_job_manager(self, **kwargs) -> HTCondorJobManager:
         """
-        Hook to create the job manager instance from the class returned by
-        :py:meth:`htcondor_job_manager_cls`.
+        Hook to create the job manager instance from the class returned by :py:meth:`htcondor_job_manager_cls`.
 
-        :param kwargs: Keyword arguments that are merged with
-            :py:attr:`htcondor_job_manager_defaults` and passed to the constructor.
+        :param kwargs: Keyword arguments that are merged with :py:attr:`htcondor_job_manager_defaults` and passed to the
+            constructor.
         :return: The job manager.
         """
         kwargs = merge_dicts(self.htcondor_job_manager_defaults, kwargs)
@@ -500,8 +498,7 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
 
     def htcondor_job_file_factory_cls(self) -> type[HTCondorJobFileFactory]:
         """
-        Hook to define the class of the job file factory. Defaults to
-        :py:class:`HTCondorJobFileFactory`.
+        Hook to define the class of the job file factory. Defaults to :py:class:`HTCondorJobFileFactory`.
 
         :return: The job file factory class.
         """
@@ -510,12 +507,11 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
     def htcondor_create_job_file_factory(self, **kwargs) -> HTCondorJobFileFactory:
         """
         Hook to create the job file factory instance from the class returned by
-        :py:meth:`htcondor_job_file_factory_cls`. Unless set, the *mkdtemp* argument is taken from
-        the ``htcondor_job_file_dir_mkdtemp`` or ``job_file_dir_mkdtemp`` options of the ``[job]``
-        config section.
+        :py:meth:`htcondor_job_file_factory_cls`. Unless set, the *mkdtemp* argument is taken from the
+        ``htcondor_job_file_dir_mkdtemp`` or ``job_file_dir_mkdtemp`` options of the ``[job]`` config section.
 
-        :param kwargs: Keyword arguments that are merged with
-            :py:attr:`htcondor_job_file_factory_defaults` and passed to the constructor.
+        :param kwargs: Keyword arguments that are merged with :py:attr:`htcondor_job_file_factory_defaults` and passed
+            to the constructor.
         :return: The job file factory.
         """
         # get the file factory cls
@@ -550,16 +546,14 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
 
         :param config: The job file factory config.
         :param job_num: The job number, or a list of job numbers for grouped submissions.
-        :param branches: The branch numbers processed by the job, or a list of them per job for
-            grouped submissions.
+        :param branches: The branch numbers processed by the job, or a list of them per job for grouped submissions.
         :return: The modified config.
         """
         return config
 
     def htcondor_dump_intermediate_job_data(self) -> bool:
         """
-        Whether to dump intermediate job data to the job submission file while jobs are being
-        submitted.
+        Whether to dump intermediate job data to the job submission file while jobs are being submitted.
 
         :return: Whether to dump intermediate job data.
         """
@@ -567,8 +561,7 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
 
     def htcondor_post_submit_delay(self) -> int | float:
         """
-        Configurable delay in seconds to wait after submitting jobs and before starting the status
-        polling.
+        Configurable delay in seconds to wait after submitting jobs and before starting the status polling.
 
         :return: The delay in seconds.
         """
@@ -576,8 +569,8 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
 
     def htcondor_check_job_completeness(self) -> bool:
         """
-        Hook to decide whether outputs of branch tasks are checked once their job is reported as
-        finished, so that the job is considered failed when outputs are missing.
+        Hook to decide whether outputs of branch tasks are checked once their job is reported as finished, so that the
+        job is considered failed when outputs are missing.
 
         :return: Whether outputs are checked, *False* by default.
         """
@@ -585,9 +578,8 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
 
     def htcondor_check_job_completeness_delay(self) -> float | int:
         """
-        Hook to define a delay in seconds before outputs are checked when
-        :py:meth:`htcondor_check_job_completeness` is *True*, e.g. to account for latencies of file
-        systems.
+        Hook to define a delay in seconds before outputs are checked when :py:meth:`htcondor_check_job_completeness` is
+        *True*, e.g. to account for latencies of file systems.
 
         :return: The delay in seconds, 0 by default.
         """
@@ -595,13 +587,11 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
 
     def htcondor_poll_callback(self, poll_data: PollData) -> bool | None:
         """
-        Configurable callback that is called after each job status query and before potential
-        resubmission.
+        Configurable callback that is called after each job status query and before potential resubmission.
 
-        :param poll_data: The variable polling attributes (:py:class:`PollData`) that can be changed
-            within this method.
-        :return: When *False*, the polling loop is gracefully terminated. Returning any other value
-            does not have any effect.
+        :param poll_data: The variable polling attributes (:py:class:`PollData`) that can be changed within this method.
+        :return: When *False*, the polling loop is gracefully terminated. Returning any other value does not have any
+            effect.
         """
         return None
 
@@ -616,8 +606,8 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
 
     def htcondor_use_local_scheduler(self) -> bool:
         """
-        Hook to decide whether tasks in jobs should use a local scheduler instead of the central
-        one. Defaults to the ``local_scheduler`` option of the ``[luigi_core]`` config section.
+        Hook to decide whether tasks in jobs should use a local scheduler instead of the central one. Defaults to the
+        ``local_scheduler`` option of the ``[luigi_core]`` config section.
 
         :return: Whether to use a local scheduler.
         """
@@ -634,8 +624,8 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
 
     def htcondor_destination_info(self, info: InsertableDict) -> InsertableDict:
         """
-        Hook to modify the destination information, which is shown in job status lines and contains
-        e.g. the pool, scheduler by default.
+        Hook to modify the destination information, which is shown in job status lines and contains e.g. the pool,
+        scheduler by default.
 
         :param info: The destination information.
         :return: The modified destination information.

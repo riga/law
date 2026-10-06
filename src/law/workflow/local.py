@@ -55,8 +55,8 @@ class LocalWorkflowProxy(BaseWorkflowProxy):
 
     def run(self) -> Iterator[Any] | None:
         """
-        When *local_workflow_require_branches* of the task was set to *False*, starts all branch
-        tasks via dynamic dependencies by yielding them in a list, or simply does nothing otherwise.
+        When *local_workflow_require_branches* of the task was set to *False*, starts all branch tasks via dynamic
+        dependencies by yielding them in a list, or simply does nothing otherwise.
 
         :return: Generator that yields the list of branch tasks.
         """
@@ -121,13 +121,11 @@ class LocalWorkflowProxy(BaseWorkflowProxy):
 
 class LocalWorkflow(BaseWorkflow):
     """
-    Local workflow implementation. The workflow type is ``"local"``. There are two ways how a local
-    workflow starts its branch tasks. See the :py:attr:`local_workflow_require_branches` attribute
-    for more information.
+    Local workflow implementation. The workflow type is ``"local"``. There are two ways how a local workflow starts its
+    branch tasks. See the :py:attr:`local_workflow_require_branches` attribute for more information.
 
-    Since local workflows trigger their branch tasks via requirements or dynamic dependencies, their
-    run methods do not support decorators. See :py:attr:`BaseWorkflow.workflow_run_decorators` for
-    more info.
+    Since local workflows trigger their branch tasks via requirements or dynamic dependencies, their run methods do not
+    support decorators. See :py:attr:`BaseWorkflow.workflow_run_decorators` for more info.
 
     .. py:classattribute:: workflow_proxy_cls
 
@@ -153,9 +151,8 @@ class LocalWorkflow(BaseWorkflow):
 
     def local_workflow_requires(self) -> DotDict:
         """
-        Hook to define additional requirements of the workflow that are only considered when it runs
-        locally, i.e., not as part of other workflow types. They are added to the requirements
-        returned by :py:meth:`workflow_requires`.
+        Hook to define additional requirements of the workflow that are only considered when it runs locally, i.e., not
+        as part of other workflow types. They are added to the requirements returned by :py:meth:`workflow_requires`.
 
         :return: The requirements, an empty :py:class:`~law.util.DotDict` by default.
         """
@@ -163,8 +160,7 @@ class LocalWorkflow(BaseWorkflow):
 
     def local_workflow_pre_run(self) -> None:
         """
-        Hook that is invoked at the beginning of the run method of the workflow, before its branch
-        tasks are started. When it returns a generator, it is yielded so that it can define dynamic
-        dependencies.
+        Hook that is invoked at the beginning of the run method of the workflow, before its branch tasks are started.
+        When it returns a generator, it is yielded so that it can define dynamic dependencies.
         """
         return

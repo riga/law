@@ -25,9 +25,9 @@ def ensure_arcproxy(
     **kwargs,
 ) -> tuple[Callable, Callable, Callable]:
     """
-    Decorator for law task methods that checks the validity of the arc proxy and throws an exception
-    in case it is invalid. This can prevent late errors on remote worker nodes that expect arc
-    proxies to be present. Accepts generator functions.
+    Decorator for law task methods that checks the validity of the arc proxy and throws an exception in case it is
+    invalid. This can prevent late errors on remote worker nodes that expect arc proxies to be present. Accepts
+    generator functions.
 
     :raises RuntimeError: When the arc proxy is not valid.
     """

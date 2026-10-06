@@ -1,7 +1,6 @@
 # ruff: noqa: F401
 """
-Custom type definitions and shorthands to simplify imports of types that are spread across multiple
-packages.
+Custom type definitions and shorthands to simplify imports of types that are spread across multiple packages.
 """
 
 from __future__ import annotations

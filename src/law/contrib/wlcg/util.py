@@ -57,8 +57,8 @@ def get_userkey() -> str:
 
 def get_usercert() -> str:
     """
-    Returns the expanded path to the globus user certificate, reading from $X509_USER_CERT and
-    defaulting to $HOME/.globus/usercert.pem.
+    Returns the expanded path to the globus user certificate, reading from $X509_USER_CERT and defaulting to
+    $HOME/.globus/usercert.pem.
 
     :return: The path.
     """
@@ -70,8 +70,7 @@ def get_usercert_subject(usercert: str | pathlib.Path | None = None) -> str:
     """
     Returns the user "subject" string of a certificate.
 
-    :param usercert: The path of the certificate, defaulting to the return value of
-        :py:func:`get_usercert`.
+    :param usercert: The path of the certificate, defaulting to the return value of :py:func:`get_usercert`.
     :raises FileNotFoundError: When the certificate does not exist.
     :raises RuntimeError: When the subject extraction failed.
     :return: The subject string.
@@ -148,9 +147,8 @@ def get_vomsproxy_identity(
     """
     Returns the identity information of the voms proxy.
 
-    :param proxy_file: The proxy file. When *None*, it defaults to the result of
-        :py:func:`get_vomsproxy_file`. Otherwise, when it evaluates to *False*, ``voms-proxy-info``
-        is queried without a custom proxy file.
+    :param proxy_file: The proxy file. When *None*, it defaults to the result of :py:func:`get_vomsproxy_file`.
+        Otherwise, when it evaluates to *False*, ``voms-proxy-info`` is queried without a custom proxy file.
     :param silent: When *True*, no exception is raised when voms-proxy-info fails.
     :return: The identity, or *None* when it could not be determined.
     """
@@ -165,11 +163,9 @@ def get_vomsproxy_lifetime(
     """
     Returns the remaining lifetime of the voms proxy in seconds.
 
-    :param proxy_file: The proxy file. When *None*, it defaults to the result of
-        :py:func:`get_vomsproxy_file`. Otherwise, when it evaluates to *False*, ``voms-proxy-info``
-        is queried without a custom proxy file.
-    :param silent: When *True*, no exception is raised when voms-proxy-info fails or no valid
-        lifetime is found.
+    :param proxy_file: The proxy file. When *None*, it defaults to the result of :py:func:`get_vomsproxy_file`.
+        Otherwise, when it evaluates to *False*, ``voms-proxy-info`` is queried without a custom proxy file.
+    :param silent: When *True*, no exception is raised when voms-proxy-info fails or no valid lifetime is found.
     :raises RuntimeError: When no valid lifetime is found and *silent* is *False*.
     :return: The lifetime in seconds, or *None* when it could not be determined.
     """
@@ -193,9 +189,8 @@ def get_vomsproxy_vo(
     """
     Returns the virtual organization name of the voms proxy.
 
-    :param proxy_file: The proxy file. When *None*, it defaults to the result of
-        :py:func:`get_vomsproxy_file`. Otherwise, when it evaluates to *False*, ``voms-proxy-info``
-        is queried without a custom proxy file.
+    :param proxy_file: The proxy file. When *None*, it defaults to the result of :py:func:`get_vomsproxy_file`.
+        Otherwise, when it evaluates to *False*, ``voms-proxy-info`` is queried without a custom proxy file.
     :param silent: When *True*, no exception is raised when voms-proxy-info fails.
     :return: The virtual organization name, or *None* when it could not be determined.
     """
@@ -211,12 +206,10 @@ def check_vomsproxy_validity(
     Returns whether a valid voms proxy exists (positive lifetime).
 
     :param return_rfc: When *True*, whether the proxy is RFC3820 compliant is returned as well.
-    :param proxy_file: The proxy file. When *None*, it defaults to the result of
-        :py:func:`get_vomsproxy_file`. Otherwise, when it evaluates to *False*, ``voms-proxy-info``
-        is queried without a custom proxy file.
+    :param proxy_file: The proxy file. When *None*, it defaults to the result of :py:func:`get_vomsproxy_file`.
+        Otherwise, when it evaluates to *False*, ``voms-proxy-info`` is queried without a custom proxy file.
     :raises RuntimeError: When voms-proxy-info fails for reasons other than a missing proxy.
-    :return: The validity, or a 2-tuple with the validity and the RFC compliance when *return_rfc*
-        is *True*.
+    :return: The validity, or a 2-tuple with the validity and the RFC compliance when *return_rfc* is *True*.
     """
     if proxy_file is None:
         proxy_file = get_vomsproxy_file()
@@ -252,20 +245,18 @@ def renew_vomsproxy(
     """
     Renews a voms proxy.
 
-    By default, this function will prompt for input to securely receive the password. However, if
-    *password* or *password_file* is given, the password is extracted from that variable or file
-    instead.
+    By default, this function will prompt for input to securely receive the password. However, if *password* or
+    *password_file* is given, the password is extracted from that variable or file instead.
 
-    :param proxy_file: The proxy file. When *None*, it defaults to the result of
-        :py:func:`get_vomsproxy_file`.
+    :param proxy_file: The proxy file. When *None*, it defaults to the result of :py:func:`get_vomsproxy_file`.
     :param vo: Optional virtual organization name.
     :param rfc: When *True*, the created proxy will be RFC compliant.
-    :param lifetime: The lifetime, which is internally parsed by :py:func:`law.util.parse_duration`
-        where the default input unit is hours.
+    :param lifetime: The lifetime, which is internally parsed by :py:func:`law.util.parse_duration` where the default
+        input unit is hours.
     :param password: The password.
     :param password_file: The path of a file containing the password.
-    :param silent: When *True*, the output of voms-proxy-init is suppressed and *None* is returned
-        instead of raising an exception on failure.
+    :param silent: When *True*, the output of voms-proxy-init is suppressed and *None* is returned instead of raising an
+        exception on failure.
     :raises RuntimeError: When voms-proxy-init failed and *silent* is *False*.
     :return: The path of the proxy file, or *None* on failure when *silent* is *True*.
     """
@@ -337,16 +328,12 @@ def delegate_vomsproxy_glite(
     Delegates the voms proxy via gLite to an *endpoint*.
 
     :param endpoint: The endpoint, e.g. grid-ce.physik.rwth-aachen.de:8443.
-    :param proxy_file: The proxy file. When *None*, it defaults to the result of
-        :py:func:`get_vomsproxy_file`.
-    :param stdout: Passed to the *Popen* constructor for executing the glite-ce-delegate-proxy
-        command.
-    :param stderr: Passed to the *Popen* constructor for executing the glite-ce-delegate-proxy
-        command.
-    :param cache: When *True*, a json file is created alongside the proxy file, which stores the
-        delegation ids per endpoint. The next time the exact same proxy should be delegated to the
-        same endpoint, the cached delegation id is returned. A path can be passed to use a custom
-        cache file.
+    :param proxy_file: The proxy file. When *None*, it defaults to the result of :py:func:`get_vomsproxy_file`.
+    :param stdout: Passed to the *Popen* constructor for executing the glite-ce-delegate-proxy command.
+    :param stderr: Passed to the *Popen* constructor for executing the glite-ce-delegate-proxy command.
+    :param cache: When *True*, a json file is created alongside the proxy file, which stores the delegation ids per
+        endpoint. The next time the exact same proxy should be delegated to the same endpoint, the cached delegation id
+        is returned. A path can be passed to use a custom cache file.
     :raises FileNotFoundError: When the proxy file does not exist.
     :raises RuntimeError: When the delegation failed.
     :return: The delegation id.
@@ -428,25 +415,23 @@ def delegate_myproxy(
     """
     Delegates an X509 proxy to a myproxy server *endpoint*.
 
-    If no *password* is given, the user is prompted for the password of the user certificate.
-    However, if a *password_file* is present, the password is extracted from this file.
+    If no *password* is given, the user is prompted for the password of the user certificate. However, if a
+    *password_file* is present, the password is extracted from this file.
 
     :param endpoint: The myproxy server.
     :param userkey: The user key, defaulting to the return value of :py:func:`get_userkey`.
-    :param usercert: The user certificate, defaulting to the return value of
-        :py:func:`get_usercert`.
-    :param username: The user name. When *None*, the identity field of an existing voms proxy is
-        used, or the subject string of the certificate otherwise.
+    :param usercert: The user certificate, defaulting to the return value of :py:func:`get_usercert`.
+    :param username: The user name. When *None*, the identity field of an existing voms proxy is used, or the subject
+        string of the certificate otherwise.
     :param proxy_file: The proxy file used to determine the identity.
     :param encode_username: When *True*, *username* is sha1 encoded.
     :param cred_lifetime: The credential lifetime in hours.
     :param proxy_lifetime: The proxy lifetime in hours.
-    :param retrievers: When given, they are passed as both ``--renewable_by`` and
-        ``--retrievable_by_cert`` to the underlying ``myproxy-init`` command.
+    :param retrievers: When given, they are passed as both ``--renewable_by`` and ``--retrievable_by_cert`` to the
+        underlying ``myproxy-init`` command.
     :param rfc: When *True*, the delegated proxy will be RFC compliant.
     :param vo: Virtual organization to pass VOMS attributes to the myproxy-init command.
-    :param create_local: When *True*, the delegation also creates a local proxy file (usually at
-        $X509_USER_PROXY).
+    :param create_local: When *True*, the delegation also creates a local proxy file (usually at $X509_USER_PROXY).
     :param password: The password of the user certificate.
     :param password_file: The path of a file containing the password.
     :param silent: When *True*, *None* is returned instead of raising an exception on failure.
@@ -532,14 +517,13 @@ def get_myproxy_info(
     Returns information about a previous myproxy delegation to a server *endpoint*.
 
     :param endpoint: The myproxy server.
-    :param username: The user name. When *None*, the identity field of an existing voms proxy is
-        used, or the subject string of the certificate otherwise.
+    :param username: The user name. When *None*, the identity field of an existing voms proxy is used, or the subject
+        string of the certificate otherwise.
     :param proxy_file: The proxy file used to determine the identity.
     :param encode_username: When *True*, *username* is sha1 encoded.
     :param silent: When *True*, *None* is returned instead of raising an exception on failure.
     :raises RuntimeError: When myproxy-info failed and *silent* is *False*.
-    :return: A dictionary with the fields username, subject and timeleft, or *None* on failure when
-        *silent* is *True*.
+    :return: A dictionary with the fields username, subject and timeleft, or *None* on failure when *silent* is *True*.
     """
     # prepare arguments
     if not username:

@@ -72,9 +72,8 @@ def get_timeout_command() -> str | None:
 def get_async_result_silent(result: multiprocessing.pool.AsyncResult, timeout: int | float | None = None) -> Any:
     """
     Calls the ``get([timeout])`` method of an `AsyncResult
-    <https://docs.python.org/latest/library/multiprocessing.html#multiprocessing.pool.AsyncResult>`__
-    object *result*. The only difference is that potentially raised exceptions are returned instead
-    of re-raised.
+    <https://docs.python.org/latest/library/multiprocessing.html#multiprocessing.pool.AsyncResult>`__ object *result*.
+    The only difference is that potentially raised exceptions are returned instead of re-raised.
 
     :param result: The async result.
     :param timeout: The timeout in seconds.
@@ -88,8 +87,8 @@ def get_async_result_silent(result: multiprocessing.pool.AsyncResult, timeout: i
 
 class BaseJobManager(metaclass=abc.ABCMeta):
     """
-    Base class that defines how remote jobs are submitted, queried, cancelled and cleaned up. It
-    also defines the most common job states:
+    Base class that defines how remote jobs are submitted, queried, cancelled and cleaned up. It also defines the most
+    common job states:
 
     - PENDING: The job is submitted and waiting to be processed.
     - RUNNUNG: The job is running.
@@ -97,13 +96,12 @@ class BaseJobManager(metaclass=abc.ABCMeta):
     - RETRY: The job is completed but failed. It can be resubmitted.
     - FAILED: The job is completed but failed. It cannot or should not be recovered.
 
-    The particular job manager implementation should match its own, native states to these common
-    states.
+    The particular job manager implementation should match its own, native states to these common states.
 
     *status_names* and *status_diff_styles* are used in :py:meth:`status_line` and default to
-    :py:attr:`default_status_names` and :py:attr:`default_status_diff_styles`. *threads* is the
-    default number of concurrent threads that are used in :py:meth:`submit_batch`,
-    :py:meth:`cancel_batch`, :py:meth:`cleanup_batch` and :py:meth:`query_batch`.
+    :py:attr:`default_status_names` and :py:attr:`default_status_diff_styles`. *threads* is the default number of
+    concurrent threads that are used in :py:meth:`submit_batch`, :py:meth:`cancel_batch`, :py:meth:`cleanup_batch` and
+    :py:meth:`query_batch`.
 
     .. py:classattribute:: PENDING
 
@@ -281,10 +279,9 @@ class BaseJobManager(metaclass=abc.ABCMeta):
         :param cmd: The command as a list of strings.
         :param duration: The duration in seconds.
         :param signal: The signal used for termination.
-        :param silent: When *False*, an exception is raised when no suitable ``timeout`` command is
-            available on the system. Otherwise, *cmd* is returned unchanged.
-        :raises RuntimeError: When no suitable ``timeout`` command is available and *silent* is
-            *False*.
+        :param silent: When *False*, an exception is raised when no suitable ``timeout`` command is available on the
+            system. Otherwise, *cmd* is returned unchanged.
+        :raises RuntimeError: When no suitable ``timeout`` command is available and *silent* is *False*.
         :return: The new command.
         """
         # get the installed timeout command
@@ -349,13 +346,13 @@ class BaseJobManager(metaclass=abc.ABCMeta):
     def group_job_ids(self, job_ids: list[Any]) -> dict[Hashable, list[Any]]:
         """
         Hook that needs to be implemented if the job manager supports grouping of jobs, i.e., when
-        :py:attr:`job_grouping_submit`, :py:attr:`job_grouping_query`, etc. is *True*, and
-        potentially used during status queries, job cancellation and removal.
+        :py:attr:`job_grouping_submit`, :py:attr:`job_grouping_query`, etc. is *True*, and potentially used during
+        status queries, job cancellation and removal.
 
         :param job_ids: The job ids to group.
         :raises NotImplementedError: When not implemented by inheriting classes.
-        :return: A dictionary mapping ids of group jobs (used for queries etc) to the corresponding
-            lists of original job ids, with an arbitrary grouping mechanism.
+        :return: A dictionary mapping ids of group jobs (used for queries etc) to the corresponding lists of original
+            job ids, with an arbitrary grouping mechanism.
         """
         raise NotImplementedError(
             f"internal error, {self.__class__.__name__}.group_job_ids not implemented",
@@ -449,15 +446,14 @@ class BaseJobManager(metaclass=abc.ABCMeta):
 
         :param job_files: The job files to submit.
         :param threads: The size of the thread pool, defaulting to the instance attribute.
-        :param chunk_size: When not negative, *job_files* are split into chunks of that size which
-            are passed to :py:meth:`submit`. Defaults to :py:attr:`chunk_size_submit`.
-        :param callback: When set, it is invoked after each successful job submission with the index
-            of the corresponding job file (starting at 0) and either the assigned job id or an
-            exception if any occurred.
+        :param chunk_size: When not negative, *job_files* are split into chunks of that size which are passed to
+            :py:meth:`submit`. Defaults to :py:attr:`chunk_size_submit`.
+        :param callback: When set, it is invoked after each successful job submission with the index of the
+            corresponding job file (starting at 0) and either the assigned job id or an exception if any occurred.
         :param kwargs: Keyword arguments forwarded to :py:meth:`submit`.
-        :return: A list containing the return values of the particular :py:meth:`submit` calls, in
-            an order that corresponds to *job_files*. When an exception was raised during a
-            submission, this exception is added to the returned list.
+        :return: A list containing the return values of the particular :py:meth:`submit` calls, in an order that
+            corresponds to *job_files*. When an exception was raised during a submission, this exception is added to the
+            returned list.
         """
         return self._apply_batch(
             func=self.submit,
@@ -484,14 +480,13 @@ class BaseJobManager(metaclass=abc.ABCMeta):
 
         :param job_ids: The job ids to cancel.
         :param threads: The size of the thread pool, defaulting to the instance attribute.
-        :param chunk_size: When not negative, *job_ids* are split into chunks of that size which are
-            passed to :py:meth:`cancel`. Defaults to :py:attr:`chunk_size_cancel`.
-        :param callback: When set, it is invoked after each successful job (or job chunk) cancelling
-            with the index of the corresponding job id (starting at 0) and either *None* or an
-            exception if any occurred.
+        :param chunk_size: When not negative, *job_ids* are split into chunks of that size which are passed to
+            :py:meth:`cancel`. Defaults to :py:attr:`chunk_size_cancel`.
+        :param callback: When set, it is invoked after each successful job (or job chunk) cancelling with the index of
+            the corresponding job id (starting at 0) and either *None* or an exception if any occurred.
         :param kwargs: Keyword arguments forwarded to :py:meth:`cancel`.
-        :return: A list of exceptions that occurred during job cancelling. An empty list means that
-            no exceptions occurred.
+        :return: A list of exceptions that occurred during job cancelling. An empty list means that no exceptions
+            occurred.
         """
         results = self._apply_batch(
             func=self.cancel,
@@ -521,14 +516,13 @@ class BaseJobManager(metaclass=abc.ABCMeta):
 
         :param job_ids: The job ids to clean up.
         :param threads: The size of the thread pool, defaulting to the instance attribute.
-        :param chunk_size: When not negative, *job_ids* are split into chunks of that size which are
-            passed to :py:meth:`cleanup`. Defaults to :py:attr:`chunk_size_cleanup`.
-        :param callback: When set, it is invoked after each successful job (or job chunk) cleaning
-            with the index of the corresponding job id (starting at 0) and either *None* or an
-            exception if any occurred.
+        :param chunk_size: When not negative, *job_ids* are split into chunks of that size which are passed to
+            :py:meth:`cleanup`. Defaults to :py:attr:`chunk_size_cleanup`.
+        :param callback: When set, it is invoked after each successful job (or job chunk) cleaning with the index of the
+            corresponding job id (starting at 0) and either *None* or an exception if any occurred.
         :param kwargs: Keyword arguments forwarded to :py:meth:`cleanup`.
-        :return: A list of exceptions that occurred during job cleaning. An empty list means that no
-            exceptions occurred.
+        :return: A list of exceptions that occurred during job cleaning. An empty list means that no exceptions
+            occurred.
         """
         results = self._apply_batch(
             func=self.cleanup,
@@ -558,14 +552,12 @@ class BaseJobManager(metaclass=abc.ABCMeta):
 
         :param job_ids: The job ids to query.
         :param threads: The size of the thread pool, defaulting to the instance attribute.
-        :param chunk_size: When not negative, *job_ids* are split into chunks of that size which are
-            passed to :py:meth:`query`. Defaults to :py:attr:`chunk_size_query`.
-        :param callback: When set, it is invoked after each successful job (or job chunk) status
-            query with the index of the corresponding job id (starting at 0) and the obtained status
-            query data or an exception if any occurred.
+        :param chunk_size: When not negative, *job_ids* are split into chunks of that size which are passed to
+            :py:meth:`query`. Defaults to :py:attr:`chunk_size_query`.
+        :param callback: When set, it is invoked after each successful job (or job chunk) status query with the index of
+            the corresponding job id (starting at 0) and the obtained status query data or an exception if any occurred.
         :param kwargs: Keyword arguments forwarded to :py:meth:`query`.
-        :return: A dictionary that maps job ids to either the status query data or to an exception
-            if any occurred.
+        :return: A dictionary that maps job ids to either the status query data or to an exception if any occurred.
         """
         return self._apply_batch(
             func=self.query,
@@ -643,20 +635,17 @@ class BaseJobManager(metaclass=abc.ABCMeta):
         **kwargs,
     ) -> list[Any]:
         """
-        Submits several job groups given by *job_files* via a thread pool. As per the definition of
-        a job group, a single job file can result in multiple jobs being processed on the remote
-        batch system.
+        Submits several job groups given by *job_files* via a thread pool. As per the definition of a job group, a
+        single job file can result in multiple jobs being processed on the remote batch system.
 
         :param job_files: The job files to submit.
         :param threads: The size of the thread pool, defaulting to the instance attribute.
-        :param callback: When set, it is invoked after each successful job submission with the index
-            of the corresponding job (starting at 0) and either the assigned job id or an exception
-            if any occurred.
+        :param callback: When set, it is invoked after each successful job submission with the index of the
+            corresponding job (starting at 0) and either the assigned job id or an exception if any occurred.
         :param kwargs: Keyword arguments forwarded to :py:meth:`submit`.
-        :return: A list containing the return values of the particular :py:meth:`submit` calls, in
-            an order that in general corresponds to *job_files*, with ids of single jobs per job
-            file properly expanded. When an exception was raised during a submission, this exception
-            is added to the returned list.
+        :return: A list containing the return values of the particular :py:meth:`submit` calls, in an order that in
+            general corresponds to *job_files*, with ids of single jobs per job file properly expanded. When an
+            exception was raised during a submission, this exception is added to the returned list.
         """
         # in order to use the generic grouping mechanism in _apply_group create a trivial group_func
         def group_func(job_files: list[Any]) -> dict[Hashable, list[Any]]:
@@ -684,17 +673,16 @@ class BaseJobManager(metaclass=abc.ABCMeta):
         **kwargs,
     ) -> list[Exception]:
         """
-        Takes several *job_ids*, groups them according to :py:meth:`group_job_ids`, and cancels all
-        groups simultaneously via a thread pool.
+        Takes several *job_ids*, groups them according to :py:meth:`group_job_ids`, and cancels all groups
+        simultaneously via a thread pool.
 
         :param job_ids: The job ids to cancel.
         :param threads: The size of the thread pool, defaulting to the instance attribute.
-        :param callback: When set, it is invoked after each successful job cancellation with the
-            index of the corresponding job id (starting at 0) and either *None* or an exception if
-            any occurred.
+        :param callback: When set, it is invoked after each successful job cancellation with the index of the
+            corresponding job id (starting at 0) and either *None* or an exception if any occurred.
         :param kwargs: Keyword arguments forwarded to :py:meth:`cancel`.
-        :return: A list of exceptions that occurred during job cancelling. An empty list means that
-            no exceptions occurred.
+        :return: A list of exceptions that occurred during job cancelling. An empty list means that no exceptions
+            occurred.
         """
         results = self._apply_group(
             func=self.cancel,
@@ -718,17 +706,16 @@ class BaseJobManager(metaclass=abc.ABCMeta):
         **kwargs,
     ) -> list[Exception]:
         """
-        Takes several *job_ids*, groups them according to :py:meth:`group_job_ids`, and cleans up
-        all groups simultaneously via a thread pool.
+        Takes several *job_ids*, groups them according to :py:meth:`group_job_ids`, and cleans up all groups
+        simultaneously via a thread pool.
 
         :param job_ids: The job ids to clean up.
         :param threads: The size of the thread pool, defaulting to the instance attribute.
-        :param callback: When set, it is invoked after each successful job cleanup with the index of
-            the corresponding job id (starting at 0) and either *None* or an exception if any
-            occurred.
+        :param callback: When set, it is invoked after each successful job cleanup with the index of the corresponding
+            job id (starting at 0) and either *None* or an exception if any occurred.
         :param kwargs: Keyword arguments forwarded to :py:meth:`cleanup`.
-        :return: A list of exceptions that occurred during job cleaning. An empty list means that no
-            exceptions occurred.
+        :return: A list of exceptions that occurred during job cleaning. An empty list means that no exceptions
+            occurred.
         """
         results = self._apply_group(
             func=self.cleanup,
@@ -752,17 +739,15 @@ class BaseJobManager(metaclass=abc.ABCMeta):
         **kwargs,
     ) -> dict[Hashable, Any]:
         """
-        Takes several *job_ids*, groups them according to :py:meth:`group_job_ids`, and queries the
-        status of all groups simultaneously via a thread pool.
+        Takes several *job_ids*, groups them according to :py:meth:`group_job_ids`, and queries the status of all groups
+        simultaneously via a thread pool.
 
         :param job_ids: The job ids to query.
         :param threads: The size of the thread pool, defaulting to the instance attribute.
-        :param callback: When set, it is invoked after each successful job status query with the
-            index of the corresponding job id (starting at 0) and the obtained status query data or
-            an exception if any occurred.
+        :param callback: When set, it is invoked after each successful job status query with the index of the
+            corresponding job id (starting at 0) and the obtained status query data or an exception if any occurred.
         :param kwargs: Keyword arguments forwarded to :py:meth:`query`.
-        :return: A dictionary that maps job ids to either the status query data or to an exception
-            if any occurred.
+        :return: A dictionary that maps job ids to either the status query data or to an exception if any occurred.
         """
         return self._apply_group(
             func=self.query,
@@ -795,21 +780,18 @@ class BaseJobManager(metaclass=abc.ABCMeta):
             status_line((0, 2, 0, 0), last_counts=(2, 0, 0, 0), skip=["retry"], timestamp=False)
             # all: 2, pending: 0 (-2), running: 2 (+2), finished: 2 (+0), failed: 0 (+0)
 
-        :param counts: The job counts per status. Its length should match the length of
-            *status_names* of this instance.
-        :param last_counts: When *True*, the status line also contains the differences in job counts
-            with respect to the counts from the previous call to this method. When a list or tuple,
-            those values are used instead to compute the differences.
-        :param sum_counts: Custom sum of jobs at the beginning of the status line, which is
-            otherwise inferred from *counts*.
-        :param timestamp: When *True*, the status line begins with the current timestamp. When a
-            non-empty string, it is used as the ``strftime`` format.
-        :param align: Handles the alignment of the values in the status line by using a maximum
-            width. *True* will result in the default width of 4. When it evaluates to *False*, no
-            alignment is used.
+        :param counts: The job counts per status. Its length should match the length of *status_names* of this instance.
+        :param last_counts: When *True*, the status line also contains the differences in job counts with respect to the
+            counts from the previous call to this method. When a list or tuple, those values are used instead to compute
+            the differences.
+        :param sum_counts: Custom sum of jobs at the beginning of the status line, which is otherwise inferred from
+            *counts*.
+        :param timestamp: When *True*, the status line begins with the current timestamp. When a non-empty string, it is
+            used as the ``strftime`` format.
+        :param align: Handles the alignment of the values in the status line by using a maximum width. *True* will
+            result in the default width of 4. When it evaluates to *False*, no alignment is used.
         :param color: Whether some elements of the status line are colored.
-        :raises ValueError: When the lengths of *counts* or *last_counts* do not match the number of
-            status names.
+        :raises ValueError: When the lengths of *counts* or *last_counts* do not match the number of status names.
         :return: The status line.
         """
         # check and or set last counts
@@ -869,18 +851,16 @@ class BaseJobManager(metaclass=abc.ABCMeta):
 
 class BaseJobFileFactory(metaclass=abc.ABCMeta):
     """
-    Base class that handles the creation of job files. It is likely that inheriting classes only
-    need to implement the :py:meth:`create` method as well as extend the constructor to handle
-    additional arguments.
+    Base class that handles the creation of job files. It is likely that inheriting classes only need to implement the
+    :py:meth:`create` method as well as extend the constructor to handle additional arguments.
 
-    The general idea behind this class is as follows. An instance holds the path to a directory
-    *dir*, defaulting to a new, temporary directory inside ``job.job_file_dir`` (which itself
-    defaults to the system's tmp path). Job input files, which are supported by almost all job /
-    batch systems, are automatically copied into this directory. The file name can be optionally
-    postfixed with a configurable string, so that multiple job files can be created and stored
-    within the same *dir* without the risk of interfering file names. A common use case would be
-    the use of a job number or id. Another *transformation* that is applied to copied files is the
-    rendering of variables. For example, when an input file looks like
+    The general idea behind this class is as follows. An instance holds the path to a directory *dir*, defaulting to a
+    new, temporary directory inside ``job.job_file_dir`` (which itself defaults to the system's tmp path). Job input
+    files, which are supported by almost all job / batch systems, are automatically copied into this directory. The file
+    name can be optionally postfixed with a configurable string, so that multiple job files can be created and stored
+    within the same *dir* without the risk of interfering file names. A common use case would be the use of a job number
+    or id. Another *transformation* that is applied to copied files is the rendering of variables. For example, when an
+    input file looks like
 
     .. code-block:: bash
 
@@ -888,10 +868,9 @@ class BaseJobFileFactory(metaclass=abc.ABCMeta):
 
         echo "Hello, {{my_variable}}!"
 
-    the rendering mechanism can replace variables such as ``my_variable`` following a double-brace
-    notation. Internally, the rendering is implemented in :py:meth:`render_file`, but there is
-    usually no need to call this method directly as implementations of this base class might use it
-    in their :py:meth:`create` method.
+    the rendering mechanism can replace variables such as ``my_variable`` following a double-brace notation. Internally,
+    the rendering is implemented in :py:meth:`render_file`, but there is usually no need to call this method directly as
+    implementations of this base class might use it in their :py:meth:`create` method.
 
     .. py:classattribute:: config_attrs
 
@@ -1005,8 +984,7 @@ class BaseJobFileFactory(metaclass=abc.ABCMeta):
         add_hash: bool = False,
     ) -> str:
         """
-        Adds a *postfix* to a file *path*, right before the first file extension in the base name.
-        Example:
+        Adds a *postfix* to a file *path*, right before the first file extension in the base name. Example:
 
         .. code-block:: python
 
@@ -1017,12 +995,10 @@ class BaseJobFileFactory(metaclass=abc.ABCMeta):
             # -> "/path/to/file_dacc4374d3_1.txt"
 
         :param path: The file path.
-        :param postfix: The postfix. It might also be a dictionary that maps patterns to actual
-            postfix strings. When a pattern matches the base name of the file, the associated
-            postfix is applied and the path is returned. You might want to use an ordered dictionary
-            to control the first match.
-        :param add_hash: When *True*, a hash based on the full source path is added before the
-            postfix.
+        :param postfix: The postfix. It might also be a dictionary that maps patterns to actual postfix strings. When a
+            pattern matches the base name of the file, the associated postfix is applied and the path is returned. You
+            might want to use an ordered dictionary to control the first match.
+        :param add_hash: When *True*, a hash based on the full source path is added before the postfix.
         :return: The postfixed path.
         """
         path = str(path)
@@ -1097,8 +1073,8 @@ class BaseJobFileFactory(metaclass=abc.ABCMeta):
         drop_base64_keys: Sequence[str] | None = None,
     ) -> dict[str, str]:
         """
-        Linearizes variables contained in the dictionary *render_variables*. In some use cases,
-        variables may contain render expressions pointing to other variables, e.g.:
+        Linearizes variables contained in the dictionary *render_variables*. In some use cases, variables may contain
+        render expressions pointing to other variables, e.g.:
 
         .. code-block:: python
 
@@ -1118,8 +1094,7 @@ class BaseJobFileFactory(metaclass=abc.ABCMeta):
             #     "variable_b": "Hello, Tom!",
             # }
 
-        A base64 encoded representation of all render variables is added to the final render
-        variables themselves.
+        A base64 encoded representation of all render variables is added to the final render variables themselves.
 
         :param render_variables: The render variables.
         :param drop_base64_keys: Keys that are dropped from the base64 encoded representation.
@@ -1165,10 +1140,10 @@ class BaseJobFileFactory(metaclass=abc.ABCMeta):
         silent: bool = True,
     ) -> None:
         """
-        Renders a source file *src* with *render_variables* and copies it to a new location *dst*.
-        In some cases, a render variable value might contain a path that should be subject to file
-        postfixing (see :py:meth:`postfix_file`). In the following example, the variable
-        ``my_command`` in *src* will be rendered with a string that contains a postfixed path:
+        Renders a source file *src* with *render_variables* and copies it to a new location *dst*. In some cases, a
+        render variable value might contain a path that should be subject to file postfixing (see
+        :py:meth:`postfix_file`). In the following example, the variable ``my_command`` in *src* will be rendered with a
+        string that contains a postfixed path:
 
         .. code-block:: python
 
@@ -1180,8 +1155,7 @@ class BaseJobFileFactory(metaclass=abc.ABCMeta):
         :param render_variables: The render variables.
         :param postfix: When not *None*, substrings in the format ``__law_job_postfix__:<path>`` are replaced by the
             postfixed ``path``.
-        :param silent: When *True* and the file content is not readable, the method returns without
-            an exception.
+        :param silent: When *True* and the file content is not readable, the method returns without an exception.
         :raises OSError: When *src* does not exist.
         """
         src = str(src)
@@ -1243,19 +1217,17 @@ class BaseJobFileFactory(metaclass=abc.ABCMeta):
         increment_existing: bool = False,
     ) -> str:
         """
-        Convenience method that copies an input file to a target directory. The provided file has
-        the same basename, which is optionally postfixed with *postfix*. Essentially, this method
-        calls :py:meth:`render_file` when *render_variables* is set, or simply ``shutil.copy2``
-        otherwise.
+        Convenience method that copies an input file to a target directory. The provided file has the same basename,
+        which is optionally postfixed with *postfix*. Essentially, this method calls :py:meth:`render_file` when
+        *render_variables* is set, or simply ``shutil.copy2`` otherwise.
 
         :param src: The input file.
         :param postfix: The postfix, see :py:meth:`postfix_file`.
-        :param dir: The target directory, defaulting to the :py:attr:`dir` attribute of this
-            instance.
+        :param dir: The target directory, defaulting to the :py:attr:`dir` attribute of this instance.
         :param render_variables: When set, the file is rendered with these variables.
         :param skip_existing: When *True*, an existing file is not overwritten.
-        :param increment_existing: When *True* and *skip_existing* is *False*, the target path is
-            incremented when the file already exists.
+        :param increment_existing: When *True* and *skip_existing* is *False*, the target path is incremented when the
+            file already exists.
         :return: The path of the provided file.
         """
         # create the destination path
@@ -1286,12 +1258,12 @@ class BaseJobFileFactory(metaclass=abc.ABCMeta):
 
     def get_config(self, **kwargs) -> Config:
         """
-        The :py:meth:`create` method potentially takes a lot of keyword arguments for configuring
-        the content of job files. It is useful if some of these configuration values default to
-        attributes that can be set via constructor arguments of this class.
+        The :py:meth:`create` method potentially takes a lot of keyword arguments for configuring the content of job
+        files. It is useful if some of these configuration values default to attributes that can be set via constructor
+        arguments of this class.
 
-        This method merges keyword arguments *kwargs* (e.g. passed to :py:meth:`create`) with
-        default values obtained from instance attributes given in :py:attr:`config_attrs`. Example:
+        This method merges keyword arguments *kwargs* (e.g. passed to :py:meth:`create`) with default values obtained
+        from instance attributes given in :py:attr:`config_attrs`. Example:
 
         .. code-block:: python
 
@@ -1315,8 +1287,7 @@ class BaseJobFileFactory(metaclass=abc.ABCMeta):
                     ...
 
         :param kwargs: The keyword arguments to merge.
-        :return: The merged values in a dictionary that can be accessed via dot-notation (attribute
-            notation).
+        :return: The merged values in a dictionary that can be accessed via dot-notation (attribute notation).
         """
         cfg = self.Config()
         for attr in self.config_attrs:
@@ -1347,10 +1318,9 @@ class BaseJobFileFactory(metaclass=abc.ABCMeta):
 
 class JobArguments:
     """
-    Wrapper class for job arguments. Currently, it stores a task class *task_cls*, a list of
-    *task_params*, a list of covered *branches*, an *auto_retry* flag, and custom *dashboard_data*.
-    It also handles argument encoding as reqired by the job wrapper script at
-    `law/job/job.sh <https://github.com/riga/law/blob/master/law/job/job.sh>`__.
+    Wrapper class for job arguments. Currently, it stores a task class *task_cls*, a list of *task_params*, a list of
+    covered *branches*, an *auto_retry* flag, and custom *dashboard_data*. It also handles argument encoding as reqired
+    by the job wrapper script at `law/job/job.sh <https://github.com/riga/law/blob/master/law/job/job.sh>`__.
 
     .. py:attribute:: task_cls
 
@@ -1451,8 +1421,7 @@ class JobArguments:
     @classmethod
     def encode_dict(cls, value: dict, /) -> str:
         """
-        Encodes a dict *value* into a string representation ``"key1=value1 key2=value2"`` via base64
-        encoding.
+        Encodes a dict *value* into a string representation ``"key1=value1 key2=value2"`` via base64 encoding.
 
         :param value: The dictionary.
         :return: The encoded string.
@@ -1461,8 +1430,8 @@ class JobArguments:
 
     def get_args(self) -> list[str]:
         """
-        Returns the list of encoded job arguments. The order of this list corresponds to the
-        arguments expected by the job wrapper script.
+        Returns the list of encoded job arguments. The order of this list corresponds to the arguments expected by the
+        job wrapper script.
 
         :return: The list of encoded arguments.
         """
@@ -1478,8 +1447,8 @@ class JobArguments:
 
     def join(self) -> str:
         """
-        Returns the list of job arguments from :py:meth:`get_args`, joined into a single string
-        using a single space character.
+        Returns the list of job arguments from :py:meth:`get_args`, joined into a single string using a single space
+        character.
 
         :return: The joined arguments.
         """
@@ -1488,9 +1457,9 @@ class JobArguments:
 
 class JobInputFile:  # noqa: PLW1641
     """
-    Wrapper around a *path* referring to an input file of a job, accompanied by optional flags that
-    control how the file should be handled during job submission (mostly within
-    :py:meth:`BaseJobFileFactory.provide_input`). See the attributs below for more info.
+    Wrapper around a *path* referring to an input file of a job, accompanied by optional flags that control how the file
+    should be handled during job submission (mostly within :py:meth:`BaseJobFileFactory.provide_input`). See the
+    attributs below for more info.
 
     .. py:attribute:: path
 

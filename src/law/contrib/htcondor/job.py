@@ -32,14 +32,12 @@ _cfg = Config.instance()
 
 class HTCondorJobManager(BaseJobManager):
     """
-    Job manager that submits, cancels and queries jobs on an HTCondor batch system via
-    ``condor_submit``, ``condor_rm``, ``condor_q``, ``condor_history``. The exact commands can be
-    configured through the ``htcondor_cmd_*`` options of the ``[job]`` config section, as well as
-    chunk sizes for batched operations through the ``htcondor_chunk_size_*`` options. *pool* and
-    *scheduler* select the HTCondor pool and scheduler, and *user* restricts status queries to jobs
-    of a certain user. *threads* is the default number of threads for batched operations. Whether
-    jobs are submitted in groups with a single job file is configured through the
-    ``htcondor_job_grouping_submit`` option.
+    Job manager that submits, cancels and queries jobs on an HTCondor batch system via ``condor_submit``, ``condor_rm``,
+    ``condor_q``, ``condor_history``. The exact commands can be configured through the ``htcondor_cmd_*`` options of the
+    ``[job]`` config section, as well as chunk sizes for batched operations through the ``htcondor_chunk_size_*``
+    options. *pool* and *scheduler* select the HTCondor pool and scheduler, and *user* restricts status queries to jobs
+    of a certain user. *threads* is the default number of threads for batched operations. Whether jobs are submitted in
+    groups with a single job file is configured through the ``htcondor_job_grouping_submit`` option.
     """
 
     # whether to use job grouping or batched submission
@@ -577,9 +575,8 @@ class HTCondorJobManager(BaseJobManager):
 
 class HTCondorJobFileFactory(BaseJobFileFactory):
     """
-    Job file factory that creates HTCondor submission files. The constructor arguments are also
-    attributes of the config object that is passed to the
-    :py:meth:`~law.contrib.htcondor.HTCondorWorkflow.htcondor_job_config` hook of
+    Job file factory that creates HTCondor submission files. The constructor arguments are also attributes of the config
+    object that is passed to the :py:meth:`~law.contrib.htcondor.HTCondorWorkflow.htcondor_job_config` hook of
     :py:class:`~law.contrib.htcondor.HTCondorWorkflow`, so they can be changed per job:
 
     - *file_name*: The name of the job file. A postfix is added to it per job.
@@ -603,11 +600,10 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
     - *absolute_paths*: Whether absolute paths of input files are used in the job file instead of
       paths relative to the job file directory.
 
-    Default values of the *dir*, *mkdtemp* and *cleanup* arguments of
-    :py:class:`~law.job.base.BaseJobFileFactory` are taken from the ``htcondor_job_file_dir``,
-    ``htcondor_job_file_dir_mkdtemp`` and ``htcondor_job_file_dir_cleanup`` options of the ``[job]``
-    config section, falling back to the same options without the ``htcondor_`` prefix. All other
-    *kwargs* are forwarded to :py:class:`~law.job.base.BaseJobFileFactory`.
+    Default values of the *dir*, *mkdtemp* and *cleanup* arguments of :py:class:`~law.job.base.BaseJobFileFactory` are
+    taken from the ``htcondor_job_file_dir``, ``htcondor_job_file_dir_mkdtemp`` and ``htcondor_job_file_dir_cleanup``
+    options of the ``[job]`` config section, falling back to the same options without the ``htcondor_`` prefix. All
+    other *kwargs* are forwarded to :py:class:`~law.job.base.BaseJobFileFactory`.
     """
 
     config_attrs = [

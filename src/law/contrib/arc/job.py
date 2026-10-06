@@ -1,6 +1,5 @@
 """
-Simple ARC job manager. See http://www.nordugrid.org/arc and
-http://www.nordugrid.org/documents/xrsl.pdf.
+Simple ARC job manager. See http://www.nordugrid.org/arc and http://www.nordugrid.org/documents/xrsl.pdf.
 """
 
 from __future__ import annotations
@@ -31,12 +30,11 @@ _cfg = Config.instance()
 
 class ARCJobManager(BaseJobManager):
     """
-    Job manager that submits, cancels and queries jobs on grid computing elements via ARC via
-    ``arcsub``, ``arckill``, ``arcstat``, ``arcclean``. The exact commands can be configured through
-    the ``arc_cmd_*`` options of the ``[job]`` config section, as well as chunk sizes for batched
-    operations through the ``arc_chunk_size_*`` options. *ce* selects the computing element(s), and
-    *job_list* is the ARC job list file that stores submitted jobs. *threads* is the default number
-    of threads for batched operations. Jobs can also be cleaned up after they finished.
+    Job manager that submits, cancels and queries jobs on grid computing elements via ARC via ``arcsub``, ``arckill``,
+    ``arcstat``, ``arcclean``. The exact commands can be configured through the ``arc_cmd_*`` options of the ``[job]``
+    config section, as well as chunk sizes for batched operations through the ``arc_chunk_size_*`` options. *ce* selects
+    the computing element(s), and *job_list* is the ARC job list file that stores submitted jobs. *threads* is the
+    default number of threads for batched operations. Jobs can also be cleaned up after they finished.
     """
 
     # chunking settings
@@ -376,9 +374,8 @@ class ARCJobManager(BaseJobManager):
 
 class ARCJobFileFactory(BaseJobFileFactory):
     """
-    Job file factory that creates ARC job description files (xrsl). The constructor arguments are
-    also attributes of the config object that is passed to the
-    :py:meth:`~law.contrib.arc.ARCWorkflow.arc_job_config` hook of
+    Job file factory that creates ARC job description files (xrsl). The constructor arguments are also attributes of the
+    config object that is passed to the :py:meth:`~law.contrib.arc.ARCWorkflow.arc_job_config` hook of
     :py:class:`~law.contrib.arc.ARCWorkflow`, so they can be changed per job:
 
     - *file_name*: The name of the job file. A postfix is added to it per job.
@@ -399,10 +396,9 @@ class ARCJobFileFactory(BaseJobFileFactory):
     - *absolute_paths*: Whether absolute paths of input files are used in the job file instead of
       paths relative to the job file directory. Defaults to *True*.
 
-    Default values of the *dir*, *mkdtemp* and *cleanup* arguments of
-    :py:class:`~law.job.base.BaseJobFileFactory` are taken from the ``arc_job_file_dir``,
-    ``arc_job_file_dir_mkdtemp`` and ``arc_job_file_dir_cleanup`` options of the ``[job]`` config
-    section, falling back to the same options without the ``arc_`` prefix. All other *kwargs* are
+    Default values of the *dir*, *mkdtemp* and *cleanup* arguments of :py:class:`~law.job.base.BaseJobFileFactory` are
+    taken from the ``arc_job_file_dir``, ``arc_job_file_dir_mkdtemp`` and ``arc_job_file_dir_cleanup`` options of the
+    ``[job]`` config section, falling back to the same options without the ``arc_`` prefix. All other *kwargs* are
     forwarded to :py:class:`~law.job.base.BaseJobFileFactory`.
     """
 

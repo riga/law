@@ -31,8 +31,8 @@ ProxyRegister.disable_instance_cache()
 
 class ProxyTask(BaseTask, metaclass=ProxyRegister):
     """
-    Base class of tasks that act on behalf of another task, which is passed as *task*, e.g. to run
-    it in a sandbox or as part of a workflow.
+    Base class of tasks that act on behalf of another task, which is passed as *task*, e.g. to run it in a sandbox or as
+    part of a workflow.
     """
 
     task = TaskInstanceParameter()
@@ -61,9 +61,9 @@ class ProxyAttributeTask(Task):
 
 class ProxyCommand:
     """
-    Builder of the ``law run`` command that runs a *task* with its current parameters in a separate
-    process, e.g. inside a sandbox. Parameters in *exclude_task_args* and global command line
-    arguments in *exclude_global_args* are skipped. *executable* is the law executable to use.
+    Builder of the ``law run`` command that runs a *task* with its current parameters in a separate process, e.g. inside
+    a sandbox. Parameters in *exclude_task_args* and global command line arguments in *exclude_global_args* are skipped.
+    *executable* is the law executable to use.
     """
 
     arg_sep = "__law_arg_sep__"
@@ -185,16 +185,16 @@ def get_proxy_attribute(
     proxy: bool = True,
 ) -> Any:
     """
-    Returns an attribute *attr* of a *task* taking into account possible proxies such as owned by
-    workflow (:py:class:`BaseWorkflow`) or sandbox tasks (:py:class:`SandboxTask`). The reason for
-    having an external function to evaluate possible attribute forwarding is the complexity of
-    attribute lookup independent of the method resolution order.
+    Returns an attribute *attr* of a *task* taking into account possible proxies such as owned by workflow
+    (:py:class:`BaseWorkflow`) or sandbox tasks (:py:class:`SandboxTask`). The reason for having an external function to
+    evaluate possible attribute forwarding is the complexity of attribute lookup independent of the method resolution
+    order.
 
     :param cls: The class whose super method implements the default lookup.
     :param task: The task.
     :param attr: The name of the attribute.
-    :param proxy: When *False*, or when the requested attribute is not forwarded, the default lookup
-        implemented in the super method of *cls* is used.
+    :param proxy: When *False*, or when the requested attribute is not forwarded, the default lookup implemented in the
+        super method of *cls* is used.
     :return: The attribute value.
     """
     if proxy:

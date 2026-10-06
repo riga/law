@@ -29,24 +29,23 @@ def notify_mattermost(
     **kwargs,
 ) -> bool:
     """
-    Sends a mattermost notification. The communication with the mattermost API might have some
-    delays and is therefore handled by a thread.
+    Sends a mattermost notification. The communication with the mattermost API might have some delays and is therefore
+    handled by a thread.
 
     :param title: The title.
-    :param content: The content. If it is a string, a simple text notification is sent. Otherwise,
-        it should be a dictionary whose fields are formatted as key-value pairs.
-    :param hook_url: The webhook url, defaulting to the ``mattermost_hook_url`` option in the
+    :param content: The content. If it is a string, a simple text notification is sent. Otherwise, it should be a
+        dictionary whose fields are formatted as key-value pairs.
+    :param hook_url: The webhook url, defaulting to the ``mattermost_hook_url`` option in the ``[notifications]``
+        section.
+    :param channel: The channel, defaulting to the ``mattermost_channel`` option in the ``[notifications]`` section.
+    :param user: The user name to post as, defaulting to the ``mattermost_user`` option in the ``[notifications]``
+        section.
+    :param mention_user: The user to mention, defaulting to the ``mattermost_mention_user`` option in the
         ``[notifications]`` section.
-    :param channel: The channel, defaulting to the ``mattermost_channel`` option in the
-        ``[notifications]`` section.
-    :param user: The user name to post as, defaulting to the ``mattermost_user`` option in the
-        ``[notifications]`` section.
-    :param mention_user: The user to mention, defaulting to the ``mattermost_mention_user`` option
-        in the ``[notifications]`` section.
-    :param icon_url: The url of the icon, defaulting to the ``mattermost_icon_url`` option in the
-        ``[notifications]`` section.
-    :param icon_emoji: The icon emoji, defaulting to the ``mattermost_icon_emoji`` option in the
-        ``[notifications]`` section.
+    :param icon_url: The url of the icon, defaulting to the ``mattermost_icon_url`` option in the ``[notifications]``
+        section.
+    :param icon_emoji: The icon emoji, defaulting to the ``mattermost_icon_emoji`` option in the ``[notifications]``
+        section.
     :param kwargs: Additional fields that are added to the request data.
     :return: Whether the notification was sent, i.e., whether *hook_url* is set.
     """

@@ -24,10 +24,9 @@ logger = get_logger(__name__)
 class WLCGFileSystem(RemoteFileSystem):
     """
     Remote file system for storage elements of the Worldwide LHC Computing Grid (WLCG), using
-    :py:class:`law.gfal.GFALFileInterface` for file operations. Its options are read from the config
-    section *section*, defaulting to the one configured in ``[target] default_wlcg_fs``, and can be
-    overwritten by *kwargs*. The ``base`` option, i.e., the base uri(s) of the file system, is
-    mandatory. Permissions are not supported.
+    :py:class:`law.gfal.GFALFileInterface` for file operations. Its options are read from the config section *section*,
+    defaulting to the one configured in ``[target] default_wlcg_fs``, and can be overwritten by *kwargs*. The ``base``
+    option, i.e., the base uri(s) of the file system, is mandatory. Permissions are not supported.
     """
 
     file_interface_cls = law.gfal.GFALFileInterface  # type: ignore[attr-defined]
@@ -69,8 +68,8 @@ except Exception as e:
 
 class WLCGTarget(RemoteTarget):
     """
-    Base class of targets on a :py:class:`WLCGFileSystem` *fs*, which can be an instance or the name
-    of a config section, and defaults to the default instance. All *kwargs* are forwarded to
+    Base class of targets on a :py:class:`WLCGFileSystem` *fs*, which can be an instance or the name of a config
+    section, and defaults to the default instance. All *kwargs* are forwarded to
     :py:class:`~law.target.remote.RemoteTarget`.
     """
 

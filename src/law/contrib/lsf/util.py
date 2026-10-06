@@ -18,8 +18,7 @@ _lsf_version_lock = threading.Lock()
 
 def get_lsf_version() -> tuple[int, int, int] | None:
     """
-    Returns the version of the LSF installation. The value is cached to accelerate repeated function
-    invocations.
+    Returns the version of the LSF installation. The value is cached to accelerate repeated function invocations.
 
     :return: The version as a 3-tuple, or *None* when the ``bjobs`` executable is not available.
     """

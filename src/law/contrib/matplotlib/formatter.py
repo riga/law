@@ -16,10 +16,9 @@ from law.util import no_value
 
 class MatplotlibFormatter(Formatter):
     """
-    Formatter that saves matplotlib figures as pdf (``.pdf``) or png files (``.png``) via
-    ``fig.savefig``. Loading is not supported. Additional arguments are forwarded. When dumping, the
-    file permission can be set via *perm*. Its name is ``"mpl"``, which can be passed as *formatter*
-    to select it explicitly.
+    Formatter that saves matplotlib figures as pdf (``.pdf``) or png files (``.png``) via ``fig.savefig``. Loading is
+    not supported. Additional arguments are forwarded. When dumping, the file permission can be set via *perm*. Its name
+    is ``"mpl"``, which can be passed as *formatter* to select it explicitly.
     """
 
     name = "mpl"

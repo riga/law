@@ -27,8 +27,7 @@ _global_cmdline_values: dict[str, Any] | None = None
 
 def root_task_cls(task: luigi.Task | None = None) -> type[luigi.Task] | None:
     """
-    Returns the class of the task that was triggered on the command line. The returned class is
-    cached.
+    Returns the class of the task that was triggered on the command line. The returned class is cached.
 
     :param task: When defined and no root task class was cached yet, this method acts as a setter.
     :return: The task class, or *None*.
@@ -53,8 +52,7 @@ def root_task_cls(task: luigi.Task | None = None) -> type[luigi.Task] | None:
 
 def root_task(task: luigi.Task | None = None) -> luigi.Task | None:
     """
-    Returns the instance of the task that was triggered on the command line. The returned instance
-    is cached.
+    Returns the instance of the task that was triggered on the command line. The returned instance is cached.
 
     :param task: When defined and no root task was cached yet, this method acts as a setter.
     :return: The task instance, or *None*.
@@ -79,8 +77,7 @@ def root_task(task: luigi.Task | None = None) -> luigi.Task | None:
 
 def full_parser() -> luigi.cmdline_parser.CmdlineParser | None:
     """
-    Returns the full *ArgumentParser* used by the luigi ``CmdlineParser``. The returned instance is
-    cached.
+    Returns the full *ArgumentParser* used by the luigi ``CmdlineParser``. The returned instance is cached.
 
     :return: The parser, or *None*.
     """
@@ -102,8 +99,8 @@ def full_parser() -> luigi.cmdline_parser.CmdlineParser | None:
 
 def root_task_parser() -> argparse.ArgumentParser | None:
     """
-    Returns a new *ArgumentParser* instance that only contains parameter actions of the root task.
-    The returned instance is cached.
+    Returns a new *ArgumentParser* instance that only contains parameter actions of the root task. The returned instance
+    is cached.
 
     :return: The parser, or *None*.
     """
@@ -139,9 +136,9 @@ def root_task_parser() -> argparse.ArgumentParser | None:
 
 def global_cmdline_args(exclude: Sequence[str] | None = None) -> dict[str, str] | None:
     """
-    Returns a dictionary with keys and string values of command line arguments that do not belong to
-    the root task. For bool parameters, such as ``--local-scheduler``, ``"True"`` is assumed if they
-    are used as flags, i.e., without a parameter value. The returned dict is cached. Example:
+    Returns a dictionary with keys and string values of command line arguments that do not belong to the root task. For
+    bool parameters, such as ``--local-scheduler``, ``"True"`` is assumed if they are used as flags, i.e., without a
+    parameter value. The returned dict is cached. Example:
 
     .. code-block:: python
 
@@ -205,9 +202,8 @@ def global_cmdline_args(exclude: Sequence[str] | None = None) -> dict[str, str] 
 
 def global_cmdline_values() -> dict[str, Any] | None:
     """
-    Returns a dictionary of global command line arguments (computed with
-    :py:func:`global_cmdline_args`) mapped to their current values. The returned dictionary is
-    cached. Example:
+    Returns a dictionary of global command line arguments (computed with :py:func:`global_cmdline_args`) mapped to their
+    current values. The returned dictionary is cached. Example:
 
     .. code-block:: python
 

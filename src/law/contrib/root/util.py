@@ -27,13 +27,12 @@ _ROOT: ModuleType | None = None
 
 def import_ROOT(batch: bool = True, ignore_cli: bool = True, reset: bool = False) -> ModuleType:
     """
-    Imports, caches and returns the ROOT module and sets certain flags when it was not already
-    cached.
+    Imports, caches and returns the ROOT module and sets certain flags when it was not already cached.
 
     :param batch: When *True*, the module is loaded in batch mode.
     :param ignore_cli: When *True*, ROOT's command line parsing is disabled.
-    :param reset: When *True*, the two settings are enforced independent of whether the module was
-        previously cached or not. This entails enabling them in case they were disabled before.
+    :param reset: When *True*, the two settings are enforced independent of whether the module was previously cached or
+        not. This entails enabling them in case they were disabled before.
     :return: The ROOT module.
     """
     global _ROOT
@@ -64,23 +63,20 @@ def hadd_task(
     hadd_args: str | Sequence[str] | None = None,
 ):
     """
-    This method is intended to be used by tasks that are supposed to merge root files, e.g. when
-    inheriting from :py:class:`law.contrib.tasks.ForestMerge`. The *task* itself is used to print
-    and publish messages via its :py:meth:`law.Task.publish_message` and
-    :py:meth:`law.Task.publish_step` methods.
+    This method is intended to be used by tasks that are supposed to merge root files, e.g. when inheriting from
+    :py:class:`law.contrib.tasks.ForestMerge`. The *task* itself is used to print and publish messages via its
+    :py:meth:`law.Task.publish_message` and :py:meth:`law.Task.publish_step` methods.
 
     :param task: The task.
     :param inputs: The local targets that represent the files to merge.
     :param output: The output target.
-    :param local: When *True*, the input and output targets are assumed to be local and the merging
-        is based on their local paths. Otherwise, the targets are fetched first and the output
-        target is localized.
-    :param cwd: The working directory in which hadd is invoked. When empty, a temporary directory is
-        used.
+    :param local: When *True*, the input and output targets are assumed to be local and the merging is based on their
+        local paths. Otherwise, the targets are fetched first and the output target is localized.
+    :param cwd: The working directory in which hadd is invoked. When empty, a temporary directory is used.
     :param force: When *True*, any existing output file is overwritten.
-    :param cascade_size: Since ``hadd`` is triggered as a subprocess, the resulting command line can
-        potentially get quite long. To avoid this, a so-called cascade can be utilized, resulting in
-        consecutive merging steps each running on *cascade_size* input files.
+    :param cascade_size: Since ``hadd`` is triggered as a subprocess, the resulting command line can potentially get
+        quite long. To avoid this, a so-called cascade can be utilized, resulting in consecutive merging steps each
+        running on *cascade_size* input files.
     :param hadd_args: Additional arguments that are added to the hadd command.
     :raises RuntimeError: When hadd failed or the output was not created.
     """

@@ -38,9 +38,8 @@ def _default_vo() -> str:
 
 class Site:
     """
-    Helper class that provides site-related data, mostly via simple properties. When *name* is
-    *None*, the name of the site is used that the instance of this class is instantiated on.
-    Example:
+    Helper class that provides site-related data, mostly via simple properties. When *name* is *None*, the name of the
+    site is used that the instance of this class is instantiated on. Example:
 
     .. code-block:: python
 
@@ -152,8 +151,8 @@ class Site:
     @property
     def redirector(self) -> str:
         """
-        The XRD redirector that should be used on this site. For more information on XRD, see
-        `this link <https://twiki.cern.ch/twiki/bin/view/CMSPublic/WorkBookXrootdService>`_.
+        The XRD redirector that should be used on this site. For more information on XRD, see `this link
+        <https://twiki.cern.ch/twiki/bin/view/CMSPublic/WorkBookXrootdService>`_.
         """
         country = self.country
         if country in self.redirectors:
@@ -178,9 +177,8 @@ def lfn_to_pfn(lfn: str, redirector: str = "global") -> str:
 
 def renew_vomsproxy(**kwargs) -> str | None:
     """
-    Renews a VOMS proxy in the exact same way that :py:func:`law.wlcg.renew_vomsproxy` does, but
-    with the *vo* argument defaulting to the environment variable LAW_CMS_VO or ``"cms"`` when
-    empty.
+    Renews a VOMS proxy in the exact same way that :py:func:`law.wlcg.renew_vomsproxy` does, but with the *vo* argument
+    defaulting to the environment variable LAW_CMS_VO or ``"cms"`` when empty.
 
     :param kwargs: Keyword arguments forwarded to :py:func:`law.wlcg.renew_vomsproxy`.
     :return: The return value of :py:func:`law.wlcg.renew_vomsproxy`.
@@ -192,9 +190,8 @@ def renew_vomsproxy(**kwargs) -> str | None:
 
 def delegate_myproxy(**kwargs) -> str | None:
     """
-    Delegates a X509 proxy to a myproxy server in the exact same way that
-    :py:func:`law.wlcg.delegate_myproxy` does, but with the *vo* argument defaulting to the
-    environment variable LAW_CMS_VO or ``"cms"`` when empty.
+    Delegates a X509 proxy to a myproxy server in the exact same way that :py:func:`law.wlcg.delegate_myproxy` does, but
+    with the *vo* argument defaulting to the environment variable LAW_CMS_VO or ``"cms"`` when empty.
 
     :param kwargs: Keyword arguments forwarded to :py:func:`law.wlcg.delegate_myproxy`.
     :return: The return value of :py:func:`law.wlcg.delegate_myproxy`.
@@ -215,11 +212,10 @@ def _get_crab_receivers() -> None:
 
 class RucioReporter(threading.Thread):
     """
-    Background thread that reports file accesses to Rucio, using a rucio client created with
-    *client_args*. Reports are sent to *server_url* at a maximum rate of *max_rate* per second. Use
-    :py:meth:`instance` to obtain a shared, running instance, or :py:func:`rucio_report_access` for
-    a simple interface. When the rucio client cannot be created, reporting is disabled with a
-    warning.
+    Background thread that reports file accesses to Rucio, using a rucio client created with *client_args*. Reports are
+    sent to *server_url* at a maximum rate of *max_rate* per second. Use :py:meth:`instance` to obtain a shared, running
+    instance, or :py:func:`rucio_report_access` for a simple interface. When the rucio client cannot be created,
+    reporting is disabled with a warning.
     """
 
     default_client_args: dict[str, Any] | None = None

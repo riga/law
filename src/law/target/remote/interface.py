@@ -41,15 +41,13 @@ class RetryException(LawError):
 
 class RemoteFileInterface(metaclass=abc.ABCMeta):
     """
-    Abstract base class of interfaces that perform file operations of a
-    :py:class:`~law.target.remote.RemoteFileSystem` with a specific protocol or library, such as
-    :py:class:`law.gfal.GFALFileInterface`.
+    Abstract base class of interfaces that perform file operations of a :py:class:`~law.target.remote.RemoteFileSystem`
+    with a specific protocol or library, such as :py:class:`law.gfal.GFALFileInterface`.
 
-    Operations are performed relative to one of the base uris in *base*, while *bases* can map
-    operation names (e.g. ``"stat"`` or ``"filecopy"``) to dedicated base uris. Operations that fail
-    are retried *retries* times with a delay of *retry_delay* seconds. When multiple base uris are
-    available, a random one is selected when *random_base* is *True*, skipping those that failed
-    before.
+    Operations are performed relative to one of the base uris in *base*, while *bases* can map operation names (e.g.
+    ``"stat"`` or ``"filecopy"``) to dedicated base uris. Operations that fail are retried *retries* times with a delay
+    of *retry_delay* seconds. When multiple base uris are available, a random one is selected when *random_base* is
+    *True*, skipping those that failed before.
     """
 
     @classmethod
@@ -108,13 +106,13 @@ class RemoteFileInterface(metaclass=abc.ABCMeta):
         uri_base_name: str | Sequence[str] | None = None,
     ) -> Callable:
         """
-        Decorator for methods of implementations that retries the decorated method *func* when it
-        raises a :py:class:`RetryException`, following the *retries*, *retry_delay* and
-        *random_base* settings, which can also be passed as keyword arguments to the method.
+        Decorator for methods of implementations that retries the decorated method *func* when it raises a
+        :py:class:`RetryException`, following the *retries*, *retry_delay* and *random_base* settings, which can also be
+        passed as keyword arguments to the method.
 
         :param func: The decorated method. When *None*, a decorator is returned.
-        :param uri_base_name: When given and no *base* is passed to the method, a base uri is
-            selected for these operation names via :py:meth:`get_base` in each attempt.
+        :param uri_base_name: When given and no *base* is passed to the method, a base uri is selected for these
+            operation names via :py:meth:`get_base` in each attempt.
         :return: The decorated method, or a decorator when *func* is *None*.
         """
         def decorator(func: Callable) -> Callable:
@@ -227,14 +225,12 @@ class RemoteFileInterface(metaclass=abc.ABCMeta):
         return_all: bool = False,
     ):
         """
-        Returns a base uri for the operation(s) *base_name*, falling back to the default base uris
-        when no dedicated ones are configured.
+        Returns a base uri for the operation(s) *base_name*, falling back to the default base uris when no dedicated
+        ones are configured.
 
         :param base_name: The name(s) of the operation(s).
-        :param random: When multiple uris are available, a random one is selected if *True*.
-            Defaults to *random_base*.
-        :param skip_indices: Indices of uris that are not considered, unless there would be none
-            left.
+        :param random: When multiple uris are available, a random one is selected if *True*. Defaults to *random_base*.
+        :param skip_indices: Indices of uris that are not considered, unless there would be none left.
         :param return_index: When *True*, a tuple with the uri and its index is returned.
         :param return_all: When *True*, all available uris are returned in a list instead.
         :raises ValueError: When no base uris are available.
@@ -323,8 +319,7 @@ class RemoteFileInterface(metaclass=abc.ABCMeta):
         :param base: The base uri(s) to use. When *None*, it is determined via :py:meth:`get_base`.
         :param stat: When *True*, the stat object is returned instead of a boolean.
         :param kwargs: Additional options, e.g. for the :py:meth:`retry` mechanism.
-        :return: Whether *path* exists, or the stat object (*None* when it does not exist) when
-            *stat* is *True*.
+        :return: Whether *path* exists, or the stat object (*None* when it does not exist) when *stat* is *True*.
         """
         ...
 
@@ -402,8 +397,7 @@ class RemoteFileInterface(metaclass=abc.ABCMeta):
         :param path: The path.
         :param perm: The new permission.
         :param base: The base uri(s) to use. When *None*, it is determined via :py:meth:`get_base`.
-        :param silent: When *True* and *path* does not exist, *False* is returned instead of raising
-            an exception.
+        :param silent: When *True* and *path* does not exist, *False* is returned instead of raising an exception.
         :param kwargs: Additional options, e.g. for the :py:meth:`retry` mechanism.
         :return: Whether the permission was changed.
         """
@@ -423,8 +417,7 @@ class RemoteFileInterface(metaclass=abc.ABCMeta):
 
         :param path: The path.
         :param base: The base uri(s) to use. When *None*, it is determined via :py:meth:`get_base`.
-        :param silent: When *True* and *path* does not exist, *False* is returned instead of raising
-            an exception.
+        :param silent: When *True* and *path* does not exist, *False* is returned instead of raising an exception.
         :param kwargs: Additional options, e.g. for the :py:meth:`retry` mechanism.
         :return: Whether the file was removed.
         """
@@ -444,8 +437,7 @@ class RemoteFileInterface(metaclass=abc.ABCMeta):
 
         :param path: The path.
         :param base: The base uri(s) to use. When *None*, it is determined via :py:meth:`get_base`.
-        :param silent: When *True* and *path* does not exist, *False* is returned instead of raising
-            an exception.
+        :param silent: When *True* and *path* does not exist, *False* is returned instead of raising an exception.
         :param kwargs: Additional options, e.g. for the :py:meth:`retry` mechanism.
         :return: Whether the directory was removed.
         """
@@ -465,8 +457,7 @@ class RemoteFileInterface(metaclass=abc.ABCMeta):
 
         :param path: The path.
         :param base: The base uri(s) to use. When *None*, it is determined via :py:meth:`get_base`.
-        :param silent: When *True* and *path* does not exist, *False* is returned instead of raising
-            an exception.
+        :param silent: When *True* and *path* does not exist, *False* is returned instead of raising an exception.
         :param kwargs: Additional options, e.g. for the :py:meth:`retry` mechanism.
         :return: Whether *path* was removed.
         """
@@ -488,8 +479,7 @@ class RemoteFileInterface(metaclass=abc.ABCMeta):
         :param path: The path.
         :param perm: The permission of the directory.
         :param base: The base uri(s) to use. When *None*, it is determined via :py:meth:`get_base`.
-        :param silent: When *True* and *path* already exists, *False* is returned instead of raising
-            an exception.
+        :param silent: When *True* and *path* already exists, *False* is returned instead of raising an exception.
         :param kwargs: Additional options, e.g. for the :py:meth:`retry` mechanism.
         :return: Whether the directory was created.
         """
@@ -510,8 +500,8 @@ class RemoteFileInterface(metaclass=abc.ABCMeta):
         :param path: The path.
         :param perm: The permission of created directories.
         :param base: The base uri(s) to use. When *None*, it is determined via :py:meth:`get_base`.
-        :param kwargs: Additional options, e.g. *silent* to return *False* instead of raising an
-            exception when *path* already exists.
+        :param kwargs: Additional options, e.g. *silent* to return *False* instead of raising an exception when *path*
+            already exists.
         :return: Whether the directory was created.
         """
         ...

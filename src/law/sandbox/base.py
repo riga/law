@@ -178,8 +178,8 @@ class Sandbox(metaclass=abc.ABCMeta):
     Sandbox definition.
 
     The config section used by instances if this or inheriting classes constructed using
-    :py:attr:`config_section_prefix` followed by ``"_sandbox"`` and optional postifxes. The minimal
-    set of options in the main section are:
+    :py:attr:`config_section_prefix` followed by ``"_sandbox"`` and optional postifxes. The minimal set of options in
+    the main section are:
 
         - ``"stagein_dir_name"`` (usually ``"stagein"``)
         - ``"stageout_dir_name"`` (usually ``"stageout"``)
@@ -269,8 +269,8 @@ class Sandbox(metaclass=abc.ABCMeta):
     @classmethod
     def new(cls, key: str, *args, **kwargs) -> Sandbox:
         """
-        Creates a new sandbox instance from a sandbox *key* such as ``"bash::/path/to/script.sh"``,
-        using the subclass whose :py:attr:`sandbox_type` matches the type in *key*.
+        Creates a new sandbox instance from a sandbox *key* such as ``"bash::/path/to/script.sh"``, using the subclass
+        whose :py:attr:`sandbox_type` matches the type in *key*.
 
         :param key: The sandbox key.
         :param args: Arguments forwarded to the constructor of the sandbox class.
@@ -330,8 +330,7 @@ class Sandbox(metaclass=abc.ABCMeta):
 
     def is_active(self) -> bool:
         """
-        Returns whether this sandbox is currently active, i.e., whether the current process is
-        running inside of it.
+        Returns whether this sandbox is currently active, i.e., whether the current process is running inside of it.
 
         :return: Whether the sandbox is active.
         """
@@ -340,8 +339,7 @@ class Sandbox(metaclass=abc.ABCMeta):
     @property
     def key(self) -> str:
         """
-        The full key of the sandbox, consisting of its type and name, e.g.
-        ``"bash::/path/to/script.sh"``.
+        The full key of the sandbox, consisting of its type and name, e.g. ``"bash::/path/to/script.sh"``.
         """
         return self.join_key(self.sandbox_type, self.name)
 
@@ -356,8 +354,8 @@ class Sandbox(metaclass=abc.ABCMeta):
 
     def force_local_scheduler(self) -> bool:
         """
-        Returns whether tasks inside the sandbox should use a local scheduler instead of the central
-        one. *False* by default.
+        Returns whether tasks inside the sandbox should use a local scheduler instead of the central one. *False* by
+        default.
 
         :return: Whether to use a local scheduler.
         """
@@ -367,8 +365,7 @@ class Sandbox(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def config_section_prefix(self) -> str:
         """
-        The prefix of config sections that configure this sandbox, see
-        :py:meth:`get_config_section`.
+        The prefix of config sections that configure this sandbox, see :py:meth:`get_config_section`.
         """
         ...
 
@@ -383,9 +380,8 @@ class Sandbox(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def create_env(self) -> dict[str, Any]:
         """
-        Creates the environment variables inside the sandbox, which are e.g. used to evaluate the
-        requirements and outputs of sandboxed tasks outside of the sandbox. Must be implemented by
-        inheriting classes.
+        Creates the environment variables inside the sandbox, which are e.g. used to evaluate the requirements and
+        outputs of sandboxed tasks outside of the sandbox. Must be implemented by inheriting classes.
 
         :return: The environment variables.
         """
@@ -394,8 +390,7 @@ class Sandbox(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def cmd(self, proxy_cmd: ProxyCommand) -> str:
         """
-        Returns the full command that runs the task inside the sandbox. Must be implemented by
-        inheriting classes.
+        Returns the full command that runs the task inside the sandbox. Must be implemented by inheriting classes.
 
         :param proxy_cmd: The :py:class:`~law.task.proxy.ProxyCommand` that runs the task.
         :return: The command.
@@ -425,10 +420,10 @@ class Sandbox(metaclass=abc.ABCMeta):
         Runs the command *cmd* in a bash shell with the sandbox environment.
 
         :param cmd: The command to run.
-        :param stdout: The stdout stream. Set to :py:data:`subprocess.PIPE` to capture it. Forwarded
-            to :py:data:`sys.stdout` by default.
-        :param stderr: The stderr stream. Set to :py:data:`subprocess.PIPE` to capture it. Forwarded
-            to :py:data:`sys.stderr` by default.
+        :param stdout: The stdout stream. Set to :py:data:`subprocess.PIPE` to capture it. Forwarded to
+            :py:data:`sys.stdout` by default.
+        :param stderr: The stderr stream. Set to :py:data:`subprocess.PIPE` to capture it. Forwarded to
+            :py:data:`sys.stderr` by default.
         :return: A 3-tuple with the exit code and the captured outputs of the two streams.
         """
         if stdout is None:
@@ -456,11 +451,10 @@ class Sandbox(metaclass=abc.ABCMeta):
 
     def get_config_section(self, postfix: str | None = None) -> str:
         """
-        Returns the name of the config section of this sandbox, consisting of
-        :py:attr:`config_section_prefix`, ``"_sandbox"`` and an optional *postfix*. When a section
-        with an additional postfix returned by :py:meth:`get_custom_config_section_postfix` exists,
-        its name is returned instead, which allows configuring individual sandboxes, e.g.
-        ``[bash_sandbox_env_/path/to/script.sh]``.
+        Returns the name of the config section of this sandbox, consisting of :py:attr:`config_section_prefix`,
+        ``"_sandbox"`` and an optional *postfix*. When a section with an additional postfix returned by
+        :py:meth:`get_custom_config_section_postfix` exists, its name is returned instead, which allows configuring
+        individual sandboxes, e.g. ``[bash_sandbox_env_/path/to/script.sh]``.
 
         :param postfix: Optional postfix, e.g. ``"env"``.
         :return: The name of the config section.
@@ -579,8 +573,8 @@ class Sandbox(metaclass=abc.ABCMeta):
 
 class SandboxProxy(ProxyTask):
     """
-    Proxy task that runs a :py:class:`SandboxTask` inside its sandbox. It stages in inputs, runs the
-    task through the command line inside the sandbox, and stages out outputs afterwards.
+    Proxy task that runs a :py:class:`SandboxTask` inside its sandbox. It stages in inputs, runs the task through the
+    command line inside the sandbox, and stages out outputs afterwards.
     """
 
     def output(self) -> Any | None:
@@ -595,8 +589,7 @@ class SandboxProxy(ProxyTask):
 
     def create_proxy_cmd(self) -> ProxyCommand:
         """
-        Creates the :py:class:`~law.task.proxy.ProxyCommand` that runs the proxied task inside the
-        sandbox.
+        Creates the :py:class:`~law.task.proxy.ProxyCommand` that runs the proxied task inside the sandbox.
 
         :return: The proxy command.
         """
@@ -660,8 +653,8 @@ class SandboxProxy(ProxyTask):
         tmp_dir: str | pathlib.Path | LocalDirectoryTarget,
     ) -> StageInfo | None:
         """
-        Copies the inputs of the proxied task that are selected by its
-        :py:meth:`SandboxTask.sandbox_stagein` method into a stage-in directory.
+        Copies the inputs of the proxied task that are selected by its :py:meth:`SandboxTask.sandbox_stagein` method
+        into a stage-in directory.
 
         :param tmp_dir: The directory below which the stage-in directory is created.
         :return: A :py:class:`StageInfo` object, or *None* when no inputs are staged.
@@ -766,8 +759,7 @@ class SandboxProxy(ProxyTask):
         """
         Copies outputs from the stage-out directory to their actual locations.
 
-        :param stageout_info: The :py:class:`StageInfo` object returned by
-            :py:meth:`prepare_stageout`.
+        :param stageout_info: The :py:class:`StageInfo` object returned by :py:meth:`prepare_stageout`.
         """
         # perform the actual stage-out via copying
         flat_sandbox_outputs = flatten(stageout_info.targets)
@@ -819,9 +811,9 @@ class SandboxProxy(ProxyTask):
 
 class SandboxTask(ProxyAttributeTask):
     """
-    Base class of tasks that run inside a sandbox, such as a bash environment, a virtual environment
-    or a container. When the task is run outside of its sandbox, a :py:class:`SandboxProxy` runs it
-    inside the sandbox through the command line instead. Example:
+    Base class of tasks that run inside a sandbox, such as a bash environment, a virtual environment or a container.
+    When the task is run outside of its sandbox, a :py:class:`SandboxProxy` runs it inside the sandbox through the
+    command line instead. Example:
 
     .. code-block:: python
 
@@ -934,8 +926,7 @@ class SandboxTask(ProxyAttributeTask):
     @property
     def sandbox_inst(self) -> Sandbox:
         """
-        The :py:class:`Sandbox` instance, or *None* when no sandbox is used or the task is already
-        running inside it.
+        The :py:class:`Sandbox` instance, or *None* when no sandbox is used or the task is already running inside it.
         """
         self._initialize_sandbox()
         return self._sandbox_inst  # type: ignore[return-value]
@@ -943,16 +934,16 @@ class SandboxTask(ProxyAttributeTask):
     @property
     def sandbox_proxy(self) -> SandboxProxy:
         """
-        The :py:class:`SandboxProxy` instance, or *None* when no sandbox is used or the task is
-        already running inside it.
+        The :py:class:`SandboxProxy` instance, or *None* when no sandbox is used or the task is already running inside
+        it.
         """
         self._initialize_sandbox()
         return self._sandbox_proxy  # type: ignore[return-value]
 
     def is_sandboxed(self) -> bool:
         """
-        Returns whether the task does not need to switch into a sandbox, i.e., whether it is already
-        running inside its sandbox or uses none.
+        Returns whether the task does not need to switch into a sandbox, i.e., whether it is already running inside its
+        sandbox or uses none.
 
         :return: Whether the task is sandboxed.
         """
@@ -962,8 +953,8 @@ class SandboxTask(ProxyAttributeTask):
 
     def is_sandboxed_task(self) -> bool:
         """
-        Returns whether this task is the one that was started inside the current sandbox, as opposed
-        to e.g. one of its requirements.
+        Returns whether this task is the one that was started inside the current sandbox, as opposed to e.g. one of its
+        requirements.
 
         :return: Whether this task is the sandboxed task.
         """
@@ -1036,15 +1027,13 @@ class SandboxTask(ProxyAttributeTask):
     @property
     def env(self) -> MutableMapping[str, Any]:
         """
-        The environment variables of the sandbox, or :py:data:`os.environ` when
-        :py:meth:`is_sandboxed` is *True*.
+        The environment variables of the sandbox, or :py:data:`os.environ` when :py:meth:`is_sandboxed` is *True*.
         """
         return os.environ if self.is_sandboxed() else self.sandbox_inst.env
 
     def fallback_sandbox(self, sandbox: str) -> str | None:
         """
-        Hook that returns the sandbox key to use when *sandbox* does not match any of the
-        :py:attr:`valid_sandboxes`.
+        Hook that returns the sandbox key to use when *sandbox* does not match any of the :py:attr:`valid_sandboxes`.
 
         :param sandbox: The requested sandbox key.
         :return: The sandbox key to use, or *None* by default.
@@ -1053,8 +1042,8 @@ class SandboxTask(ProxyAttributeTask):
 
     def sandbox_user(self) -> tuple[int, int]:
         """
-        Returns the user and group ids to use inside the sandbox, e.g. for containers. Defaults to
-        the ``uid`` and ``gid`` options of the sandbox config section, or the current ids.
+        Returns the user and group ids to use inside the sandbox, e.g. for containers. Defaults to the ``uid`` and
+        ``gid`` options of the sandbox config section, or the current ids.
 
         :return: A 2-tuple with the user and group ids.
         """
@@ -1071,24 +1060,24 @@ class SandboxTask(ProxyAttributeTask):
 
     def sandbox_stagein(self, inputs: Any) -> Any | bool:
         """
-        Hook that decides which *inputs* are staged into the sandbox, i.e., copied to a local
-        directory that is accessible inside of it.
+        Hook that decides which *inputs* are staged into the sandbox, i.e., copied to a local directory that is
+        accessible inside of it.
 
         :param inputs: The inputs of the task.
-        :return: A boolean that applies to all inputs, or a structure of booleans similar to
-            *inputs*. *False* by default.
+        :return: A boolean that applies to all inputs, or a structure of booleans similar to *inputs*. *False* by
+            default.
         """
         # disable stage-in by default
         return False
 
     def sandbox_stageout(self, outputs: Any) -> Any | bool:
         """
-        Hook that decides which *outputs* are staged out of the sandbox, i.e., written to a local
-        directory inside of it and copied to their actual locations afterwards.
+        Hook that decides which *outputs* are staged out of the sandbox, i.e., written to a local directory inside of it
+        and copied to their actual locations afterwards.
 
         :param outputs: The outputs of the task.
-        :return: A boolean that applies to all outputs, or a structure of booleans similar to
-            *outputs*. *False* by default.
+        :return: A boolean that applies to all outputs, or a structure of booleans similar to *outputs*. *False* by
+            default.
         """
         # disable stage-out by default
         return False
@@ -1115,8 +1104,8 @@ class SandboxTask(ProxyAttributeTask):
 
     def sandbox_pre_setup_cmds(self) -> list[str]:
         """
-        Hook that returns commands to run inside the sandbox before it is set up, e.g. before the
-        setup script of a bash sandbox is sourced.
+        Hook that returns commands to run inside the sandbox before it is set up, e.g. before the setup script of a bash
+        sandbox is sourced.
 
         :return: The list of commands.
         """
@@ -1134,8 +1123,8 @@ class SandboxTask(ProxyAttributeTask):
 
     def sandbox_law_executable(self) -> list[str]:
         """
-        Returns the law executable to use inside the sandbox, taken from the ``law_executable``
-        option of the sandbox config section.
+        Returns the law executable to use inside the sandbox, taken from the ``law_executable`` option of the sandbox
+        config section.
 
         :return: The executable as a list of strings.
         """

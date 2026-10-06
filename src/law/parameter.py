@@ -75,8 +75,8 @@ NO_FLOAT = -1.0
 
 def is_no_param(value: Any) -> bool:
     """
-    Checks whether a parameter *value* denotes an empty parameter, i.e., if the value is either
-    :py:attr:`NO_STR`, :py:attr:`NO_INT`, or :py:attr:`NO_FLOAT`.
+    Checks whether a parameter *value* denotes an empty parameter, i.e., if the value is either :py:attr:`NO_STR`,
+    :py:attr:`NO_INT`, or :py:attr:`NO_FLOAT`.
 
     :param value: The value to check.
     :return: Whether *value* denotes an empty parameter.
@@ -86,8 +86,7 @@ def is_no_param(value: Any) -> bool:
 
 def get_param(value: Any, default: Any = None) -> Any:
     """
-    Returns the passed *value* when it does not refer to an empty parameter value, checked with
-    :py:func:`is_no_param`.
+    Returns the passed *value* when it does not refer to an empty parameter value, checked with :py:func:`is_no_param`.
 
     :param value: The value.
     :param default: The value returned when *value* denotes an empty parameter.
@@ -108,9 +107,9 @@ class Parameter(_LuigiParameter):
     """ __init__(*args, parse_empty=False, **kwargs)
     Custom base class of law-based parameters that adds additional features.
 
-    As per luigi's default behavior, passing empty strings on the command line for a parameter leads
-    to its default value and parsing is not triggered. When *parse_empty* is *True*, the parser is
-    still called and should implement a custom behavior.
+    As per luigi's default behavior, passing empty strings on the command line for a parameter leads to its default
+    value and parsing is not triggered. When *parse_empty* is *True*, the parser is still called and should implement a
+    custom behavior.
 
     All other *args* and *kwargs* are passed to :py:class:`luigi.Parameter`.
 
@@ -132,8 +131,7 @@ class Parameter(_LuigiParameter):
 
 class TaskInstanceParameter(Parameter):
     """
-    Parameter that can be used to pass the instance of a task. This class does not implement
-    parameter value parsing.
+    Parameter that can be used to pass the instance of a task. This class does not implement parameter value parsing.
     """
 
     # TODO: more precise x
@@ -151,8 +149,8 @@ class TaskInstanceParameter(Parameter):
 
 class OptionalBoolParameter(luigi.BoolParameter, Parameter):
     """
-    Same as luigi's ``BoolParameter`` (and unlike luigi's ``OptionalBoolParameter``) but parses and
-    serializes ``"None"`` strings transparently to *None* values and vice-versa.
+    Same as luigi's ``BoolParameter`` (and unlike luigi's ``OptionalBoolParameter``) but parses and serializes
+    ``"None"`` strings transparently to *None* values and vice-versa.
     """
 
     # TODO: more precise inp
@@ -189,11 +187,10 @@ class OptionalBoolParameter(luigi.BoolParameter, Parameter):
 
 class DurationParameter(Parameter):
     """ __init__(unit="s", *args, **kwargs)
-    Parameter that interprets a string (or float) value as a duration, represented by a float
-    number with a configurable unit. *unit* is forwarded as both the *unit* and *input_unit*
-    argument of :py:func:`law.util.parse_duration` which is used for the conversion. For optimal
-    precision, value serialization uses :py:func:`law.util.human_duration` with *colon_format*.
-    Example:
+    Parameter that interprets a string (or float) value as a duration, represented by a float number with a configurable
+    unit. *unit* is forwarded as both the *unit* and *input_unit* argument of :py:func:`law.util.parse_duration` which
+    is used for the conversion. For optimal precision, value serialization uses :py:func:`law.util.human_duration` with
+    *colon_format*. Example:
 
     .. code-block:: python
 
@@ -226,8 +223,8 @@ class DurationParameter(Parameter):
     @property
     def unit(self) -> str:
         """
-        The time unit of parsed values, e.g. ``"second"`` or ``"minute"``. Aliases such as ``"s"`` are
-        resolved when set, and unknown units raise an exception.
+        The time unit of parsed values, e.g. ``"second"`` or ``"minute"``. Aliases such as ``"s"`` are resolved when
+        set, and unknown units raise an exception.
         """
         return self._unit
 
@@ -270,10 +267,9 @@ class DurationParameter(Parameter):
 
 class BytesParameter(Parameter):
     """ __init__(unit="MB", *args, **kwargs)
-    Parameter that interprets a string (or float) value as a number of bytes, represented by a float
-    number with a configurable unit. *unit* is forwarded as both the *unit* and *input_unit*
-    argument of :py:func:`law.util.parse_bytes` which is used for the conversion.
-    Example:
+    Parameter that interprets a string (or float) value as a number of bytes, represented by a float number with a
+    configurable unit. *unit* is forwarded as both the *unit* and *input_unit* argument of
+    :py:func:`law.util.parse_bytes` which is used for the conversion. Example:
 
     .. code-block:: python
 
@@ -316,8 +312,7 @@ class BytesParameter(Parameter):
     # TODO: more precise inp
     def parse(self, inp: Any) -> float:
         """
-        Parses the input *inp* into a size in the configured :py:attr:`unit`, see
-        :py:func:`law.util.parse_bytes`.
+        Parses the input *inp* into a size in the configured :py:attr:`unit`, see :py:func:`law.util.parse_bytes`.
 
         :param inp: The input to parse.
         :return: The size.
@@ -511,8 +506,7 @@ class CSVParameter(Parameter):
     # TODO: more precise inp
     def parse(self, inp: Any) -> tuple[T] | T:
         """
-        Parses the comma-separated input *inp* into a tuple of values, each parsed by the inner
-        parameter.
+        Parses the comma-separated input *inp* into a tuple of values, each parsed by the inner parameter.
 
         :param inp: The input to parse.
         :return: The tuple of parsed values, or a single value when tuples are not forced.
@@ -556,8 +550,7 @@ class CSVParameter(Parameter):
     # TODO: more precise value
     def serialize(self, value: Any) -> str:
         """
-        Serializes a sequence of values into a comma-separated string, each serialized by the inner
-        parameter.
+        Serializes a sequence of values into a comma-separated string, each serialized by the inner parameter.
 
         :param value: The values to serialize.
         :return: The string representation.
@@ -667,8 +660,8 @@ class MultiCSVParameter(CSVParameter):
 
     def parse(self, inp: Any) -> tuple[tuple[T]] | tuple[T] | T:  # type: ignore[override]
         """
-        Parses the colon-separated input *inp* of comma-separated values into a tuple of tuples,
-        each value parsed by the inner parameter.
+        Parses the colon-separated input *inp* of comma-separated values into a tuple of tuples, each value parsed by
+        the inner parameter.
 
         :param inp: The input to parse.
         :return: The tuple of tuples of parsed values.
@@ -697,8 +690,8 @@ class MultiCSVParameter(CSVParameter):
     # TODO: more precise value
     def serialize(self, value: Any) -> str:
         """
-        Serializes a sequence of sequences of values into a colon-separated string of
-        comma-separated values, each serialized by the inner parameter.
+        Serializes a sequence of sequences of values into a colon-separated string of comma-separated values, each
+        serialized by the inner parameter.
 
         :param value: The values to serialize.
         :return: The string representation.
@@ -715,15 +708,13 @@ class MultiCSVParameter(CSVParameter):
 
 class RangeParameter(Parameter):
     """ __init__(*args, require_start=True, require_end=True, single_value=False, **kwargs)
-    Parameter that parses a range in the format ``start:stop`` and returns a tuple with two integer
-    elements.
+    Parameter that parses a range in the format ``start:stop`` and returns a tuple with two integer elements.
 
-    When *require_start* or *require_end* are *False*, the formats ``:end`` and ``start:``,
-    respectively, are accepted as well. In these cases, the tuple will contain an attribute
-    :py:attr:`OPEN` do denote that either side is unconstrained.
+    When *require_start* or *require_end* are *False*, the formats ``:end`` and ``start:``, respectively, are accepted
+    as well. In these cases, the tuple will contain an attribute :py:attr:`OPEN` do denote that either side is
+    unconstrained.
 
-    When *single_value* is *True*, single integer values are accepted and lead to a tuple with one
-    element.
+    When *single_value* is *True*, single integer values are accepted and lead to a tuple with one element.
 
     .. code-block:: python
 
@@ -875,13 +866,12 @@ class RangeParameter(Parameter):
 
 class MultiRangeParameter(RangeParameter):
     """ __init__(*args, require_start=True, require_end=True, single_value=False, **kwargs)
-    Parameter that parses several integer ranges (each in the format ``start-end``), separated by
-    comma, and produces a nested tuple.
+    Parameter that parses several integer ranges (each in the format ``start-end``), separated by comma, and produces a
+    nested tuple.
 
-    Except for the additional support for multiple ranges, the parsing and serialization
-    implementation is based on :py:class:`RangeParameter`, which also handles the control of open
-    edges with *require_start* and *require_end*, and the acceptance of single integer values with
-    *single_value*.
+    Except for the additional support for multiple ranges, the parsing and serialization implementation is based on
+    :py:class:`RangeParameter`, which also handles the control of open edges with *require_start* and *require_end*, and
+    the acceptance of single integer values with *single_value*.
 
     Example:
 
@@ -964,8 +954,8 @@ class MultiRangeParameter(RangeParameter):
 
 class NotifyParameter(luigi.BoolParameter, Parameter):
     """
-    Base class for notification parameters. A notification parameter must provide a notification
-    transport in :py:meth:`get_transport`, e.g.
+    Base class for notification parameters. A notification parameter must provide a notification transport in
+    :py:meth:`get_transport`, e.g.
 
     .. code-block:: python
 
@@ -975,12 +965,11 @@ class NotifyParameter(luigi.BoolParameter, Parameter):
                 "raw": True,  # or False
             }
 
-    When a task has a specific notification parameter set to *True* and its run method is decorated
-    with the :py:func:`law.notify` function, *notification_func* is called with at least three
-    arguments: *success*, *title* and *message*. *success* is a boolean which is *True* when the
-    decorated function did not raise an exception. *title* is always a string. When *raw* is *False*
-    (the default), *message* is also a string. Otherwise, it is an ordered dictionary containing key
-    value pairs describing the message content. All options passed to
+    When a task has a specific notification parameter set to *True* and its run method is decorated with the
+    :py:func:`law.notify` function, *notification_func* is called with at least three arguments: *success*, *title* and
+    *message*. *success* is a boolean which is *True* when the decorated function did not raise an exception. *title* is
+    always a string. When *raw* is *False* (the default), *message* is also a string. Otherwise, it is an ordered
+    dictionary containing key value pairs describing the message content. All options passed to
     :py:func:`law.decorator.notify` are forwarded to *notification_func* as optional arguments.
     """
 
@@ -995,8 +984,8 @@ class NotifyParameter(luigi.BoolParameter, Parameter):
 
 class NotifyMultiParameter(NotifyParameter):
     """ __init__(parameters=[], *args, **kwargs)
-    Parameter that takes multiple other :py:class:`NotifyParameter`'s to join their notification
-    functionality in a single parameter. Example:
+    Parameter that takes multiple other :py:class:`NotifyParameter`'s to join their notification functionality in a
+    single parameter. Example:
 
     .. code-block:: python
 
@@ -1024,8 +1013,7 @@ class NotifyMultiParameter(NotifyParameter):
 
 class NotifyMailParameter(NotifyParameter):
     """
-    Notification parameter defining a basic email transport. Uses
-    :py:meth:`law.notification.notify_mail` internally.
+    Notification parameter defining a basic email transport. Uses :py:meth:`law.notification.notify_mail` internally.
     """
 
     def __init__(self, *args, **kwargs) -> None:
@@ -1091,9 +1079,9 @@ class NotifyMailParameter(NotifyParameter):
 
 class NotifyCustomParameter(NotifyParameter):
     """
-    Notification parameter defining a custom notification transport.The *notify_func* argument can
-    be used to pass a custom notification function. When empty, the default implemented in
-    :py:meth:`law.notification.notify_custom` is used.
+    Notification parameter defining a custom notification transport.The *notify_func* argument can be used to pass a
+    custom notification function. When empty, the default implemented in :py:meth:`law.notification.notify_custom` is
+    used.
     """
 
     def __init__(self, *args, **kwargs) -> None:
@@ -1111,8 +1099,7 @@ class NotifyCustomParameter(NotifyParameter):
 
     def get_transport(self) -> dict[str, Any]:
         """
-        Returns the transport that sends notifications via :py:meth:`notify` using the configured
-        *notify_func*.
+        Returns the transport that sends notifications via :py:meth:`notify` using the configured *notify_func*.
 
         :return: The transport dictionary.
         """
@@ -1127,8 +1114,8 @@ class NotifyCustomParameter(NotifyParameter):
         """
         Sends a custom notification via :py:func:`law.notification.notify_custom`.
 
-        :param success: Whether the task succeeded. It is not forwarded, as the message content will
-            have a ``"Traceback"`` field when the task failed.
+        :param success: Whether the task succeeded. It is not forwarded, as the message content will have a
+            ``"Traceback"`` field when the task failed.
         :param args: Arguments forwarded to :py:func:`law.notification.notify_custom`.
         :param kwargs: Keyword arguments forwarded to :py:func:`law.notification.notify_custom`.
         :return: Whether the notification was sent successfully.

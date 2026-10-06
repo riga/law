@@ -31,21 +31,18 @@ def notify_slack(
     **kwargs,
 ) -> bool:
     """
-    Sends a slack notification. The communication with the slack API might have some delays and is
-    therefore handled by a thread.
+    Sends a slack notification. The communication with the slack API might have some delays and is therefore handled by
+    a thread.
 
     :param title: The title.
-    :param content: The content. If it is a string, a simple text notification is sent. Otherwise,
-        it should be a dictionary whose fields are used to build a message attachment with
-        two-column formatting.
+    :param content: The content. If it is a string, a simple text notification is sent. Otherwise, it should be a
+        dictionary whose fields are used to build a message attachment with two-column formatting.
     :param attachment_color: The color of the attachment.
     :param short_threshold: The maximum length of values that are shown in short, two-column fields.
-    :param token: The bot token, defaulting to the ``slack_token`` option in the ``[notifications]``
+    :param token: The bot token, defaulting to the ``slack_token`` option in the ``[notifications]`` section.
+    :param channel: The channel, defaulting to the ``slack_channel`` option in the ``[notifications]`` section.
+    :param mention_user: The user to mention, defaulting to the ``slack_mention_user`` option in the ``[notifications]``
         section.
-    :param channel: The channel, defaulting to the ``slack_channel`` option in the
-        ``[notifications]`` section.
-    :param mention_user: The user to mention, defaulting to the ``slack_mention_user`` option in the
-        ``[notifications]`` section.
     :param kwargs: Unused keyword arguments.
     :return: Whether the notification was sent, i.e., whether *token* and *channel* are set.
     """

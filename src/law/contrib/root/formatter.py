@@ -20,9 +20,8 @@ from law.util import no_value
 
 class GuardedTFile:
     """
-    Wrapper around a ``ROOT.TFile`` that forwards all attributes to it and closes it when used as a
-    context manager. It is created from an existing ``TFile``, or from arguments that are passed to
-    ``ROOT.TFile.Open``. Example:
+    Wrapper around a ``ROOT.TFile`` that forwards all attributes to it and closes it when used as a context manager. It
+    is created from an existing ``TFile``, or from arguments that are passed to ``ROOT.TFile.Open``. Example:
 
     .. code-block:: python
 
@@ -74,9 +73,9 @@ class GuardedTFile:
 
 class ROOTFormatter(Formatter):
     """
-    Formatter for ROOT files (``.root``) that returns a :py:class:`GuardedTFile`, both when loading
-    and dumping. Additional arguments, such as the open mode, are forwarded to ``ROOT.TFile.Open``.
-    Its name is ``"root"``, which can be passed as *formatter* to select it explicitly.
+    Formatter for ROOT files (``.root``) that returns a :py:class:`GuardedTFile`, both when loading and dumping.
+    Additional arguments, such as the open mode, are forwarded to ``ROOT.TFile.Open``. Its name is ``"root"``, which can
+    be passed as *formatter* to select it explicitly.
     """
 
     name = "root"
@@ -96,10 +95,9 @@ class ROOTFormatter(Formatter):
 
 class ROOTNumpyFormatter(Formatter):
     """
-    Formatter for numpy arrays in ROOT files (``.root``) using ``root_numpy.root2array`` and
-    ``root_numpy.array2root``. Additional arguments are forwarded. When dumping, the file permission
-    can be set via *perm*. Its name is ``"root_numpy"``, which can be passed as *formatter* to
-    select it explicitly.
+    Formatter for numpy arrays in ROOT files (``.root``) using ``root_numpy.root2array`` and ``root_numpy.array2root``.
+    Additional arguments are forwarded. When dumping, the file permission can be set via *perm*. Its name is
+    ``"root_numpy"``, which can be passed as *formatter* to select it explicitly.
     """
 
     name = "root_numpy"
@@ -138,10 +136,9 @@ class ROOTNumpyFormatter(Formatter):
 
 class ROOTPandasFormatter(Formatter):
     """
-    Formatter for pandas dataframes in ROOT files (``.root``) using ``root_pandas.read_root`` and
-    ``DataFrame.to_root``. Additional arguments are forwarded. When dumping, the file permission can
-    be set via *perm*. Its name is ``"root_pandas"``, which can be passed as *formatter* to select
-    it explicitly.
+    Formatter for pandas dataframes in ROOT files (``.root``) using ``root_pandas.read_root`` and ``DataFrame.to_root``.
+    Additional arguments are forwarded. When dumping, the file permission can be set via *perm*. Its name is
+    ``"root_pandas"``, which can be passed as *formatter* to select it explicitly.
     """
 
     name = "root_pandas"
@@ -174,12 +171,11 @@ class ROOTPandasFormatter(Formatter):
 
 class UprootFormatter(Formatter):
     """
-    Formatter for ROOT files (``.root``) using uproot. ``load`` returns the file opened with
-    ``uproot.open``. ``dump`` returns a context manager that yields a writable file, created with
-    ``uproot.create``, ``uproot.recreate`` or ``uproot.update`` depending on *mode* (defaulting to
-    ``"recreate"``), and closes it afterwards. Additional arguments are forwarded. When dumping, the
-    file permission can be set via *perm*. Its name is ``"uproot"``, which can be passed as
-    *formatter* to select it explicitly. Example:
+    Formatter for ROOT files (``.root``) using uproot. ``load`` returns the file opened with ``uproot.open``. ``dump``
+    returns a context manager that yields a writable file, created with ``uproot.create``, ``uproot.recreate`` or
+    ``uproot.update`` depending on *mode* (defaulting to ``"recreate"``), and closes it afterwards. Additional arguments
+    are forwarded. When dumping, the file permission can be set via *perm*. Its name is ``"uproot"``, which can be
+    passed as *formatter* to select it explicitly. Example:
 
     .. code-block:: python
 

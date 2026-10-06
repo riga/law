@@ -39,12 +39,11 @@ except (ImportError, TypeError):
 
 class GFALFileInterface(RemoteFileInterface):
     """
-    Remote file interface based on gfal2. *gfal_options* is a dictionary that maps option types
-    (e.g. ``"integer"`` or ``"string"``) to lists of arguments for the ``set_opt_<type>`` methods of
-    gfal2 contexts. *transfer_config* contains attributes of gfal2 transfer parameters, such as
-    ``timeout`` or ``nbstreams``, which are read from ``gfal_transfer_*`` options in the config.
-    When *atomic_contexts* is *True*, a new gfal2 context is created for each operation. All other
-    *kwargs* are forwarded to :py:class:`~law.target.remote.RemoteFileInterface`.
+    Remote file interface based on gfal2. *gfal_options* is a dictionary that maps option types (e.g. ``"integer"`` or
+    ``"string"``) to lists of arguments for the ``set_opt_<type>`` methods of gfal2 contexts. *transfer_config* contains
+    attributes of gfal2 transfer parameters, such as ``timeout`` or ``nbstreams``, which are read from
+    ``gfal_transfer_*`` options in the config. When *atomic_contexts* is *True*, a new gfal2 context is created for each
+    operation. All other *kwargs* are forwarded to :py:class:`~law.target.remote.RemoteFileInterface`.
     """
 
     @classmethod
@@ -111,8 +110,7 @@ class GFALFileInterface(RemoteFileInterface):
     @contextlib.contextmanager
     def context(self) -> Iterator[gfal2.Gfal2Context]:
         """
-        Context manager that yields the gfal2 context of the current process, creating it when
-        needed.
+        Context manager that yields the gfal2 context of the current process, creating it when needed.
 
         :return: A context manager that yields the gfal2 context.
         """
@@ -135,8 +133,7 @@ class GFALFileInterface(RemoteFileInterface):
     @contextlib.contextmanager
     def transfer_parameters(self, ctx: gfal2.Gfal2Context) -> Iterator[gfal2.TransferParameters]:
         """
-        Context manager that yields gfal2 transfer parameters configured with the
-        :py:attr:`transfer_config`.
+        Context manager that yields gfal2 transfer parameters configured with the :py:attr:`transfer_config`.
 
         :param ctx: The gfal2 context.
         :return: A context manager that yields the transfer parameters.
@@ -313,14 +310,12 @@ class GFALFileInterface(RemoteFileInterface):
         **kwargs,
     ) -> bool:
         """
-        Removes any file or directory at *path*. Directories are removed recursively. Recursive
-        removal is potentially expensive in terms of remote file operations, so this method is
-        designed to reduce them as much as possible.
+        Removes any file or directory at *path*. Directories are removed recursively. Recursive removal is potentially
+        expensive in terms of remote file operations, so this method is designed to reduce them as much as possible.
 
         :param path: The path.
         :param base: The base uri(s) to use. When *None*, it is determined via :py:meth:`get_base`.
-        :param silent: When *True* and *path* does not exist, *False* is returned instead of raising
-            an exception.
+        :param silent: When *True* and *path* does not exist, *False* is returned instead of raising an exception.
         :param kwargs: Additional options, e.g. for the :py:meth:`retry` mechanism.
         :raises GFALError_unlink: When the file could not be removed.
         :raises GFALError_rmdir: When the directory could not be removed.

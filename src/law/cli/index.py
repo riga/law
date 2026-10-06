@@ -272,8 +272,8 @@ def get_global_parameters(
     Returns a list of global, luigi-internal configuration parameters.
 
     :param config_names: Names of configuration classes that are exclusively taken into account.
-    :return: A list of 4-tuples, each containing the configuration class, the parameter instance,
-        the parameter name, and the full parameter name in the cli.
+    :return: A list of 4-tuples, each containing the configuration class, the parameter instance, the parameter name,
+        and the full parameter name in the cli.
     """
     params = []
     for cls in luigi.task.Config.__subclasses__():

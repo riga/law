@@ -19,11 +19,10 @@ logger = get_logger(__name__)
 
 class DataFrameFormatter(Formatter):
     """
-    Formatter for pandas dataframes in csv (``.csv``), json (``.json``), parquet (``.parquet``),
-    hdf5 (``.h5``, ``.hdf5``) or pickle files (``.pickle``, ``.pkl``), using the corresponding
-    ``pandas.read_*`` functions and ``DataFrame.to_*`` methods. Additional arguments are forwarded.
-    When dumping, the file permission can be set via *perm*. Its name is ``"pandas"``, which can be
-    passed as *formatter* to select it explicitly.
+    Formatter for pandas dataframes in csv (``.csv``), json (``.json``), parquet (``.parquet``), hdf5 (``.h5``,
+    ``.hdf5``) or pickle files (``.pickle``, ``.pkl``), using the corresponding ``pandas.read_*`` functions and
+    ``DataFrame.to_*`` methods. Additional arguments are forwarded. When dumping, the file permission can be set via
+    *perm*. Its name is ``"pandas"``, which can be passed as *formatter* to select it explicitly.
     """
 
     name = "pandas"

@@ -45,15 +45,13 @@ from law.util import create_random_string, human_bytes, map_struct, no_value
 
 class FileSystem(shims.FileSystem):
     """
-    Abstract base class of file systems that perform operations on files and directories identified
-    by paths. See :py:class:`law.target.local.LocalFileSystem` and
-    :py:class:`law.target.remote.RemoteFileSystem` for implementations.
+    Abstract base class of file systems that perform operations on files and directories identified by paths. See
+    :py:class:`law.target.local.LocalFileSystem` and :py:class:`law.target.remote.RemoteFileSystem` for implementations.
 
-    *name* is an optional name of the file system, e.g. the config section it was configured from.
-    *has_permissions* decides whether file and directory permissions are set at all, with
-    *default_file_perm* and *default_dir_perm* being the default permissions of new files and
-    directories. *create_file_dir* decides whether missing directories are created when files are
-    written, copied or moved.
+    *name* is an optional name of the file system, e.g. the config section it was configured from. *has_permissions*
+    decides whether file and directory permissions are set at all, with *default_file_perm* and *default_dir_perm* being
+    the default permissions of new files and directories. *create_file_dir* decides whether missing directories are
+    created when files are written, copied or moved.
     """
 
     @classmethod
@@ -134,10 +132,8 @@ class FileSystem(shims.FileSystem):
             fs.ext("/path/to/file.tar.gz", n=0)  # -> "tar.gz"
 
         :param path: The path.
-        :param n: Number of trailing dot-separated parts to return. All parts are returned when zero
-            or negative.
-        :return: The extension without the leading dot, or an empty string when there is no
-            extension.
+        :param n: Number of trailing dot-separated parts to return. All parts are returned when zero or negative.
+        :return: The extension without the leading dot, or an empty string when there is no extension.
         """
         # split the path
         parts = self.basename(path).lstrip(".").split(".")
@@ -191,8 +187,7 @@ class FileSystem(shims.FileSystem):
         :param path: The path.
         :param stat: When *True*, the stat result is returned instead of a boolean.
         :param kwargs: Additional, implementation-specific options.
-        :return: Whether *path* exists, or its stat result when *stat* is *True* (*None* when it
-            does not exist).
+        :return: Whether *path* exists, or its stat result when *stat* is *True* (*None* when it does not exist).
         """
         ...
 
@@ -221,13 +216,11 @@ class FileSystem(shims.FileSystem):
     @abc.abstractmethod
     def chmod(self, path: str | pathlib.Path, perm: int, *, silent: bool = True, **kwargs) -> bool:
         """
-        Changes the permission of *path*. Nothing happens when the file system does not support
-        permissions.
+        Changes the permission of *path*. Nothing happens when the file system does not support permissions.
 
         :param path: The path.
         :param perm: The new permission. Nothing happens when *None*.
-        :param silent: When *True* and *path* does not exist, *False* is returned instead of raising
-            an error.
+        :param silent: When *True* and *path* does not exist, *False* is returned instead of raising an error.
         :param kwargs: Additional, implementation-specific options.
         :return: Whether the permission was changed.
         """
@@ -247,8 +240,7 @@ class FileSystem(shims.FileSystem):
 
         :param path: The path.
         :param recursive: Whether directories are removed recursively.
-        :param silent: When *True* and *path* does not exist, *False* is returned instead of raising
-            an error.
+        :param silent: When *True* and *path* does not exist, *False* is returned instead of raising an error.
         :param kwargs: Additional, implementation-specific options.
         :return: Whether *path* was removed.
         """
@@ -270,8 +262,7 @@ class FileSystem(shims.FileSystem):
         :param path: The path.
         :param perm: The permission of the directory, defaulting to :py:attr:`default_dir_perm`.
         :param recursive: Whether missing intermediate directories are created as well.
-        :param silent: When *True* and *path* already exists, *False* is returned instead of raising
-            an error.
+        :param silent: When *True* and *path* already exists, *False* is returned instead of raising an error.
         :param kwargs: Additional, implementation-specific options.
         :return: Whether the directory was created.
         """
@@ -291,8 +282,7 @@ class FileSystem(shims.FileSystem):
 
         :param path: The path of the directory.
         :param pattern: Optional glob pattern to filter elements.
-        :param type: Optional type to filter elements, either ``"f"`` for files or ``"d"`` for
-            directories.
+        :param type: Optional type to filter elements, either ``"f"`` for files or ``"d"`` for directories.
         :param kwargs: Additional, implementation-specific options.
         :return: The list of base names.
         """
@@ -328,8 +318,7 @@ class FileSystem(shims.FileSystem):
         Returns all paths matching a glob *pattern*.
 
         :param pattern: The glob pattern.
-        :param cwd: When set, *pattern* is interpreted relative to it and the returned paths are
-            relative to it as well.
+        :param cwd: When set, *pattern* is interpreted relative to it and the returned paths are relative to it as well.
         :param kwargs: Additional, implementation-specific options.
         :return: The list of matching paths.
         """
@@ -346,8 +335,7 @@ class FileSystem(shims.FileSystem):
         **kwargs,
     ) -> str:
         """
-        Copies the file at *src* to *dst*. When *dst* is an existing directory, the file is copied
-        into it.
+        Copies the file at *src* to *dst*. When *dst* is an existing directory, the file is copied into it.
 
         :param src: The source path.
         :param dst: The destination path.
@@ -369,8 +357,7 @@ class FileSystem(shims.FileSystem):
         **kwargs,
     ) -> str:
         """
-        Moves the file at *src* to *dst*. When *dst* is an existing directory, the file is moved
-        into it.
+        Moves the file at *src* to *dst*. When *dst* is an existing directory, the file is moved into it.
 
         :param src: The source path.
         :param dst: The destination path.
@@ -397,10 +384,8 @@ class FileSystem(shims.FileSystem):
 
         :param path: The path.
         :param mode: The file mode.
-        :param perm: The permission of the file when it is written, defaulting to
-            :py:attr:`default_file_perm`.
-        :param dir_perm: The permission of missing directories that are created when the file is
-            written.
+        :param perm: The permission of the file when it is written, defaulting to :py:attr:`default_file_perm`.
+        :param dir_perm: The permission of missing directories that are created when the file is written.
         :param kwargs: Additional, implementation-specific options.
         :return: A context manager that yields the file object.
         """
@@ -409,10 +394,9 @@ class FileSystem(shims.FileSystem):
 
 class FileSystemTarget(Target, shims.FileSystemTarget):
     """
-    Abstract base class of targets that refer to a file or directory at *path* within a
-    :py:class:`FileSystem` *fs*. Environment variables and ``"~"`` in paths are expanded, while the
-    original path is kept in :py:attr:`unexpanded_path`. All *kwargs* are forwarded to
-    :py:class:`~law.target.base.Target`.
+    Abstract base class of targets that refer to a file or directory at *path* within a :py:class:`FileSystem` *fs*.
+    Environment variables and ``"~"`` in paths are expanded, while the original path is kept in
+    :py:attr:`unexpanded_path`. All *kwargs* are forwarded to :py:class:`~law.target.base.Target`.
 
     .. py:classattribute:: file_class
 
@@ -476,8 +460,8 @@ class FileSystemTarget(Target, shims.FileSystemTarget):
     @property
     def path(self) -> str:
         """
-        The path of this target with expanded environment variables and ``"~"``. When set, a leading
-        file system scheme is removed.
+        The path of this target with expanded environment variables and ``"~"``. When set, a leading file system scheme
+        is removed.
         """
         return self._path
 
@@ -511,16 +495,16 @@ class FileSystemTarget(Target, shims.FileSystemTarget):
     @property
     def unique_basename(self) -> str:
         """
-        The base name of :py:attr:`path`, prefixed by a hash of this target, which differs between
-        targets with the same base name.
+        The base name of :py:attr:`path`, prefixed by a hash of this target, which differs between targets with the same
+        base name.
         """
         return f"{hex(self.hash)[2:]}_{self.basename}"
 
     @property
     def parent(self) -> FileSystemDirectoryTarget | None:
         """
-        The directory target that contains this target, or *None* for the root directory.
-        Environment variables of the unexpanded path are preserved.
+        The directory target that contains this target, or *None* for the root directory. Environment variables of the
+        unexpanded path are preserved.
         """
         # get the dirname, but favor the unexpanded one to propagate variables
         dirname = self.dirname
@@ -539,10 +523,8 @@ class FileSystemTarget(Target, shims.FileSystemTarget):
         """
         Returns a target in the same directory as this one.
 
-        :param args: Arguments forwarded to :py:meth:`FileSystemDirectoryTarget.child` of
-            :py:attr:`parent`.
-        :param kwargs: Keyword arguments forwarded to :py:meth:`FileSystemDirectoryTarget.child` of
-            :py:attr:`parent`.
+        :param args: Arguments forwarded to :py:meth:`FileSystemDirectoryTarget.child` of :py:attr:`parent`.
+        :param kwargs: Keyword arguments forwarded to :py:meth:`FileSystemDirectoryTarget.child` of :py:attr:`parent`.
         :raises ValueError: When this target has no parent.
         :return: The sibling target.
         """
@@ -572,8 +554,7 @@ class FileSystemTarget(Target, shims.FileSystemTarget):
         Changes the permission of this target. See :py:meth:`FileSystem.chmod` for more info.
 
         :param perm: The new permission.
-        :param silent: When *True* and this target does not exist, *False* is returned instead of
-            raising an error.
+        :param silent: When *True* and this target does not exist, *False* is returned instead of raising an error.
         :param kwargs: Keyword arguments forwarded to :py:meth:`FileSystem.chmod`.
         :return: Whether the permission was changed.
         """
@@ -623,8 +604,7 @@ class FileSystemTarget(Target, shims.FileSystemTarget):
     @abc.abstractmethod
     def touch(self, *, perm: int | None = None, dir_perm: int | None = None, **kwargs) -> bool:
         """
-        Creates the file or directory this target refers to, including missing intermediate
-        directories.
+        Creates the file or directory this target refers to, including missing intermediate directories.
 
         :param perm: The permission of created files.
         :param dir_perm: The permission of created directories.
@@ -645,8 +625,8 @@ class FileSystemTarget(Target, shims.FileSystemTarget):
         """
         Copies this target to *dst*. Directories are copied recursively.
 
-        :param dst: The destination path or target. Paths are interpreted by the file system of this
-            target, so use :py:meth:`copy_to_local` to copy remote targets to the local file system.
+        :param dst: The destination path or target. Paths are interpreted by the file system of this target, so use
+            :py:meth:`copy_to_local` to copy remote targets to the local file system.
         :param perm: The permission of created files.
         :param dir_perm: The permission of created directories.
         :param kwargs: Additional, implementation-specific options.
@@ -666,8 +646,8 @@ class FileSystemTarget(Target, shims.FileSystemTarget):
         """
         Copies *src* to the location of this target. Directories are copied recursively.
 
-        :param src: The source path or target. Paths are interpreted by the file system of this
-            target, so use :py:meth:`copy_from_local` to copy local files to remote targets.
+        :param src: The source path or target. Paths are interpreted by the file system of this target, so use
+            :py:meth:`copy_from_local` to copy local files to remote targets.
         :param perm: The permission of created files.
         :param dir_perm: The permission of created directories.
         :param kwargs: Additional, implementation-specific options.
@@ -725,11 +705,11 @@ class FileSystemTarget(Target, shims.FileSystemTarget):
         **kwargs,
     ) -> str:
         """
-        Copies this target to *dst* on the local file system. For local targets, this is identical
-        to :py:meth:`copy_to`.
+        Copies this target to *dst* on the local file system. For local targets, this is identical to
+        :py:meth:`copy_to`.
 
-        :param dst: The local destination path or target. Remote targets might also accept *None*,
-            in which case the remote file system decides on the destination, e.g. its cache.
+        :param dst: The local destination path or target. Remote targets might also accept *None*, in which case the
+            remote file system decides on the destination, e.g. its cache.
         :param perm: The permission of created files.
         :param dir_perm: The permission of created directories.
         :param kwargs: Additional, implementation-specific options.
@@ -747,8 +727,8 @@ class FileSystemTarget(Target, shims.FileSystemTarget):
         **kwargs,
     ) -> str:
         """
-        Copies *src* from the local file system to the location of this target. For local targets,
-        this is identical to :py:meth:`copy_from`.
+        Copies *src* from the local file system to the location of this target. For local targets, this is identical to
+        :py:meth:`copy_from`.
 
         :param src: The local source path or target.
         :param perm: The permission of created files.
@@ -768,8 +748,7 @@ class FileSystemTarget(Target, shims.FileSystemTarget):
         **kwargs,
     ) -> str:
         """
-        Moves this target to *dst* on the local file system. See :py:meth:`copy_to_local` for more
-        info.
+        Moves this target to *dst* on the local file system. See :py:meth:`copy_to_local` for more info.
 
         :param dst: The local destination path or target.
         :param perm: The permission of created files.
@@ -789,8 +768,8 @@ class FileSystemTarget(Target, shims.FileSystemTarget):
         **kwargs,
     ) -> str:
         """
-        Moves *src* from the local file system to the location of this target. See
-        :py:meth:`copy_from_local` for more info.
+        Moves *src* from the local file system to the location of this target. See :py:meth:`copy_from_local` for more
+        info.
 
         :param src: The local source path or target.
         :param perm: The permission of created files.
@@ -812,14 +791,13 @@ class FileSystemTarget(Target, shims.FileSystemTarget):
         **kwargs,
     ) -> Iterator[FileSystemTarget]:
         """
-        Context manager that yields a local representation of this target, which is helpful for
-        tools that can only handle local files.
+        Context manager that yields a local representation of this target, which is helpful for tools that can only
+        handle local files.
 
-        In ``"r"`` mode, remote targets are copied to a temporary local target first. In ``"w"`` and
-        ``"a"`` modes, a temporary local target is yielded (in ``"a"`` mode containing a copy of the
-        existing content) which is copied to the location of this target when the context is left
-        without an error. Local targets are yielded as they are, unless *is_tmp* is passed in
-        *kwargs* to enforce the use of a temporary copy. Example:
+        In ``"r"`` mode, remote targets are copied to a temporary local target first. In ``"w"`` and ``"a"`` modes, a
+        temporary local target is yielded (in ``"a"`` mode containing a copy of the existing content) which is copied to
+        the location of this target when the context is left without an error. Local targets are yielded as they are,
+        unless *is_tmp* is passed in *kwargs* to enforce the use of a temporary copy. Example:
 
         .. code-block:: python
 
@@ -838,13 +816,12 @@ class FileSystemTarget(Target, shims.FileSystemTarget):
     @abc.abstractmethod
     def load(self, *args, **kwargs) -> Any:
         """
-        Loads the content of this target via a :py:class:`~law.target.formatter.Formatter`. Remote
-        targets are localized first.
+        Loads the content of this target via a :py:class:`~law.target.formatter.Formatter`. Remote targets are localized
+        first.
 
         :param args: Arguments forwarded to the ``load`` method of the formatter.
-        :param kwargs: Keyword arguments forwarded to the ``load`` method of the formatter. A
-            *formatter* keyword argument selects the formatter by name, which is otherwise
-            determined by the file extension.
+        :param kwargs: Keyword arguments forwarded to the ``load`` method of the formatter. A *formatter* keyword
+            argument selects the formatter by name, which is otherwise determined by the file extension.
         :return: The loaded content.
         """
         ...
@@ -852,14 +829,13 @@ class FileSystemTarget(Target, shims.FileSystemTarget):
     @abc.abstractmethod
     def dump(self, *args, **kwargs) -> Any:
         """
-        Dumps content into this target via a :py:class:`~law.target.formatter.Formatter`. Remote
-        targets are localized first.
+        Dumps content into this target via a :py:class:`~law.target.formatter.Formatter`. Remote targets are localized
+        first.
 
         :param args: Arguments forwarded to the ``dump`` method of the formatter.
-        :param kwargs: Keyword arguments forwarded to the ``dump`` method of the formatter. A
-            *formatter* keyword argument selects the formatter by name, which is otherwise
-            determined by the file extension. *perm* and *dir_perm* set the permissions of the file
-            and missing directories.
+        :param kwargs: Keyword arguments forwarded to the ``dump`` method of the formatter. A *formatter* keyword
+            argument selects the formatter by name, which is otherwise determined by the file extension. *perm* and
+            *dir_perm* set the permissions of the file and missing directories.
         :return: The return value of the ``dump`` method of the formatter.
         """
         ...
@@ -876,8 +852,7 @@ class FileSystemFileTarget(FileSystemTarget):
         """
         Returns the file extension of this target, see :py:meth:`FileSystem.ext`.
 
-        :param n: Number of trailing dot-separated parts to return. All parts are returned when zero
-            or negative.
+        :param n: Number of trailing dot-separated parts to return. All parts are returned when zero or negative.
         :return: The extension without the leading dot.
         """
         return self.fs.ext(self.path, n=n)
@@ -887,8 +862,8 @@ class FileSystemFileTarget(FileSystemTarget):
 
     def touch(self, **kwargs) -> bool:
         """
-        Creates an empty file at the location of this target, including missing directories. Note
-        that the content of existing files is removed.
+        Creates an empty file at the location of this target, including missing directories. Note that the content of
+        existing files is removed.
 
         :param kwargs: Keyword arguments forwarded to :py:meth:`open`.
         :return: Whether the file was created.
@@ -1025,10 +1000,10 @@ class FileSystemDirectoryTarget(FileSystemTarget):
             d.child("plots", type="d")      # -> LocalDirectoryTarget("/path/to/dir/plots")
 
         :param path: The path relative to this directory.
-        :param type: Either ``"f"`` for a file target (:py:attr:`file_class`) or ``"d"`` for a
-            directory target. When *None*, the type is determined from the existing path.
-        :param mktemp_pattern: When set, sequences of at least three ``"X"`` in *path* are replaced
-            by random characters, similar to ``mktemp``.
+        :param type: Either ``"f"`` for a file target (:py:attr:`file_class`) or ``"d"`` for a directory target. When
+            *None*, the type is determined from the existing path.
+        :param mktemp_pattern: When set, sequences of at least three ``"X"`` in *path* are replaced by random
+            characters, similar to ``mktemp``.
         :param kwargs: Keyword arguments forwarded to the constructor of the target.
         :raises FileNotFoundError: When *type* is *None* and the path does not exist.
         :raises ValueError: When *type* is invalid.
@@ -1216,11 +1191,10 @@ def get_path(target: T) -> str:
     """
     Returns the path of *target*.
 
-    :param target: A file system target, an object with a *path* attribute, a string or a
-        :py:class:`pathlib.Path`.
+    :param target: A file system target, an object with a *path* attribute, a string or a :py:class:`pathlib.Path`.
     :raises TypeError: When the path cannot be determined.
-    :return: The absolute path of file system targets, the *path* attribute of other objects, or the
-        string representation of strings and :py:class:`pathlib.Path` objects.
+    :return: The absolute path of file system targets, the *path* attribute of other objects, or the string
+        representation of strings and :py:class:`pathlib.Path` objects.
     """
     # file targets
     if isinstance(target, FileSystemTarget):
@@ -1265,8 +1239,7 @@ def has_scheme(uri: str | pathlib.Path) -> bool:
 
 def add_scheme(path: str | pathlib.Path, scheme: str) -> str:
     """
-    Adds *scheme* to *path* unless it already has one, e.g. ``"file"`` and ``"/path"`` result in
-    ``"file:///path"``.
+    Adds *scheme* to *path* unless it already has one, e.g. ``"file"`` and ``"/path"`` result in ``"file:///path"``.
 
     :param path: The path.
     :param scheme: The scheme to add.
@@ -1294,17 +1267,15 @@ def remove_scheme(uri: str | pathlib.Path) -> str:
 @contextlib.contextmanager
 def localize_file_targets(struct, *args, **kwargs) -> Generator[Any, None, None]:
     """
-    Context manager that takes an arbitrary *struct* of targets, opens the contexts returned by
-    their :py:meth:`FileSystemFileTarget.localize` implementations and yields their localized
-    representations in the same structure. When the context is closed, the contexts of all localized
-    targets are closed.
+    Context manager that takes an arbitrary *struct* of targets, opens the contexts returned by their
+    :py:meth:`FileSystemFileTarget.localize` implementations and yields their localized representations in the same
+    structure. When the context is closed, the contexts of all localized targets are closed.
 
-    :param struct: The structure of targets. Objects without a ``localize`` method are passed
-        through.
+    :param struct: The structure of targets. Objects without a ``localize`` method are passed through.
     :param args: Arguments forwarded to the ``localize`` method of each target.
     :param kwargs: Keyword arguments forwarded to the ``localize`` method of each target.
-    :raises Exception: The first exception raised while closing the localized contexts, given that
-        no exception occurred within the context itself.
+    :raises Exception: The first exception raised while closing the localized contexts, given that no exception occurred
+        within the context itself.
     :return: A context manager that yields the structure of localized targets.
     """
     managers = []

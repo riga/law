@@ -26,9 +26,9 @@ _logging_setup = False
 
 class Logger(logging.Logger):
     """
-    Custom logger class that adds an additional set of log methods, i.e., :py:meth:`debug_once`,
-    :py:meth:`info_once`, :py:meth:`warning_once`, :py:meth:`error_once`, :py:meth:`critical_once`
-    and :py:meth:`fatal_once`, that log certain messages only once depending on a string identifier.
+    Custom logger class that adds an additional set of log methods, i.e., :py:meth:`debug_once`, :py:meth:`info_once`,
+    :py:meth:`warning_once`, :py:meth:`error_once`, :py:meth:`critical_once` and :py:meth:`fatal_once`, that log certain
+    messages only once depending on a string identifier.
     """
 
     def __init__(self, *args, **kwargs) -> None:
@@ -41,8 +41,8 @@ class Logger(logging.Logger):
         """
         Logs a message with level ``debug`` only once per *log_id*.
 
-        :param log_id: The identifier of the message. When no further arguments are passed, it is
-            used as the message as well.
+        :param log_id: The identifier of the message. When no further arguments are passed, it is used as the message as
+            well.
         :param args: Arguments forwarded to :py:meth:`debug`.
         :param kwargs: Keyword arguments forwarded to :py:meth:`debug`.
         """
@@ -57,8 +57,8 @@ class Logger(logging.Logger):
         """
         Logs a message with level ``info`` only once per *log_id*.
 
-        :param log_id: The identifier of the message. When no further arguments are passed, it is
-            used as the message as well.
+        :param log_id: The identifier of the message. When no further arguments are passed, it is used as the message as
+            well.
         :param args: Arguments forwarded to :py:meth:`info`.
         :param kwargs: Keyword arguments forwarded to :py:meth:`info`.
         """
@@ -73,8 +73,8 @@ class Logger(logging.Logger):
         """
         Logs a message with level ``warning`` only once per *log_id*.
 
-        :param log_id: The identifier of the message. When no further arguments are passed, it is
-            used as the message as well.
+        :param log_id: The identifier of the message. When no further arguments are passed, it is used as the message as
+            well.
         :param args: Arguments forwarded to :py:meth:`warning`.
         :param kwargs: Keyword arguments forwarded to :py:meth:`warning`.
         """
@@ -89,8 +89,8 @@ class Logger(logging.Logger):
         """
         Logs a message with level ``error`` only once per *log_id*.
 
-        :param log_id: The identifier of the message. When no further arguments are passed, it is
-            used as the message as well.
+        :param log_id: The identifier of the message. When no further arguments are passed, it is used as the message as
+            well.
         :param args: Arguments forwarded to :py:meth:`error`.
         :param kwargs: Keyword arguments forwarded to :py:meth:`error`.
         """
@@ -105,8 +105,8 @@ class Logger(logging.Logger):
         """
         Logs a message with level ``critical`` only once per *log_id*.
 
-        :param log_id: The identifier of the message. When no further arguments are passed, it is
-            used as the message as well.
+        :param log_id: The identifier of the message. When no further arguments are passed, it is used as the message as
+            well.
         :param args: Arguments forwarded to :py:meth:`critical`.
         :param kwargs: Keyword arguments forwarded to :py:meth:`critical`.
         """
@@ -121,8 +121,8 @@ class Logger(logging.Logger):
         """
         Logs a message with level ``fatal`` only once per *log_id*.
 
-        :param log_id: The identifier of the message. When no further arguments are passed, it is
-            used as the message as well.
+        :param log_id: The identifier of the message. When no further arguments are passed, it is used as the message as
+            well.
         :param args: Arguments forwarded to :py:meth:`fatal`.
         :param kwargs: Keyword arguments forwarded to :py:meth:`fatal`.
         """
@@ -262,9 +262,9 @@ class LogFormatter(logging.Formatter):
 
 def setup_logging() -> None:
     """
-    Sets up the internal law loggers as well as all other loggers listed in the ``"logging"`` config
-    section as (*name*, *level*) pairs. This includes loggers that do not use the ``"law.*"``
-    namespace which can be seen as a convenient feature to set up custom loggers.
+    Sets up the internal law loggers as well as all other loggers listed in the ``"logging"`` config section as (*name*,
+    *level*) pairs. This includes loggers that do not use the ``"law.*"`` namespace which can be seen as a convenient
+    feature to set up custom loggers.
     """
     global _logging_setup
 
@@ -297,9 +297,8 @@ def _logger_setup(logger: logging.Logger, value: bool | None = None) -> bool:
 
 def get_logger(*args, skip_setup: bool = False, **kwargs) -> Logger:
     """
-    Replacement for *logging.getLogger* that makes sure that the custom :py:class:`Logger` class is
-    used when new loggers are created and that the logger is properly set up by
-    :py:meth:`setup_logger`.
+    Replacement for *logging.getLogger* that makes sure that the custom :py:class:`Logger` class is used when new
+    loggers are created and that the logger is properly set up by :py:meth:`setup_logger`.
 
     :param args: Arguments forwarded to *logging.getLogger*.
     :param skip_setup: When *True*, the logger is not set up.
@@ -329,18 +328,17 @@ def setup_logger(
     propagate: bool = False,
 ) -> logging.Logger:
     """
-    Sets up a *logger* and configures it to have a certain *level*. Each logger is set up only once
-    unless *force* is *True*.
+    Sets up a *logger* and configures it to have a certain *level*. Each logger is set up only once unless *force* is
+    *True*.
 
     :param logger: The logger, or its name.
-    :param level: An integer or the name of a level present in the *logging* module. When not given,
-        the level of the ``"law"`` base logger is used as a default.
-    :param add_console_handler: When *True*, a preconfigured console handler is added. When it is a
-        dictionary, its items are forwarded as keyword arguments to :py:func:`create_stream_handler`
-        which handles the handler setup internally. When *None*, it defaults to *True* in case the
-        logger is not a "law" sublogger and has no tty handlers registered yet.
-    :param clear: When *True* and the logger already existed, all handlers and filters are removed
-        first.
+    :param level: An integer or the name of a level present in the *logging* module. When not given, the level of the
+        ``"law"`` base logger is used as a default.
+    :param add_console_handler: When *True*, a preconfigured console handler is added. When it is a dictionary, its
+        items are forwarded as keyword arguments to :py:func:`create_stream_handler` which handles the handler setup
+        internally. When *None*, it defaults to *True* in case the logger is not a "law" sublogger and has no tty
+        handlers registered yet.
+    :param clear: When *True* and the logger already existed, all handlers and filters are removed first.
     :param force: When *True*, the logger is set up again even if it was already set up.
     :param propagate: When *False*, logs are not propagated to parent loggers.
     :return: The logger.
@@ -397,8 +395,8 @@ def create_stream_handler(
 
     :param handler_kwargs: Keyword arguments passed to the constructor of the handler.
     :param formatter_kwargs: Keyword arguments passed to the constructor of the formatter.
-    :param formatter_cls: The formatter class. When not *None*, an instance is created and added to
-        the handler instance.
+    :param formatter_cls: The formatter class. When not *None*, an instance is created and added to the handler
+        instance.
     :return: The handler.
     """
     # create the handler
@@ -416,9 +414,9 @@ def create_stream_handler(
 
 def is_tty_handler(handler: logging.Handler) -> bool:
     """
-    Returns whether a logging *handler* is a *StreamHandler* which logs to a tty (i.e. *stdout* or
-    *stderr*), an IPython *OutStream*, or a base *Handler* with a *console* attribute evaluating to
-    *True*. The latter check is intended to cover a variety of handlers provided by custom modules.
+    Returns whether a logging *handler* is a *StreamHandler* which logs to a tty (i.e. *stdout* or *stderr*), an IPython
+    *OutStream*, or a base *Handler* with a *console* attribute evaluating to *True*. The latter check is intended to
+    cover a variety of handlers provided by custom modules.
 
     :param handler: The handler.
     :return: Whether the handler logs to a tty.

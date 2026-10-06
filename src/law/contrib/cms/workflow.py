@@ -1,6 +1,5 @@
 """
-CMS CRAB remote workflow implementation. See
-https://twiki.cern.ch/twiki/bin/view/CMSPublic/SWGuideCrab.
+CMS CRAB remote workflow implementation. See https://twiki.cern.ch/twiki/bin/view/CMSPublic/SWGuideCrab.
 """
 
 from __future__ import annotations
@@ -199,8 +198,8 @@ class CrabWorkflowProxy(BaseRemoteWorkflowProxy):
 
 class CrabWorkflow(BaseRemoteWorkflow):
     """
-    Base class of workflows that submit their branch tasks as jobs via CRAB. Inheriting classes must
-    implement :py:meth:`crab_output_directory` and :py:meth:`crab_stageout_location`. See
+    Base class of workflows that submit their branch tasks as jobs via CRAB. Inheriting classes must implement
+    :py:meth:`crab_output_directory` and :py:meth:`crab_stageout_location`. See
     :py:class:`law.workflow.remote.BaseRemoteWorkflow` for general options.
 
     .. py:classattribute:: crab_workflow_run_decorators
@@ -261,22 +260,20 @@ class CrabWorkflow(BaseRemoteWorkflow):
     @abc.abstractmethod
     def crab_stageout_location(self) -> tuple[str, str]:
         """
-        Hook to define both the "Site.storageSite" and "Data.outLFNDirBase" settings, i.e., the name
-        of the storage site to use and the base directory for crab's own output staging.
+        Hook to define both the "Site.storageSite" and "Data.outLFNDirBase" settings, i.e., the name of the storage site
+        to use and the base directory for crab's own output staging.
 
-        In case this is not used, the choice of the output base has no effect, but is still required
-        for crab's job submission to work.
+        In case this is not used, the choice of the output base has no effect, but is still required for crab's job
+        submission to work.
 
-        :return: A 2-tuple with the storage site and the output base, e.g. ``("T2_DE_DESY",
-            "/store/user/...")``.
+        :return: A 2-tuple with the storage site and the output base, e.g. ``("T2_DE_DESY", "/store/user/...")``.
         """
         ...
 
     @abc.abstractmethod
     def crab_output_directory(self) -> FileSystemDirectoryTarget | str | pathlib.Path:
         """
-        Hook to define the location of submission output files, such as the json files containing
-        job data.
+        Hook to define the location of submission output files, such as the json files containing job data.
 
         :return: The output directory, preferably as a :py:class:`FileSystemDirectoryTarget`.
         """
@@ -284,20 +281,18 @@ class CrabWorkflow(BaseRemoteWorkflow):
 
     def crab_request_name(self, submit_jobs: dict[int, list[int]]) -> str:
         """
-        Returns a random name for a request, i.e., the project directory inside the crab job working
-        area.
+        Returns a random name for a request, i.e., the project directory inside the crab job working area.
 
-        :param submit_jobs: A dictionary mapping job numbers to branch numbers of the jobs to
-            submit.
+        :param submit_jobs: A dictionary mapping job numbers to branch numbers of the jobs to submit.
         :return: The request name.
         """
         return f"{self.live_task_id}_{str(uuid.uuid4())[:8]}"
 
     def crab_work_area(self) -> str | LocalDirectoryTarget:
         """
-        Returns the location of the crab working area, defaulting to the value of
-        :py:meth:`crab_output_directory` in case it refers to a local directory. When *None*, the
-        value of the "job.crab_work_area" configuration options is used.
+        Returns the location of the crab working area, defaulting to the value of :py:meth:`crab_output_directory` in
+        case it refers to a local directory. When *None*, the value of the "job.crab_work_area" configuration options is
+        used.
 
         :return: The working area.
         """
@@ -317,9 +312,8 @@ class CrabWorkflow(BaseRemoteWorkflow):
     @contextlib.contextmanager
     def crab_workflow_run_context(self) -> Generator[None, None, None]:
         """
-        Hook to provide a context manager in which the workflow run implementation is placed. This
-        can be helpful in situations where resources should be acquired before and released after
-        running a workflow.
+        Hook to provide a context manager in which the workflow run implementation is placed. This can be helpful in
+        situations where resources should be acquired before and released after running a workflow.
 
         :return: A context manager.
         """
@@ -327,8 +321,8 @@ class CrabWorkflow(BaseRemoteWorkflow):
 
     def crab_workflow_requires(self) -> DotDict:
         """
-        Hook to define requirements for the workflow itself and that need to be resolved before any
-        submission can happen.
+        Hook to define requirements for the workflow itself and that need to be resolved before any submission can
+        happen.
 
         :return: The requirements, an empty :py:class:`~law.util.DotDict` by default.
         """
@@ -344,9 +338,9 @@ class CrabWorkflow(BaseRemoteWorkflow):
 
     def crab_bootstrap_file(self) -> str | pathlib.Path | LocalFileTarget | JobInputFile | None:
         """
-        Hook to define the location of an optional, so-called bootstrap file that is sent alongside
-        jobs and called prior to the actual job payload. It is meant to run a custom setup routine
-        in order for the payload to run successfully (e.g. software setup, data retrieval).
+        Hook to define the location of an optional, so-called bootstrap file that is sent alongside jobs and called
+        prior to the actual job payload. It is meant to run a custom setup routine in order for the payload to run
+        successfully (e.g. software setup, data retrieval).
 
         :return: The bootstrap file.
         """
@@ -354,9 +348,9 @@ class CrabWorkflow(BaseRemoteWorkflow):
 
     def crab_stageout_file(self) -> str | pathlib.Path | LocalFileTarget | JobInputFile | None:
         """
-        Hook to define the location of an optional, so-called stageout file that is sent alongside
-        jobs and called after to the actual job payload. It is meant to run a custom output stageout
-        routine if required so by your workflow or target storage element.
+        Hook to define the location of an optional, so-called stageout file that is sent alongside jobs and called after
+        to the actual job payload. It is meant to run a custom output stageout routine if required so by your workflow
+        or target storage element.
 
         :return: The stage-out file, or *None* by default.
         """
@@ -364,8 +358,8 @@ class CrabWorkflow(BaseRemoteWorkflow):
 
     def crab_output_postfix(self) -> str:
         """
-        Hook to define the postfix of outputs, for instance such that workflows with different
-        parameters do not write their intermediate job status information into the same json file.
+        Hook to define the postfix of outputs, for instance such that workflows with different parameters do not write
+        their intermediate job status information into the same json file.
 
         :return: The postfix, empty by default.
         """
@@ -450,8 +444,8 @@ class CrabWorkflow(BaseRemoteWorkflow):
         branches: list[list[int]],
     ) -> CrabJobFileFactory.Config:
         """
-        Hook to inject custom settings into the job *config*, which is an instance of the
-        :py:attr:`Config` class defined inside the job manager.
+        Hook to inject custom settings into the job *config*, which is an instance of the :py:attr:`Config` class
+        defined inside the job manager.
 
         :param config: The job file factory config.
         :param job_num: The list of job numbers.
@@ -462,8 +456,7 @@ class CrabWorkflow(BaseRemoteWorkflow):
 
     def crab_dump_intermediate_job_data(self) -> bool:
         """
-        Whether to dump intermediate job data to the job submission file while jobs are being
-        submitted.
+        Whether to dump intermediate job data to the job submission file while jobs are being submitted.
 
         :return: Whether to dump intermediate job data.
         """
@@ -479,8 +472,7 @@ class CrabWorkflow(BaseRemoteWorkflow):
 
     def crab_post_submit_delay(self) -> float | int:
         """
-        Configurable delay in seconds to wait after submitting jobs and before starting the status
-        polling.
+        Configurable delay in seconds to wait after submitting jobs and before starting the status polling.
 
         :return: The delay in seconds.
         """
@@ -488,8 +480,8 @@ class CrabWorkflow(BaseRemoteWorkflow):
 
     def crab_check_job_completeness(self) -> bool:
         """
-        Hook to define whether after job report successful completion, the job manager should check
-        the completion status of the branch tasks run by the finished jobs.
+        Hook to define whether after job report successful completion, the job manager should check the completion
+        status of the branch tasks run by the finished jobs.
 
         :return: Whether outputs are checked, *False* by default.
         """
@@ -497,9 +489,8 @@ class CrabWorkflow(BaseRemoteWorkflow):
 
     def crab_check_job_completeness_delay(self) -> float | int:
         """
-        Grace period before :py:meth:`crab_check_job_completeness` is called to ensure that output
-        files are accessible. Especially useful on distributed file systems with possibly
-        asynchronous behavior.
+        Grace period before :py:meth:`crab_check_job_completeness` is called to ensure that output files are accessible.
+        Especially useful on distributed file systems with possibly asynchronous behavior.
 
         :return: The delay in seconds, 0 by default.
         """
@@ -507,13 +498,11 @@ class CrabWorkflow(BaseRemoteWorkflow):
 
     def crab_poll_callback(self, poll_data: PollData) -> bool | None:
         """
-        Configurable callback that is called after each job status query and before potential
-        resubmission.
+        Configurable callback that is called after each job status query and before potential resubmission.
 
-        :param poll_data: The variable polling attributes (:py:class:`PollData`) that can be changed
-            within this method.
-        :return: When *False*, the polling loop is gracefully terminated. Returning any other value
-            does not have any effect.
+        :param poll_data: The variable polling attributes (:py:class:`PollData`) that can be changed within this method.
+        :return: When *False*, the polling loop is gracefully terminated. Returning any other value does not have any
+            effect.
         """
         return None
 
@@ -536,8 +525,8 @@ class CrabWorkflow(BaseRemoteWorkflow):
 
     def crab_destination_info(self, info: InsertableDict) -> InsertableDict:
         """
-        Hook to add additional information behind each job status query line by extending an
-        dictionary whose values will be shown separated by comma.
+        Hook to add additional information behind each job status query line by extending an dictionary whose values
+        will be shown separated by comma.
 
         :param info: The destination information.
         :return: The modified destination information.

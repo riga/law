@@ -12,9 +12,9 @@ Example usage:
         def run(self):
             ...
 
-The usage of a decorator without invocation (e.g. ``@log``) is equivalent to the one *with*
-invocation (``@log()``), for law to distuinguish between the two cases **always** use keyword
-arguments when configuring decorators. Default arguments are applied in either case.
+The usage of a decorator without invocation (e.g. ``@log``) is equivalent to the one *with* invocation (``@log()``), for
+law to distuinguish between the two cases **always** use keyword arguments when configuring decorators. Default
+arguments are applied in either case.
 """
 
 from __future__ import annotations
@@ -77,9 +77,8 @@ class _CompleteTask(luigi.Task):
 
 def factory(**default_opts) -> Callable:
     """
-    Factory function to create decorators for tasks' run methods. Default options for the decorator
-    function can be given in *default_opts*. The returned decorator can be used with or without
-    function invocation. Example:
+    Factory function to create decorators for tasks' run methods. Default options for the decorator function can be
+    given in *default_opts*. The returned decorator can be used with or without function invocation. Example:
 
     .. code-block:: python
 
@@ -106,12 +105,12 @@ def factory(**default_opts) -> Callable:
             def run(self):
                 ...
 
-    In most cases, the created decorators are used to decorate run methods. As intended by luigi,
-    run methods can become generators by yielding tasks to declare `dynamic dependencies
-    <https://luigi.readthedocs.io/en/stable/tasks.html#dynamic-dependencies>`__. As luigi will
-    resume the run method from scratch everytime a new, incomplete dependency is yielded, decorators
-    are required to be idempotent. Therefore, a plain definition as shown in the example above is
-    not sufficient. A decorator that accepts generator functions should look like the following:
+    In most cases, the created decorators are used to decorate run methods. As intended by luigi, run methods can become
+    generators by yielding tasks to declare `dynamic dependencies
+    <https://luigi.readthedocs.io/en/stable/tasks.html#dynamic-dependencies>`__. As luigi will resume the run method
+    from scratch everytime a new, incomplete dependency is yielded, decorators are required to be idempotent. Therefore,
+    a plain definition as shown in the example above is not sufficient. A decorator that accepts generator functions
+    should look like the following:
 
     .. code-block:: python
 
@@ -137,23 +136,19 @@ def factory(**default_opts) -> Callable:
 
             return before_call, call, after_call[, on_error]
 
-    ``before_call()`` is invoked only once. It can be used to setup objects, etc, and its return
-    value is passed as a single argument to both ``call()`` and ``after_call()``, even when *None*.
-    The former function should (at least) call the actual wrapped function and return its result
-    while the latter is intended to execute custom logic afterwards. The use of a 4th function for
-    handling exceptions is optional. It is called when an exception is raised inside ``call()`` with
-    the exception instance and the return value of ``before_call`` as arguments. When its return
-    value is *True*, the error is not raised and the return value of the wrapped function becomes
-    *None*.
+    ``before_call()`` is invoked only once. It can be used to setup objects, etc, and its return value is passed as a
+    single argument to both ``call()`` and ``after_call()``, even when *None*. The former function should (at least)
+    call the actual wrapped function and return its result while the latter is intended to execute custom logic
+    afterwards. The use of a 4th function for handling exceptions is optional. It is called when an exception is raised
+    inside ``call()`` with the exception instance and the return value of ``before_call`` as arguments. When its return
+    value is *True*, the error is not raised and the return value of the wrapped function becomes *None*.
 
-    A decorator that accepts generator functions can also be used to decorate plain, non-generator
-    functions, but not vice-versa. Decorated functions can be called with a keyword argument
-    ``skip_decorators`` set to *True* to directly call the originally wrapped function without the
-    stack of decorators.
+    A decorator that accepts generator functions can also be used to decorate plain, non-generator functions, but not
+    vice-versa. Decorated functions can be called with a keyword argument ``skip_decorators`` set to *True* to directly
+    call the originally wrapped function without the stack of decorators.
 
-    :param default_opts: Default options of the decorator, passed as *opts* to the decorator
-        function. The special option *accept_generator* defines whether generator functions are
-        accepted.
+    :param default_opts: Default options of the decorator, passed as *opts* to the decorator function. The special
+        option *accept_generator* defines whether generator functions are accepted.
     :return: A function that turns a decorator function into the actual decorator.
     """
     def wrapper(decorator: Callable) -> Callable:
@@ -294,9 +289,9 @@ def log(
     **kwargs,
 ) -> T:
     """ log()
-    Wraps a bound method of a task and redirects output of both stdout and stderr to the file
-    defined by the tasks's *log_file* parameter or *default_log_file* attribute. If its value is
-    ``"-"`` or *None*, the output is not redirected. Does **not** accept generator functions.
+    Wraps a bound method of a task and redirects output of both stdout and stderr to the file defined by the tasks's
+    *log_file* parameter or *default_log_file* attribute. If its value is ``"-"`` or *None*, the output is not
+    redirected. Does **not** accept generator functions.
     """
     _task = get_task(task)
     log = get_param(_task.log_file, _task.default_log_file)
@@ -335,8 +330,8 @@ def safe_output(
     **kwargs,
 ) -> tuple[Callable, Callable, Callable, Callable]:
     """ safe_output(skip=None, optional=True)
-    Wraps a bound method of a task and guards its execution. If an exception occurs, the task's
-    output is removed prior to the actual raising. Accepts generator functions.
+    Wraps a bound method of a task and guards its execution. If an exception occurs, the task's output is removed prior
+    to the actual raising. Accepts generator functions.
 
     :param skip: Exception class(es) for which the output is not removed.
     :param optional: If *False*, optional targets are not removed.
@@ -374,8 +369,7 @@ def delay(
     Wraps a bound method of a task and delays its execution. Accepts generator functions.
 
     :param t: The delay in seconds.
-    :param stddev: When positive, the delay is drawn randomly using *t* and *stddev* as parameters
-        of the distribution.
+    :param stddev: When positive, the delay is drawn randomly using *t* and *stddev* as parameters of the distribution.
     :param pdf: The distribution, either ``"gauss"`` or ``"uniform"``.
     :raises ValueError: When *pdf* is unknown.
     """
@@ -415,9 +409,9 @@ def notify(
     **kwargs,
 ) -> tuple[Callable, Callable, Callable, Callable]:
     """ notify(on_success=True, on_failure=True)
-    Wraps a bound method of a task and guards its execution. Information about the execution (task
-    name, duration, etc) is collected and dispatched to all notification transports registered on
-    wrapped task via adding :py:class:`law.NotifyParameter` parameters. Example:
+    Wraps a bound method of a task and guards its execution. Information about the execution (task name, duration, etc)
+    is collected and dispatched to all notification transports registered on wrapped task via adding
+    :py:class:`law.NotifyParameter` parameters. Example:
 
     .. code-block:: python
 
@@ -431,9 +425,9 @@ def notify(
             def run(self):
                 ...
 
-    When the *notify_mail* parameter is *True*, a notification is sent to the configured email
-    address. Also see :ref:`notifications-section`. Accepts generator functions. All other options
-    are forwarded to the notification transports.
+    When the *notify_mail* parameter is *True*, a notification is sent to the configured email address. Also see
+    :ref:`notifications-section`. Accepts generator functions. All other options are forwarded to the notification
+    transports.
 
     :param on_success: Whether notifications are sent when the task succeeded.
     :param on_failure: Whether notifications are sent when the task failed.
@@ -535,8 +529,8 @@ def timeit(
     **kwargs,
 ) -> tuple[Callable, Callable, Callable, Callable]:
     """ timeit()
-    Wraps a bound method of a task and logs its execution time in a human readable format using the
-    task's logger instance in info mode. Accepts generator functions.
+    Wraps a bound method of a task and logs its execution time in a human readable format using the task's logger
+    instance in info mode. Accepts generator functions.
     """
     def before_call() -> float:
         t0 = time.perf_counter()
@@ -567,8 +561,8 @@ def localize(
     **kwargs,
 ) -> T:
     """ localize(input=True, output=True, input_kwargs=None, output_kwargs=None)
-    Wraps a bound method of a task and temporarily changes the input and output methods to return
-    localized targets. Does **not** accept generator functions.
+    Wraps a bound method of a task and temporarily changes the input and output methods to return localized targets.
+    Does **not** accept generator functions.
 
     :param input: When *True*, :py:meth:`Task.input` is adjusted.
     :param output: When *True*, :py:meth:`Task.output` is adjusted.
@@ -661,17 +655,13 @@ def require_sandbox(
     **kwargs,
 ) -> tuple[Callable, Callable, Callable]:
     """ require_sandbox(sandbox=None)
-    Wraps a bound method of a sandbox task and throws an exception when the method is called while
-    the task is not sandboxed yet. This is intended to prevent undesired results or non-verbose
-    error messages when the method is invoked outside the requested sandbox. Accepts generator
-    functions.
+    Wraps a bound method of a sandbox task and throws an exception when the method is called while the task is not
+    sandboxed yet. This is intended to prevent undesired results or non-verbose error messages when the method is
+    invoked outside the requested sandbox. Accepts generator functions.
 
-    :param sandbox: When set, a (list of) pattern(s) to compare against the task's effective
-        sandbox.
-    :raises TypeError: When the decorated method does not belong to a
-        :py:class:`~law.sandbox.base.SandboxTask`.
-    :raises SandboxError: When the task is not sandboxed, or when its effective sandbox does not
-        match *sandbox*.
+    :param sandbox: When set, a (list of) pattern(s) to compare against the task's effective sandbox.
+    :raises TypeError: When the decorated method does not belong to a :py:class:`~law.sandbox.base.SandboxTask`.
+    :raises SandboxError: When the task is not sandboxed, or when its effective sandbox does not match *sandbox*.
     """
     def before_call() -> None:
         if not isinstance(task, SandboxTask):

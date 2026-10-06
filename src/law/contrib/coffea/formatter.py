@@ -19,11 +19,10 @@ logger = get_logger(__name__)
 
 class CoffeaFormatter(Formatter):
     """
-    Formatter for coffea objects (``.coffea``) loaded and dumped with ``coffea.util.load`` and
-    ``coffea.util.save``. ROOT (``.root``) and parquet files (``.parquet``) can be loaded as nano
-    events with ``NanoEventsFactory.from_root`` and ``NanoEventsFactory.from_parquet``. Additional
-    arguments are forwarded. When dumping, the file permission can be set via *perm*. Its name is
-    ``"coffea"``, which can be passed as *formatter* to select it explicitly.
+    Formatter for coffea objects (``.coffea``) loaded and dumped with ``coffea.util.load`` and ``coffea.util.save``.
+    ROOT (``.root``) and parquet files (``.parquet``) can be loaded as nano events with ``NanoEventsFactory.from_root``
+    and ``NanoEventsFactory.from_parquet``. Additional arguments are forwarded. When dumping, the file permission can be
+    set via *perm*. Its name is ``"coffea"``, which can be passed as *formatter* to select it explicitly.
     """
 
     name = "coffea"

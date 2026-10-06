@@ -19,12 +19,11 @@ logger = get_logger(__name__)
 
 class KerasModelFormatter(Formatter):
     """
-    Formatter for keras models, stored in hdf5 (``.hdf5``, ``.h5``), json (``.json``) or yaml files
-    (``.yaml``, ``.yml``). Hdf5 files contain the full model and are handled by
-    ``keras.models.load_model`` and ``model.save``, whereas json and yaml files only contain the
-    model architecture. Additional arguments are forwarded. When dumping, the file permission can be
-    set via *perm*. Its name is ``"keras_model"``, which can be passed as *formatter* to select it
-    explicitly.
+    Formatter for keras models, stored in hdf5 (``.hdf5``, ``.h5``), json (``.json``) or yaml files (``.yaml``,
+    ``.yml``). Hdf5 files contain the full model and are handled by ``keras.models.load_model`` and ``model.save``,
+    whereas json and yaml files only contain the model architecture. Additional arguments are forwarded. When dumping,
+    the file permission can be set via *perm*. Its name is ``"keras_model"``, which can be passed as *formatter* to
+    select it explicitly.
     """
 
     name = "keras_model"
@@ -77,11 +76,10 @@ class KerasModelFormatter(Formatter):
 
 class KerasWeightsFormatter(Formatter):
     """
-    Formatter for weights of keras models in hdf5 files (``.hdf5``, ``.h5``). Both ``load`` and
-    ``dump`` expect the model as their first argument and call its ``load_weights`` and
-    ``save_weights`` methods, respectively. Additional arguments are forwarded. When dumping, the
-    file permission can be set via *perm*. Its name is ``"keras_weights"``, which can be passed as
-    *formatter* to select it explicitly.
+    Formatter for weights of keras models in hdf5 files (``.hdf5``, ``.h5``). Both ``load`` and ``dump`` expect the
+    model as their first argument and call its ``load_weights`` and ``save_weights`` methods, respectively. Additional
+    arguments are forwarded. When dumping, the file permission can be set via *perm*. Its name is ``"keras_weights"``,
+    which can be passed as *formatter* to select it explicitly.
     """
 
     name = "keras_weights"

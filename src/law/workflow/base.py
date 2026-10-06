@@ -92,10 +92,10 @@ class BaseWorkflowProxy(ProxyTask):
         """
         Returns an attribute of the actual task named ``<workflow_type>_<name>``.
 
-        :param name: The name of the attribute. It can also be a sequence of names that are checked
-            in the given order. In this case, the *fallback* option is not considered.
-        :param fallback: When *True* and the attribute does not exist, try to return the task
-            attribute simply named *name*.
+        :param name: The name of the attribute. It can also be a sequence of names that are checked in the given order.
+            In this case, the *fallback* option is not considered.
+        :param fallback: When *True* and the attribute does not exist, try to return the task attribute simply named
+            *name*.
         :raises AttributeError: When no matching attribute is found.
         :return: The attribute value.
         """
@@ -118,9 +118,8 @@ class BaseWorkflowProxy(ProxyTask):
 
     def complete(self) -> bool:
         """
-        Custom completion check that invokes the task's *workflow_complete* method and if it returns
-        anything else than *NotImplemented* returns the value, or just does the default completion
-        check otherwise.
+        Custom completion check that invokes the task's *workflow_complete* method and if it returns anything else than
+        *NotImplemented* returns the value, or just does the default completion check otherwise.
 
         :return: Whether the workflow is complete.
         """
@@ -132,8 +131,8 @@ class BaseWorkflowProxy(ProxyTask):
 
     def requires(self) -> Any:
         """
-        Returns the default workflow requirements in an ordered dictionary, which is updated with
-        the return value of the task's *workflow_requires* method.
+        Returns the default workflow requirements in an ordered dictionary, which is updated with the return value of
+        the task's *workflow_requires* method.
 
         :return: The requirements.
         """
@@ -145,8 +144,8 @@ class BaseWorkflowProxy(ProxyTask):
 
     def output(self) -> dict[str, Any]:
         """
-        Returns the default workflow outputs in an ordered dictionary. At the moment this is just
-        the collection of outputs of the branch tasks, stored with the key ``"collection"``.
+        Returns the default workflow outputs in an ordered dictionary. At the moment this is just the collection of
+        outputs of the branch tasks, stored with the key ``"collection"``.
 
         :return: The outputs.
         """
@@ -166,9 +165,8 @@ class BaseWorkflowProxy(ProxyTask):
 
     def get_cached_output(self, update: bool = False) -> dict[str, Any]:
         """
-        If already cached, returns the previously computed output, and otherwise computes it via
-        :py:meth:`output` and caches it for subsequent calls, if :py:attr:`cache_branch_map` of the
-        task is *True*.
+        If already cached, returns the previously computed output, and otherwise computes it via :py:meth:`output` and
+        caches it for subsequent calls, if :py:attr:`cache_branch_map` of the task is *True*.
 
         :param update: When *True*, the cache is invalidated first.
         :return: The outputs.
@@ -190,14 +188,13 @@ class BaseWorkflowProxy(ProxyTask):
 
     def threshold(self, n: int | None = None) -> float | int:
         """
-        Returns the threshold number of tasks that need to be complete in order to consider the
-        workflow as being complete itself. This takes into account the
-        :py:attr:`law.BaseWorkflow.acceptance` parameter of the workflow. The threshold is passed to
-        the :py:class:`law.TargetCollection` (or :py:class:`law.SiblingFileCollection`) within
-        :py:meth:`output`.
+        Returns the threshold number of tasks that need to be complete in order to consider the workflow as being
+        complete itself. This takes into account the :py:attr:`law.BaseWorkflow.acceptance` parameter of the workflow.
+        The threshold is passed to the :py:class:`law.TargetCollection` (or :py:class:`law.SiblingFileCollection`)
+        within :py:meth:`output`.
 
-        :param n: The maximum number of tasks. By default, it is taken from the length of the branch
-            map. For performance purposes, you can set this value directly.
+        :param n: The maximum number of tasks. By default, it is taken from the length of the branch map. For
+            performance purposes, you can set this value directly.
         :return: The threshold.
         """
         task: BaseWorkflow = self.task
@@ -235,10 +232,9 @@ def workflow_property(
     empty_value: Any | NoValue = no_value,
 ) -> Callable:
     """
-    Decorator to declare an attribute that is stored only on a workflow and optionally cached for
-    subsequent calls. Therefore, the decorated method is expected to (lazily) provide the value to
-    cache if enabled. The resulting value is stored as either ``_workflow_<func.__name__>`` or
-    ``_workflow_cached_<func.__name__>`` on the workflow. Example:
+    Decorator to declare an attribute that is stored only on a workflow and optionally cached for subsequent calls.
+    Therefore, the decorated method is expected to (lazily) provide the value to cache if enabled. The resulting value
+    is stored as either ``_workflow_<func.__name__>`` or ``_workflow_cached_<func.__name__>`` on the workflow. Example:
 
     .. code-block:: python
 
@@ -257,8 +253,8 @@ def workflow_property(
     :param attr: Custom name of the attribute on the workflow that stores the value.
     :param setter: Whether a setter is provided to overwrite the attribute.
     :param cache: Whether the value is cached.
-    :param empty_value: When the value is equal to it, it is not cached and the next access to the
-        property will invoke the decorated method again.
+    :param empty_value: When the value is equal to it, it is not cached and the next access to the property will invoke
+        the decorated method again.
     :return: The property, or a decorator when *func* is *None*.
     """
     def decorator(func):
@@ -286,15 +282,13 @@ def workflow_property(
 
 class WorkflowParameter(CSVParameter):
     """
-    Parameter that allows to select branches of a workflow by values in their branch data instead of
-    by branch numbers. Workflow parameters are insignificant, have no default value and are never
-    passed to other tasks.
+    Parameter that allows to select branches of a workflow by values in their branch data instead of by branch numbers.
+    Workflow parameters are insignificant, have no default value and are never passed to other tasks.
 
-    To resolve values before tasks are instantiated, ``create_branch_map`` must be a class method
-    that receives a dictionary of parameter values. Branch data must be dictionaries or objects that
-    contain entries or attributes named like the workflow parameters. Setting values of all workflow
-    parameters selects the single matching branch, while sequences of values or values of only some
-    parameters select multiple branches. Example:
+    To resolve values before tasks are instantiated, ``create_branch_map`` must be a class method that receives a
+    dictionary of parameter values. Branch data must be dictionaries or objects that contain entries or attributes named
+    like the workflow parameters. Setting values of all workflow parameters selects the single matching branch, while
+    sequences of values or values of only some parameters select multiple branches. Example:
 
     .. code-block:: python
 
@@ -384,22 +378,18 @@ def dynamic_workflow_condition(
     cache_met_condition: str | bool = True,
 ) -> Callable[[Callable[..., bool]], DynamicWorkflowCondition] | DynamicWorkflowCondition:
     """
-    Decorator factory that is meant to wrap a workflow method that defines a dynamic workflow
-    condition, returning a :py:class:`DynamicWorkflowCondition` instance. See
-    :py:class:`DynamicWorkflowCondition` for more info.
+    Decorator factory that is meant to wrap a workflow method that defines a dynamic workflow condition, returning a
+    :py:class:`DynamicWorkflowCondition` instance. See :py:class:`DynamicWorkflowCondition` for more info.
 
     :param condition_fn: The method defining the condition. When *None*, a decorator is returned.
     :param create_branch_map_fn: The method creating the branch map once the condition is met.
     :param requires_fn: The method defining branch requirements once the condition is met.
-    :param requires_eager_fn: The method defining branch requirements as long as the condition is
-        not met.
+    :param requires_eager_fn: The method defining branch requirements as long as the condition is not met.
     :param output_fn: The method defining branch outputs once the condition is met.
-    :param condition_as_workflow: When *True*, the condition is always evaluated by the workflow
-        itself.
-    :param cache_met_condition: Whether a met condition is cached. A string denotes the task
-        instance attribute where it is stored.
-    :return: The :py:class:`DynamicWorkflowCondition` instance, or a decorator when *condition_fn*
-        is *None*.
+    :param condition_as_workflow: When *True*, the condition is always evaluated by the workflow itself.
+    :param cache_met_condition: Whether a met condition is cached. A string denotes the task instance attribute where it
+        is stored.
+    :return: The :py:class:`DynamicWorkflowCondition` instance, or a decorator when *condition_fn* is *None*.
     """
     def decorator(condition_fn) -> DynamicWorkflowCondition:
         return DynamicWorkflowCondition(
@@ -417,13 +407,12 @@ def dynamic_workflow_condition(
 
 class DynamicWorkflowCondition:
     """
-    Container for a workflow method that defines whether the branch map can be dynamically
-    constructed or whether a placeholder should be used until the condition is met. Similar to
-    Python's ``property``, instances of this class provide additional attributes for decorating
-    other methods that usually depend on the branch map, such as branch requirements or outputs.
+    Container for a workflow method that defines whether the branch map can be dynamically constructed or whether a
+    placeholder should be used until the condition is met. Similar to Python's ``property``, instances of this class
+    provide additional attributes for decorating other methods that usually depend on the branch map, such as branch
+    requirements or outputs.
 
-    It is recommended to use the :py:func:`dynamic_workflow_condition` decorator (factory).
-    Example:
+    It is recommended to use the :py:func:`dynamic_workflow_condition` decorator (factory). Example:
 
     .. code-block:: python
 
@@ -462,30 +451,27 @@ class DynamicWorkflowCondition:
                 # trivial run implementation
                 self.output().touch()
 
-    The condition is defined by ``workflow_condition`` which is decorated by *this* object. Once it
-    is met, the branch map is fully created and cached (as usual) for subsequent calls.
+    The condition is defined by ``workflow_condition`` which is decorated by *this* object. Once it is met, the branch
+    map is fully created and cached (as usual) for subsequent calls.
 
-    In addition, both ``create_branch_map()`` and ``output()`` are decorated with corresponding
-    attributes of the initially decorated object. As a result, both methods will return placeholder
-    objects as long as the condition is not met - the branch map will be considered empty and the
-    output will refer to a temporary placeholder target that is never created. Note that two
-    additional decorators exist for handling dynamic branch-level requirements. ``requires()`` is
-    meant to decorate the actual branch requirement and is evaluated once the condition is met.
-    ``requires_eager()`` is evaluated if the condition is _not_ met and is meant to provide eager
-    requirements that do not depend on the condition.
+    In addition, both ``create_branch_map()`` and ``output()`` are decorated with corresponding attributes of the
+    initially decorated object. As a result, both methods will return placeholder objects as long as the condition is
+    not met - the branch map will be considered empty and the output will refer to a temporary placeholder target that
+    is never created. Note that two additional decorators exist for handling dynamic branch-level requirements.
+    ``requires()`` is meant to decorate the actual branch requirement and is evaluated once the condition is met.
+    ``requires_eager()`` is evaluated if the condition is _not_ met and is meant to provide eager requirements that do
+    not depend on the condition.
 
-    As a consequence, the amended workflow is fully dynamic with its exact shape potentially
-    depending heavily on conditions that are only known deferred at runtime.
+    As a consequence, the amended workflow is fully dynamic with its exact shape potentially depending heavily on
+    conditions that are only known deferred at runtime.
 
-    Internally, the condition is evaluated by the calling task which is usually a workflow, but it
-    can also be one of its branch tasks if, for instance, sandboxing is involved. Set
-    *condition_as_workflow* to *True* to ensure that the condition is always evaluated by the
-    workflow itself.
+    Internally, the condition is evaluated by the calling task which is usually a workflow, but it can also be one of
+    its branch tasks if, for instance, sandboxing is involved. Set *condition_as_workflow* to *True* to ensure that the
+    condition is always evaluated by the workflow itself.
 
-    In case the ``workflow_condition`` involves a costly computation, it is recommended to cache
-    evaluation of the condition by setting *cache_met_condition* argument to *True* or a string
-    denoting the task instance attribute where the met condition is stored. In the first case,
-    the attribute defaults to ``_dynamic_workflow_condition_met``.
+    In case the ``workflow_condition`` involves a costly computation, it is recommended to cache evaluation of the
+    condition by setting *cache_met_condition* argument to *True* or a string denoting the task instance attribute where
+    the met condition is stored. In the first case, the attribute defaults to ``_dynamic_workflow_condition_met``.
     """
 
     _decorator_result = object()
@@ -540,8 +526,8 @@ class DynamicWorkflowCondition:
 
     def create_branch_map(self, create_branch_map_fn: Callable[[], Any]) -> object:
         """
-        Decorator for the ``create_branch_map`` method of the workflow, which is only invoked once
-        the condition is met. Until then, the branch map contains a single placeholder branch.
+        Decorator for the ``create_branch_map`` method of the workflow, which is only invoked once the condition is met.
+        Until then, the branch map contains a single placeholder branch.
 
         :param create_branch_map_fn: The decorated method.
         :return: A placeholder object that is resolved when the workflow class is created.
@@ -569,9 +555,8 @@ class DynamicWorkflowCondition:
 
     def requires(self, requires_fn: Callable[[], Any]) -> object:
         """
-        Decorator for the ``requires`` method of branch tasks, which is only invoked once the
-        condition is met. Until then, requirements defined via :py:meth:`requires_eager` are used,
-        if any.
+        Decorator for the ``requires`` method of branch tasks, which is only invoked once the condition is met. Until
+        then, requirements defined via :py:meth:`requires_eager` are used, if any.
 
         :param requires_fn: The decorated method.
         :return: A placeholder object that is resolved when the workflow class is created.
@@ -583,8 +568,8 @@ class DynamicWorkflowCondition:
 
     def requires_eager(self, requires_eager_fn: Callable[[], Any]) -> object:
         """
-        Decorator for a method that defines requirements of branch tasks that are used as long as
-        the condition is not met.
+        Decorator for a method that defines requirements of branch tasks that are used as long as the condition is not
+        met.
 
         :param requires_eager_fn: The decorated method.
         :return: A placeholder object that is resolved when the workflow class is created.
@@ -626,9 +611,8 @@ class DynamicWorkflowCondition:
 
     def output(self, output_fn: Callable[[], Any]) -> object:
         """
-        Decorator for the ``output`` method of branch tasks, which is only invoked once the
-        condition is met. Until then, a temporary placeholder target is returned that is never
-        created.
+        Decorator for the ``output`` method of branch tasks, which is only invoked once the condition is met. Until
+        then, a temporary placeholder target is returned that is never created.
 
         :param output_fn: The decorated method.
         :return: A placeholder object that is resolved when the workflow class is created.
@@ -958,17 +942,14 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
     @classmethod
     def _resolve_workflow_parameters(cls, params: dict[str, Any]) -> dict[str, Any]:
         """
-        Handles the translation from workflow parameters to branch values, updating *params*
-        in-place.
+        Handles the translation from workflow parameters to branch values, updating *params* in-place.
 
         :param params: The task parameters.
-        :raises TypeError: When ``create_branch_map`` is not a classmethod accepting a single
+        :raises TypeError: When ``create_branch_map`` is not a classmethod accepting a single parameter.
+        :raises ValueError: When the workflow parameters do not match any branch, or are inconsistent with the *branch*
             parameter.
-        :raises ValueError: When the workflow parameters do not match any branch, or are
-            inconsistent with the *branch* parameter.
         :raises KeyError: When the branch map does not contain a requested branch.
-        :raises AttributeError: When the branch data of a branch does not contain a workflow
-            parameter.
+        :raises AttributeError: When the branch data of a branch does not contain a workflow parameter.
         :return: The updated parameters.
         """
         workflow_params = [
@@ -1146,10 +1127,8 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
         Returns the first workflow class in the method resolution order of this class whose name
         (``workflow_proxy_cls.workflow_type``) matches *name*.
 
-        :param name: The name of the workflow type. When not set, the first workflow class is
-            returned.
-        :param fallback_to_first: When *True* and no class matches *name*, the first workflow class
-            is returned.
+        :param name: The name of the workflow type. When not set, the first workflow class is returned.
+        :param fallback_to_first: When *True* and no class matches *name*, the first workflow class is returned.
         :raises ValueError: When no workflow class could be determined.
         :return: The workflow class.
         """
@@ -1203,11 +1182,10 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
     @classmethod
     def req_different_branching(cls, inst: Task, **kwargs) -> BaseWorkflow:
         """
-        Variation of :py:meth:`Task.req` that should be used when defining requirements between
-        workflows that implement a different branch granularity (e.g. task B with 10 branches
-        requires task A with 2 branches). The only difference to the base method is that workflow
-        specific parameters such as *branches* or *tolerance* are automatically skipped when not
-        added explicitly in *kwargs*.
+        Variation of :py:meth:`Task.req` that should be used when defining requirements between workflows that implement
+        a different branch granularity (e.g. task B with 10 branches requires task A with 2 branches). The only
+        difference to the base method is that workflow specific parameters such as *branches* or *tolerance* are
+        automatically skipped when not added explicitly in *kwargs*.
 
         :param inst: The task instance to take parameters from.
         :param kwargs: Keyword arguments forwarded to :py:meth:`Task.req`.
@@ -1322,8 +1300,8 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
 
     def req_branch(self, branch: int, **kwargs) -> BaseWorkflow:
         """
-        Creates a branch task from this task, which can be a workflow or a branch task itself.
-        Workflow specific parameters are not passed.
+        Creates a branch task from this task, which can be a workflow or a branch task itself. Workflow specific
+        parameters are not passed.
 
         :param branch: The branch number.
         :param kwargs: Keyword arguments forwarded to :py:meth:`~law.task.base.BaseTask.req`.
@@ -1353,8 +1331,8 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
 
     def req_workflow(self, **kwargs) -> BaseWorkflow:
         """
-        Creates the workflow task from this task, which can be a branch task or a workflow itself.
-        Branch specific parameters are not passed.
+        Creates the workflow task from this task, which can be a branch task or a workflow itself. Branch specific
+        parameters are not passed.
 
         :param kwargs: Keyword arguments forwarded to :py:meth:`~law.task.base.BaseTask.req`.
         :return: The workflow task.
@@ -1385,10 +1363,10 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
 
     def as_branch(self, branch: int | None = None, **kwargs) -> BaseWorkflow:
         """
-        When this task refers to the workflow, a re-instantiated task with identical parameters and
-        a certain *branch* value is returned. When this task is already a branch task, the task
-        itself is returned when *branch* is *None* or matches this task's branch value. Otherwise, a
-        new branch task with that value and otherwise identical parameters is created and returned.
+        When this task refers to the workflow, a re-instantiated task with identical parameters and a certain *branch*
+        value is returned. When this task is already a branch task, the task itself is returned when *branch* is *None*
+        or matches this task's branch value. Otherwise, a new branch task with that value and otherwise identical
+        parameters is created and returned.
 
         :param branch: The branch number, defaulting to 0 when this task is the workflow.
         :param kwargs: Keyword arguments forwarded to :py:meth:`req_branch`.
@@ -1405,8 +1383,8 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
 
     def as_workflow(self, **kwargs) -> BaseWorkflow:
         """
-        When this task refers to a branch task, a re-instantiated task with ``branch=-1`` and
-        identical parameters is returned. Otherwise, the workflow itself is returned.
+        When this task refers to a branch task, a re-instantiated task with ``branch=-1`` and identical parameters is
+        returned. Otherwise, the workflow itself is returned.
 
         :param kwargs: Keyword arguments forwarded to :py:meth:`req_workflow`.
         :return: The workflow task.
@@ -1424,8 +1402,7 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
         """
         Abstract method that must be overwritten by inheriting tasks to define the branch map.
 
-        :return: The branch map, either as a dictionary mapping branch numbers to arbitrary data, or
-            as a list.
+        :return: The branch map, either as a dictionary mapping branch numbers to arbitrary data, or as a list.
         """
         ...
 
@@ -1484,13 +1461,11 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
         reduce_branches: bool = True,
     ) -> dict[int, Any]:
         """
-        Creates and returns the branch map defined in :py:meth:`create_branch_map`. The branch map
-        is cached internally.
+        Creates and returns the branch map defined in :py:meth:`create_branch_map`. The branch map is cached internally.
 
-        :param reset_boundaries: When *True*, the branch numbers and ranges defined in
-            :py:attr:`branches` are rearranged to not exceed the actual branch map length.
-        :param reduce_branches: When *True*, the branch map is additionally filtered according to
-            :py:attr:`branches`.
+        :param reset_boundaries: When *True*, the branch numbers and ranges defined in :py:attr:`branches` are
+            rearranged to not exceed the actual branch map length.
+        :param reduce_branches: When *True*, the branch map is additionally filtered according to :py:attr:`branches`.
         :return: The branch map.
         """
         if self.is_branch():
@@ -1543,11 +1518,11 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
 
     def get_branch_tasks(self, **kwargs) -> dict[int, BaseWorkflow]:
         """
-        Returns a dictionary that maps branch numbers to instantiated branch tasks. As this might be
-        computationally intensive, the return value is cached.
+        Returns a dictionary that maps branch numbers to instantiated branch tasks. As this might be computationally
+        intensive, the return value is cached.
 
-        :param kwargs: Keyword arguments forwarded to :py:meth:`as_branch` for each created branch
-            task upon the first initialization.
+        :param kwargs: Keyword arguments forwarded to :py:meth:`as_branch` for each created branch task upon the first
+            initialization.
         :return: The dictionary of branch tasks.
         """
         if self.is_branch():
@@ -1596,10 +1571,9 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
 
     def get_all_branch_chunks(self, chunk_size: int, **kwargs) -> list[list[int]]:
         """
-        Returns a list of chunks of all branch numbers of this workflow (i.e. without *branches*
-        parameters applied). Internally, a new instance of this workflow is created using
-        :py:meth:`BaseTask.req` with *_exclude* parameters extended by ``{"branches"}`` in order to
-        use all possible branch values. Example:
+        Returns a list of chunks of all branch numbers of this workflow (i.e. without *branches* parameters applied).
+        Internally, a new instance of this workflow is created using :py:meth:`BaseTask.req` with *_exclude* parameters
+        extended by ``{"branches"}`` in order to use all possible branch values. Example:
 
         .. code-block:: python
 
@@ -1628,12 +1602,11 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
 
     def get_branches_repr(self, max_ranges: int = 10) -> str:
         """
-        Creates a string representation of the selected branches that can be used as a readable
-        description or postfix in output paths.
+        Creates a string representation of the selected branches that can be used as a readable description or postfix
+        in output paths.
 
-        :param max_ranges: When the branches of this workflow are configured via the *branches*
-            parameter, and there are more than *max_ranges* identified ranges, the string will
-            contain a unique hash describing those ranges.
+        :param max_ranges: When the branches of this workflow are configured via the *branches* parameter, and there are
+            more than *max_ranges* identified ranges, the string will contain a unique hash describing those ranges.
         :return: The string representation.
         """
         branch_map = self.get_branch_map()
@@ -1662,8 +1635,8 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
 
     def workflow_requires(self) -> Any:
         """
-        Hook to add workflow requirements. When this method is called from a branch task, the
-        requirements of its workflow are returned.
+        Hook to add workflow requirements. When this method is called from a branch task, the requirements of its
+        workflow are returned.
 
         :return: The requirements as a dictionary.
         """
@@ -1674,12 +1647,12 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
 
     def pilot_workflow_requires(self, task: Task) -> Any:
         """
-        Helper for situations where *this* task is a workflow with ``--pilot`` activated to decide
-        if an upstream task itself should be required, or its own upstream dependencies.
+        Helper for situations where *this* task is a workflow with ``--pilot`` activated to decide if an upstream task
+        itself should be required, or its own upstream dependencies.
 
         :param task: The upstream task.
-        :return: The workflow requirements of *task* when *this* task is a pilot workflow and *task*
-            is a workflow, and *task* itself otherwise.
+        :return: The workflow requirements of *task* when *this* task is a pilot workflow and *task* is a workflow, and
+            *task* itself otherwise.
         """
         return (
             task.workflow_requires()
@@ -1689,8 +1662,8 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
 
     def workflow_input(self) -> Any:
         """
-        Returns the output targets of all workflow requirements, comparable to the normal
-        ``input()`` method of plain tasks.
+        Returns the output targets of all workflow requirements, comparable to the normal ``input()`` method of plain
+        tasks.
 
         :return: The output targets.
         """
@@ -1709,9 +1682,9 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
 
     def requires_from_branch(self) -> Any:
         """
-        Returns the requirements defined in the standard ``requires()`` method, but called in the
-        context of the workflow. This method is only recommended in case all required tasks that
-        would normally take a branch number, are intended to be instantiated with ``branch=-1``.
+        Returns the requirements defined in the standard ``requires()`` method, but called in the context of the
+        workflow. This method is only recommended in case all required tasks that would normally take a branch number,
+        are intended to be instantiated with ``branch=-1``.
 
         :raises RuntimeError: When this method is called from a branch task.
         :return: The requirements.

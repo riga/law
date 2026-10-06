@@ -46,9 +46,9 @@ logger = get_logger(__name__)
 
 class JobData(ShorthandDict):
     """
-    Sublcass of :py:class:`law.util.ShorthandDict` that adds shorthands for the attributes *jobs*,
-    *unsubmitted_jobs*, *tasks_per_job*, and *dashboard_config*. This container object is used to
-    store and keep track of per job information in :py:class:`BaseRemoteWorkflow`.
+    Sublcass of :py:class:`law.util.ShorthandDict` that adds shorthands for the attributes *jobs*, *unsubmitted_jobs*,
+    *tasks_per_job*, and *dashboard_config*. This container object is used to store and keep track of per job
+    information in :py:class:`BaseRemoteWorkflow`.
 
     .. py:classattribute:: dummy_job_id
 
@@ -123,11 +123,10 @@ class JobData(ShorthandDict):
 
 class PollData(ShorthandDict):
     """
-    Sublcass of :py:class:`law.util.ShorthandDict` that holds variable attributes used during job
-    status polling: the maximum number of parallel running jobs, *n_parallel*, the minimum number of
-    finished jobs to consider the task successful, *n_finished_min*, the maximum number of
-    failed jobs to consider the task failed, *n_failed_max*, the number of currently active jobs,
-    *n_active*.
+    Sublcass of :py:class:`law.util.ShorthandDict` that holds variable attributes used during job status polling: the
+    maximum number of parallel running jobs, *n_parallel*, the minimum number of finished jobs to consider the task
+    successful, *n_finished_min*, the maximum number of failed jobs to consider the task failed, *n_failed_max*, the
+    number of currently active jobs, *n_active*.
     """
 
     attributes = {
@@ -283,22 +282,22 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
     @abstractmethod
     def create_job_manager(self, **kwargs) -> BaseJobManager:
         """
-        Hook to instantiate and return a class derived of :py:class:`law.job.base.BaseJobManager`.
-        This method must be implemented by inheriting classes.
+        Hook to instantiate and return a class derived of :py:class:`law.job.base.BaseJobManager`. This method must be
+        implemented by inheriting classes.
 
-        :param kwargs: Keyword arguments that should be updated and forwarded to the constructor of
-            the respective job manager.
+        :param kwargs: Keyword arguments that should be updated and forwarded to the constructor of the respective job
+            manager.
         :return: The job manager.
         """
         ...
 
     def setup_job_manager(self) -> dict[str, Any]:
         """
-        Hook invoked externally to further setup the job manager or perform batch system related
-        preparations, e.g. before jobs can be submitted.
+        Hook invoked externally to further setup the job manager or perform batch system related preparations, e.g.
+        before jobs can be submitted.
 
-        :return: Keyword arguments that are forwarded to the submit, cancel, cleanup and query
-            methods of the job manager.
+        :return: Keyword arguments that are forwarded to the submit, cancel, cleanup and query methods of the job
+            manager.
         """
         return {}
 
@@ -311,12 +310,11 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
     @abstractmethod
     def create_job_file_factory(self, **kwargs) -> BaseJobFileFactory:
         """
-        Hook to instantiate and return a class derived of
-        :py:class:`law.job.base.BaseJobFileFactory`. This method must be implemented by inheriting
-        classes.
+        Hook to instantiate and return a class derived of :py:class:`law.job.base.BaseJobFileFactory`. This method must
+        be implemented by inheriting classes.
 
-        :param kwargs: Keyword arguments that should be updated and forwarded to the constructor of
-            the respective job file factory.
+        :param kwargs: Keyword arguments that should be updated and forwarded to the constructor of the respective job
+            file factory.
         :return: The job file factory.
         """
         ...
@@ -327,15 +325,15 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         branches: list[int],
     ) -> dict[str, str | pathlib.Path | BaseJobFileFactory.Config | None]:
         """
-        Creates a job file using the :py:attr:`job_file_factory` for a single job. This method must
-        be implemented by inheriting classes. See :py:meth:`create_job_file_group` for job managers
-        that support job grouping during submission (:py:attr:`BaseJobManager.job_grouping_submit`).
+        Creates a job file using the :py:attr:`job_file_factory` for a single job. This method must be implemented by
+        inheriting classes. See :py:meth:`create_job_file_group` for job managers that support job grouping during
+        submission (:py:attr:`BaseJobManager.job_grouping_submit`).
 
         :param job_num: The job number.
         :param branches: The branch numbers covered by the job.
         :raises NotImplementedError: When not implemented by inheriting classes.
-        :return: A dictionary with the path of the job file (key ``"job"``), the job file
-            configuration (key ``"config"``) and the optional path of the log file (key ``"log"``).
+        :return: A dictionary with the path of the job file (key ``"job"``), the job file configuration (key
+            ``"config"``) and the optional path of the log file (key ``"log"``).
         """
         # TODO: add TypedDict or similar as return type
         raise NotImplementedError()
@@ -345,22 +343,22 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         submit_jobs: dict[int, list[int]],
     ) -> dict[str, str | pathlib.Path | BaseJobFileFactory.Config | None]:
         """
-        Creates a job file using the :py:attr:`job_file_factory` based on a group of *submit_jobs*.
-        This method must be implemented by inheriting classes in case the corresponding job manager
-        supports job grouping during submission (:py:attr:`BaseJobManager.job_grouping_submit`).
+        Creates a job file using the :py:attr:`job_file_factory` based on a group of *submit_jobs*. This method must be
+        implemented by inheriting classes in case the corresponding job manager supports job grouping during submission
+        (:py:attr:`BaseJobManager.job_grouping_submit`).
 
         :param submit_jobs: A dictionary mapping job numbers to covered branch numbers.
         :raises NotImplementedError: When not implemented by inheriting classes.
-        :return: A dictionary with the path of the job file (key ``"job"``), the job file
-            configuration (key ``"config"``) and the optional path of the log file (key ``"log"``).
+        :return: A dictionary with the path of the job file (key ``"job"``), the job file configuration (key
+            ``"config"``) and the optional path of the log file (key ``"log"``).
         """
         # TODO: add TypedDict or similar as return type
         raise NotImplementedError()
 
     def destination_info(self) -> InsertableDict:
         """
-        Hook that can return information on the location that jobs are submitted to, which is
-        appended to submission and status messages.
+        Hook that can return information on the location that jobs are submitted to, which is appended to submission and
+        status messages.
 
         :return: An :py:class:`InsertableDict` whose values are joined to the destination info.
         """
@@ -385,8 +383,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         log: str | pathlib.Path | None = None,
     ) -> dict[str, Any]:
         """
-        Hook that is called after job submission to return extra data that is saved in the central
-        job data.
+        Hook that is called after job submission to return extra data that is saved in the central job data.
 
         :param job_file: The job file.
         :param job_id: The returned job id.
@@ -402,8 +399,8 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
     @property
     def tracking_url(self) -> str | None:
         """
-        The tracking url of the workflow, e.g. pointing to a job dashboard. When set, it is
-        forwarded to the central scheduler and published as a message.
+        The tracking url of the workflow, e.g. pointing to a job dashboard. When set, it is forwarded to the central
+        scheduler and published as a message.
         """
         return self._tracking_url
 
@@ -456,8 +453,8 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
     def _can_skip_job(self, job_num: int, branches: list[int]) -> bool:
         """
-        Returns whether a job can be potentially skipped, which is the case when all branch tasks
-        given by *branches* are complete.
+        Returns whether a job can be potentially skipped, which is the case when all branch tasks given by *branches*
+        are complete.
 
         :param job_num: The job number.
         :param branches: The branch numbers covered by the job.
@@ -614,8 +611,8 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         """
         Merges *resources* by summing all counts per resource name.
 
-        :param resources: A list or a dictionary (mapping job numbers to values) of dictionaries
-            mapping resource names to counts.
+        :param resources: A list or a dictionary (mapping job numbers to values) of dictionaries mapping resource names
+            to counts.
         :return: The merged resources.
         """
         merged: dict[str, int] = defaultdict(int)
@@ -700,10 +697,10 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
     def output(self) -> Any:
         """
-        Returns the default workflow outputs in an ordered dictionary. At the moment, this is the
-        collection of outputs of the branch tasks (key ``"collection"``), the submission file (key
-        ``"submission"``), and the status file (key ``"status"``). These two *control outputs* are
-        optional, i.e., they are not considered when checking the task's completeness.
+        Returns the default workflow outputs in an ordered dictionary. At the moment, this is the collection of outputs
+        of the branch tasks (key ``"collection"``), the submission file (key ``"submission"``), and the status file (key
+        ``"status"``). These two *control outputs* are optional, i.e., they are not considered when checking the task's
+        completeness.
 
         :return: The outputs.
         """
@@ -749,8 +746,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
     def get_run_context(self) -> AbstractContextManager:
         """
-        Returns the context in which the workflow is run, as defined by the ``workflow_run_context``
-        method of the task.
+        Returns the context in which the workflow is run, as defined by the ``workflow_run_context`` method of the task.
 
         :return: A context manager.
         """
@@ -763,8 +759,8 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
     def _run_impl(self) -> None:
         """
-        Actual run method that starts the processing of jobs and initiates the status polling, or
-        performs job cancelling or cleaning, depending on the task parameters.
+        Actual run method that starts the processing of jobs and initiates the status polling, or performs job
+        cancelling or cleaning, depending on the task parameters.
 
         :raises TypeError: When the workflow output is not a dictionary.
         """
@@ -857,8 +853,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
     def cancel(self) -> None:
         """
-        Cancels running jobs. The job ids are read from the submission file which has to exist
-        for obvious reasons.
+        Cancels running jobs. The job ids are read from the submission file which has to exist for obvious reasons.
         """
         task: BaseRemoteWorkflow = self.task
 
@@ -901,8 +896,8 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
     def cleanup(self) -> None:
         """
-        Cleans up jobs on the remote run location. The job ids are read from the submission file
-        which has to exist for obvious reasons.
+        Cleans up jobs on the remote run location. The job ids are read from the submission file which has to exist for
+        obvious reasons.
         """
         task: BaseRemoteWorkflow = self.task
 
@@ -945,8 +940,8 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         """
         Submits all jobs.
 
-        :param retry_jobs: When *None*, a new job list is built. Otherwise, a dictionary mapping job
-            numbers of previously failed jobs to lists of branch numbers, which are resubmitted.
+        :param retry_jobs: When *None*, a new job list is built. Otherwise, a dictionary mapping job numbers of
+            previously failed jobs to lists of branch numbers, which are resubmitted.
         :return: A dictionary mapping job numbers to the data of submitted jobs.
         """
         task: BaseRemoteWorkflow = self.task
@@ -1164,10 +1159,10 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         """
         Initiates the job status polling loop.
 
-        :raises JobsFailedError: When jobs failed and the tolerance was exceeded, or when jobs
-            failed and no more retries are left.
-        :raises JobError: When an unknown job status was encountered, or when the number of failed
-            status queries exceeded the allowed number.
+        :raises JobsFailedError: When jobs failed and the tolerance was exceeded, or when jobs failed and no more
+            retries are left.
+        :raises JobError: When an unknown job status was encountered, or when the number of failed status queries
+            exceeded the allowed number.
         :raises TimeoutError: When the walltime was exceeded.
         """
         task: BaseRemoteWorkflow = self.task
@@ -1760,8 +1755,8 @@ class BaseRemoteWorkflow(BaseWorkflow):
 
     def process_resources(self) -> dict[str, int]:
         """
-        Method used by luigi to define the resources required when running this task to include into
-        scheduling rules when using the central scheduler.
+        Method used by luigi to define the resources required when running this task to include into scheduling rules
+        when using the central scheduler.
 
         :return: A dictionary mapping resource names to counts.
         """
@@ -1775,8 +1770,8 @@ class BaseRemoteWorkflow(BaseWorkflow):
 
     def is_controlling_remote_jobs(self) -> bool:
         """
-        Returns whether the remote workflow is only controlling remote jobs instead of handling new
-        ones. This is the case when either *cancel_jobs* or *cleanup_jobs* is *True*.
+        Returns whether the remote workflow is only controlling remote jobs instead of handling new ones. This is the
+        case when either *cancel_jobs* or *cleanup_jobs* is *True*.
 
         :return: Whether remote jobs are controlled.
         """
@@ -1792,8 +1787,8 @@ class BaseRemoteWorkflow(BaseWorkflow):
 
     def create_job_dashboard(self) -> BaseJobDashboard | None:
         """
-        Hook method to return a configured :py:class:`law.job.BaseJobDashboard` instance that will
-        be used by the workflow.
+        Hook method to return a configured :py:class:`law.job.BaseJobDashboard` instance that will be used by the
+        workflow.
 
         :return: The dashboard instance, or *None* by default.
         """
@@ -1807,8 +1802,8 @@ class BaseRemoteWorkflow(BaseWorkflow):
         job_num: int,
     ) -> None:
         """
-        Hook to preprocess and publish dashboard events. By default, every event is passed to the
-        dashboard's :py:meth:`law.job.dashboard.BaseJobDashboard.publish` method unchanged.
+        Hook to preprocess and publish dashboard events. By default, every event is passed to the dashboard's
+        :py:meth:`law.job.dashboard.BaseJobDashboard.publish` method unchanged.
 
         :param dashboard: The dashboard instance.
         :param job_data: The job data.

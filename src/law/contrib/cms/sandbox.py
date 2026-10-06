@@ -84,10 +84,9 @@ class CMSSWSandboxVariables(SandboxVariables):
 
 class CMSSWSandbox(BashSandbox):
     """
-    Sandbox that runs tasks in a CMSSW environment, which is installed on first use. The name of the
-    sandbox consists of ``::``-separated values, starting with the mandatory CMSSW version, followed
-    by optional ``key=value`` pairs, e.g. ``"cmssw::CMSSW_14_2_1::arch=el9_amd64_gcc12"``. Supported
-    keys are:
+    Sandbox that runs tasks in a CMSSW environment, which is installed on first use. The name of the sandbox consists of
+    ``::``-separated values, starting with the mandatory CMSSW version, followed by optional ``key=value`` pairs, e.g.
+    ``"cmssw::CMSSW_14_2_1::arch=el9_amd64_gcc12"``. Supported keys are:
 
     - *setup*: A script that is run inside the ``src`` directory upon installation.
     - *args*: Space-separated arguments that are passed to the *setup* script.
@@ -96,8 +95,8 @@ class CMSSWSandbox(BashSandbox):
     - *cores*: The number of cores used for compilation.
     - *source*: A script that is sourced after the installation.
 
-    It is configured through the ``[cmssw_sandbox]`` config section, and additional variables can be
-    set in ``[cmssw_sandbox_env]``. Created environments are cached in ``$LAW_HOME/cms``.
+    It is configured through the ``[cmssw_sandbox]`` config section, and additional variables can be set in
+    ``[cmssw_sandbox_env]``. Created environments are cached in ``$LAW_HOME/cms``.
     """
 
     sandbox_type: str = "cmssw"

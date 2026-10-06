@@ -16,8 +16,8 @@ logger = get_logger(__name__)
 
 class Task(_Task):
     """
-    Base task for use in notebooks with additional features such as automatically updating of task
-    class register or HTML representations.
+    Base task for use in notebooks with additional features such as automatically updating of task class register or
+    HTML representations.
     """
 
     update_register = True

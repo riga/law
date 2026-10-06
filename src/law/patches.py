@@ -1,6 +1,6 @@
 """
-Collection of minor patches for luigi. These patches are only intended to support extra features for
-law, rather than changing default luigi behavior.
+Collection of minor patches for luigi. These patches are only intended to support extra features for law, rather than
+changing default luigi behavior.
 """
 
 from __future__ import annotations
@@ -30,8 +30,7 @@ _before_run_funcs: list[Callable] = []
 
 def before_run(func: Callable, force: bool = False) -> bool:
     """
-    Adds a function *func* to the list of callbacks that are invoked right before luigi starts
-    running scheduled tasks.
+    Adds a function *func* to the list of callbacks that are invoked right before luigi starts running scheduled tasks.
 
     :param func: The callback function.
     :param force: Unless *True*, a function that is already registered is not added again.
@@ -74,9 +73,9 @@ def patch_all() -> None:
 
 def patch_schedule_and_run() -> None:
     """
-    Patches ``luigi.interface._schedule_and_run`` to invoke all callbacks registered via
-    :py:func:`before_run` right before luigi starts running scheduled tasks. This is achieved by
-    patching ``luigi.worker.Worker.run`` within the scope of ``luigi.interface._schedule_and_run``.
+    Patches ``luigi.interface._schedule_and_run`` to invoke all callbacks registered via :py:func:`before_run` right
+    before luigi starts running scheduled tasks. This is achieved by patching ``luigi.worker.Worker.run`` within the
+    scope of ``luigi.interface._schedule_and_run``.
     """
     _schedule_and_run_orig = luigi.interface._schedule_and_run
 
@@ -106,8 +105,8 @@ def patch_schedule_and_run() -> None:
 
 def patch_task_process_run() -> None:
     """
-    Patches ``luigi.worker.TaskProcess.run`` to increase the severity of luigi's interface logger
-    when running local workflows that already yielded their branch tasks as dynamic dependencies.
+    Patches ``luigi.worker.TaskProcess.run`` to increase the severity of luigi's interface logger when running local
+    workflows that already yielded their branch tasks as dynamic dependencies.
     """
     run_orig = luigi.worker.TaskProcess.run
 
@@ -164,9 +163,8 @@ def patch_default_retcodes() -> None:
 
 def patch_worker_init() -> None:
     """
-    Patches the ``luigi.worker.Worker.__init__`` method to use a MP-synced object to store the
-    status completion cache, based on :py:class:`multiprocessing.managers.SyncManager` instaced
-    configured by law.
+    Patches the ``luigi.worker.Worker.__init__`` method to use a MP-synced object to store the status completion cache,
+    based on :py:class:`multiprocessing.managers.SyncManager` instaced configured by law.
     """
     _init_orig = luigi.worker.Worker.__init__
 
@@ -185,10 +183,10 @@ def patch_worker_init() -> None:
 
 def patch_worker_add_task() -> None:
     """
-    Patches the ``luigi.worker.Worker._add_task`` method to skip dependencies of the triggered task
-    when running in a sandbox, as dependencies are already controlled from outside the sandbox.
-    To reduce redundant logs, the severity of luigi's interface logging is increased when running in
-    a sandbox. In addition, info logs about repeatedly added tasks are suppressed.
+    Patches the ``luigi.worker.Worker._add_task`` method to skip dependencies of the triggered task when running in a
+    sandbox, as dependencies are already controlled from outside the sandbox. To reduce redundant logs, the severity of
+    luigi's interface logging is increased when running in a sandbox. In addition, info logs about repeatedly added
+    tasks are suppressed.
     """
     _add_task_orig = luigi.worker.Worker._add_task
 
@@ -229,9 +227,9 @@ def patch_worker_add_task() -> None:
 
 def patch_worker_add() -> None:
     """
-    Patches the ``luigi.worker.Worker._add`` method to make sure that no dependencies are yielded
-    when the triggered task is added to the worker when running in a sandbox and that the task is
-    added to the scheduler with the id of the outer task.
+    Patches the ``luigi.worker.Worker._add`` method to make sure that no dependencies are yielded when the triggered
+    task is added to the worker when running in a sandbox and that the task is added to the scheduler with the id of the
+    outer task.
     """
     _add_orig = luigi.worker.Worker._add
 
@@ -253,8 +251,8 @@ def patch_worker_add() -> None:
 
 def patch_worker_run_task() -> None:
     """
-    Patches the ``luigi.worker.Worker._run_task`` method to store the worker id and the id of its
-    first task in the task. This information is required by the sandboxing mechanism.
+    Patches the ``luigi.worker.Worker._run_task`` method to store the worker id and the id of its first task in the
+    task. This information is required by the sandboxing mechanism.
     """
     _run_task_orig = luigi.worker.Worker._run_task
 
@@ -282,10 +280,9 @@ def patch_worker_run_task() -> None:
 
 def patch_worker_get_work() -> None:
     """
-    Patches the ``luigi.worker.Worker._get_work`` method to only return information of the sandboxed
-    task when running in a sandbox. This way, actual (outer) task and the sandboxed (inner) task
-    appear to a central as the same task and communication for exchanging (e.g.) messages becomes
-    transparent.
+    Patches the ``luigi.worker.Worker._get_work`` method to only return information of the sandboxed task when running
+    in a sandbox. This way, actual (outer) task and the sandboxed (inner) task appear to a central as the same task and
+    communication for exchanging (e.g.) messages becomes transparent.
     """
     _get_work_orig = luigi.worker.Worker._get_work
 
@@ -312,8 +309,8 @@ def patch_worker_get_work() -> None:
 
 def patch_worker_factory() -> None:
     """
-    Patches the ``luigi.interface._WorkerSchedulerFactory`` to include sandboxing information when
-    creating a worker instance.
+    Patches the ``luigi.interface._WorkerSchedulerFactory`` to include sandboxing information when creating a worker
+    instance.
     """
     def create_worker(self, scheduler, worker_processes, assistant=False):
         worker = luigi.worker.Worker(
@@ -332,8 +329,8 @@ def patch_worker_factory() -> None:
 
 def patch_keepalive_run() -> None:
     """
-    Patches the ``luigi.worker.KeepAliveThread.run`` to immediately stop the keep-alive thread when
-    running within a sandbox.
+    Patches the ``luigi.worker.KeepAliveThread.run`` to immediately stop the keep-alive thread when running within a
+    sandbox.
     """
     run_orig = luigi.worker.KeepAliveThread.run
 
@@ -368,9 +365,9 @@ def patch_luigi_run_result() -> None:
 
 def patch_cmdline_parser() -> None:
     """
-    Patches the ``luigi.cmdline_parser.CmdlineParser`` to store the original command line arguments
-    for later processing in the :py:class:`law.config.Config`, and to update the way that parameter
-    objects are called to parse empty strings.
+    Patches the ``luigi.cmdline_parser.CmdlineParser`` to store the original command line arguments for later processing
+    in the :py:class:`law.config.Config`, and to update the way that parameter objects are called to parse empty
+    strings.
     """
     __init__orig = luigi.cmdline_parser.CmdlineParser.__init__
 
@@ -406,10 +403,9 @@ def patch_cmdline_parser() -> None:
 
 def patch_interface_logging() -> None:
     """
-    Patches ``luigi.setup_logging.InterfaceLogging._default`` to avoid adding multiple tty stream
-    handlers to the logger named "luigi-interface" and to preserve any previously set log level.
-    Also, the formatters of its stream handlers are amended in order to colorize parts of luigi log
-    messages.
+    Patches ``luigi.setup_logging.InterfaceLogging._default`` to avoid adding multiple tty stream handlers to the logger
+    named "luigi-interface" and to preserve any previously set log level. Also, the formatters of its stream handlers
+    are amended in order to colorize parts of luigi log messages.
     """
     _default_orig = luigi.setup_logging.InterfaceLogging._default
 
@@ -497,10 +493,9 @@ def patch_interface_logging() -> None:
 
 def patch_parameter_copy() -> None:
     """
-    Patches ``luigi.parameter.Parameter`` to add a convenience methods that allows to copy parameter
-    instances and assigning new attributes such as descriptions or default values. This same
-    functionality will eventually be moved to luigi, but the patch might be kept for versions of
-    luigi where it was not addded yet.
+    Patches ``luigi.parameter.Parameter`` to add a convenience methods that allows to copy parameter instances and
+    assigning new attributes such as descriptions or default values. This same functionality will eventually be moved to
+    luigi, but the patch might be kept for versions of luigi where it was not addded yet.
     """
     default_cre = re.compile(r"(.+)(;|,)\s*((empty|no|without) default|default: [^\;]+)\s*$")
 
@@ -537,9 +532,8 @@ def patch_parameter_copy() -> None:
 
 def patch_parameter_parse_or_no_value() -> None:
     """
-    Patches ``luigi.parameter.Parameter`` to properly accept empty values such as empty strings for
-    normal parameters or zeros for integer parameters instead of treating them as missing and to be
-    replaced with default values.
+    Patches ``luigi.parameter.Parameter`` to properly accept empty values such as empty strings for normal parameters or
+    zeros for integer parameters instead of treating them as missing and to be replaced with default values.
     """
     def _parse_or_no_value(self, x):
         empty = x is None or x is luigi.parameter._no_value  # type: ignore[attr-defined]
@@ -581,12 +575,11 @@ def check_complete_cached(
 
 def patch_worker_check_complete_cached() -> None:
     """
-    Patches the ``luigi.worker.check_complete_cached`` function to treat cached task completeness
-    decision slightly differently. The original implementation only skips the completeness check and
-    uses the cached value if, and only if, a task was actually already marked as complete. Missing
-    or *False* entries are both neglected and the completeness check is performed. Now, *False*
-    entries also cause the check to be skipped, considering the task as incomplete. However, after
-    that, the cache entry is removed so that subsequent checks are performed as usual.
+    Patches the ``luigi.worker.check_complete_cached`` function to treat cached task completeness decision slightly
+    differently. The original implementation only skips the completeness check and uses the cached value if, and only
+    if, a task was actually already marked as complete. Missing or *False* entries are both neglected and the
+    completeness check is performed. Now, *False* entries also cause the check to be skipped, considering the task as
+    incomplete. However, after that, the cache entry is removed so that subsequent checks are performed as usual.
     """
     luigi.worker.check_complete_cached = check_complete_cached
 

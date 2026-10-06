@@ -51,15 +51,14 @@ class BaseRegister(luigi.task_register.Register):
     """
     Meta class of :py:class:`BaseTask` that extends the luigi task register.
 
-    At class creation, ``exclude_params_*`` and ``transfer_params_*`` sets are merged with those of
-    all base classes, parameter names listed in ``include_params_*`` sets of the class itself are
-    removed from the corresponding ``exclude_params_*`` sets, existing registrations of the same
-    task family are removed when the class sets ``update_register`` to *True*, and the
-    :py:meth:`BaseTask.modify_task_attributes` hook is invoked.
+    At class creation, ``exclude_params_*`` and ``transfer_params_*`` sets are merged with those of all base classes,
+    parameter names listed in ``include_params_*`` sets of the class itself are removed from the corresponding
+    ``exclude_params_*`` sets, existing registrations of the same task family are removed when the class sets
+    ``update_register`` to *True*, and the :py:meth:`BaseTask.modify_task_attributes` hook is invoked.
 
     At instantiation, instances are cached based on their parameter values (except for those in
-    ``exclude_params_hash``), and values of parameters listed in ``transfer_params_to_inst`` are set
-    as attributes of new instances.
+    ``exclude_params_hash``), and values of parameters listed in ``transfer_params_to_inst`` are set as attributes of
+    new instances.
     """
 
     __instance_cache: dict[tuple[BaseRegister, tuple], Any] = {}
@@ -159,9 +158,8 @@ class BaseRegister(luigi.task_register.Register):
 
 class BaseTask(luigi.Task, metaclass=BaseRegister):
     """
-    Base class of all law tasks, extending :py:class:`luigi.Task` by parameter handling for task
-    requirements, a task level logger and dependency traversal. Most tasks should rather inherit
-    from :py:class:`Task`.
+    Base class of all law tasks, extending :py:class:`luigi.Task` by parameter handling for task requirements, a task
+    level logger and dependency traversal. Most tasks should rather inherit from :py:class:`Task`.
 
     .. py:classattribute:: exclude_index
 
@@ -243,8 +241,8 @@ class BaseTask(luigi.Task, metaclass=BaseRegister):
         """
         Removes a task class *task_cls* from the luigi task register.
 
-        :param task_cls: The task class to remove. Task family strings and patterns are accepted as
-            well. When *None*, *this* class is used.
+        :param task_cls: The task class to remove. Task family strings and patterns are accepted as well. When *None*,
+            *this* class is used.
         :return: Whether at least one class was successfully removed.
         """
         # always compare task families
@@ -288,8 +286,7 @@ class BaseTask(luigi.Task, metaclass=BaseRegister):
         kwargs: dict[str, Any],
     ) -> tuple[list[tuple[str, luigi.Parameter]], tuple[Any, ...], dict[str, Any]]:
         """
-        Hook to modify command line arguments before they are even created within
-        :py:meth:`get_param_values`.
+        Hook to modify command line arguments before they are even created within :py:meth:`get_param_values`.
 
         :param params: The list of parameter names and parameter objects.
         :param args: The positional arguments.
@@ -344,8 +341,8 @@ class BaseTask(luigi.Task, metaclass=BaseRegister):
     @classmethod
     def req(cls, inst: BaseTask, **kwargs) -> BaseTask:
         """
-        Creates a new instance of this class, taking parameter values from another task instance
-        *inst* via :py:meth:`req_params`. Example:
+        Creates a new instance of this class, taking parameter values from another task instance *inst* via
+        :py:meth:`req_params`. Example:
 
         .. code-block:: python
 
@@ -353,8 +350,7 @@ class BaseTask(luigi.Task, metaclass=BaseRegister):
                 return OtherTask.req(self, some_param=123)
 
         :param inst: The task instance to take parameter values from.
-        :param kwargs: Keyword arguments forwarded to :py:meth:`req_params`. Parameter values in it
-            take precedence.
+        :param kwargs: Keyword arguments forwarded to :py:meth:`req_params`. Parameter values in it take precedence.
         :return: The new task instance.
         """
         return cls(**cls.req_params(inst, **kwargs))
@@ -371,24 +367,21 @@ class BaseTask(luigi.Task, metaclass=BaseRegister):
         **kwargs,
     ) -> dict[str, Any]:
         """
-        Returns a dictionary of parameter values taken from another task instance *inst* that can be
-        used to create a new instance of this class. Only parameters known to both classes are
-        considered.
+        Returns a dictionary of parameter values taken from another task instance *inst* that can be used to create a
+        new instance of this class. Only parameters known to both classes are considered.
 
         :param inst: The task instance to take parameter values from.
-        :param _exclude: Patterns of parameters to remove. Parameters listed in
-            :py:attr:`exclude_params_req` and :py:attr:`exclude_params_req_get` of this class, and
-            in :py:attr:`exclude_params_req` and :py:attr:`exclude_params_req_set` of the class of
-            *inst* are removed as well.
-        :param _prefer_cli: Parameters that are removed when they were set via class-specific
-            command line arguments, so that the latter take precedence. Defaults to
-            :py:attr:`prefer_params_cli`.
-        :param _skip_task_excludes: When *True*, the exclusion of parameters listed in the exclude
-            attributes of both classes is skipped.
-        :param _skip_task_excludes_get: Separately skips the exclusion of parameters listed in the
-            exclude attributes of this class.
-        :param _skip_task_excludes_set: Separately skips the exclusion of parameters listed in the
-            exclude attributes of the class of *inst*.
+        :param _exclude: Patterns of parameters to remove. Parameters listed in :py:attr:`exclude_params_req` and
+            :py:attr:`exclude_params_req_get` of this class, and in :py:attr:`exclude_params_req` and
+            :py:attr:`exclude_params_req_set` of the class of *inst* are removed as well.
+        :param _prefer_cli: Parameters that are removed when they were set via class-specific command line arguments, so
+            that the latter take precedence. Defaults to :py:attr:`prefer_params_cli`.
+        :param _skip_task_excludes: When *True*, the exclusion of parameters listed in the exclude attributes of both
+            classes is skipped.
+        :param _skip_task_excludes_get: Separately skips the exclusion of parameters listed in the exclude attributes of
+            this class.
+        :param _skip_task_excludes_set: Separately skips the exclusion of parameters listed in the exclude attributes of
+            the class of *inst*.
         :param kwargs: Parameter values that are added afterwards.
         :return: The parameter values.
         """
@@ -490,8 +483,7 @@ class BaseTask(luigi.Task, metaclass=BaseRegister):
     @property
     def logger(self) -> logging.Logger:
         """
-        Task level logger, created lazily on first access with the name returned by
-        :py:meth:`get_logger_name`.
+        Task level logger, created lazily on first access with the name returned by :py:meth:`get_logger_name`.
         """
         if self._task_logger is None:
             name = self.get_logger_name()
@@ -503,9 +495,8 @@ class BaseTask(luigi.Task, metaclass=BaseRegister):
     @property
     def live_task_id(self) -> str:
         """
-        The task id depends on the task family and parameters, and is generated by luigi once in the
-        constructor. As the latter may change, this property returns to the id with the current set
-        of parameters.
+        The task id depends on the task family and parameters, and is generated by luigi once in the constructor. As the
+        latter may change, this property returns to the id with the current set of parameters.
         """
         # create a temporary dictionary of param_kwargs that is patched for the duration of the
         # call to create the string representation of the parameters
@@ -532,15 +523,14 @@ class BaseTask(luigi.Task, metaclass=BaseRegister):
         Iterates through the dependency tree of this task, including itself.
 
         :param max_depth: The maximum depth of the recursion. No limit is applied when negative.
-        :param order: Either ``"level"`` for a breadth-first traversal or ``"pre"`` for a
-            depth-first, pre-order traversal.
-        :param yield_last_flag: When *True*, a fourth element is added to the yielded tuples that
-            denotes whether the task is the last one at its depth before the traversal moves up
-            again, which is helpful for printing trees. Only allowed in ``"pre"`` order.
-        :raises ValueError: When *order* is unknown, or when *yield_last_flag* is used in
-            ``"level"`` order.
-        :return: Generator that yields tuples *(task, deps, depth)* where *deps* is the flat list of
-            requirements of *task* and *depth* is its distance to this task.
+        :param order: Either ``"level"`` for a breadth-first traversal or ``"pre"`` for a depth-first, pre-order
+            traversal.
+        :param yield_last_flag: When *True*, a fourth element is added to the yielded tuples that denotes whether the
+            task is the last one at its depth before the traversal moves up again, which is helpful for printing trees.
+            Only allowed in ``"pre"`` order.
+        :raises ValueError: When *order* is unknown, or when *yield_last_flag* is used in ``"level"`` order.
+        :return: Generator that yields tuples *(task, deps, depth)* where *deps* is the flat list of requirements of
+            *task* and *depth* is its distance to this task.
         """
         # see https://en.wikipedia.org/wiki/Tree_traversal
         if order not in ("level", "pre"):
@@ -586,12 +576,11 @@ class BaseTask(luigi.Task, metaclass=BaseRegister):
         skip_empty_bools: bool = True,
     ) -> dict[str, str]:
         """
-        Returns a dictionary that maps command line arguments (e.g. ``"--some-param"``) to
-        serialized values of all parameters of this task.
+        Returns a dictionary that maps command line arguments (e.g. ``"--some-param"``) to serialized values of all
+        parameters of this task.
 
         :param exclude: Patterns of parameters to skip.
-        :param replace: A dictionary mapping parameter names to values that are used instead of the
-            current ones.
+        :param replace: A dictionary mapping parameter names to values that are used instead of the current ones.
         :param skip_empty_bools: When *True*, boolean parameters whose value is *None* are skipped.
         :return: The dictionary of command line arguments.
         """
@@ -617,10 +606,9 @@ class BaseTask(luigi.Task, metaclass=BaseRegister):
 
 class Register(BaseRegister):
     """
-    Meta class of :py:class:`Task` that, after an instance was created, evaluates interactive
-    parameters such as ``--print-status`` (see :py:attr:`Task.interactive_params`). When one of them
-    is set, the corresponding action is performed and the process exits, unless the action requests
-    to proceed (e.g. ``--remove-output`` with its run flag).
+    Meta class of :py:class:`Task` that, after an instance was created, evaluates interactive parameters such as
+    ``--print-status`` (see :py:attr:`Task.interactive_params`). When one of them is set, the corresponding action is
+    performed and the process exits, unless the action requests to proceed (e.g. ``--remove-output`` with its run flag).
     """
 
     def __call__(cls, *args, **kwargs) -> Task:
@@ -654,9 +642,8 @@ class Register(BaseRegister):
 
 class Task(BaseTask, metaclass=Register):
     """
-    Base class of most law tasks. On top of :py:class:`BaseTask`, it provides interactive command
-    line parameters, messages and progress published to the central scheduler, and methods to run
-    tasks via ``law run``.
+    Base class of most law tasks. On top of :py:class:`BaseTask`, it provides interactive command line parameters,
+    messages and progress published to the central scheduler, and methods to run tasks via ``law run``.
 
     .. py:classattribute:: log_file
 
@@ -832,15 +819,14 @@ class Task(BaseTask, metaclass=Register):
     @property
     def default_log_file(self) -> str | pathlib.Path | LocalFileTarget:
         """
-        The log file that is used when the :py:attr:`log_file` parameter is not set. ``"-"`` (the
-        default) means that output is not redirected.
+        The log file that is used when the :py:attr:`log_file` parameter is not set. ``"-"`` (the default) means that
+        output is not redirected.
         """
         return "-"
 
     def is_root_task(self) -> bool:
         """
-        Returns whether this task is the root task, i.e., the task that was invoked on the command
-        line.
+        Returns whether this task is the root task, i.e., the task that was invoked on the command line.
 
         :return: Whether this task is the root task.
         """
@@ -860,8 +846,8 @@ class Task(BaseTask, metaclass=Register):
         :param stdout: The stream the message is written to, if set.
         :param scheduler: When *True*, the message is sent to the central scheduler, where the last
             :py:attr:`message_cache_size` messages are shown.
-        :param kwargs: Can contain *flush_cache* to clear previous messages first, and *silent* to
-            suppress a warning when no scheduler connection is available.
+        :param kwargs: Can contain *flush_cache* to clear previous messages first, and *silent* to suppress a warning
+            when no scheduler connection is available.
         """
         msg = str(msg)
 
@@ -916,8 +902,8 @@ class Task(BaseTask, metaclass=Register):
         flush_cache: bool = False,
     ) -> Iterator[None]:
         """
-        Context manager that publishes a message *msg* when entered, and either *success_message* or
-        *fail_message* when left, depending on whether an exception was raised. Example:
+        Context manager that publishes a message *msg* when entered, and either *success_message* or *fail_message* when
+        left, depending on whether an exception was raised. Example:
 
         .. code-block:: python
 
@@ -947,8 +933,8 @@ class Task(BaseTask, metaclass=Register):
 
     def publish_progress(self, percentage: int | float, precision: int = 1):
         """
-        Sends the progress *percentage* of this task to the central scheduler. The progress is only
-        sent when the rounded value changed.
+        Sends the progress *percentage* of this task to the central scheduler. The progress is only sent when the
+        rounded value changed.
 
         :param percentage: The progress in percent.
         :param precision: The value is rounded down to multiples of it.
@@ -971,8 +957,8 @@ class Task(BaseTask, metaclass=Register):
         precision: int = 1,
     ) -> Callable[[int], None] | T[Callable[[int], None]]:
         """
-        Returns a callback that, when called with the index *i* of the current iteration out of
-        *n_total* iterations, publishes the progress via :py:meth:`publish_progress`. Example:
+        Returns a callback that, when called with the index *i* of the current iteration out of *n_total* iterations,
+        publishes the progress via :py:meth:`publish_progress`. Example:
 
         .. code-block:: python
 
@@ -981,11 +967,9 @@ class Task(BaseTask, metaclass=Register):
                 ...
                 callback(i)
 
-        :param n_total: The total number of iterations. When it is a list or tuple of numbers, a
-            container of the same type with one callback per number is returned and the full range
-            is split equally among them.
-        :param reach: The range onto which the progress is mapped, which is helpful when a task
-            performs multiple steps.
+        :param n_total: The total number of iterations. When it is a list or tuple of numbers, a container of the same
+            type with one callback per number is returned and the full range is split equally among them.
+        :param reach: The range onto which the progress is mapped, which is helpful when a task performs multiple steps.
         :param precision: Forwarded to :py:meth:`publish_progress`.
         :return: The callback, or a container of callbacks.
         """
@@ -1010,8 +994,8 @@ class Task(BaseTask, metaclass=Register):
         msg: Any | None = None,
     ) -> Iterator[T]:
         """
-        Iterates over *iterable* and publishes the progress after each iteration via a callback
-        created by :py:meth:`create_progress_callback`.
+        Iterates over *iterable* and publishes the progress after each iteration via a callback created by
+        :py:meth:`create_progress_callback`.
 
         :param iterable: The iterable.
         :param n_total: The total number of iterations.
@@ -1060,14 +1044,14 @@ class Task(BaseTask, metaclass=Register):
         **kwargs,
     ) -> str:
         """
-        Returns a string representation of this task, consisting of its family, its significant
-        parameters (unless excluded via :py:attr:`exclude_params_repr`) and additional flags.
+        Returns a string representation of this task, consisting of its family, its significant parameters (unless
+        excluded via :py:attr:`exclude_params_repr`) and additional flags.
 
         :param all_params: When *True*, all parameters are included.
-        :param color: Whether the representation should be colored. When *None*, it is taken from
-            the ``colored_repr`` option of the ``[task]`` config section.
-        :param kwargs: Keyword arguments forwarded to the internal methods that represent the
-            family, parameters and flags.
+        :param color: Whether the representation should be colored. When *None*, it is taken from the ``colored_repr``
+            option of the ``[task]`` config section.
+        :param kwargs: Keyword arguments forwarded to the internal methods that represent the family, parameters and
+            flags.
         :return: The string representation.
         """
         if color is None:
@@ -1187,8 +1171,7 @@ class Task(BaseTask, metaclass=Register):
         **kwargs,
     ) -> int:
         """
-        Creates a new instance of this class and runs it in the current process via
-        :py:func:`law.util.law_run`.
+        Creates a new instance of this class and runs it in the current process via :py:func:`law.util.law_run`.
 
         :param _exclude: Forwarded to :py:meth:`cli_args` to build command line arguments.
         :param _replace: Forwarded to :py:meth:`cli_args` to build command line arguments.
@@ -1223,8 +1206,8 @@ class Task(BaseTask, metaclass=Register):
         :param _replace: See :py:meth:`law_run_inst`.
         :param _global_args: See :py:meth:`law_run_inst`.
         :param _run_kwargs: See :py:meth:`law_run_inst`.
-        :param kwargs: When given, a new instance is created with :py:meth:`req` and these keyword
-            arguments, and run instead.
+        :param kwargs: When given, a new instance is created with :py:meth:`req` and these keyword arguments, and run
+            instead.
         :return: The exit code.
         """
         # when kwargs are given, create a new instance
@@ -1249,8 +1232,7 @@ class Task(BaseTask, metaclass=Register):
                 data = inp.load()
 
         :param args: Arguments forwarded to :py:func:`law.target.file.localize_file_targets`.
-        :param kwargs: Keyword arguments forwarded to
-            :py:func:`law.target.file.localize_file_targets`.
+        :param kwargs: Keyword arguments forwarded to :py:func:`law.target.file.localize_file_targets`.
         :return: A context manager.
         """
         return localize_file_targets(self.input(), *args, **kwargs)  # type: ignore[return-value]
@@ -1266,8 +1248,7 @@ class Task(BaseTask, metaclass=Register):
                 outp.dump(data)
 
         :param args: Arguments forwarded to :py:func:`law.target.file.localize_file_targets`.
-        :param kwargs: Keyword arguments forwarded to
-            :py:func:`law.target.file.localize_file_targets`.
+        :param kwargs: Keyword arguments forwarded to :py:func:`law.target.file.localize_file_targets`.
         :return: A context manager.
         """
         return localize_file_targets(self.output(), *args, **kwargs)  # type: ignore[return-value]
@@ -1275,8 +1256,7 @@ class Task(BaseTask, metaclass=Register):
 
 class WrapperTask(Task):
     """
-    Use for tasks that only wrap other tasks and that by definition are done
-    if all their requirements exist.
+    Use for tasks that only wrap other tasks and that by definition are done if all their requirements exist.
     """
 
     wrap_once = luigi.BoolParameter(
@@ -1328,8 +1308,8 @@ class WrapperTask(Task):
 
 class ExternalTask(Task):
     """
-    Base class of tasks whose outputs are produced externally, i.e., outside of the current
-    workflow. They have no :py:meth:`run` method and are complete when their outputs exist.
+    Base class of tasks whose outputs are produced externally, i.e., outside of the current workflow. They have no
+    :py:meth:`run` method and are complete when their outputs exist.
     """
 
     exclude_index = True

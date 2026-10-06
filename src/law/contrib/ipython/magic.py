@@ -62,8 +62,8 @@ def create_magics(
         @ipc.magic.line_magic
         def law(self, line: str) -> Any:
             """
-            Interprets the input *line* as command line arguments to the ``law`` executable and runs
-            it in a subprocess using bash. Output and error streams are piped to the cell.
+            Interprets the input *line* as command line arguments to the ``law`` executable and runs it in a subprocess
+            using bash. Output and error streams are piped to the cell.
 
             :param line: The command line arguments.
             :return: The exit code, or *None* when *line* is empty.
@@ -85,10 +85,9 @@ def create_magics(
         @ipc.magic.line_magic
         def ilaw(self, line: str) -> int:
             """
-            Interprets the input *line* as command line arguments to the ``law`` executable, but
-            rather than invoking it in a subprocess, it is evaluated interactively (or inline, thus
-            the *i*) within the running process. This is especially useful for programmatically
-            running tasks that were defined e.g. in the current notebook.
+            Interprets the input *line* as command line arguments to the ``law`` executable, but rather than invoking it
+            in a subprocess, it is evaluated interactively (or inline, thus the *i*) within the running process. This is
+            especially useful for programmatically running tasks that were defined e.g. in the current notebook.
 
             :param line: The command line arguments.
             :raises ValueError: When the program is not a valid law cli program.
@@ -139,17 +138,16 @@ def create_magics(
 
 def register_magics(*args, **kwargs) -> None:
     """ register_magics(init_cmd=None, init_fn=None, line_cmd=None, line_fn=None, log_level=None)
-    Registers the two IPython magic methods ``%law`` and ``%ilaw`` which execute law commands either
-    via a subprocess in bash (``%law``) or interactively / inline within the running process
-    (``%ilaw``).
+    Registers the two IPython magic methods ``%law`` and ``%ilaw`` which execute law commands either via a subprocess in
+    bash (``%law``) or interactively / inline within the running process (``%ilaw``).
 
     :param init_cmd: A shell command that is called before the magic methods are registered.
     :param init_fn: A callable that is invoked prior to the method setup.
     :param line_cmd: A shell command that is run before ``%law`` is evaluated.
-    :param line_fn: A callable that is called before ``%ilaw`` is evaluated with the line to
-        interpret as the only argument.
-    :param log_level: The level of the *law.contrib.ipython.magic* logger that is used within the
-        magic methods. It should be a number, or a string denoting a Python log level.
+    :param line_fn: A callable that is called before ``%ilaw`` is evaluated with the line to interpret as the only
+        argument.
+    :param log_level: The level of the *law.contrib.ipython.magic* logger that is used within the magic methods. It
+        should be a number, or a string denoting a Python log level.
     """
     ipy = None
     magics = None

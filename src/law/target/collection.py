@@ -39,11 +39,11 @@ class TargetCollection(Target):
     """
     Collection of arbitrary targets.
 
-    The *threshold* defines the number of targets that need to exist for the collection itself to
-    be considered existing. Values smaller than or equal to one are interpreted as fractions of the
-    collection length, whereas larger values denote absolute numbers (limited to the collection
-    length). In particular, a value of ``1`` refers to *all* targets and not to a single one.
-    Negative values result in a threshold of zero, i.e., the collection always exists. Example:
+    The *threshold* defines the number of targets that need to exist for the collection itself to be considered
+    existing. Values smaller than or equal to one are interpreted as fractions of the collection length, whereas larger
+    values denote absolute numbers (limited to the collection length). In particular, a value of ``1`` refers to *all*
+    targets and not to a single one. Negative values result in a threshold of zero, i.e., the collection always exists.
+    Example:
 
     .. code-block:: python
 
@@ -200,24 +200,23 @@ class TargetCollection(Target):
         **kwargs,
     ) -> Iterator[Any | tuple[Hashable, Any] | tuple[Any, bool] | tuple[Hashable, Any, bool]]:
         """
-        Iterates over all elements of this collection. An element is considered existing when all
-        targets it contains exist.
+        Iterates over all elements of this collection. An element is considered existing when all targets it contains
+        exist.
 
-        :param kwargs: Accepted keyword arguments are *keys* (when *True*, the key or index of each
-            element is yielded as well), *state* (when *True*, the existence state of each element
-            is yielded as well), *unpack* (when *False*, elements are yielded as flat lists of
-            targets instead of their original structure), *optional_existing* (existence state to
-            assume for optional targets, defaulting to the *optional_existing* attribute, with
-            *None* meaning that their actual state is used), and *exists_func* (a custom function
-            that receives a target and returns its existence state).
+        :param kwargs: Accepted keyword arguments are *keys* (when *True*, the key or index of each element is yielded
+            as well), *state* (when *True*, the existence state of each element is yielded as well), *unpack* (when
+            *False*, elements are yielded as flat lists of targets instead of their original structure),
+            *optional_existing* (existence state to assume for optional targets, defaulting to the *optional_existing*
+            attribute, with *None* meaning that their actual state is used), and *exists_func* (a custom function that
+            receives a target and returns its existence state).
         :return: Generator that yields elements, or tuples with keys and/or states.
         """
         return self._iter_state(existing=None, **kwargs)
 
     def keys(self) -> list[Any]:
         """
-        Returns the keys of all elements, i.e., indices when the targets are a list or tuple, and
-        keys when they are a dictionary.
+        Returns the keys of all elements, i.e., indices when the targets are a list or tuple, and keys when they are a
+        dictionary.
 
         :return: The list of keys.
         """
@@ -231,8 +230,7 @@ class TargetCollection(Target):
         Returns a flat list of the uris of all targets.
 
         :param args: Arguments forwarded to the :py:meth:`~law.target.base.Target.uri` methods.
-        :param kwargs: Keyword arguments forwarded to the :py:meth:`~law.target.base.Target.uri`
-            methods.
+        :param kwargs: Keyword arguments forwarded to the :py:meth:`~law.target.base.Target.uri` methods.
         :return: The list of uris.
         """
         return flatten(t.uri(*args, **kwargs) for t in self._flat_target_list)
@@ -266,12 +264,11 @@ class TargetCollection(Target):
         """
         Removes all targets in this collection in parallel.
 
-        :param silent: Forwarded to the :py:meth:`~law.target.base.Target.remove` methods of the
+        :param silent: Forwarded to the :py:meth:`~law.target.base.Target.remove` methods of the targets.
+        :param threads: The number of threads, defaulting to the *remove_threads* attribute, which is taken from
+            ``[target] collection_remove_threads`` when not set.
+        :param kwargs: Keyword arguments forwarded to the :py:meth:`~law.target.base.Target.remove` methods of the
             targets.
-        :param threads: The number of threads, defaulting to the *remove_threads* attribute, which
-            is taken from ``[target] collection_remove_threads`` when not set.
-        :param kwargs: Keyword arguments forwarded to the :py:meth:`~law.target.base.Target.remove`
-            methods of the targets.
         :return: Whether any target was removed.
         """
         if threads is None:
@@ -341,11 +338,10 @@ class TargetCollection(Target):
         """
         Returns the number of existing elements.
 
-        :param kwargs: *existing* can be set to *False* to count missing elements instead, or to
-            *None* to count all of them. When *keys* is *True*, the keys of the counted elements are
-            returned as well. All other keyword arguments are forwarded as in :py:meth:`iter_all`.
-        :return: The number of elements, or a tuple with the number and the list of keys when *keys*
-            is *True*.
+        :param kwargs: *existing* can be set to *False* to count missing elements instead, or to *None* to count all of
+            them. When *keys* is *True*, the keys of the counted elements are returned as well. All other keyword
+            arguments are forwarded as in :py:meth:`iter_all`.
+        :return: The number of elements, or a tuple with the number and the list of keys when *keys* is *True*.
         """
         # simple counting of keys
         keys = kwargs.get("keys", False)
@@ -428,13 +424,11 @@ class FileCollection(TargetCollection):
     def localize(self, *args, **kwargs) -> Generator[FileCollection, None, None]:
         """
         Context manager that localizes all targets in this collection, see
-        :py:meth:`law.target.file.FileSystemTarget.localize`, and yields a new collection of the
-        localized targets.
+        :py:meth:`law.target.file.FileSystemTarget.localize`, and yields a new collection of the localized targets.
 
         :param args: Arguments forwarded to the ``localize`` methods of the targets.
-        :param kwargs: Keyword arguments forwarded to the ``localize`` methods of the targets.
-            Temporary targets are placed in a common temporary directory, which can be set via
-            *tmp_dir*.
+        :param kwargs: Keyword arguments forwarded to the ``localize`` methods of the targets. Temporary targets are
+            placed in a common temporary directory, which can be set via *tmp_dir*.
         :return: A context manager that yields the localized collection.
         """
         # when localizing collections using temporary files, it makes sense to put
@@ -524,10 +518,10 @@ class SiblingFileCollectionBase(FileCollection):
 
 class SiblingFileCollection(SiblingFileCollectionBase):
     """
-    Collection of targets that represent files which are all located in the same directory.
-    Specifically, the performance of :py:meth:`exists` and :py:meth:`count` can greatly improve with
-    respect to the standard :py:class:`FileCollection` as the directory listing is used internally.
-    This is especially useful for large collections of remote files.
+    Collection of targets that represent files which are all located in the same directory. Specifically, the
+    performance of :py:meth:`exists` and :py:meth:`count` can greatly improve with respect to the standard
+    :py:class:`FileCollection` as the directory listing is used internally. This is especially useful for large
+    collections of remote files.
     """
 
     @classmethod
@@ -540,9 +534,8 @@ class SiblingFileCollection(SiblingFileCollectionBase):
         Creates a collection of all files in the local directory *path*.
 
         :param path: The directory.
-        :param kwargs: Keyword arguments forwarded to
-            :py:meth:`~law.target.file.FileSystemDirectoryTarget.listdir`, e.g. to filter files by a
-            *pattern*.
+        :param kwargs: Keyword arguments forwarded to :py:meth:`~law.target.file.FileSystemDirectoryTarget.listdir`,
+            e.g. to filter files by a *pattern*.
         :raises FileNotFoundError: When the directory does not exist.
         :return: The collection.
         """
@@ -634,14 +627,14 @@ class SiblingFileCollection(SiblingFileCollectionBase):
 
 class NestedSiblingFileCollection(SiblingFileCollectionBase):
     """
-    Collection of targets that represent files which are located across several directories, with
-    files in the same directory being wrapped by a :py:class:`SiblingFileCollection` to exploit its
-    benefit over the standard :py:class:`FileCollection` (see description above). This is especially
-    useful for large collections of remote files that are located in different (sub) directories.
+    Collection of targets that represent files which are located across several directories, with files in the same
+    directory being wrapped by a :py:class:`SiblingFileCollection` to exploit its benefit over the standard
+    :py:class:`FileCollection` (see description above). This is especially useful for large collections of remote files
+    that are located in different (sub) directories.
 
-    The constructor identifies targets located in the same physical directory (identified by URI),
-    creates one collection for each of them, and stores them in the *collections* attribute. Key
-    access, iteration, etc., is identical to the standard :py:class:`FileCollection`.
+    The constructor identifies targets located in the same physical directory (identified by URI), creates one
+    collection for each of them, and stores them in the *collections* attribute. Key access, iteration, etc., is
+    identical to the standard :py:class:`FileCollection`.
     """
 
     def __init__(self, *args, **kwargs) -> None:
