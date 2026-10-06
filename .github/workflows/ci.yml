@@ -81,3 +81,25 @@ jobs:
           files: ./coverage.xml
           flags: unittests
           fail_ci_if_error: false
+
+  docs:
+    name: Docs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install
+        run: |
+          pip install -U pip setuptools wheel
+          pip install .[docs]
+
+      - name: Build docs (warnings are errors)
+        run: sphinx-build -W --keep-going -b html docs docs/_build/html

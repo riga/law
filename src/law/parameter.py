@@ -112,7 +112,7 @@ class Parameter(_LuigiParameter):
         type: bool
 
         Whether the parameter parsing should be triggered for empty command line arguments (usually
-        empty strings, but not for *None*s).
+        empty strings, but not for *None* values).
     """
 
     description: str | None
@@ -293,8 +293,7 @@ class BytesParameter(Parameter):
 
 
 class CSVParameter(Parameter):
-    r""" __init__(*args, cls=luigi.Parameter, inst=None, unique=False, sort=False, min_len=None, \
-        max_len=None, choices=None, brace_expand=False, escape_sep=True, force_tuple=True, **kwargs)
+    r""" __init__(*args, cls=luigi.Parameter, inst=None, unique=False, sort=False, min_len=None, max_len=None, choices=None, brace_expand=False, escape_sep=True, force_tuple=True, **kwargs)
     Parameter that parses a comma-separated value (CSV) and produces a tuple. *cls* (*inst*) can
     refer to an other parameter class (instance) that will be used to parse and serialize the
     particular items.
@@ -386,7 +385,7 @@ class CSVParameter(Parameter):
 
         Instance of the luigi parameter class *cls* or *inst* directory, that is used internally for
         parameter parsing and serialization.
-    """
+    """  # noqa: E501
 
     def __init__(self, *args, **kwargs) -> None:
         self._cls = kwargs.pop("cls", luigi.Parameter)
@@ -526,8 +525,7 @@ class CSVParameter(Parameter):
 
 
 class MultiCSVParameter(CSVParameter):
-    r""" __init__(*args, cls=luigi.Parameter, inst=None, unique=False, sort=False, min_len=None, \
-        max_len=None, choices=None, brace_expand=False, escape_sep=True, force_tuple=True, **kwargs)
+    r""" __init__(*args, cls=luigi.Parameter, inst=None, unique=False, sort=False, min_len=None, max_len=None, choices=None, brace_expand=False, escape_sep=True, force_tuple=True, **kwargs)
     Parameter that parses several comma-separated values (CSV), separated by colons, and produces a
     nested tuple. *cls* (*inst*) can refer to an other parameter class (instance) that will be used
     to parse and serialize the particular items.
@@ -595,7 +593,7 @@ class MultiCSVParameter(CSVParameter):
 
         Instance of the luigi parameter class *cls* or *inst* directly, that is used internally for
         parameter parsing and serialization.
-    """
+    """  # noqa: E501
 
     # custom csv dialect for splitting by ":" for automatic quoting
     class _Dialect(csv.excel):

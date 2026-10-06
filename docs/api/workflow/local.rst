@@ -11,6 +11,7 @@ Class ``LocalWorkflow``
 
 .. autoclass:: LocalWorkflow
    :members:
+   :exclude-members: workflow_proxy_cls
 
 
 Class ``LocalWorkflowProxy``

@@ -26,7 +26,7 @@ language = "en"
 
 templates_path = ["_templates"]
 html_static_path = ["_static"]
-master_doc = "index"
+root_doc = "index"
 source_suffix = ".rst"
 exclude_patterns: list[str] = []
 pygments_style = "sphinx"
@@ -64,19 +64,25 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.intersphinx",
     "sphinx.ext.viewcode",
-    "sphinx.ext.autosectionlabel",
     "autodocsumm",
     "myst_parser",
     "sphinx_lfs_content",
     "pydomain_patch",
 ]
 
+# the readme is written for github and included into the index page, starting at level-2 headings
+suppress_warnings = ["myst.header"]
+
 autodoc_default_options = {
     "member-order": "bysource",
     "show-inheritance": True,
 }
 
-intersphinx_mapping = {"python": ("https://docs.python.org/3", None)}
+intersphinx_mapping = {
+    "python": ("https://docs.python.org/3", None),
+    # docstrings inherited from luigi refer to labels in the luigi docs
+    "luigi": ("https://luigi.readthedocs.io/en/stable", None),
+}
 
 
 # event handlers

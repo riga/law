@@ -87,8 +87,7 @@ class Logger(logging.Logger):
 
 
 class LogFormatter(logging.Formatter):
-    """ __init__(*args, log_template=None, err_template=None, level_styles=None, name_styles=None, \
-        msg_styles=None, format_level=None, format_name=None, format_msg=None, **kwargs)
+    """ __init__(*args, log_template=None, err_template=None, level_styles=None, name_styles=None, msg_styles=None, format_level=None, format_name=None, format_msg=None, **kwargs)
     Configurable formatter class for colored logs. When set, *log_template*, *err_template*,
     *level_styles*, *name_styles*, *msg_styles*, *format_level*, *format_name* and *format_msg*
     control the log formats and styles on instance level. When *None*, they default to the upper
@@ -145,7 +144,7 @@ class LogFormatter(logging.Formatter):
         type: callable, None
 
         Custom callback to format the log message using the full record.
-    """
+    """  # noqa: E501
 
     LOG_TEMPLATE = "{level}: {name} - {msg}"
     ERR_TEMPLATE = "{level}: {name} - {msg}\n{traceback}"
@@ -279,7 +278,7 @@ def setup_logger(
     *add_console_handler* is default to *True* in case the logger is not a "law" sublogger and has
     no tty handlers registered yet.
 
-    Each logger is setup only once unless *force* is *True.
+    Each logger is setup only once unless *force* is *True*.
 
     *level* can either be an integer or the name of a level present in the *logging* module. When no
     *level* is  given, the level of the ``"law"`` base logger is used as a default. When the logger

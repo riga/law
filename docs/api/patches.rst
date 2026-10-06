@@ -2,7 +2,6 @@ law.patches
 ===========
 
 .. automodule:: law.patches
-   :members:
 
 
 .. autofunction:: before_run

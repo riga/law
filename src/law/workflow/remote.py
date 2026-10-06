@@ -154,7 +154,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
     .. py:attribute:: job_manager
 
-        type: :py:class:`law.job.base.BaseJobManager'
+        type: :py:class:`law.job.base.BaseJobManager`
 
         Reference to the job manager object that handles the actual job submission, status queries,
         etc. The instance is created and configured by :py:meth:`create_job_manager`.

@@ -89,7 +89,7 @@ pip install law
 
 or [conda / (micro)mamba](https://anaconda.org/conda-forge/law)
 
-```shel
+```shell
 conda install -c conda-forge law
 ```
 

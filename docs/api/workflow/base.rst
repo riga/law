@@ -11,6 +11,7 @@ Class ``BaseWorkflow``
 
 .. autoclass:: BaseWorkflow
    :members:
+   :exclude-members: workflow_proxy_cls
 
 
 Class ``BaseWorkflowProxy``

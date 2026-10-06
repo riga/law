@@ -421,7 +421,7 @@ def notify(
                 ...
 
     When the *notify_mail* parameter is *True*, a notification is sent to the configured email
-    address. Also see :ref:`config-notifications`. Accepts generator functions.
+    address. Also see :ref:`notifications-section`. Accepts generator functions.
     """
     _task = get_task(task)
 

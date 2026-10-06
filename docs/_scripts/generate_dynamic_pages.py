@@ -46,7 +46,7 @@ def replace_py_refs(text: str) -> str:
 
 
 def create_slug(text: str) -> str:
-    slug = re.sub(r"(\"|\[|\])", "", text)
+    slug = re.sub(r"(\"|\[|\]|`)", "", text)
     slug = slug.strip().lower()
     slug = re.sub(r"(\s+|_)", "-", slug)
     return slug
@@ -177,6 +177,8 @@ def create_config_page() -> None:
             link_target = create_slug(link_text)
             if link_text.startswith("[") and link_text.endswith("]"):
                 link_target += "-section"
+            # inline literals cannot be nested in the text of a reference, so remove their markup
+            link_text = link_text.replace("``", "")
             line = f"{line[:line.index('-')]}- :ref:`{link_text}<{link_target}>`"
 
         # skip section markers
