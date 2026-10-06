@@ -13,6 +13,8 @@ _cfg = Config.instance()
 def setup_parser(sub_parsers: argparse._SubParsersAction) -> None:
     """
     Sets up the command line parser for the *config* subprogram and adds it to *sub_parsers*.
+
+    :param sub_parsers: The sub parsers of the main parser.
     """
     parser = sub_parsers.add_parser(
         "config",
@@ -55,6 +57,9 @@ def setup_parser(sub_parsers: argparse._SubParsersAction) -> None:
 def execute(args: argparse.Namespace) -> int:
     """
     Executes the *config* subprogram with parsed commandline *args*.
+
+    :param args: The parsed arguments.
+    :return: The exit code.
     """
     cfg = Config.instance()
 

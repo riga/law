@@ -15,6 +15,12 @@ from law.util import no_value
 
 
 class H5pyFormatter(Formatter):
+    """
+    Formatter for hdf5 files (``.hdf5``, ``.h5``) that returns an opened ``h5py.File`` object, both
+    when loading (in read mode) and dumping (in write mode). Additional arguments are forwarded to
+    its constructor. When dumping, the file permission can be set via *perm*. Its name is
+    ``"h5py"``, which can be passed as *formatter* to select it explicitly.
+    """
 
     name = "h5py"
 

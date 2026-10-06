@@ -18,6 +18,12 @@ logger = get_logger(__name__)
 
 
 class ParquetFormatter(Formatter):
+    """
+    Formatter that loads parquet files (``.parquet``, ``.parq``) as ``pyarrow.parquet.ParquetFile``
+    objects. Dumping is not supported, see :py:class:`ParquetTableFormatter`. Additional arguments
+    are forwarded. Its name is ``"parquet"``, which can be passed as *formatter* to select it
+    explicitly.
+    """
 
     name = "parquet"
 
@@ -33,6 +39,12 @@ class ParquetFormatter(Formatter):
 
 
 class ParquetTableFormatter(Formatter):
+    """
+    Formatter for pyarrow tables in parquet files (``.parquet``, ``.parq``), handled by
+    ``pyarrow.parquet.read_table`` and ``pyarrow.parquet.write_table``. Additional arguments are
+    forwarded. When dumping, the file permission can be set via *perm*. Its name is
+    ``"parquet_table"``, which can be passed as *formatter* to select it explicitly.
+    """
 
     name = "parquet_table"
 

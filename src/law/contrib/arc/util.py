@@ -27,6 +27,8 @@ logger = get_logger(__name__)
 def get_arcproxy_file() -> str:
     """
     Returns the path to the arc proxy file.
+
+    :return: The path.
     """
     if "X509_USER_PROXY" in os.environ:
         return os.environ["X509_USER_PROXY"]
@@ -80,9 +82,13 @@ def _arcproxy_info(
 
 def get_arcproxy_user(proxy_file: str | pathlib.Path | None = None) -> str:
     """
-    Returns the owner of the arc proxy. When *proxy_file* is *None*, it defaults to the result of
-    :py:func:`get_arcproxy_file`. Otherwise, when it evaluates to *False*, ``arcproxy`` is queried
-    without a custom proxy file.
+    Returns the owner of the arc proxy.
+
+    :param proxy_file: The proxy file. When *None*, it defaults to the result of
+        :py:func:`get_arcproxy_file`. Otherwise, when it evaluates to *False*, ``arcproxy`` is
+        queried without a custom proxy file.
+    :raises RuntimeError: When no valid identity is found.
+    :return: The owner.
     """
     out = _arcproxy_info(args=["--infoitem=identity"], proxy_file=proxy_file)[1].strip()
     try:
@@ -93,9 +99,13 @@ def get_arcproxy_user(proxy_file: str | pathlib.Path | None = None) -> str:
 
 def get_arcproxy_lifetime(proxy_file: str | pathlib.Path | None = None) -> int:
     """
-    Returns the remaining lifetime of the arc proxy in seconds. When *proxy_file* is *None*, it
-    defaults to the result of :py:func:`get_arcproxy_file`. Otherwise, when it evaluates to
-    *False*, ``arcproxy`` is queried without a custom proxy file.
+    Returns the remaining lifetime of the arc proxy in seconds.
+
+    :param proxy_file: The proxy file. When *None*, it defaults to the result of
+        :py:func:`get_arcproxy_file`. Otherwise, when it evaluates to *False*, ``arcproxy`` is
+        queried without a custom proxy file.
+    :raises RuntimeError: When no valid lifetime is found.
+    :return: The lifetime in seconds.
     """
     out = _arcproxy_info(args=["--infoitem=validityLeft"], proxy_file=proxy_file)[1].strip()
     try:
@@ -106,19 +116,26 @@ def get_arcproxy_lifetime(proxy_file: str | pathlib.Path | None = None) -> int:
 
 def get_arcproxy_vo(proxy_file: str | pathlib.Path | None = None) -> str:
     """
-    Returns the virtual organization name of the arc proxy. When *proxy_file* is *None*, it defaults
-    to the result of :py:func:`get_arcproxy_file`. Otherwise, when it evaluates to *False*,
-    ``arcproxy`` is queried without a custom proxy file.
+    Returns the virtual organization name of the arc proxy.
+
+    :param proxy_file: The proxy file. When *None*, it defaults to the result of
+        :py:func:`get_arcproxy_file`. Otherwise, when it evaluates to *False*, ``arcproxy`` is
+        queried without a custom proxy file.
+    :return: The virtual organization name.
     """
     return _arcproxy_info(args=["--infoitem=vomsVO"], proxy_file=proxy_file)[1].strip()
 
 
 def check_arcproxy_validity(log=False, proxy_file: str | pathlib.Path | None = None) -> bool:
     """
-    Returns *True* when a valid arc proxy exists, *False* otherwise. When *log* is *True*, a
-    warning will be logged. When *proxy_file* is *None*, it defaults to the result of
-    :py:func:`get_arcproxy_file`. Otherwise, when it evaluates to *False*, ``arcproxy`` is queried
-    without a custom proxy file.
+    Returns whether a valid arc proxy exists.
+
+    :param log: When *True*, a warning is logged when no valid proxy exists.
+    :param proxy_file: The proxy file. When *None*, it defaults to the result of
+        :py:func:`get_arcproxy_file`. Otherwise, when it evaluates to *False*, ``arcproxy`` is
+        queried without a custom proxy file.
+    :raises RuntimeError: When ``arcproxy`` fails for reasons other than a missing proxy.
+    :return: Whether a valid proxy exists.
     """
     code, _, err = _arcproxy_info(proxy_file=proxy_file, silent=True)
 
@@ -141,13 +158,17 @@ def renew_arcproxy(
     proxy_file: str | pathlib.Path | None = None,
 ) -> None:
     """
-    Renews the arc proxy using a password *password* and a default *lifetime* of 8 days, which is
-    internally parsed by :py:func:`law.util.parse_duration` where the default input unit is hours.
-    To ensure that the *password*, in case it is not passed as a file, is not visible in any process
-    listing, it is written to a temporary file first and piped into the ``arcproxy`` command.
+    Renews the arc proxy.
 
-    When *proxy_file* is *None*, it defaults to the result of :py:func:`get_arcproxy_file`.
-    Otherwise, when it evaluates to *False*, ``arcproxy`` is invoked without a custom proxy file.
+    :param password: The password, or the path of a file containing it. To ensure that the password,
+        in case it is not passed as a file, is not visible in any process listing, it is written to
+        a temporary file first and piped into the ``arcproxy`` command.
+    :param lifetime: The lifetime, which is internally parsed by :py:func:`law.util.parse_duration`
+        where the default input unit is hours.
+    :param proxy_file: The proxy file. When *None*, it defaults to the result of
+        :py:func:`get_arcproxy_file`. Otherwise, when it evaluates to *False*, ``arcproxy`` is
+        invoked without a custom proxy file.
+    :raises RuntimeError: When ``arcproxy`` failed.
     """
     # convert the lifetime to seconds
     lifetime_seconds = int(parse_duration(lifetime, input_unit="h", unit="s"))

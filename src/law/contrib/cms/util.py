@@ -80,14 +80,18 @@ class Site:
     def validate(cls, name: str) -> bool:
         """
         Returns whether *name* refers to a valid site name.
+
+        :param name: The site name.
+        :return: Whether *name* is valid.
         """
         return bool(cls.name_cre.match(name))
 
     @classmethod
     def get_name_from_env(cls) -> str | None:
         """
-        Tries to extract the local site name from the environment. Returns the name on succcess and
-        *None* otherwise.
+        Tries to extract the local site name from the environment.
+
+        :return: The site name on success, and *None* otherwise.
         """
         # check local site config
         siteconf_path = "/cvmfs/cms.cern.ch/SITECONF/local"
@@ -159,8 +163,12 @@ class Site:
 
 def lfn_to_pfn(lfn: str, redirector: str = "global") -> str:
     """
-    Converts a logical file name *lfn* to a physical file name *pfn* using a *redirector*. Valid
-    values for *redirector* are defined by :py:attr:`Site.redirectors`.
+    Converts a logical file name *lfn* to a physical file name *pfn* using a *redirector*.
+
+    :param lfn: The logical file name.
+    :param redirector: The redirector. Valid values are defined by :py:attr:`Site.redirectors`.
+    :raises ValueError: When *redirector* is unknown.
+    :return: The physical file name.
     """
     if redirector not in Site.redirectors:
         raise ValueError(f"unknown redirector: {redirector}")
@@ -171,7 +179,11 @@ def lfn_to_pfn(lfn: str, redirector: str = "global") -> str:
 def renew_vomsproxy(**kwargs) -> str | None:
     """
     Renews a VOMS proxy in the exact same way that :py:func:`law.wlcg.renew_vomsproxy` does, but
-    with the *vo* argument default to the environment variable LAW_CMS_VO or ``"cms"`` when empty.
+    with the *vo* argument defaulting to the environment variable LAW_CMS_VO or ``"cms"`` when
+    empty.
+
+    :param kwargs: Keyword arguments forwarded to :py:func:`law.wlcg.renew_vomsproxy`.
+    :return: The return value of :py:func:`law.wlcg.renew_vomsproxy`.
     """
     if "vo" not in kwargs:
         kwargs["vo"] = _default_vo()
@@ -181,8 +193,11 @@ def renew_vomsproxy(**kwargs) -> str | None:
 def delegate_myproxy(**kwargs) -> str | None:
     """
     Delegates a X509 proxy to a myproxy server in the exact same way that
-    :py:func:`law.wlcg.delegate_myproxy` does, but with the *vo* argument default to the environment
-    variable LAW_CMS_VO or ``"cms"`` when empty.
+    :py:func:`law.wlcg.delegate_myproxy` does, but with the *vo* argument defaulting to the
+    environment variable LAW_CMS_VO or ``"cms"`` when empty.
+
+    :param kwargs: Keyword arguments forwarded to :py:func:`law.wlcg.delegate_myproxy`.
+    :return: The return value of :py:func:`law.wlcg.delegate_myproxy`.
     """
     if "vo" not in kwargs:
         kwargs["vo"] = _default_vo()
@@ -199,6 +214,13 @@ def _get_crab_receivers() -> None:
 
 
 class RucioReporter(threading.Thread):
+    """
+    Background thread that reports file accesses to Rucio, using a rucio client created with
+    *client_args*. Reports are sent to *server_url* at a maximum rate of *max_rate* per second. Use
+    :py:meth:`instance` to obtain a shared, running instance, or :py:func:`rucio_report_access` for
+    a simple interface. When the rucio client cannot be created, reporting is disabled with a
+    warning.
+    """
 
     default_client_args: dict[str, Any] | None = None
     default_server_url: str = "aHR0cDovL2Ntcy1ydWNpby10cmFjZS5jZXJuLmNo"
@@ -208,6 +230,13 @@ class RucioReporter(threading.Thread):
 
     @classmethod
     def instance(cls, *args, **kwargs) -> RucioReporter:
+        """
+        Returns the shared instance of this class, creating and starting it on first use.
+
+        :param args: Arguments forwarded to the constructor on first use.
+        :param kwargs: Keyword arguments forwarded to the constructor on first use.
+        :return: The shared instance.
+        """
         if cls.__instance is None:
             cls.__instance = cls(*args, **kwargs)
             cls.__instance.start()
@@ -215,6 +244,9 @@ class RucioReporter(threading.Thread):
 
     @classmethod
     def stop_instance(cls) -> None:
+        """
+        Stops and removes the shared instance, if any.
+        """
         if cls.__instance is not None:
             cls.__instance.stop()
             cls.__instance = None
@@ -252,6 +284,9 @@ class RucioReporter(threading.Thread):
             self.stop()
 
     def stop(self) -> None:
+        """
+        Stops this reporter. Queued reports are no longer sent.
+        """
         self._stop_event.set()
 
     def run(self) -> None:
@@ -363,6 +398,14 @@ class RucioReporter(threading.Thread):
         local_rse: str | None = None,
         silent: bool = True,
     ) -> None:
+        """
+        Queues a report of an access to the file *lfn* at the Rucio storage element(s) *rse*.
+
+        :param lfn: The logical file name.
+        :param rse: The Rucio storage element(s).
+        :param local_rse: The optional local Rucio storage element.
+        :param silent: When *True*, errors during reporting are only logged at debug level.
+        """
         if self._stop_event.is_set():
             logger.info(f"skipping rucio file access reporting for lfn '{lfn}' and rse '{rse}': reporter is stopped")
             return
@@ -381,4 +424,13 @@ def rucio_report_access(
     local_rse: str | None = None,
     silent: bool = True,
 ) -> None:
+    """
+    Reports an access to the file *lfn* at the Rucio storage element(s) *rse* through the shared
+    :py:class:`RucioReporter` instance. See :py:meth:`RucioReporter.report_access` for more info.
+
+    :param lfn: The logical file name.
+    :param rse: The Rucio storage element(s).
+    :param local_rse: The optional local Rucio storage element.
+    :param silent: When *True*, errors during reporting are only logged at debug level.
+    """
     RucioReporter.instance().report_access(lfn=lfn, rse=rse, local_rse=local_rse, silent=silent)

@@ -38,6 +38,14 @@ class Logger(logging.Logger):
         self._once_logs: dict[str, set] = collections.defaultdict(set)
 
     def debug_once(self, log_id: str, *args, **kwargs) -> None:
+        """
+        Logs a message with level ``debug`` only once per *log_id*.
+
+        :param log_id: The identifier of the message. When no further arguments are passed, it is
+            used as the message as well.
+        :param args: Arguments forwarded to :py:meth:`debug`.
+        :param kwargs: Keyword arguments forwarded to :py:meth:`debug`.
+        """
         # when no log_id is set, but just a message, it is received as log_id
         if not args:
             args = (log_id,)
@@ -46,6 +54,14 @@ class Logger(logging.Logger):
             self.debug(*args, **kwargs)
 
     def info_once(self, log_id: str, *args, **kwargs) -> None:
+        """
+        Logs a message with level ``info`` only once per *log_id*.
+
+        :param log_id: The identifier of the message. When no further arguments are passed, it is
+            used as the message as well.
+        :param args: Arguments forwarded to :py:meth:`info`.
+        :param kwargs: Keyword arguments forwarded to :py:meth:`info`.
+        """
         # when no log_id is set, but just a message, it is received as log_id
         if not args:
             args = (log_id,)
@@ -54,6 +70,14 @@ class Logger(logging.Logger):
             self.info(*args, **kwargs)
 
     def warning_once(self, log_id: str, *args, **kwargs) -> None:
+        """
+        Logs a message with level ``warning`` only once per *log_id*.
+
+        :param log_id: The identifier of the message. When no further arguments are passed, it is
+            used as the message as well.
+        :param args: Arguments forwarded to :py:meth:`warning`.
+        :param kwargs: Keyword arguments forwarded to :py:meth:`warning`.
+        """
         # when no log_id is set, but just a message, it is received as log_id
         if not args:
             args = (log_id,)
@@ -62,6 +86,14 @@ class Logger(logging.Logger):
             self.warning(*args, **kwargs)
 
     def error_once(self, log_id: str, *args, **kwargs) -> None:
+        """
+        Logs a message with level ``error`` only once per *log_id*.
+
+        :param log_id: The identifier of the message. When no further arguments are passed, it is
+            used as the message as well.
+        :param args: Arguments forwarded to :py:meth:`error`.
+        :param kwargs: Keyword arguments forwarded to :py:meth:`error`.
+        """
         # when no log_id is set, but just a message, it is received as log_id
         if not args:
             args = (log_id,)
@@ -70,6 +102,14 @@ class Logger(logging.Logger):
             self.error(*args, **kwargs)
 
     def critical_once(self, log_id: str, *args, **kwargs) -> None:
+        """
+        Logs a message with level ``critical`` only once per *log_id*.
+
+        :param log_id: The identifier of the message. When no further arguments are passed, it is
+            used as the message as well.
+        :param args: Arguments forwarded to :py:meth:`critical`.
+        :param kwargs: Keyword arguments forwarded to :py:meth:`critical`.
+        """
         # when no log_id is set, but just a message, it is received as log_id
         if not args:
             args = (log_id,)
@@ -78,6 +118,14 @@ class Logger(logging.Logger):
             self.critical(*args, **kwargs)
 
     def fatal_once(self, log_id: str, *args, **kwargs) -> None:
+        """
+        Logs a message with level ``fatal`` only once per *log_id*.
+
+        :param log_id: The identifier of the message. When no further arguments are passed, it is
+            used as the message as well.
+        :param args: Arguments forwarded to :py:meth:`fatal`.
+        :param kwargs: Keyword arguments forwarded to :py:meth:`fatal`.
+        """
         # when no log_id is set, but just a message, it is received as log_id
         if not args:
             args = (log_id,)
@@ -182,7 +230,12 @@ class LogFormatter(logging.Formatter):
         super().__init__(*args, **kwargs)
 
     def format(self, record: logging.LogRecord) -> str:
-        """"""
+        """
+        Formats a log *record*, optionally adding colors.
+
+        :param record: The log record.
+        :return: The formatted message.
+        """
         # get and style the level
         level = self.format_level(record) if callable(self.format_level) else record.levelname
         level = colored(level, **self.level_styles.get(record.levelname, {}))
@@ -247,6 +300,11 @@ def get_logger(*args, skip_setup: bool = False, **kwargs) -> Logger:
     Replacement for *logging.getLogger* that makes sure that the custom :py:class:`Logger` class is
     used when new loggers are created and that the logger is properly set up by
     :py:meth:`setup_logger`.
+
+    :param args: Arguments forwarded to *logging.getLogger*.
+    :param skip_setup: When *True*, the logger is not set up.
+    :param kwargs: Keyword arguments forwarded to *logging.getLogger*.
+    :return: The logger.
     """
     orig_cls = logging.getLoggerClass()
     logging.setLoggerClass(Logger)
@@ -271,21 +329,21 @@ def setup_logger(
     propagate: bool = False,
 ) -> logging.Logger:
     """
-    Sets up a *logger*, optionally given by its name, configures it to have a certain *level* and
-    adds a preconfigured console handler when *add_console_handler* is *True*. When
-    *add_console_handler* is a dictionary, its items are forwarded as keyword arguments to the
-    :py:func:`create_stream_handler` which handles the handler setup internally. When *None*,
-    *add_console_handler* is default to *True* in case the logger is not a "law" sublogger and has
-    no tty handlers registered yet.
+    Sets up a *logger* and configures it to have a certain *level*. Each logger is set up only once
+    unless *force* is *True*.
 
-    Each logger is setup only once unless *force* is *True*.
-
-    *level* can either be an integer or the name of a level present in the *logging* module. When no
-    *level* is  given, the level of the ``"law"`` base logger is used as a default. When the logger
-    already existed and *clear* is *True*, all handlers and filters are removed first. If
-    *propagate* is *False*, logs are not propagated to parent loggers.
-
-    The logger object is returned.
+    :param logger: The logger, or its name.
+    :param level: An integer or the name of a level present in the *logging* module. When not given,
+        the level of the ``"law"`` base logger is used as a default.
+    :param add_console_handler: When *True*, a preconfigured console handler is added. When it is a
+        dictionary, its items are forwarded as keyword arguments to :py:func:`create_stream_handler`
+        which handles the handler setup internally. When *None*, it defaults to *True* in case the
+        logger is not a "law" sublogger and has no tty handlers registered yet.
+    :param clear: When *True* and the logger already existed, all handlers and filters are removed
+        first.
+    :param force: When *True*, the logger is set up again even if it was already set up.
+    :param propagate: When *False*, logs are not propagated to parent loggers.
+    :return: The logger.
     """
     # get the logger
     logger = logger if isinstance(logger, logging.Logger) else get_logger(logger, skip_setup=True)
@@ -335,9 +393,13 @@ def create_stream_handler(
     formatter_cls: type[logging.Formatter] = LogFormatter,
 ) -> logging.Handler:
     """
-    Creates a new StreamHandler instance, passing all *handler_kwargs* to its constructor, and
-    returns it. When not *None*, an instance of *formatter_cls* is created using *formatter_kwargs*
-    and added to the handler instance.
+    Creates a new StreamHandler instance.
+
+    :param handler_kwargs: Keyword arguments passed to the constructor of the handler.
+    :param formatter_kwargs: Keyword arguments passed to the constructor of the formatter.
+    :param formatter_cls: The formatter class. When not *None*, an instance is created and added to
+        the handler instance.
+    :return: The handler.
     """
     # create the handler
     handler = logging.StreamHandler(**(handler_kwargs or {}))
@@ -354,9 +416,12 @@ def create_stream_handler(
 
 def is_tty_handler(handler: logging.Handler) -> bool:
     """
-    Returns *True* if a logging *handler* is a *StreamHandler* which logs to a tty (i.e. *stdout* or
+    Returns whether a logging *handler* is a *StreamHandler* which logs to a tty (i.e. *stdout* or
     *stderr*), an IPython *OutStream*, or a base *Handler* with a *console* attribute evaluating to
     *True*. The latter check is intended to cover a variety of handlers provided by custom modules.
+
+    :param handler: The handler.
+    :return: Whether the handler logs to a tty.
     """
     if isinstance(handler, logging.StreamHandler) and getattr(handler, "stream", None):
         if callable(getattr(handler.stream, "isatty", None)) and handler.stream.isatty():
@@ -370,7 +435,10 @@ def is_tty_handler(handler: logging.Handler) -> bool:
 
 def get_tty_handlers(logger: str | logging.Logger) -> list[logging.Handler]:
     """
-    Returns a list of all handlers of a *logger* that log to a tty.
+    Returns all handlers of a *logger* that log to a tty.
+
+    :param logger: The logger, or its name.
+    :return: The list of handlers.
     """
     if isinstance(logger, str):
         logger = get_logger(logger)

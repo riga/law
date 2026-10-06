@@ -77,6 +77,9 @@ def is_no_param(value: Any) -> bool:
     """
     Checks whether a parameter *value* denotes an empty parameter, i.e., if the value is either
     :py:attr:`NO_STR`, :py:attr:`NO_INT`, or :py:attr:`NO_FLOAT`.
+
+    :param value: The value to check.
+    :return: Whether *value* denotes an empty parameter.
     """
     return value in (NO_STR, NO_INT, NO_FLOAT, no_value)
 
@@ -84,7 +87,11 @@ def is_no_param(value: Any) -> bool:
 def get_param(value: Any, default: Any = None) -> Any:
     """
     Returns the passed *value* when it does not refer to an empty parameter value, checked with
-    :py:func:`is_no_param`. Otherwise, *default* is returned, which defaults to *None*.
+    :py:func:`is_no_param`.
+
+    :param value: The value.
+    :param default: The value returned when *value* denotes an empty parameter.
+    :return: *value* or *default*.
     """
     return default if is_no_param(value) else value
 
@@ -131,7 +138,12 @@ class TaskInstanceParameter(Parameter):
 
     # TODO: more precise x
     def serialize(self, x: Any) -> str:
-        """"""
+        """
+        Serializes a task instance *x*.
+
+        :param x: The task instance.
+        :return: The string representation of the task instance.
+        """
         if isinstance(x, Task):
             return str(getattr(x, "live_task_id", x.task_id))
         return str(x)
@@ -145,7 +157,13 @@ class OptionalBoolParameter(luigi.BoolParameter, Parameter):
 
     # TODO: more precise inp
     def parse(self, inp: Any) -> bool | None:  # type: ignore[override]
-        """"""
+        """
+        Parses the input *inp* into a boolean or *None*.
+
+        :param inp: The input to parse.
+        :raises ValueError: When *inp* cannot be interpreted as a boolean.
+        :return: The boolean value, or *None* for empty inputs.
+        """
         if isinstance(inp, bool) or inp is None:
             return inp
 
@@ -160,7 +178,12 @@ class OptionalBoolParameter(luigi.BoolParameter, Parameter):
         raise ValueError(f"cannot interpret '{inp}' as boolean")
 
     def serialize(self, x: bool | None) -> str:
-        """"""
+        """
+        Serializes a boolean or *None* value *x*.
+
+        :param x: The value to serialize.
+        :return: The string representation.
+        """
         return str(x)
 
 
@@ -202,6 +225,10 @@ class DurationParameter(Parameter):
 
     @property
     def unit(self) -> str:
+        """
+        The time unit of parsed values, e.g. ``"second"`` or ``"minute"``. Aliases such as ``"s"`` are
+        resolved when set, and unknown units raise an exception.
+        """
         return self._unit
 
     @unit.setter
@@ -214,7 +241,13 @@ class DurationParameter(Parameter):
 
     # TODO: more precise inp
     def parse(self, inp: Any) -> float:
-        """"""
+        """
+        Parses the input *inp* into a duration in the configured :py:attr:`unit`, see
+        :py:func:`law.util.parse_duration`.
+
+        :param inp: The input to parse.
+        :return: The duration.
+        """
         if inp in (None, "", NO_STR, no_value):
             inp = "0"
 
@@ -222,7 +255,12 @@ class DurationParameter(Parameter):
 
     # TODO: more precise value
     def serialize(self, value: Any) -> str:
-        """"""
+        """
+        Serializes a duration *value* given in the configured :py:attr:`unit`.
+
+        :param value: The duration.
+        :return: The string representation, including the unit.
+        """
         if not value:
             value = 0
 
@@ -263,6 +301,9 @@ class BytesParameter(Parameter):
 
     @property
     def unit(self) -> str:
+        """
+        The byte unit of parsed values, e.g. ``"MB"``. Setting an unknown unit raises an exception.
+        """
         return self._unit
 
     @unit.setter
@@ -274,7 +315,13 @@ class BytesParameter(Parameter):
 
     # TODO: more precise inp
     def parse(self, inp: Any) -> float:
-        """"""
+        """
+        Parses the input *inp* into a size in the configured :py:attr:`unit`, see
+        :py:func:`law.util.parse_bytes`.
+
+        :param inp: The input to parse.
+        :return: The size.
+        """
         if inp in (None, "", NO_STR, no_value):
             inp = "0"
 
@@ -282,7 +329,12 @@ class BytesParameter(Parameter):
 
     # TODO: more precise value
     def serialize(self, value: Any) -> str:
-        """"""
+        """
+        Serializes a size *value* given in the configured :py:attr:`unit`.
+
+        :param value: The size.
+        :return: The string representation, including the unit.
+        """
         if not value:
             value = 0
 
@@ -458,7 +510,13 @@ class CSVParameter(Parameter):
 
     # TODO: more precise inp
     def parse(self, inp: Any) -> tuple[T] | T:
-        """"""
+        """
+        Parses the comma-separated input *inp* into a tuple of values, each parsed by the inner
+        parameter.
+
+        :param inp: The input to parse.
+        :return: The tuple of parsed values, or a single value when tuples are not forced.
+        """
         return_single_value = False
         if inp in (None, "", NO_STR, no_value):
             value: tuple = ()
@@ -497,7 +555,13 @@ class CSVParameter(Parameter):
 
     # TODO: more precise value
     def serialize(self, value: Any) -> str:
-        """"""
+        """
+        Serializes a sequence of values into a comma-separated string, each serialized by the inner
+        parameter.
+
+        :param value: The values to serialize.
+        :return: The string representation.
+        """
         if value in (None, NO_STR, no_value):
             value = ()
 
@@ -602,7 +666,13 @@ class MultiCSVParameter(CSVParameter):
     _dialect = _Dialect()
 
     def parse(self, inp: Any) -> tuple[tuple[T]] | tuple[T] | T:  # type: ignore[override]
-        """"""
+        """
+        Parses the colon-separated input *inp* of comma-separated values into a tuple of tuples,
+        each value parsed by the inner parameter.
+
+        :param inp: The input to parse.
+        :return: The tuple of tuples of parsed values.
+        """
         _parse = super().parse
         if not inp or inp == NO_STR:
             value: tuple = ()
@@ -626,7 +696,13 @@ class MultiCSVParameter(CSVParameter):
 
     # TODO: more precise value
     def serialize(self, value: Any) -> str:
-        """"""
+        """
+        Serializes a sequence of sequences of values into a colon-separated string of
+        comma-separated values, each serialized by the inner parameter.
+
+        :param value: The values to serialize.
+        :return: The string representation.
+        """
         if not value:
             return ""
 
@@ -704,12 +780,15 @@ class RangeParameter(Parameter):
     ) -> list[int]:
         """
         Expands *range* (as returned by :py:meth:`parse`) to a sorted list of unique integers.
-        Additional *kwargs* are forwarded to :py:func:`law.util.range_expand`.
 
         .. code-block:: python
 
             RangeParameter.expand((4, 8))
             # -> [4, 5, 6, 7]
+
+        :param range: The range to expand.
+        :param kwargs: Keyword arguments forwarded to :py:func:`law.util.range_expand`.
+        :return: The list of integers.
         """
         return sorted(set(range_expand(range, **kwargs)))
 
@@ -750,7 +829,13 @@ class RangeParameter(Parameter):
 
     # TODO: more precise inp
     def parse(self, inp: Any) -> tuple[int]:
-        """"""
+        """
+        Parses the input *inp* into a range tuple.
+
+        :param inp: The input to parse.
+        :raises ValueError: When the range contains non-integer elements.
+        :return: The range tuple.
+        """
         if inp in (None, "", NO_STR, no_value):
             value: tuple = ()
         elif isinstance(inp, (tuple, list)) or is_lazy_iterable(inp):
@@ -773,7 +858,12 @@ class RangeParameter(Parameter):
 
     # TODO: more precise value
     def serialize(self, value: Any) -> str:
-        """"""
+        """
+        Serializes a range tuple *value*.
+
+        :param value: The range tuple.
+        :return: The string representation.
+        """
         if not value:
             value = ()
 
@@ -821,18 +911,26 @@ class MultiRangeParameter(RangeParameter):
     ) -> list[int]:
         """
         Expands *ranges* (as returned by :py:meth:`parse`) to a sorted list of unique integers.
-        Additional *kwargs* are forwarded to :py:func:`law.util.range_expand`.
 
         .. code-block:: python
 
             MultiRangeParameter.expand(((4, 8), (12, 14)))
             # -> [4, 5, 6, 7, 12, 13]
+
+        :param ranges: The ranges to expand.
+        :param kwargs: Keyword arguments forwarded to :py:func:`law.util.range_expand`.
+        :return: The list of integers.
         """
         return sorted(set.union(*map(set, map(functools.partial(range_expand, **kwargs), ranges))))
 
     # TODO: more precise inp
     def parse(self, inp: Any) -> tuple[tuple[int]]:  # type: ignore[override]
-        """"""
+        """
+        Parses the input *inp* into a tuple of range tuples.
+
+        :param inp: The input to parse.
+        :return: The tuple of range tuples.
+        """
         _parse = super().parse
         if inp in (None, "", NO_STR, no_value):
             value: tuple = ()
@@ -848,7 +946,12 @@ class MultiRangeParameter(RangeParameter):
 
     # TODO: more precise value
     def serialize(self, value: Any) -> str:
-        """"""
+        """
+        Serializes a sequence of range tuples *value*.
+
+        :param value: The range tuples.
+        :return: The string representation.
+        """
         if not value:
             return ""
 
@@ -883,8 +986,9 @@ class NotifyParameter(luigi.BoolParameter, Parameter):
 
     def get_transport(self) -> dict[str, Any] | None:
         """
-        Method to configure the transport that is toggled by this parameter. Should return a
-        dictionary with ``"func"`` and ``"raw"`` (optional) fields.
+        Method to configure the transport that is toggled by this parameter.
+
+        :return: A dictionary with ``"func"`` and ``"raw"`` (optional) fields, or *None* by default.
         """
         return None
 
@@ -910,7 +1014,11 @@ class NotifyMultiParameter(NotifyParameter):
         super().__init__(*args, **kwargs)
 
     def get_transport(self) -> list[dict[str, Any] | None]:  # type: ignore[override]
-        """"""
+        """
+        Returns the transports of all :py:attr:`parameters`.
+
+        :return: The list of transports.
+        """
         return [param.get_transport() for param in self.parameters]
 
 
@@ -930,7 +1038,11 @@ class NotifyMailParameter(NotifyParameter):
             )
 
     def get_transport(self) -> dict[str, Any]:
-        """"""
+        """
+        Returns the transport that sends notifications via :py:meth:`notify`.
+
+        :return: The transport dictionary.
+        """
         return {
             "func": self.notify,
             "raw": True,
@@ -939,13 +1051,28 @@ class NotifyMailParameter(NotifyParameter):
 
     @classmethod
     def notify(cls, success: bool, title: str, content: dict[str, Any], **kwargs) -> bool:
-        """"""
+        """
+        Sends a notification mail via :py:func:`law.notification.notify_mail`.
+
+        :param success: Whether the task succeeded.
+        :param title: The title of the notification.
+        :param content: The content of the notification.
+        :param kwargs: Keyword arguments forwarded to :py:func:`law.notification.notify_mail`.
+        :return: Whether the notification was sent successfully.
+        """
         title, message = cls.format_message(success, title, content)
         return notify_mail(title, message, **kwargs)
 
     @classmethod
     def format_message(cls, success: bool, title: str, content: dict[str, Any]) -> tuple[str, str]:
-        """"""
+        """
+        Formats the notification title and message.
+
+        :param success: Whether the task succeeded.
+        :param title: The title of the notification.
+        :param content: The content of the notification.
+        :return: A 2-tuple with the title and the message.
+        """
         content = collections.OrderedDict(content)
 
         # status text
@@ -983,7 +1110,12 @@ class NotifyCustomParameter(NotifyParameter):
             )
 
     def get_transport(self) -> dict[str, Any]:
-        """"""
+        """
+        Returns the transport that sends notifications via :py:meth:`notify` using the configured
+        *notify_func*.
+
+        :return: The transport dictionary.
+        """
         return {
             "func": functools.partial(self.notify, notify_func=self.notify_func),
             "raw": self.raw,
@@ -992,7 +1124,15 @@ class NotifyCustomParameter(NotifyParameter):
 
     @classmethod
     def notify(cls, success: bool, *args, **kwargs) -> bool:
-        """"""
+        """
+        Sends a custom notification via :py:func:`law.notification.notify_custom`.
+
+        :param success: Whether the task succeeded. It is not forwarded, as the message content will
+            have a ``"Traceback"`` field when the task failed.
+        :param args: Arguments forwarded to :py:func:`law.notification.notify_custom`.
+        :param kwargs: Keyword arguments forwarded to :py:func:`law.notification.notify_custom`.
+        :return: Whether the notification was sent successfully.
+        """
         # success is not forwarded, as the message content will have a field "Traceback" when failed
         return notify_custom(*args, **kwargs)
 

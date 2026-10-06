@@ -194,6 +194,10 @@ def MPManager(**kwargs) -> multiprocessing.managers.SyncManager:
     """
     Factory function identical to :py:func:`multiprocessing.Manager` but allows for additional
     arguments to be forwarded to the underlying :py:class:`multiprocessing.managers.SyncManager`.
+
+    :param kwargs: Keyword arguments forwarded to the
+        :py:class:`multiprocessing.managers.SyncManager` constructor.
+    :return: The started manager.
     """
     kwargs.setdefault("ctx", multiprocessing.context._default_context.get_context())
     manager = multiprocessing.managers.SyncManager(**kwargs)
@@ -242,8 +246,11 @@ mp_manager = DeferredManager(address=("localhost", 0))
 
 def rel_path(anchor: str, *paths: Any) -> str:
     """
-    Returns a path made of framgment *paths* relativ to an *anchor* path. When *anchor* is a file,
-    its absolute directory is used instead.
+    Returns a path made of fragment *paths* relative to an *anchor* path.
+
+    :param anchor: The anchor path. When it is a file, its absolute directory is used instead.
+    :param paths: Path fragments to join.
+    :return: The joined path.
     """
     anchor = os.path.abspath(os.path.expandvars(os.path.expanduser(str(anchor))))
     if os.path.exists(anchor) and os.path.isfile(anchor):
@@ -254,6 +261,9 @@ def rel_path(anchor: str, *paths: Any) -> str:
 def law_src_path(*paths: Any) -> str:
     """
     Returns the law installation directory, optionally joined with *paths*.
+
+    :param paths: Path fragments to join.
+    :return: The path.
     """
     return rel_path(__file__, *paths)
 
@@ -261,6 +271,9 @@ def law_src_path(*paths: Any) -> str:
 def law_home_path(*paths: Any) -> str:
     """
     Returns the law home directory, optionally joined with *paths*.
+
+    :param paths: Path fragments to join.
+    :return: The path.
     """
     from law.config import law_home_path
     return law_home_path(*paths)
@@ -268,14 +281,17 @@ def law_home_path(*paths: Any) -> str:
 
 def law_run(argv: Sequence[str], **kwargs) -> int:
     """
-    Runs a task with certain parameters as defined in *argv*, which can be a string or a list of
-    strings. It must start with the family of the task to run, followed by the desired parameters.
-    All *kwargs* are forwarded to :py:func:`luigi.interface.run`. Example:
+    Runs a task with certain parameters as defined in *argv*. Example:
 
     .. code-block:: python
 
         law_run(["MyTask", "--param", "value"])
         law_run("MyTask --param value")
+
+    :param argv: A string or a list of strings that starts with the family of the task to run,
+        followed by the desired parameters.
+    :param kwargs: Keyword arguments forwarded to :py:func:`luigi.interface.run`.
+    :return: The exit code.
     """
     from luigi.cmdline_parser import CmdlineParser
     from luigi.interface import run as luigi_run
@@ -315,9 +331,13 @@ def law_run(argv: Sequence[str], **kwargs) -> int:
 
 def abort(msg: str | None = None, exitcode: int = 1, color: bool = True) -> int:
     """
-    Aborts the process (*sys.exit*) with an *exitcode*. If *msg* is not *None*, it is printed first
-    to stdout if *exitcode* is 0 or *None*, and to stderr otherwise. When *color* is *True* and
-    *exitcode* is not 0 or *None*, the message is printed in red.
+    Aborts the process (*sys.exit*) with an *exitcode*.
+
+    :param msg: Message to print first, to stdout when *exitcode* is 0 or *None*, and to stderr
+        otherwise.
+    :param exitcode: The exit code.
+    :param color: Whether the message is printed in red when *exitcode* is not 0 or *None*.
+    :return: The exit code, although this function never actually returns.
     """
     if msg is not None:
         if exitcode in (None, 0):
@@ -333,11 +353,16 @@ def abort(msg: str | None = None, exitcode: int = 1, color: bool = True) -> int:
 def import_file(path: str | pathlib.Path, attr: str | None = None) -> ModuleType | Any:
     """
     Loads the content of a python file located at *path* and returns its package content as a
-    dictionary. When *attr* is set, only the attribute with that name is returned.
+    dictionary.
 
     The file is not required to be importable as its content is loaded directly into the
     interpreter. While this approach is not necessarily clean, it can be useful in places where
     custom code must be loaded.
+
+    :param path: The path of the file.
+    :param attr: When set, only the attribute with that name is returned.
+    :raises AttributeError: When *attr* is set but the file does not contain it.
+    :return: The package content as a dictionary, or the attribute *attr* when set.
     """
     # load the package contents
     path = os.path.expandvars(os.path.expanduser(str(path)))
@@ -356,10 +381,13 @@ def import_file(path: str | pathlib.Path, attr: str | None = None) -> ModuleType
 
 def get_terminal_width(fallback: bool = False) -> int | None:
     """
-    Returns the terminal width when possible, and *None* otherwise. By default, the width is
-    obtained through ``os.get_terminal_size``, querying the *sys.__stdout__* which might fail in
-    case no valid output device is connected. However, when *fallback* is *True*,
-    ``shutil.get_terminal_size`` is used instead, which priotizes the *COLUMNS* variable if set.
+    Returns the terminal width when possible.
+
+    :param fallback: By default, the width is obtained through ``os.get_terminal_size``, querying
+        the *sys.__stdout__* which might fail in case no valid output device is connected. When
+        *True*, ``shutil.get_terminal_size`` is used instead, which priotizes the *COLUMNS* variable
+        if set.
+    :return: The terminal width, or *None* when it could not be determined.
     """
     width = None
     func = getattr(shutil if fallback else os, "get_terminal_size", None)
@@ -372,8 +400,13 @@ def get_terminal_width(fallback: bool = False) -> int | None:
 
 def is_classmethod(func: Any, cls: type | None = None) -> bool:
     """
-    Returns *True* if *func* is a classmethod of *cls*, and *False* otherwise. When *cls* is *None*,
-    it is extracted from the function's qualified name and module name.
+    Returns whether *func* is a classmethod of *cls*.
+
+    :param func: The function to check.
+    :param cls: The class. When *None*, it is extracted from the function's qualified name and
+        module name.
+    :raises AttributeError: When *func* has no ``__name__`` attribute.
+    :return: Whether *func* is a classmethod.
     """
     # when no cls is given, try to lookup it up in its associated module
     _hasattr = lambda attr: getattr(func, attr, None) is not None
@@ -407,15 +440,20 @@ def is_classmethod(func: Any, cls: type | None = None) -> bool:
 
 def is_number(n: Any) -> bool:
     """
-    Returns *True* if *n* is a number, i.e., integer or float, and in particular no boolean.
+    Returns whether *n* is a number, i.e., integer or float, and in particular no boolean.
+
+    :param n: The value to check.
+    :return: Whether *n* is a number.
     """
     return isinstance(n, (int, float)) and not isinstance(n, bool)
 
 
 def is_float(v: Any) -> bool:
     """
-    Takes any value *v* and tries to convert it to a float. Returns *True* success, and *False*
-    otherwise.
+    Takes any value *v* and tries to convert it to a float.
+
+    :param v: The value to check.
+    :return: Whether the conversion succeeded.
     """
     try:
         float(v)
@@ -426,8 +464,11 @@ def is_float(v: Any) -> bool:
 
 def try_int(n: int | float) -> int | float:
     """
-    Takes a number *n* and tries to convert it to an integer. When *n* has no decimals, an integer
-    is returned with the same value as *n*. Otherwise, a float is returned.
+    Takes a number *n* and tries to convert it to an integer.
+
+    :param n: The number.
+    :return: An integer with the same value as *n* when it has no decimals, and *n* as a float
+        otherwise.
     """
     n_int = int(n)
     return n_int if n == n_int else n
@@ -439,9 +480,7 @@ def round_discrete(
     round_fn: Callable[[int | float], float] | str = round,
 ) -> float:
     """ round_discrete(n, base=1.0, round_fn="round")
-    Rounds a number *n* to a discrete *base*. *round_fn* can be a function used for rounding and
-    defaults to the built-in ``round`` function. It also accepts string values ``"round"``,
-    ``"floor"`` and ``"ceil"`` which are resolved to the corresponding math functions. Example:
+    Rounds a number *n* to a discrete *base*. Example:
 
     .. code-block:: python
 
@@ -457,6 +496,14 @@ def round_discrete(
         round_discrete(17, 2.5, math.floor)
         round_discrete(17, 2.5, "floor")
         # -> 15.0
+
+    :param n: The number to round.
+    :param base: The discrete base.
+    :param round_fn: The function used for rounding, defaulting to the built-in ``round`` function.
+        The string values ``"round"``, ``"floor"`` and ``"ceil"`` are resolved to the corresponding
+        math functions.
+    :raises ValueError: When *round_fn* is an unknown string.
+    :return: The rounded number.
     """
     if isinstance(round_fn, str):
         if round_fn == "round":
@@ -475,6 +522,9 @@ def str_to_int(s: str) -> int:
     """
     Converts a string *s* into an integer under consideration of binary, octal, decimal and
     hexadecimal representations, such as ``"0o0660"``.
+
+    :param s: The string to convert.
+    :return: The integer.
     """
     s = str(s).strip().lower()
     m = re.match(r"^([+-]?)0([bodx])([0-9a-f_]+)$", s)
@@ -488,9 +538,13 @@ def flag_to_bool(s: str | bool, silent: bool = False) -> bool | None:
     """
     Takes a string flag *s* and returns whether it evaluates to *True* (values ``"1"``, ``"true"``
     ``"yes"``, ``"y"``, ``"on"``, case-insensitive) or *False* (values ``"0"``, ``"false"``,
-    `"no"``, ``"n"``, ``"off"``, case-insensitive). When *s* is already a boolean, it is returned
-    unchanged. An error is thrown when *s* is neither of the allowed values and *silent* is *False*.
-    Otherwise, *None* is returned.
+    ``"no"``, ``"n"``, ``"off"``, case-insensitive).
+
+    :param s: The flag. When it is already a boolean, it is returned unchanged.
+    :param silent: When *True*, *None* is returned instead of raising an error when *s* is neither
+        of the allowed values.
+    :raises ValueError: When *s* is neither of the allowed values and *silent* is *False*.
+    :return: The boolean value, or *None*.
     """
     if isinstance(s, bool):
         return s
@@ -509,8 +563,11 @@ def flag_to_bool(s: str | bool, silent: bool = False) -> bool | None:
 
 def custom_context(obj: T) -> Callable[[], AbstractContextManager[T]]:
     """
-    Yields an empty context that can be used in case of dynamically choosing context managers while
-    maintaining code structure.
+    Returns a function that creates an empty context that yields *obj*, which can be used in case of
+    dynamically choosing context managers while maintaining code structure.
+
+    :param obj: The object to yield.
+    :return: A function that creates the context manager.
     """
     @contextlib.contextmanager
     def context() -> Iterator[T]:
@@ -524,16 +581,23 @@ def empty_context(obj: Any | None = None) -> Iterator[T | None]:
     """
     Yields an empty context that can be used in case of dynamically choosing context managers while
     maintaining code structure.
+
+    :param obj: The object to yield.
+    :return: A context manager that yields *obj*.
     """
     yield obj
 
 
 def common_task_params(task_instance, task_cls) -> dict[str, Any]:
     """
-    Returns the parameters that are common between a *task_instance* and a *task_cls* in a
-    dictionary with values taken directly from the task instance. The difference with respect to
+    Returns the parameters that are common between a *task_instance* and a *task_cls* with values
+    taken directly from the task instance. The difference with respect to
     ``luigi.util.common_params`` is that the values are not parsed using the parameter objects of
     the task class, which might be faster for some purposes.
+
+    :param task_instance: The task instance.
+    :param task_cls: The task class.
+    :return: A dictionary mapping parameter names to values.
     """
     task_cls_param_names = {name for name, _ in task_cls.get_params()}
     common_param_names = [
@@ -605,11 +669,17 @@ def colored(
     force: bool = False,
 ) -> str:
     """
-    Return the colored version of a string *msg*. For *color*, *background* and *style* options, see
-    https://misc.flogisoft.com/bash/tip_colors_and_formatting. They can also be explicitely set to
-    ``"random"`` to get a random value. *style* also accepts a sequence of styles that will be
-    stacked. Unless *force* is *True*, the *msg* string is returned unchanged in case the output is
-    neither a tty nor an IPython output stream.
+    Returns the colored version of a string *msg*. For *color*, *background* and *style* options,
+    see https://misc.flogisoft.com/bash/tip_colors_and_formatting.
+
+    :param msg: The message to color.
+    :param color: The text color. ``"random"`` results in a random color.
+    :param background: The background color. ``"random"`` results in a random color.
+    :param style: The style. ``"random"`` results in a random style. A sequence of styles is
+        stacked.
+    :param force: Unless *True*, *msg* is returned unchanged in case the output is neither a tty nor
+        an IPython output stream.
+    :return: The colored message.
     """
     msg = str(msg)
 
@@ -654,7 +724,10 @@ def colored(
 
 def uncolored(s: str) -> str:
     """
-    Removes all color codes from a string *s* and returns it.
+    Removes all color codes from a string *s*.
+
+    :param s: The string.
+    :return: The string without color codes.
     """
     return uncolor_cre.sub("", s)
 
@@ -667,10 +740,18 @@ def query_choice(
     lower: bool = True,
 ) -> str:
     """
-    Interactively query a choice from the prompt until the input matches one of the *choices*. The
-    prompt can be configured using *msg* and *descriptions*, which, if set, must have the same
-    length as *choices*. When *default* is not *None* it must be one of the choices and is used when
-    the input is empty. When *lower* is *True*, the input is compared to the choices in lower case.
+    Interactively queries a choice from the prompt until the input matches one of the *choices*.
+
+    :param msg: The message to show.
+    :param choices: The allowed choices.
+    :param default: When not *None*, the choice used when the input is empty. Must be one of the
+        *choices*.
+    :param descriptions: Optional descriptions of the choices to show. Must have the same length as
+        *choices*.
+    :param lower: When *True*, the input is compared to the choices in lower case.
+    :raises ValueError: When the length of *descriptions* does not match the length of *choices*, or
+        when *default* is not one of the *choices*.
+    :return: The chosen value.
     """
     choices: list[str] = [str(c) for c in choices]
     _choices = [c.lower() for c in choices] if lower else choices
@@ -701,8 +782,11 @@ def query_choice(
 
 def is_pattern(s: str) -> bool:
     """
-    Returns *True* if the string *s* represents a pattern, i.e., if it contains characters such as
+    Returns whether the string *s* represents a pattern, i.e., if it contains characters such as
     ``"*"`` or ``"?"``.
+
+    :param s: The string to check.
+    :return: Whether *s* is a pattern.
     """
     return "*" in s or "?" in s
 
@@ -710,9 +794,7 @@ def is_pattern(s: str) -> bool:
 def brace_expand(s: str, split_csv: bool = False, escape_csv_sep: bool = True) -> list[str]:
     """
     Expands brace statements in a string *s* and returns a list containing all possible string
-    combinations. When *split_csv* is *True*, the input string is split by all comma characters
-    located outside braces, except for escaped ones when *escape_csv_sep* is *True*, and the
-    expansion is performed sequentially on all elements. Example:
+    combinations. Example:
 
     .. code-block:: python
 
@@ -733,6 +815,14 @@ def brace_expand(s: str, split_csv: bool = False, escape_csv_sep: bool = True) -
         brace_expand("A{1,2}B,C{3}D", split_csv=True)
         # note the 2+1 sequential expansion
         # -> ["A1B", "A2B", "C3D"]
+
+    :param s: The string to expand.
+    :param split_csv: When *True*, the input string is split by all comma characters located outside
+        braces and the expansion is performed sequentially on all elements.
+    :param escape_csv_sep: When *True*, escaped commas are not considered for splitting when
+        *split_csv* is *True*.
+    :raises ValueError: When the brace statements cannot be parsed.
+    :return: The list of expanded strings.
     """
     # first, replace escaped braces
     br_open = "__law_brace_open__"
@@ -803,16 +893,11 @@ def range_expand(
 ) -> list[int]:
     """
     Takes a string, or a sequence of strings in the format ``"1:3"``, or a sequence of tuples
-    containing start and stop values of a range and returns a list of all intermediate values. When
-    *include_end* is *True*, the end value is included.
+    containing start and stop values of a range and returns a list of all intermediate values.
 
-    One sided range expressions such as ``":4"`` or ``"4:"`` for strings and ``(None, 4)`` or
-    ``(4, None)`` for tuples are also expanded but they require *min_value* and *max_value* to be
-    set (an exception is raised otherwise), with *max_value* being either included or not, depending
-    on *include_end*.
-
-    Also, when a *min_value* (*max_value*) is set, the minimum (maximum) of expanded range is
-    limited at this value.
+    One sided range expressions such as ``":4"`` or ``"4:"`` for strings and ``(None, 4)`` or ``(4,
+    None)`` for tuples are also expanded but they require *min_value* and *max_value* to be set,
+    with *max_value* being either included or not, depending on *include_end*.
 
     Example:
 
@@ -841,6 +926,17 @@ def range_expand(
 
         range_expand(["5:8", "10:"], max_value=12, include_end=True)
         # -> [5, 6, 7, 8, 10, 11, 12]
+
+    :param s: The range expression(s) to expand.
+    :param include_end: Whether end values are included.
+    :param min_value: The minimum value, used for ranges with missing start values and to limit the
+        expanded ranges.
+    :param max_value: The maximum value, used for ranges with missing stop values and to limit the
+        expanded ranges.
+    :param sep: The separator between start and stop values in strings.
+    :raises ValueError: When a range expression is invalid, or when a one sided range is used
+        without *min_value* or *max_value* being set.
+    :return: The list of expanded values.
     """
     def to_int(v: Any, s: Any | None = None) -> int:
         try:
@@ -921,11 +1017,8 @@ def range_join(
     range_sep: str = ":",
 ) -> list[tuple[int] | tuple[int, int]] | str:
     """
-    Takes a sequence of positive integer numbers given either as integer or string types, and
-    returns a sequence 1- and 2-tuples, denoting either single numbers or start and end values of
-    possible ranges. Unless *include_end* is *True*, end values are not included. When *to_str* is
-    *True*, a string is returned in a format consistent to :py:func:`range_expand` with ranges
-    constructed by *range_sep* and merged with *sep*. Example:
+    Takes a sequence of positive integer numbers and returns a sequence 1- and 2-tuples, denoting
+    either single numbers or start and end values of possible ranges. Example:
 
     .. code-block:: python
 
@@ -940,6 +1033,16 @@ def range_join(
 
         range_join([1, 2, 3, 5, 7, 8, 9], to_str=True)
         # -> "1:4,5,7:10"
+
+    :param numbers: The numbers, given either as integers or strings.
+    :param to_str: When *True*, a string is returned in a format consistent with
+        :py:func:`range_expand`.
+    :param include_end: Whether end values are included.
+    :param sep: The separator between ranges when *to_str* is *True*.
+    :param range_sep: The separator between start and end values when *to_str* is *True*.
+    :raises ValueError: When a string cannot be converted to an integer.
+    :raises TypeError: When a number is not an integer.
+    :return: The list of tuples, or a string when *to_str* is *True*.
     """
     if not numbers:
         return "" if to_str else []
@@ -989,13 +1092,18 @@ def multi_match(
     skip_negation: bool = False,
 ) -> bool:
     """
-    Compares *name* to multiple *patterns* and returns *True* in case of at least one match (*mode* = *any*, the
-    default), or in case all patterns match (*mode* = *all*). Otherwise, *False* is returned.
+    Compares *name* to multiple *patterns*.
 
-    When *regex* is *True*, *re.match* is used instead of *fnmatch.fnmatch*. When *None*, the matching function is
-    chosen per pattern: when containing both "^" and "$", regex matching is used, and fnmatch otherwise.
-
-    Patterns starting with "!" are negated unless *skip_negation* is *True*.
+    :param name: The name to compare.
+    :param patterns: One or multiple patterns. Patterns starting with ``"!"`` are negated unless
+        *skip_negation* is *True*.
+    :param mode: Either :py:func:`any` to require at least one match, or :py:func:`all` to require
+        all patterns to match.
+    :param regex: When *True*, :py:func:`re.match` is used instead of :py:func:`fnmatch.fnmatch`.
+        When *None*, the matching function is chosen per pattern: when containing both ``"^"`` and
+        ``"$"``, regex matching is used, and fnmatch otherwise.
+    :param skip_negation: Whether to disable the negation of patterns starting with ``"!"``.
+    :return: Whether *name* matches according to *mode*.
     """
     patterns = make_list(patterns)
 
@@ -1031,7 +1139,10 @@ def multi_match(
 
 def is_iterable(obj: Any) -> bool:
     """
-    Returns *True* when an object *obj* is iterable and *False* otherwise.
+    Returns whether an object *obj* is iterable.
+
+    :param obj: The object to check.
+    :return: Whether *obj* is iterable.
     """
     try:
         iter(obj)
@@ -1052,14 +1163,21 @@ lazy_iter_types = (
 def is_lazy_iterable(obj: Any) -> bool:
     """
     Returns whether *obj* is iterable lazily, such as generators, range objects, maps, etc.
+
+    :param obj: The object to check.
+    :return: Whether *obj* is a lazy iterable.
     """
     return isinstance(obj, lazy_iter_types)
 
 
 def make_list(obj: Any, cast: bool = True) -> list[Any]:
     """
-    Converts an object *obj* to a list and returns it. Objects of types *tuple* and *set* are
-    converted if *cast* is *True*. Otherwise, and for all other types, *obj* is put in a new list.
+    Converts an object *obj* to a list.
+
+    :param obj: The object to convert.
+    :param cast: Whether objects of types *tuple* and *set* are converted. Otherwise, and for all
+        other types, *obj* is put in a new list.
+    :return: The list.
     """
     if isinstance(obj, list):
         return list(obj)
@@ -1072,8 +1190,12 @@ def make_list(obj: Any, cast: bool = True) -> list[Any]:
 
 def make_tuple(obj: Any, cast: bool = True) -> tuple[Any]:
     """
-    Converts an object *obj* to a tuple and returns it. Objects of types *list* and *set* are
-    converted if *cast* is *True*. Otherwise, and for all other types, *obj* is put in a new tuple.
+    Converts an object *obj* to a tuple.
+
+    :param obj: The object to convert.
+    :param cast: Whether objects of types *list* and *set* are converted. Otherwise, and for all
+        other types, *obj* is put in a new tuple.
+    :return: The tuple.
     """
     if isinstance(obj, tuple):
         return obj
@@ -1086,8 +1208,12 @@ def make_tuple(obj: Any, cast: bool = True) -> tuple[Any]:
 
 def make_set(obj: Any, cast: bool = True) -> set[Any]:
     """
-    Converts an object *obj* to a set and returns it. Objects of types *list* and *tuple* are
-    converted if *cast* is *True*. Otherwise, and for all other types, *obj* is put in a new set.
+    Converts an object *obj* to a set.
+
+    :param obj: The object to convert.
+    :param cast: Whether objects of types *list* and *tuple* are converted. Otherwise, and for all
+        other types, *obj* is put in a new set.
+    :return: The set.
     """
     if isinstance(obj, set):
         return obj
@@ -1100,10 +1226,12 @@ def make_set(obj: Any, cast: bool = True) -> set[Any]:
 
 def make_unique(obj: Iterable[T]) -> Iterable[T]:
     """
-    Takes a list or tuple *obj*, removes duplicate elements in order of their appearance and returns
-    the sequence of remaining, unique elements. The sequence type is preserved. When *obj* is
-    neither a list nor a tuple, but iterable, a list is returned. Otherwise, a *TypeError* is
-    raised.
+    Takes a list or tuple *obj* and removes duplicate elements in order of their appearance.
+
+    :param obj: The list, tuple or other iterable.
+    :raises TypeError: When *obj* is not iterable.
+    :return: The sequence of unique elements with the same type as *obj*, or a list when *obj* is
+        neither a list nor a tuple.
     """
     if not isinstance(obj, (list, tuple)):
         if not is_iterable(obj) and not is_lazy_iterable(obj):
@@ -1118,6 +1246,9 @@ def make_unique(obj: Iterable[T]) -> Iterable[T]:
 def is_nested(obj: Any) -> bool:
     """
     Takes a list or tuple *obj* and checks whether it only contains items of types list and tuple.
+
+    :param obj: The object to check.
+    :return: Whether *obj* is nested.
     """
     return isinstance(obj, (list, tuple)) and all(isinstance(item, (list, tuple)) for item in obj)
 
@@ -1130,9 +1261,14 @@ def flatten(
     flatten_set: bool = True,
 ) -> list[Any]:
     """ flatten(*structs, flatten_dict=True, flatten_list=True, flatten_tuple=True, flatten_set=True)
-    Takes one or multiple complex structured objects *structs*, flattens them, and returns a single
-    list. *flatten_dict*, *flatten_list*, *flatten_tuple* and *flatten_set* configure if objects of
-    the respective types are flattened (the default). If not, they are returned unchanged.
+    Takes one or multiple complex structured objects *structs* and flattens them.
+
+    :param structs: The objects to flatten.
+    :param flatten_dict: Whether dictionaries are flattened. If not, they are returned unchanged.
+    :param flatten_list: Whether lists are flattened. If not, they are returned unchanged.
+    :param flatten_tuple: Whether tuples are flattened. If not, they are returned unchanged.
+    :param flatten_set: Whether sets are flattened. If not, they are returned unchanged.
+    :return: A single flat list.
     """
     if len(structs) == 0:
         return []
@@ -1171,16 +1307,7 @@ def merge_dicts(*dicts, **kwargs):
     """ merge_dicts(*dicts, inplace=False, cls=None, deep=False)
     Takes multiple *dicts* and returns a single merged dict. The merging takes place in order of the
     passed dicts and therefore, values of rear objects have precedence in case of field collisions.
-
-    By default, a new dictionary is returned. However, when *inplace* is *True*, all update
-    operations are performed inplace on the first object in *dicts*.
-
-    When not inplace, the class of the returned merged dict is configurable via *cls*. If it is
-    *None*, the class is inferred from the first dict object in *dicts*.
-
-    When *deep* is *True*, dictionary types within the dictionaries to merge are updated recursively
-    such that their fields are merged. This is only possible when input dictionaries have a similar
-    structure. Example:
+    Example:
 
     .. code-block:: python
 
@@ -1192,6 +1319,18 @@ def merge_dicts(*dicts, **kwargs):
 
         merge_dicts({"foo": 1, "bar": {"a": 1, "b": 2}}, {"bar": 2}, deep=True)
         # -> {"foo": 1, "bar": 2}  # "bar" has a different type, so this just uses the rear value
+
+    :param dicts: The dictionaries to merge.
+    :param inplace: When *True*, all update operations are performed inplace on the first object in
+        *dicts* instead of returning a new dictionary.
+    :param cls: The class of the returned dictionary when not inplace. When *None*, it is inferred
+        from the first dict object in *dicts*.
+    :param deep: When *True*, dictionary types within the dictionaries to merge are updated
+        recursively such that their fields are merged, which is only possible when input
+        dictionaries have a similar structure.
+    :raises ValueError: When *dicts* is empty.
+    :raises TypeError: When *cls* cannot be inferred as none of the passed objects is a dictionary.
+    :return: The merged dictionary.
     """
     if not dicts:
         raise ValueError("cannot merge empty sequence of dictionaries")
@@ -1239,11 +1378,8 @@ def merge_dicts(*dicts, **kwargs):
 def unzip(struct: Iterable, fill_none: bool = False) -> tuple[list[Any], ...] | None:
     """
     Unzips a *struct* consisting of sequences with equal lengths and returns lists with 1st, 2nd,
-    etc elements. This function can be thought of as the opposite of the ``zip`` builtin.
-
-    The number of elements per returned list is determined by the length of the first sequence in
-    *struct*. In case a sequence does contain fewer items an exception is raised. However, if
-    *fill_none* is *True*, *None* is inserted instead.
+    etc elements. This function can be thought of as the opposite of the ``zip`` builtin. The number
+    of elements per returned list is determined by the length of the first sequence in *struct*.
 
     .. code-block:: python
 
@@ -1255,6 +1391,12 @@ def unzip(struct: Iterable, fill_none: bool = False) -> tuple[list[Any], ...] | 
 
         unzip([(1, 2), (3,)], fill_none=True)
         # -> ([1, 3], [2, None])
+
+    :param struct: The sequences to unzip.
+    :param fill_none: When *True*, *None* is inserted for missing items of shorter sequences.
+    :raises ValueError: When a sequence contains fewer items than the first one and *fill_none* is
+        *False*.
+    :return: A tuple of lists.
     """
     lists: tuple | None = None
     for j, obj in enumerate(struct):
@@ -1279,8 +1421,10 @@ def unzip(struct: Iterable, fill_none: bool = False) -> tuple[list[Any], ...] | 
 
 def which(prog: str) -> str | None:
     """
-    Pythonic ``which`` implementation. Returns the path to an executable *prog* by searching in
-    *PATH*, or *None* when it could not be found.
+    Pythonic ``which`` implementation that searches for an executable *prog* in *PATH*.
+
+    :param prog: The name of the executable.
+    :return: The path to the executable, or *None* when it could not be found.
     """
     executable = lambda path: os.path.isfile(path) and os.access(path, os.X_OK)
 
@@ -1311,11 +1455,7 @@ def map_verbose(
 ) -> list[T]:
     """
     Same as the built-in map function but prints a *msg* after chunks of size *every* iterations.
-    When *start* (*stop*) is *True*, the *msg* is also printed after the first (last) iteration.
-    Note that *msg* is supposed to be a template string that will be formatted with the current
-    iteration number (starting at 0) plus *offset* using ``str.format``. When *callback* is
-    callable, it is invoked instead of the default print method with the current iteration number
-    (without *offset*) as the only argument. Example:
+    Example:
 
     .. code-block:: python
 
@@ -1327,6 +1467,18 @@ def map_verbose(
         # computing square of 2
         # computing square of 5
         # computing square of 6
+
+    :param func: The function to apply.
+    :param seq: The sequence to iterate over.
+    :param msg: A template string that is formatted with the current iteration number (starting at
+        0) plus *offset* using ``str.format``.
+    :param every: The number of iterations after which *msg* is printed.
+    :param start: Whether *msg* is also printed after the first iteration.
+    :param end: Whether *msg* is also printed after the last iteration.
+    :param offset: An offset added to the iteration number in *msg*.
+    :param callback: When callable, it is invoked instead of the default print method with the
+        current iteration number (without *offset*) as the only argument.
+    :return: The list of results.
     """
     # default callable
     if not callable(callback):
@@ -1368,12 +1520,7 @@ def map_struct(
         map_struct(times_two, struct)
         # -> {"foo": [246, 912], "bar": [{"1": 2}, {"2": 4}]}
 
-    *map_dict*, *map_list*, *map_tuple* and *map_set* configure if objects of the respective types
-    are traversed or mapped as a whole. They can be booleans or integer values defining the depth of
-    that setting in the struct. When *cls* is not *None*, it exclusively defines the class of
-    objects that *func* is applied on. All other objects are unchanged. *custom_mappings* key be a
-    dictionary that maps custom types to custom object traversal methods. The following example
-    would tranverse lists backwards:
+    The following example would traverse lists backwards using *custom_mappings*:
 
     .. code-block:: python
 
@@ -1382,6 +1529,21 @@ def map_struct(
 
         map_struct(times_two, struct, custom_mappings={list: traverse_lists})
         # -> {"foo": [912, 246], "bar": [{"1": 2}, {"2": 4}]}
+
+    :param func: The function to apply.
+    :param struct: The structure to traverse.
+    :param map_dict: Whether dictionaries are traversed or mapped as a whole. An integer value
+        defines the depth of that setting in the struct.
+    :param map_list: Whether lists are traversed or mapped as a whole. An integer value defines the
+        depth of that setting in the struct.
+    :param map_tuple: Whether tuples are traversed or mapped as a whole. An integer value defines
+        the depth of that setting in the struct.
+    :param map_set: Whether sets are traversed or mapped as a whole. An integer value defines the
+        depth of that setting in the struct.
+    :param cls: When not *None*, it exclusively defines the class of objects that *func* is applied
+        on. All other objects are unchanged.
+    :param custom_mappings: A dictionary that maps custom types to custom object traversal methods.
+    :return: The mapped structure.
     """
     # interpret generators and views as lists
     if is_lazy_iterable(struct):
@@ -1477,16 +1639,7 @@ def mask_struct(
     convert_types: dict[type | tuple[type, ...], Callable[[Any], Any]] | None = None,
 ) -> Any:
     """
-    Masks a complex structured object *struct* with a *mask* and returns the remaining values. When
-    *replace* is set, masked values are replaced with that value instead of being removed. The
-    *mask* can have a complex structure as well.
-
-    In case an item in *struct* is not matched by a value in *mask*, the item is kept unless
-    *keep_missing* is *False*. When *keep_missing* is *True*, unmatched items are removed.
-
-    *convert_types* can be a dictionary containing conversion functions mapped to types (or tuples)
-    thereof that is applied to objects during the struct traversal if their types match.
-
+    Masks a complex structured object *struct* with a *mask* and returns the remaining values.
     Examples:
 
     .. code-block:: python
@@ -1500,6 +1653,16 @@ def mask_struct(
         # omitting mask information results in kept values
         mask_struct({"a": [False, True]}, struct)
         # => {"a": [2], "b": [3, ["foo", "bar"]]}
+
+    :param mask: The mask, which can have a complex structure as well.
+    :param struct: The structure to mask.
+    :param replace: When set, masked values are replaced with that value instead of being removed.
+    :param keep_missing: Whether items in *struct* that are not matched by a value in *mask* are
+        kept.
+    :param convert_types: A dictionary containing conversion functions mapped to types (or tuples
+        thereof) that is applied to objects during the struct traversal if their types match.
+    :raises TypeError: When *mask* and *struct* have incompatible types.
+    :return: The masked structure.
     """
     # interpret lazy iterables lists
     if is_lazy_iterable(struct):
@@ -1572,9 +1735,12 @@ def mask_struct(
 def tmp_file(*args, **kwargs) -> Iterator[tuple[int, str]]:
     """
     Context manager that creates an empty, temporary file, yields the file descriptor number and
-    temporary path, and eventually removes it. All *args* and *kwargs* are passed to
-    :py:meth:`tempfile.mkstemp`. The behavior of this function is similar to
+    temporary path, and eventually removes it. The behavior of this function is similar to
     ``tempfile.NamedTemporaryFile`` which, however, yields an already opened file object.
+
+    :param args: Arguments forwarded to :py:func:`tempfile.mkstemp`.
+    :param kwargs: Keyword arguments forwarded to :py:func:`tempfile.mkstemp`.
+    :return: A context manager that yields a 2-tuple with the file descriptor number and the path.
     """
     fileno, path = tempfile.mkstemp(*args, **kwargs)
 
@@ -1602,29 +1768,28 @@ def interruptable_popen(
 ) -> tuple[int, str | None, str | None]:
     """
     Shorthand to :py:class:`Popen` followed by :py:meth:`Popen.communicate` which can be interrupted
-    by *KeyboardInterrupt*. The return code, standard output and standard error are returned in a
-    3-tuple.
+    by *KeyboardInterrupt*.
 
     The default value of *stdin* depends on whether a *stdin_callback* is provided. It is set to
-    ``subprocess.PIPE`` if *stdin_callback* is set, and to ``subprocess.DEVNULL`` otherwise. In
-    case the subprocess should "inherit" the standard input of the parent process, *stdin* should
-    be manually set to ``None``.
+    ``subprocess.PIPE`` if *stdin_callback* is set, and to ``subprocess.DEVNULL`` otherwise. In case
+    the subprocess should "inherit" the standard input of the parent process, *stdin* should be
+    manually set to ``None``.
 
-    *stdin_callback* can be a function accepting no arguments and whose return value is passed to
-    ``communicate`` after a delay of *stdin_delay* to feed data input to the subprocess.
-
-    *interrupt_callback* can be a function, accepting the process instance as an argument, that is
-    called immediately after a *KeyboardInterrupt* occurs. After that, a SIGTERM signal is send to
-    the subprocess to allow it to gracefully shutdown.
-
-    When *kill_timeout* is set, and the process is still alive after that period (in seconds), a
-    SIGKILL signal is sent to force the process termination.
-
-    In case a *processes* list is defined, the process is appended to it right after it was created.
-    This can be useful to keep track of multiple processes and sending signals to them from an
-    outer context.
-
-    *cmd* and all other *args* and *kwargs* are forwarded to the :py:class:`Popen` constructor.
+    :param cmd: The command, forwarded to the :py:class:`Popen` constructor.
+    :param args: Arguments forwarded to the :py:class:`Popen` constructor.
+    :param stdin_callback: A function accepting no arguments and whose return value is passed to
+        ``communicate`` after a delay of *stdin_delay* to feed data input to the subprocess.
+    :param stdin_delay: The delay in seconds before *stdin_callback* is invoked.
+    :param interrupt_callback: A function, accepting the process instance as an argument, that is
+        called immediately after a *KeyboardInterrupt* occurs. After that, a SIGTERM signal is sent
+        to the subprocess to allow it to gracefully shutdown.
+    :param kill_timeout: When set, and the process is still alive after that period (in seconds)
+        after an interrupt, a SIGKILL signal is sent to force the process termination.
+    :param processes: When set, the process is appended to it right after it was created. This can
+        be useful to keep track of multiple processes and sending signals to them from an outer
+        context.
+    :param kwargs: Keyword arguments forwarded to the :py:class:`Popen` constructor.
+    :return: A 3-tuple with the return code, standard output and standard error.
     """
     # default stdin setting
     kwargs.setdefault("stdin", subprocess.PIPE if callable(stdin_callback) else subprocess.DEVNULL)
@@ -1677,8 +1842,11 @@ def interruptable_popen(
 
 def send_signal_silent(pid: int, sig: int) -> bool:
     """
-    Sends a signal *sig* to a process with id *pid* and returns *True* if the signal was sent
-    (i.e., the process existed), and *False* otherwise.
+    Sends a signal *sig* to a process with id *pid*.
+
+    :param pid: The process id.
+    :param sig: The signal.
+    :return: Whether the signal was sent, i.e., the process existed.
     """
     try:
         os.kill(pid, sig)
@@ -1689,10 +1857,14 @@ def send_signal_silent(pid: int, sig: int) -> bool:
 
 def get_subprocess_pids(pid: int, recursive: bool = False, use_psutil: bool = True) -> list[int]:
     """
-    Given the *pid* of a process, returns a list of ids for all subprocesses. When *recursive* is *True*, the list
-    includes all descendant processes as well.
+    Given the *pid* of a process, returns a list of ids for all subprocesses.
 
-    Unless *use_psutil* is *False*, the implementation uses the psutil library if installed.
+    :param pid: The process id.
+    :param recursive: When *True*, the list includes all descendant processes as well.
+    :param use_psutil: Unless *False*, the implementation uses the psutil library if installed.
+    :raises TypeError: When *pid* is not an integer.
+    :raises RuntimeError: When the subprocess ids could not be determined without psutil.
+    :return: The list of process ids.
     """
     if not isinstance(pid, int):
         raise TypeError(f"pid must be an integer, got '{pid}'")
@@ -1774,11 +1946,11 @@ def kill_process(
     """
     Terminates a running process *p* with SIGTERM.
 
-    When *recursive* is *True*, the termination of all subprocesses is enforced as well (if not
-    already triggered by the main process termination).
-
-    When *kill_timeout* is set, and the process is still running after that period (in seconds), a
-    SIGKILL signal is sent to force the termination.
+    :param p: The process.
+    :param recursive: When *True*, the termination of all subprocesses is enforced as well (if not
+        already triggered by the main process termination).
+    :param kill_timeout: When set, and the process is still running after that period (in seconds),
+        a SIGKILL signal is sent to force the termination.
     """
     # do nothing when the process does no longer exist
     if not send_signal_silent(p.pid, 0):
@@ -1818,8 +1990,7 @@ def kill_process(
 def readable_popen(*args, **kwargs) -> tuple[subprocess.Popen, Iterable[str]]:
     """
     Creates a :py:class:`Popen` object and a generator function yielding the output line-by-line as
-    it comes in. All *args* and *kwargs* are forwarded to the :py:class:`Popen` constructor.
-    Example:
+    it comes in. Example:
 
     .. code-block:: python
 
@@ -1835,6 +2006,11 @@ def readable_popen(*args, **kwargs) -> tuple[subprocess.Popen, Iterable[str]]:
 
     ``communicate()`` is called automatically after the output iteration terminates which sets the
     subprocess' *returncode* member.
+
+    :param args: Arguments forwarded to the :py:class:`Popen` constructor.
+    :param kwargs: Keyword arguments forwarded to the :py:class:`Popen` constructor. *stdout* and
+        *stderr* are overwritten.
+    :return: A 2-tuple with the :py:class:`Popen` object and the line generator.
     """
     # force pipes
     kwargs["stdout"] = subprocess.PIPE
@@ -1854,10 +2030,14 @@ def readable_popen(*args, **kwargs) -> tuple[subprocess.Popen, Iterable[str]]:
 
 def create_hash(inp: Any, length: int = 10, algo: str = "sha256", to_int: bool = False) -> str | int:
     """
-    Takes an arbitrary input *inp* and creates a hexadecimal string hash based on an algorithm
-    *algo*. For valid algorithms, see python's hashlib. *length* corresponds to the maximum length of the
-    returned hash and is limited by the length of the hexadecimal representation produced by the
-    hashing algorithm. When *to_int* is *True*, the decimal integer representation is returned.
+    Takes an arbitrary input *inp* and creates a hexadecimal string hash.
+
+    :param inp: The input, which is converted to a string first.
+    :param length: The maximum length of the returned hash, limited by the length of the hexadecimal
+        representation produced by the hashing algorithm.
+    :param algo: The name of the algorithm. For valid algorithms, see python's hashlib.
+    :param to_int: When *True*, the decimal integer representation is returned.
+    :return: The hash.
     """
     h = getattr(hashlib, algo)(str(inp).encode("utf-8")).hexdigest()[:length]
     return int(h, 16) if to_int else h
@@ -1865,8 +2045,12 @@ def create_hash(inp: Any, length: int = 10, algo: str = "sha256", to_int: bool =
 
 def compute_sha1_hash(path: str | pathlib.Path, to_int: bool = False) -> str | int:
     """
-    For a file located at *path*, computes the SHA1 hash and returns it as a hexadecimal string. When
-    *to_int* is *True*, the decimal integer representation is returned.
+    Computes the SHA1 hash of a file located at *path*.
+
+    :param path: The path of the file.
+    :param to_int: When *True*, the decimal integer representation is returned.
+    :raises RuntimeError: When the hash computation failed.
+    :return: The hash as a hexadecimal string, or as an integer when *to_int* is *True*.
     """
     path = os.path.abspath(os.path.expandvars(os.path.expanduser(str(path))))
     cmd = ["sha1sum", path]
@@ -1885,8 +2069,11 @@ def compute_sha1_hash(path: str | pathlib.Path, to_int: bool = False) -> str | i
 
 def create_random_string(length: int = 10, prefix: str = "") -> str:
     """
-    Creates and returns a random string consisting of *length* characters using a uuid4 hash. When
-    *prefix* is given, the string will have the format ``<prefix>_<random_string>``.
+    Creates a random string using a uuid4 hash.
+
+    :param length: The number of random characters.
+    :param prefix: When given, the string will have the format ``<prefix>_<random_string>``.
+    :return: The random string.
     """
     s = ""
     while len(s) < length:
@@ -1900,6 +2087,9 @@ def create_random_string(length: int = 10, prefix: str = "") -> str:
 def copy_no_perm(src: str | pathlib.Path, dst: str | pathlib.Path) -> None:
     """
     Copies a file from *src* to *dst* including meta data except for permission bits.
+
+    :param src: The source path.
+    :param dst: The destination path.
     """
     src, dst = str(src), str(dst)
     shutil.copyfile(src, dst)
@@ -1911,8 +2101,10 @@ def copy_no_perm(src: str | pathlib.Path, dst: str | pathlib.Path) -> None:
 def makedirs(path: str | pathlib.Path, perm: int | None = None) -> None:
     """
     Recursively creates directories up to *path*. No exception is raised if *path* refers to an
-    existing directory. If *perm* is set, the permissions of all newly created directories are set
-    to this value.
+    existing directory.
+
+    :param path: The path of the directory.
+    :param perm: When set, the permissions of all newly created directories are set to this value.
     """
     # nothing to do when the directory already exists
     path = str(path)
@@ -1943,8 +2135,11 @@ def makedirs(path: str | pathlib.Path, perm: int | None = None) -> None:
 
 def user_owns_file(path: str | pathlib.Path, uid: int | None = None) -> bool:
     """
-    Returns whether a file located at *path* is owned by the user with *uid*. When *uid* is *None*,
-    the user id of the current process is used.
+    Returns whether a file located at *path* is owned by the user with *uid*.
+
+    :param path: The path of the file.
+    :param uid: The user id. When *None*, the user id of the current process is used.
+    :return: Whether the user owns the file.
     """
     if uid is None:
         uid = os.getuid()
@@ -1954,10 +2149,12 @@ def user_owns_file(path: str | pathlib.Path, uid: int | None = None) -> bool:
 
 def increment_path(path: str | pathlib.Path, n: int | None = None) -> str:
     """
-    Takes a file path *path* and returns a new path with a counter appended to the basename. When
-    *n* is a number (and in particular, not *None*), the counter is increased by that number. When
-    *n* is *None*, a new counter is determined by checking the directory for existing files with the
-    same basename. The new path is returned.
+    Takes a file path *path* and returns a new path with a counter appended to the basename.
+
+    :param path: The path.
+    :param n: When a number, the counter is increased by that number. When *None*, a new counter is
+        determined by checking the directory for existing files with the same basename.
+    :return: The new path.
     """
     path = os.path.abspath(os.path.expandvars(os.path.expanduser(str(path))))
     dirname, basename = os.path.split(path)
@@ -1989,8 +2186,11 @@ def increment_path(path: str | pathlib.Path, n: int | None = None) -> str:
 
 def iter_chunks(obj: int | Iterable[Any], size: int) -> Iterator[list[int | Any]]:
     """
-    Returns a generator containing chunks of *size* of a list, integer or generator *obj*. A *size*
-    smaller than 1 results in no chunking at all.
+    Returns a generator containing chunks of *size* of a list, integer or generator *obj*.
+
+    :param obj: The object to chunk. An integer is interpreted as a range.
+    :param size: The size of chunks. A size smaller than 1 results in no chunking at all.
+    :return: Generator that yields lists of chunked elements.
     """
     _l: Iterable = range(obj) if isinstance(obj, int) else obj
 
@@ -2027,13 +2227,9 @@ def chunk_slice_ranges(
     stop: int | None = None,
 ) -> list[tuple[int, int] | None]:
     """
-    Takes a list of chunk *sizes* (which can be iterables whose sizes are then used instead) and
-    desired *start* and *stop* indices to return a list of 2-tuples marking the slice indices for
-    each size so that the total *start* and *stop* indices are covered.
-
-    The returned list has the same length as *sizes* and contains 2-tuples or *None* in case a
-    chunk is not covered. *stop* is allowed to be negative, using the total size as a reference.
-    Example:
+    Takes a list of chunk *sizes* and desired *start* and *stop* indices to return a list of
+    2-tuples marking the slice indices for each size so that the total *start* and *stop* indices
+    are covered. Example:
 
     .. :code-block:: python
 
@@ -2045,6 +2241,14 @@ def chunk_slice_ranges(
 
         slice_ranges([10, 10, 10], 5, -5)
         # -> [(5, 10), (0, 10), (0, 5)]
+
+    :param sizes: The chunk sizes, which can also be iterables whose sizes are used instead.
+    :param start: The total start index.
+    :param stop: The total stop index. It is allowed to be negative, using the total size as a
+        reference.
+    :raises ValueError: When *start* and *stop* are invalid for the total size.
+    :return: A list with the same length as *sizes*, containing 2-tuples or *None* in case a chunk
+        is not covered.
     """
     # convert sizes to integers
     _sizes = [(s if isinstance(s, int) else len(s)) for s in sizes]
@@ -2089,9 +2293,7 @@ def human_bytes(
 ) -> tuple[float, str] | str:
     """
     Takes a number of bytes *n*, assigns the best matching unit and returns the respective number
-    and unit string in a tuple. When *unit* is set, that unit is used. When *fmt* is set, it is
-    expected to be a string template with two elements that are filled via *str.format*. It can also
-    be a boolean value in which case the template defaults to ``"{:.1f} {}"`` when *True*. Example:
+    and unit string. Example:
 
     .. code-block:: python
 
@@ -2106,6 +2308,14 @@ def human_bytes(
 
         human_bytes(3407872, fmt=True)
         # -> "3.2 MB"
+
+    :param n: The number of bytes.
+    :param unit: When set, that unit is used.
+    :param fmt: When set, a string template with two elements that are filled via *str.format*. It
+        can also be a boolean value in which case the template defaults to ``"{:.1f} {}"`` when
+        *True*.
+    :raises ValueError: When *unit* is unknown.
+    :return: A 2-tuple with the number and the unit, or a formatted string when *fmt* is set.
     """
     # check if the unit exists
     if unit and unit not in byte_units:
@@ -2138,8 +2348,7 @@ def human_bytes(
 def parse_bytes(s: str | int | float, input_unit: str = "bytes", unit: str = "bytes") -> float:
     """
     Takes a string *s*, interprets it as a size with an optional unit, and returns a float that
-    represents that size in a given *unit*. When no unit is found in *s*, *input_unit* is used as a
-    default. A *ValueError* is raised, when *s* cannot be successfully converted. Example:
+    represents that size in a given *unit*. Example:
 
     .. code-block:: python
 
@@ -2160,6 +2369,12 @@ def parse_bytes(s: str | int | float, input_unit: str = "bytes", unit: str = "by
 
         parse_bytes(2048, "kB", unit="MB")  # note the float type of the first argument
         # -> 2.0
+
+    :param s: The size to parse.
+    :param input_unit: The unit used when no unit is found in *s*.
+    :param unit: The unit of the returned size.
+    :raises ValueError: When *s* cannot be parsed, or when *unit* or *input_unit* is unknown.
+    :return: The size in *unit*.
     """
     # check if the units exists
     if input_unit.lower() not in byte_units_lower:
@@ -2217,53 +2432,55 @@ time_unit_aliases: dict[str, str] = {
 
 def human_duration(colon_format: bool | str = False, plural: bool = True, **kwargs) -> str:
     """
-    Returns a human readable duration. The largest unit is days. When *colon_format* is *True*, the
-    return value has the format ``"[d-][hh:]mm:ss[.ms]"``. *colon_format* can also be a string value
-    referring to a limiting  unit. In that case, the returned time string has no field above that
-    unit, e.g. passing ``"m"`` results in a string ``"mm:ss[.ms]"`` where the minute field is
-    potentially larger than 60. Passing ``"s"`` is a special case. Since the colon format always has
-    a minute field (to mark it as colon format in the first place), the returned string will have
-    the format ``"00:ss[.ms]"``. Unless *plural* is *False*, units corresponding to values other
-    than **exactly** one are used in plural e.g. ``"1 second"`` but ``"1.5 seconds"``.
-
-    All other *kwargs* are passed to ``datetime.timedelta`` to get the total duration in seconds.
-
-    Example:
+    Returns a human readable duration. The largest unit is days. Example:
 
     .. code-block:: python
 
-    human_duration(seconds=1233)
-    # -> "20 minutes, 33 seconds"
+        human_duration(seconds=1233)
+        # -> "20 minutes, 33 seconds"
 
-    human_duration(seconds=90001)
-    # -> "1 day, 1 hour, 1 second"
+        human_duration(seconds=90001)
+        # -> "1 day, 1 hour, 1 second"
 
-    human_duration(seconds=1233, colon_format=True)
-    # -> "20:33"
+        human_duration(seconds=1233, colon_format=True)
+        # -> "20:33"
 
-    human_duration(seconds=-1233, colon_format=True)
-    # -> "-20:33"
+        human_duration(seconds=-1233, colon_format=True)
+        # -> "-20:33"
 
-    human_duration(seconds=90001, colon_format=True)
-    # -> "1-01:00:01"
+        human_duration(seconds=90001, colon_format=True)
+        # -> "1-01:00:01"
 
-    human_duration(seconds=90001, colon_format="h")
-    # -> "25:00:01"
+        human_duration(seconds=90001, colon_format="h")
+        # -> "25:00:01"
 
-    human_duration(seconds=65, colon_format="s")
-    # -> "00:65"
+        human_duration(seconds=65, colon_format="s")
+        # -> "00:65"
 
-    human_duration(minutes=15, colon_format=True)
-    # -> "15:00"
+        human_duration(minutes=15, colon_format=True)
+        # -> "15:00"
 
-    human_duration(minutes=15)
-    # -> "15 minutes"
+        human_duration(minutes=15)
+        # -> "15 minutes"
 
-    human_duration(minutes=15, plural=False)
-    # -> "15 minute"
+        human_duration(minutes=15, plural=False)
+        # -> "15 minute"
 
-    human_duration(minutes=-15)
-    # -> "minus 15 minutes"
+        human_duration(minutes=-15)
+        # -> "minus 15 minutes"
+
+    :param colon_format: When *True*, the return value has the format ``"[d-][hh:]mm:ss[.ms]"``. It
+        can also be a string value referring to a limiting unit. In that case, the returned time
+        string has no field above that unit, e.g. passing ``"m"`` results in a string
+        ``"mm:ss[.ms]"`` where the minute field is potentially larger than 60. Passing ``"s"`` is a
+        special case. Since the colon format always has a minute field (to mark it as colon format
+        in the first place), the returned string will have the format ``"00:ss[.ms]"``.
+    :param plural: Unless *False*, units corresponding to values other than **exactly** one are used
+        in plural e.g. ``"1 second"`` but ``"1.5 seconds"``.
+    :param kwargs: Keyword arguments forwarded to ``datetime.timedelta`` to get the total duration
+        in seconds.
+    :raises ValueError: When *colon_format* refers to an unknown unit.
+    :return: The human readable duration.
     """
     _time_units = ["day", "hour", "minute", "second"]
 
@@ -2338,9 +2555,7 @@ def human_duration(colon_format: bool | str = False, plural: bool = True, **kwar
 def parse_duration(s: int | float | str, input_unit: str = "s", unit: str = "s") -> float:
     """
     Takes a string *s*, interprets it as a duration with an optional unit, and returns a float that
-    represents that size in a given *unit*. When no unit is found in *s*, *input_unit* is used as a
-    default. A *ValueError* is raised, when *s* cannot be successfully converted. Multiple input
-    formats are parsed: Example:
+    represents that duration in a given *unit*. Multiple input formats are parsed. Example:
 
     .. code-block:: python
 
@@ -2392,6 +2607,12 @@ def parse_duration(s: int | float | str, input_unit: str = "s", unit: str = "s")
 
         parse_duration("minus 10 mins and 15 secs")
         # -> -615.0
+
+    :param s: The duration to parse.
+    :param input_unit: The unit used when no unit is found in *s*.
+    :param unit: The unit of the returned duration.
+    :raises ValueError: When *s* cannot be parsed, or when *unit* or *input_unit* is unknown.
+    :return: The duration in *unit*.
     """
     # consider unit aliases
     input_unit = time_unit_aliases.get(input_unit, input_unit)
@@ -2482,9 +2703,15 @@ def send_mail(
     smtp_port: int = 25,
 ) -> bool:
     """
-    Lightweight mail functionality. Sends an mail from *sender* to *recipient* with *subject* and
-    *content*. *smtp_host* and *smtp_port* are forwarded to the ``smtplib.SMTP`` constructor. *True*
-    is returned on success, *False* otherwise.
+    Lightweight mail functionality that sends a mail from *sender* to *recipient*.
+
+    :param recipient: The recipient address.
+    :param sender: The sender address.
+    :param subject: The subject.
+    :param content: The content.
+    :param smtp_host: The host forwarded to the ``smtplib.SMTP`` constructor.
+    :param smtp_port: The port forwarded to the ``smtplib.SMTP`` constructor.
+    :return: Whether the mail was sent successfully.
     """
     try:
         server = smtplib.SMTP(smtp_host, smtp_port)
@@ -2528,8 +2755,12 @@ class DotDict(collections.OrderedDict):
     @classmethod
     def wrap(cls, *args, **kwargs) -> DotDict:
         """
-        Takes a dictionary *d* and recursively replaces it and all other nested dictionary types
-        with :py:class:`DotDict`'s for deep attribute-style access.
+        Creates a dictionary and recursively replaces it and all other nested dictionary types with
+        :py:class:`DotDict`'s for deep attribute-style access.
+
+        :param args: Arguments forwarded to the :py:class:`dict` constructor.
+        :param kwargs: Keyword arguments forwarded to the :py:class:`dict` constructor.
+        :return: The wrapped dictionary.
         """
         wrap: Callable[[Any], DotDict]
         wrap = lambda d: cls((k, wrap(v)) for k, v in d.items()) if isinstance(d, dict) else d
@@ -2545,7 +2776,11 @@ class DotDict(collections.OrderedDict):
         self[attr] = value
 
     def copy(self) -> DotDict:
-        """"""
+        """
+        Returns a deep copy of this dictionary.
+
+        :return: The copy.
+        """
         return copy.deepcopy(self)
 
 
@@ -2590,7 +2825,11 @@ class ShorthandDict(dict):
         self.update(kwargs)
 
     def copy(self) -> ShorthandDict:
-        """"""
+        """
+        Returns a deep copy of this dictionary.
+
+        :return: The copy.
+        """
         kwargs = {key: copy.deepcopy(value) for key, value in self.items()}
         return self.__class__(**kwargs)
 
@@ -2660,25 +2899,36 @@ class InsertableDict(dict):
 
     def insert_before(self, before_key: Hashable, key: Hashable | list | dict, value: Any = None) -> None:
         """
-        Inserts a *key* - *value* pair before the key *before_key*. If this key does not exist, the new pair is added at
-        the end. When *key* is list of item pairs or a dictionary, and value is :py:attr:`no_value`, multiple new values
-        are inserted.
+        Inserts a *key* - *value* pair before the key *before_key*.
+
+        :param before_key: The key before which the pair is inserted. If it does not exist, the new
+            pair is added at the end.
+        :param key: The key. When it is a list of item pairs or a dictionary, and *value* is
+            :py:attr:`no_value`, multiple new values are inserted.
+        :param value: The value.
         """
         self._insert(before_key, key, value, 0)
 
     def insert_after(self, after_key: Hashable, key: Hashable | list | dict, value: Any = None) -> None:
         """
-        Inserts a *key* - *value* pair after the key *after_key*. If this key does not exist, the new pair is added at
-        the end. When *key* is list of item pairs or a dictionary, and value is :py:attr:`no_value`, multiple new values
-        are inserted.
+        Inserts a *key* - *value* pair after the key *after_key*.
+
+        :param after_key: The key after which the pair is inserted. If it does not exist, the new
+            pair is added at the end.
+        :param key: The key. When it is a list of item pairs or a dictionary, and *value* is
+            :py:attr:`no_value`, multiple new values are inserted.
+        :param value: The value.
         """
         self._insert(after_key, key, value, 1)
 
     def prepend(self, key: Hashable | list | dict, value: Any = no_value) -> None:
         """
-        Adds a new *key* - *value* pair at the beginning of the dictionary. When *value* is :py:attr:`no_value`, *key*
-        is assumed to exist already in the dictionary and moved to the beginning. When *key* is list of item pairs or a
-        dictionary, and value is :py:attr:`no_value`, multiple new values are prepended (in the given order).
+        Adds a new *key* - *value* pair at the beginning of the dictionary.
+
+        :param key: The key. When it is a list of item pairs or a dictionary, and *value* is
+            :py:attr:`no_value`, multiple new values are prepended (in the given order).
+        :param value: The value. When :py:attr:`no_value`, *key* is assumed to exist already in the
+            dictionary and moved to the beginning.
         """
         first_key = next(iter(self)) if self else no_value
         if value is no_value and not isinstance(key, (list, dict)):
@@ -2687,9 +2937,12 @@ class InsertableDict(dict):
 
     def append(self, key: Hashable | list | dict, value: Any = no_value) -> None:
         """
-        Adds a new *key* - *value* pair at the end of the dictionary. When *value* is :py:attr:`no_value`, *key* is
-        assumed to exist already in the dictionary and moved to the end. When *key* is list of item pairs or a
-        dictionary, and value is :py:attr:`no_value`, multiple new values are appended (in the given order).
+        Adds a new *key* - *value* pair at the end of the dictionary.
+
+        :param key: The key. When it is a list of item pairs or a dictionary, and *value* is
+            :py:attr:`no_value`, multiple new values are appended (in the given order).
+        :param value: The value. When :py:attr:`no_value`, *key* is assumed to exist already in the
+            dictionary and moved to the end.
         """
         last_key = list(self)[-1] if self else no_value
         if value is no_value and not isinstance(key, (list, dict)):
@@ -2708,10 +2961,16 @@ def patch_object(
 ) -> Generator[T, None, None]:
     """
     Context manager that temporarily patches an object *obj* by replacing its attribute *attr* with
-    *value*. The original value is set again when the context is closed unless *reset* is *False*.
-    The original value is obtained through ``getattr`` or taken from *orig* if set. When *lock* is
-    *True*, the py:attr:`default_lock` object is used to ensure the patch is thread-safe.
-    When *lock* is a lock instance, this object is used instead.
+    *value*.
+
+    :param obj: The object to patch.
+    :param attr: The name of the attribute.
+    :param value: The temporary value.
+    :param reset: Whether the original value is set again when the context is closed.
+    :param orig: The original value. When not set, it is obtained through ``getattr``.
+    :param lock: When *True*, the :py:attr:`default_lock` object is used to ensure the patch is
+        thread-safe. When it is a lock instance, this object is used instead.
+    :return: A context manager that yields *obj*.
     """
     if orig is no_value:
         # get the original value
@@ -2743,11 +3002,14 @@ def join_generators(
     on_error: Callable[[Exception | KeyboardInterrupt], Any] | None = None,
 ) -> Generator[Any, None, None]:
     """
-    Joins multiple *generators* and returns a single generator for simplified iteration. Yielded
-    objects are transparently sent back to ``yield`` assignments of the same generator. When
-    *on_error* is callable, it is invoked in case an exception is raised while iterating, including
-    *KeyboardInterrupt*'s. If its return value evaluates to *True*, the state is reset and
-    iterations continue. Otherwise, the exception is raised.
+    Joins multiple *generators* into a single generator for simplified iteration. Yielded objects
+    are transparently sent back to ``yield`` assignments of the same generator.
+
+    :param generators: The generators to join.
+    :param on_error: When callable, it is invoked in case an exception is raised while iterating,
+        including *KeyboardInterrupt*'s. If its return value evaluates to *True*, the state is reset
+        and iterations continue. Otherwise, the exception is raised.
+    :return: The joined generator.
     """
     for gen in generators:
         last_result: Any = no_value
@@ -2765,8 +3027,7 @@ def join_generators(
 def quote_cmd(cmd: str | Sequence[str | Sequence[str]]) -> str:
     """
     Takes a shell command *cmd* given as a list and returns a single string representation of that
-    command with proper quoting. To denote nested commands (such as shown below), *cmd* can also
-    contain nested lists. Example:
+    command with proper quoting. Example:
 
     .. code-block:: python
 
@@ -2775,6 +3036,9 @@ def quote_cmd(cmd: str | Sequence[str | Sequence[str]]) -> str:
 
         print(quote_cmd(["bash", "-c", ["echo", "foobar"]]))
         # -> "bash -c 'echo foobar'"
+
+    :param cmd: The command. Nested lists denote nested commands (such as shown above).
+    :return: The quoted command string.
     """
     # expand lists recursively
     parts = (
@@ -2788,8 +3052,10 @@ def quote_cmd(cmd: str | Sequence[str | Sequence[str]]) -> str:
 
 def escape_markdown(s: str) -> str:
     """
-    Escapes all characters in a string *s* that coupld be confused for markdown formatting strings
-    and returns it.
+    Escapes all characters in a string *s* that could be confused for markdown formatting strings.
+
+    :param s: The string.
+    :return: The escaped string.
     """
     return re.sub(r"([^\\]?)(\(|\)|=|\.|_|-)", r"\1\\\2", s)
 
@@ -2823,7 +3089,10 @@ class ClassPropertyDescriptor:
 
 def classproperty(func: Callable) -> ClassPropertyDescriptor:
     """
-    Propety decorator for class-level methods.
+    Property decorator for class-level methods.
+
+    :param func: The method to decorate.
+    :return: The property descriptor.
     """
     if not isinstance(func, (classmethod, staticmethod)):
         func = classmethod(func)  # type: ignore[assignment]
@@ -2929,7 +3198,10 @@ class TeeStream(BaseStream):
 
     def _write(self, *args, **kwargs) -> None:
         """
-        Writes to all registered consumer streams, passing *args* and *kwargs*.
+        Writes to all registered consumer streams.
+
+        :param args: Arguments forwarded to the ``write`` method of each stream.
+        :param kwargs: Keyword arguments forwarded to the ``write`` method of each stream.
         """
         for consumer in self.consumers:
             consumer.write(*args, **kwargs)
@@ -2964,8 +3236,11 @@ class FilteredStream(BaseStream):
 
     def _write(self, *args, **kwargs) -> None:
         """
-        Writes to the consumer stream when *filter_fn* evaluates to *True*, passing *args* and
-        *kwargs*.
+        Writes to the consumer stream when *filter_fn* evaluates to *True*.
+
+        :param args: Arguments forwarded to the ``write`` method of the stream and to *filter_fn*.
+        :param kwargs: Keyword arguments forwarded to the ``write`` method of the stream and to
+            *filter_fn*.
         """
         if self.filter_fn(*args, **kwargs):
             self.stream.write(*args, **kwargs)

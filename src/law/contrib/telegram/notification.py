@@ -28,8 +28,20 @@ def notify_telegram(
     **kwargs,
 ) -> bool:
     """
-    Sends a telegram notification and returns *True* on success. The communication with the telegram
-    API might have some delays and is therefore handled by a thread.
+    Sends a telegram notification. The communication with the telegram API might have some delays
+    and is therefore handled by a thread.
+
+    :param title: The title.
+    :param content: The content, either a string or a dictionary whose fields are formatted as
+        key-value pairs.
+    :param token: The bot token, defaulting to the ``telegram_token`` option in the
+        ``[notifications]`` section.
+    :param chat: The chat id, defaulting to the ``telegram_chat`` option in the ``[notifications]``
+        section.
+    :param mention_user: The user to mention, defaulting to the ``telegram_mention_user`` option in
+        the ``[notifications]`` section.
+    :param kwargs: Unused keyword arguments.
+    :return: Whether the notification was sent, i.e., whether *token* and *chat* are set.
     """
     import telegram  # noqa: F401
 

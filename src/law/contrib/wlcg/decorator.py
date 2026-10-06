@@ -26,8 +26,10 @@ def ensure_vomsproxy(
 ) -> tuple[Callable, Callable, Callable]:
     """ ensure_vomsproxy()
     Decorator for law task methods that checks the validity of the voms proxy and throws an
-    exception in case it is invalid. This can prevent late errors on remote worker notes that except
+    exception in case it is invalid. This can prevent late errors on remote worker nodes that expect
     voms proxies to be present. Accepts generator functions.
+
+    :raises RuntimeError: When the voms proxy is not valid.
     """
     def before_call() -> None:
         # check the proxy validity

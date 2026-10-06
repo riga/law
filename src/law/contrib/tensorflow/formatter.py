@@ -21,11 +21,22 @@ from law.util import no_value
 
 
 class TFGraphFormatter(Formatter):
+    """
+    Formatter for tensorflow graphs in protobuf files (``.pb``, or ``.pbtxt`` and ``.pb.txt`` for
+    text format). Its name is ``"tf_graph"``, which can be passed as *formatter* to select it
+    explicitly.
+    """
 
     name = "tf_graph"
 
     @classmethod
     def import_tf(cls) -> tuple[ModuleType, ModuleType | None, tuple[str, str, str]]:
+        """
+        Imports tensorflow.
+
+        :return: A 3-tuple with the tensorflow module, its v1 compatibility module (or *None*), and
+            the tensorflow version as a 3-tuple of strings.
+        """
         import tensorflow as tf
 
         # keep a reference to the v1 API as long as v2 provides compatibility
@@ -50,18 +61,24 @@ class TFGraphFormatter(Formatter):
         as_text: bool | None = None,
     ) -> Any | tuple[Any, Any]:
         """
-        Reads a saved TensorFlow graph from *path* and returns it. When *create_session* is *True*,
-        a session object (compatible with the v1 API) is created and returned as the second value of
-        a 2-tuple. The default value of *create_session* is *True* when TensorFlow v1 is detected,
-        and *False* otherwise. When *as_text* is either *True*, or *None* and the file extension is
-        ``".pbtxt"`` or ``".pb.txt"``, the content of the file at *path* is expected to be a
-        human-readable text file. Otherwise, it is read as a binary protobuf file. Example:
+        Reads a saved TensorFlow graph from *path*. Example:
 
         .. code-block:: python
 
             graph = TFConstantGraphFormatter.load("path/to/model.pb", create_session=False)
 
             graph, session = TFConstantGraphFormatter.load("path/to/model.pb", create_session=True)
+
+        :param path: The path of the file.
+        :param create_session: When *True*, a session object (compatible with the v1 API) is created
+            and returned as the second value of a 2-tuple. Defaults to *True* when TensorFlow v1 is
+            detected, and *False* otherwise.
+        :param as_text: When *True*, or *None* and the file extension is ``".pbtxt"`` or
+            ``".pb.txt"``, the content of the file is expected to be a human-readable text file.
+            Otherwise, it is read as a binary protobuf file.
+        :raises NotImplementedError: When *create_session* is *True* but the v1 compatibility layer
+            of TensorFlow v2 is missing.
+        :return: The graph, or a 2-tuple with the graph and the session.
         """
         tf, tf1, tf_version = cls.import_tf()
         path = get_path(path)
@@ -119,10 +136,9 @@ class TFGraphFormatter(Formatter):
         **kwargs,
     ) -> Any:
         """
-        Extracts a TensorFlow graph from an object *obj* and saves it at *path*. The graph is
-        optionally transformed into a simpler representation with all its variables converted to
-        constants when *variables_to_constants* is *True*. The saved file contains the graph as a
-        protobuf. The accepted types of *obj* greatly depend on the available API versions.
+        Extracts a TensorFlow graph from an object *obj* and saves it at *path*. The saved file
+        contains the graph as a protobuf. The accepted types of *obj* greatly depend on the
+        available API versions.
 
         When the v1 API is found (which is also the case when ``tf.compat.v1`` is available in v2),
         ``Graph``, ``GraphDef`` and ``Session`` objects are accepted. However, when
@@ -135,8 +151,20 @@ class TFGraphFormatter(Formatter):
         arguments in the first place. See the TensorFlow documentation on `concrete functions
         <https://www.tensorflow.org/guide/concrete_function>`__ for more info.
 
-        *args* and *kwargs* are forwarded to ``tf.train.write_graph`` (v1) or ``tf.io.write_graph``
-        (v2).
+        :param path: The path of the file.
+        :param obj: The object to extract the graph from.
+        :param variables_to_constants: When *True*, the graph is transformed into a simpler
+            representation with all its variables converted to constants.
+        :param output_names: Names of operations whose subgraphs are extracted when
+            *variables_to_constants* is *True*.
+        :param args: Arguments forwarded to ``tf.train.write_graph`` (v1) or ``tf.io.write_graph``
+            (v2).
+        :param kwargs: Keyword arguments forwarded to ``tf.train.write_graph`` (v1) or
+            ``tf.io.write_graph`` (v2).
+        :raises TypeError: When the type of *obj* is not understood.
+        :raises ValueError: When *output_names* is missing, or when the input signature of *obj* is
+            not frozen.
+        :return: The return value of the write function.
         """
         tf, tf1, tf_version = cls.import_tf()
         _path = get_path(path)
@@ -221,6 +249,12 @@ class TFGraphFormatter(Formatter):
 
 
 class TFSavedModelFormatter(Formatter):
+    """
+    Formatter for tensorflow models in the SavedModel format, i.e., directories without file
+    extension, handled by ``tf.saved_model.load`` and ``tf.saved_model.save``. Additional arguments
+    are forwarded. Its name is ``"tf_saved_model"``, which can be passed as *formatter* to select it
+    explicitly.
+    """
 
     name = "tf_saved_model"
 
@@ -261,6 +295,12 @@ class TFSavedModelFormatter(Formatter):
 
 
 class TFKerasModelFormatter(Formatter):
+    """
+    Formatter for keras models of tensorflow, stored in hdf5 (``.hdf5``, ``.h5``), json (``.json``)
+    or yaml files (``.yaml``, ``.yml``), or in the SavedModel format (no extension). Json and yaml
+    files only contain the model architecture. Additional arguments are forwarded. Its name is
+    ``"tf_keras_model"``, which can be passed as *formatter* to select it explicitly.
+    """
 
     name = "tf_keras_model"
 
@@ -318,6 +358,12 @@ class TFKerasModelFormatter(Formatter):
 
 
 class TFKerasWeightsFormatter(Formatter):
+    """
+    Formatter for weights of keras models of tensorflow in hdf5 files (``.hdf5``, ``.h5``). Both
+    ``load`` and ``dump`` expect the model as their first argument and call its ``load_weights`` and
+    ``save_weights`` methods, respectively. Additional arguments are forwarded. Its name is
+    ``"tf_keras_weights"``, which can be passed as *formatter* to select it explicitly.
+    """
 
     name = "tf_keras_weights"
 

@@ -31,8 +31,11 @@ _before_run_funcs: list[Callable] = []
 def before_run(func: Callable, force: bool = False) -> bool:
     """
     Adds a function *func* to the list of callbacks that are invoked right before luigi starts
-    running scheduled tasks. Unless *force* is *True*, a function that is already registered is not
-    added again and *False* is returned. Otherwise, *True* is returned.
+    running scheduled tasks.
+
+    :param func: The callback function.
+    :param force: Unless *True*, a function that is already registered is not added again.
+    :return: Whether the function was added.
     """
     if func not in _before_run_funcs or force:
         _before_run_funcs.append(func)

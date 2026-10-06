@@ -22,6 +22,12 @@ from law.util import flatten, interruptable_popen, law_src_path, make_list, make
 
 
 class SingularitySandbox(Sandbox):
+    """
+    Sandbox that runs tasks in a singularity container. Its name is the image to use, e.g.
+    ``"singularity::/path/to/image.sif"``. It is configured through the ``[singularity_sandbox]``
+    config section, additional variables can be set in ``[singularity_sandbox_env]`` and volumes to
+    mount in ``[singularity_sandbox_volumes]``.
+    """
 
     sandbox_type: str = "singularity"
 
@@ -29,6 +35,9 @@ class SingularitySandbox(Sandbox):
 
     @property
     def image(self) -> str:
+        """
+        The singularity image, which is the name of the sandbox.
+        """
         return self.name
 
     @property

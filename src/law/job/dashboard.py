@@ -19,8 +19,11 @@ def cache_by_status(
 ) -> Callable[[Any, JobData, str, int], Any]:
     """
     Decorator for :py:meth:`BaseJobDashboard.publish` (and inheriting classes) that caches the last
-    published status to decide if the a new publication is necessary or not. When the status did not
+    published status to decide if a new publication is necessary or not. When the status did not
     change since the last call, the actual publish method is not invoked and *None* is returned.
+
+    :param func: The decorated publish method.
+    :return: The wrapped method.
     """
     @functools.wraps(func)
     def wrapper(self, job_data: JobData, event: str, job_num: int, *args, **kwargs) -> Any | None:
@@ -82,14 +85,18 @@ class BaseJobDashboard(metaclass=abc.ABCMeta):
 
     def get_persistent_config(self) -> dict[str, Any]:
         """
-        Returns the values of all :py:attr:`persistent_attributes` of this instance in a dictionary.
+        Returns the values of all :py:attr:`persistent_attributes` of this instance.
+
+        :return: A dictionary mapping attribute names to values.
         """
         return {attr: getattr(self, attr) for attr in self.persistent_attributes}
 
     def apply_config(self, config: dict[str, Any]) -> None:
         """
-        Sets all attributes in a dictionary *config* to this instance. This can be understand as the
+        Sets all attributes in a dictionary *config* to this instance. This can be understood as the
         counterpart of :py:meth:`get_persistent_config`.
+
+        :param config: A dictionary mapping attribute names to values.
         """
         for attr, value in config.items():
             if hasattr(self, attr):
@@ -107,6 +114,8 @@ class BaseJobDashboard(metaclass=abc.ABCMeta):
             for i in range(10):
                 with self.rate_guard():
                     print(i)
+
+        :return: A context manager.
         """
         now = 0.0
 
@@ -125,15 +134,21 @@ class BaseJobDashboard(metaclass=abc.ABCMeta):
         """
         This method can return the path to a file that is considered as an input file to remote
         jobs. This file can contain bash functions, environment variables, etc., that are necessary
-        to communicate with the implemented job dashboard. When *None* is returned, no file is sent.
+        to communicate with the implemented job dashboard.
+
+        :return: The path of the file, or *None* when no file should be sent.
         """
         return None
 
     def remote_hook_data(self, job_num: int, attempt: int) -> dict[str, Any] | None:
         """
         This method can return a dictionary that is sent with remote jobs in the format
-        ``key1=value1 key2=value2 ...``. The returned dictionary should (but does not have to)
-        include the job number *job_num* and the retry *attempt*.
+        ``key1=value1 key2=value2 ...``.
+
+        :param job_num: The job number, which should (but does not have to) be included in the data.
+        :param attempt: The retry attempt, which should (but does not have to) be included in the
+            data.
+        :return: The dictionary, or *None* when no data should be sent.
         """
         return None
 
@@ -141,14 +156,19 @@ class BaseJobDashboard(metaclass=abc.ABCMeta):
         """
         This method can return a tracking url that refers to a web page that visualizes jobs. When
         set, the url is shown in the central luigi scheduler.
+
+        :return: The tracking url, or *None*.
         """
         return None
 
     @abc.abstractmethod
     def map_status(self, job_status: str, event: str) -> str | None:
         """
-        Maps the *job_status* (see :py:class:`law.job.base.BaseJobManager`) for a particular *event*
-        to the status name that is accepted by the implemented job dashobard. Possible events are:
+        Maps the *job_status* for a particular *event* to the status name that is accepted by the
+        implemented job dashboard.
+
+        :param job_status: The job status, see :py:class:`law.job.base.BaseJobManager`.
+        :param event: The event. Possible events are:
 
             - action.submit
             - action.cancel
@@ -157,15 +177,20 @@ class BaseJobDashboard(metaclass=abc.ABCMeta):
             - status.finished
             - status.retry
             - status.failed
+
+        :return: The mapped status name, or *None*.
         """
         ...
 
     @abc.abstractmethod
     def publish(self, job_data: dict, event: str, job_num: int) -> None:
         """
-        Publishes the status of a job to the implemented job dashboard. *job_data* is a dictionary
-        that contains a *job_id* and a *status* string (see
-        :py:meth:`law.workflow.remote.StatusData.job_data`).
+        Publishes the status of a job to the implemented job dashboard.
+
+        :param job_data: A dictionary that contains a *job_id* and a *status* string (see
+            :py:meth:`law.workflow.remote.JobData.job_data`).
+        :param event: The event, see :py:meth:`map_status`.
+        :param job_num: The job number.
         """
         ...
 
@@ -179,13 +204,20 @@ class NoJobDashboard(BaseJobDashboard):
 
     def map_status(self, *args, **kwargs) -> str | None:
         """
-        Returns *None*.
+        Does not map any status.
+
+        :param args: Unused arguments.
+        :param kwargs: Unused keyword arguments.
+        :return: *None*.
         """
         return None
 
     def publish(self, *args, **kwargs) -> None:
         """
-        Returns *None*.
+        Does not publish anything.
+
+        :param args: Unused arguments.
+        :param kwargs: Unused keyword arguments.
         """
         return
 

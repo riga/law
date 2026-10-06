@@ -23,6 +23,13 @@ from law.util import interruptable_popen, quote_cmd, rel_path
 
 
 class BundleMercurialRepository(Task):
+    """
+    Task that bundles a Mercurial repository into a tarball, e.g. to send it along with jobs.
+    Inheriting classes must implement :py:meth:`get_repo_path`. Files matching patterns in
+    *exclude_files* are excluded, while files matching patterns in *include_files* are included even
+    when ignored via ``.hgignore``. The name of the output file contains a checksum of the
+    repository.
+    """
 
     task_namespace = "law.mercurial"
 
@@ -48,10 +55,19 @@ class BundleMercurialRepository(Task):
 
     @abc.abstractmethod
     def get_repo_path(self) -> str | pathlib.Path | FileSystemFileTarget:
+        """
+        Hook that returns the path of the repository to bundle. Must be implemented by inheriting
+        classes.
+
+        :return: The path.
+        """
         ...
 
     @property
     def checksum(self) -> str:
+        """
+        The checksum of the repository, or the *custom_checksum* parameter when set.
+        """
         if self.custom_checksum != NO_STR:
             return self.custom_checksum
 
@@ -81,7 +97,7 @@ class BundleMercurialRepository(Task):
     def output(self) -> FileSystemFileTarget:
         repo_base = os.path.basename(get_path(self.get_repo_path()))
         repo_base = os.path.abspath(os.path.expandvars(os.path.expanduser(repo_base)))
-        return LocalFileTarget(f"{repo_base}_{self.checksum}.tgz")
+        return LocalFileTarget(f"{repo_base}.{self.checksum}.tgz")
 
     @log
     def run(self) -> None:
@@ -89,6 +105,12 @@ class BundleMercurialRepository(Task):
             self.bundle(tmp.path)
 
     def bundle(self, dst_path: str | pathlib.Path | FileSystemFileTarget) -> None:
+        """
+        Bundles the repository into a tarball at *dst_path*.
+
+        :param dst_path: The path of the tarball.
+        :raises RuntimeError: When the bundling failed.
+        """
         cmd: list | str
         cmd = [
             rel_path(__file__, "scripts", "bundle_repository.sh"),

@@ -30,6 +30,15 @@ _cfg = Config.instance()
 
 
 class GLiteJobManager(BaseJobManager):
+    """
+    Job manager that submits, cancels and queries jobs on grid computing elements via
+    ``glite-ce-job-submit``, ``glite-ce-job-cancel``, ``glite-ce-job-status``,
+    ``glite-ce-job-purge``. The exact commands can be configured through the ``glite_cmd_*`` options
+    of the ``[job]`` config section, as well as chunk sizes for batched operations through the
+    ``glite_chunk_size_*`` options. *ce* selects the computing element(s), and *delegation_id* the
+    id(s) of delegated proxies. *threads* is the default number of threads for batched operations.
+    Jobs can also be cleaned up after they finished.
+    """
 
     # chunking settings
     chunk_size_submit = 0
@@ -327,6 +336,34 @@ class GLiteJobManager(BaseJobManager):
 
 
 class GLiteJobFileFactory(BaseJobFileFactory):
+    """
+    Job file factory that creates gLite job description files. The constructor arguments are also
+    attributes of the config object that is passed to the
+    :py:meth:`~law.contrib.glite.GLiteWorkflow.glite_job_config` hook of
+    :py:class:`~law.contrib.glite.GLiteWorkflow`, so they can be changed per job:
+
+    - *file_name*: The name of the job file. A postfix is added to it per job.
+    - *command*: The command to run in jobs, as an alternative to *executable*.
+    - *executable*: The path of the executable to run in jobs, which is sent along with them.
+    - *arguments*: Arguments that are passed to the command or executable.
+    - *input_files*: A dictionary of input files, given as paths or
+      :py:class:`~law.job.base.JobInputFile` objects, that are sent along with jobs.
+    - *output_files*: Files created by jobs that are transferred back.
+    - *postfix_output_files*: Whether the job postfix is added to the names of output and log files.
+    - *output_uri*: The uri to which output files are transferred.
+    - *stdout*: The name of the file that receives the standard output of jobs.
+    - *stderr*: The name of the file that receives the standard error of jobs.
+    - *vo*: The virtual organization of jobs.
+    - *custom_content*: Additional content that is added to the job file.
+    - *absolute_paths*: Whether absolute paths of input files are used in the job file instead of
+      paths relative to the job file directory.
+
+    Default values of the *dir*, *mkdtemp* and *cleanup* arguments of
+    :py:class:`~law.job.base.BaseJobFileFactory` are taken from the ``glite_job_file_dir``,
+    ``glite_job_file_dir_mkdtemp`` and ``glite_job_file_dir_cleanup`` options of the ``[job]``
+    config section, falling back to the same options without the ``glite_`` prefix. All other
+    *kwargs* are forwarded to :py:class:`~law.job.base.BaseJobFileFactory`.
+    """
 
     config_attrs = [
         *BaseJobFileFactory.config_attrs,

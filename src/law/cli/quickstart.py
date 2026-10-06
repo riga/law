@@ -15,6 +15,8 @@ _cfg = Config.instance()
 def setup_parser(sub_parsers: argparse._SubParsersAction) -> None:
     """
     Sets up the command line parser for the *quickstart* subprogram and adds it to *sub_parsers*.
+
+    :param sub_parsers: The sub parsers of the main parser.
     """
     parser = sub_parsers.add_parser(
         "quickstart",
@@ -48,6 +50,9 @@ def setup_parser(sub_parsers: argparse._SubParsersAction) -> None:
 def execute(args: argparse.Namespace) -> int:
     """
     Executes the *quickstart* subprogram with parsed commandline *args*.
+
+    :param args: The parsed arguments.
+    :return: The exit code.
     """
     # get the quickstart directory
     qs_dir = law_src_path("templates", "quickstart")

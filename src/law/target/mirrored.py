@@ -29,6 +29,39 @@ local_root_check_lock = threading.Lock()
 
 
 class MirroredTarget(FileSystemTarget):
+    """
+    Base class of targets that reside on a remote file system which is also accessible through a
+    local mount, i.e., a mirror. Read operations use the local target when it exists and the local
+    mount is available, and fall back to the remote target otherwise. When *local_read_only* is
+    *True*, write operations are performed on the remote target and, when *local_sync* is *True*
+    (defaulting to :py:attr:`local_sync_default`), wait until the change is visible through the
+    local mount.
+
+    The remote target is either passed as *remote_target*, or created from *path* with the
+    *remote_target_cls*, the *remote_fs* and additional *remote_kwargs*. Similarly, the local target
+    is either passed as *local_target*, or created from *path* with the *local_fs* (defaulting to
+    the one configured in ``[target] default_local_fs``) and additional *local_kwargs*. The
+    availability of the local mount is checked via the ``local_root_depth`` option of the local file
+    system, see :py:meth:`check_local_root`.
+
+    .. py:classattribute:: local_sync_default
+
+        type: bool
+
+        The default value of *local_sync*. Defaults to *True*.
+
+    .. py:attribute:: remote_target
+
+        type: :py:class:`~law.target.remote.RemoteTarget`
+
+        The remote target.
+
+    .. py:attribute:: local_target
+
+        type: :py:class:`~law.target.local.LocalTarget`
+
+        The local target.
+    """
 
     _existing_local_roots: dict[str, bool] = {}
 
@@ -36,6 +69,14 @@ class MirroredTarget(FileSystemTarget):
 
     @classmethod
     def check_local_root(cls, path: str | pathlib.Path, depth: int = 1) -> bool:
+        """
+        Returns whether the root directory of the absolute *path* exists. This is used to check
+        whether a local mount is available. Results are cached.
+
+        :param path: The absolute path.
+        :param depth: The number of leading path components that make up the root directory.
+        :return: Whether the root directory exists.
+        """
         path = str(path)
 
         # path must start with a separator
@@ -191,6 +232,13 @@ class MirroredTarget(FileSystemTarget):
 
     @contextlib.contextmanager
     def force_fs(self, fs) -> Generator[None, None, None]:
+        """
+        Context manager that forces the use of a file system for all operations within the context,
+        instead of selecting it depending on the existence of the local target.
+
+        :param fs: The file system to use.
+        :return: A context manager.
+        """
         with patch_object(self, "_force_fs", fs):
             yield
 
@@ -363,6 +411,9 @@ class MirroredTarget(FileSystemTarget):
 
 
 class MirroredFileTarget(FileSystemFileTarget, MirroredTarget):  # type: ignore[misc]
+    """
+    Target that refers to a mirrored file, see :py:class:`MirroredTarget`.
+    """
 
     def __init__(self, path: str | pathlib.Path, **kwargs) -> None:
         super().__init__(path, _is_file=True, **kwargs)
@@ -383,6 +434,9 @@ class MirroredFileTarget(FileSystemFileTarget, MirroredTarget):  # type: ignore[
 
 
 class MirroredDirectoryTarget(FileSystemDirectoryTarget, MirroredTarget):  # type: ignore[misc]
+    """
+    Target that refers to a mirrored directory, see :py:class:`MirroredTarget`.
+    """
 
     def __init__(self, path: str | pathlib.Path, **kwargs) -> None:
         super().__init__(path, _is_file=False, **kwargs)

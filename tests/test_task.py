@@ -313,3 +313,17 @@ class TestWorkflow(TaskTestCase):
         assert LawTestNonContiguousWorkflow(out_dir=self.tmp, branches="5").branch_map == {5: "b"}
         with pytest.raises(ValueError, match=r"branch\ map\ keys\ must\ constitute\ contiguous\ ra"):
             _ = LawTestForcedContiguousWorkflow(out_dir=self.tmp).branch_map
+
+    def test_dynamic_workflow_condition_options(self) -> None:
+        def condition(self) -> bool:
+            return True
+
+        cond = law.dynamic_workflow_condition(condition_as_workflow=True, cache_met_condition="_met")(condition)
+        assert isinstance(cond, law.workflow.base.DynamicWorkflowCondition)
+        assert cond.condition_as_workflow
+        assert cond.cache_met_condition
+        assert cond.cache_met_condition_attr == "_met"
+
+        cond = law.dynamic_workflow_condition(cache_met_condition=False)(condition)
+        assert not cond.condition_as_workflow
+        assert not cond.cache_met_condition

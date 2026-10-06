@@ -40,6 +40,17 @@ class RetryException(LawError):
 
 
 class RemoteFileInterface(metaclass=abc.ABCMeta):
+    """
+    Abstract base class of interfaces that perform file operations of a
+    :py:class:`~law.target.remote.RemoteFileSystem` with a specific protocol or library, such as
+    :py:class:`law.gfal.GFALFileInterface`.
+
+    Operations are performed relative to one of the base uris in *base*, while *bases* can map
+    operation names (e.g. ``"stat"`` or ``"filecopy"``) to dedicated base uris. Operations that fail
+    are retried *retries* times with a delay of *retry_delay* seconds. When multiple base uris are
+    available, a random one is selected when *random_base* is *True*, skipping those that failed
+    before.
+    """
 
     @classmethod
     def parse_config(
@@ -96,6 +107,16 @@ class RemoteFileInterface(metaclass=abc.ABCMeta):
         func: Callable | None = None,
         uri_base_name: str | Sequence[str] | None = None,
     ) -> Callable:
+        """
+        Decorator for methods of implementations that retries the decorated method *func* when it
+        raises a :py:class:`RetryException`, following the *retries*, *retry_delay* and
+        *random_base* settings, which can also be passed as keyword arguments to the method.
+
+        :param func: The decorated method. When *None*, a decorator is returned.
+        :param uri_base_name: When given and no *base* is passed to the method, a base uri is
+            selected for these operation names via :py:meth:`get_base` in each attempt.
+        :return: The decorated method, or a decorator when *func* is *None*.
+        """
         def decorator(func: Callable) -> Callable:
             @functools.wraps(func)
             def wrapper(self, *args, **kwargs) -> Any:
@@ -205,6 +226,20 @@ class RemoteFileInterface(metaclass=abc.ABCMeta):
         return_index: bool = False,
         return_all: bool = False,
     ):
+        """
+        Returns a base uri for the operation(s) *base_name*, falling back to the default base uris
+        when no dedicated ones are configured.
+
+        :param base_name: The name(s) of the operation(s).
+        :param random: When multiple uris are available, a random one is selected if *True*.
+            Defaults to *random_base*.
+        :param skip_indices: Indices of uris that are not considered, unless there would be none
+            left.
+        :param return_index: When *True*, a tuple with the uri and its index is returned.
+        :param return_all: When *True*, all available uris are returned in a list instead.
+        :raises ValueError: When no base uris are available.
+        :return: The base uri, a tuple with the uri and its index, or a list of all uris.
+        """
         if random is None:
             random = self.random_base
 
@@ -244,6 +279,16 @@ class RemoteFileInterface(metaclass=abc.ABCMeta):
         scheme: bool = True,
         **kwargs,
     ) -> str | list[str]:
+        """
+        Returns the full uri of *path* joined with a base uri.
+
+        :param path: The path.
+        :param base: The base uri(s) to use. When *None*, it is determined via :py:meth:`get_base`.
+        :param return_all: When *True*, a list of all uris is returned.
+        :param scheme: When *False*, the scheme is removed.
+        :param kwargs: Keyword arguments forwarded to :py:meth:`get_base`.
+        :return: The uri, or a list of uris when *base* is a sequence or *return_all* is *True*.
+        """
         # get a base path when not given
         if not base:
             kwargs["return_index"] = False
@@ -272,8 +317,14 @@ class RemoteFileInterface(metaclass=abc.ABCMeta):
         **kwargs,
     ) -> bool | os.stat_result | None:
         """
-        Returns *True* when the *path* exists and *False* otherwise. When *stat* is *True*, returns
-        the stat object or *None*.
+        Returns whether *path* exists.
+
+        :param path: The path.
+        :param base: The base uri(s) to use. When *None*, it is determined via :py:meth:`get_base`.
+        :param stat: When *True*, the stat object is returned instead of a boolean.
+        :param kwargs: Additional options, e.g. for the :py:meth:`retry` mechanism.
+        :return: Whether *path* exists, or the stat object (*None* when it does not exist) when
+            *stat* is *True*.
         """
         ...
 
@@ -286,7 +337,12 @@ class RemoteFileInterface(metaclass=abc.ABCMeta):
         **kwargs,
     ) -> os.stat_result:
         """
-        Returns a stat object or raises an exception when *path* does not exist.
+        Returns the stat object of *path*.
+
+        :param path: The path.
+        :param base: The base uri(s) to use. When *None*, it is determined via :py:meth:`get_base`.
+        :param kwargs: Additional options, e.g. for the :py:meth:`retry` mechanism.
+        :return: The stat object. An exception is raised when *path* does not exist.
         """
         ...
 
@@ -300,8 +356,13 @@ class RemoteFileInterface(metaclass=abc.ABCMeta):
         **kwargs,
     ) -> bool:
         """
-        Returns *True* when *path* refers to an existing directory, optionally using a precomputed
-        stat object instead, and *False* otherwise.
+        Returns whether *path* refers to an existing directory.
+
+        :param path: The path.
+        :param stat: Optional, precomputed stat object to use instead.
+        :param base: The base uri(s) to use. When *None*, it is determined via :py:meth:`get_base`.
+        :param kwargs: Additional options, e.g. for the :py:meth:`retry` mechanism.
+        :return: Whether *path* is an existing directory.
         """
         ...
 
@@ -315,8 +376,13 @@ class RemoteFileInterface(metaclass=abc.ABCMeta):
         **kwargs,
     ) -> bool:
         """
-        Returns *True* when *path* refers to a existing file, optionally using a precomputed stat
-        object instead, and *False* otherwise.
+        Returns whether *path* refers to an existing file.
+
+        :param path: The path.
+        :param stat: Optional, precomputed stat object to use instead.
+        :param base: The base uri(s) to use. When *None*, it is determined via :py:meth:`get_base`.
+        :param kwargs: Additional options, e.g. for the :py:meth:`retry` mechanism.
+        :return: Whether *path* is an existing file.
         """
         ...
 
@@ -331,8 +397,15 @@ class RemoteFileInterface(metaclass=abc.ABCMeta):
         **kwargs,
     ) -> bool:
         """
-        Changes the permission of a *path* to *perm*. Raises an exception when *path* does not exist
-        or returns *False* when *silent* is *True*, and returns *True* on success.
+        Changes the permission of a *path* to *perm*.
+
+        :param path: The path.
+        :param perm: The new permission.
+        :param base: The base uri(s) to use. When *None*, it is determined via :py:meth:`get_base`.
+        :param silent: When *True* and *path* does not exist, *False* is returned instead of raising
+            an exception.
+        :param kwargs: Additional options, e.g. for the :py:meth:`retry` mechanism.
+        :return: Whether the permission was changed.
         """
         ...
 
@@ -346,8 +419,14 @@ class RemoteFileInterface(metaclass=abc.ABCMeta):
         **kwargs,
     ) -> bool:
         """
-        Removes a file at *path*. Raises an exception when *path* does not exist or returns *False*
-        when *silent* is *True*, and returns *True* on success.
+        Removes a file at *path*.
+
+        :param path: The path.
+        :param base: The base uri(s) to use. When *None*, it is determined via :py:meth:`get_base`.
+        :param silent: When *True* and *path* does not exist, *False* is returned instead of raising
+            an exception.
+        :param kwargs: Additional options, e.g. for the :py:meth:`retry` mechanism.
+        :return: Whether the file was removed.
         """
         ...
 
@@ -361,8 +440,14 @@ class RemoteFileInterface(metaclass=abc.ABCMeta):
         **kwargs,
     ) -> bool:
         """
-        Removes a directory at *path*. Raises an exception when *path* does not exist or returns
-        *False* when *silent* is *True*, and returns *True* on success.
+        Removes a directory at *path*.
+
+        :param path: The path.
+        :param base: The base uri(s) to use. When *None*, it is determined via :py:meth:`get_base`.
+        :param silent: When *True* and *path* does not exist, *False* is returned instead of raising
+            an exception.
+        :param kwargs: Additional options, e.g. for the :py:meth:`retry` mechanism.
+        :return: Whether the directory was removed.
         """
         ...
 
@@ -376,9 +461,14 @@ class RemoteFileInterface(metaclass=abc.ABCMeta):
         **kwargs,
     ) -> bool:
         """
-        Removes any file or directory at *path*. Directories are removed recursively. Raises an
-        exception when *path* does not exist or returns *False* when *silent* is *True*, and returns
-        *True* on success.
+        Removes any file or directory at *path*. Directories are removed recursively.
+
+        :param path: The path.
+        :param base: The base uri(s) to use. When *None*, it is determined via :py:meth:`get_base`.
+        :param silent: When *True* and *path* does not exist, *False* is returned instead of raising
+            an exception.
+        :param kwargs: Additional options, e.g. for the :py:meth:`retry` mechanism.
+        :return: Whether *path* was removed.
         """
         ...
 
@@ -393,8 +483,15 @@ class RemoteFileInterface(metaclass=abc.ABCMeta):
         **kwargs,
     ) -> bool:
         """
-        Creates a directory at *path* with permissions *perm*. Raises an exception when *path*
-        already exists or returns *False* when *silent* is *True*, and returns *True* on success.
+        Creates a directory at *path*.
+
+        :param path: The path.
+        :param perm: The permission of the directory.
+        :param base: The base uri(s) to use. When *None*, it is determined via :py:meth:`get_base`.
+        :param silent: When *True* and *path* already exists, *False* is returned instead of raising
+            an exception.
+        :param kwargs: Additional options, e.g. for the :py:meth:`retry` mechanism.
+        :return: Whether the directory was created.
         """
         ...
 
@@ -408,9 +505,14 @@ class RemoteFileInterface(metaclass=abc.ABCMeta):
         **kwargs,
     ) -> bool:
         """
-        Recursively creates a directory and intermediate missing directories at *path* with
-        permissions *perm*. Raises an exception when *path* already exists or returns *False* when
-        *silent* is *True*, and returns *True* on success.
+        Recursively creates a directory and intermediate missing directories at *path*.
+
+        :param path: The path.
+        :param perm: The permission of created directories.
+        :param base: The base uri(s) to use. When *None*, it is determined via :py:meth:`get_base`.
+        :param kwargs: Additional options, e.g. *silent* to return *False* instead of raising an
+            exception when *path* already exists.
+        :return: Whether the directory was created.
         """
         ...
 
@@ -424,6 +526,11 @@ class RemoteFileInterface(metaclass=abc.ABCMeta):
     ) -> list[str]:
         """
         Returns a list of elements in and relative to *path*.
+
+        :param path: The path of the directory.
+        :param base: The base uri(s) to use. When *None*, it is determined via :py:meth:`get_base`.
+        :param kwargs: Additional options, e.g. for the :py:meth:`retry` mechanism.
+        :return: The list of elements.
         """
         ...
 
@@ -437,7 +544,12 @@ class RemoteFileInterface(metaclass=abc.ABCMeta):
         **kwargs,
     ) -> tuple[str, str]:
         """
-        Copies a file from *src* to *dst*. Returns the full, schemed *src* and *dst* URIs used for
-        copying in a 2-tuple.
+        Copies a file from *src* to *dst*.
+
+        :param src: The source uri.
+        :param dst: The destination uri.
+        :param base: The base uri(s) to use. When *None*, it is determined via :py:meth:`get_base`.
+        :param kwargs: Additional options, e.g. for the :py:meth:`retry` mechanism.
+        :return: A 2-tuple with the full, schemed *src* and *dst* uris used for copying.
         """
         ...

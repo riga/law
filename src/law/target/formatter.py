@@ -22,10 +22,15 @@ from law.util import import_file, make_list
 logger: Logger = get_logger(__name__)
 
 
+#: Formatter name that selects the formatter automatically based on the file path.
 AUTO_FORMATTER = "auto"
 
 
 class FormatterRegister(type):
+    """
+    Meta class of formatters that registers all formatter classes by their ``name`` attribute, see
+    :py:func:`get_formatter`. Names must be unique and must not be :py:data:`AUTO_FORMATTER`.
+    """
 
     formatters: dict[str, FormatterRegister] = {}
     name: str
@@ -47,16 +52,70 @@ class FormatterRegister(type):
         return cls
 
     def accepts(cls, path: str | pathlib.Path | FileSystemTarget, mode: str) -> bool:
+        """
+        Returns whether the formatter accepts the file at *path* in a certain *mode*.
+
+        :param path: The path of the file.
+        :param mode: Either ``"load"`` or ``"dump"``.
+        :raises NotImplementedError: When not implemented by the formatter.
+        :return: Whether the file is accepted.
+        """
         raise NotImplementedError
 
     def load(cls, path: str | pathlib.Path | FileSystemTarget, *args, **kwargs) -> Any:
+        """
+        Loads the content of the file at *path*.
+
+        :param path: The path of the file.
+        :param args: Formatter-specific arguments.
+        :param kwargs: Formatter-specific keyword arguments.
+        :raises NotImplementedError: When not implemented by the formatter.
+        :return: The loaded content.
+        """
         raise NotImplementedError
 
     def dump(cls, path: str | pathlib.Path | FileSystemTarget, *args, **kwargs) -> Any:
+        """
+        Dumps content into the file at *path*.
+
+        :param path: The path of the file.
+        :param args: Formatter-specific arguments, usually starting with the content to dump.
+        :param kwargs: Formatter-specific keyword arguments.
+        :raises NotImplementedError: When not implemented by the formatter.
+        :return: Formatter-specific return value.
+        """
         raise NotImplementedError
 
 
 class Formatter(metaclass=FormatterRegister):
+    """
+    Base class of formatters that load and dump file contents, which is used by
+    :py:meth:`~law.target.file.FileSystemTarget.load` and
+    :py:meth:`~law.target.file.FileSystemTarget.dump`.
+
+    Custom formatters are defined by subclassing this class, setting a unique ``name`` and
+    implementing the class methods ``accepts``, ``load`` and ``dump``. Example:
+
+    .. code-block:: python
+
+        class CSVFormatter(law.target.formatter.Formatter):
+
+            name = "csv"
+
+            @classmethod
+            def accepts(cls, path, mode):
+                return get_path(path).endswith(".csv")
+
+            @classmethod
+            def load(cls, path, *args, **kwargs):
+                with open(get_path(path), "r") as f:
+                    return list(csv.reader(f, *args, **kwargs))
+
+            @classmethod
+            def dump(cls, path, rows, *args, **kwargs):
+                with open(get_path(path), "w") as f:
+                    csv.writer(f, *args, **kwargs).writerows(rows)
+    """
 
     name = "_base"
 
@@ -66,6 +125,14 @@ class Formatter(metaclass=FormatterRegister):
 
     @classmethod
     def chmod(cls, target: FileSystemTarget | Any, perm: int | None = None) -> None:
+        """
+        Changes the permission of *target* when it is a file system target. This is a helper for
+        formatters that create files or directories.
+
+        :param target: The target.
+        :param perm: The permission, defaulting to the default file or directory permission of the
+            file system of *target*.
+        """
         if not isinstance(target, FileSystemTarget):
             return
 
@@ -82,8 +149,13 @@ class Formatter(metaclass=FormatterRegister):
 
 def get_formatter(name: str, silent: bool = False) -> FormatterRegister | None:
     """
-    Returns the formatter class whose name attribute is *name*. When no class could be found and
-    *silent* is *True*, *None* is returned. Otherwise, an exception is raised.
+    Returns the formatter class whose name attribute is *name*.
+
+    :param name: The name of the formatter.
+    :param silent: When *True*, *None* is returned instead of raising an exception when no class
+        could be found.
+    :raises FormatterNotFoundError: When no class could be found and *silent* is *False*.
+    :return: The formatter class, or *None*.
     """
     formatter = FormatterRegister.formatters.get(name)
     if formatter or silent:
@@ -97,9 +169,14 @@ def find_formatters(
     silent: bool = True,
 ) -> list[FormatterRegister]:
     """
-    Returns a list of formatter classes which would accept the file given by *path* and *mode*,
-    which should either be ``"load"`` or ``"dump"``. When no classes could be found and *silent* is
-    *True*, an empty list is returned. Otherwise, an exception is raised.
+    Returns a list of formatter classes which would accept the file given by *path* and *mode*.
+
+    :param path: The path of the file.
+    :param mode: Either ``"load"`` or ``"dump"``.
+    :param silent: When *True*, an empty list is returned instead of raising an exception when no
+        classes could be found.
+    :raises FormatterNotFoundError: When no classes could be found and *silent* is *False*.
+    :return: The list of formatter classes.
     """
     path = get_path(path)
     formatters = [f for f in FormatterRegister.formatters.values() if f.accepts(path, mode)]
@@ -114,9 +191,14 @@ def find_formatter(
     name: str = AUTO_FORMATTER,
 ) -> FormatterRegister:
     """
-    Returns the formatter class whose name attribute is *name* when *name* is not *AUTO_FORMATTER*.
-    Otherwise, the first formatter that accepts *path* is returned. Internally, this method simply
-    uses :py:func:`get_formatter` or :py:func:`find_formatters` depending on the value of *name*.
+    Returns a formatter class. Internally, this method simply uses :py:func:`get_formatter` or
+    :py:func:`find_formatters` depending on the value of *name*.
+
+    :param path: The path of the file.
+    :param mode: Either ``"load"`` or ``"dump"``.
+    :param name: The name of the formatter. When *AUTO_FORMATTER*, the first formatter that accepts
+        *path* is returned.
+    :return: The formatter class.
     """
     if name == AUTO_FORMATTER:
         return find_formatters(path, mode, silent=False)[0]
@@ -140,6 +222,13 @@ def _open(path: str | pathlib.Path | FileSystemTarget, mode: str, **kwargs) -> A
 
 
 class TextFormatter(Formatter):
+    """
+    Formatter for text files (``.txt``). ``load`` returns the file content as a string and ``dump``
+    writes the string representation of an object. Additional arguments are forwarded to
+    :py:meth:`~io.TextIOBase.read` and :py:meth:`~io.TextIOBase.write`. Gzip-compressed files with
+    an additional ``.gz`` extension are handled transparently. The file encoding can be set via
+    *encoding*, defaulting to ``"utf-8"``.
+    """
 
     name = "text"
 
@@ -165,6 +254,12 @@ class TextFormatter(Formatter):
 
 
 class JSONFormatter(Formatter):
+    """
+    Formatter for json files (``.json``). ``load`` and ``dump`` forward additional arguments to
+    :py:func:`json.load` and :py:func:`json.dump`. Gzip-compressed files with an additional ``.gz``
+    extension are handled transparently. The file encoding can be set via *encoding*, defaulting to
+    ``"utf-8"``.
+    """
 
     name = "json"
 
@@ -186,6 +281,11 @@ class JSONFormatter(Formatter):
 
 
 class PickleFormatter(Formatter):
+    """
+    Formatter for pickle files (``.pkl``, ``.pickle`` or ``.p``). ``load`` and ``dump`` forward
+    additional arguments to :py:func:`pickle.load` and :py:func:`pickle.dump`. Gzip-compressed files
+    with an additional ``.gz`` extension are handled transparently.
+    """
 
     name = "pickle"
 
@@ -205,6 +305,12 @@ class PickleFormatter(Formatter):
 
 
 class YAMLFormatter(Formatter):
+    """
+    Formatter for yaml files (``.yaml`` or ``.yml``). ``load`` and ``dump`` forward additional
+    arguments to ``yaml.safe_load`` and ``yaml.dump``, respectively. Gzip-compressed files with an
+    additional ``.gz`` extension are handled transparently. The file encoding can be set via
+    *encoding*, defaulting to ``"utf-8"``.
+    """
 
     name = "yaml"
 
@@ -228,11 +334,35 @@ class YAMLFormatter(Formatter):
 
 
 class TarFormatter(Formatter):
+    """
+    Formatter for tar archives (``.tar``), optionally compressed (``.tar.gz``, ``.tgz``,
+    ``.tar.bz2``, ``.tbz2``, ``.bz2``, ``.tar.xz``, ``.txz`` or ``.lzma``). The mode passed to
+    :py:func:`tarfile.open` is inferred from the extension and can be set via the first additional
+    argument or *mode*. All other additional arguments are forwarded to :py:func:`tarfile.open` as
+    well. Example:
+
+    .. code-block:: python
+
+        # extract the archive into a directory, passing extractall_kwargs to TarFile.extractall()
+        target.load("/path/to/dir")
+
+        # add files or directories to a new archive with names relative to their common path,
+        # passing add_kwargs to TarFile.add()
+        target.dump(["/path/to/file", "/path/to/dir"])
+
+    During extraction, the ``"data"`` filter is used by default where supported.
+    """
 
     name = "tar"
 
     @classmethod
     def infer_compression(cls, path: str | pathlib.Path | FileSystemTarget) -> str | None:
+        """
+        Returns the compression type of the tar archive at *path* inferred from its extension.
+
+        :param path: The path of the archive.
+        :return: ``"gz"``, ``"bz2"`` or ``"xz"``, or *None* when it is not compressed.
+        """
         path = get_path(path)
         if path.endswith((".tar.gz", ".tgz")):
             return "gz"
@@ -316,6 +446,20 @@ class TarFormatter(Formatter):
 
 
 class ZipFormatter(Formatter):
+    """
+    Formatter for zip archives (``.zip``). The mode passed to :py:class:`zipfile.ZipFile` can be set
+    via the first additional argument or *mode*, and all other additional arguments are forwarded to
+    it as well. Example:
+
+    .. code-block:: python
+
+        # extract the archive into a directory, passing extractall_kwargs to ZipFile.extractall()
+        target.load("/path/to/dir")
+
+        # add a file or the contents of a directory to a new archive,
+        # passing write_kwargs to ZipFile.write()
+        target.dump("/path/to/dir")
+    """
 
     name = "zip"
 
@@ -376,6 +520,13 @@ class ZipFormatter(Formatter):
 
 
 class GZipFormatter(Formatter):
+    """
+    Formatter for gzip-compressed files (``.gz``). ``load`` returns the decompressed content and
+    ``dump`` writes an object. The mode passed to :py:func:`gzip.open` can be set via the first
+    additional argument or *mode*, defaulting to binary mode, and all other additional arguments are
+    forwarded to it as well. *read_kwargs* and *write_kwargs* are passed to the ``read`` and
+    ``write`` methods of the file object.
+    """
 
     name = "gzip"
 
@@ -419,6 +570,10 @@ class GZipFormatter(Formatter):
 
 
 class PythonFormatter(Formatter):
+    """
+    Formatter for python files (``.py``) that only supports loading. ``load`` imports the file as a
+    module via :py:func:`law.util.import_file` and forwards all additional arguments.
+    """
 
     name = "python"
 

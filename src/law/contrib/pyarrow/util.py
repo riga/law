@@ -30,20 +30,25 @@ def merge_parquet_files(
 ) -> str:
     """
     Merges parquet files in *src_paths* into a new file at *dst_path*. Intermediate directories are
-    created automatically. When *dst_path* exists and *force* is *True*, the file is removed first.
-    Otherwise, an exception is thrown.
+    created automatically.
 
-    *callback* can refer to a callable accepting a single integer argument representing the index of
-    the file after it was merged. *writer_opts* can be a dictionary of keyword arguments that are
-    passed to the *ParquetWriter* instance. When *src_paths* contains only a single file and
-    *copy_single* is *True*, the file is copied to *dst_path* and no merging takes place. Files
-    containing empty tables are skipped unless *skip_empty* is *False*.
-
-    When *target_row_group_size* is a positive number, the merging is done on the level of
-    particular row groups. These groups are merged in-memory such that each resulting group stored
-    on disk, potentially except for the last one, will *target_row_group_size* rows.
-
-    The absolute, expanded *dst_path* is returned.
+    :param src_paths: The paths of the files to merge.
+    :param dst_path: The path of the merged file.
+    :param force: When *True* and *dst_path* exists, the file is removed first. Otherwise, an
+        exception is raised.
+    :param callback: A callable accepting a single integer argument representing the index of the
+        file after it was merged.
+    :param writer_opts: Keyword arguments that are passed to the *ParquetWriter* instance.
+    :param copy_single: When *True* and *src_paths* contains only a single file, the file is copied
+        to *dst_path* and no merging takes place.
+    :param skip_empty: Unless *False*, files containing empty tables are skipped.
+    :param target_row_group_size: When positive, the merging is done on the level of particular row
+        groups. These groups are merged in-memory such that each resulting group stored on disk,
+        potentially except for the last one, will have *target_row_group_size* rows.
+    :raises ValueError: When *src_paths* is empty.
+    :raises FileExistsError: When *dst_path* exists and *force* is *False*.
+    :raises RuntimeError: When no non-empty table is found to extract the schema from.
+    :return: The absolute, expanded *dst_path*.
     """
     import pyarrow as pa
     import pyarrow.parquet as pq
@@ -155,17 +160,20 @@ def merge_parquet_task(
 ) -> None:
     """
     This method is intended to be used by tasks that are supposed to merge parquet files, e.g. when
-    inheriting from :py:class:`law.contrib.tasks.MergeCascade`. *inputs* should be a sequence of
-    targets that represent the files to merge into *output*.
-
-    When *local* is *False* and files need to be copied from remote first, *cwd* can be a set as the
-    dowload directory. When empty, a temporary directory is used. The *task* itself is used to print
+    inheriting from :py:class:`law.contrib.tasks.MergeCascade`. The *task* itself is used to print
     and publish messages via its :py:meth:`law.Task.publish_message` and
-    :py:meth:`law.Task.publish_step` methods. When *force* is *True*, any existing output file is
-    overwritten.
+    :py:meth:`law.Task.publish_step` methods.
 
-    All additional *kwargs* are forwarded to :py:func:`merge_parquet_files` which is used internally
-    for the actual merging.
+    :param task: The task.
+    :param inputs: The targets that represent the files to merge.
+    :param output: The output target.
+    :param local: When *False*, files are copied from remote first.
+    :param cwd: The download directory when *local* is *False*. When empty, a temporary directory is
+        used.
+    :param force: When *True*, any existing output file is overwritten.
+    :param kwargs: Keyword arguments forwarded to :py:func:`merge_parquet_files` which is used
+        internally for the actual merging.
+    :raises RuntimeError: When the output was not created during merging.
     """
     abspath = lambda p: os.path.abspath(os.path.expandvars(os.path.expanduser(get_path(p))))
 

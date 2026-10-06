@@ -64,6 +64,9 @@ def create_magics(
             """
             Interprets the input *line* as command line arguments to the ``law`` executable and runs
             it in a subprocess using bash. Output and error streams are piped to the cell.
+
+            :param line: The command line arguments.
+            :return: The exit code, or *None* when *line* is empty.
             """
             line = line.strip()
             if not line:
@@ -86,6 +89,10 @@ def create_magics(
             rather than invoking it in a subprocess, it is evaluated interactively (or inline, thus
             the *i*) within the running process. This is especially useful for programmatically
             running tasks that were defined e.g. in the current notebook.
+
+            :param line: The command line arguments.
+            :raises ValueError: When the program is not a valid law cli program.
+            :return: The exit code.
             """
             line = line.strip()
             if not line:
@@ -136,14 +143,13 @@ def register_magics(*args, **kwargs) -> None:
     via a subprocess in bash (``%law``) or interactively / inline within the running process
     (``%ilaw``).
 
-    *init_cmd* can be a shell command that is called before the magic methods are registered.
-    Similarly, *init_fn* can be a callable that is invoked prior to the method setup. *line_cmd*, a
-    shell command, and *line_fn*, a callable, are executed before a line magic is called. The former
-    is run before ``%law`` is evaluated, while the latter is called before ``%ilaw`` with the line
-    to interpret as the only argument.
-
-    *log_level* conveniently sets the level of the *law.contrib.ipython.magic* logger that is used
-    within the magic methods. It should be a number, or a string denoting a Python log level.
+    :param init_cmd: A shell command that is called before the magic methods are registered.
+    :param init_fn: A callable that is invoked prior to the method setup.
+    :param line_cmd: A shell command that is run before ``%law`` is evaluated.
+    :param line_fn: A callable that is called before ``%ilaw`` is evaluated with the line to
+        interpret as the only argument.
+    :param log_level: The level of the *law.contrib.ipython.magic* logger that is used within the
+        magic methods. It should be a number, or a string denoting a Python log level.
     """
     ipy = None
     magics = None

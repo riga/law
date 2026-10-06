@@ -13,6 +13,12 @@ from law.util import escape_markdown
 
 
 class NotifyTelegramParameter(NotifyParameter):
+    """
+    Notification parameter that, when *True* and the run method of the task is decorated with
+    :py:func:`law.decorator.notify`, sends a Telegram notification once the task finished. The
+    connection is configured through the ``[notifications]`` config section, see
+    :py:func:`law.telegram.notify_telegram`.
+    """
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)

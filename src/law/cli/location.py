@@ -11,6 +11,8 @@ from law.util import abort, law_src_path
 def setup_parser(sub_parsers: argparse._SubParsersAction) -> None:
     """
     Sets up the command line parser for the *location* subprogram and adds it to *sub_parsers*.
+
+    :param sub_parsers: The sub parsers of the main parser.
     """
     parser = sub_parsers.add_parser(
         "location",
@@ -27,6 +29,9 @@ def setup_parser(sub_parsers: argparse._SubParsersAction) -> None:
 def execute(args: argparse.Namespace) -> int:
     """
     Executes the *location* subprogram with parsed commandline *args*.
+
+    :param args: The parsed arguments.
+    :return: The exit code.
     """
     path = law_src_path()
 

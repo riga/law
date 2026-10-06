@@ -52,6 +52,15 @@ _cfg = Config.instance()
 
 
 class CrabJobManager(BaseJobManager):
+    """
+    Job manager that submits, cancels and queries jobs via CRAB. Jobs are grouped into CRAB tasks,
+    so that operations are performed per CRAB project directory. Commands run inside a CMSSW
+    environment, given by the :py:class:`~law.contrib.cms.CMSSWSandbox` with name *sandbox_name*,
+    defaulting to the ``crab_sandbox_name`` option of the ``[job]`` config section. *proxy_file* is
+    the voms proxy file to use, *myproxy_username* the user name of the delegated proxy on the
+    myproxy server, and *instance* the CRAB server instance. *threads* is the default number of
+    threads for batched operations.
+    """
 
     submission_task_name_cre = re.compile(r"^Task\s+name\s*\:\s+([^\s]+)\s*$")
     submission_log_file_cre = re.compile(r"^Log\s+file\s+is\s+([^\s]+\.log)\s*$")
@@ -108,6 +117,10 @@ class CrabJobManager(BaseJobManager):
         """
         Converts a *job_id*, for instance after json deserialization, into a :py:class:`JobId`
         object.
+
+        :param job_id: The job id.
+        :raises ValueError: When *job_id* cannot be converted.
+        :return: The :py:class:`JobId` object.
         """
         if isinstance(job_id, cls.JobId):
             return job_id
@@ -119,6 +132,9 @@ class CrabJobManager(BaseJobManager):
 
     @property
     def cmssw_env(self) -> MutableMapping[str, Any]:
+        """
+        The environment variables of the CMSSW sandbox in which CRAB commands are run.
+        """
         return self.cmssw_sandbox.env
 
     def group_job_ids(self, job_ids: list[JobId]) -> dict[str, list[JobId]]:  # type: ignore[override]
@@ -704,6 +720,34 @@ print(join(cfg.General.workArea, "crab_" + cfg.General.requestName))'"""
 
 
 class CrabJobFileFactory(BaseJobFileFactory):
+    """
+    Job file factory that creates CRAB configuration files. The constructor arguments are also
+    attributes of the config object that is passed to the
+    :py:meth:`~law.contrib.cms.CrabWorkflow.crab_job_config` hook of
+    :py:class:`~law.contrib.cms.CrabWorkflow`, so they can be changed per CRAB task:
+
+    - *file_name*: The name of the configuration file.
+    - *executable*: The path of the executable to run in jobs, which is sent along with them.
+    - *arguments*: Arguments per job that are passed to the executable.
+    - *work_area*: The CRAB work area in which project directories are created.
+    - *request_name*: The name of the CRAB request.
+    - *input_files*: A dictionary of input files, given as paths or
+      :py:class:`~law.job.base.JobInputFile` objects, that are sent along with jobs.
+    - *output_files*: Files created by jobs that are transferred back.
+    - *storage_site*: The storage site for CRAB's output staging, e.g. ``"T2_DE_DESY"``.
+    - *output_lfn_base*: The base LFN directory for CRAB's output staging.
+    - *vo_group*: The VO group of jobs.
+    - *vo_role*: The VO role of jobs.
+    - *custom_content*: Additional lines that are added to the configuration file.
+    - *absolute_paths*: Whether absolute paths of input files are used in the configuration file
+      instead of paths relative to the job file directory.
+
+    Default values of the *dir*, *mkdtemp* and *cleanup* arguments of
+    :py:class:`~law.job.base.BaseJobFileFactory` are taken from the ``crab_job_file_dir``,
+    ``crab_job_file_dir_mkdtemp`` and ``crab_job_file_dir_cleanup`` options of the ``[job]`` config
+    section, falling back to the same options without the ``crab_`` prefix. All other *kwargs* are
+    forwarded to :py:class:`~law.job.base.BaseJobFileFactory`.
+    """
 
     config_attrs = [
         *BaseJobFileFactory.config_attrs,
@@ -1023,6 +1067,15 @@ class CrabJobFileFactory(BaseJobFileFactory):
         crab_config: DotDict,
         custom_content: str | Sequence[str] | None = None,
     ) -> None:
+        """
+        Writes a CRAB configuration file to *job_file*.
+
+        :param job_file: The path of the configuration file.
+        :param crab_config: A nested dictionary mapping section names to options and their values.
+            Options with value *None* are skipped.
+        :param custom_content: Lines that are appended.
+        :raises ValueError: When a value cannot be assigned to an option.
+        """
         fmt_flat = lambda s: f"\"{s}\"" if isinstance(s, str) else str(s)
 
         with open(job_file, "w", encoding="utf-8") as f:

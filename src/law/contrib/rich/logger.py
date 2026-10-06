@@ -23,19 +23,21 @@ def replace_console_handlers(
 ) -> list[tuple[logging.Logger, list[logging.Handler]]]:
     """
     Removes all tty stream handlers (i.e. those logging to *stdout* or *stderr*) from certain
-    *loggers* and adds a new ``rich.logging.RichHandler`` instance with a specified *level* and all
-    *kwargs* passed as additional options to its constructor. *loggers* can either be logger
-    instances or names. In the latter case, the names are used as patterns to identify matching
-    loggers. Unless *force_add* is *True*, no new handler is added when no tty stream handler was
-    previously registered.
+    *loggers* and adds a new ``rich.logging.RichHandler`` instance.
 
-    *check_fn* can be a function with two arguments, a logger instance and a handler instance, that
-    should return *True* if that handler should be removed. When *None*, all handlers inheriting
-    from the basic ``logging.StreamHandler`` are removed if their *stream* attibute referes to a
-    tty stream. When *level* is *None*, it defaults to the log level of the first removed handler.
-    In case no default level can be determined, *INFO* is used.
-
-    The removed handlers are returned in a list of 2-tuples (*logger*, *removed_handlers*).
+    :param loggers: Logger instances or names. In the latter case, the names are used as patterns to
+        identify matching loggers.
+    :param level: The level of the new handler. When *None*, it defaults to the log level of the
+        first removed handler. In case no default level can be determined, *INFO* is used.
+    :param force_add: Unless *True*, no new handler is added when no tty stream handler was
+        previously registered.
+    :param check_fn: A function with two arguments, a logger instance and a handler instance, that
+        should return *True* if that handler should be removed. When *None*, all handlers inheriting
+        from the basic ``logging.StreamHandler`` are removed if their *stream* attribute refers to a
+        tty stream.
+    :param kwargs: Keyword arguments passed as additional options to the constructor of the new
+        handler.
+    :return: The removed handlers in a list of 2-tuples (*logger*, *removed_handlers*).
     """
     from rich import logging as rich_logging
 

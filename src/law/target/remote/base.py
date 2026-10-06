@@ -38,6 +38,24 @@ _local_fs = LocalFileSystem.default_instance
 
 
 class RemoteFileSystem(FileSystem):
+    """
+    Base class of file systems on remote storage, which delegate the actual file operations to a
+    :py:class:`~law.target.remote.RemoteFileInterface` *file_interface*. Implementations, such as
+    :py:class:`law.wlcg.WLCGFileSystem`, usually read their options from a section in the law
+    config.
+
+    *validate_copy* decides whether the existence of files is validated after copying them, and
+    *use_cache* whether the local :py:class:`~law.target.remote.RemoteCache` is used by default. The
+    cache is configured with *cache_config* and only created when it contains a ``root`` directory.
+    Paths with a ``file://`` scheme are forwarded to the local file system *local_fs*. All other
+    *kwargs* are forwarded to :py:class:`~law.target.file.FileSystem`.
+
+    .. py:attribute:: cache
+
+        type: :py:class:`~law.target.remote.RemoteCache`, None
+
+        The local cache of remote files, or *None* when no cache is configured.
+    """
 
     # set right below the class definition
     default_instance: RemoteFileSystem = None  # type: ignore[assignment]
@@ -103,12 +121,16 @@ class RemoteFileSystem(FileSystem):
         skip: str | Sequence[str] | None = None,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         """
-        Takes keyword arguments *kwargs*, splits them into two separate dictionaries depending on
-        their content, and returns them in a tuple. The first one will contain arguments related to
-        potential remote file operations (e.g. ``"cache"`` or ``"retries"``), while the second one
-        will contain all remaining arguments. This function is used internally to decide which
-        arguments to pass to target formatters. *include* (*skip*) can be a list of argument keys
-        that are considered as well (ignored).
+        Takes keyword arguments *kwargs* and splits them into two separate dictionaries depending on
+        their content. This function is used internally to decide which arguments to pass to target
+        formatters.
+
+        :param kwargs: The keyword arguments to split.
+        :param include: Argument keys that are considered as remote arguments as well.
+        :param skip: Argument keys that are ignored.
+        :return: A 2-tuple with a dictionary of arguments related to potential remote file
+            operations (e.g. ``"cache"`` or ``"retries"``), and a dictionary with all remaining
+            arguments.
         """
         include = make_list(include) if include else []
         skip = make_list(skip) if skip else []
@@ -201,9 +223,19 @@ class RemoteFileSystem(FileSystem):
 
     @property
     def base(self) -> list[str]:
+        """
+        The list of base uris of the underlying file interface.
+        """
         return self.file_interface.base
 
     def is_local(self, path: str | pathlib.Path) -> bool:
+        """
+        Returns whether *path* refers to the local file system, i.e., whether it has a ``file://``
+        scheme.
+
+        :param path: The path.
+        :return: Whether *path* is local.
+        """
         return get_scheme(path) == "file"
 
     def abspath(self, path: str | pathlib.Path) -> str:
@@ -213,6 +245,13 @@ class RemoteFileSystem(FileSystem):
         return ("/" + path.strip("/")) if not get_scheme(path) else path
 
     def uri(self, path: str | pathlib.Path, **kwargs) -> str | list[str]:
+        """
+        Returns the full uri of *path*.
+
+        :param path: The path.
+        :param kwargs: Keyword arguments forwarded to :py:meth:`RemoteFileInterface.uri`.
+        :return: The uri, or a list of uris.
+        """
         return self.file_interface.uri(self.abspath(path), **kwargs)
 
     def dirname(self, path: str | pathlib.Path) -> str:
@@ -472,7 +511,19 @@ class RemoteFileSystem(FileSystem):
         **kwargs,
     ) -> str:
         """
-        When this method is called, both *src* and *dst* should refer to files.
+        Copies *src* to *dst*, taking into account the cache when enabled. When this method is
+        called, both *src* and *dst* should refer to files.
+
+        :param src: The source path.
+        :param dst: The destination path. It can be *None* when caching is enabled, in which case
+            the file is copied into the cache.
+        :param perm: The permission of the copied file.
+        :param cache: Whether to use the cache, defaulting to :py:attr:`use_cache`.
+        :param prefer_cache: Whether to prefer an existing cached file.
+        :param validate: Whether to validate the copy.
+        :param kwargs: Additional options forwarded to the copy operations.
+        :raises ValueError: When *dst* is *None* but caching is disabled.
+        :return: The destination path.
         """
         if self.cache is None:
             cache = False
@@ -570,14 +621,18 @@ class RemoteFileSystem(FileSystem):
         **kwargs,
     ) -> str:
         """
-        Prepares the directory of a target located at *dst* for copying and returns its full
-        location as specified below. *src* can be the location of a source file target, which is
-        (e.g.) used by a file copy or move operation. When *dst* is already a directory, calling
-        this method has no effect and the *dst* path is returned, optionally joined with the
-        basename of *src*. When *dst* is a file, *dst* path is returned unchanged. Otherwise, when
-        *dst* does not exist yet, it is interpreted as a file path and missing directories are
-        created when :py:attr:`create_file_dir` is *True*, using *perm* to set the directory
-        permission. *dst* is returned.
+        Prepares the directory of a target located at *dst* for copying. When *dst* is already a
+        directory, calling this method has no effect and the *dst* path is returned, optionally
+        joined with the basename of *src*. When *dst* is a file, *dst* path is returned unchanged.
+        Otherwise, when *dst* does not exist yet, it is interpreted as a file path and missing
+        directories are created when :py:attr:`create_file_dir` is *True*.
+
+        :param dst: The destination path.
+        :param src: The location of a source file target, which is (e.g.) used by a file copy or
+            move operation.
+        :param perm: The permission of created directories.
+        :param kwargs: Additional options forwarded to the file system operations.
+        :return: The full destination path.
         """
         dst = str(dst)
         rstat: os.stat_result | None = self.exists(dst, stat=True)  # type: ignore[assignment]
@@ -703,6 +758,11 @@ class RemoteFileSystem(FileSystem):
 
 
 class RemoteTarget(FileSystemTarget):
+    """
+    Base class of targets on a :py:class:`RemoteFileSystem` *fs*. Paths are absolute within the file
+    system and must not point above its root. All *kwargs* are forwarded to
+    :py:class:`~law.target.file.FileSystemTarget`.
+    """
 
     def __init__(self, path: str | pathlib.Path, fs: RemoteFileSystem, **kwargs) -> None:
         if not isinstance(fs, RemoteFileSystem):
@@ -794,9 +854,16 @@ class RemoteTarget(FileSystemTarget):
 
 
 class RemoteFileTarget(FileSystemFileTarget, RemoteTarget):
+    """
+    Target that refers to a remote file.
+    """
 
     @property
     def cache_path(self) -> str | None:
+        """
+        The path of this file in the local cache of its file system, or *None* when no cache is
+        configured.
+        """
         if not self.fs.cache:  # type: ignore[attr-defined]
             return None
 
@@ -840,6 +907,9 @@ class RemoteFileTarget(FileSystemFileTarget, RemoteTarget):
 
 
 class RemoteDirectoryTarget(FileSystemDirectoryTarget, RemoteTarget):
+    """
+    Target that refers to a remote directory.
+    """
 
     def _child_args(
         self,

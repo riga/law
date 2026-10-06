@@ -25,6 +25,12 @@ from law.util import flatten, interruptable_popen, make_list, makedirs, quote_cm
 
 
 class DockerSandbox(Sandbox):
+    """
+    Sandbox that runs tasks in a docker container. Its name is the image to use, e.g.
+    ``"docker::ubuntu:24.04"``. It is configured through the ``[docker_sandbox]`` config section,
+    additional variables can be set in ``[docker_sandbox_env]`` and volumes to mount in
+    ``[docker_sandbox_volumes]``.
+    """
 
     sandbox_type: str = "docker"
 
@@ -32,10 +38,16 @@ class DockerSandbox(Sandbox):
 
     @property
     def image(self) -> str:
+        """
+        The docker image, which is the name of the sandbox.
+        """
         return self.name
 
     @property
     def tag(self) -> str | None:
+        """
+        The tag of the docker image, or *None* when the image has no tag.
+        """
         return None if ":" not in self.image else self.image.split(":", 1)[1]
 
     @property
@@ -123,7 +135,10 @@ class DockerSandbox(Sandbox):
 
     def _docker_run_cmd(self) -> list[str]:
         """
-        Part of the "docker run" command that is common to env requests and run.
+        Returns the part of the "docker run" command that is common to env requests and run.
+
+        :raises TypeError: When ``sandbox_user()`` of the task does not return a 2-tuple.
+        :return: The command as a list of strings.
         """
         cmd = ["docker", "run"]
 
@@ -276,6 +291,14 @@ class DockerSandbox(Sandbox):
         return cmd
 
     def get_host_ip(self) -> str:
+        """
+        Returns the address under which the host is reachable from inside containers, e.g. to
+        connect to a central scheduler. It can be overwritten via the ``LAW_DOCKER_HOST_IP``
+        environment variable.
+
+        :return: The address, defaulting to ``"127.0.0.1"`` on Linux and
+            ``"docker.for.mac.localhost"`` on macOS.
+        """
         # in host network mode, docker containers can normally be accessed via 127.0.0.1 on Linux
         # or via docker.for.mac.localhost on Mac (as of docker 17.06), however, in some cases it
         # might be required to use a different ip which can be set via an env variable

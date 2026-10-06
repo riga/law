@@ -198,6 +198,60 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
 
 
 class SlurmWorkflow(BaseRemoteWorkflow):
+    """
+    Base class of workflows that submit their branch tasks as jobs to an Slurm batch system.
+    Inheriting classes must implement :py:meth:`slurm_output_directory`. See
+    :py:class:`law.workflow.remote.BaseRemoteWorkflow` for general options. Example:
+
+    .. code-block:: python
+
+        class MyTask(law.LocalWorkflow, law.slurm.SlurmWorkflow):
+
+            def slurm_output_directory(self):
+                return law.LocalDirectoryTarget("/path/to/submission/dir")
+
+    .. py:classattribute:: slurm_partition
+
+        type: :py:class:`luigi.Parameter`
+
+        The Slurm partition to submit jobs to. Empty by default.
+
+    .. py:classattribute:: slurm_workflow_run_decorators
+
+        type: list, None
+
+        Decorators that are applied to the run method of the workflow when it is submitted as Slurm
+        jobs. Defaults to *None*.
+
+    .. py:classattribute:: slurm_job_manager_defaults
+
+        type: dict, None
+
+        Default keyword arguments for the creation of the job manager in
+        :py:meth:`slurm_create_job_manager`. Defaults to *None*.
+
+    .. py:classattribute:: slurm_job_file_factory_defaults
+
+        type: dict, None
+
+        Default keyword arguments for the creation of the job file factory in
+        :py:meth:`slurm_create_job_file_factory`. Defaults to *None*.
+
+    .. py:classattribute:: slurm_job_kwargs
+
+        type: list, dict
+
+        Keyword arguments that are passed to all methods of the job manager. When a list, its
+        elements are names of task attributes whose values are passed with the ``slurm_`` prefix
+        removed. Operation-specific arguments can be defined in ``slurm_job_kwargs_submit``,
+        ``slurm_job_kwargs_cancel`` and ``slurm_job_kwargs_query``, which take precedence when set.
+
+    .. py:classattribute:: exclude_params_slurm_workflow
+
+        type: set
+
+        Names of parameters that are not passed to branch tasks in jobs.
+    """
 
     workflow_proxy_cls = SlurmWorkflowProxy
 
@@ -227,7 +281,8 @@ class SlurmWorkflow(BaseRemoteWorkflow):
         """
         Hook to define the location of submission output files, such as the json files containing
         job data, and optional log files.
-        This method should return a :py:class:`FileSystemDirectoryTarget`.
+
+        :return: The output directory, preferably as a :py:class:`FileSystemDirectoryTarget`.
         """
         ...
 
@@ -235,8 +290,9 @@ class SlurmWorkflow(BaseRemoteWorkflow):
         """
         Hook to define the location of log files if any are written. When set, it has precedence
         over :py:meth:`slurm_output_directory` for log files.
-        This method should return a :py:class:`FileSystemDirectoryTarget` or a value that evaluates
-        to *False* in case no custom log directory is desired.
+
+        :return: The log directory, preferably as a :py:class:`FileSystemDirectoryTarget`, or a
+            value that evaluates to *False* in case no custom log directory is desired.
         """
         return None
 
@@ -244,47 +300,117 @@ class SlurmWorkflow(BaseRemoteWorkflow):
     def slurm_workflow_run_context(self) -> Generator[None, None, None]:
         """
         Hook to provide a context manager in which the workflow run implementation is placed. This
-        can be helpful in situations where resurces should be acquired before and released after
+        can be helpful in situations where resources should be acquired before and released after
         running a workflow.
+
+        :return: A context manager.
         """
         yield
 
     def slurm_workflow_requires(self) -> DotDict:
+        """
+        Hook to define requirements of the workflow that are only considered when it is submitted as
+        Slurm jobs. They are added to the requirements returned by :py:meth:`workflow_requires`.
+
+        :return: The requirements, an empty :py:class:`~law.util.DotDict` by default.
+        """
         return DotDict()
 
     def slurm_job_resources(self, job_num: int, branches: list[int]) -> dict[str, int]:
         """
-        Hook to define resources for a specific job with number *job_num*, processing *branches*.
-        This method should return a dictionary.
+        Hook to define resources for a specific job.
+
+        :param job_num: The job number.
+        :param branches: The branch numbers processed by the job.
+        :return: A dictionary mapping resource names to counts.
         """
         return {}
 
     def slurm_bootstrap_file(self) -> str | pathlib.Path | LocalFileTarget | JobInputFile | None:
+        """
+        Hook to define a file that is sourced in jobs before tasks are run, e.g. to set up the
+        software environment. It is sent along with jobs.
+
+        :return: The bootstrap file, or *None* by default, i.e., no bootstrap file is used.
+        """
         return None
 
     def slurm_wrapper_file(self) -> str | pathlib.Path | LocalFileTarget | JobInputFile | None:
+        """
+        Hook to define an executable that is run in jobs instead of the job file returned by
+        :py:meth:`slurm_job_file`, which it is supposed to call.
+
+        :return: The wrapper file, or *None* by default, i.e., the job file is executed directly.
+        """
         return None
 
     def slurm_job_file(self) -> str | pathlib.Path | LocalFileTarget | JobInputFile:
+        """
+        Hook to define the job file that is executed in jobs and runs the tasks. Defaults to
+        ``law_job.sh`` shipped with law.
+
+        :return: The job file.
+        """
         return JobInputFile(law_src_path("job", "law_job.sh"))
 
     def slurm_stageout_file(self) -> str | pathlib.Path | LocalFileTarget | JobInputFile | None:
+        """
+        Hook to define a file that is executed in jobs after tasks were run, e.g. to transfer
+        outputs. It is sent along with jobs.
+
+        :return: The stage-out file, or *None* by default.
+        """
         return None
 
     def slurm_output_postfix(self) -> str:
+        """
+        Hook to define a postfix that is added to the names of control output files, such as the
+        json file containing job data.
+
+        :return: The postfix, empty by default.
+        """
         return ""
 
     def slurm_job_manager_cls(self) -> type[SlurmJobManager]:
+        """
+        Hook to define the class of the job manager. Defaults to :py:class:`SlurmJobManager`.
+
+        :return: The job manager class.
+        """
         return SlurmJobManager
 
     def slurm_create_job_manager(self, **kwargs) -> SlurmJobManager:
+        """
+        Hook to create the job manager instance from the class returned by
+        :py:meth:`slurm_job_manager_cls`.
+
+        :param kwargs: Keyword arguments that are merged with :py:attr:`slurm_job_manager_defaults`
+            and passed to the constructor.
+        :return: The job manager.
+        """
         kwargs = merge_dicts(self.slurm_job_manager_defaults, kwargs)
         return self.slurm_job_manager_cls()(**kwargs)
 
     def slurm_job_file_factory_cls(self) -> type[SlurmJobFileFactory]:
+        """
+        Hook to define the class of the job file factory. Defaults to
+        :py:class:`SlurmJobFileFactory`.
+
+        :return: The job file factory class.
+        """
         return SlurmJobFileFactory
 
     def slurm_create_job_file_factory(self, **kwargs) -> SlurmJobFileFactory:
+        """
+        Hook to create the job file factory instance from the class returned by
+        :py:meth:`slurm_job_file_factory_cls`. Unless set, the *mkdtemp* argument is taken from the
+        ``slurm_job_file_dir_mkdtemp`` or ``job_file_dir_mkdtemp`` options of the ``[job]`` config
+        section.
+
+        :param kwargs: Keyword arguments that are merged with
+            :py:attr:`slurm_job_file_factory_defaults` and passed to the constructor.
+        :return: The job file factory.
+        """
         # get the file factory cls
         factory_cls = self.slurm_job_file_factory_cls()
 
@@ -312,12 +438,22 @@ class SlurmWorkflow(BaseRemoteWorkflow):
         job_num: int,
         branches: list[int],
     ) -> SlurmJobFileFactory.Config:
+        """
+        Hook to modify the job file factory *config* before the job file is created.
+
+        :param config: The job file factory config.
+        :param job_num: The job number.
+        :param branches: The branch numbers processed by the job.
+        :return: The modified config.
+        """
         return config
 
     def slurm_dump_intermediate_job_data(self) -> bool:
         """
         Whether to dump intermediate job data to the job submission file while jobs are being
         submitted.
+
+        :return: Whether to dump intermediate job data.
         """
         return True
 
@@ -325,38 +461,75 @@ class SlurmWorkflow(BaseRemoteWorkflow):
         """
         Configurable delay in seconds to wait after submitting jobs and before starting the status
         polling.
+
+        :return: The delay in seconds.
         """
         return self.poll_interval * 60
 
     def slurm_check_job_completeness(self) -> bool:
+        """
+        Hook to decide whether outputs of branch tasks are checked once their job is reported as
+        finished, so that the job is considered failed when outputs are missing.
+
+        :return: Whether outputs are checked, *False* by default.
+        """
         return False
 
     def slurm_check_job_completeness_delay(self) -> float | int:
+        """
+        Hook to define a delay in seconds before outputs are checked when
+        :py:meth:`slurm_check_job_completeness` is *True*, e.g. to account for latencies of file
+        systems.
+
+        :return: The delay in seconds, 0 by default.
+        """
         return 0.0
 
-    def slurm_poll_callback(self, poll_data: PollData) -> None:
+    def slurm_poll_callback(self, poll_data: PollData) -> bool | None:
         """
         Configurable callback that is called after each job status query and before potential
-        resubmission. It receives the variable polling attributes *poll_data* (:py:class:`PollData`)
-        that can be changed within this method.
-        If *False* is returned, the polling loop is gracefully terminated. Returning any other value
-        does not have any effect.
+        resubmission.
+
+        :param poll_data: The variable polling attributes (:py:class:`PollData`) that can be changed
+            within this method.
+        :return: When *False*, the polling loop is gracefully terminated. Returning any other value
+            does not have any effect.
         """
-        return
+        return None
 
     def slurm_post_poll_callback(self, success: bool, duration: float | int) -> None:
         """
-        Configurable callback that is called after the polling loop has ended. It receives a boolean *success* that
-        indicates whether the job polling was successful, and the duration of the job polling in seconds.
+        Configurable callback that is called after the polling loop has ended.
+
+        :param success: Whether the job polling was successful.
+        :param duration: The duration of the job polling in seconds.
         """
         return
 
     def slurm_use_local_scheduler(self) -> bool:
+        """
+        Hook to decide whether tasks in jobs should use a local scheduler instead of the central
+        one. Defaults to the ``local_scheduler`` option of the ``[luigi_core]`` config section.
+
+        :return: Whether to use a local scheduler.
+        """
         # try to use the config setting
         return Config.instance().get_expanded_bool("luigi_core", "local_scheduler", False)
 
     def slurm_cmdline_args(self) -> dict[str, str]:
+        """
+        Hook to define additional command line arguments that are passed to tasks in jobs.
+
+        :return: A dictionary mapping argument names to values.
+        """
         return {}
 
     def slurm_destination_info(self, info: InsertableDict) -> InsertableDict:
+        """
+        Hook to modify the destination information, which is shown in job status lines and contains
+        e.g. the partition by default.
+
+        :param info: The destination information.
+        :return: The modified destination information.
+        """
         return info

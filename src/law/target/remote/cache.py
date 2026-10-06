@@ -33,6 +33,23 @@ logger = get_logger(__name__)
 
 
 class RemoteCache:
+    """
+    Cache for remote files on local disk, used by a :py:class:`~law.target.remote.RemoteFileSystem`
+    *fs* to avoid repeated transfers of the same files. Its options are usually configured through
+    ``cache_*`` options in the config section of the file system.
+
+    Files are stored in a directory below *root* that is unique to the file system. When *root* is
+    not set, a temporary directory is used that is removed at exit, which also happens for other
+    directories when *cleanup* is *True*. *max_size* limits the total size of the cache in MB,
+    removing the oldest files when exceeded. Cached files are only used when their modification time
+    differs from that of the remote file by at most *mtime_patience* seconds, and a negative value
+    disables this check. *file_perm* and *dir_perm* are the permissions of cached files and
+    directories.
+
+    Concurrent access by multiple processes is coordinated through lock files. Waiting for a lock is
+    retried *max_waits* times with a delay of *wait_delay* seconds. When *global_lock* is *True*,
+    all operations also respect a global lock that guards cache-wide actions such as allocations.
+    """
 
     TMP = "__TMP__"
 
@@ -184,6 +201,12 @@ class RemoteCache:
         logger.debug(f"cleanup RemoteCache at '{self.base}'")
 
     def cache_path(self, rpath: str | pathlib.Path) -> str:
+        """
+        Returns the path in the cache that corresponds to the remote path *rpath*.
+
+        :param rpath: The remote path.
+        :return: The cache path.
+        """
         rpath = str(rpath)
         basename = f"{create_hash(rpath)}_{os.path.basename(rpath)}"
         return os.path.join(self.base, basename)

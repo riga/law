@@ -18,6 +18,25 @@ logger: Logger = get_logger(__name__)
 
 
 class Target(shims.Target):
+    """
+    Base class of all law targets.
+
+    *optional* marks targets whose absence does not render a task incomplete, see
+    :py:meth:`complete`. *external* marks targets that are produced externally rather than by the
+    task that defines them as outputs.
+
+    .. py:attribute:: optional
+
+        type: bool
+
+        Whether the target is optional.
+
+    .. py:attribute:: external
+
+        type: bool
+
+        Whether the target is produced externally.
+    """
 
     def __init__(self, **kwargs) -> None:
         self.optional: bool = kwargs.pop("optional", False)
@@ -45,9 +64,19 @@ class Target(shims.Target):
 
     @property
     def hash(self) -> int:
+        """
+        Hash of this target, derived from its :py:meth:`uri`.
+        """
         return create_hash(self.uri(), to_int=True)  # type: ignore[return-value]
 
     def repr(self, *, color: bool | None = None) -> str:
+        """
+        Returns a string representation of this target.
+
+        :param color: Whether the representation should be colored. When *None*, it is taken from
+            the ``colored_repr`` option of the ``[target]`` config section.
+        :return: The string representation.
+        """
         if color is None:
             color = Config.instance().get_expanded_bool("target", "colored_repr")
 
@@ -91,6 +120,18 @@ class Target(shims.Target):
         color: bool = False,
         exists: bool | None = None,
     ) -> str:
+        """
+        Returns a short text that describes the existence status of this target, i.e.,
+        ``"existent"`` or ``"absent"``, which is used e.g. by ``--print-status``.
+
+        :param max_depth: Maximum depth up to which nested targets are described. Only used by
+            target collections.
+        :param flags: Flags that control the level of detail. Only used by target collections.
+        :param color: Whether the text should be colored.
+        :param exists: The existence status of this target, if already known, to avoid an
+            additional existence check.
+        :return: The status text.
+        """
         if exists is None:
             exists = self.exists()
 
@@ -106,11 +147,13 @@ class Target(shims.Target):
     def complete(self, **kwargs) -> bool:
         """
         Returns almost the same state information as :py:meth:`exists` (called internally), but
-        potentially also includes settings such as :py:attr:`optional`. All *kwargs* are forwarded
-        to :py:meth:`exists`.
+        potentially also includes settings such as :py:attr:`optional`.
 
         This method is mostly useful in conjunction with task implementations whereas the vanilla
         :py:meth:`exists` method should be used when relying on the actual existence status.
+
+        :param kwargs: Keyword arguments forwarded to :py:meth:`exists`.
+        :return: Whether the target is considered complete.
         """
         return self.optional or self.exists(**kwargs)
 
@@ -120,8 +163,21 @@ class Target(shims.Target):
 
     @abc.abstractmethod
     def remove(self, *, silent: bool = True) -> bool:
+        """
+        Removes this target.
+
+        :param silent: When *True*, no error is raised when the target does not exist.
+        :return: Whether the target was removed.
+        """
         ...
 
     @abc.abstractmethod
     def uri(self, *, return_all: bool = False) -> str | list[str]:
+        """
+        Returns the uri of this target.
+
+        :param return_all: When *True*, targets that are accessible through multiple uris (e.g.
+            remote targets with multiple base uris) return all of them as a list.
+        :return: The uri, or a list of all uris when *return_all* is *True*.
+        """
         ...

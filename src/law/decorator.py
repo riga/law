@@ -109,10 +109,9 @@ def factory(**default_opts) -> Callable:
     In most cases, the created decorators are used to decorate run methods. As intended by luigi,
     run methods can become generators by yielding tasks to declare `dynamic dependencies
     <https://luigi.readthedocs.io/en/stable/tasks.html#dynamic-dependencies>`__. As luigi will
-    resume the run method from scratch everytime a new, incomplete dependency is yielded,
-    decorators are required to be idempotent. Therefore, a plain definition as shown in the example
-    above is not sufficient. A decorator that accepts generator functions should look like the
-    following:
+    resume the run method from scratch everytime a new, incomplete dependency is yielded, decorators
+    are required to be idempotent. Therefore, a plain definition as shown in the example above is
+    not sufficient. A decorator that accepts generator functions should look like the following:
 
     .. code-block:: python
 
@@ -151,6 +150,11 @@ def factory(**default_opts) -> Callable:
     functions, but not vice-versa. Decorated functions can be called with a keyword argument
     ``skip_decorators`` set to *True* to directly call the originally wrapped function without the
     stack of decorators.
+
+    :param default_opts: Default options of the decorator, passed as *opts* to the decorator
+        function. The special option *accept_generator* defines whether generator functions are
+        accepted.
+    :return: A function that turns a decorator function into the actual decorator.
     """
     def wrapper(decorator: Callable) -> Callable:
         @functools.wraps(decorator)
@@ -331,9 +335,11 @@ def safe_output(
     **kwargs,
 ) -> tuple[Callable, Callable, Callable, Callable]:
     """ safe_output(skip=None, optional=True)
-    Wraps a bound method of a task and guards its execution. If an exception occurs, and it is not
-    an instance of *skip*, the task's output is removed prior to the actual raising. If *optional*
-    is *False*, optional targets are not removed. Accepts generator functions.
+    Wraps a bound method of a task and guards its execution. If an exception occurs, the task's
+    output is removed prior to the actual raising. Accepts generator functions.
+
+    :param skip: Exception class(es) for which the output is not removed.
+    :param optional: If *False*, optional targets are not removed.
     """
     def before_call() -> None:
         return None
@@ -365,8 +371,13 @@ def delay(
     **kwargs,
 ) -> tuple[Callable, Callable, Callable]:
     """ delay(t=5.0, stddev=0.0, pdf="gauss")
-    Wraps a bound method of a task and delays its execution by *t* seconds. Accepts generator
-    functions.
+    Wraps a bound method of a task and delays its execution. Accepts generator functions.
+
+    :param t: The delay in seconds.
+    :param stddev: When positive, the delay is drawn randomly using *t* and *stddev* as parameters
+        of the distribution.
+    :param pdf: The distribution, either ``"gauss"`` or ``"uniform"``.
+    :raises ValueError: When *pdf* is unknown.
     """
     def before_call() -> None:
         return None
@@ -421,7 +432,11 @@ def notify(
                 ...
 
     When the *notify_mail* parameter is *True*, a notification is sent to the configured email
-    address. Also see :ref:`notifications-section`. Accepts generator functions.
+    address. Also see :ref:`notifications-section`. Accepts generator functions. All other options
+    are forwarded to the notification transports.
+
+    :param on_success: Whether notifications are sent when the task succeeded.
+    :param on_failure: Whether notifications are sent when the task failed.
     """
     _task = get_task(task)
 
@@ -553,10 +568,12 @@ def localize(
 ) -> T:
     """ localize(input=True, output=True, input_kwargs=None, output_kwargs=None)
     Wraps a bound method of a task and temporarily changes the input and output methods to return
-    localized targets. When *input* (*output*) is *True*, :py:meth:`Task.input`
-    (:py:meth:`Task.output`) is adjusted. *input_kwargs* and *output_kwargs* can be dictionaries
-    that are passed as keyword arguments to the respective localization method. Does **not** accept
-    generator functions.
+    localized targets. Does **not** accept generator functions.
+
+    :param input: When *True*, :py:meth:`Task.input` is adjusted.
+    :param output: When *True*, :py:meth:`Task.output` is adjusted.
+    :param input_kwargs: Keyword arguments passed to the localization method of inputs.
+    :param output_kwargs: Keyword arguments passed to the localization method of outputs.
     """
     # store original input and output methods
     input_orig = None
@@ -646,9 +663,15 @@ def require_sandbox(
     """ require_sandbox(sandbox=None)
     Wraps a bound method of a sandbox task and throws an exception when the method is called while
     the task is not sandboxed yet. This is intended to prevent undesired results or non-verbose
-    error messages when the method is invoked outside the requested sandbox. When *sandbox* is set,
-    it can be a (list of) pattern(s) to compare against the task's effective sandbox and in error is
-    raised if they don't match. Accepts generator functions.
+    error messages when the method is invoked outside the requested sandbox. Accepts generator
+    functions.
+
+    :param sandbox: When set, a (list of) pattern(s) to compare against the task's effective
+        sandbox.
+    :raises TypeError: When the decorated method does not belong to a
+        :py:class:`~law.sandbox.base.SandboxTask`.
+    :raises SandboxError: When the task is not sandboxed, or when its effective sandbox does not
+        match *sandbox*.
     """
     def before_call() -> None:
         if not isinstance(task, SandboxTask):

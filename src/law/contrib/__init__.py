@@ -31,7 +31,8 @@ loaded_packages: dict[str, ModuleType] = {}
 
 def load(*packages: str) -> ModuleType | list[ModuleType]:
     """
-    Loads contrib *packages* and adds them to the law namespace. Example:
+    Loads contrib *packages* and adds them to the law namespace. It is ensured that packages are
+    loaded only once. Example:
 
     .. code-block:: python
 
@@ -40,7 +41,11 @@ def load(*packages: str) -> ModuleType | list[ModuleType]:
 
         law.docker.DockerSandbox(...)
 
-    It is ensured that packages are loaded only once.
+    :param packages: The names of the packages.
+    :raises ImportError: When a package does not exist.
+    :raises RuntimeError: When an attribute with the name of a package already exists in the law
+        module.
+    :return: The loaded module, or a list of modules when multiple *packages* are given.
     """
     for pkg in flatten(packages):
         if pkg in loaded_packages:
@@ -74,7 +79,9 @@ def load(*packages: str) -> ModuleType | list[ModuleType]:
 def load_all() -> list[str]:
     """
     Loads all available contrib packages via :py:func:`load`. A package is skipped when an
-    ImportError was raised. The list of names of loaded packages is returned.
+    ImportError was raised.
+
+    :return: The list of names of loaded packages.
     """
     loaded_packages = []
     for name in available_packages:

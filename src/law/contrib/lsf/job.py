@@ -31,6 +31,13 @@ _cfg = Config.instance()
 
 
 class LSFJobManager(BaseJobManager):
+    """
+    Job manager that submits, cancels and queries jobs on an LSF batch system via ``bsub``,
+    ``bkill``, ``bjobs``. The exact commands can be configured through the ``lsf_cmd_*`` options of
+    the ``[job]`` config section, as well as chunk sizes for batched operations through the
+    ``lsf_chunk_size_*`` options. *queue* selects the LSF queue, and *emails* decides whether LSF
+    sends emails about jobs. *threads* is the default number of threads for batched operations.
+    """
 
     # chunking settings
     chunk_size_submit = 0
@@ -234,8 +241,14 @@ class LSFJobManager(BaseJobManager):
     @classmethod
     def parse_query_output(cls, out: str) -> dict[str, dict[str, Any]]:
         """
-        Example output to parse:
-        141914132 user_name DONE queue_name exec_host b63cee711a job_name Feb 8 14:54
+        Parses the output *out* of a job status query. Example output to parse:
+
+        .. code-block:: text
+
+            141914132 user_name DONE queue_name exec_host b63cee711a job_name Feb 8 14:54
+
+        :param out: The query output.
+        :return: A dictionary mapping job ids to job status data.
         """
         query_data = {}
 
@@ -272,6 +285,39 @@ class LSFJobManager(BaseJobManager):
 
 
 class LSFJobFileFactory(BaseJobFileFactory):
+    """
+    Job file factory that creates LSF job files. The constructor arguments are also attributes of
+    the config object that is passed to the :py:meth:`~law.contrib.lsf.LSFWorkflow.lsf_job_config`
+    hook of :py:class:`~law.contrib.lsf.LSFWorkflow`, so they can be changed per job:
+
+    - *file_name*: The name of the job file. A postfix is added to it per job.
+    - *command*: The command to run in jobs, as an alternative to *executable*.
+    - *executable*: The path of the executable to run in jobs, which is sent along with them.
+    - *arguments*: Arguments that are passed to the command or executable.
+    - *queue*: The LSF queue to submit jobs to.
+    - *cwd*: The working directory of jobs.
+    - *input_files*: A dictionary of input files, given as paths or
+      :py:class:`~law.job.base.JobInputFile` objects, that are sent along with jobs.
+    - *output_files*: Files created by jobs that are transferred back.
+    - *postfix_output_files*: Whether the job postfix is added to the names of output and log files.
+    - *manual_stagein*: Whether input files are copied into the job directory by explicit commands
+      in the job file.
+    - *manual_stageout*: Whether output files are copied back by explicit commands in the job file.
+    - *job_name*: The name of jobs.
+    - *stdout*: The name of the file that receives the standard output of jobs.
+    - *stderr*: The name of the file that receives the standard error of jobs.
+    - *shell*: The shell that runs jobs.
+    - *emails*: Whether LSF sends emails about jobs.
+    - *custom_content*: Additional content that is added to the job file.
+    - *absolute_paths*: Whether absolute paths of input files are used in the job file instead of
+      paths relative to the job file directory.
+
+    Default values of the *dir*, *mkdtemp* and *cleanup* arguments of
+    :py:class:`~law.job.base.BaseJobFileFactory` are taken from the ``lsf_job_file_dir``,
+    ``lsf_job_file_dir_mkdtemp`` and ``lsf_job_file_dir_cleanup`` options of the ``[job]`` config
+    section, falling back to the same options without the ``lsf_`` prefix. All other *kwargs* are
+    forwarded to :py:class:`~law.job.base.BaseJobFileFactory`.
+    """
 
     config_attrs = [
         *BaseJobFileFactory.config_attrs,

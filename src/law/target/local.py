@@ -318,14 +318,18 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
         **kwargs,
     ) -> str:
         """
-        Prepares the directory of a target located at *dst* for copying and returns its full
-        location as specified below. *src* can be the location of a source file target, which is
-        (e.g.) used by a file copy or move operation. When *dst* is already a directory, calling
-        this method has no effect and the *dst* path is returned, optionally joined with the
-        basename of *src*. When *dst* is a file, the absolute *dst* path is returned. Otherwise,
-        when *dst* does not exist yet, it is interpreted as a file path and missing directories are
-        created when :py:attr:`create_file_dir` is *True*, using *perm* to set the directory
-        permission. The absolute path to *dst* is returned.
+        Prepares the directory of a target located at *dst* for copying. When *dst* is already a
+        directory, calling this method has no effect and the *dst* path is returned, optionally
+        joined with the basename of *src*. When *dst* is a file, the absolute *dst* path is
+        returned. Otherwise, when *dst* does not exist yet, it is interpreted as a file path and
+        missing directories are created when :py:attr:`create_file_dir` is *True*.
+
+        :param dst: The destination path.
+        :param src: The location of a source file target, which is (e.g.) used by a file copy or
+            move operation.
+        :param perm: The permission of created directories.
+        :param kwargs: Additional options.
+        :return: The absolute destination path.
         """
         dst = str(dst)
         if src is not None:
@@ -560,6 +564,16 @@ class LocalTarget(FileSystemTarget, shims.LocalTarget):
 
 
 class LocalFileTarget(FileSystemFileTarget, LocalTarget):  # type: ignore[misc]
+    """
+    Target that refers to a local file. See :py:class:`LocalTarget` for the interpretation of paths.
+    Example:
+
+    .. code-block:: python
+
+        target = LocalFileTarget("$HOME/data.json")
+        target.dump({"a": 1})
+        target.load()  # -> {"a": 1}
+    """
 
     @contextlib.contextmanager
     def localize(
@@ -629,6 +643,10 @@ class LocalFileTarget(FileSystemFileTarget, LocalTarget):  # type: ignore[misc]
 
 
 class LocalDirectoryTarget(FileSystemDirectoryTarget, LocalTarget):  # type: ignore[misc]
+    """
+    Target that refers to a local directory. See :py:class:`LocalTarget` for the interpretation of
+    paths.
+    """
 
     def _child_args(
         self,

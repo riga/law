@@ -20,6 +20,8 @@ logger = get_logger(__name__)
 def setup_parser(sub_parsers: argparse._SubParsersAction) -> None:
     """
     Sets up the command line parser for the *run* subprogram and adds it to *sub_parsers*.
+
+    :param sub_parsers: The sub parsers of the main parser.
     """
     parser = sub_parsers.add_parser(
         "run",
@@ -43,6 +45,11 @@ def setup_parser(sub_parsers: argparse._SubParsersAction) -> None:
 def execute(args: argparse.Namespace, argv: list[str]) -> int:
     """
     Executes the *run* subprogram with parsed commandline *args*.
+
+    :param args: The parsed arguments.
+    :param argv: The full list of command line arguments, from which the task parameters are
+        extracted.
+    :return: The exit code.
     """
     task_family = None
     error = None
@@ -100,9 +107,14 @@ def read_task_from_index(
     index_file: str | pathlib.Path | None = None,
 ) -> tuple[str, str, str] | None:
     """
-    Returns module id, task family and space-separated parameters in a tuple for a task given by
-    *task_family* from the *index_file*. When *None*, the *index_file* refers to the default as
-    defined in :py:mod:`law.config`. Returns *None* when the task could not be found.
+    Returns the module id, task family and space-separated parameters for a task given by
+    *task_family* from the *index_file*.
+
+    :param task_family: The task family.
+    :param index_file: The index file. When *None*, it refers to the default as defined in
+        :py:mod:`law.config`.
+    :return: A 3-tuple with the module id, task family and parameters, or *None* when the task could
+        not be found.
     """
     # read task information from the index file given a task family
     if index_file is None:

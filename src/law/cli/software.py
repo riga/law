@@ -31,6 +31,8 @@ if "_reloaded_deps" not in globals():
 def setup_parser(sub_parsers: argparse._SubParsersAction) -> None:
     """
     Sets up the command line parser for the *software* subprogram and adds it to *sub_parsers*.
+
+    :param sub_parsers: The sub parsers of the main parser.
     """
     csv = lambda s: [_s.strip() for _s in str(s).strip().split(",")]
 
@@ -71,6 +73,9 @@ def setup_parser(sub_parsers: argparse._SubParsersAction) -> None:
 def execute(args: argparse.Namespace) -> int:
     """
     Executes the *software* subprogram with parsed commandline *args*.
+
+    :param args: The parsed arguments.
+    :return: The exit code.
     """
     sw_dir = get_sw_dir()
 
@@ -124,9 +129,10 @@ def build_software_cache(
     dep_names: list[str] | None = None,
 ) -> None:
     """
-    Builds up the software cache directory at *sw_dir* by simply copying all required python
-    modules identified by *dep_names*, defaulting to a predefined list of package names. *sw_dir*
-    is evaluated with :py:func:`get_sw_dir`.
+    Builds up the software cache directory by simply copying all required python modules.
+
+    :param sw_dir: The software cache directory, evaluated with :py:func:`get_sw_dir`.
+    :param dep_names: The names of the modules, defaulting to a predefined list of package names.
     """
     # ensure the cache is empty
     sw_dir = get_sw_dir(sw_dir)
@@ -157,7 +163,9 @@ def build_software_cache(
 
 def remove_software_cache(sw_dir: str | pathlib.Path | None = None) -> None:
     """
-    Removes the software cache directory at *sw_dir* which is evaluated with :py:func:`get_sw_dir`.
+    Removes the software cache directory.
+
+    :param sw_dir: The software cache directory, evaluated with :py:func:`get_sw_dir`.
     """
     sw_dir = get_sw_dir(sw_dir)
     if os.path.exists(sw_dir):
@@ -166,9 +174,11 @@ def remove_software_cache(sw_dir: str | pathlib.Path | None = None) -> None:
 
 def reload_dependencies(force: bool = False, dep_names: list[str] | None = None) -> None:
     """
-    Reloads all python modules that law depends on, idenfied by *dep_names* and defaulting to a
-    predefined list of package names. Unless *force* is *True*, multiple calls to this function will
-    not have any effect.
+    Reloads all python modules that law depends on. Unless *force* is *True*, multiple calls to this
+    function will not have any effect.
+
+    :param force: When *True*, the modules are reloaded again.
+    :param dep_names: The names of the modules, defaulting to a predefined list of package names.
     """
     global _reloaded_deps
 
@@ -188,8 +198,10 @@ def reload_dependencies(force: bool = False, dep_names: list[str] | None = None)
 
 def use_software_cache(sw_dir: str | pathlib.Path | None = None, reload_deps: bool = False) -> None:
     """
-    Adjusts ``sys.path`` so that the cached software at *sw_dir* is used. *sw_dir* is evaluated with
-    :py:func:`get_sw_dir`. When *reload_deps* is *True*, :py:func:`reload_dependencies` is invoked.
+    Adjusts ``sys.path`` so that the cached software is used.
+
+    :param sw_dir: The software cache directory, evaluated with :py:func:`get_sw_dir`.
+    :param reload_deps: When *True*, :py:func:`reload_dependencies` is invoked.
     """
     sw_dir = get_sw_dir(sw_dir)
     if not os.path.exists(sw_dir):
@@ -205,8 +217,10 @@ def use_software_cache(sw_dir: str | pathlib.Path | None = None, reload_deps: bo
 
 def get_sw_dir(sw_dir: str | pathlib.Path | None = None) -> str:
     """
-    Returns the software directory defined in the ``core.software_dir`` config. When *sw_dir* is not
-    *None*, it is expanded and returned instead.
+    Returns the software directory defined in the ``core.software_dir`` config.
+
+    :param sw_dir: When not *None*, it is expanded and returned instead.
+    :return: The software directory.
     """
     if sw_dir is None:
         cfg = Config.instance()

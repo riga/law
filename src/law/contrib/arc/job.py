@@ -30,6 +30,14 @@ _cfg = Config.instance()
 
 
 class ARCJobManager(BaseJobManager):
+    """
+    Job manager that submits, cancels and queries jobs on grid computing elements via ARC via
+    ``arcsub``, ``arckill``, ``arcstat``, ``arcclean``. The exact commands can be configured through
+    the ``arc_cmd_*`` options of the ``[job]`` config section, as well as chunk sizes for batched
+    operations through the ``arc_chunk_size_*`` options. *ce* selects the computing element(s), and
+    *job_list* is the ARC job list file that stores submitted jobs. *threads* is the default number
+    of threads for batched operations. Jobs can also be cleaned up after they finished.
+    """
 
     # chunking settings
     chunk_size_submit = _cfg.get_expanded_int("job", "arc_chunk_size_submit")
@@ -367,6 +375,36 @@ class ARCJobManager(BaseJobManager):
 
 
 class ARCJobFileFactory(BaseJobFileFactory):
+    """
+    Job file factory that creates ARC job description files (xrsl). The constructor arguments are
+    also attributes of the config object that is passed to the
+    :py:meth:`~law.contrib.arc.ARCWorkflow.arc_job_config` hook of
+    :py:class:`~law.contrib.arc.ARCWorkflow`, so they can be changed per job:
+
+    - *file_name*: The name of the job file. A postfix is added to it per job.
+    - *command*: The command to run in jobs, as an alternative to *executable*.
+    - *executable*: The path of the executable to run in jobs, which is sent along with them.
+    - *arguments*: Arguments that are passed to the command or executable.
+    - *input_files*: A dictionary of input files, given as paths or
+      :py:class:`~law.job.base.JobInputFile` objects, that are sent along with jobs.
+    - *output_files*: Files created by jobs that are transferred back.
+    - *postfix_output_files*: Whether the job postfix is added to the names of output and log files.
+    - *output_uri*: The uri to which output files are transferred.
+    - *overwrite_output_files*: Whether existing output files at the *output_uri* are overwritten.
+    - *job_name*: The name of jobs.
+    - *log*: The name of the log file of the batch system.
+    - *stdout*: The name of the file that receives the standard output of jobs.
+    - *stderr*: The name of the file that receives the standard error of jobs.
+    - *custom_content*: Additional content that is added to the job file.
+    - *absolute_paths*: Whether absolute paths of input files are used in the job file instead of
+      paths relative to the job file directory. Defaults to *True*.
+
+    Default values of the *dir*, *mkdtemp* and *cleanup* arguments of
+    :py:class:`~law.job.base.BaseJobFileFactory` are taken from the ``arc_job_file_dir``,
+    ``arc_job_file_dir_mkdtemp`` and ``arc_job_file_dir_cleanup`` options of the ``[job]`` config
+    section, falling back to the same options without the ``arc_`` prefix. All other *kwargs* are
+    forwarded to :py:class:`~law.job.base.BaseJobFileFactory`.
+    """
 
     config_attrs = [
         *BaseJobFileFactory.config_attrs,

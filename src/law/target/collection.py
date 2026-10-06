@@ -175,37 +175,84 @@ class TargetCollection(Target):
         self,
         **kwargs,
     ) -> Iterator[Any | tuple[Hashable, Any] | tuple[Any, bool] | tuple[Hashable, Any, bool]]:
+        """
+        Iterates over all existing elements of this collection.
+
+        :param kwargs: Keyword arguments accepted by :py:meth:`iter_all`.
+        :return: Generator that yields existing elements.
+        """
         return self._iter_state(existing=True, **kwargs)
 
     def iter_missing(
         self,
         **kwargs,
     ) -> Iterator[Any | tuple[Hashable, Any] | tuple[Any, bool] | tuple[Hashable, Any, bool]]:
+        """
+        Iterates over all missing elements of this collection.
+
+        :param kwargs: Keyword arguments accepted by :py:meth:`iter_all`.
+        :return: Generator that yields missing elements.
+        """
         return self._iter_state(existing=False, **kwargs)
 
     def iter_all(
         self,
         **kwargs,
     ) -> Iterator[Any | tuple[Hashable, Any] | tuple[Any, bool] | tuple[Hashable, Any, bool]]:
+        """
+        Iterates over all elements of this collection. An element is considered existing when all
+        targets it contains exist.
+
+        :param kwargs: Accepted keyword arguments are *keys* (when *True*, the key or index of each
+            element is yielded as well), *state* (when *True*, the existence state of each element
+            is yielded as well), *unpack* (when *False*, elements are yielded as flat lists of
+            targets instead of their original structure), *optional_existing* (existence state to
+            assume for optional targets, defaulting to the *optional_existing* attribute, with
+            *None* meaning that their actual state is used), and *exists_func* (a custom function
+            that receives a target and returns its existence state).
+        :return: Generator that yields elements, or tuples with keys and/or states.
+        """
         return self._iter_state(existing=None, **kwargs)
 
     def keys(self) -> list[Any]:
+        """
+        Returns the keys of all elements, i.e., indices when the targets are a list or tuple, and
+        keys when they are a dictionary.
+
+        :return: The list of keys.
+        """
         if isinstance(self._flat_targets, (list, tuple)):
             return list(range(len(self)))
         # dict
         return list(self._flat_targets.keys())
 
     def uri(self, *args, **kwargs) -> list[str]:
+        """
+        Returns a flat list of the uris of all targets.
+
+        :param args: Arguments forwarded to the :py:meth:`~law.target.base.Target.uri` methods.
+        :param kwargs: Keyword arguments forwarded to the :py:meth:`~law.target.base.Target.uri`
+            methods.
+        :return: The list of uris.
+        """
         return flatten(t.uri(*args, **kwargs) for t in self._flat_target_list)
 
     @property
     def first_target(self) -> Target | None:
+        """
+        The first target in the flat list of all targets, or *None* when the collection is empty.
+        """
         if not self._flat_target_list:
             return None
 
         return flatten_collections(self._flat_target_list)[0]
 
     def random_target(self) -> Target | None:
+        """
+        Returns a random element of this collection.
+
+        :return: The random element, or *None* when the collection is empty.
+        """
         if not self._flat_target_list:
             return None
 
@@ -216,6 +263,17 @@ class TargetCollection(Target):
         return random.choice(list(self.targets.values()))
 
     def remove(self, *, silent: bool = True, threads: int | None = None, **kwargs) -> bool:
+        """
+        Removes all targets in this collection in parallel.
+
+        :param silent: Forwarded to the :py:meth:`~law.target.base.Target.remove` methods of the
+            targets.
+        :param threads: The number of threads, defaulting to the *remove_threads* attribute, which
+            is taken from ``[target] collection_remove_threads`` when not set.
+        :param kwargs: Keyword arguments forwarded to the :py:meth:`~law.target.base.Target.remove`
+            methods of the targets.
+        :return: Whether any target was removed.
+        """
         if threads is None:
             threads = self.remove_threads
 
@@ -280,6 +338,15 @@ class TargetCollection(Target):
         return False
 
     def count(self, **kwargs) -> int | tuple[int, list[Any]]:
+        """
+        Returns the number of existing elements.
+
+        :param kwargs: *existing* can be set to *False* to count missing elements instead, or to
+            *None* to count all of them. When *keys* is *True*, the keys of the counted elements are
+            returned as well. All other keyword arguments are forwarded as in :py:meth:`iter_all`.
+        :return: The number of elements, or a tuple with the number and the list of keys when *keys*
+            is *True*.
+        """
         # simple counting of keys
         keys = kwargs.get("keys", False)
         kwargs["keys"] = True
@@ -291,6 +358,9 @@ class TargetCollection(Target):
     def map(self, func: Callable[[Target], Target]) -> TargetCollection:
         """
         Returns a copy of this collection with all targets being transformed by *func*.
+
+        :param func: The function that transforms a target.
+        :return: The new collection.
         """
         return self.__class__(map_struct(func, self.targets), **self._copy_kwargs())
 
@@ -356,6 +426,17 @@ class FileCollection(TargetCollection):
 
     @contextlib.contextmanager
     def localize(self, *args, **kwargs) -> Generator[FileCollection, None, None]:
+        """
+        Context manager that localizes all targets in this collection, see
+        :py:meth:`law.target.file.FileSystemTarget.localize`, and yields a new collection of the
+        localized targets.
+
+        :param args: Arguments forwarded to the ``localize`` methods of the targets.
+        :param kwargs: Keyword arguments forwarded to the ``localize`` methods of the targets.
+            Temporary targets are placed in a common temporary directory, which can be set via
+            *tmp_dir*.
+        :return: A context manager that yields the localized collection.
+        """
         # when localizing collections using temporary files, it makes sense to put
         # them all in the same temporary directory
         tmp_dir = kwargs.get("tmp_dir")
@@ -455,6 +536,16 @@ class SiblingFileCollection(SiblingFileCollectionBase):
         path: str | pathlib.Path | FileSystemDirectoryTarget,
         **kwargs,
     ) -> SiblingFileCollection:
+        """
+        Creates a collection of all files in the local directory *path*.
+
+        :param path: The directory.
+        :param kwargs: Keyword arguments forwarded to
+            :py:meth:`~law.target.file.FileSystemDirectoryTarget.listdir`, e.g. to filter files by a
+            *pattern*.
+        :raises FileNotFoundError: When the directory does not exist.
+        :return: The collection.
+        """
         # dir should be a FileSystemDirectoryTarget or a string, in which case it is interpreted as
         # a local path
         _path = path

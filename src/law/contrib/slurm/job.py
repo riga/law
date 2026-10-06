@@ -28,6 +28,13 @@ _cfg = Config.instance()
 
 
 class SlurmJobManager(BaseJobManager):
+    """
+    Job manager that submits, cancels and queries jobs on a Slurm batch system via ``sbatch``,
+    ``scancel``, ``squeue``, ``sacct``. The exact commands can be configured through the
+    ``slurm_cmd_*`` options of the ``[job]`` config section, as well as chunk sizes for batched
+    operations through the ``slurm_chunk_size_*`` options. *partition* selects the Slurm partition.
+    *threads* is the default number of threads for batched operations.
+    """
 
     # chunking settings
     chunk_size_submit = 0
@@ -357,6 +364,34 @@ class SlurmJobManager(BaseJobManager):
 
 
 class SlurmJobFileFactory(BaseJobFileFactory):
+    """
+    Job file factory that creates Slurm job scripts. The constructor arguments are also attributes
+    of the config object that is passed to the
+    :py:meth:`~law.contrib.slurm.SlurmWorkflow.slurm_job_config` hook of
+    :py:class:`~law.contrib.slurm.SlurmWorkflow`, so they can be changed per job:
+
+    - *file_name*: The name of the job file. A postfix is added to it per job.
+    - *command*: The command to run in jobs, as an alternative to *executable*.
+    - *executable*: The path of the executable to run in jobs, which is sent along with them.
+    - *arguments*: Arguments that are passed to the command or executable.
+    - *shell*: The shell that runs jobs.
+    - *input_files*: A dictionary of input files, given as paths or
+      :py:class:`~law.job.base.JobInputFile` objects, that are sent along with jobs.
+    - *job_name*: The name of jobs.
+    - *partition*: The Slurm partition to submit jobs to.
+    - *stdout*: The name of the file that receives the standard output of jobs.
+    - *stderr*: The name of the file that receives the standard error of jobs.
+    - *postfix_output_files*: Whether the job postfix is added to the names of output and log files.
+    - *custom_content*: Additional content that is added to the job file.
+    - *absolute_paths*: Whether absolute paths of input files are used in the job file instead of
+      paths relative to the job file directory.
+
+    Default values of the *dir*, *mkdtemp* and *cleanup* arguments of
+    :py:class:`~law.job.base.BaseJobFileFactory` are taken from the ``slurm_job_file_dir``,
+    ``slurm_job_file_dir_mkdtemp`` and ``slurm_job_file_dir_cleanup`` options of the ``[job]``
+    config section, falling back to the same options without the ``slurm_`` prefix. All other
+    *kwargs* are forwarded to :py:class:`~law.job.base.BaseJobFileFactory`.
+    """
 
     config_attrs = [
         *BaseJobFileFactory.config_attrs,

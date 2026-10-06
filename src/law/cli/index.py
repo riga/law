@@ -27,6 +27,8 @@ _cfg = Config.instance()
 def setup_parser(sub_parsers: argparse._SubParsersAction) -> None:
     """
     Sets up the command line parser for the *index* subprogram and adds it to *sub_parsers*.
+
+    :param sub_parsers: The sub parsers of the main parser.
     """
     index_file = _cfg.get_expanded("core", "index_file")
     parser = sub_parsers.add_parser(
@@ -83,6 +85,9 @@ def setup_parser(sub_parsers: argparse._SubParsersAction) -> None:
 def execute(args: argparse.Namespace) -> int:
     """
     Executes the *index* subprogram with parsed commandline *args*.
+
+    :param args: The parsed arguments.
+    :return: The exit code.
     """
     # update args
     if args.verbose:
@@ -264,10 +269,11 @@ def get_global_parameters(
     config_names: Sequence[str] = ("core", "scheduler", "worker", "retcode"),
 ) -> list[tuple[type, luigi.Parameter, str, str]]:
     """
-    Returns a list of global, luigi-internal configuration parameters. Each list item is a 4-tuple
-    containing the configuration class, the parameter instance, the parameter name, and the full
-    parameter name in the cli. When *config_names* is set, it should be a list of configuration
-    class names that are exclusively taken into account.
+    Returns a list of global, luigi-internal configuration parameters.
+
+    :param config_names: Names of configuration classes that are exclusively taken into account.
+    :return: A list of 4-tuples, each containing the configuration class, the parameter instance,
+        the parameter name, and the full parameter name in the cli.
     """
     params = []
     for cls in luigi.task.Config.__subclasses__():
