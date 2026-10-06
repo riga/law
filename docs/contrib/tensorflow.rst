@@ -25,3 +25,10 @@ Class ``TFKerasWeightsFormatter``
 
 .. autoclass:: TFKerasWeightsFormatter
    :members:
+
+
+Class ``TFSavedModelFormatter``
+-------------------------------
+
+.. autoclass:: TFSavedModelFormatter
+   :members:

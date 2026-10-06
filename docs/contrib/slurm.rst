@@ -25,3 +25,9 @@ Class ``SlurmJobFileFactory``
 
 .. autoclass:: SlurmJobFileFactory
    :members:
+
+
+Functions
+---------
+
+.. autofunction:: get_slurm_version

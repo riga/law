@@ -11,6 +11,7 @@ API Reference
    job/index
    cli/index
    config
+   errors
    decorator
    parameter
    notification

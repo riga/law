@@ -20,6 +20,12 @@ Class ``Formatter``
    :members:
 
 
+Constants
+---------
+
+.. autodata:: AUTO_FORMATTER
+
+
 Functions
 ---------
 
@@ -34,35 +40,56 @@ Formatters
 ----------
 
 Class ``TextFormatter``
------------------------
+^^^^^^^^^^^^^^^^^^^^^^^
 
 .. autoclass:: TextFormatter
    :members:
 
 
 Class ``JSONFormatter``
------------------------
+^^^^^^^^^^^^^^^^^^^^^^^
 
 .. autoclass:: JSONFormatter
    :members:
 
 
+Class ``PickleFormatter``
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. autoclass:: PickleFormatter
+   :members:
+
+
 Class ``YAMLFormatter``
------------------------
+^^^^^^^^^^^^^^^^^^^^^^^
 
 .. autoclass:: YAMLFormatter
    :members:
 
 
+Class ``TarFormatter``
+^^^^^^^^^^^^^^^^^^^^^^
+
+.. autoclass:: TarFormatter
+   :members:
+
+
 Class ``ZipFormatter``
-----------------------
+^^^^^^^^^^^^^^^^^^^^^^
 
 .. autoclass:: ZipFormatter
    :members:
 
 
-Class ``TarFormatter``
-----------------------
+Class ``GZipFormatter``
+^^^^^^^^^^^^^^^^^^^^^^^
 
-.. autoclass:: TarFormatter
+.. autoclass:: GZipFormatter
+   :members:
+
+
+Class ``PythonFormatter``
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. autoclass:: PythonFormatter
    :members:

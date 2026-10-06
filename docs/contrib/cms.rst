@@ -55,6 +55,13 @@ Class ``Site``
    :members:
 
 
+Class ``RucioReporter``
+-----------------------
+
+.. autoclass:: RucioReporter
+   :members:
+
+
 Functions
 ---------
 
@@ -63,3 +70,5 @@ Functions
 .. autofunction:: renew_vomsproxy
 
 .. autofunction:: delegate_myproxy
+
+.. autofunction:: rucio_report_access

@@ -21,6 +21,21 @@ Class ``BaseWorkflowProxy``
    :members:
 
 
+Class ``WorkflowParameter``
+---------------------------
+
+.. autoclass:: WorkflowParameter
+   :members:
+
+
+
+Class ``DynamicWorkflowCondition``
+----------------------------------
+
+.. autoclass:: DynamicWorkflowCondition
+   :members:
+
+
 Functions
 ---------
 

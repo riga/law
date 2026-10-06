@@ -11,3 +11,9 @@ Class ``AwkwardFormatter``
 
 .. autoclass:: AwkwardFormatter
    :members:
+
+
+Functions
+---------
+
+.. autofunction:: from_parquet

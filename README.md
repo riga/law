@@ -54,9 +54,9 @@ Version 0.1 (with Python support down to 2.7) continues to be available via the 
 
 <!-- marker-after-header -->
 
-## Contents
-
 <!-- marker-before-contents -->
+
+## Contents
 
 - [Contents](#contents)
 - [First steps](#first-steps)

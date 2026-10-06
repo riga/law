@@ -10,6 +10,7 @@ law.cli
    run
    indexcmd
    completion
+   location
    config
    software
    quickstart

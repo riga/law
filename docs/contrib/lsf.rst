@@ -25,3 +25,9 @@ Class ``LSFJobFileFactory``
 
 .. autoclass:: LSFJobFileFactory
    :members:
+
+
+Functions
+---------
+
+.. autofunction:: get_lsf_version
