@@ -220,7 +220,7 @@ class TestWorkflow(TaskTestCase):
         assert not wf.is_branch()
         assert wf.branch == -1
         assert wf.branch_map == {0: 0, 1: 10, 2: 20, 3: 30, 4: 40}
-        with pytest.raises(Exception, match=r"calls\ to\ branch_data\ are\ forbidden\ for\ workfl"):
+        with pytest.raises(RuntimeError, match=r"calls\ to\ branch_data\ are\ forbidden\ for\ workfl"):
             _ = wf.branch_data
 
         branch = wf.as_branch(2)

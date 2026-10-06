@@ -419,7 +419,7 @@ def remove_task_output(
     modes = ["i", "d", "a"]
     mode_names = ["interactive", "dry", "all"]
     if mode and mode not in modes:
-        raise Exception(f"unknown removal mode '{mode}'")
+        raise ValueError(f"unknown removal mode '{mode}'")
     if not mode:
         mode = _query_choice("removal mode?", modes, default="i", descriptions=mode_names)
     mode_name = mode_names[modes.index(mode)]
@@ -611,7 +611,7 @@ def fetch_task_output(
     else:
         mode = mode[0].lower()
     if mode not in modes:
-        raise Exception(f"unknown fetch mode '{mode}'")
+        raise ValueError(f"unknown fetch mode '{mode}'")
     mode_name = mode_names[modes.index(mode)]
     print(f"selected {colored(mode_name, 'blue', style='bright')} mode")
     print("")

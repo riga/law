@@ -222,7 +222,7 @@ class RemoteCache:
         while self.is_locked_global():
             if max_waits <= 0:
                 if not silent:
-                    raise Exception(
+                    raise TimeoutError(
                         f"max_waits of {_max_waits} exceeded while waiting for global lock",
                     )
                 return False
@@ -253,7 +253,7 @@ class RemoteCache:
         while self._is_locked(cpath) or (global_lock and self.is_locked_global()):
             if max_waits <= 0:
                 if not silent:
-                    raise Exception(
+                    raise TimeoutError(
                         f"max_waits of {_max_waits} exceeded while waiting for file '{cpath}'",
                     )
                 return False

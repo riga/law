@@ -32,7 +32,7 @@ def ensure_arcproxy(
     def before_call() -> None:
         # check the proxy validity
         if not check_arcproxy_validity():
-            raise Exception("arc proxy not valid")
+            raise RuntimeError("arc proxy not valid")
 
     def call(state: None) -> Any:
         return fn(task, *args, **kwargs)

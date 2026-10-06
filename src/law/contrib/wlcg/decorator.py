@@ -32,7 +32,7 @@ def ensure_vomsproxy(
     def before_call() -> None:
         # check the proxy validity
         if not check_vomsproxy_validity():
-            raise Exception("voms proxy not valid")
+            raise RuntimeError("voms proxy not valid")
 
     def call(state: None) -> Any:
         return fn(task, *args, **kwargs)

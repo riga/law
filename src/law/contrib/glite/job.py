@@ -18,6 +18,7 @@ import time
 
 from law._types import Any, Sequence
 from law.config import Config
+from law.errors import JobError
 from law.job.base import BaseJobFileFactory, BaseJobManager, JobInputFile
 from law.logger import get_logger
 from law.target.file import get_path
@@ -75,7 +76,7 @@ class GLiteJobManager(BaseJobManager):
         _ce = make_list(ce)
         _delegation_id = make_list(delegation_id) if delegation_id else None
         if _delegation_id and len(_ce) != len(_delegation_id):
-            raise Exception(
+            raise ValueError(
                 f"numbers of CEs ({len(_ce)}) and delegation ids ({len(_delegation_id)}) do not match",
             )
 
@@ -128,7 +129,7 @@ class GLiteJobManager(BaseJobManager):
             if silent:
                 return None
 
-            raise Exception(f"submission of glite job '{job_file}' failed:\n{out}")
+            raise JobError(f"submission of glite job '{job_file}' failed:\n{out}")
 
     def cancel(  # type: ignore[override]
         self,
@@ -159,8 +160,9 @@ class GLiteJobManager(BaseJobManager):
         # check success
         if code != 0 and not silent:
             # glite prints everything to stdout
-            raise Exception(
+            raise JobError(
                 f"cancellation of glite job(s) '{job_id}' failed with code {code}:\n{out}",
+                exit_code=code,
             )
 
         return dict.fromkeys(job_ids) if chunking else None
@@ -194,7 +196,7 @@ class GLiteJobManager(BaseJobManager):
         # check success
         if code != 0 and not silent:
             # glite prints everything to stdout
-            raise Exception(f"cleanup of glite job(s) '{job_id}' failed with code {code}:\n{out}")
+            raise JobError(f"cleanup of glite job(s) '{job_id}' failed with code {code}:\n{out}", exit_code=code)
 
         return dict.fromkeys(job_ids) if chunking else None
 
@@ -238,7 +240,7 @@ class GLiteJobManager(BaseJobManager):
             if silent:
                 return None
             # glite prints everything to stdout
-            raise Exception(f"status query of glite job(s) '{job_id}' failed with code {code}:\n{out}")
+            raise JobError(f"status query of glite job(s) '{job_id}' failed with code {code}:\n{out}", exit_code=code)
 
         # parse the output and extract the status per job
         query_data = self.parse_query_output(out)
@@ -249,7 +251,7 @@ class GLiteJobManager(BaseJobManager):
                 if not chunking:
                     if silent:
                         return None
-                    raise Exception(f"glite job(s) '{job_id}' not found in query response")
+                    raise JobError(f"glite job(s) '{job_id}' not found in query response")
                 query_data[_job_id] = self.job_status_dict(
                     job_id=_job_id,
                     status=self.FAILED,

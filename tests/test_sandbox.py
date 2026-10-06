@@ -11,6 +11,7 @@ import textwrap
 
 import pytest
 
+from law.errors import SandboxError
 from law.sandbox.base import Sandbox, SandboxVariables
 from law.sandbox.bash import BashSandbox
 from law.sandbox.venv import VenvSandbox
@@ -94,7 +95,7 @@ class TestSandbox:
         assert isinstance(sandbox, VenvSandbox)
         assert sandbox.venv_dir == "/path/venv"
 
-        with pytest.raises(Exception, match=r"no sandbox with type 'unknown' found"):
+        with pytest.raises(ValueError, match=r"no sandbox with type 'unknown' found"):
             Sandbox.new("unknown::name")
         with pytest.raises(TypeError, match=r"sandbox task must be a SandboxTask instance"):
             Sandbox.new("bash::/path/setup.sh", task=object())
@@ -150,8 +151,9 @@ class TestSandbox:
         script = os.path.join(tmp, "setup.sh")
         with open(script, "w", encoding="utf-8") as f:
             f.write("exit 3\n")
-        with pytest.raises(Exception, match=r"env loading failed with exit code 3"):
+        with pytest.raises(SandboxError, match=r"env loading failed with exit code 3") as exc_info:
             BashSandbox(script).create_env()
+        assert exc_info.value.exit_code == 3
 
     def test_venv_env(self, tmp_path: pathlib.Path) -> None:
         tmp = str(tmp_path)

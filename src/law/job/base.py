@@ -264,7 +264,7 @@ class BaseJobManager(metaclass=abc.ABCMeta):
         timeout_cmd = get_timeout_command()
         if not timeout_cmd:
             if not silent:
-                raise Exception("cannot prepend timeout command, no suitable command detected on system")
+                raise RuntimeError("cannot prepend timeout command, no suitable command detected on system")
             return cmd
 
         return [timeout_cmd, "--preserve-status", f"--signal={signal}", str(duration), *cmd]
@@ -783,13 +783,13 @@ class BaseJobManager(metaclass=abc.ABCMeta):
                 else (self.last_counts or ([0] * len(self.status_names)))
             )
         if _last_counts and len(_last_counts) != len(self.status_names):
-            raise Exception(
+            raise ValueError(
                 f"{len(self.status_names)} last status counts expected, got {len(_last_counts)}",
             )
 
         # check current counts
         if len(counts) != len(self.status_names):
-            raise Exception(f"{len(self.status_names)} status counts expected, got {len(counts)}")
+            raise ValueError(f"{len(self.status_names)} status counts expected, got {len(counts)}")
 
         # calculate differences
         if _last_counts:
@@ -1069,7 +1069,7 @@ class BaseJobFileFactory(metaclass=abc.ABCMeta):
         linearized = {}
         for key, value in render_variables.items():
             if not isinstance(value, str):
-                raise Exception(
+                raise TypeError(
                     f"render variables must be strings, but found '{type(value)}' for key '{key}': "
                     f"{value}",
                 )

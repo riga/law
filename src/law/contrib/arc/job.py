@@ -18,6 +18,7 @@ import time
 
 from law._types import Any, Sequence
 from law.config import Config
+from law.errors import JobError
 from law.job.base import BaseJobFileFactory, BaseJobManager, JobInputFile
 from law.logger import get_logger
 from law.target.file import get_path
@@ -119,7 +120,7 @@ class ARCJobManager(BaseJobManager):
                     code = 1
                     out = f"cannot find job id(s) in output:\n{out}"
                 elif len(job_ids) != len(job_files):
-                    raise Exception(
+                    raise JobError(
                         f"number of job ids in output ({len(job_ids)}) does not match number of "
                         f"jobs to submit ({len(job_files)}) in output:\n{out}",
                     )
@@ -138,7 +139,7 @@ class ARCJobManager(BaseJobManager):
             if silent:
                 return None
 
-            raise Exception(f"submission of arc job(s) '{job_files}' failed:\n{out}")
+            raise JobError(f"submission of arc job(s) '{job_files}' failed:\n{out}")
 
     def cancel(  # type: ignore[override]
         self,
@@ -176,7 +177,7 @@ class ARCJobManager(BaseJobManager):
         # check success
         if code != 0 and not silent:
             # arc prints everything to stdout
-            raise Exception(f"cancellation of arc job(s) '{job_id}' failed with code {code}:\n{out}")
+            raise JobError(f"cancellation of arc job(s) '{job_id}' failed with code {code}:\n{out}", exit_code=code)
 
         return dict.fromkeys(job_ids) if chunking else None
 
@@ -216,7 +217,7 @@ class ARCJobManager(BaseJobManager):
         # check success
         if code != 0 and not silent:
             # arc prints everything to stdout
-            raise Exception(f"cleanup of arc job(s) '{job_id}' failed with code {code}:\n{out}")
+            raise JobError(f"cleanup of arc job(s) '{job_id}' failed with code {code}:\n{out}", exit_code=code)
 
         return dict.fromkeys(job_ids) if chunking else None
 
@@ -265,7 +266,7 @@ class ARCJobManager(BaseJobManager):
             if silent:
                 return None
             # arc prints everything to stdout
-            raise Exception(f"status query of arc job(s) '{job_id}' failed with code {code}:\n{out}")
+            raise JobError(f"status query of arc job(s) '{job_id}' failed with code {code}:\n{out}", exit_code=code)
 
         # parse the output and extract the status per job
         query_data = self.parse_query_output(out)
@@ -276,7 +277,7 @@ class ARCJobManager(BaseJobManager):
                 if not chunking:
                     if silent:
                         return None
-                    raise Exception(f"arc job(s) '{job_id}' not found in query response")
+                    raise JobError(f"arc job(s) '{job_id}' not found in query response")
                 query_data[_job_id] = self.job_status_dict(
                     job_id=_job_id,
                     status=self.FAILED,

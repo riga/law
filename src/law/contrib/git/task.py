@@ -73,7 +73,7 @@ class BundleGitRepository(Task):
                     stdout=subprocess.PIPE,
                 )
                 if code != 0:
-                    raise Exception("repository checksum calculation failed")
+                    raise RuntimeError("repository checksum calculation failed")
 
                 self._checksum = out.strip()
 
@@ -107,4 +107,4 @@ class BundleGitRepository(Task):
 
         code = interruptable_popen(cmd, shell=True, executable="/bin/bash")[0]
         if code != 0:
-            raise Exception("repository bundling failed")
+            raise RuntimeError("repository bundling failed")

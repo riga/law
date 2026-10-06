@@ -173,7 +173,7 @@ class MirroredTarget(FileSystemTarget):
 
             if sleep_counter >= attempts:
                 state = "disappear" if missing else "exist"
-                raise Exception(
+                raise TimeoutError(
                     f"timeout while waiting for local target representation {self.local_target!r} "
                     f"to {state}",
                 )

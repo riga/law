@@ -478,13 +478,13 @@ class SiblingFileCollection(SiblingFileCollectionBase):
 
         # find the first target and store its directory
         if self.first_target is None:
-            raise Exception(f"{self.__class__.__name__} requires at least one file target")
+            raise ValueError(f"{self.__class__.__name__} requires at least one file target")
         self.dir = self.first_target.parent  # type: ignore[attr-defined]
 
         # check that targets are in fact located in the same directory
         for t in flatten_collections(self._flat_target_list):
             if not _target_path_in_dir(t, self.dir):  # type: ignore[arg-type]
-                raise Exception(f"{t} is not located in common directory {self.dir}")
+                raise ValueError(f"{t} is not located in common directory {self.dir}")
 
     def _repr_pairs(self) -> list[tuple[str, Any]]:
         expand = Config.instance().get_expanded_bool("target", "expand_path_repr")

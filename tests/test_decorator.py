@@ -88,7 +88,7 @@ class TestDecorator(DecoratorTestCase):
         def plain(fn, opts, task, *args, **kwargs):
             return fn(task, *args, **kwargs)
 
-        with pytest.raises(Exception, match=r"not configured to decorate a generator function"):
+        with pytest.raises(TypeError, match=r"not configured to decorate a generator function"):
             class Obj:
                 @plain
                 def run(self):
@@ -161,7 +161,7 @@ class TestDecorator(DecoratorTestCase):
             def method(self):
                 pass
 
-        with pytest.raises(Exception, match=r"must return 3 or 4 callbacks"):
+        with pytest.raises(TypeError, match=r"must return 3 or 4 callbacks"):
             Obj().method()
 
     def test_factory_generator_state_per_run(self) -> None:

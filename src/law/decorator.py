@@ -43,6 +43,7 @@ import uuid
 import luigi
 
 from law._types import Any, Callable, T
+from law.errors import SandboxError
 from law.logger import get_logger
 from law.parameter import NotifyParameter, get_param
 from law.sandbox.base import SandboxTask
@@ -173,7 +174,7 @@ def factory(**default_opts) -> Callable:
                 # configured to handle them, and raise a exception if not
                 is_gen = inspect.isgeneratorfunction(orig_fn)
                 if is_gen and not accept_generator:
-                    raise Exception(
+                    raise TypeError(
                         f"decorator {decorator} is not configured to decorate a generator function {orig_fn}",
                     )
 
@@ -201,7 +202,7 @@ def factory(**default_opts) -> Callable:
                         # the latter two take the return value of the first one as a single argument
                         callbacks = tuple(decorator(fn, _opts, *args, **kwargs))
                         if len(callbacks) not in (3, 4):
-                            raise Exception(
+                            raise TypeError(
                                 "decorators accepting generator functions must return 3 or 4 callbacks, got "
                                 f"{len(callbacks)}",
                             )
@@ -657,12 +658,12 @@ def require_sandbox(
             )
 
         if not task.is_sandboxed():
-            raise Exception(
+            raise SandboxError(
                 f"the invocation of method {fn.__name__} requires task {task!r} to be sandboxed",
             )
 
         if opts["sandbox"] and not multi_match(task.effective_sandbox, make_list(opts["sandbox"])):
-            raise Exception(
+            raise SandboxError(
                 f"the invocation of method {fn.__name__} requires the sandbox of task {task!r} to "
                 f"match '{opts['sandbox']}'",
             )

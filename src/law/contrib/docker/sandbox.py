@@ -17,6 +17,7 @@ import luigi
 from law._types import Any
 from law.cli.software import get_software_deps
 from law.config import Config
+from law.errors import SandboxError
 from law.sandbox.base import Sandbox
 from law.target.local import LocalFileTarget
 from law.task.proxy import ProxyCommand
@@ -53,7 +54,7 @@ class DockerSandbox(Sandbox):
             try:
                 return tmp.load(formatter="pickle")
             except Exception as e:
-                raise Exception(f"{self} env deserialization failed: {e}") from e
+                raise SandboxError(f"{self} env deserialization failed: {e}") from e
 
         # load the env when the cache file is configured and existing
         if self.env_cache_path:
@@ -109,7 +110,7 @@ class DockerSandbox(Sandbox):
             stdin=None,
         )
         if code != 0:
-            raise Exception(f"docker sandbox env loading failed with exit code {code}:\n{out}")
+            raise SandboxError(f"docker sandbox env loading failed with exit code {code}:\n{out}", exit_code=code)
 
         # copy to the cache path when configured
         if self.env_cache_path:
@@ -138,7 +139,7 @@ class DockerSandbox(Sandbox):
             sandbox_user = self.task.sandbox_user()
             if sandbox_user:
                 if not isinstance(sandbox_user, (tuple, list)) or len(sandbox_user) != 2:
-                    raise Exception("sandbox_user() must return 2-tuple")
+                    raise TypeError("sandbox_user() must return 2-tuple")
                 cmd.extend(["-u", ":".join(map(str, sandbox_user))])
 
             # add args configured on the task

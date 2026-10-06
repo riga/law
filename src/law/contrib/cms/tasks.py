@@ -77,7 +77,7 @@ class BundleCMSSW(Task):
                 stdout=subprocess.PIPE,
             )
             if code != 0:
-                raise Exception("cmssw checksum calculation failed")
+                raise RuntimeError("cmssw checksum calculation failed")
 
             self._checksum = out.strip()
 
@@ -108,4 +108,4 @@ class BundleCMSSW(Task):
         cmd = self.get_cmssw_bundle_command(dst_path)
         code = interruptable_popen(quote_cmd(cmd), shell=True, executable="/bin/bash")[0]
         if code != 0:
-            raise Exception("cmssw bundling failed")
+            raise RuntimeError("cmssw bundling failed")

@@ -32,7 +32,7 @@ except (ImportError, TypeError):
     class GFAL2Dummy:
 
         def __getattr__(self, attr):
-            raise Exception(f"trying to access 'gfal2.{attr}', but gfal2 is not installed")
+            raise ImportError(f"trying to access 'gfal2.{attr}', but gfal2 is not installed")
 
     gfal2 = GFAL2Dummy()
 

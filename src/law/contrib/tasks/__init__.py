@@ -229,7 +229,7 @@ class ForestMerge(LocalWorkflow):
 
         # modify_param_values prevents the forest from being a workflow, but still check
         if self.is_forest() and self.is_workflow():
-            raise Exception(f"merge forest must not be a workflow, {self} misconfigured")
+            raise RuntimeError(f"merge forest must not be a workflow, {self} misconfigured")
 
     def is_forest(self) -> bool:
         return self.tree_index < 0
@@ -266,7 +266,7 @@ class ForestMerge(LocalWorkflow):
     @property
     def leaf_range(self) -> tuple[int, int]:
         if not self.is_leaf():
-            raise Exception("leaf_range can only be accessed by leaves")
+            raise RuntimeError("leaf_range can only be accessed by leaves")
 
         # compute the range
         tree_index: int = self.tree_index
@@ -283,14 +283,14 @@ class ForestMerge(LocalWorkflow):
 
     def _get_tree(self) -> dict[int, list[tuple[int, ...]]]:
         if self.is_forest():
-            raise Exception(
+            raise RuntimeError(
                 "merge tree cannot be determined for the merge forest, ForestMerge misconfigured",
             )
 
         try:
             return self.merge_forest[self.tree_index]
         except IndexError as e:
-            raise Exception(
+            raise IndexError(
                 f"merge tree {self.tree_index} not found, forest only contains {len(self.merge_forest)} tree(s)",
             ) from e
 
@@ -346,7 +346,7 @@ class ForestMerge(LocalWorkflow):
 
         # complain when there are too few leaves for the configured number of trees to create
         if self._n_leaves < n_trees:
-            raise Exception(
+            raise ValueError(
                 f"insufficient number of leaves ({self._n_leaves}) for number of requested trees ({n_trees})",
             )
 
@@ -438,7 +438,7 @@ class ForestMerge(LocalWorkflow):
         reqs = super().workflow_requires()
 
         if self.is_forest():
-            raise Exception(
+            raise RuntimeError(
                 "workflow requirements cannot be determined for the merge forest, ForestMerge "
                 "misconfigured",
             )
@@ -455,7 +455,7 @@ class ForestMerge(LocalWorkflow):
 
     def _forest_requires(self) -> dict[int, ForestMerge]:
         if not self.is_forest():
-            raise Exception(
+            raise RuntimeError(
                 "_forest_requires can only be determined for the forest, ForestMerge misconfigured",
             )
 
@@ -524,7 +524,7 @@ class ForestMerge(LocalWorkflow):
         else:
             first_output = flatten(output)[0]
             if not isinstance(first_output, FileSystemTarget):
-                raise Exception(
+                raise ValueError(
                     f"cannot determine directory for intermediate merged outputs from '{output}'",
                 )
             intermediate_dir = first_output.parent

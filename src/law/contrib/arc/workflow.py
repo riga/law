@@ -37,7 +37,7 @@ class ARCWorkflowProxy(BaseRemoteWorkflowProxy):
 
         # check if there is at least one ce
         if not self.task.arc_ce:
-            raise Exception("please set at least one arc computing element (--arc-ce)")
+            raise ValueError("please set at least one arc computing element (--arc-ce)")
 
     def create_job_manager(self, **kwargs) -> ARCJobManager:
         return self.task.arc_create_job_manager(**kwargs)

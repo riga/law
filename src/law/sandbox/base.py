@@ -18,6 +18,7 @@ import luigi
 
 from law._types import Any, Hashable, Iterator, MutableMapping, TextIO
 from law.config import Config
+from law.errors import SandboxError
 from law.logger import get_logger
 from law.parameter import NO_STR
 from law.parser import root_task
@@ -58,13 +59,13 @@ _sandbox_stageout_dir = os.getenv("LAW_SANDBOX_STAGEOUT_DIR", "")
 # certain values must be present in a sandbox
 if _sandbox_switched:
     if not _current_sandbox or not _current_sandbox[0]:
-        raise Exception("LAW_SANDBOX must not be empty in a sandbox")
+        raise SandboxError("LAW_SANDBOX must not be empty in a sandbox")
     if not _sandbox_task_id:
-        raise Exception("LAW_SANDBOX_TASK_ID must not be empty in a sandbox")
+        raise SandboxError("LAW_SANDBOX_TASK_ID must not be empty in a sandbox")
     if not _sandbox_worker_id:
-        raise Exception("LAW_SANDBOX_WORKER_ID must not be empty in a sandbox")
+        raise SandboxError("LAW_SANDBOX_WORKER_ID must not be empty in a sandbox")
     if not _sandbox_worker_first_task_id:
-        raise Exception("LAW_SANDBOX_WORKER_FIRST_TASK_ID must not be empty in a sandbox")
+        raise SandboxError("LAW_SANDBOX_WORKER_FIRST_TASK_ID must not be empty in a sandbox")
 
 
 class StageInfo:
@@ -228,7 +229,7 @@ class Sandbox(metaclass=abc.ABCMeta):
                 return _cls(name, *args, **kwargs)
             classes.extend(_cls.__subclasses__())
 
-        raise Exception(f"no sandbox with type '{_type}' found")
+        raise ValueError(f"no sandbox with type '{_type}' found")
 
     def __init__(
         self,
@@ -490,9 +491,10 @@ class SandboxProxy(ProxyTask):
         with self._run_context(cmd):
             code, _, _ = self.sandbox_inst.run(cmd)
             if code != 0:
-                raise Exception(
+                raise SandboxError(
                     f"sandbox '{self.sandbox_inst.key}' failed with exit code {code}, please see "
                     "the error inside the sandboxed context above for details",
+                    exit_code=code,
                 )
 
         # actual stage_out
@@ -698,7 +700,7 @@ class SandboxTask(ProxyAttributeTask):
         # at this point, the sandbox must be set unless it is explicitely allowed to be empty
         if self._effective_sandbox in (None, NO_STR):
             if not self.allow_empty_sandbox:
-                raise Exception(f"task {self!r} requires the sandbox parameter to be set")
+                raise ValueError(f"task {self!r} requires the sandbox parameter to be set")
             self._effective_sandbox = NO_STR
 
         # create the sandbox proxy when required
@@ -756,7 +758,7 @@ class SandboxTask(ProxyAttributeTask):
         from law.decorator import _is_patched_localized_method
 
         if not _sandbox_stagein_dir:
-            raise Exception(
+            raise SandboxError(
                 "LAW_SANDBOX_STAGEIN_DIR must not be empty in a sandbox when target "
                 "stage-in is required",
             )
@@ -778,7 +780,7 @@ class SandboxTask(ProxyAttributeTask):
         from law.decorator import _is_patched_localized_method
 
         if not _sandbox_stageout_dir:
-            raise Exception(
+            raise SandboxError(
                 "LAW_SANDBOX_STAGEOUT_DIR must not be empty in a sandbox when target "
                 "stage-out is required",
             )

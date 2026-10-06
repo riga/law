@@ -11,6 +11,7 @@ import pickle
 
 from law._types import Any
 from law.config import Config
+from law.errors import SandboxError
 from law.sandbox.base import Sandbox
 from law.task.proxy import ProxyCommand
 from law.util import flatten, interruptable_popen, makedirs, quote_cmd, tmp_file
@@ -66,7 +67,7 @@ class BashSandbox(Sandbox):
             # run it
             returncode = interruptable_popen(cmd, shell=True, executable="/bin/bash")[0]
             if returncode != 0:
-                raise Exception(f"{self} env loading failed with exit code {returncode}")
+                raise SandboxError(f"{self} env loading failed with exit code {returncode}", exit_code=returncode)
 
         # helper to load the env
         def load_env(path: str) -> dict[str, Any]:
@@ -74,7 +75,7 @@ class BashSandbox(Sandbox):
                 try:
                     return dict(pickle.load(f, encoding="utf-8"))
                 except Exception as e:
-                    raise Exception(f"{self} env deserialization failed: {e}") from e
+                    raise SandboxError(f"{self} env deserialization failed: {e}") from e
 
         # use the cache path if set
         if self.env_cache_path:

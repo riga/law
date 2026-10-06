@@ -39,7 +39,7 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
 
         # check if there is at least one ce
         if not self.task.glite_ce:
-            raise Exception("please set at least one glite computing element (--glite-ce)")
+            raise ValueError("please set at least one glite computing element (--glite-ce)")
 
         self.delegation_ids = None
 

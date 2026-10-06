@@ -21,6 +21,7 @@ from collections import defaultdict
 import luigi
 
 from law._types import AbstractContextManager, Any, Callable, ModuleType
+from law.errors import JobError, JobsFailedError
 from law.job.base import BaseJobFileFactory, BaseJobManager
 from law.job.dashboard import BaseJobDashboard, NoJobDashboard
 from law.logger import get_logger
@@ -1151,7 +1152,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
             # walltime exceeded?
             if task.walltime != NO_FLOAT and (time.time() - start_time) > walltime * 3600:
-                raise Exception(f"exceeded walltime: {human_duration(hours=task.walltime)}")
+                raise TimeoutError(f"exceeded walltime: {human_duration(hours=task.walltime)}")
 
             # update variable attributes for polling
             self.poll_data.n_finished_min = acceptance * (1 if acceptance > 1 else n_jobs)
@@ -1235,7 +1236,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 # increase the fail counter and maybe stop with an exception
                 n_poll_fails += 1
                 if poll_fails > 0 and n_poll_fails > poll_fails:
-                    raise Exception("poll_fails exceeded")
+                    raise JobError("poll_fails exceeded")
 
                 # poll again
                 continue
@@ -1362,7 +1363,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                         )
                     continue
 
-                raise Exception(f"unknown job status '{data['status']}'")
+                raise JobError(f"unknown job status '{data['status']}'")
 
             # gather some counts
             n_pending = len(pending_jobs)
@@ -1430,7 +1431,10 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             # complain when failed
             if failed:
                 failed_nums_str = ",".join(map(str, sorted(failed_jobs - retry_jobs)))
-                raise Exception(f"tolerance exceeded for job(s) {failed_nums_str}")
+                raise JobsFailedError(
+                    f"tolerance exceeded for job(s) {failed_nums_str}",
+                    job_nums=failed_jobs - retry_jobs,
+                )
 
             # stop early if unreachable
             if unreachable and (reached_end or task.check_unreachable_acceptance):
@@ -1439,7 +1443,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                     f"{'not reached' if reached_end else 'unreachable'}, total jobs: {n_jobs}, "
                     f"failed jobs: {n_failed}"
                 )
-                raise Exception(msg)
+                raise JobsFailedError(msg, job_nums=failed_jobs)
 
             # invoke the poll callback
             poll_callback_res = self._get_task_attribute("poll_callback")(self.poll_data)

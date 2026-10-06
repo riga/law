@@ -12,6 +12,7 @@ import warnings
 import pytest
 
 import law
+from law.errors import FormatterNotFoundError
 from law.target.collection import (
     FileCollection,
     NestedSiblingFileCollection,
@@ -134,7 +135,7 @@ class TestLocalTarget(TargetTestCase):
         self.dir.child("d", type="d").touch()
         assert isinstance(self.dir.child("f.txt"), law.LocalFileTarget)
         assert isinstance(self.dir.child("d"), law.LocalDirectoryTarget)
-        with pytest.raises(Exception, match=r"cannot\ guess\ type\ of\ non\-existing\ path\ '"):
+        with pytest.raises(FileNotFoundError, match=r"cannot\ guess\ type\ of\ non\-existing\ path\ '"):
             self.dir.child("not_existing")
 
     def test_copy_move(self) -> None:
@@ -203,7 +204,7 @@ class TestLocalTarget(TargetTestCase):
         gc.collect()
         assert not os.path.exists(path)
 
-        with pytest.raises(Exception, match=r"when\ no\ target\ path\ is\ defined,\ is_tmp\ must\ b"):
+        with pytest.raises(ValueError, match=r"when\ no\ target\ path\ is\ defined,\ is_tmp\ must\ b"):
             law.LocalFileTarget()
 
         f = law.LocalFileTarget(is_tmp=True, tmp_dir=self.tmp)
@@ -248,7 +249,7 @@ class TestLocalTarget(TargetTestCase):
         fs.mkdir(self.path("a", "b"), recursive=True)
         assert fs.isdir(self.path("a", "b"))
         assert not fs.isfile(self.path("a", "b"))
-        with pytest.raises(Exception, match=r"setting\ both\ 'section'\ and\ 'base'\ as\ LocalFil"):
+        with pytest.raises(ValueError, match=r"setting\ both\ 'section'\ and\ 'base'\ as\ LocalFil"):
             law.LocalFileSystem(base=self.tmp, section="local_fs")
 
 
@@ -258,7 +259,7 @@ class TestFormatter(TargetTestCase):
         for name in ["text", "json", "pickle", "yaml", "tar", "zip", "gzip", "python"]:
             assert get_formatter(name) is not None
         assert get_formatter("not_existing", silent=True) is None
-        with pytest.raises(Exception, match=r"cannot\ find\ formatter\ 'not_existing'"):
+        with pytest.raises(FormatterNotFoundError, match=r"cannot\ find\ formatter\ 'not_existing'"):
             get_formatter("not_existing")
 
         assert find_formatter(self.path("a.json"), "load").name == "json"
@@ -266,7 +267,7 @@ class TestFormatter(TargetTestCase):
         assert find_formatter(self.path("a.tgz"), "load").name == "tar"
         assert find_formatter(self.path("a.json"), "load", "text").name == "text"
         assert {f.name for f in find_formatters(self.path("a.json.gz"), "load")} >= {"gzip"}
-        with pytest.raises(Exception, match=r"cannot\ find\ any\ 'load'\ formatter\ for"):
+        with pytest.raises(FormatterNotFoundError, match=r"cannot\ find\ any\ 'load'\ formatter\ for"):
             find_formatter(self.path("a.unknown"), "load")
 
     def test_text(self) -> None:
@@ -386,7 +387,7 @@ class TestFormatter(TargetTestCase):
         assert os.listdir(out.path) == ["a.txt"]
 
     def test_no_formatter(self) -> None:
-        with pytest.raises(Exception, match=r"cannot\ find\ any\ 'dump'\ formatter\ for"):
+        with pytest.raises(FormatterNotFoundError, match=r"cannot\ find\ any\ 'dump'\ formatter\ for"):
             self.dir.child("a.unknown", type="f").dump({"a": 1})
 
 
@@ -497,9 +498,9 @@ class TestTargetCollection(TargetTestCase):
         assert SiblingFileCollection(self.targets, threshold=0.5).exists()
 
         sub_target = self.dir.child("sub", type="d").child("x.txt", type="f")
-        with pytest.raises(Exception, match=r"is not located in common directory"):
+        with pytest.raises(ValueError, match=r"is not located in common directory"):
             SiblingFileCollection([self.targets[0], sub_target])
-        with pytest.raises(Exception, match=r"SiblingFileCollection\ requires\ at\ least\ one\ f"):
+        with pytest.raises(ValueError, match=r"SiblingFileCollection\ requires\ at\ least\ one\ f"):
             SiblingFileCollection([])
 
         # removal only affects existing targets

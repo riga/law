@@ -15,6 +15,7 @@ import time
 
 from law._types import IO, Any, Callable, Generator, Iterator, Literal, Sequence, TracebackType
 from law.config import Config
+from law.errors import ConfigError
 from law.logger import get_logger
 from law.target.file import (
     FileSystem,
@@ -180,7 +181,7 @@ class RemoteFileSystem(FileSystem):
         if isinstance(section, str):
             # when set, the section must exist
             if not cfg.has_section(section):
-                raise Exception(
+                raise ConfigError(
                     f"law config has no section '{section}' to read {self.__class__.__name__} "
                     "options",
                 )
@@ -449,7 +450,7 @@ class RemoteFileSystem(FileSystem):
 
         # copy validation
         if validate and not dst_fs.exists(resolved_dst):
-            raise Exception(f"validation failed after copying {src_uri} to {dst_uri}")
+            raise RuntimeError(f"validation failed after copying {src_uri} to {dst_uri}")
 
         # handle permissions
         if perm is None:
@@ -496,7 +497,7 @@ class RemoteFileSystem(FileSystem):
 
         # dst can be None, but in this case, caching should be enabled
         if dst is None and not cache:
-            raise Exception("copy destination must not be empty when caching is disabled")
+            raise ValueError("copy destination must not be empty when caching is disabled")
 
         if not cache:
             # simply copy and return the dst path
@@ -623,7 +624,7 @@ class RemoteFileSystem(FileSystem):
         **kwargs,
     ) -> str:
         if not dst:
-            raise Exception("move requires dst to be set")
+            raise ValueError("move requires dst to be set")
 
         # copy the file
         kwargs["cache"] = False
@@ -812,7 +813,7 @@ class RemoteFileTarget(FileSystemFileTarget, RemoteTarget):
         **kwargs,
     ) -> Generator[LocalFileTarget, None, None]:
         if mode not in ["r", "w", "a"]:
-            raise Exception(f"unknown mode '{mode}', use 'r', 'w' or 'a'")
+            raise ValueError(f"unknown mode '{mode}', use 'r', 'w' or 'a'")
 
         logger.debug(f"localizing {self!r} with mode '{mode}'")
 
@@ -860,7 +861,7 @@ class RemoteDirectoryTarget(FileSystemDirectoryTarget, RemoteTarget):
         **kwargs,
     ) -> Generator[LocalDirectoryTarget, None, None]:
         if mode not in ["r", "w", "a"]:
-            raise Exception(f"unknown mode '{mode}', use 'r', 'w' or 'a'")
+            raise ValueError(f"unknown mode '{mode}', use 'r', 'w' or 'a'")
 
         logger.debug(f"localizing {self!r} with mode '{mode}'")
 

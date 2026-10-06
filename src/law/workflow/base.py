@@ -583,7 +583,7 @@ class WorkflowRegister(Register):
             if not isinstance(value, DynamicWorkflowCondition):
                 continue
             if condition_attr:
-                raise Exception(
+                raise TypeError(
                     f"class '{cls_name}' defined with more than one DynamicWorkflowCondition, "
                     f"found '{attr}' after previously registered '{condition_attr}'",
                 )
@@ -847,7 +847,7 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
         # when there are any workflow parameters, create_branch_map must be a classmethod since
         # there is no way of accessing this map before instantiation
         if not is_classmethod(cls.create_branch_map, cls):
-            raise Exception(
+            raise TypeError(
                 f"{cls.__name__}.create_branch_map must be a classmethod accepting a single "
                 "parameter (dict of parameter names and values) in case workflows use "
                 "WorkflowParameter objects in order to perform branch value lookups prior to any "
@@ -958,7 +958,7 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
                     collapsed_values = tuple(values[i] for i in set_idxs)
                     if collapsed_values not in branch_map_reversed_collapsed:
                         param_repr = cjoin(map("{0[0]}={0[1]}".format, zip(names, values)))
-                        raise Exception(
+                        raise ValueError(
                             f"workflow parameter combination {param_repr} not found in branch map "
                             f"of {cls.__name__}",
                         )
@@ -1246,7 +1246,7 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
 
     def _reset_branch_boundaries(self, full_branch_map: dict[int, Any]) -> None:
         if self.is_branch():
-            raise Exception("calls to _reset_branch_boundaries are forbidden for branch tasks")
+            raise RuntimeError("calls to _reset_branch_boundaries are forbidden for branch tasks")
 
         # rejoin branch ranges when given
         if self.branches:
@@ -1271,7 +1271,7 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
 
     def _reduce_branch_map(self, branch_map: dict[int, Any]) -> None:
         if self.is_branch():
-            raise Exception("calls to _reduce_branch_map are forbidden for branch tasks")
+            raise RuntimeError("calls to _reduce_branch_map are forbidden for branch tasks")
 
         # create a set of branches to remove
         remove_branches = set()
@@ -1344,7 +1344,7 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
     @property
     def branch_data(self) -> Any:
         if self.is_workflow():
-            raise Exception("calls to branch_data are forbidden for workflow tasks")
+            raise RuntimeError("calls to branch_data are forbidden for workflow tasks")
 
         branch_map = self.get_branch_map()
         if self.branch not in branch_map:
@@ -1505,7 +1505,7 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
         When this method is called from a branch task, an exception is raised.
         """
         if self.is_branch():
-            raise Exception("calls to requires_from_branch are forbidden for branch tasks")
+            raise RuntimeError("calls to requires_from_branch are forbidden for branch tasks")
 
         return self.__class__.requires(self)
 

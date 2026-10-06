@@ -13,14 +13,19 @@ __all__ = [
     "BytesParameter",
     "CSVParameter",
     "Config",
+    "ConfigError",
     "DurationParameter",
     "ExternalTask",
     "FileCollection",
     "FileSystemDirectoryTarget",
     "FileSystemFileTarget",
     "FileSystemTarget",
+    "FormatterNotFoundError",
     "JobArguments",
+    "JobError",
     "JobInputFile",
+    "JobsFailedError",
+    "LawError",
     "LocalDirectoryTarget",
     "LocalFileSystem",
     "LocalFileTarget",
@@ -41,6 +46,7 @@ __all__ = [
     "RangeParameter",
     "Register",
     "Sandbox",
+    "SandboxError",
     "SandboxTask",
     "SiblingFileCollection",
     "Target",
@@ -107,6 +113,9 @@ law.patches.patch_all()
 import law.util
 from law.util import law_run as run, no_value
 from law.config import Config
+from law.errors import (
+    LawError, ConfigError, FormatterNotFoundError, SandboxError, JobError, JobsFailedError,
+)
 from law.notification import notify_mail
 from law.parameter import (
     NO_STR, NO_INT, NO_FLOAT, is_no_param, get_param, Parameter, TaskInstanceParameter,

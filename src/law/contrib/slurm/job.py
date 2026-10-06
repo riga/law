@@ -16,6 +16,7 @@ import time
 
 from law._types import Any, Sequence
 from law.config import Config
+from law.errors import JobError
 from law.job.base import BaseJobFileFactory, BaseJobManager, JobInputFile
 from law.logger import get_logger
 from law.target.file import get_path
@@ -119,7 +120,7 @@ class SlurmJobManager(BaseJobManager):
             if silent:
                 return None
 
-            raise Exception(f"submission of slurm job '{job_file}' failed:\n{err}")
+            raise JobError(f"submission of slurm job '{job_file}' failed:\n{err}")
 
     def cancel(  # type: ignore[override]
         self,
@@ -156,7 +157,7 @@ class SlurmJobManager(BaseJobManager):
 
         # check success
         if code != 0 and not silent:
-            raise Exception(f"cancellation of slurm job(s) '{job_id}' failed with code {code}:\n{err}")
+            raise JobError(f"cancellation of slurm job(s) '{job_id}' failed with code {code}:\n{err}", exit_code=code)
 
         return dict.fromkeys(job_ids) if chunking else None
 
@@ -216,7 +217,10 @@ class SlurmJobManager(BaseJobManager):
             if code != 0:
                 if silent:
                     return None
-                raise Exception(f"queue query of slurm job(s) '{job_id}' failed with code {code}:\n{err}")
+                raise JobError(
+                    f"queue query of slurm job(s) '{job_id}' failed with code {code}:\n{err}",
+                    exit_code=code,
+                )
 
             # parse the output and extract the status per job
             query_data = self.parse_squeue_output(out)
@@ -247,8 +251,9 @@ class SlurmJobManager(BaseJobManager):
             if code != 0:
                 if silent:
                     return None
-                raise Exception(
+                raise JobError(
                     f"accounting query of slurm job(s) '{job_id}' failed with code {code}:\n{err}",
+                    exit_code=code,
                 )
 
             # parse the output and update query data
@@ -260,7 +265,7 @@ class SlurmJobManager(BaseJobManager):
                 if not chunking:
                     if silent:
                         return None
-                    raise Exception(f"slurm job(s) '{job_id}' not found in query response")
+                    raise JobError(f"slurm job(s) '{job_id}' not found in query response")
                 query_data[_job_id] = self.job_status_dict(
                     job_id=_job_id,
                     status=self.FAILED,
@@ -614,4 +619,4 @@ class SlurmJobFileFactory(BaseJobFileFactory):
         if len(args) == 2:
             return f"#SBATCH --{_str(args[0])}={_str(args[1])}"
 
-        raise Exception(f"cannot create job file line from '{args}'")
+        raise ValueError(f"cannot create job file line from '{args}'")

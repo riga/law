@@ -73,7 +73,7 @@ def _arcproxy_info(
         code = 1
 
     if not silent and code != 0:
-        raise Exception(f"arcproxy failed: {err}")
+        raise RuntimeError(f"arcproxy failed: {err}")
 
     return code, out, err
 
@@ -88,7 +88,7 @@ def get_arcproxy_user(proxy_file: str | pathlib.Path | None = None) -> str:
     try:
         return re.match(r".*\/CN\=([^\/]+).*", out.strip()).group(1)  # type: ignore[union-attr]
     except Exception as e:
-        raise Exception(f"no valid identity found in arc proxy: {out}") from e
+        raise RuntimeError(f"no valid identity found in arc proxy: {out}") from e
 
 
 def get_arcproxy_lifetime(proxy_file: str | pathlib.Path | None = None) -> int:
@@ -101,7 +101,7 @@ def get_arcproxy_lifetime(proxy_file: str | pathlib.Path | None = None) -> int:
     try:
         return int(out)
     except Exception as e:
-        raise Exception(f"no valid lifetime found in arc proxy: {out}") from e
+        raise RuntimeError(f"no valid lifetime found in arc proxy: {out}") from e
 
 
 def get_arcproxy_vo(proxy_file: str | pathlib.Path | None = None) -> str:
@@ -127,7 +127,7 @@ def check_arcproxy_validity(log=False, proxy_file: str | pathlib.Path | None = N
     elif err.strip().lower().startswith("error: cannot find file at"):
         valid = False
     else:
-        raise Exception(f"arcproxy failed: {err}")
+        raise RuntimeError(f"arcproxy failed: {err}")
 
     if log and not valid:
         logger.warning("no valid arc proxy found")
@@ -178,4 +178,4 @@ def renew_arcproxy(
         )
 
         if code != 0:
-            raise Exception(f"arcproxy failed: {out}")
+            raise RuntimeError(f"arcproxy failed: {out}")

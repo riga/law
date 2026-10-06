@@ -12,6 +12,7 @@ import pathlib
 import pickle
 
 from law._types import Any
+from law.errors import SandboxError
 from law.sandbox.base import SandboxVariables, _current_sandbox
 from law.sandbox.bash import BashSandbox
 from law.task.proxy import ProxyCommand
@@ -174,7 +175,7 @@ class CMSSWSandbox(BashSandbox):
             # run it
             returncode = interruptable_popen(cmd, shell=True, executable="/bin/bash", stdin=None)[0]
             if returncode != 0:
-                raise Exception(f"{self} env loading failed with exit code {returncode}")
+                raise SandboxError(f"{self} env loading failed with exit code {returncode}", exit_code=returncode)
 
         # helper to load the env
         def load_env(path: str | pathlib.Path) -> dict[str, Any]:
@@ -182,7 +183,7 @@ class CMSSWSandbox(BashSandbox):
                 try:
                     return dict(pickle.load(f, encoding="utf-8"))
                 except Exception as e:
-                    raise Exception(f"{self} env deserialization failed: {e}") from e
+                    raise SandboxError(f"{self} env deserialization failed: {e}") from e
 
         # use the cache path if set
         if self.env_cache_path:

@@ -23,6 +23,7 @@ import time
 import law
 from law._types import Any, Callable, Hashable, MutableMapping, Sequence, T
 from law.config import Config
+from law.errors import JobError
 from law.job.base import BaseJobFileFactory, BaseJobManager, JobInputFile
 from law.job.dashboard import BaseJobDashboard
 from law.logger import get_logger
@@ -179,7 +180,7 @@ class CrabJobManager(BaseJobManager):
 
     def _check_proj_dir(self, proj_dir: str | pathlib.Path) -> None:
         if not os.path.isdir(str(proj_dir)):
-            raise Exception(f"project directory '{proj_dir}' does not exist")
+            raise FileNotFoundError(f"project directory '{proj_dir}' does not exist")
 
     def submit(  # type: ignore[override]
         self,
@@ -250,8 +251,9 @@ class CrabJobManager(BaseJobManager):
                 if silent:
                     return None
 
-                raise Exception(
+                raise JobError(
                     f"submission of crab job '{job_file}' failed with code {code}:\n{out}",
+                    exit_code=code,
                 )
 
             # parse outputs
@@ -271,9 +273,9 @@ class CrabJobManager(BaseJobManager):
                     break
 
             if not task_name:
-                raise Exception(f"no valid task name found in submission output:\n\n{out}")
+                raise JobError(f"no valid task name found in submission output:\n\n{out}")
             if not log_file:
-                raise Exception(f"no valid log file found in submission output:\n\n{out}")
+                raise JobError(f"no valid log file found in submission output:\n\n{out}")
 
             # create job ids with log data
             proj_dir = os.path.dirname(log_file)
@@ -281,7 +283,7 @@ class CrabJobManager(BaseJobManager):
 
             # checks
             if job_files is not None and len(job_files) != len(job_ids):
-                raise Exception(
+                raise JobError(
                     f"number of submited jobs ({len(job_ids)}) does not match number of job files "
                     f"({len(job_files)})",
                 )
@@ -336,9 +338,10 @@ class CrabJobManager(BaseJobManager):
         # check success
         if code != 0 and not silent:
             # crab prints everything to stdout
-            raise Exception(
+            raise JobError(
                 f"cancellation of crab jobs from project '{proj_dir}' failed with code {code}:\n"
                 f"{out}",
+                exit_code=code,
             )
 
         return dict.fromkeys(job_ids)
@@ -429,9 +432,10 @@ class CrabJobManager(BaseJobManager):
             if silent:
                 return None
             # crab prints everything to stdout
-            raise Exception(
+            raise JobError(
                 f"status query of crab jobs from project '{proj_dir}' failed with code {code}:\n"
                 f"{out}",
+                exit_code=code,
             )
 
         # parse the output and extract the status per job
@@ -524,7 +528,7 @@ class CrabJobManager(BaseJobManager):
                 error = server_failure or "submission failed"
             else:
                 s = ",".join(map("'{}'".format, pending_server_states | failed_server_states))
-                raise Exception(
+                raise JobError(
                     "no per-job information available (yet?), which is only accepted if the crab "
                     f"server status is any of {s}, but got '{server_status}'",
                 )
@@ -540,7 +544,7 @@ class CrabJobManager(BaseJobManager):
 
         # parse json data
         if not json_line:
-            raise Exception(
+            raise JobError(
                 "no per-job information available in status response, crab server "
                 f"status '{server_status}', scheduler status '{scheduler_status}'",
             )
@@ -1036,7 +1040,7 @@ class CrabJobFileFactory(BaseJobFileFactory):
                 # options
                 for option, value in cfg.items():
                     if value == no_value:
-                        raise Exception(f"cannot assign {value} to crab config {section}.{option}")
+                        raise ValueError(f"cannot assign {value} to crab config {section}.{option}")
                     if value is None:
                         continue
                     value_str = (

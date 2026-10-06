@@ -325,7 +325,7 @@ class FileSystemTarget(Target, shims.FileSystemTarget):
     def sibling(self, *args, **kwargs) -> FileSystemTarget:
         parent = self.parent
         if not parent:
-            raise Exception(f"cannot determine parent of {self!r}")
+            raise ValueError(f"cannot determine parent of {self!r}")
 
         return parent.child(*args, **kwargs)
 
@@ -625,7 +625,7 @@ class FileSystemDirectoryTarget(FileSystemTarget):
         elif type == "d":
             cls = self.__class__  # type: ignore[assignment]
         elif not self.fs.exists(path):
-            raise Exception(f"cannot guess type of non-existing path '{path}'")
+            raise FileNotFoundError(f"cannot guess type of non-existing path '{path}'")
         elif self.fs.isdir(path):
             cls = self.__class__  # type: ignore[assignment]
             type = "d"

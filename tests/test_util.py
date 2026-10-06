@@ -165,9 +165,9 @@ class TestUtil:
         assert law.util.range_expand(["8:5", "6"]) == [5, 6, 7]
         # limits are applied to single values as well
         assert law.util.range_expand(["1", "20"], min_value=2, max_value=10) == []
-        with pytest.raises(Exception, match=r"range\ '10:'\ with\ missing\ stop\ value\ requires"):
+        with pytest.raises(ValueError, match=r"range\ '10:'\ with\ missing\ stop\ value\ requires"):
             law.util.range_expand(["10:"])
-        with pytest.raises(Exception, match=r"range\ ':10'\ with\ missing\ start\ value\ requires"):
+        with pytest.raises(ValueError, match=r"range\ ':10'\ with\ missing\ start\ value\ requires"):
             law.util.range_expand([":10"])
         with pytest.raises(ValueError, match=r"invalid\ number\ or\ range\ 'a'"):
             law.util.range_expand("a:b")

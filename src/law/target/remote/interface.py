@@ -16,6 +16,7 @@ import time
 
 from law._types import Any, Callable, Sequence, TracebackType
 from law.config import Config
+from law.errors import LawError
 from law.logger import Logger, get_logger
 from law.target.file import remove_scheme
 from law.util import brace_expand, is_lazy_iterable, make_list, parse_duration
@@ -23,7 +24,7 @@ from law.util import brace_expand, is_lazy_iterable, make_list, parse_duration
 logger: Logger = get_logger(__name__)
 
 
-class RetryException(Exception):
+class RetryException(LawError):
 
     def __init__(
         self,
@@ -178,7 +179,7 @@ class RemoteFileInterface(metaclass=abc.ABCMeta):
 
         # at least one base in expected
         if len(base) == 0:
-            raise Exception(
+            raise ValueError(
                 f"{self.__class__.__name__} expected at least one base path, received none",
             )
 
@@ -216,7 +217,7 @@ class RemoteFileInterface(metaclass=abc.ABCMeta):
                     break
 
         if not bases:
-            raise Exception(f"no bases available for command '{base_name}'")
+            raise ValueError(f"no bases available for command '{base_name}'")
 
         # are there indices to skip?
         all_bases = bases

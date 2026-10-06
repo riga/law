@@ -11,6 +11,7 @@ import pathlib
 import law
 from law._types import Any, Callable
 from law.config import Config
+from law.errors import ConfigError
 from law.logger import get_logger
 from law.target.remote import (
     RemoteDirectoryTarget,
@@ -91,10 +92,10 @@ class DropboxFileSystem(RemoteFileSystem):
             "or add the option '{{0}}' to your config section '{}'"
         ).format(self.__class__.__name__, self.config_section)
         if not fi_config.get("base"):
-            raise Exception(msg_tmpl.format("base"))
+            raise ConfigError(msg_tmpl.format("base"))
         for attr in ["app_key", "app_secret", "access_token"]:
             if not fs_config.get(attr):
-                raise Exception(msg_tmpl.format(attr))
+                raise ConfigError(msg_tmpl.format(attr))
 
         # enforce some configs
         fs_config["has_permissions"] = False

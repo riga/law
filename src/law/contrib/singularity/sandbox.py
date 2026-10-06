@@ -14,6 +14,7 @@ import luigi
 from law._types import Any
 from law.cli.software import get_software_deps
 from law.config import Config
+from law.errors import SandboxError
 from law.sandbox.base import Sandbox
 from law.target.local import LocalDirectoryTarget, LocalFileTarget
 from law.task.proxy import ProxyCommand
@@ -47,7 +48,7 @@ class SingularitySandbox(Sandbox):
             try:
                 return tmp.load(formatter="pickle")
             except Exception as e:
-                raise Exception(f"env deserialization of sandbox {self!r} failed: {e}") from e
+                raise SandboxError(f"env deserialization of sandbox {self!r} failed: {e}") from e
 
         # load the env when the cache file is configured and existing
         if self.env_cache_path:
@@ -117,7 +118,7 @@ class SingularitySandbox(Sandbox):
             stdin=None,
         )
         if code != 0:
-            raise Exception(f"{self} env loading failed with exit code {code}:\n{out}")
+            raise SandboxError(f"{self} env loading failed with exit code {code}:\n{out}", exit_code=code)
 
         # copy to the cache path when configured
         if self.env_cache_path:
@@ -245,7 +246,7 @@ class SingularitySandbox(Sandbox):
 
         # add staging directories
         if (self.stagein_info or self.stageout_info) and not allow_binds:
-            raise Exception("cannot use stage-in or -out if binds are not allowed")
+            raise SandboxError("cannot use stage-in or -out if binds are not allowed")
 
         if self.stagein_info:
             env["LAW_SANDBOX_STAGEIN_DIR"] = dst(stagein_dir_name)
@@ -257,7 +258,7 @@ class SingularitySandbox(Sandbox):
         # forward volumes defined in the config and by the task
         vols = self._get_volumes()
         if vols and not allow_binds:
-            raise Exception("cannot forward volumes to sandbox if binds are not allowed")
+            raise SandboxError("cannot forward volumes to sandbox if binds are not allowed")
 
         for hdir, cdir in vols.items():
             if not cdir:

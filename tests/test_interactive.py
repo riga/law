@@ -202,7 +202,7 @@ class TestInteractive:
         assert "skipped" in out
 
     def test_remove_task_output_invalid_mode(self) -> None:
-        with pytest.raises(Exception, match=r"unknown removal mode 'x'"):
+        with pytest.raises(ValueError, match=r"unknown removal mode 'x'"):
             self.capture(remove_task_output, self.task, 0, "x")
 
     def test_fetch_task_output(self) -> None:
@@ -232,7 +232,7 @@ class TestInteractive:
         assert os.listdir(fetch_dir) == []
 
     def test_fetch_task_output_invalid_mode(self) -> None:
-        with pytest.raises(Exception, match=r"unknown fetch mode 'x'"):
+        with pytest.raises(ValueError, match=r"unknown fetch mode 'x'"):
             self.capture(fetch_task_output, self.task, 0, "x", self.tmp)
 
     def test_fetch_task_output_unique_names_flag(self) -> None:

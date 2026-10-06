@@ -17,6 +17,7 @@ import shutil
 import law.target.luigi_shims as shims
 from law._types import IO, AbstractContextManager, Any, Callable, Generator, Iterator, Literal
 from law.config import Config
+from law.errors import ConfigError
 from law.logger import get_logger
 from law.target.file import (
     FileSystem,
@@ -77,7 +78,7 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
     def __init__(self, section: str | None = None, *, base: str | None = None, **kwargs) -> None:
         # setting both section and base is ambiguous and not allowed
         if section and base:
-            raise Exception(
+            raise ValueError(
                 f"setting both 'section' and 'base' as {self.__class__.__name__} arguments is "
                 f"ambiguous and therefore not supported, but got {section} and {base}",
             )
@@ -94,7 +95,7 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
         elif section != default_section:
             # check if the section exists
             if not cfg.has_section(section):
-                raise Exception(
+                raise ConfigError(
                     f"law config has no section '{section}' to read {self.__class__.__name__} "
                     "options",
                 )
@@ -115,7 +116,7 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
             # projects for convenience are interpreted as such and in particular do not resolve them
             # relative to a base path defined in some config
             if self.config_section == default_section and base != os.sep:
-                raise Exception(
+                raise ConfigError(
                     f"the default local fs '{default_section}' must not have a base defined, "
                     f"but got {base}",
                 )
@@ -448,9 +449,9 @@ class LocalTarget(FileSystemTarget, shims.LocalTarget):
         # handle tmp paths manually since luigi uses the env tmp dir
         if not path:
             if not is_tmp:
-                raise Exception("when no target path is defined, is_tmp must be set")
+                raise ValueError("when no target path is defined, is_tmp must be set")
             if str(fs.base) != "/":
-                raise Exception(
+                raise ValueError(
                     "when is_tmp is set, the base of the underlying file system must be '/', but "
                     f"found '{fs.base}'",
                 )
@@ -571,7 +572,7 @@ class LocalFileTarget(FileSystemFileTarget, LocalTarget):  # type: ignore[misc]
         **kwargs,
     ) -> Generator[LocalFileTarget, None, None]:
         if mode not in ["r", "w", "a"]:
-            raise Exception(f"unknown mode '{mode}', use 'r', 'w' or 'a'")
+            raise ValueError(f"unknown mode '{mode}', use 'r', 'w' or 'a'")
 
         logger.debug(f"localizing {self!r} with mode '{mode}'")
 
@@ -649,7 +650,7 @@ class LocalDirectoryTarget(FileSystemDirectoryTarget, LocalTarget):  # type: ign
         **kwargs,
     ) -> Generator[LocalDirectoryTarget, None, None]:
         if mode not in ["r", "w", "a"]:
-            raise Exception(f"unknown mode '{mode}', use 'r', 'w' or 'a'")
+            raise ValueError(f"unknown mode '{mode}', use 'r', 'w' or 'a'")
 
         logger.debug(f"localizing {self!r} with mode '{mode}'")
 

@@ -128,7 +128,7 @@ def hadd_task(
             cmd = hadd_cmd(input_paths, output_path)
             code = interruptable_popen(cmd, shell=True, executable="/bin/bash", cwd=cwd.path)[0]
             if code != 0:
-                raise Exception("hadd failed")
+                raise RuntimeError("hadd failed")
 
     if local:
         # when local, there is no need to download inputs
@@ -146,7 +146,7 @@ def hadd_task(
 
         stat: os.stat_result = output.exists(stat=True)  # type: ignore[assignment]
         if not stat:
-            raise Exception(f"output '{output.abspath}' not created during merging")
+            raise RuntimeError(f"output '{output.abspath}' not created during merging")
 
         # print the size
         output_size = human_bytes(stat.st_size, fmt=True)
@@ -174,7 +174,7 @@ def hadd_task(
 
             stat: os.stat_result = tmp_out.exists(stat=True)
             if not stat:
-                raise Exception(f"output '{tmp_out.abspath}' not created during merging")
+                raise RuntimeError(f"output '{tmp_out.abspath}' not created during merging")
 
             # print the size
             output_size = human_bytes(stat.st_size, fmt=True)

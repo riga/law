@@ -17,6 +17,7 @@ import time
 
 from law._types import Any, Sequence
 from law.config import Config
+from law.errors import JobError
 from law.job.base import BaseJobFileFactory, BaseJobManager, JobInputFile
 from law.logger import get_logger
 from law.target.file import get_path
@@ -156,7 +157,7 @@ class HTCondorJobManager(BaseJobManager):
                 if i == len(job_files) - 1 or not has_initialdir(job_file):
                     job_file_dir = dirname
             elif dirname != job_file_dir and not has_initialdir(job_file):
-                raise Exception(
+                raise ValueError(
                     f"cannot performed chunked submission as job file '{job_file}' is not located in a previously seen "
                     f"directory '{job_file_dir}' and has no initialdir",
                 )
@@ -227,7 +228,7 @@ class HTCondorJobManager(BaseJobManager):
             if silent:
                 return None
 
-            raise Exception(f"submission of htcondor job(s) '{job_files_repr}' failed:\n{err}")
+            raise JobError(f"submission of htcondor job(s) '{job_files_repr}' failed:\n{err}")
 
     def _submit_impl_grouped(
         self,
@@ -303,7 +304,7 @@ class HTCondorJobManager(BaseJobManager):
             if silent:
                 return None
 
-            raise Exception(f"submission of htcondor job(s) '{job_file}' failed:\n{err}")
+            raise JobError(f"submission of htcondor job(s) '{job_file}' failed:\n{err}")
 
     def cancel(  # type: ignore[override]
         self,
@@ -345,7 +346,10 @@ class HTCondorJobManager(BaseJobManager):
 
         # check success
         if code != 0 and not silent:
-            raise Exception(f"cancellation of htcondor job(s) '{job_id}' failed with code {code}:\n{err}")
+            raise JobError(
+                f"cancellation of htcondor job(s) '{job_id}' failed with code {code}:\n{err}",
+                exit_code=code,
+            )
 
         return dict.fromkeys(job_ids) if chunking else None
 
@@ -412,8 +416,9 @@ class HTCondorJobManager(BaseJobManager):
         if code != 0:
             if silent:
                 return None
-            raise Exception(
+            raise JobError(
                 f"queue query of htcondor job(s) '{job_id}' failed with code {code}:\n{err}",
+                exit_code=code,
             )
 
         # parse the output and extract the status per job
@@ -458,7 +463,10 @@ class HTCondorJobManager(BaseJobManager):
             if code != 0:
                 if silent:
                     return None
-                raise Exception(f"history query of htcondor job(s) '{job_id}' failed with code {code}:\n{err}")
+                raise JobError(
+                    f"history query of htcondor job(s) '{job_id}' failed with code {code}:\n{err}",
+                    exit_code=code,
+                )
 
             # parse the output and update query data
             query_data.update(self.parse_long_output(out))
@@ -469,7 +477,7 @@ class HTCondorJobManager(BaseJobManager):
                 if not chunking:
                     if silent:
                         return None
-                    raise Exception(f"htcondor job(s) '{job_id}' not found in query response")
+                    raise JobError(f"htcondor job(s) '{job_id}' not found in query response")
 
                 query_data[_job_id] = self.job_status_dict(
                     job_id=_job_id,

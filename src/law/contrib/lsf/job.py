@@ -16,6 +16,7 @@ import time
 
 from law._types import Any, Sequence
 from law.config import Config
+from law.errors import JobError
 from law.job.base import BaseJobFileFactory, BaseJobManager, JobInputFile
 from law.logger import get_logger
 from law.target.file import get_path
@@ -123,7 +124,7 @@ class LSFJobManager(BaseJobManager):
             if silent:
                 return None
 
-            raise Exception(f"submission of lsf job '{job_file}' failed: \n{err}")
+            raise JobError(f"submission of lsf job '{job_file}' failed: \n{err}")
 
     def cancel(  # type: ignore[override]
         self,
@@ -159,7 +160,7 @@ class LSFJobManager(BaseJobManager):
 
         # check success
         if code != 0 and not silent:
-            raise Exception(f"cancellation of lsf job(s) '{job_id}' failed with code {code}:\n{err}")
+            raise JobError(f"cancellation of lsf job(s) '{job_id}' failed with code {code}:\n{err}", exit_code=code)
 
         return dict.fromkeys(job_ids) if chunking else None
 
@@ -210,7 +211,7 @@ class LSFJobManager(BaseJobManager):
         if code != 0:
             if silent:
                 return None
-            raise Exception(f"status query of lsf job(s) '{job_id}' failed with code {code}:\n{err}")
+            raise JobError(f"status query of lsf job(s) '{job_id}' failed with code {code}:\n{err}", exit_code=code)
 
         # parse the output and extract the status per job
         query_data = self.parse_query_output(out)
@@ -221,7 +222,7 @@ class LSFJobManager(BaseJobManager):
                 if not chunking:
                     if silent:
                         return None
-                    raise Exception(f"lsf job(s) '{job_id}' not found in query response")
+                    raise JobError(f"lsf job(s) '{job_id}' not found in query response")
                 query_data[_job_id] = self.job_status_dict(
                     job_id=_job_id,
                     status=self.FAILED,

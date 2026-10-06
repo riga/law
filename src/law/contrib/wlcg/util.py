@@ -72,7 +72,7 @@ def get_usercert_subject(usercert: str | pathlib.Path | None = None) -> str:
         usercert = get_usercert()
     usercert = str(usercert)
     if not os.path.exists(usercert):
-        raise Exception(f"usercert does not exist at '{usercert}'")
+        raise FileNotFoundError(f"usercert does not exist at '{usercert}'")
 
     # extract the subject via openssl
     cmd = ["openssl", "x509", "-in", usercert, "-noout", "-subject"]
@@ -85,7 +85,7 @@ def get_usercert_subject(usercert: str | pathlib.Path | None = None) -> str:
         stdin=None,
     )
     if code != 0:
-        raise Exception(f"subject extraction from usercert failed: {err}")
+        raise RuntimeError(f"subject extraction from usercert failed: {err}")
 
     return re.sub(r"^subject\s*=\s*", "", str(out).strip())
 
@@ -125,7 +125,7 @@ def _vomsproxy_info(
     )
 
     if not silent and code != 0:
-        raise Exception(f"voms-proxy-info failed: {err}")
+        raise RuntimeError(f"voms-proxy-info failed: {err}")
 
     return code, out, err
 
@@ -162,7 +162,7 @@ def get_vomsproxy_lifetime(
     except Exception as e:
         if silent:
             return None
-        raise Exception(f"no valid lifetime found in voms proxy: {out}") from e
+        raise RuntimeError(f"no valid lifetime found in voms proxy: {out}") from e
 
 
 def get_vomsproxy_vo(
@@ -208,7 +208,7 @@ def check_vomsproxy_validity(
         valid = False
 
     else:
-        raise Exception(f"voms-proxy-info failed: {err}")
+        raise RuntimeError(f"voms-proxy-info failed: {err}")
 
     return (valid, rfc) if return_rfc else valid
 
@@ -288,7 +288,7 @@ def renew_vomsproxy(
     if silent:
         return None
 
-    raise Exception(f"voms-proxy-init failed with code {code}")
+    raise RuntimeError(f"voms-proxy-init failed with code {code}")
 
 
 def delegate_vomsproxy_glite(
@@ -312,7 +312,7 @@ def delegate_vomsproxy_glite(
         proxy_file = get_vomsproxy_file()
     proxy_file = os.path.expandvars(os.path.expanduser(str(proxy_file)))
     if not os.path.exists(proxy_file):
-        raise Exception(f"proxy file '{proxy_file}' does not exist")
+        raise FileNotFoundError(f"proxy file '{proxy_file}' does not exist")
 
     if cache:
         cache_file = f"{proxy_file}_delegation_cache.json" if isinstance(cache, bool) else str(cache)
@@ -351,7 +351,7 @@ def delegate_vomsproxy_glite(
     cmd = ["glite-ce-delegate-proxy", "-e", endpoint, delegation_id]
     code = interruptable_popen(cmd, stdout=stdout, stderr=stderr, stdin=None)[0]
     if code != 0:
-        raise Exception(f"glite proxy delegation to endpoint {endpoint} failed")
+        raise RuntimeError(f"glite proxy delegation to endpoint {endpoint} failed")
 
     if cache:
         # write the id back to the delegation file
@@ -466,7 +466,7 @@ def delegate_myproxy(
     if code != 0:
         if silent:
             return None
-        raise Exception(f"myproxy-init failed with code {code}")
+        raise RuntimeError(f"myproxy-init failed with code {code}")
 
     return username
 
@@ -510,7 +510,7 @@ def get_myproxy_info(
     if code != 0:
         if silent:
             return None
-        raise Exception(f"myproxy-info failed with code {code}")
+        raise RuntimeError(f"myproxy-info failed with code {code}")
 
     # parse the output
     info: dict[str, str | int] = {}

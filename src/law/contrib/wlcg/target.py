@@ -9,6 +9,7 @@ __all__ = ["WLCGDirectoryTarget", "WLCGFileSystem", "WLCGFileTarget", "WLCGTarge
 import pathlib
 
 import law
+from law.errors import ConfigError
 from law.logger import get_logger
 from law.target.remote import (
     RemoteDirectoryTarget,
@@ -35,7 +36,7 @@ class WLCGFileSystem(RemoteFileSystem):
 
         # base path is mandatory
         if not fi_config.get("base"):
-            raise Exception(
+            raise ConfigError(
                 "attribute 'base' must not be empty, set it either directly in the "
                 f"{self.__class__.__name__} constructor, or add the option 'base' to your config "
                 f"section '{self.config_section}'",

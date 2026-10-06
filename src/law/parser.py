@@ -161,7 +161,7 @@ def global_cmdline_args(exclude: Sequence[str] | None = None) -> dict[str, str] 
 
             # the argument must start with "--"
             if not arg.startswith("--"):
-                raise Exception(f"global argument must start with '--', found '{arg}'")
+                raise ValueError(f"global argument must start with '--', found '{arg}'")
 
             # get the corresponding value which is either part of the argument itself in the format "--arg=value" or
             # passed in the next argument which must not start with "--" (in this case it is interpreted as a boolean

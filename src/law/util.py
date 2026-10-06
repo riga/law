@@ -676,7 +676,7 @@ def query_choice(
     _choices = [c.lower() for c in choices] if lower else choices
 
     if default is not None and default not in choices:
-        raise Exception("default must be one of the choices")
+        raise ValueError("default must be one of the choices")
 
     hints = [(choice if choice != default else choice + "*") for choice in choices]
     if descriptions is not None:
@@ -883,11 +883,11 @@ def range_expand(
             # build the range
             if start is None:
                 if min_value is None:
-                    raise Exception(f"range '{v}' with missing start value requires min_value to be set")
+                    raise ValueError(f"range '{v}' with missing start value requires min_value to be set")
                 start = min_value
             if stop is None:
                 if max_value is None:
-                    raise Exception(f"range '{v}' with missing stop value requires max_value to be set")
+                    raise ValueError(f"range '{v}' with missing stop value requires max_value to be set")
                 stop = max_value
 
             # convert to integers and potentially swap
@@ -1877,7 +1877,7 @@ def compute_sha1_hash(path: str | pathlib.Path, to_int: bool = False) -> str | i
         stdout=subprocess.PIPE,
     )
     if code != 0:
-        raise Exception(f"failed to compute sha1 hash for file '{path}'")
+        raise RuntimeError(f"failed to compute sha1 hash for file '{path}'")
 
     h = out.split()[0]  # type: ignore[union-attr]
     return int(h, 16) if to_int else h

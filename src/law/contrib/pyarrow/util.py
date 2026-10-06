@@ -49,7 +49,7 @@ def merge_parquet_files(
     import pyarrow.parquet as pq
 
     if not src_paths:
-        raise Exception("cannot merge empty list of parquet files")
+        raise ValueError("cannot merge empty list of parquet files")
 
     # default callable
     if not callable(callback):
@@ -68,7 +68,7 @@ def merge_parquet_files(
     # remove the file first when existing
     if os.path.exists(dst_path):
         if not force:
-            raise Exception(f"destination path existing while force is False: {dst_path}")
+            raise FileExistsError(f"destination path existing while force is False: {dst_path}")
         os.remove(dst_path)
 
     if target_row_group_size <= 0:
@@ -190,7 +190,7 @@ def merge_parquet_task(
 
         stat = output.exists(stat=True)
         if not stat:
-            raise Exception(f"output '{output.abspath}' not creating during merging")
+            raise RuntimeError(f"output '{output.abspath}' not creating during merging")
 
         # print the size
         output_size = human_bytes(stat.st_size, fmt=True)

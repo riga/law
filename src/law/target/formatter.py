@@ -15,6 +15,7 @@ import tarfile
 import zipfile
 
 from law._types import Any, ModuleType
+from law.errors import FormatterNotFoundError
 from law.logger import Logger, get_logger
 from law.util import import_file, make_list
 
@@ -87,7 +88,7 @@ def get_formatter(name: str, silent: bool = False) -> FormatterRegister | None:
     formatter = FormatterRegister.formatters.get(name)
     if formatter or silent:
         return formatter
-    raise Exception(f"cannot find formatter '{name}'")
+    raise FormatterNotFoundError(f"cannot find formatter '{name}'")
 
 
 def find_formatters(
@@ -104,7 +105,7 @@ def find_formatters(
     formatters = [f for f in FormatterRegister.formatters.values() if f.accepts(path, mode)]
     if formatters or silent:
         return formatters
-    raise Exception(f"cannot find any '{mode}' formatter for {path}")
+    raise FormatterNotFoundError(f"cannot find any '{mode}' formatter for {path}")
 
 
 def find_formatter(
