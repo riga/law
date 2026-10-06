@@ -3,7 +3,7 @@ FROM almalinux:9
 ARG TARGETPLATFORM
 
 # labels
-LABEL law_version="0.1.20"
+LABEL law.version="0.1.20"
 LABEL law.image-name="riga/law"
 LABEL law.image-tag="a9-py310"
 LABEL law.image-os="almalinux9"
@@ -32,10 +32,13 @@ COPY bashrc /root/.bashrc
 WORKDIR /root/install
 
 # prepare yum
-RUN yum -y update; yum clean all
-RUN yum -y install --allowerasing yum-utils epel-release curl wget bzip2; yum clean all
+RUN yum -y update && \
+    yum clean all
+RUN yum -y install --allowerasing yum-utils epel-release curl wget bzip2 && \
+    yum clean all
 
 # setup mamba
+ARG MICROMAMBA_VERSION=latest
 ENV MAMBA_ROOT_PREFIX="${LAW_MAMBA_ROOT}"
 ENV MAMBA_EXE="${MAMBA_ROOT_PREFIX}/bin/micromamba"
 ENV PATH="${MAMBA_ROOT_PREFIX}/bin:${PATH}"
@@ -47,7 +50,7 @@ RUN case "${TARGETPLATFORM}" in \
         *) MAMBA_PLATFORM="linux-64" ;; \
     esac && \
     mkdir -p "${MAMBA_ROOT_PREFIX}" && \
-    curl -Ls "https://micro.mamba.pm/api/micromamba/${MAMBA_PLATFORM}/latest" | tar -xvj -C "${MAMBA_ROOT_PREFIX}" "bin/micromamba"
+    curl -fsSL "https://micro.mamba.pm/api/micromamba/${MAMBA_PLATFORM}/${MICROMAMBA_VERSION}" | tar -xvj -C "${MAMBA_ROOT_PREFIX}" "bin/micromamba"
 RUN echo $'\n\
 changeps1: false\n\
 always_yes: true\n\
@@ -69,7 +72,7 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 WORKDIR /root
 RUN rm -rf /root/install
 
-# install law master
+# install law
 RUN git clone --recursive --single-branch --branch release_prep https://github.com/riga/law "${LAW_IMAGE_ROOT}" && \
     cd "${LAW_IMAGE_ROOT}" && \
     pip install --upgrade --editable .[dev]

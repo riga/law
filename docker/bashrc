@@ -2,4 +2,4 @@
 
 [ -f "/etc/bashrc" ] && source "/etc/bashrc" ""
 
-source "$( law completion )" ""
+command -v law &> /dev/null && source "$( law completion )" ""
