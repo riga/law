@@ -423,10 +423,6 @@ class SiblingFileCollection(SiblingFileCollectionBase):
         unpack=True,
         exists_func=None,
     ):
-        # the directory must exist
-        if not self.dir.exists():
-            return
-
         if existing is not None:
             existing = bool(existing)
         if optional_existing is no_value:

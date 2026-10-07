@@ -847,13 +847,16 @@ def range_join(numbers, to_str=False, include_end=False, sep=",", range_sep=":")
     return ranges
 
 
-def multi_match(name, patterns, mode=any, regex=None):
+def multi_match(name, patterns, mode=any, regex=None, skip_negation=False):
     """
     Compares *name* to multiple *patterns* and returns *True* in case of at least one match (*mode*
     = *any*, the default), or in case all patterns match (*mode* = *all*). Otherwise, *False* is
     returned. When *regex* is *True*, *re.match* is used instead of *fnmatch.fnmatch*. When *None*,
     the matching function is chosen per pattern: when starting with "^" and ending in "$" regex
     matching is used, and fnmatch otherwise.
+
+    Patterns starting with "!" are negated unless *skip_negation* is *True*. The "!" is not
+    considered when choosing the matching function.
     """
     patterns = make_list(patterns)
 
@@ -872,7 +875,13 @@ def multi_match(name, patterns, mode=any, regex=None):
     elif regex:
         match_func = match_func_re
 
-    return mode(match_func(pattern) for pattern in patterns)
+    # wrap it to handle negation
+    def match(pattern):
+        if not skip_negation and pattern.startswith("!"):
+            return not match_func(pattern[1:])
+        return bool(match_func(pattern))
+
+    return mode(match(pattern) for pattern in patterns)
 
 
 def is_iterable(obj):
@@ -2380,7 +2389,7 @@ class InsertableDict(collections.OrderedDict):
     def _insert(self, search_key, key, value, offset):
         # when key is a list or dict and value is no_value, assume key refers to key-value pairs
         if isinstance(key, (list, dict)) and value == no_value:
-            new_items = key.items() if isinstance(key, dict) else key
+            new_items = list(key.items()) if isinstance(key, dict) else key
             new_keys = [k for k, v in new_items]
         else:
             new_items = [(key, value)]
@@ -2426,7 +2435,7 @@ class InsertableDict(collections.OrderedDict):
         """
         self._insert(after_key, key, value, 1)
 
-    def prepend(self, key, value=None):
+    def prepend(self, key, value=no_value):
         """
         Adds a new *key* - *value* pair at the beginning of the dictionary. When *value* is
         :py:attr:`no_value`, *key* is assumed to exist already in the dictionary and moved to the
@@ -2434,9 +2443,11 @@ class InsertableDict(collections.OrderedDict):
         :py:attr:`no_value`, multiple new values are prepended (in the given order).
         """
         first_key = next(iter(self)) if self else no_value
+        if value == no_value and not isinstance(key, (list, dict)):
+            value = self.get(key, None)
         self.insert_before(first_key, key, value=value)
 
-    def append(self, key, value=None):
+    def append(self, key, value=no_value):
         """
         Adds a new *key* - *value* pair at the end of the dictionary. When *value* is
         :py:attr:`no_value`, *key* is assumed to exist already in the dictionary and moved to the
@@ -2444,6 +2455,8 @@ class InsertableDict(collections.OrderedDict):
         multiple new values are appended (in the given order).
         """
         last_key = list(self)[-1] if self else no_value
+        if value == no_value and not isinstance(key, (list, dict)):
+            value = self.get(key, None)
         self.insert_after(last_key, key, value=value)
 
 
