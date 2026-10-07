@@ -36,10 +36,9 @@
 <!-- marker-before-header -->
 
 > [!NOTE]
-> This project is currently under development.
-> - Version 1.0.0 will drop Python 2 support and is developed in the [release_prep branch](https://github.com/riga/law/tree/release_prep).
-> - There will be a legacy branch with Python 2.7 and ≤3.8 support that, however, won't receive any new features.
-> - The release is targetted for late summer 2026.
+> This is **legacy branch**, tracking changes of versions [**0.1.x**](https://github.com/riga/law/tree/v0.1.x), which still has Python 2.7 and ≤3.8 support.
+>
+> The current version is developed in the [master branch](https://github.com/riga/law/tree/master)
 
 Use law to build complex and large-scale task workflows.
 It is build on top of [luigi](https://github.com/spotify/luigi) and adds abstractions for **run locations**, **storage locations** and **software environments**.
