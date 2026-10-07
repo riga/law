@@ -6,6 +6,7 @@ from __future__ import annotations
 
 __all__ = [  # noqa: F822
     "Config",
+    "Interpolation",
     "add_section",
     "find_option",
     "get",
@@ -53,11 +54,61 @@ def law_home_path(*paths: Any) -> str:
     return os.path.normpath(os.path.join(home, *map(str, paths)))
 
 
+class Interpolation(configparser.BasicInterpolation):
+    """
+    Interpolation used by :py:class:`Config` that combines the standard ``%(option)s`` syntax of
+    :py:class:`configparser.BasicInterpolation` with the ``${option}`` and ``${section:option}`` syntax of
+    :py:class:`configparser.ExtendedInterpolation`.
+
+    Contrary to the latter, ``${...}`` expressions that do not refer to an existing option are kept as they are so that
+    they can be subject to environment variable expansion later on. Therefore, options take precedence over
+    environment variables with the same name. Also, ``$`` characters not followed by ``{`` are allowed, and ``\\${...}``
+    can be used to skip the interpolation.
+    """
+
+    _ext_ref_regex = re.compile(r"(?<!\\)\$\{(?:(?P<section>[^:}]+):)?(?P<option>[^:}]+)\}")
+
+    def before_get(  # type: ignore[override]
+        self,
+        parser: configparser.ConfigParser,
+        section: str,
+        option: str,
+        value: str,
+        defaults: Any,
+        _depth: int = 0,
+    ) -> str:
+        if _depth > configparser.MAX_INTERPOLATION_DEPTH:
+            raise configparser.InterpolationDepthError(option, section, value)
+
+        # standard interpolation first, using the section-specific defaults
+        value = super().before_get(parser, section, option, value, defaults)
+
+        # extended interpolation
+        if "${" not in value:
+            return value
+
+        def repl(m: re.Match) -> str:
+            ref_section = m.group("section") or section
+            ref_option = parser.optionxform(m.group("option"))
+            if not parser.has_option(ref_section, ref_option):
+                # keep it as is for potential environment variable expansion
+                return m.group(0)
+            # the value might be None when allow_no_value is set
+            ref_value: str | None = parser.get(ref_section, ref_option, raw=True)
+            if ref_value is None:
+                return ""
+            ref_defaults = parser._unify_values(ref_section, None)  # type: ignore[attr-defined]
+            return self.before_get(parser, ref_section, ref_option, ref_value, ref_defaults, _depth + 1)
+
+        return self._ext_ref_regex.sub(repl, value)
+
+
 class Config(configparser.ConfigParser):
     """
     Custom law configuration parser with a few additions on top of the standard python ``ConfigParser``. Most notably,
     this class adds config *inheritance* via :py:meth:`update` and :py:meth:`include`, a mechanism to synchronize with
-    the luigi configuration parser, option referencing, and environment variable expansion.
+    the luigi configuration parser, option referencing, option interpolation via :py:class:`Interpolation`, and
+    environment variable expansion.
 
     When *config_file* is set, it is loaded during setup. When empty, and *skip_fallbacks* is *False*, the default
     config file locations defined in :py:attr:`_config_files` are checked. By default, the default configuration
@@ -241,7 +292,7 @@ class Config(configparser.ConfigParser):
         skip_luigi_sync: bool = False,
         skip_resolve_deferred: bool = False,
     ) -> None:
-        super().__init__(allow_no_value=True)
+        super().__init__(allow_no_value=True, interpolation=Interpolation())
 
         # lookup to correct config file
         self.config_file = None
@@ -775,7 +826,7 @@ if contrib_defaults:
 
 
 # register convenience functions on module-level
-unexpose_attrs = {"Config"}
+unexpose_attrs = {"Config", "Interpolation"}
 for name in __all__:
     if name in unexpose_attrs:
         continue

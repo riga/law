@@ -127,6 +127,41 @@ class TestConfig:
         assert c.get_expanded("my_section", "self_ref", default="D") == "D"
         assert c.get_expanded("my_section", "loop1", default="D") == "D"
 
+    def test_interpolation(self) -> None:
+        path = os.path.join(self.tmp, "interp.cfg")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(
+                "[sec]\n"
+                "a: 1\n"
+                "b: ${a}/x\n"
+                "c: %(a)s/y\n"
+                "d: ${other:e}\n"
+                "f: ${LAW_TEST_CONFIG_VAR}/$LAW_TEST_CONFIG_VAR\n"
+                "g: \\${a}\n"
+                "h: 50%%\n"
+                "[other]\n"
+                "e: ${sec:b}+%(z)s\n"
+                "z: 2\n",
+            )
+        c = self.make_config(path)
+        assert c.get_expanded("sec", "b") == "1/x"
+        assert c.get_expanded("sec", "c") == "1/y"
+        assert c.get_expanded("sec", "d") == "1/x+2"
+        assert c.get_expanded("sec", "f") == "/var_value//var_value"
+        assert c.get_expanded("sec", "g") == "${a}"
+        assert c.get_expanded("sec", "h") == "50%"
+        c.set("sec", "i", "${i}")
+        with pytest.raises(configparser.InterpolationDepthError):
+            c.get_expanded("sec", "i")
+
+        # options take precedence over environment variables
+        c.set("sec", "LAW_TEST_CONFIG_VAR", "opt")
+        assert c.get_expanded("sec", "f") == "opt//var_value"
+
+        # values with dollar signs can be set
+        c.set("sec", "j", "$LAW_TEST_CONFIG_VAR")
+        assert c.get_expanded("sec", "j") == "/var_value"
+
     def test_unresolvable_reference_in_file(self) -> None:
         path = os.path.join(self.tmp, "bad_ref.cfg")
         with open(path, "w", encoding="utf-8") as f:

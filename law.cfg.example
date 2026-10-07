@@ -6,7 +6,7 @@
 ;   - The law home directory
 ;   - Configuration file resolution order
 ;   - Inheritance and extensions
-;   - Option referencing
+;   - Option referencing and interpolation
 ;   - Environment variable expansion
 ;   - The ``None`` value
 ;   - Synchronization with environment variables
@@ -60,12 +60,23 @@
 ; in the actual config, whereas options of ``extend`` do (options of extended config files are added
 ; *after* those in the actual config).
 
-; --- Option referencing ---------------------------------------------------------------------------
+; --- Option referencing and interpolation ---------------------------------------------------------
 ; To avoid that some configurations are copied to other options (which is required in some cases),
 ; the law configuration parser supports references. The syntax for references to options in the same
 ; section is ``&::other_option``, and ``&::other_section::other_option`` for options in other
 ; sections. None is returned in case a reference cannot be resolved. The same applies to circular
 ; references.
+;
+; In addition, values can embed other options via interpolation. Both the ``%(other_option)s``
+; syntax of Python's basic interpolation and the ``${other_option}`` and
+; ``${other_section:other_option}`` syntax of its extended interpolation are supported, e.g.
+; ``path: ${base}/files``. Contrary to Python's extended interpolation, ``${...}`` expressions that
+; do not refer to an existing option are kept and therefore subject to environment variable
+; expansion (see below), which means that options take precedence over environment variables with
+; the same name. Use ``\${...}`` to skip the interpolation, and ``%%`` for literal ``%`` characters.
+; Please make sure that your configuration does not contain self-referencing or circular
+; interpolations (e.g. ``a: ${b}`` and ``b: ${a}``), as these, unlike circular references, raise an
+; error already when the configuration is loaded.
 
 ; --- Environment variable expansion ---------------------------------------------------------------
 ; Configuration values that contain environment variables are automatically expanded by most getters
