@@ -50,7 +50,7 @@ Key features:
 - Environment sandboxing, configurable on task level
   - Docker, Singularity, Sub-Shells, Virtual envs
 
-Version 0.1 (with Python support down to 2.7) continues to be available via the [legacy/v0.1](https://github.com/riga/law/tree/legacy/v0.1) branch and all [v0.1.*](https://github.com/riga/law/tags) tags.
+Version 0.1 (with Python support down to 2.7) continues to be available via the [v0.1.x](https://github.com/riga/law/tree/v0.1.x) branch and all [v0.1.*](https://github.com/riga/law/tags) tags.
 
 <!-- marker-after-header -->
 

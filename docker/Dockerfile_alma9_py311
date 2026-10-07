@@ -3,7 +3,7 @@ FROM almalinux:9
 ARG TARGETPLATFORM
 
 # labels
-LABEL law.version="0.1.21"
+LABEL law.version="0.2.0"
 LABEL law.image-name="riga/law"
 LABEL law.image-tag="a9-py311"
 LABEL law.image-os="almalinux9"
@@ -73,7 +73,7 @@ WORKDIR /root
 RUN rm -rf /root/install
 
 # install law
-RUN git clone --recursive --single-branch --branch release_prep https://github.com/riga/law "${LAW_IMAGE_ROOT}" && \
+RUN git clone --recursive --single-branch https://github.com/riga/law "${LAW_IMAGE_ROOT}" && \
     cd "${LAW_IMAGE_ROOT}" && \
     pip install --upgrade --editable .[dev]
 WORKDIR ${LAW_IMAGE_ROOT}
