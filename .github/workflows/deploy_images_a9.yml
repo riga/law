@@ -147,7 +147,8 @@ jobs:
           push_image: ${{ github.event.inputs.push_image == 'true' }}
 
   example:
-    if: ${{ github.event.inputs.push_image == 'true' && (github.event.inputs.specific_job == 'none' || contains(github.event.inputs.specific_job, 'example')) }}
+    # run even when a9-py313 is skipped (e.g. when only building the example), but not when it failed
+    if: ${{ !cancelled() && needs.a9-py313.result != 'failure' && github.event.inputs.push_image == 'true' && (github.event.inputs.specific_job == 'none' || contains(github.event.inputs.specific_job, 'example')) }}
     needs: a9-py313
     runs-on: ubuntu-latest
     steps:
