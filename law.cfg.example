@@ -280,14 +280,14 @@
 ; collection_remove_threads
 ; Desciption: Number of threads to use for removing targets in "TargetCollection"'s in parallel. No
 ; multi-threading is used when the number is 0.
-; Type: int
-; Default: 0
+; Type: ``int``
+; Default: ``0``
 
 ; interactive_removal_local_sync
 ; Description: Whether the interactive removal via "--remove-output" of "MirroredTarget"'s should
 ; enforce synchronization with the local representation.
-; Type: bool
-; Default: True
+; Type: ``bool``
+; Default: ``True``
 
 
 ; --- Options of contrib packages
@@ -313,7 +313,7 @@
 ; of the file system which should serve most uses cases where local file targets assigned to it
 ; define absolute paths on their own. However, setting a different value will prepend it to the
 ; paths used in all its operations.
-; Type: str
+; Type: ``str``
 ; Default: ``"/"``
 
 
@@ -351,8 +351,8 @@
 ; Description: Number of fragments of the absolute local path to check when local targets are used
 ; in "law.MirroredTarget"'s. The check is done pre-emptively on the local file system to ensure that
 ; a mount point with a path of the configured depth exists.
-; Type: integer
-; Default: 1
+; Type: ``int``
+; Default: ``1``
 
 
 ; --- wlcg_fs section ------------------------------------------------------------------------------
@@ -815,8 +815,8 @@
 ; job_query_timeout
 ; Description: If set, this option controls the maximum duration a job status query can take until
 ; it is deemed hanging and terminated consequently. The default unit is seconds.
-; Type: integer, string
-; Default: None
+; Type: ``int``, ``str``
+; Default: ``None``
 
 
 ; --- Options of contrib packages
@@ -855,23 +855,23 @@
 
 ; arc_cmd_arcsub
 ; Description: Custom "arcsub" command.
-; Type: string
-; Default: arcsub
+; Type: ``str``
+; Default: ``"arcsub"``
 
 ; arc_cmd_arckill
 ; Description: Custom "arckill" command.
-; Type: string
-; Default: arckill
+; Type: ``str``
+; Default: ``"arckill"``
 
 ; arc_cmd_arcclean
 ; Description: Custom "arcclean" command.
-; Type: string
-; Default: arcclean
+; Type: ``str``
+; Default: ``"arcclean"``
 
 ; arc_cmd_arcstat
 ; Description: Custom "arcstat" command.
-; Type: string
-; Default: arcstat
+; Type: ``str``
+; Default: ``"arcstat"``
 
 ; glite_job_file_dir
 ; glite_job_file_dir_mkdtemp
@@ -901,23 +901,23 @@
 
 ; glite_cmd_submit
 ; Description: Custom "glite-ce-job-submit" command.
-; Type: string
-; Default: glite-ce-job-submit
+; Type: ``str``
+; Default: ``"glite-ce-job-submit"``
 
 ; glite_cmd_cancel
 ; Description: Custom "glite-ce-job-cancel" command.
-; Type: string
-; Default: glite-ce-job-cancel
+; Type: ``str``
+; Default: ``"glite-ce-job-cancel"``
 
 ; glite_cmd_purge
 ; Description: Custom "glite-ce-job-purge" command.
-; Type: string
-; Default: glite-ce-job-purge
+; Type: ``str``
+; Default: ``"glite-ce-job-purge"``
 
 ; glite_cmd_status
 ; Description: Custom "glite-ce-job-status" command.
-; Type: string
-; Default: glite-ce-job-status
+; Type: ``str``
+; Default: ``"glite-ce-job-status"``
 
 ; htcondor_job_file_dir
 ; htcondor_job_file_dir_mkdtemp
@@ -932,8 +932,8 @@
 ; Description: Whether to use job grouping (cluster submission in HTCondor nomenclature) or not. If
 ; not, the standard batched submission is used and settings such as "htcondor_chunk_size_submit" and
 ; "htcondor_merge_job_files" are considered.
-; Type: boolean
-; Default: True
+; Type: ``bool``
+; Default: ``True``
 
 ; htcondor_chunk_size_submit
 ; Description: Number of jobs that can be submitted in parallel inside a single call to
@@ -965,23 +965,23 @@
 
 ; htcondor_cmd_q
 ; Description: Custom "condor_q" command.
-; Type: string
-; Default: condor_q
+; Type: ``str``
+; Default: ``"condor_q"``
 
 ; htcondor_cmd_history
 ; Description: Custom "condor_history" command.
-; Type: string
-; Default: condor_history
+; Type: ``str``
+; Default: ``"condor_history"``
 
 ; htcondor_cmd_submit
 ; Description: Custom "condor_submit" command.
-; Type: string
-; Default: condor_submit
+; Type: ``str``
+; Default: ``"condor_submit"``
 
 ; htcondor_cmd_rm
 ; Description: Custom "condor_rm" command.
-; Type: string
-; Default: condor_rm
+; Type: ``str``
+; Default: ``"condor_rm"``
 
 ; lsf_job_file_dir
 ; lsf_job_file_dir_mkdtemp
@@ -1005,18 +1005,18 @@
 
 ; lsf_cmd_bsub
 ; Description: Custom "bsub" command.
-; Type: string
-; Default: bsub
+; Type: ``str``
+; Default: ``"bsub"``
 
 ; lsf_cmd_bkill
 ; Description: Custom "bkill" command.
-; Type: string
-; Default: bkill
+; Type: ``str``
+; Default: ``"bkill"``
 
 ; lsf_cmd_bjobs
 ; Description: Custom "bjobs" command.
-; Type: string
-; Default: bjobs
+; Type: ``str``
+; Default: ``"bjobs"``
 
 ; slurm_job_file_dir
 ; slurm_job_file_dir_mkdtemp
@@ -1040,23 +1040,23 @@
 
 ; slurm_cmd_sbatch
 ; Description: Custom "sbatch" command.
-; Type: string
-; Default: sbatch
+; Type: ``str``
+; Default: ``"sbatch"``
 
 ; slurm_cmd_scancel
 ; Description: Custom "scancel" command.
-; Type: string
-; Default: scancel
+; Type: ``str``
+; Default: ``"scancel"``
 
 ; slurm_cmd_squeue
 ; Description: Custom "squeue" command.
-; Type: string
-; Default: squeue
+; Type: ``str``
+; Default: ``"squeue"``
 
 ; slurm_cmd_sacct
 ; Description: Custom "sacct" command.
-; Type: string
-; Default: sacct
+; Type: ``str``
+; Default: ``"sacct"``
 
 ; crab_job_file_dir
 ; crab_job_file_dir_mkdtemp
@@ -1091,8 +1091,8 @@
 
 ; crab_cmd_crab
 ; Description: Custom "crab" command.
-; Type: string
-; Default: crab
+; Type: ``str``
+; Default: ``"crab"``
 
 
 ; --- notifications section ------------------------------------------------------------------------
@@ -1186,7 +1186,7 @@
 ; Desciption: The address of a custom icon to use. When empty, the default configured for the
 ; webhook is used.
 ; Type: ``str``, ``None``
-; Default: "https://media.githubusercontent.com/media/riga/law/refs/heads/master/assets/logo_profile.png"
+; Default: ``"https://media.githubusercontent.com/media/riga/law/refs/heads/master/assets/logo_profile.png"``
 
 ; mattermost_icon_emoji
 ; Desciption: Name of a custom emoji to use instead of the icon url.
@@ -1196,12 +1196,12 @@
 ; mattermost_success_emoji
 ; Desciption: Emoji to append to the status text in case of success.
 ; Type: ``str``, ``None``
-; Default: ":tada:"
+; Default: ``":tada:"``
 
 ; mattermost_failure_emoji
 ; Desciption: Emoji to append to the status text in case of a failure.
 ; Type: ``str``, ``None``
-; Default: ":rotating_light:"
+; Default: ``":rotating_light:"``
 
 
 ; --- bash_sandbox section -------------------------------------------------------------------------
