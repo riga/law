@@ -1071,6 +1071,28 @@ class BaseJobFileFactory(metaclass=abc.ABCMeta):
         return s.replace("{{" + key + "}}", str(value))
 
     @classmethod
+    def create_group_map(cls, values: Sequence[Any], indent: int = 8) -> str:
+        """
+        Creates the entries of a bash associative array that maps 1-based job numbers to *values*, which is used to
+        inject per-job information into the wrapper script of grouped job submissions (``law_group_wrapper.sh``).
+        Example:
+
+        .. code-block:: python
+
+            create_group_map(["a", "b"])
+            # -> ['1']="a"
+            #            ['2']="b"
+
+        :param values: The values per job.
+        :param indent: The indentation of all but the first entry.
+        :return: The entries as a string.
+        """
+        return ("\n" + indent * " ").join(
+            f"['{job_num}']=\"{value}\""
+            for job_num, value in enumerate(values, 1)
+        )
+
+    @classmethod
     def linearize_render_variables(
         cls,
         render_variables: dict[str, str],
@@ -1163,7 +1185,7 @@ class BaseJobFileFactory(metaclass=abc.ABCMeta):
         :raises OSError: When *src* does not exist.
         """
         src = str(src)
-        dst = str(src)
+        dst = str(dst)
         if not os.path.isfile(src):
             raise OSError(f"source file for rendering does not exist: {src}")
 

@@ -833,17 +833,17 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
         if not grouped_submission and c.postfix and "file_postfix" not in c.render_variables:
             c.render_variables["file_postfix"] = c.postfix
 
-        # inject arguments into the htcondor wrapper via render variables
+        # inject arguments into the group wrapper via render variables
+        # (postfixes and log files are passed as arguments to the wrapper, see the queue statement below)
         if grouped_submission:
-            c.render_variables["htcondor_job_arguments_map"] = ("\n" + 8 * " ").join(
-                f"['{job_num}']=\"{args}\""
-                for job_num, args in enumerate(c.arguments, 1)
-            )
+            c.render_variables["law_group_job_arguments_map"] = self.create_group_map(c.arguments)
+            c.render_variables["law_group_job_index_var"] = "LAW_HTCONDOR_JOB_PROCESS"
+            c.render_variables["law_group_job_number_var"] = "LAW_HTCONDOR_JOB_NUMBER"
 
         # linearize render variables
         render_variables = self.linearize_render_variables(
             c.render_variables,
-            drop_base64_keys=["htcondor_job_arguments_map"],
+            drop_base64_keys=["law_group_job_arguments_map"],
         )
 
         # prepare the job description file

@@ -1,16 +1,21 @@
 # mypy: disable-error-code="call-arg, attr-defined"
 from __future__ import annotations
 
-__all__ = ["TestHTCondorJobManager", "TestHTCondorWorkflow"]
+__all__ = ["TestHTCondorGroupWrapper", "TestHTCondorJobManager", "TestHTCondorWorkflow"]
 
 import os
 import pathlib
+import subprocess
 
 import luigi
 import pytest
 
 import law
-from law.contrib.htcondor import HTCondorJobManager, HTCondorWorkflow
+from law.contrib.htcondor import HTCondorJobFileFactory, HTCondorJobManager, HTCondorWorkflow
+from law.job.base import JobInputFile
+from law.util import law_src_path
+
+from .job_helpers import has_bash4, write_executable
 
 
 class LawTestHTCondorWorkflow(HTCondorWorkflow):
@@ -95,3 +100,53 @@ class TestHTCondorWorkflow:
             self.proxy.create_job_file_group({})
         with pytest.raises(ValueError, match=r"more than one job for non-grouped submission"):
             self.proxy._create_job_file_impl(submit_jobs={1: [0], 2: [1]}, grouped_submission=False)
+
+
+@pytest.mark.skipif(not has_bash4(), reason="bash >= 4 required for associative arrays")
+class TestHTCondorGroupWrapper:
+
+    def test_run_cluster_job(self, tmp_path: pathlib.Path) -> None:
+        tmp = os.path.realpath(tmp_path)
+        factory = HTCondorJobFileFactory(dir=os.path.join(tmp, "factory"), mkdtemp=False, cleanup=False)
+
+        # dummy job file that records its rendered postfix, job number and arguments
+        job_file = write_executable(os.path.join(tmp, "dummy_job.sh"), "\n".join([
+            "#!/usr/bin/env bash",
+            "echo \"postfix={{file_postfix}} number=${LAW_HTCONDOR_JOB_NUMBER} args=$*\" > result.txt",
+            "",
+        ]))
+
+        htcondor_job_file, c = factory(
+            grouped_submission=True,
+            executable=JobInputFile(
+                law_src_path("job", "law_group_wrapper.sh"),
+                copy=True,
+                render_local=True,
+                increment=True,
+            ),
+            input_files={"job_file": JobInputFile(job_file, copy=True, share=True, render_job=True)},
+            arguments=["a1 x", "a2 y"],
+            postfix=["_0To1", "_1To2"],
+        )
+        with open(htcondor_job_file, encoding="utf-8") as f:
+            assert "queue law_job_postfix, arguments from (" in f.read()
+
+        # run the second job of the cluster like htcondor would, in its own sandbox with postfix and log arguments
+        sandbox = os.path.join(tmp, "sandbox")
+        os.makedirs(sandbox)
+        for name in os.listdir(c.dir):
+            os.symlink(os.path.join(c.dir, name), os.path.join(sandbox, name))
+        env = dict(os.environ, LAW_HTCONDOR_JOB_PROCESS="1")
+        p = subprocess.run(
+            ["bash", c.executable, "_1To2", ""],
+            cwd=sandbox,
+            env=env,
+            capture_output=True,
+            check=False,
+            text=True,
+        )
+        assert p.returncode == 0, p.stderr
+        assert "running law_group_wrapper" in p.stdout
+
+        with open(os.path.join(sandbox, "result.txt"), encoding="utf-8") as f:
+            assert f.read().strip() == "postfix=_1To2 number=2 args=a2 y"

@@ -21,7 +21,7 @@ from law.parameter import NO_STR
 from law.target.file import FileSystemDirectoryTarget, get_path, get_scheme
 from law.target.local import LocalDirectoryTarget, LocalFileTarget
 from law.task.proxy import ProxyCommand
-from law.util import DotDict, InsertableDict, law_src_path, merge_dicts, no_value, rel_path
+from law.util import DotDict, InsertableDict, law_src_path, merge_dicts, no_value
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy, PollData
 
 logger = get_logger(__name__)
@@ -430,7 +430,7 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
         """
         # only used for grouped submissions
         return JobInputFile(
-            path=rel_path(__file__, "htcondor_wrapper.sh"),
+            path=law_src_path("job", "law_group_wrapper.sh"),
             copy=True,
             render_local=True,
             increment=True,

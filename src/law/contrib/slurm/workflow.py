@@ -13,7 +13,7 @@ import pathlib
 
 import luigi
 
-from law._types import Generator
+from law._types import Any, Generator
 from law.config import Config
 from law.contrib.slurm.job import SlurmJobFileFactory, SlurmJobManager
 from law.job.base import JobArguments, JobInputFile
@@ -42,11 +42,38 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
         self,
         job_num: int,
         branches: list[int],
-    ) -> dict[str, str | pathlib.Path | SlurmJobFileFactory.Config | None]:
+    ) -> dict[str, Any]:
+        return self._create_job_file_impl(submit_jobs={job_num: branches}, grouped_submission=False)
+
+    def create_job_file_group(
+        self,
+        submit_jobs: dict[int, list[int]],
+    ) -> dict[str, Any]:
+        """
+        Creates a job array file for all *submit_jobs*. Different from :py:meth:`create_job_file`, the ``"log"`` entry
+        of the returned dictionary is a list of log files per job (or *None*), in the same order as *submit_jobs*.
+        """
+        return self._create_job_file_impl(submit_jobs=submit_jobs, grouped_submission=True)
+
+    def _create_job_file_impl(
+        self,
+        submit_jobs: dict[int, list[int]],
+        grouped_submission: bool,
+    ) -> dict[str, Any]:
         task: SlurmWorkflow = self.task
 
+        # check inputs
+        if not submit_jobs:
+            raise ValueError("no jobs to submit")
+        if not grouped_submission and len(submit_jobs) != 1:
+            raise ValueError(f"received more than one job for non-grouped submission: {submit_jobs}")
+        first_job_num, first_branches = next(iter(submit_jobs.items()))
+        last_branches = list(submit_jobs.values())[-1]
+
         # the file postfix is pythonic range made from branches, e.g. [0, 1, 2, 4] -> "_0To5"
-        postfix = f"_{branches[0]}To{branches[-1] + 1}"
+        postfixes = [f"_{branches[0]}To{branches[-1] + 1}" for branches in submit_jobs.values()]
+        # for job arrays, the range spans all branches of all jobs
+        postfix = f"_{first_branches[0]}To{last_branches[-1] + 1}"
 
         # create the config
         c = self.job_file_factory.get_config()  # type: ignore[union-attr]
@@ -55,13 +82,20 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
         c.custom_content = []
 
         # get the actual wrapper file that will be executed by the remote job
-        wrapper_file = task.slurm_wrapper_file()
         law_job_file = task.slurm_job_file()
-        if wrapper_file and get_path(wrapper_file) != get_path(law_job_file):
+        if grouped_submission:
+            # the job file is shared by all jobs in the array and rendered per job by the group wrapper
+            law_job_file = JobInputFile(get_path(law_job_file), copy=True, share=True, render_job=True)
+            wrapper_file = task.slurm_group_wrapper_file()
             c.input_files["executable_file"] = wrapper_file
             c.executable = wrapper_file
         else:
-            c.executable = law_job_file
+            wrapper_file = task.slurm_wrapper_file()  # type: ignore[assignment]
+            if wrapper_file and get_path(wrapper_file) != get_path(law_job_file):
+                c.input_files["executable_file"] = wrapper_file
+                c.executable = wrapper_file
+            else:
+                c.executable = law_job_file
         c.input_files["job_file"] = law_job_file
 
         # collect task parameters
@@ -73,7 +107,7 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
             {"workflow", "effective_workflow"}
         )
         proxy_cmd = ProxyCommand(
-            task.as_branch(branches[0]),
+            task.as_branch(first_branches[0]),
             exclude_task_args=list(exclude_args),
             exclude_global_args=["workers", "local-scheduler", f"{task.task_family}-*"],
         )
@@ -82,22 +116,27 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
         for key, value in dict(task.slurm_cmdline_args()).items():
             proxy_cmd.add_arg(key, value, overwrite=True)
 
-        # job script arguments
-        dashboard_data = None
-        if self.dashboard is not None:
-            dashboard_data = self.dashboard.remote_hook_data(
-                job_num,
-                self.job_data.attempts.get(job_num, 0),
+        # job script arguments per job number
+        def get_job_args(job_num: int, branches: list[int]) -> JobArguments:
+            return JobArguments(
+                task_cls=task.__class__,
+                task_params=proxy_cmd.build(skip_run=True),
+                branches=branches,
+                workers=task.job_workers,
+                auto_retry=False,
+                dashboard_data=(
+                    self.dashboard.remote_hook_data(job_num, self.job_data.attempts.get(job_num, 0))
+                    if self.dashboard is not None
+                    else None
+                ),
             )
-        job_args = JobArguments(
-            task_cls=task.__class__,
-            task_params=proxy_cmd.build(skip_run=True),
-            branches=branches,
-            workers=task.job_workers,
-            auto_retry=False,
-            dashboard_data=dashboard_data,
-        )
-        c.arguments = job_args.join()
+
+        c.arguments = [
+            get_job_args(job_num, branches).join()
+            for job_num, branches in submit_jobs.items()
+        ]
+        if not grouped_submission:
+            c.arguments = c.arguments[0]
 
         # add the bootstrap file
         bootstrap_file = task.slurm_bootstrap_file()
@@ -163,7 +202,10 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
             c.render_variables["law_job_tmp"] = "/tmp/law_$( basename \"$LAW_JOB_HOME\" )"
 
         # task hook
-        c = task.slurm_job_config(c, job_num, branches)
+        if grouped_submission:
+            c = task.slurm_job_config(c, list(submit_jobs.keys()), list(submit_jobs.values()))
+        else:
+            c = task.slurm_job_config(c, first_job_num, first_branches)
 
         # logging defaults
         def log_path(path):
@@ -179,15 +221,78 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
         c.custom_log_file = log_path(c.custom_log_file)
 
         # build the job file and get the sanitized config
-        job_file, c = self.job_file_factory(postfix=postfix, **c.__dict__)  # type: ignore[misc]
+        if grouped_submission:
+            # job array files are distinguished by the branch range of all their jobs
+            c.file_name = self.job_file_factory.postfix_output_file(c.file_name, postfix)  # type: ignore[union-attr]
+            job_file, c = self.job_file_factory(  # type: ignore[misc]
+                postfix=postfixes,
+                grouped_submission=True,
+                **c.__dict__,
+            )
+        else:
+            job_file, c = self.job_file_factory(postfix=postfix, **c.__dict__)  # type: ignore[misc]
 
-        # get the finale, absolute location of the custom log file
-        abs_log_file = None
-        if log_dir_is_local and c.custom_log_file:
-            abs_log_file = os.path.join(log_dir.abspath, c.custom_log_file)  # type: ignore[union-attr]
+        # get the final, absolute location of the custom log file(s)
+        def abs_log_file(log_file: str | None) -> str | None:
+            if not log_dir_is_local or not log_file:
+                return None
+            return os.path.join(log_dir.abspath, log_file)  # type: ignore[union-attr]
+
+        log: str | list[str | None] | None
+        if grouped_submission:
+            log = [
+                abs_log_file(c.custom_log_file and self.job_file_factory.postfix_output_file(  # type: ignore[union-attr]
+                    c.custom_log_file,
+                    pf if c.postfix_output_files else None,
+                ))
+                for pf in postfixes
+            ]
+        else:
+            log = abs_log_file(c.custom_log_file)
 
         # return job and log files
-        return {"job": job_file, "config": c, "log": abs_log_file}
+        return {"job": job_file, "config": c, "log": log}
+
+    def _submit_group(
+        self,
+        submit_jobs: dict[int, list[int]],
+        **kwargs,
+    ) -> tuple[list[Any], dict[int, dict]]:
+        task: SlurmWorkflow = self.task
+
+        # split jobs into arrays with a maximum size
+        max_size = max(int(self.job_manager.job_array_max_size or 0), 1)  # type: ignore[attr-defined]
+        items = list(submit_jobs.items())
+        chunks = [dict(items[i:i + max_size]) for i in range(0, len(items), max_size)]
+
+        # create one job array file per chunk and prepare submission data per job
+        job_files = []
+        submission_data: dict[int, dict] = {}
+        for chunk in chunks:
+            data = self.create_job_file_group(chunk)
+            for job_num, log in zip(chunk, data["log"]):
+                job_files.append(data["job"])
+                submission_data[job_num] = {**data, "log": log}
+
+        # setup the job manager
+        job_man_kwargs = self._setup_job_manager()
+
+        # get job kwargs for submission and merge with passed kwargs
+        submit_kwargs = merge_dicts(job_man_kwargs, self._get_job_kwargs("submit"), kwargs)
+
+        # submission, with one submit call per job array
+        job_ids = self.job_manager.submit_group(
+            job_files,
+            retries=3,
+            threads=task.submission_threads,
+            **submit_kwargs,
+        )
+
+        # set all job ids
+        for job_num, job_id in zip(submit_jobs, job_ids):
+            self.job_data.jobs[job_num]["job_id"] = job_id
+
+        return job_ids, submission_data
 
     def destination_info(self) -> InsertableDict:
         info = super().destination_info()
@@ -334,6 +439,22 @@ class SlurmWorkflow(BaseRemoteWorkflow):
         """
         return None
 
+    def slurm_group_wrapper_file(self) -> str | pathlib.Path | LocalFileTarget | JobInputFile:
+        """
+        Hook to define the executable that is run in jobs of grouped submissions, i.e., when jobs are submitted as job
+        arrays (see the ``slurm_job_grouping_submit`` option of the ``[job]`` config section). Defaults to a wrapper
+        shipped with law.
+
+        :return: The executable.
+        """
+        # only used for grouped submissions
+        return JobInputFile(
+            path=law_src_path("job", "law_group_wrapper.sh"),
+            copy=True,
+            render_local=True,
+            increment=True,
+        )
+
     def slurm_wrapper_file(self) -> str | pathlib.Path | LocalFileTarget | JobInputFile | None:
         """
         Hook to define an executable that is run in jobs instead of the job file returned by :py:meth:`slurm_job_file`,
@@ -431,15 +552,15 @@ class SlurmWorkflow(BaseRemoteWorkflow):
     def slurm_job_config(
         self,
         config: SlurmJobFileFactory.Config,
-        job_num: int,
-        branches: list[int],
+        job_num: int | list[int],
+        branches: list[int] | list[list[int]],
     ) -> SlurmJobFileFactory.Config:
         """
         Hook to modify the job file factory *config* before the job file is created.
 
         :param config: The job file factory config.
-        :param job_num: The job number.
-        :param branches: The branch numbers processed by the job.
+        :param job_num: The job number, or a list of job numbers for grouped submissions (job arrays).
+        :param branches: The branch numbers processed by the job, or a list of them per job for grouped submissions.
         :return: The modified config.
         """
         return config
