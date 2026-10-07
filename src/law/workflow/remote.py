@@ -4,7 +4,7 @@ Base definition of remote workflows based on job submission and status polling.
 
 from __future__ import annotations
 
-__all__ = ["BaseRemoteWorkflow", "BaseRemoteWorkflowProxy", "JobData"]
+__all__ = ["BaseRemoteWorkflow", "BaseRemoteWorkflowProxy", "JobData", "PollData"]
 
 import contextlib
 import copy
@@ -46,7 +46,7 @@ logger = get_logger(__name__)
 
 class JobData(ShorthandDict):
     """
-    Sublcass of :py:class:`law.util.ShorthandDict` that adds shorthands for the attributes *jobs*, *unsubmitted_jobs*,
+    Subclass of :py:class:`law.util.ShorthandDict` that adds shorthands for the attributes *jobs*, *unsubmitted_jobs*,
     *tasks_per_job*, and *dashboard_config*. This container object is used to store and keep track of per job
     information in :py:class:`BaseRemoteWorkflow`.
 
@@ -123,7 +123,7 @@ class JobData(ShorthandDict):
 
 class PollData(ShorthandDict):
     """
-    Sublcass of :py:class:`law.util.ShorthandDict` that holds variable attributes used during job status polling: the
+    Subclass of :py:class:`law.util.ShorthandDict` that holds variable attributes used during job status polling: the
     maximum number of parallel running jobs, *n_parallel*, the minimum number of finished jobs to consider the task
     successful, *n_finished_min*, the maximum number of failed jobs to consider the task failed, *n_failed_max*, the
     number of currently active jobs, *n_active*.
@@ -698,8 +698,8 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
     def output(self) -> Any:
         """
         Returns the default workflow outputs in an ordered dictionary. At the moment, this is the collection of outputs
-        of the branch tasks (key ``"collection"``), the submission file (key ``"submission"``), and the status file (key
-        ``"status"``). These two *control outputs* are optional, i.e., they are not considered when checking the task's
+        of the branch tasks (key ``"collection"``) and the jobs file containing submission and status data (key
+        ``"jobs"``). The jobs file is an optional *control output*, i.e., it is not considered when checking the task's
         completeness.
 
         :return: The outputs.
@@ -1787,8 +1787,8 @@ class BaseRemoteWorkflow(BaseWorkflow):
 
     def create_job_dashboard(self) -> BaseJobDashboard | None:
         """
-        Hook method to return a configured :py:class:`law.job.BaseJobDashboard` instance that will be used by the
-        workflow.
+        Hook method to return a configured :py:class:`law.job.dashboard.BaseJobDashboard` instance that will be used by
+        the workflow.
 
         :return: The dashboard instance, or *None* by default.
         """

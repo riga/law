@@ -166,7 +166,7 @@ class BaseWorkflowProxy(ProxyTask):
     def get_cached_output(self, update: bool = False) -> dict[str, Any]:
         """
         If already cached, returns the previously computed output, and otherwise computes it via :py:meth:`output` and
-        caches it for subsequent calls, if :py:attr:`cache_branch_map` of the task is *True*.
+        caches it for subsequent calls, if ``cache_branch_map`` of the task is *True*.
 
         :param update: When *True*, the cache is invalidated first.
         :return: The outputs.
@@ -785,14 +785,14 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
         type: bool
 
         Whether workflow requirements should be evaluated only cached and cached afterwards in the
-        :py:attr:`_cached_workflow_requirements` attribute. Defaults to *False*.
+        ``_cached_workflow_requirements`` attribute. Defaults to *False*.
 
     .. py:classattribute:: cache_branch_map_default
 
         type: bool
 
-        The initial default value of the :py:attr:`cache_branch_map` attribute that decides whether
-        the branch map be created only once and then cached in the :py:attr:`_branch_map` attribute.
+        The initial default value of the ``cache_branch_map`` attribute that decides whether
+        the branch map be created only once and then cached in the ``_branch_map`` attribute.
         Defaults to *True*.
 
     .. py:classattribute:: workflow_run_decorators
@@ -1182,13 +1182,13 @@ class BaseWorkflow(ProxyAttributeTask, metaclass=WorkflowRegister):
     @classmethod
     def req_different_branching(cls, inst: Task, **kwargs) -> BaseWorkflow:
         """
-        Variation of :py:meth:`Task.req` that should be used when defining requirements between workflows that implement
-        a different branch granularity (e.g. task B with 10 branches requires task A with 2 branches). The only
-        difference to the base method is that workflow specific parameters such as *branches* or *tolerance* are
-        automatically skipped when not added explicitly in *kwargs*.
+        Variation of :py:meth:`Task.req() <law.task.base.BaseTask.req>` that should be used when defining requirements
+        between workflows that implement a different branch granularity (e.g. task B with 10 branches requires task A
+        with 2 branches). The only difference to the base method is that workflow specific parameters such as *branches*
+        or *tolerance* are automatically skipped when not added explicitly in *kwargs*.
 
         :param inst: The task instance to take parameters from.
-        :param kwargs: Keyword arguments forwarded to :py:meth:`Task.req`.
+        :param kwargs: Keyword arguments forwarded to :py:meth:`Task.req() <law.task.base.BaseTask.req>`.
         :return: The new task instance.
         """
         _exclude = make_set(kwargs.get("_exclude") or [])

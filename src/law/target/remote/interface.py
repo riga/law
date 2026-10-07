@@ -25,6 +25,10 @@ logger: Logger = get_logger(__name__)
 
 
 class RetryException(LawError):
+    """
+    Exception that signals a failed remote file operation that can be retried, see :py:meth:`RemoteFileInterface.retry`.
+    It stores the information of the original exception *exc*, defaulting to the one currently being handled.
+    """
 
     def __init__(
         self,

@@ -259,7 +259,7 @@ class Sandbox(metaclass=abc.ABCMeta):
     @classmethod
     def create_variables(cls, name: str) -> SandboxVariables:
         """
-        Creates the :py:attr:`variable_cls` object that represents the sandbox *name*.
+        Creates the ``variable_cls`` object that represents the sandbox *name*.
 
         :param name: The sandbox name.
         :return: The variables object.
@@ -270,7 +270,7 @@ class Sandbox(metaclass=abc.ABCMeta):
     def new(cls, key: str, *args, **kwargs) -> Sandbox:
         """
         Creates a new sandbox instance from a sandbox *key* such as ``"bash::/path/to/script.sh"``, using the subclass
-        whose :py:attr:`sandbox_type` matches the type in *key*.
+        whose ``sandbox_type`` matches the type in *key*.
 
         :param key: The sandbox key.
         :param args: Arguments forwarded to the constructor of the sandbox class.

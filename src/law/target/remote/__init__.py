@@ -9,6 +9,7 @@ __all__ = [
     "RemoteFileSystem",
     "RemoteFileTarget",
     "RemoteTarget",
+    "RetryException",
 ]
 
 # provisioning imports
@@ -19,4 +20,4 @@ from law.target.remote.base import (
     RemoteTarget,
 )
 from law.target.remote.cache import RemoteCache
-from law.target.remote.interface import RemoteFileInterface
+from law.target.remote.interface import RemoteFileInterface, RetryException

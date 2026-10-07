@@ -564,8 +564,8 @@ def localize(
     Wraps a bound method of a task and temporarily changes the input and output methods to return localized targets.
     Does **not** accept generator functions.
 
-    :param input: When *True*, :py:meth:`Task.input` is adjusted.
-    :param output: When *True*, :py:meth:`Task.output` is adjusted.
+    :param input: When *True*, :py:meth:`Task.input() <law.task.base.BaseTask.input>` is adjusted.
+    :param output: When *True*, :py:meth:`Task.output() <luigi.task.Task.output>` is adjusted.
     :param input_kwargs: Keyword arguments passed to the localization method of inputs.
     :param output_kwargs: Keyword arguments passed to the localization method of outputs.
     """

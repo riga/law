@@ -260,7 +260,7 @@ class FileSystem(shims.FileSystem):
         Creates a directory at *path*.
 
         :param path: The path.
-        :param perm: The permission of the directory, defaulting to :py:attr:`default_dir_perm`.
+        :param perm: The permission of the directory, defaulting to the ``default_dir_perm`` option of the file system.
         :param recursive: Whether missing intermediate directories are created as well.
         :param silent: When *True* and *path* already exists, *False* is returned instead of raising an error.
         :param kwargs: Additional, implementation-specific options.
@@ -339,7 +339,8 @@ class FileSystem(shims.FileSystem):
 
         :param src: The source path.
         :param dst: The destination path.
-        :param perm: The permission of the copied file, defaulting to :py:attr:`default_file_perm`.
+        :param perm: The permission of the copied file, defaulting to the ``default_file_perm`` option of the file
+            system.
         :param dir_perm: The permission of directories that are created on the way.
         :param kwargs: Additional, implementation-specific options.
         :return: The full destination path.
@@ -361,7 +362,8 @@ class FileSystem(shims.FileSystem):
 
         :param src: The source path.
         :param dst: The destination path.
-        :param perm: The permission of the moved file, defaulting to :py:attr:`default_file_perm`.
+        :param perm: The permission of the moved file, defaulting to the ``default_file_perm`` option of the file
+            system.
         :param dir_perm: The permission of directories that are created on the way.
         :param kwargs: Additional, implementation-specific options.
         :return: The full destination path.
@@ -384,7 +386,8 @@ class FileSystem(shims.FileSystem):
 
         :param path: The path.
         :param mode: The file mode.
-        :param perm: The permission of the file when it is written, defaulting to :py:attr:`default_file_perm`.
+        :param perm: The permission of the file when it is written, defaulting to the ``default_file_perm`` option of
+            the file system.
         :param dir_perm: The permission of missing directories that are created when the file is written.
         :param kwargs: Additional, implementation-specific options.
         :return: A context manager that yields the file object.
@@ -1268,7 +1271,7 @@ def remove_scheme(uri: str | pathlib.Path) -> str:
 def localize_file_targets(struct, *args, **kwargs) -> Generator[Any, None, None]:
     """
     Context manager that takes an arbitrary *struct* of targets, opens the contexts returned by their
-    :py:meth:`FileSystemFileTarget.localize` implementations and yields their localized representations in the same
+    :py:meth:`FileSystemTarget.localize` implementations and yields their localized representations in the same
     structure. When the context is closed, the contexts of all localized targets are closed.
 
     :param struct: The structure of targets. Objects without a ``localize`` method are passed through.

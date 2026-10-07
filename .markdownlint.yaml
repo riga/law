@@ -1,0 +1,10 @@
+default: true
+
+# allow inline html (e.g. logo and badges in the README)
+MD033: false
+
+# do not require the first line to be a top-level heading
+MD041: false
+
+# no maximum line length
+MD013: false

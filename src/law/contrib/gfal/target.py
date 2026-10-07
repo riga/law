@@ -133,7 +133,7 @@ class GFALFileInterface(RemoteFileInterface):
     @contextlib.contextmanager
     def transfer_parameters(self, ctx: gfal2.Gfal2Context) -> Iterator[gfal2.TransferParameters]:
         """
-        Context manager that yields gfal2 transfer parameters configured with the :py:attr:`transfer_config`.
+        Context manager that yields gfal2 transfer parameters configured with the ``transfer_config`` of this interface.
 
         :param ctx: The gfal2 context.
         :return: A context manager that yields the transfer parameters.

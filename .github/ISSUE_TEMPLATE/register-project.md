@@ -14,8 +14,7 @@ assignees: riga
 - links to further resources
 - contact information if desired
 
-
-## Project details
+## Project description
 
 If you like, you can provide a description of your project here.
 Thanks!

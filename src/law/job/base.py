@@ -899,6 +899,10 @@ class BaseJobFileFactory(metaclass=abc.ABCMeta):
     render_key_cre = re.compile(r"\{\{(\w+)\}\}")
 
     class Config:
+        """
+        Container for the configuration of a job file, as returned by :py:meth:`BaseJobFileFactory.get_config`. Values
+        are accessible both as attributes and as items.
+        """
 
         def __repr__(self) -> str:
             return repr(self.__dict__)

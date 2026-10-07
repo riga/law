@@ -99,7 +99,6 @@
 ; --- core section ---------------------------------------------------------------------------------
 
 [core]
-
 ; law_home
 ; Description: The law home directory is the default location of a small number of files and
 ; directories that are created when working with law.
@@ -152,7 +151,6 @@
 ; --- logging section ------------------------------------------------------------------------------
 
 [logging]
-
 ; law
 ; Description: The log level of the law root logger. Accepted values are the default python log
 ; levels, i.e., ``"NOTSET"``, ``"DEBUG"``, ``"INFO"``, ``"WARNING"``, ``"ERROR"``, or
@@ -175,7 +173,6 @@
 ; --- modules section ------------------------------------------------------------------------------
 
 [modules]
-
 ; This section only accepts options without values. They are interpreted as a list of modules that
 ; are loaded and checked for law tasks classes when ``law index`` is executed. This command creates
 ; the index file that contains a list of task names and their parameters for fast autocompletion on
@@ -185,7 +182,6 @@
 ; --- task section ---------------------------------------------------------------------------------
 
 [task]
-
 ; colored_repr
 ; Description: A boolean flag that decides whether the output of ``task.repr()`` and ``repr(task)``
 ; is colorized by default.
@@ -228,7 +224,6 @@
 ; --- target section -------------------------------------------------------------------------------
 
 [target]
-
 ; colored_repr
 ; Description: A boolean flag that decides whether the output of ``target.repr()`` and
 ; ``repr(target)`` is colorized by default.
@@ -302,7 +297,6 @@
 ; --- local_fs section -----------------------------------------------------------------------------
 
 [local_fs]
-
 ; base
 ; Description: The base path for accessing files on this file system. Its default refers to the root
 ; of the file system which should serve most uses cases where local file targets assigned to it
@@ -353,7 +347,6 @@
 ; --- wlcg_fs section ------------------------------------------------------------------------------
 
 [wlcg_fs]
-
 ; Note:
 ; Remote file operations are handled by GFAL2. For more info, see https://github.com/cern-fts/gfal2.
 
@@ -516,7 +509,7 @@
 ; Default: ``False``
 
 
-; --- Options defined by "law.gfal.GFAlFileInterface"
+; --- Options defined by "law.gfal.GFALFileInterface"
 
 ; gfal_atomic_contexts
 ; Description: A boolean flag that decides whether each operation of the gfal2 interface should be
@@ -564,7 +557,6 @@
 ; --- dropbox_fs section ---------------------------------------------------------------------------
 
 [dropbox_fs]
-
 ; Note:
 ; Remote file operations are handled by GFAL2. For more info, see https://github.com/cern-fts/gfal2.
 ; To access files on your Dropbox, you to have to register an application to obtain credentials.
@@ -739,7 +731,7 @@
 ; Default: ``False``
 
 
-; --- Options defined by "law.gfal.GFAlFileInterface"
+; --- Options defined by "law.gfal.GFALFileInterface"
 
 ; gfal_atomic_contexts
 ; Description: A boolean flag that decides whether each operation of the gfal2 interface should be
@@ -785,7 +777,6 @@
 ; --- job section ----------------------------------------------------------------------------------
 
 [job]
-
 ; job_file_dir
 ; Description: The location of the directory in which a job file factory saves temporary files that
 ; are used for job submission.
@@ -1083,7 +1074,7 @@
 
 ; crab_password_file
 ; Description: A file containing the X509 certificate password for automatic proxy delegations by
-; the "law.crab.CrabJobManager".
+; the "law.cms.CrabJobManager".
 ; Type: ``str``, ``None``
 ; Default: ``None``
 
@@ -1096,7 +1087,6 @@
 ; --- notifications section ------------------------------------------------------------------------
 
 [notifications]
-
 ; mail_recipient
 ; Description: The address of the recipient for notifications sent by
 ; "law.notification.notify_mail".
@@ -1206,7 +1196,6 @@
 ; --- bash_sandbox section -------------------------------------------------------------------------
 
 [bash_sandbox]
-
 ; Note:
 ; This section defines the default options for all bash sandboxes. To configure options per bash
 ; initialization file, create a section ``[bash_sandbox_<init_file>]`` with the desired options.
@@ -1243,7 +1232,6 @@
 ; --- bash_sandbox_env section ---------------------------------------------------------------------
 
 [bash_sandbox_env]
-
 ; Note:
 ; Here you can define environment variables via key-value pairs that are accessible in a bash
 ; sandbox. When an option has no value, i.e., when only a key is given, the value of the variable of
@@ -1257,7 +1245,6 @@
 ; --- venv_sandbox section -------------------------------------------------------------------------
 
 [venv_sandbox]
-
 ; Note:
 ; This section defines the default options for all venv sandboxes. To configure options per bash
 ; initialization file, create a section ``[venv_sandbox_<venv_dir>]`` with the desired options.
@@ -1288,7 +1275,6 @@
 ; --- venv_sandbox_env section ---------------------------------------------------------------------
 
 [venv_sandbox_env]
-
 ; Note:
 ; Here you can define environment variables via key-value pairs that are accessible in a venv
 ; sandbox. When an option has no value, i.e., when only a key is given, the value of the variable of
@@ -1302,7 +1288,6 @@
 ; --- docker_sandbox section -----------------------------------------------------------------------
 
 [docker_sandbox]
-
 ; Note:
 ; This section defines the default options for all docker sandboxes. To configure options per image,
 ; create a section ``[docker_sandbox_<image_name>]`` with the desired options.
@@ -1362,7 +1347,6 @@
 ; --- docker_sandbox_env section -------------------------------------------------------------------
 
 [docker_sandbox_env]
-
 ; Note:
 ; Here you can define environment variables via key-value pairs that are accessible in a docker
 ; sandbox. When an option has no value, i.e., when only a key is given, the value of the variable of
@@ -1376,7 +1360,6 @@
 ; --- docker_sandbox_volumes section ---------------------------------------------------------------
 
 [docker_sandbox_volumes]
-
 ; Note:
 ; Here you can define volumes that are mounted in docker containers via key-value pairs that
 ; represent host and container directory, respectively.
@@ -1387,7 +1370,6 @@
 ; --- singularity_sandbox section ------------------------------------------------------------------
 
 [singularity_sandbox]
-
 ; Note:
 ; This section defines the default options for all singularity sandboxes. To configure options per
 ; image, create a section ``[singularity_sandbox_<image_name>]`` with the desired options.
@@ -1458,7 +1440,6 @@
 ; --- singularity_sandbox_env section --------------------------------------------------------------
 
 [singularity_sandbox_env]
-
 ; Note:
 ; Here you can define environment variables via key-value pairs that are accessible in a singularity
 ; sandbox. When an option has no value, i.e., when only a key is given, the value of the variable of
@@ -1472,7 +1453,6 @@
 ; --- singularity_sandbox_volumes section ----------------------------------------------------------
 
 [singularity_sandbox_volumes]
-
 ; Note:
 ; Here you can define volumes that are bound to singularity containers via key-value pairs that
 ; represent host and container directory, respectively.
@@ -1484,7 +1464,6 @@
 ; --- cmssw_sandbox section ------------------------------------------------------------------------
 
 [cmssw_sandbox]
-
 ; Note:
 ; This section defines the default options for all cmssw sandboxes. To configure options per cmssw
 ; version, create a section ``[cmssw_sandbox_<cmssw_version>]`` with the desired options.
@@ -1521,7 +1500,6 @@
 ; --- cmssw_sandbox_env section --------------------------------------------------------------------
 
 [cmssw_sandbox_env]
-
 ; Note:
 ; Here you can define environment variables via key-value pairs that are accessible in a cmssw
 ; sandbox. When an option has no value, i.e., when only a key is given, the value of the variable of

@@ -159,7 +159,7 @@ def merge_parquet_task(
 ) -> None:
     """
     This method is intended to be used by tasks that are supposed to merge parquet files, e.g. when inheriting from
-    :py:class:`law.contrib.tasks.MergeCascade`. The *task* itself is used to print and publish messages via its
+    :py:class:`law.contrib.tasks.ForestMerge`. The *task* itself is used to print and publish messages via its
     :py:meth:`law.Task.publish_message` and :py:meth:`law.Task.publish_step` methods.
 
     :param task: The task.

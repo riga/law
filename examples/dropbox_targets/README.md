@@ -6,10 +6,9 @@ Resources: [luigi](http://luigi.readthedocs.io/en/stable), [law](http://law.read
 
 There are multiple ways to setup and run this example:
 
+## Before you start
 
-#### Before you start
-
-##### 1. `gfal2`
+### 1. `gfal2`
 
 Dropbox targets, as well as other remote targets in law, require the [gfal2 library](https://gitlab.cern.ch/dmc/gfal2), its [python bindings](https://gitlab.cern.ch/dmc/gfal2-bindings) and the [Dropbox plugin](https://github.com/cern-it-sdc-id/gfal2-dropbox) to be installed on your system. If you are familiar with docker, you can also use a [law example docker image](https://hub.docker.com/r/riga/law/tags) which ships with everything you need and sets up this example:
 
@@ -17,14 +16,12 @@ Dropbox targets, as well as other remote targets in law, require the [gfal2 libr
 docker run -ti riga/law:example dropbox_targets
 ```
 
+### 2. Dropbox API credentials
 
-##### 2. Drobbox API credentials
-
-You need a Dropbox account and credentials to access your files via the Dropbox API. Click [here](https://www.dropbox.com/developers/apps) to create your API credentials (**note**: select the *Full Dropbox* access type). Once you got them, add them to the [`law.cfg`](https://github.com/riga/law/blob/master/examples/dropbox_targets/law.cfg) file in this example directory:
+You need a Dropbox account and credentials to access your files via the Dropbox API. Create your API credentials in the [Dropbox App Console](https://www.dropbox.com/developers/apps) (**note**: select the *Full Dropbox* access type). Once you got them, add them to the [`law.cfg`](https://github.com/riga/law/blob/master/examples/dropbox_targets/law.cfg) file in this example directory:
 
 ```ini
 [dropbox]
-
 base: dropbox://dropbox.com/...
 app_key: ...
 app_secret: ...
@@ -33,8 +30,7 @@ access_token: ...
 
 `base` can refer to any directory in your Dropbox. All target paths are resolved relative to this directory and cannot access anything above it.
 
-
-#### Play with targets
+## Play with targets
 
 In law, there are two types of filesystem-based targets: file targets and directory targets. They have most of the attributes and methods in common, but some features only exist on the dedicated class.
 
@@ -91,8 +87,7 @@ data_file.exists()
 # => False
 ```
 
-
-#### Upload, download and target formatters
+## Upload, download and target formatters
 
 Write some json data into the file. There are multiple methods to do this, so select the one that fits your needs best:
 
@@ -138,8 +133,7 @@ data_file.load()
 # => {"foo": "bar", "baz": [1, 2, 3]}
 ```
 
-
-#### Localization
+## Localization
 
 Another method is *target localization*. This is especially helpful when dealing with large files that are either produced or required by a different part of your code or another library. Let's assume you want to work with a large numpy array:
 
@@ -162,8 +156,7 @@ with array_file.localize("w") as tmp:
     dnn_prediction_into_file(tmp.path)
 ```
 
-
-#### The local cache
+## The local cache
 
 In order to avoid redundant file transfers, law can be configured to cache remote files for both up- and download. Synchronicity is granted by comparison of file modification times. See the [law documentation](http://law.readthedocs.io/en/latest) for more info.
 
@@ -192,10 +185,9 @@ array_file.copy_to_local("/local/path", cache=False)
 # => "/local/path"
 ```
 
+## Fancy examples
 
-#### Fancy examples
-
-##### 1. Multiple Dropboxes
+### 1. Multiple Dropboxes
 
 Let's get fancy. Now, we want to load a numpy array from one file in the *default* Dropbox, and transfer a single column (`prediction`) to a new file in a *different* Dropbox. To do so, add another section(`[dropbox_results]`) to the `law.cfg` file which can have different credentials and/or just another base directory.
 
@@ -209,8 +201,7 @@ pred_file.dump(array_file.load()["prediction"])
 
 The `fs` argument requires either a `DropboxFileSystem` instance, or the name of a section in your config file that is used to build one.
 
-
-##### 2. File merging
+### 2. File merging
 
 Here, we want to download a number of numpy files, merge them locally, and transfer the resulting array back to the Dropbox. As a minor complication, we want to disable caching for the downloaded files. This boils down to a single line using target formatters:
 

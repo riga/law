@@ -25,8 +25,8 @@ def profile_by_line(
     called. This requires `line-profiler <https://pypi.org/project/line-profiler/>`__ to be installed on your system.
     Accepts generator functions.
 
-    :param output_unit: Forwarded to :py:meth:`line_profiler.LineProfiler.print_stats`.
-    :param stripzeros: Forwarded to :py:meth:`line_profiler.LineProfiler.print_stats`.
+    :param output_unit: Forwarded to ``line_profiler.LineProfiler.print_stats``.
+    :param stripzeros: Forwarded to ``line_profiler.LineProfiler.print_stats``.
     """
     import line_profiler
 

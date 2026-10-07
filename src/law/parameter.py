@@ -13,6 +13,7 @@ __all__ = [
     "DurationParameter",
     "MultiCSVParameter",
     "MultiRangeParameter",
+    "NotifyCustomParameter",
     "NotifyMailParameter",
     "NotifyMultiParameter",
     "NotifyParameter",
@@ -428,7 +429,7 @@ class CSVParameter(Parameter):
 
     .. py:attribute:: _inst
 
-        type: :py:attr:`cls`
+        type: *cls*
 
         Instance of the luigi parameter class *cls* or *inst* directory, that is used internally for
         parameter parsing and serialization.
@@ -646,7 +647,7 @@ class MultiCSVParameter(CSVParameter):
 
     .. py:attribute:: _inst
 
-        type: :py:attr:`cls`
+        type: *cls*
 
         Instance of the luigi parameter class *cls* or *inst* directly, that is used internally for
         parameter parsing and serialization.
@@ -966,10 +967,10 @@ class NotifyParameter(luigi.BoolParameter, Parameter):
             }
 
     When a task has a specific notification parameter set to *True* and its run method is decorated with the
-    :py:func:`law.notify` function, *notification_func* is called with at least three arguments: *success*, *title* and
-    *message*. *success* is a boolean which is *True* when the decorated function did not raise an exception. *title* is
-    always a string. When *raw* is *False* (the default), *message* is also a string. Otherwise, it is an ordered
-    dictionary containing key value pairs describing the message content. All options passed to
+    :py:func:`law.decorator.notify` function, *notification_func* is called with at least three arguments: *success*,
+    *title* and *message*. *success* is a boolean which is *True* when the decorated function did not raise an
+    exception. *title* is always a string. When *raw* is *False* (the default), *message* is also a string. Otherwise,
+    it is an ordered dictionary containing key value pairs describing the message content. All options passed to
     :py:func:`law.decorator.notify` are forwarded to *notification_func* as optional arguments.
     """
 
@@ -1004,7 +1005,7 @@ class NotifyMultiParameter(NotifyParameter):
 
     def get_transport(self) -> list[dict[str, Any] | None]:  # type: ignore[override]
         """
-        Returns the transports of all :py:attr:`parameters`.
+        Returns the transports of all *parameters*.
 
         :return: The list of transports.
         """

@@ -80,8 +80,10 @@ __all__ = [  # noqa: RUF022
     "tmp_file",
     "user_owns_file",
     # classes
+    "NoValue",
     "DotDict",
     "ShorthandDict",
+    "InsertableDict",
     "classproperty",
     "BaseStream",
     "TeeStream",
@@ -158,6 +160,10 @@ console_lock = threading.Lock()
 
 
 class NoValue:
+    """
+    Singleton class of :py:attr:`no_value`, a dummy value that denotes missing values. Unlike *None*, it can be used
+    when *None* is a valid value. All instances are identical, compare equal to each other, and evaluate to *False*.
+    """
 
     __hash: int = hash(object())
     _instance: NoValue | None = None
@@ -1742,15 +1748,15 @@ def interruptable_popen(
     **kwargs,
 ) -> tuple[int, str | None, str | None]:
     """
-    Shorthand to :py:class:`Popen` followed by :py:meth:`Popen.communicate` which can be interrupted by
-    *KeyboardInterrupt*.
+    Shorthand to :py:class:`~subprocess.Popen` followed by :py:meth:`Popen.communicate() <subprocess.Popen.communicate>`
+    which can be interrupted by *KeyboardInterrupt*.
 
     The default value of *stdin* depends on whether a *stdin_callback* is provided. It is set to ``subprocess.PIPE`` if
     *stdin_callback* is set, and to ``subprocess.DEVNULL`` otherwise. In case the subprocess should "inherit" the
     standard input of the parent process, *stdin* should be manually set to ``None``.
 
-    :param cmd: The command, forwarded to the :py:class:`Popen` constructor.
-    :param args: Arguments forwarded to the :py:class:`Popen` constructor.
+    :param cmd: The command, forwarded to the :py:class:`~subprocess.Popen` constructor.
+    :param args: Arguments forwarded to the :py:class:`~subprocess.Popen` constructor.
     :param stdin_callback: A function accepting no arguments and whose return value is passed to ``communicate`` after a
         delay of *stdin_delay* to feed data input to the subprocess.
     :param stdin_delay: The delay in seconds before *stdin_callback* is invoked.
@@ -1761,7 +1767,7 @@ def interruptable_popen(
         SIGKILL signal is sent to force the process termination.
     :param processes: When set, the process is appended to it right after it was created. This can be useful to keep
         track of multiple processes and sending signals to them from an outer context.
-    :param kwargs: Keyword arguments forwarded to the :py:class:`Popen` constructor.
+    :param kwargs: Keyword arguments forwarded to the :py:class:`~subprocess.Popen` constructor.
     :return: A 3-tuple with the return code, standard output and standard error.
     """
     # default stdin setting
@@ -1962,8 +1968,8 @@ def kill_process(
 
 def readable_popen(*args, **kwargs) -> tuple[subprocess.Popen, Iterable[str]]:
     """
-    Creates a :py:class:`Popen` object and a generator function yielding the output line-by-line as it comes in.
-    Example:
+    Creates a :py:class:`~subprocess.Popen` object and a generator function yielding the output line-by-line as it comes
+    in. Example:
 
     .. code-block:: python
 
@@ -1980,10 +1986,10 @@ def readable_popen(*args, **kwargs) -> tuple[subprocess.Popen, Iterable[str]]:
     ``communicate()`` is called automatically after the output iteration terminates which sets the subprocess'
     *returncode* member.
 
-    :param args: Arguments forwarded to the :py:class:`Popen` constructor.
-    :param kwargs: Keyword arguments forwarded to the :py:class:`Popen` constructor. *stdout* and *stderr* are
-        overwritten.
-    :return: A 2-tuple with the :py:class:`Popen` object and the line generator.
+    :param args: Arguments forwarded to the :py:class:`~subprocess.Popen` constructor.
+    :param kwargs: Keyword arguments forwarded to the :py:class:`~subprocess.Popen` constructor. *stdout* and *stderr*
+        are overwritten.
+    :return: A 2-tuple with the :py:class:`~subprocess.Popen` object and the line generator.
     """
     # force pipes
     kwargs["stdout"] = subprocess.PIPE
@@ -2932,8 +2938,8 @@ def patch_object(
     :param value: The temporary value.
     :param reset: Whether the original value is set again when the context is closed.
     :param orig: The original value. When not set, it is obtained through ``getattr``.
-    :param lock: When *True*, the :py:attr:`default_lock` object is used to ensure the patch is thread-safe. When it is
-        a lock instance, this object is used instead.
+    :param lock: When *True*, the ``default_lock`` object is used to ensure the patch is thread-safe. When it is a lock
+        instance, this object is used instead.
     :return: A context manager that yields *obj*.
     """
     if orig is no_value:
@@ -3064,6 +3070,17 @@ def classproperty(func: Callable) -> ClassPropertyDescriptor:
 
 
 class BaseStream:
+    """
+    Base class of file-like streams that can be used as context managers. Inheriting classes implement the actual
+    operations in ``_write()``, ``_flush()`` and ``_close()``.
+
+    .. py:classattribute:: FLUSH_AFTER_WRITE
+
+        type: bool
+
+        The default value of *flush_after_write*, which decides whether the stream is flushed after each write
+        operation. Defaults to *True*.
+    """
 
     FLUSH_AFTER_WRITE: bool = True
 
@@ -3087,6 +3104,9 @@ class BaseStream:
         self.close()
 
     def close(self) -> None:
+        """
+        Flushes and closes the stream. Subsequent operations have no effect.
+        """
         if self.closed:
             return
         self.flush()
@@ -3094,11 +3114,20 @@ class BaseStream:
         self.closed = True
 
     def flush(self) -> None:
+        """
+        Flushes the stream unless it is closed.
+        """
         if self.closed:
             return
         self._flush()
 
     def write(self, *args, **kwargs) -> None:
+        """
+        Writes to the stream unless it is closed, and flushes it afterwards depending on *flush_after_write*.
+
+        :param args: Arguments forwarded to ``_write()``.
+        :param kwargs: Keyword arguments forwarded to ``_write()``.
+        """
         if self.closed:
             return
 

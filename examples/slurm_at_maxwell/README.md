@@ -8,8 +8,7 @@ A single task collects the results in the end and writes all characters into a t
 
 Resources: [luigi](http://luigi.readthedocs.io/en/stable), [law](http://law.readthedocs.io/en/latest)
 
-
-#### 0. At Maxwell: copy this example to your user space
+## 0. At Maxwell: copy this example to your user space
 
 ```shell
 mkdir -p /examplepath
@@ -17,15 +16,13 @@ cd /examplepath
 cp -r /afs/desy.de/user/r/riegerma/public/law_sw/law/examples/slurm_at_maxwell/* .
 ```
 
-
-#### 1. Source the setup script (just software and some variables)
+## 1. Source the setup script (just software and some variables)
 
 ```shell
 source setup.sh
 ```
 
-
-#### 2. Let law index your tasks and their parameters (for autocompletion)
+## 2. Let law index your tasks and their parameters (for autocompletion)
 
 ```shell
 law index --verbose
@@ -44,8 +41,7 @@ module 'analysis.tasks', 2 task(s):
 written 2 task(s) to index file '/examplepath/.law/index'
 ```
 
-
-#### 3. Check the status of the `CreateAlphabet` task
+## 3. Check the status of the `CreateAlphabet` task
 
 ```shell
 law run CreateAlphabet --version v1 --print-status -1
@@ -69,9 +65,7 @@ print task status with max_depth -1 and target_depth 0
            absent (0/26)
 ```
 
-
-#### 4. Run the `CreateAlphabet` task
-
+## 4. Run the `CreateAlphabet` task
 
 ```shell
 law run CreateAlphabet --version v1 --CreateChars-transfer-logs --CreateChars-poll-interval 30sec
@@ -87,8 +81,7 @@ If you want to see how the task tree is built and subsequently run, run ``luigid
 This will start a central scheduler at *localhost:8082* (the default address).
 To inform tasks (or rather *workers*) about the scheduler, either add ``--local-scheduler False`` to the ``law run`` command, or set the ``local-scheduler`` value in the ``[luigi_core]`` config section in the ``law.cfg`` file to ``False``.
 
-
-#### 5. Check the status again
+## 5. Check the status again
 
 ```shell
 law run CreateAlphabet --version v1 --print-status -1
@@ -112,16 +105,14 @@ print task status with max_depth -1 and target_depth 0
            existent (26/26)
 ```
 
-
-#### 6. Look at the results
+## 6. Look at the results
 
 ```shell
 cd data
 ls */v1/
 ```
 
-
-#### 7. Cleanup the results
+## 7. Cleanup the results
 
 ```shell
 law run CreateAlphabet --version v1 --remove-output -1

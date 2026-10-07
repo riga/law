@@ -444,8 +444,8 @@ class CrabWorkflow(BaseRemoteWorkflow):
         branches: list[list[int]],
     ) -> CrabJobFileFactory.Config:
         """
-        Hook to inject custom settings into the job *config*, which is an instance of the :py:attr:`Config` class
-        defined inside the job manager.
+        Hook to inject custom settings into the job *config*, which is an instance of the
+        :py:class:`~law.job.base.BaseJobFileFactory.Config` class defined inside the job file factory.
 
         :param config: The job file factory config.
         :param job_num: The list of job numbers.

@@ -123,8 +123,8 @@ class Logger(logging.Logger):
 
         :param log_id: The identifier of the message. When no further arguments are passed, it is used as the message as
             well.
-        :param args: Arguments forwarded to :py:meth:`fatal`.
-        :param kwargs: Keyword arguments forwarded to :py:meth:`fatal`.
+        :param args: Arguments forwarded to :py:meth:`fatal <logging.Logger.critical>`.
+        :param kwargs: Keyword arguments forwarded to :py:meth:`fatal <logging.Logger.critical>`.
         """
         # when no log_id is set, but just a message, it is received as log_id
         if not args:

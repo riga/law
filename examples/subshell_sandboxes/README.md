@@ -1,3 +1,3 @@
-# Example: Sandboxing via Singularity containers
+# Example: Sandboxing via Subshells
 
 TODO.

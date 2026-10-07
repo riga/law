@@ -13,22 +13,19 @@ There are multiple ways to setup and run this example:
 1. Docker: `docker run -ti riga/law:example loremipsum`
 2. Local: `source setup.sh`
 
-
-#### 1. Install dependencies for this example
+## 1. Install dependencies for this example
 
 ```shell
 pip install luigi scikit-optimize matplotlib
 ```
 
-
-#### 2. Source the setup script (just sets up some variables)
+## 2. Source the setup script (just sets up some variables)
 
 ```shell
 source setup.sh
 ```
 
-
-#### 3. Let law index your the tasks and their parameters (for autocompletion)
+## 3. Let law index your the tasks and their parameters (for autocompletion)
 
 ```shell
 law index --verbose
@@ -48,8 +45,7 @@ module 'tasks', 3 task(s):
 written 3 task(s) to index file '/examplepath/.law/index'
 ```
 
-
-#### 4. Check the status of the OptimizerPlot task
+## 4. Check the status of the OptimizerPlot task
 
 ```shell
 law run OptimizerPlot --print-status -1
@@ -67,8 +63,7 @@ print task status with max_depth -1 and target_depth 0
 
 The `-1` value tells law to recursively check the task status. Given a positive number, law stops at that level. The task itself has a depth of `0`.
 
-
-#### 5. Run the OptimizerPlot task
+## 5. Run the OptimizerPlot task
 
 ```shell
 law run OptimizerPlot --iterations 10 --n-initial-points 10 --n-parallel 4
@@ -79,8 +74,7 @@ You can see the plots being created after each optimization step at `data/Optimi
 
 By default, this example uses a local scheduler, which - by definition - offers no visualization tools in the browser. If you want to see how the task tree is built and subsequently run, run ``luigid`` in a second terminal. This will start a central scheduler at *localhost:8082* (the default address). To inform tasks (or rather *workers*) about the scheduler, either add ``--local-scheduler False`` to the ``law run`` command, or set the ``local-scheduler`` value in the ``[luigi_core]`` config section in the ``law.cfg`` file to ``False``.
 
-
-#### 6. Check the status again
+## 6. Check the status again
 
 ```shell
 law run OptimizerPlot --print-status -1
@@ -96,21 +90,20 @@ print task status with max_depth -1 and target_depth 0
 |     -> existent (10/10)
 ```
 
-
-#### 7. Look at the results
+## 7. Look at the results
 
 ```shell
 ls data/OptimizerPlot
 ```
 
-##### Convergence of the optimization
+### Convergence of the optimization
 
 <img width="500" alt="convergence_9" src="https://user-images.githubusercontent.com/13285808/37497600-950d3944-28b9-11e8-8861-bf30855a070d.png"/>
 
-##### Sampled points
+### Sampled points
 
 <img width="500" alt="evaluation_9" src="https://user-images.githubusercontent.com/13285808/37497601-95431da2-28b9-11e8-94ad-c610426f4e5e.png"/>
 
-##### Pairwise partial dependence plot of the objective function
+### Pairwise partial dependence plot of the objective function
 
 <img width="500" alt="objective_9" src="https://user-images.githubusercontent.com/13285808/37497602-955d9e16-28b9-11e8-8a57-f8cc82c81c8b.png"/>
