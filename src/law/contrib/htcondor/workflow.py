@@ -62,7 +62,7 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
         # check inputs
         if not submit_jobs:
             raise ValueError("no jobs to submit")
-        if not grouped_submission and len(submit_jobs) != 2:
+        if not grouped_submission and len(submit_jobs) != 1:
             raise ValueError(f"received more than one job for non-grouped submission: {submit_jobs}")
         first_job_num, first_branches = next(iter(submit_jobs.items()))
 

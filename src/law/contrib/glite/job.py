@@ -213,7 +213,7 @@ class GLiteJobManager(BaseJobManager):
         job_id: str | Sequence[str],
         silent: bool = False,
         _processes: list | None = None,
-    ) -> dict[int, dict[str, Any]] | dict[str, Any] | None:
+    ) -> dict[str, dict[str, Any]] | dict[str, Any] | None:
         chunking = isinstance(job_id, (list, tuple))
         job_ids = make_list(job_id)
 
@@ -269,7 +269,7 @@ class GLiteJobManager(BaseJobManager):
         return query_data if chunking else query_data[job_id]  # type: ignore[index]
 
     @classmethod
-    def parse_query_output(cls, out: str) -> dict[int, dict[str, Any]]:
+    def parse_query_output(cls, out: str) -> dict[str, dict[str, Any]]:
         # blocks per job are separated by ******
         blocks = []
         for block_str in out.split("******"):
@@ -622,4 +622,4 @@ class GLiteJobFileFactory(BaseJobFileFactory):
             value = "{{{}}}".format(", ".join(f"\"{v}\"" for v in value))
         else:
             value = f"\"{value}\""
-        return f"{key} = {value};".format(key, value)
+        return f"{key} = {value};"
