@@ -211,6 +211,36 @@ class ProcessEntries(law.LocalWorkflow):
 Requirements of branch tasks that depend on the condition are declared via `@workflow_condition.requires`.
 See {py:class}`~law.workflow.base.DynamicWorkflowCondition` for all options.
 
+## Under the hood: workflow proxies
+
+A workflow and its branches are instances of the same class, yet they behave completely differently.
+This is achieved by *workflow proxies*, which are objects that act on behalf of the workflow task.
+
+Each workflow class has a proxy class assigned to its {py:attr}`workflow_proxy_cls <law.workflow.base.BaseWorkflow.workflow_proxy_cls>` attribute, such as {py:class}`~law.workflow.local.LocalWorkflowProxy` for `law.LocalWorkflow`, or a subclass of {py:class}`~law.workflow.remote.BaseRemoteWorkflowProxy` for remote workflows.
+The `workflow_type` of the proxy class, e.g. `"local"` or `"htcondor"`, is the name that is selected with the `--workflow` parameter.
+When a workflow is instantiated, the type of the matching workflow class in its method resolution order is stored in the `effective_workflow` parameter.
+Upon first access, the workflow then creates an instance of the corresponding proxy class, which is accessible via `self.workflow_proxy`.
+
+Workflows intercept attribute access, and when the task is a workflow, the four methods `requires()`, `output()`, `complete()` and `run()` are taken from the proxy instead of the task class.
+For branch tasks, no forwarding takes place.
+This is why the methods you define in your class describe a single branch, while the proxy implements what it means to require, check, output and run *all* branches:
+
+| Method | Default behavior of the workflow proxy |
+| --- | --- |
+| `requires()` | Requirements returned by the `workflow_requires()` hook of the task, plus requirements specific to the workflow type. |
+| `output()` | A dictionary with the target collection of all branch outputs in `"collection"`, plus outputs specific to the workflow type, such as the `"jobs"` file of remote workflows. |
+| `complete()` | The result of the `workflow_complete()` hook when it does not return `NotImplemented`, and the completeness of the outputs otherwise. |
+| `run()` | Processing the branches, i.e., yielding them as dynamic dependencies for local workflows, or submitting and monitoring jobs for remote workflows. |
+
+Since the proxy replaces these methods, the behavior of workflows is customized through hooks on the task rather than by overriding methods:
+
+- `workflow_requires()` and `workflow_complete()` apply to all workflow types.
+- Hooks prefixed with the workflow type, such as `local_workflow_requires()` or `htcondor_workflow_requires()`, only apply to that type.
+  The proxy looks up these attributes on the task, which is also how remote workflows find their configuration, e.g. `htcondor_job_config()`.
+- {py:attr}`workflow_run_decorators <law.workflow.base.BaseWorkflow.workflow_run_decorators>` (or a type-specific variant, such as `htcondor_workflow_run_decorators`) wraps the `run()` method of the proxy.
+
+New workflow types are implemented by a pair of classes: a proxy class that inherits from {py:class}`~law.workflow.base.BaseWorkflowProxy` and defines `workflow_type`, and a workflow class that inherits from {py:class}`~law.workflow.base.BaseWorkflow` and sets `workflow_proxy_cls` to the new proxy.
+
 ## Further reading
 
 - {doc}`remote_workflows` describes how branches are processed as jobs on batch systems.
