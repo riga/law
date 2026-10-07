@@ -9,3 +9,31 @@ img.logo {
 dl.data > dt > em.property {
     display: none !important;
 }
+
+/* colored terminal outputs rendered by the ansi-output directive */
+.ansi-output .ansi-command {
+    font-weight: bold;
+}
+.ansi-output .ansi-bold {
+    font-weight: bold;
+}
+.ansi-output .ansi-underline {
+    text-decoration: underline;
+}
+.ansi-output .ansi-fg-black { color: #3c3c3c; }
+.ansi-output .ansi-fg-red { color: #c62828; }
+.ansi-output .ansi-fg-green { color: #2e7d32; }
+.ansi-output .ansi-fg-yellow { color: #9e7700; }
+.ansi-output .ansi-fg-blue { color: #1565c0; }
+.ansi-output .ansi-fg-magenta { color: #8e24aa; }
+.ansi-output .ansi-fg-cyan { color: #00838f; }
+.ansi-output .ansi-fg-white { color: #9e9e9e; }
+
+html[data-theme="dark"] .ansi-output .ansi-fg-black { color: #9e9e9e; }
+html[data-theme="dark"] .ansi-output .ansi-fg-red { color: #ef7b7b; }
+html[data-theme="dark"] .ansi-output .ansi-fg-green { color: #7fcf83; }
+html[data-theme="dark"] .ansi-output .ansi-fg-yellow { color: #e6c35c; }
+html[data-theme="dark"] .ansi-output .ansi-fg-blue { color: #79b3f2; }
+html[data-theme="dark"] .ansi-output .ansi-fg-magenta { color: #d18be0; }
+html[data-theme="dark"] .ansi-output .ansi-fg-cyan { color: #5fcfd9; }
+html[data-theme="dark"] .ansi-output .ansi-fg-white { color: #e0e0e0; }

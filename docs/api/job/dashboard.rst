@@ -18,3 +18,9 @@ Class ``NoJobDashboard``
 
 .. autoclass:: NoJobDashboard
    :members:
+
+
+Functions
+---------
+
+.. autofunction:: cache_by_status

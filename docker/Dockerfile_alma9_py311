@@ -3,7 +3,7 @@ FROM almalinux:9
 ARG TARGETPLATFORM
 
 # labels
-LABEL law_version="0.1.21"
+LABEL law.version="0.2.0"
 LABEL law.image-name="riga/law"
 LABEL law.image-tag="a9-py311"
 LABEL law.image-os="almalinux9"
@@ -12,14 +12,14 @@ LABEL law.image-python-minor="11"
 LABEL law.image-python="3.11"
 
 # law specific environment variables
-ENV LAW_IMAGE_ROOT /root/law
-ENV LAW_IMAGE_NAME riga/law
-ENV LAW_IMAGE_TAG a9-py311
-ENV LAW_IMAGE_PYTHON_MAJOR 3
-ENV LAW_IMAGE_PYTHON_MINOR 11
-ENV LAW_IMAGE_PYTHON ${LAW_IMAGE_PYTHON_MAJOR}.${LAW_IMAGE_PYTHON_MINOR}
-ENV LAW_MAMBA_ROOT /root/mamba
-ENV LAW_SANDBOX docker::riga/law:a9-py311,docker::riga/law:a9-py3,docker::riga/law:a9,docker::riga/law:py311,docker::riga/law:py3,docker::riga/law:latest,docker::riga/law
+ENV LAW_IMAGE_ROOT=/root/law
+ENV LAW_IMAGE_NAME=riga/law
+ENV LAW_IMAGE_TAG=a9-py311
+ENV LAW_IMAGE_PYTHON_MAJOR=3
+ENV LAW_IMAGE_PYTHON_MINOR=11
+ENV LAW_IMAGE_PYTHON=${LAW_IMAGE_PYTHON_MAJOR}.${LAW_IMAGE_PYTHON_MINOR}
+ENV LAW_MAMBA_ROOT=/root/mamba
+ENV LAW_SANDBOX=docker::riga/law:a9-py311,docker::riga/law:py311
 
 # exposed ports
 EXPOSE 8082
@@ -32,13 +32,16 @@ COPY bashrc /root/.bashrc
 WORKDIR /root/install
 
 # prepare yum
-RUN yum -y update; yum clean all
-RUN yum -y install --allowerasing yum-utils epel-release curl wget bzip2; yum clean all
+RUN yum -y update && \
+    yum clean all
+RUN yum -y install --allowerasing yum-utils epel-release curl wget bzip2 && \
+    yum clean all
 
 # setup mamba
-ENV MAMBA_ROOT_PREFIX "${LAW_MAMBA_ROOT}"
-ENV MAMBA_EXE "${MAMBA_ROOT_PREFIX}/bin/micromamba"
-ENV PATH "${MAMBA_ROOT_PREFIX}/bin:${PATH}"
+ARG MICROMAMBA_VERSION=latest
+ENV MAMBA_ROOT_PREFIX="${LAW_MAMBA_ROOT}"
+ENV MAMBA_EXE="${MAMBA_ROOT_PREFIX}/bin/micromamba"
+ENV PATH="${MAMBA_ROOT_PREFIX}/bin:${PATH}"
 RUN case "${TARGETPLATFORM}" in \
         "linux/amd64") MAMBA_PLATFORM="linux-64" ;; \
         "linux/arm64") MAMBA_PLATFORM="linux-aarch64" ;; \
@@ -47,7 +50,7 @@ RUN case "${TARGETPLATFORM}" in \
         *) MAMBA_PLATFORM="linux-64" ;; \
     esac && \
     mkdir -p "${MAMBA_ROOT_PREFIX}" && \
-    curl -Ls "https://micro.mamba.pm/api/micromamba/${MAMBA_PLATFORM}/latest" | tar -xvj -C "${MAMBA_ROOT_PREFIX}" "bin/micromamba"
+    curl -fsSL "https://micro.mamba.pm/api/micromamba/${MAMBA_PLATFORM}/${MICROMAMBA_VERSION}" | tar -xvj -C "${MAMBA_ROOT_PREFIX}" "bin/micromamba"
 RUN echo $'\n\
 changeps1: false\n\
 always_yes: true\n\
@@ -63,19 +66,16 @@ RUN micromamba install gfal2 gfal2-util python-gfal2 && \
     micromamba clean --all
 
 # python packages
-RUN pip install --no-cache-dir --upgrade pip
-RUN pip install --no-cache-dir --upgrade setuptools
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
 # cleanup installation workdir
 WORKDIR /root
 RUN rm -rf /root/install
 
-# install law master
-RUN git clone --recursive https://github.com/riga/law "${LAW_IMAGE_ROOT}" && \
+# install law
+RUN git clone --recursive --single-branch https://github.com/riga/law "${LAW_IMAGE_ROOT}" && \
     cd "${LAW_IMAGE_ROOT}" && \
-    pip install --no-cache-dir -r requirements.txt -r requirements_dev.txt && \
-    pip install --no-cache-dir mypy && \
-    pip install --no-cache-dir .
+    pip install --upgrade --editable .[dev]
 WORKDIR ${LAW_IMAGE_ROOT}
 
 # default shell

@@ -1,0 +1,104 @@
+"""
+Telegram notifications.
+"""
+
+from __future__ import annotations
+
+__all__ = ["notify_telegram"]
+
+import os
+import pathlib
+import threading
+import traceback
+
+from law._types import Any
+from law.config import Config
+from law.logger import get_logger
+from law.util import escape_markdown
+
+logger = get_logger(__name__)
+
+
+def notify_telegram(
+    title: str,
+    content: str | dict[str, Any],
+    token: str | pathlib.Path | None = None,
+    chat: str | None = None,
+    mention_user: str | None = None,
+    **kwargs,
+) -> bool:
+    """
+    Sends a telegram notification. The communication with the telegram API might have some delays and is therefore
+    handled by a thread.
+
+    :param title: The title.
+    :param content: The content, either a string or a dictionary whose fields are formatted as key-value pairs.
+    :param token: The bot token, defaulting to the ``telegram_token`` option in the ``[notifications]`` section.
+    :param chat: The chat id, defaulting to the ``telegram_chat`` option in the ``[notifications]`` section.
+    :param mention_user: The user to mention, defaulting to the ``telegram_mention_user`` option in the
+        ``[notifications]`` section.
+    :param kwargs: Unused keyword arguments.
+    :return: Whether the notification was sent, i.e., whether *token* and *chat* are set.
+    """
+    import telegram  # noqa: F401
+
+    cfg = Config.instance()
+
+    # get default token and chat
+    if not token:
+        token = cfg.get_expanded("notifications", "telegram_token")
+    if not chat:
+        chat = cfg.get_expanded("notifications", "telegram_chat")
+
+    if not token or not chat:
+        logger.warning(f"cannot send telegram notification, token ({token}) or chat ({chat}) empty")
+        return False
+
+    # append the user to mention to the title
+    # unless explicitly set to empty string
+    mention_text = ""
+    if mention_user is None:
+        mention_user = cfg.get_expanded("notifications", "telegram_mention_user")
+    if mention_user:
+        mention_text = f" (@{escape_markdown(mention_user)})"
+
+    # request data for the API call
+    request = {"parse_mode": "MarkdownV2"}
+
+    # standard or attachment content?
+    if isinstance(content, dict):
+        # content is a dict, add some formatting
+        request["text"] = f"{title}{mention_text}\n\n"
+
+        for key, value in content.items():
+            request["text"] += f"_{key}_: {value}\n"
+    else:
+        request["text"] = f"{title}{mention_text}\n\n{content}"
+
+    # extend by arbitrary kwargs
+    request.update(kwargs)
+
+    # threaded, non-blocking API communication
+    thread = threading.Thread(target=_notify_telegram, args=(token, chat, request))
+    thread.start()
+
+    return True
+
+
+def _notify_telegram(token: str | pathlib.Path, chat: str, request: dict[str, Any]) -> bool:
+    import telegram  # noqa: F401
+
+    try:
+        # token might be a file
+        token_file = os.path.expanduser(os.path.expandvars(token))
+        if os.path.isfile(token_file):
+            with open(token_file, encoding="utf-8") as f:
+                token = f.read().strip()
+
+        bot = telegram.Bot(token=token)
+        return bot.send_message(chat, **request)
+
+    except Exception as e:
+        t = traceback.format_exc()
+        logger.warning(f"could not send telegram notification: {e}\n{t}")
+        return False

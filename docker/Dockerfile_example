@@ -1,8 +1,8 @@
 FROM riga/law:latest
 
 # labels
-LABEL law.image_name="riga/law"
-LABEL law.image_tag="example"
+LABEL law.image-name="riga/law"
+LABEL law.image-tag="example"
 
 # reset the shell
 SHELL ["/bin/sh", "-c"]

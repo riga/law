@@ -1,0 +1,1372 @@
+"""
+Custom luigi base task definitions.
+"""
+
+from __future__ import annotations
+
+__all__ = ["ExternalTask", "Task", "WrapperTask"]
+
+import abc
+import collections
+import contextlib
+import inspect
+import logging
+import pathlib
+import sys
+import time
+
+import luigi
+
+from law._types import Any, Callable, Generator, Iterable, Iterator, Sequence, T, TextIO
+from law.config import Config
+from law.logger import get_logger, setup_logger
+from law.parameter import NO_STR, CSVParameter
+from law.parser import global_cmdline_values, root_task
+from law.target.file import localize_file_targets
+from law.target.local import LocalFileTarget
+from law.util import (
+    BaseStream,
+    abort,
+    colored,
+    common_task_params,
+    empty_context,
+    flatten,
+    human_duration,
+    law_run,
+    make_list,
+    make_set,
+    map_struct,
+    mask_struct,
+    multi_match,
+    no_value,
+    patch_object,
+    round_discrete,
+    uncolored,
+)
+
+logger = get_logger(__name__)
+
+
+class BaseRegister(luigi.task_register.Register):
+    """
+    Meta class of :py:class:`BaseTask` that extends the luigi task register.
+
+    At class creation, ``exclude_params_*`` and ``transfer_params_*`` sets are merged with those of all base classes,
+    parameter names listed in ``include_params_*`` sets of the class itself are removed from the corresponding
+    ``exclude_params_*`` sets, existing registrations of the same task family are removed when the class sets
+    ``update_register`` to *True*, and the :py:meth:`BaseTask.modify_task_attributes` hook is invoked.
+
+    At instantiation, instances are cached based on their parameter values (except for those in
+    ``exclude_params_hash``), and values of parameters listed in ``transfer_params_to_inst`` are set as attributes of
+    new instances.
+    """
+
+    __instance_cache: dict[tuple[BaseRegister, tuple], Any] = {}
+
+    def __new__(
+        metacls,
+        cls_name: str,
+        bases: tuple[type],
+        cls_dict: dict[str, Any],
+    ) -> BaseRegister:
+        # default attributes, irrespective of inheritance
+        cls_dict.setdefault("exclude_index", False)
+
+        # unite "exclude_params_*" and "transfer_params_*" sets with those of all base classes
+        for base in bases:
+            for attr, base_params in vars(base).items():
+                if attr.startswith(("exclude_params_", "transfer_params_")) and isinstance(base_params, set):
+                    params = cls_dict.setdefault(attr, set())
+                    if isinstance(params, set):
+                        params.update(base_params)
+
+        # remove those parameter names from "exclude_params_*" sets which are explicitly
+        # listed in corresponding "include_params_*" sets defined on the class itself
+        for attr, include_params in cls_dict.items():
+            if attr.startswith("include_params_") and isinstance(include_params, set):
+                exclude_attr = "exclude" + attr[len("include"):]
+                if exclude_attr in cls_dict and isinstance(cls_dict[exclude_attr], set):
+                    cls_dict[exclude_attr] -= include_params
+
+        # create the class, bypassing the luigi task register
+        cls: BaseRegister = abc.ABCMeta.__new__(metacls, cls_name, bases, cls_dict)
+
+        # default attributes, apart from inheritance
+        if getattr(cls, "update_register", None) is None:
+            cls.update_register = False  # type: ignore[attr-defined]
+
+        # deregister when requested
+        if cls.update_register:  # type: ignore[attr-defined]
+            cls.deregister()  # type: ignore[attr-defined]
+
+        # invoke the class-level attribute update hook
+        cls.modify_task_attributes()  # type: ignore[attr-defined]
+
+        # add to register (mimic luigi.task_register.Register.__new__)
+        cls._namespace_at_class_time = metacls._get_namespace(cls.__module__)  # type: ignore[attr-defined]
+        metacls._reg.append(cls)
+
+        return cls
+
+    def __call__(cls, *args, **kwargs):
+        # re-structuring of luigi's task register instance creation to allow for objects created during parameter
+        # evaluation to be transferred to the instance
+        # https://github.com/spotify/luigi/blob/715f65c4a56a908ef0a1df4df6fc33b8420e2e6c/luigi/task_register.py#L73-L103
+        h = cls.__instance_cache
+
+        if h is not None or cls.transfer_params_to_inst:  # type: ignore[unreachable]
+            params = cls.get_params()  # type: ignore[attr-defined]
+            if cls.transfer_params_to_inst:  # type: ignore[attr-defined]
+                transfer_param_values = {
+                    param: kwargs.pop(param)
+                    for param in cls.transfer_params_to_inst  # type: ignore[attr-defined]
+                    if param in kwargs
+                }
+                param_values, unknown_param_values = cls.get_param_values(params, args, kwargs, return_unknown=True)  # type: ignore[attr-defined]
+                unknown_param_dict = transfer_param_values | dict(unknown_param_values)
+            else:
+                param_values = cls.get_param_values(params, args, kwargs)  # type: ignore[attr-defined]
+
+        def instantiate():
+            if cls.transfer_params_to_inst:  # type: ignore[attr-defined]
+                kwargs["_inst_dict"] = {}
+                for attr in cls.transfer_params_to_inst:  # type: ignore[attr-defined]
+                    if attr not in unknown_param_dict:
+                        raise KeyError(
+                            f"attribute '{attr}' is not available in the unknown parameter dictionary for transfer to "
+                            f"the instance of class {cls}",
+                        )
+                    kwargs["_inst_dict"][attr] = unknown_param_dict[attr]
+            return abc.ABCMeta.__call__(cls, *args, **kwargs)
+
+        if h is None:  # disabled
+            return instantiate()  # type: ignore[unreachable]
+
+        k = (cls, tuple((param, value) for param, value in param_values if param not in cls.exclude_params_hash))  # type: ignore[attr-defined]
+
+        try:
+            hash(k)
+        except TypeError:
+            logger.debug("Not all parameter values are hashable so instance isn't coming from the cache")
+            return instantiate()  # unhashable types in parameters
+
+        if k not in h:
+            h[k] = instantiate()
+
+        return h[k]
+
+    def _uncache_instance(cls, inst: BaseTask) -> None:
+        """
+        Removes the task instance *inst* from the instance cache, so that subsequent instantiations with the same
+        parameters create a new instance.
+
+        :param inst: The task instance to remove.
+        """
+        h = cls.__instance_cache
+        for k, v in list(h.items()):
+            if v is inst:
+                del h[k]
+
+
+class BaseTask(luigi.Task, metaclass=BaseRegister):
+    """
+    Base class of all law tasks, extending :py:class:`luigi.Task` by parameter handling for task requirements, a task
+    level logger and dependency traversal. Most tasks should rather inherit from :py:class:`Task`.
+
+    .. py:classattribute:: exclude_index
+
+        type: bool
+
+        Whether this task should be excluded from the task index created by ``law index``. Unlike
+        other attributes, it is not inherited and defaults to *False* for each new class.
+
+    .. py:classattribute:: exclude_params_index
+
+        type: set
+
+        Names of parameters that should not be added to the task index, e.g. for the purpose of
+        auto-completion.
+
+    .. py:classattribute:: exclude_params_req
+
+        type: set
+
+        Names of parameters that are neither passed to nor received from other tasks in
+        :py:meth:`req_params`.
+
+    .. py:classattribute:: exclude_params_req_set
+
+        type: set
+
+        Names of parameters that are not passed to other tasks in :py:meth:`req_params`.
+
+    .. py:classattribute:: exclude_params_req_get
+
+        type: set
+
+        Names of parameters that are not received from other tasks in :py:meth:`req_params`.
+
+    .. py:classattribute:: transfer_params_to_inst
+
+        type: set
+
+        Names of additional parameters (e.g. added in :py:meth:`modify_param_values`) whose values
+        are set as attributes of new instances.
+
+    .. py:classattribute:: exclude_params_hash
+
+        type: set
+
+        Names of parameters that are not considered when caching task instances.
+
+    .. py:classattribute:: prefer_params_cli
+
+        type: set
+
+        Names of parameters that, when set via class-specific command line arguments
+        (``--TaskFamily-param``), take precedence over values passed by other tasks in
+        :py:meth:`req_params`.
+
+    .. py:classattribute:: cache_requirements
+
+        type: bool
+
+        Whether the result of :py:meth:`requires` should be cached and reused by :py:meth:`input`.
+        Defaults to *False*.
+    """
+
+    exclude_index = True
+    exclude_params_index: set[str] = set()
+    exclude_params_req: set[str] = set()
+    exclude_params_req_set: set[str] = set()
+    exclude_params_req_get: set[str] = set()
+    transfer_params_to_inst: set[str] = set()
+    exclude_params_hash: set[str] = set()
+
+    prefer_params_cli: set[str] = set()
+
+    # whether to cache the result of requires() for input() and potentially also other calls
+    cache_requirements = False
+
+    @classmethod
+    def deregister(cls, task_cls: BaseRegister | str | None = None) -> bool:
+        """
+        Removes a task class *task_cls* from the luigi task register.
+
+        :param task_cls: The task class to remove. Task family strings and patterns are accepted as well. When *None*,
+            *this* class is used.
+        :return: Whether at least one class was successfully removed.
+        """
+        # always compare task families
+        if task_cls is None:
+            task_family = cls.get_task_family()
+        elif isinstance(task_cls, str):
+            task_family = task_cls
+        else:
+            task_family = task_cls.get_task_family()  # type: ignore[attr-defined]
+
+        success = False
+
+        # remove from the register
+        i = -1
+        while True:
+            i += 1
+            if i >= len(Register._reg):
+                break
+            registered_cls = Register._reg[i]
+
+            if multi_match(registered_cls.get_task_family(), task_family, mode=any):
+                Register._reg.pop(i)
+                i -= 1
+                success = True
+                logger.debug(f"removed task class {registered_cls} from register")
+
+        return success
+
+    @classmethod
+    def modify_task_attributes(cls) -> None:
+        """
+        Hook to modify class attributes before the class is added to the register.
+        """
+        return
+
+    @classmethod
+    def modify_param_args(
+        cls,
+        params: list[tuple[str, luigi.Parameter]],
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
+    ) -> tuple[list[tuple[str, luigi.Parameter]], tuple[Any, ...], dict[str, Any]]:
+        """
+        Hook to modify command line arguments before they are even created within :py:meth:`get_param_values`.
+
+        :param params: The list of parameter names and parameter objects.
+        :param args: The positional arguments.
+        :param kwargs: The keyword arguments.
+        :return: A 3-tuple with the (modified) *params*, *args* and *kwargs*.
+        """
+        return params, args, kwargs
+
+    @classmethod
+    def modify_param_values(cls, params: dict[str, Any]) -> dict[str, Any]:
+        """
+        Hook to modify command line arguments before instances of this class are created.
+
+        :param params: The parameter values.
+        :return: The modified parameter values.
+        """
+        return params
+
+    @classmethod
+    def get_param_values(
+        cls,
+        params: list[tuple[str, luigi.Parameter]],
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
+        return_unknown: bool = False,
+    ) -> list[tuple[str, Any]] | tuple[list[tuple[str, Any]], list[tuple[str, Any]]]:
+        # call the hook optionally modifying the values before values are assigned
+        params, args, kwargs = cls.modify_param_args(params, args, kwargs)
+
+        # assign to actual parameters
+        values = super().get_param_values(params, args, kwargs)
+
+        # parse left-over strings in case values were given programmatically, but unencoded
+        values = [
+            (name, (getattr(cls, name).parse(value) if isinstance(value, str) else value))
+            for name, value in values
+        ]
+
+        # call the hook optionally modifying the values afterwards,
+        # optionally separating them into known and unknown parameters
+        param_names = {name for name, _ in params}
+        known = []
+        unknown = []
+        for name, value in cls.modify_param_values(dict(values)).items():
+            if name in param_names:
+                known.append((name, value))
+            elif return_unknown:
+                unknown.append((name, value))
+
+        return (known, unknown) if return_unknown else known
+
+    @classmethod
+    def req(cls, inst: BaseTask, **kwargs) -> BaseTask:
+        """
+        Creates a new instance of this class, taking parameter values from another task instance *inst* via
+        :py:meth:`req_params`. Example:
+
+        .. code-block:: python
+
+            def requires(self):
+                return OtherTask.req(self, some_param=123)
+
+        :param inst: The task instance to take parameter values from.
+        :param kwargs: Keyword arguments forwarded to :py:meth:`req_params`. Parameter values in it take precedence.
+        :return: The new task instance.
+        """
+        return cls(**cls.req_params(inst, **kwargs))
+
+    @classmethod
+    def req_params(
+        cls,
+        inst: BaseTask,
+        _exclude: str | Sequence[str] | set[str] | None = None,
+        _prefer_cli: str | Sequence[str] | set[str] | None = None,
+        _skip_task_excludes: bool = False,
+        _skip_task_excludes_get: bool | None = None,
+        _skip_task_excludes_set: bool | None = None,
+        **kwargs,
+    ) -> dict[str, Any]:
+        """
+        Returns a dictionary of parameter values taken from another task instance *inst* that can be used to create a
+        new instance of this class. Only parameters known to both classes are considered.
+
+        :param inst: The task instance to take parameter values from.
+        :param _exclude: Patterns of parameters to remove. Parameters listed in :py:attr:`exclude_params_req` and
+            :py:attr:`exclude_params_req_get` of this class, and in :py:attr:`exclude_params_req` and
+            :py:attr:`exclude_params_req_set` of the class of *inst* are removed as well.
+        :param _prefer_cli: Parameters that are removed when they were set via class-specific command line arguments, so
+            that the latter take precedence. Defaults to :py:attr:`prefer_params_cli`.
+        :param _skip_task_excludes: When *True*, the exclusion of parameters listed in the exclude attributes of both
+            classes is skipped.
+        :param _skip_task_excludes_get: Separately skips the exclusion of parameters listed in the exclude attributes of
+            this class.
+        :param _skip_task_excludes_set: Separately skips the exclusion of parameters listed in the exclude attributes of
+            the class of *inst*.
+        :param kwargs: Parameter values that are added afterwards.
+        :return: The parameter values.
+        """
+        # common/intersection params
+        params = common_task_params(inst, cls)
+
+        # determine parameters to exclude
+        _exclude = set() if _exclude is None else make_set(_exclude)
+
+        # also use this class' req and req_get sets
+        # and the req and req_set sets of the instance's class
+        # unless explicitly skipped
+        if _skip_task_excludes_get is None:
+            _skip_task_excludes_get = _skip_task_excludes
+        if not _skip_task_excludes_get:
+            _exclude.update(cls.exclude_params_req, cls.exclude_params_req_get)
+
+        if _skip_task_excludes_set is None:
+            _skip_task_excludes_set = _skip_task_excludes
+        if not _skip_task_excludes_set:
+            _exclude.update(inst.exclude_params_req, inst.exclude_params_req_set)
+
+        # remove excluded parameters
+        for name in list(params.keys()):
+            if multi_match(name, _exclude, any):
+                del params[name]
+
+        # add kwargs
+        params.update(kwargs)
+
+        # remove params that are preferably set via cli class arguments
+        prefer_cli = (
+            make_set(cls.prefer_params_cli or ())
+            if _prefer_cli is None
+            else make_set(_prefer_cli)
+        )
+        if prefer_cli:
+            cls_args = []
+            prefix = cls.get_task_family() + "_"
+            if luigi.cmdline_parser.CmdlineParser.get_instance():
+                for key in (global_cmdline_values() or {}):
+                    if key.startswith(prefix):
+                        cls_args.append(key[len(prefix):])
+            for name in prefer_cli:
+                if name in params and name in cls_args:
+                    del params[name]
+
+        return params
+
+    def __init__(self, *args, _inst_dict: dict[str, Any] | None = None, **kwargs) -> None:
+        if _inst_dict:
+            for attr, value in _inst_dict.items():
+                setattr(self, attr, value)
+
+        super().__init__(*args, **kwargs)
+
+        # task level logger, created lazily
+        self._task_logger: logging.Logger | None = None
+
+        # attribute for cached requirements if enabled
+        self._cached_requirements = no_value
+
+    def complete(self) -> bool:
+        # create a flat list of all outputs
+        outputs = flatten(self.output())
+
+        if len(outputs) == 0:
+            logger.warning(f"task {self!r} has no outputs or no custom complete() method")
+            return True
+
+        return all(t.complete() for t in outputs)
+
+    def input(self) -> Any:
+        # get potentially cached requirements
+        if self.cache_requirements:
+            if self._cached_requirements is no_value:
+                self._cached_requirements = self.requires()
+            reqs = self._cached_requirements
+        else:
+            reqs = self.requires()
+
+        return luigi.task.getpaths(reqs)
+
+    @abc.abstractmethod
+    def run(self) -> Iterator[Any] | None:
+        ...
+
+    def get_logger_name(self) -> str:
+        """
+        Returns the name of the task level :py:attr:`logger`, which is the task id by default.
+
+        :return: The logger name.
+        """
+        return self.task_id
+
+    def _create_logger(self, name: str, level: str | int | None = None) -> logging.Logger:
+        return setup_logger(name, level=level)
+
+    @property
+    def logger(self) -> logging.Logger:
+        """
+        Task level logger, created lazily on first access with the name returned by :py:meth:`get_logger_name`.
+        """
+        if self._task_logger is None:
+            name = self.get_logger_name()
+            existing = name in logging.root.manager.loggerDict
+            self._task_logger = logging.getLogger(name) if existing else self._create_logger(name)
+
+        return self._task_logger
+
+    @property
+    def live_task_id(self) -> str:
+        """
+        The task id depends on the task family and parameters, and is generated by luigi once in the constructor. As the
+        latter may change, this property returns to the id with the current set of parameters.
+        """
+        # create a temporary dictionary of param_kwargs that is patched for the duration of the
+        # call to create the string representation of the parameters
+        param_kwargs = {attr: getattr(self, attr) for attr in self.param_kwargs}
+        # only_public was introduced in luigi 2.8.0, so check if that arg exists
+        str_params_kwargs = {"only_significant": True}
+        if "only_public" in inspect.getfullargspec(self.to_str_params).args:
+            str_params_kwargs["only_public"] = True
+        with patch_object(self, "param_kwargs", param_kwargs):
+            str_params = self.to_str_params(**str_params_kwargs)
+
+        # create the task id
+        task_id = luigi.task.task_id_str(self.get_task_family(), str_params)
+
+        return task_id
+
+    def walk_deps(
+        self,
+        max_depth: int = -1,
+        order: str = "level",
+        yield_last_flag: bool = False,
+    ) -> Iterator[tuple[BaseTask, list[BaseTask], int] | tuple[BaseTask, list[BaseTask], int, bool]]:
+        """
+        Iterates through the dependency tree of this task, including itself.
+
+        :param max_depth: The maximum depth of the recursion. No limit is applied when negative.
+        :param order: Either ``"level"`` for a breadth-first traversal or ``"pre"`` for a depth-first, pre-order
+            traversal.
+        :param yield_last_flag: When *True*, a fourth element is added to the yielded tuples that denotes whether the
+            task is the last one at its depth before the traversal moves up again, which is helpful for printing trees.
+            Only allowed in ``"pre"`` order.
+        :raises ValueError: When *order* is unknown, or when *yield_last_flag* is used in ``"level"`` order.
+        :return: Generator that yields tuples *(task, deps, depth)* where *deps* is the flat list of requirements of
+            *task* and *depth* is its distance to this task.
+        """
+        # see https://en.wikipedia.org/wiki/Tree_traversal
+        if order not in ("level", "pre"):
+            raise ValueError(f"unknown traversal order '{order}', use 'level' or 'pre'")
+
+        # yielding the last flag as well is only available in 'pre' order
+        if order != "pre" and yield_last_flag:
+            raise ValueError(f"yield_last_flag can only be used in 'pre' order, but got '{order}'")
+
+        tasks = collections.deque([(self, 0)])
+        while len(tasks):
+            task, depth = tasks.popleft()
+            deps = flatten(task.requires())
+            next_depth = tasks[0][1] if tasks else None
+
+            # yield objects
+            if yield_last_flag:
+                # when an additional flag should be yielded that denotes whether the object
+                # is the last one in its depth, evaluate this decision here and then yield
+                # note: this assumes that the deps were not changed by the using context
+                is_last = next_depth is None or next_depth < depth
+                yield task, deps, depth, is_last
+            else:
+                yield task, deps, depth
+
+            # define the next deps, considering the maximum depth if set
+            next_deps = [
+                (d, depth + 1)
+                for d in deps
+                if max_depth < 0 or depth < max_depth
+            ]
+
+            # add to the tasks run process, depending on the traversal order
+            if order == "level":
+                tasks.extend(next_deps)
+            elif order == "pre":
+                tasks.extendleft(reversed(next_deps))
+
+    def cli_args(
+        self,
+        exclude: str | Sequence[str] | set[str] | None = None,
+        replace: dict[str, Any] | None = None,
+        skip_empty_bools: bool = True,
+    ) -> dict[str, str]:
+        """
+        Returns a dictionary that maps command line arguments (e.g. ``"--some-param"``) to serialized values of all
+        parameters of this task.
+
+        :param exclude: Patterns of parameters to skip.
+        :param replace: A dictionary mapping parameter names to values that are used instead of the current ones.
+        :param skip_empty_bools: When *True*, boolean parameters whose value is *None* are skipped.
+        :return: The dictionary of command line arguments.
+        """
+        exclude = set() if exclude is None else make_set(exclude)
+        if replace is None:
+            replace = {}
+
+        args = {}
+        for name, param in self.get_params():
+            # skip excluded parameters
+            if multi_match(name, exclude, any):
+                continue
+            # get the raw value
+            raw = replace.get(name, getattr(self, name))
+            # when the parameter is bool but its value is None, skip it
+            if skip_empty_bools and isinstance(param, luigi.BoolParameter) and raw is None:
+                continue
+            # serialize and add it
+            args["--" + name.replace("_", "-")] = str(param.serialize(raw))
+
+        return args
+
+
+class Register(BaseRegister):
+    """
+    Meta class of :py:class:`Task` that, after an instance was created, evaluates interactive parameters such as
+    ``--print-status`` (see :py:attr:`Task.interactive_params`). When one of them is set, the corresponding action is
+    performed and the process exits, unless the action requests to proceed (e.g. ``--remove-output`` with its run flag).
+    """
+
+    def __call__(cls, *args, **kwargs) -> Task:
+        inst = super().__call__(*args, **kwargs)
+
+        # check for interactive parameters
+        for param in inst.interactive_params:
+            value = getattr(inst, param)
+            if value:
+                # reset the interactive parameter, and remove the instance from the cache so that subsequent
+                # instantiations with the same parameters within the same process evaluate the parameter again
+                setattr(inst, param, ())
+                cls._uncache_instance(inst)
+
+                # at this point, inst must be the root task so set the global value
+                root_task(inst)
+
+                skip_abort = False
+                try:
+                    logger.debug(f"evaluating interactive parameter '{param}' with value {value}")
+                    skip_abort = getattr(inst, "_" + param)(value)
+
+                except KeyboardInterrupt:
+                    print("\naborted")
+
+                # abort the process if not explicitly skipped
+                if not skip_abort:
+                    abort(exitcode=0)
+                print("")
+
+        return inst
+
+
+class Task(BaseTask, metaclass=Register):
+    """
+    Base class of most law tasks. On top of :py:class:`BaseTask`, it provides interactive command line parameters,
+    messages and progress published to the central scheduler, and methods to run tasks via ``law run``.
+
+    .. py:classattribute:: log_file
+
+        type: :py:class:`luigi.Parameter`
+
+        Custom file to which the output of methods decorated with :py:func:`law.decorator.log` is
+        written. Defaults to :py:attr:`default_log_file`.
+
+    .. py:classattribute:: print_deps
+
+        type: :py:class:`law.CSVParameter`
+
+        Prints the dependencies of this task instead of running it, see
+        :py:func:`law.task.interactive.print_task_deps`.
+
+    .. py:classattribute:: print_status
+
+        type: :py:class:`law.CSVParameter`
+
+        Prints the status of this task and its dependencies instead of running it, see
+        :py:func:`law.task.interactive.print_task_status`.
+
+    .. py:classattribute:: print_output
+
+        type: :py:class:`law.CSVParameter`
+
+        Prints the outputs of this task and its dependencies instead of running it, see
+        :py:func:`law.task.interactive.print_task_output`.
+
+    .. py:classattribute:: remove_output
+
+        type: :py:class:`law.CSVParameter`
+
+        Removes the outputs of this task and its dependencies, see
+        :py:func:`law.task.interactive.remove_task_output`.
+
+    .. py:classattribute:: fetch_output
+
+        type: :py:class:`law.CSVParameter`
+
+        Copies the outputs of this task and its dependencies into a local directory instead of
+        running it, see :py:func:`law.task.interactive.fetch_task_output`.
+
+    .. py:classattribute:: interactive_params
+
+        type: list
+
+        Names of the interactive parameters above. They are never passed to other tasks in
+        :py:meth:`req_params` or :py:meth:`cli_args`.
+
+    .. py:classattribute:: message_cache_size
+
+        type: int
+
+        Number of most recent messages that are kept and shown in the central scheduler, see
+        :py:meth:`publish_message`. A negative value disables the limit. Defaults to *10*.
+
+    .. py:classattribute:: skip_output_removal
+
+        type: bool
+
+        Whether outputs of this task should be kept when ``--remove-output`` is used in the ``"a"``
+        (all) mode. Defaults to *False*.
+
+    .. py:classattribute:: exclude_params_repr
+
+        type: set
+
+        Names of parameters that are not shown in the representation of this task, see
+        :py:meth:`repr`.
+
+    .. py:classattribute:: exclude_params_repr_empty
+
+        type: set
+
+        Names of parameters that are not shown in the representation of this task when their value
+        is empty.
+    """
+
+    log_file = luigi.Parameter(
+        default=NO_STR,
+        significant=False,
+        description="a custom log file; default: <task.default_log_file>",
+    )
+    print_deps = CSVParameter(
+        default=(),
+        significant=False,
+        description="print task dependencies but do not run any task; this CSV parameter accepts a "
+        "single value which controls the task recursion depth, which can be an integer depth (0 "
+        "means non-recursive), a pattern matching a task family after which the recursion stops, "
+        "or a sequence of them spearated by '|'",
+    )
+    print_status = CSVParameter(
+        default=(),
+        significant=False,
+        description="print the task status but do not run any task; this CSV parameter accepts up "
+        "to three values: 1. the task recursion depth, which can be an integer depth (0 means "
+        "non-recursive), a pattern matching a task family after which the recursion stops, or a "
+        "sequence of them spearated by '|', 2. the depth of the status text of target collections "
+        "(default: 0), 3. a flag that is passed to the status text creation (default: '')",
+    )
+    print_output = CSVParameter(
+        default=(),
+        significant=False,
+        description="print a flat list of output targets but do not run any task; this CSV "
+        "parameter accepts up to two values: 1. the task recursion depth, which which can be an "
+        "integer depth (0 means non-recursive), a pattern matching a task family after which the "
+        "recursion stops, or a sequence of them spearated by '|', 2. a boolean flag that decides "
+        "whether paths of file targets should contain file system schemes (default: True)",
+    )
+    remove_output = CSVParameter(
+        default=(),
+        significant=False,
+        description="remove task outputs but do not run any task by default; this CSV parameter "
+        "accepts up to three values: 1. the task recursion depth, which can be an integer depth "
+        "(0 means non-recursive), a pattern matching a task family after which the recursion "
+        "stops, or a sequence of them spearated by '|', 2. one of the modes 'i' (interactive), "
+        "'a' (all), 'd' (dry run) (default: 'i'), 3. a boolean flag that decides whether the task "
+        "is run after outputs were removed (default: False)",
+    )
+    fetch_output = CSVParameter(
+        default=(),
+        significant=False,
+        description="copy all task outputs into a local directory but do not run any task; this "
+        "CSV parameter accepts up to four values: 1. the task recursion depth, which can be an "
+        "integer depth (0 means non-recursive), a pattern matching a task family after which the "
+        "recursion stops, or a sequence of them spearated by '|', 2. one of the modes 'i' "
+        "(interactive), 'a' (all), 'd' (dry run) (default: 'i'), 3. the target directory "
+        "(default: '.'), 4. a boolean flag that decides whether names of fetched files should be "
+        "adjusted to make them unique (default: True), 5. a boolean flag that decides whether "
+        "external outputs and outputs of external tasks should be fetched (default: False)",
+    )
+
+    interactive_params = [
+        "print_deps", "print_status", "print_output", "fetch_output", "remove_output",
+    ]
+
+    # cache size for published messages
+    message_cache_size = 10
+
+    # force skipping this task when remove_output is set to "all" mode
+    skip_output_removal = False
+
+    exclude_index = True
+    exclude_params_req: set[str] = set()
+    exclude_params_repr: set[str] = set()
+    exclude_params_repr_empty: set[str] = set()
+
+    @classmethod
+    def req_params(  # type: ignore[override]
+        cls,
+        inst: Task,
+        _exclude: str | Sequence[str] | set[str] | None = None,
+        _prefer_cli: str | Sequence[str] | set[str] | None = None,
+        **kwargs,
+    ) -> dict[str, Any]:
+        _exclude = set() if _exclude is None else make_set(_exclude)
+
+        # always exclude interactive parameters
+        _exclude |= set(inst.interactive_params)
+
+        return super().req_params(inst, _exclude=_exclude, _prefer_cli=_prefer_cli, **kwargs)
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+        # cache for messages published to the scheduler
+        self._message_cache: list[str] = []
+
+        # cache for the last progress published to the scheduler
+        self._last_progress_percentage: int | None = None
+
+    @property
+    def default_log_file(self) -> str | pathlib.Path | LocalFileTarget:
+        """
+        The log file that is used when the :py:attr:`log_file` parameter is not set. ``"-"`` (the default) means that
+        output is not redirected.
+        """
+        return "-"
+
+    def is_root_task(self) -> bool:
+        """
+        Returns whether this task is the root task, i.e., the task that was invoked on the command line.
+
+        :return: Whether this task is the root task.
+        """
+        return root_task() == self
+
+    def publish_message(
+        self,
+        msg: Any,
+        stdout: TextIO = sys.stdout,
+        scheduler: bool = True,
+        **kwargs,
+    ) -> None:
+        """
+        Publishes a message *msg*.
+
+        :param msg: The message.
+        :param stdout: The stream the message is written to, if set.
+        :param scheduler: When *True*, the message is sent to the central scheduler, where the last
+            :py:attr:`message_cache_size` messages are shown.
+        :param kwargs: Can contain *flush_cache* to clear previous messages first, and *silent* to suppress a warning
+            when no scheduler connection is available.
+        """
+        msg = str(msg)
+
+        # write to stdout
+        if stdout:
+            stdout.write(f"{msg}\n")
+            stdout.flush()
+
+        # publish to the scheduler
+        if scheduler:
+            self._publish_message(msg, **kwargs)
+
+    def _publish_message(self, msg: Any, flush_cache: bool = False, silent: bool = False) -> None:
+        msg = uncolored(str(msg))
+
+        # flush the message cache?
+        if flush_cache:
+            del self._message_cache[:]
+
+        # add to message cache and handle overflow
+        self._message_cache.append(msg)
+        if self.message_cache_size >= 0:
+            end = max(len(self._message_cache) - self.message_cache_size, 0)
+            del self._message_cache[:end]
+
+        # set status message based on the full, current message cache
+        if callable(getattr(self, "set_status_message", None)):
+            self.set_status_message("\n".join(self._message_cache))  # type: ignore[misc]
+        elif not silent:
+            logger.warning("set_status_message not set, cannot send task message to scheduler")
+
+    def _create_message_stream(self, *args, **kwargs) -> TaskMessageStream:
+        return TaskMessageStream(self, *args, **kwargs)
+
+    def _create_logger(self, name: str, level: str | int | None = None, **kwargs) -> logging.Logger:
+        return setup_logger(
+            name,
+            level=level,
+            add_console_handler={
+                "handler_kwargs": {"stream": self._create_message_stream(**kwargs)},
+            },
+        )
+
+    @contextlib.contextmanager
+    def publish_step(
+        self,
+        msg: Any,
+        success_message: str = "done",
+        fail_message: str = "failed",
+        runtime: bool = True,
+        scheduler: bool = True,
+        flush_cache: bool = False,
+    ) -> Iterator[None]:
+        """
+        Context manager that publishes a message *msg* when entered, and either *success_message* or *fail_message* when
+        left, depending on whether an exception was raised. Example:
+
+        .. code-block:: python
+
+            with self.publish_step("processing data ..."):
+                process_data()
+
+        :param msg: The message published when entered.
+        :param success_message: The message published when left without an exception.
+        :param fail_message: The message published when left with an exception.
+        :param runtime: When *True*, the duration of the step is added to the final message.
+        :param scheduler: Forwarded to :py:meth:`publish_message`.
+        :param flush_cache: Forwarded to :py:meth:`publish_message`.
+        :return: A context manager.
+        """
+        self.publish_message(msg, scheduler=scheduler, flush_cache=flush_cache)
+        success = False
+        t0 = time.perf_counter()
+        try:
+            yield
+            success = True
+        finally:
+            msg = success_message if success else fail_message
+            if runtime:
+                diff = time.perf_counter() - t0
+                msg = f"{msg} (took {human_duration(seconds=diff)})"
+            self.publish_message(msg, scheduler=scheduler, flush_cache=flush_cache)
+
+    def publish_progress(self, percentage: int | float, precision: int = 1):
+        """
+        Sends the progress *percentage* of this task to the central scheduler. The progress is only sent when the
+        rounded value changed.
+
+        :param percentage: The progress in percent.
+        :param precision: The value is rounded down to multiples of it.
+        """
+        percentage = int(round_discrete(percentage, precision, "floor"))
+        if percentage != self._last_progress_percentage:
+            self._last_progress_percentage = percentage
+
+            if callable(getattr(self, "set_progress_percentage", None)):
+                self.set_progress_percentage(percentage)  # type: ignore[misc]
+            else:
+                logger.warning(
+                    "set_progress_percentage not set, cannot send task progress to scheduler",
+                )
+
+    def create_progress_callback(
+        self,
+        n_total: int | T[Sequence],
+        reach: tuple[int, int] = (0, 100),
+        precision: int = 1,
+    ) -> Callable[[int], None] | T[Callable[[int], None]]:
+        """
+        Returns a callback that, when called with the index *i* of the current iteration out of *n_total* iterations,
+        publishes the progress via :py:meth:`publish_progress`. Example:
+
+        .. code-block:: python
+
+            callback = self.create_progress_callback(n)
+            for i in range(n):
+                ...
+                callback(i)
+
+        :param n_total: The total number of iterations. When it is a list or tuple of numbers, a container of the same
+            type with one callback per number is returned and the full range is split equally among them.
+        :param reach: The range onto which the progress is mapped, which is helpful when a task performs multiple steps.
+        :param precision: Forwarded to :py:meth:`publish_progress`.
+        :return: The callback, or a container of callbacks.
+        """
+        def make_callback(n, start, end) -> Callable[[int], None]:
+            def callback(i: int) -> None:
+                self.publish_progress(start + (i + 1) / float(n) * (end - start), precision)
+            return callback
+
+        if isinstance(n_total, (list, tuple)):
+            width = 100.0 / len(n_total)
+            reaches = [(width * i, width * (i + 1)) for i in range(len(n_total))]
+            return n_total.__class__(make_callback(n, *r) for n, r in zip(n_total, reaches))
+
+        return make_callback(n_total, *reach)
+
+    def iter_progress(
+        self,
+        iterable: Iterable[T],
+        n_total: int,
+        reach: tuple[int, int] = (0, 100),
+        precision: int = 1,
+        msg: Any | None = None,
+    ) -> Iterator[T]:
+        """
+        Iterates over *iterable* and publishes the progress after each iteration via a callback created by
+        :py:meth:`create_progress_callback`.
+
+        :param iterable: The iterable.
+        :param n_total: The total number of iterations.
+        :param reach: Forwarded to :py:meth:`create_progress_callback`.
+        :param precision: Forwarded to :py:meth:`create_progress_callback`.
+        :param msg: When set, the iteration is wrapped by :py:meth:`publish_step` with that message.
+        :return: Generator that yields the elements of *iterable*.
+        """
+        # create a progress callback with all arguments
+        progress_callback = self.create_progress_callback(n_total, reach=reach, precision=precision)
+
+        # when msg is set, place the iteration in an outer context
+        context = (lambda: self.publish_step(msg)) if msg else empty_context
+
+        # iterate and invoke the callback
+        with context():
+            for i, val in enumerate(iterable):
+                yield val
+                progress_callback(i)
+
+    def cli_args(
+        self,
+        exclude: str | Sequence[str] | set[str] | None = None,
+        replace: dict[str, Any] | None = None,
+        skip_empty_bools: bool = True,
+    ) -> dict[str, str]:
+        exclude = set() if exclude is None else make_set(exclude)
+
+        # always exclude interactive parameters
+        exclude |= set(self.interactive_params)
+
+        return super().cli_args(exclude=exclude, replace=replace, skip_empty_bools=skip_empty_bools)
+
+    def __repr__(self) -> str:
+        color = Config.instance().get_expanded_bool("task", "colored_repr")
+        return self.repr(color=color)
+
+    def __str__(self) -> str:
+        color = Config.instance().get_expanded_bool("task", "colored_str")
+        return self.repr(color=color)
+
+    def repr(
+        self,
+        all_params: bool = False,
+        color: bool | None = None,
+        **kwargs,
+    ) -> str:
+        """
+        Returns a string representation of this task, consisting of its family, its significant parameters (unless
+        excluded via :py:attr:`exclude_params_repr`) and additional flags.
+
+        :param all_params: When *True*, all parameters are included.
+        :param color: Whether the representation should be colored. When *None*, it is taken from the ``colored_repr``
+            option of the ``[task]`` config section.
+        :param kwargs: Keyword arguments forwarded to the internal methods that represent the family, parameters and
+            flags.
+        :return: The string representation.
+        """
+        if color is None:
+            color = Config.instance().get_expanded_bool("task", "colored_repr")
+
+        family = self._repr_family(self.get_task_family(), color=color, **kwargs)
+
+        parts = [
+            self._repr_param(name, value, color=color, **kwargs)
+            for name, value in self._repr_params(all_params=all_params).items()
+        ] + [
+            self._repr_flag(flag, color=color, **kwargs)
+            for flag in self._repr_flags()
+        ]
+
+        return f"{family}({', '.join(parts)})"
+
+    def _repr_params(self, all_params: bool = False) -> dict[str, Any]:
+        # determine parameters to exclude
+        exclude = set()
+        if not all_params:
+            exclude |= self.exclude_params_repr
+            exclude |= set(self.interactive_params)
+
+        # build a map "name -> value" for all significant parameters
+        params = {}
+        for name, param in self.get_params():
+            value = getattr(self, name)
+            include = (
+                param.significant and
+                not multi_match(name, exclude) and
+                (value not in (None, "NO_STR", ()) or name not in self.exclude_params_repr_empty)
+            )
+            if include:
+                params[name] = value
+
+        return params
+
+    def _repr_flags(self) -> list[str]:
+        return []
+
+    def _repr_family(self, family: str, color: bool = False, **kwargs) -> str:
+        return colored(family, "green") if color else family
+
+    def _repr_param(
+        self,
+        name: str,
+        value: Any,
+        color: bool = False,
+        serialize: bool = True,
+        **kwargs,
+    ) -> str:
+        # try to serialize first unless explicitly disabled
+        if serialize:
+            param = getattr(self.__class__, name, no_value)
+            if param != no_value:
+                value = param.serialize(value) if isinstance(param, luigi.Parameter) else param
+
+        name_repr = colored(name, color="blue", style="bright") if color else name
+        return f"{name_repr}={value}"
+
+    def _repr_flag(self, name: str, color: bool = False, **kwargs) -> str:
+        return colored(name, color="magenta") if color else name
+
+    def _print_deps(self, args: tuple) -> None:
+        return print_task_deps(self, *args)
+
+    def _print_status(self, args: tuple) -> None:
+        return print_task_status(self, *args)
+
+    def _print_output(self, args: tuple) -> None:
+        return print_task_output(self, *args)
+
+    def _remove_output(self, args: tuple) -> bool:
+        return remove_task_output(self, *args)
+
+    def _fetch_output(self, args: tuple) -> None:
+        return fetch_task_output(self, *args)
+
+    @classmethod
+    def _law_run_inst(
+        cls,
+        inst: Task,
+        _exclude: str | Sequence[str] | set[str] | None = None,
+        _replace: dict[str, Any] | None = None,
+        _global_args: str | Sequence[str] | set[str] | None = None,
+        _run_kwargs: dict[str, Any] | None = None,
+    ) -> int:
+        # get the cli arguments
+        args = inst.cli_args(exclude=_exclude, replace=_replace)
+
+        # prepend a space to values starting with "-"
+        for key, value in args.items():
+            if value.startswith("-"):
+                args[key] = f" {value}"
+
+        # flatten them
+        flat_args = sum(map(make_list, args.items()), [])
+
+        # add global parameters when given
+        if _global_args:
+            flat_args.extend([str(arg) for arg in make_list(_global_args)])
+
+        # build the full command
+        cmd = [cls.get_task_family(), *flat_args]
+
+        # run it
+        return law_run(cmd, **(_run_kwargs or {}))
+
+    @classmethod
+    def law_run_inst(
+        cls,
+        _exclude: str | Sequence[str] | set[str] | None = None,
+        _replace: dict[str, Any] | None = None,
+        _global_args: str | Sequence[str] | set[str] | None = None,
+        _run_kwargs: dict[str, Any] | None = None,
+        **kwargs,
+    ) -> int:
+        """
+        Creates a new instance of this class and runs it in the current process via :py:func:`law.util.law_run`.
+
+        :param _exclude: Forwarded to :py:meth:`cli_args` to build command line arguments.
+        :param _replace: Forwarded to :py:meth:`cli_args` to build command line arguments.
+        :param _global_args: Additional arguments that are appended.
+        :param _run_kwargs: Keyword arguments forwarded to :py:func:`law.util.law_run`.
+        :param kwargs: Parameter values of the new instance.
+        :return: The exit code.
+        """
+        # create a new instance
+        inst = cls(**kwargs)
+
+        return cls._law_run_inst(
+            inst,
+            _exclude=_exclude,
+            _replace=_replace,
+            _global_args=_global_args,
+            _run_kwargs=_run_kwargs,
+        )
+
+    def law_run(
+        self,
+        _exclude: str | Sequence[str] | set[str] | None = None,
+        _replace: dict[str, Any] | None = None,
+        _global_args: str | Sequence[str] | set[str] | None = None,
+        _run_kwargs: dict[str, Any] | None = None,
+        **kwargs,
+    ) -> int:
+        """
+        Runs this task in the current process via :py:func:`law.util.law_run`.
+
+        :param _exclude: See :py:meth:`law_run_inst`.
+        :param _replace: See :py:meth:`law_run_inst`.
+        :param _global_args: See :py:meth:`law_run_inst`.
+        :param _run_kwargs: See :py:meth:`law_run_inst`.
+        :param kwargs: When given, a new instance is created with :py:meth:`req` and these keyword arguments, and run
+            instead.
+        :return: The exit code.
+        """
+        # when kwargs are given, create a new instance
+        inst: Task = self.req(self, **kwargs) if kwargs else self  # type: ignore[assignment]
+
+        return self._law_run_inst(
+            inst,
+            _exclude=_exclude,
+            _replace=_replace,
+            _global_args=_global_args,
+            _run_kwargs=_run_kwargs,
+        )
+
+    def localize_input(self, *args, **kwargs) -> Generator[Any, None, None]:
+        """
+        Returns a context manager that localizes all inputs of this task, see
+        :py:func:`law.target.file.localize_file_targets`. Example:
+
+        .. code-block:: python
+
+            with self.localize_input("r") as inp:
+                data = inp.load()
+
+        :param args: Arguments forwarded to :py:func:`law.target.file.localize_file_targets`.
+        :param kwargs: Keyword arguments forwarded to :py:func:`law.target.file.localize_file_targets`.
+        :return: A context manager.
+        """
+        return localize_file_targets(self.input(), *args, **kwargs)  # type: ignore[return-value]
+
+    def localize_output(self, *args, **kwargs) -> Generator[Any, None, None]:
+        """
+        Returns a context manager that localizes all outputs of this task, see
+        :py:func:`law.target.file.localize_file_targets`. Example:
+
+        .. code-block:: python
+
+            with self.localize_output("w") as outp:
+                outp.dump(data)
+
+        :param args: Arguments forwarded to :py:func:`law.target.file.localize_file_targets`.
+        :param kwargs: Keyword arguments forwarded to :py:func:`law.target.file.localize_file_targets`.
+        :return: A context manager.
+        """
+        return localize_file_targets(self.output(), *args, **kwargs)  # type: ignore[return-value]
+
+
+class WrapperTask(Task):
+    """
+    Use for tasks that only wrap other tasks and that by definition are done if all their requirements exist.
+    """
+
+    wrap_once = luigi.BoolParameter(
+        default=False,
+        description="when set, the wrapper task does not define upstream ouptuts as its own outputs and simply runs "
+        "once; default: False",
+    )
+
+    exclude_index = True
+
+    exclude_params_req_set: set[str] = {"wrap_once"}
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+        if self.wrap_once:
+            self._wrapper_has_run = False
+
+    def _repr_flags(self) -> list[str]:
+        return [*super()._repr_flags(), "wrapper"]
+
+    def complete(self) -> bool:
+        if self.wrap_once:
+            return self._wrapper_has_run
+
+        # get potentially cached requirements
+        if self.cache_requirements:
+            if self._cached_requirements is no_value:
+                self._cached_requirements = self.requires()
+            reqs = self._cached_requirements
+        else:
+            reqs = self.requires()
+
+        return all(task.complete() for task in flatten(reqs))
+
+    def output(self) -> Any:
+        if self.wrap_once:
+            return []
+
+        inputs = self.input()
+        return mask_struct(map_struct(bool, inputs), inputs) or []
+
+    def run(self) -> Iterator[Any] | None:
+        if self.wrap_once:
+            self._wrapper_has_run = True
+
+        return None
+
+
+class ExternalTask(Task):
+    """
+    Base class of tasks whose outputs are produced externally, i.e., outside of the current workflow. They have no
+    :py:meth:`run` method and are complete when their outputs exist.
+    """
+
+    exclude_index = True
+
+    run = None  # type: ignore[assignment]
+
+    def _repr_flags(self) -> list[str]:
+        return [*super()._repr_flags(), "external"]
+
+
+class TaskMessageStream(BaseStream):
+
+    def __init__(
+        self,
+        task: Task,
+        stdout: TextIO = sys.stdout,
+        scheduler: bool = True,
+        flush_cache: bool = False,
+        **kwargs,
+    ) -> None:
+        super().__init__(**kwargs)
+
+        self.task = task
+        self.stdout = stdout
+        self.scheduler = scheduler
+        self.flush_cache = flush_cache
+
+    def _write(self, msg: Any) -> None:
+        # foward to publish_message
+        self.task.publish_message(
+            str(msg).rstrip("\n"),
+            stdout=self.stdout,
+            scheduler=self.scheduler,
+            flush_cache=self.flush_cache,
+            silent=True,
+        )
+
+
+# trailing imports
+from law.task.interactive import (
+    fetch_task_output,
+    print_task_deps,
+    print_task_output,
+    print_task_status,
+    remove_task_output,
+)

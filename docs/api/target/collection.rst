@@ -13,6 +13,13 @@ Class ``TargetCollection``
    :members:
 
 
+Class ``FileCollection``
+------------------------
+
+.. autoclass:: FileCollection
+   :members:
+
+
 Class ``SiblingFileCollection``
 -------------------------------
 

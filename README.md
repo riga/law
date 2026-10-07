@@ -2,7 +2,7 @@
 
 <p align="center">
   <a href="https://github.com/riga/law">
-    <img src="https://media.githubusercontent.com/media/riga/law/master/assets/logo.png" />
+    <img alt="law logo" src="https://media.githubusercontent.com/media/riga/law/master/assets/logo.png" />
   </a>
 </p>
 
@@ -11,23 +11,24 @@
 <!-- marker-before-badges -->
 
 <p align="center">
-  <a href="https://github.com/riga/law/actions?query=workflow%3A%22Lint+and+test%22">
-    <img alt="Build status" src="https://github.com/riga/law/workflows/Lint%20and%20test/badge.svg" />
-  </a>
-  <a href="https://github.com/riga/law/actions/workflows/deploy_images_a9.yml?query=workflow%3A%22Deploy+images%22">
-    <img alt="Docker images" src="https://github.com/riga/law/actions/workflows/deploy_images_a9.yml/badge.svg" />
-  </a>
-  <a href="http://law.readthedocs.io/en/latest">
+  <a href="https://law.readthedocs.io/en/latest">
     <img alt="Documentation status" src="https://readthedocs.org/projects/law/badge/?version=latest" />
   </a>
-  <a href="https://pypi.python.org/pypi/law">
+  <a href="https://github.com/riga/law/actions/workflows/ci.yml">
+    <img alt="CI" src="https://github.com/riga/law/actions/workflows/ci.yml/badge.svg" />
+  </a>
+  <a href="https://github.com/riga/law/actions/workflows/deploy_images_a9.yml">
+    <img alt="Docker images" src="https://github.com/riga/law/actions/workflows/deploy_images_a9.yml/badge.svg" />
+  </a>
+  <img alt="Python version" src="https://img.shields.io/badge/Python-%E2%89%A53.9-blue" />
+  <a href="https://pypi.org/project/law">
     <img alt="Package version" src="https://img.shields.io/pypi/v/law.svg?style=flat" />
   </a>
   <a href="https://github.com/riga/law/blob/master/LICENSE">
     <img alt="License" src="https://img.shields.io/github/license/riga/law.svg" />
   </a>
-  <a href="https://zenodo.org/badge/latestdoi/75482295">
-    <img alt="DOI" src="https://zenodo.org/badge/75482295.svg" />
+  <a href="https://doi.org/10.5281/zenodo.14548877">
+    <img alt="DOI" src="https://zenodo.org/badge/DOI/10.5281/zenodo.14548877.svg" />
   </a>
 </p>
 
@@ -35,19 +36,13 @@
 
 <!-- marker-before-header -->
 
-> [!NOTE]
-> This project is currently under development.
-> - Version 1.0.0 will drop Python 2 support and is developed in the [release_prep branch](https://github.com/riga/law/tree/release_prep).
-> - There will be a legacy branch with Python 2.7 and ≤3.8 support that, however, won't receive any new features.
-> - The release is targetted for late summer 2026.
-
-Use law to build complex and large-scale task workflows.
-It is build on top of [luigi](https://github.com/spotify/luigi) and adds abstractions for **run locations**, **storage locations** and **software environments**.
+Use law (**l**uigi **a**nalysis **w**orkflow) to build complex and large-scale task workflows.
+It is built on top of [luigi](https://github.com/spotify/luigi) and adds abstractions for **run locations**, **storage locations** and **software environments**.
 Law strictly disentangles these building blocks and ensures they remain interchangeable and resource-opportunistic.
 
 Key features:
 
-- CLI with auto-completion and interactive status and dependency inspection.
+- CLI with auto-completion and interactive status and dependency inspection
 - Remote targets with automatic retries and local caching
   - WebDAV, HTTP, Dropbox, SFTP, all WLCG protocols (srm, xrootd, dcap, gsiftp, webdav, ...)
 - Automatic submission to batch systems from within tasks
@@ -55,12 +50,15 @@ Key features:
 - Environment sandboxing, configurable on task level
   - Docker, Singularity, Sub-Shells, Virtual envs
 
-<!-- marker-after-header -->
+Version 0.1 (with Python support down to 2.7) continues to be available via the [v0.1.x](https://github.com/riga/law/tree/v0.1.x) branch and all [v0.1.*](https://github.com/riga/law/tags) tags.
 
-## Contents
+<!-- marker-after-header -->
 
 <!-- marker-before-contents -->
 
+## Contents
+
+- [Contents](#contents)
 - [First steps](#first-steps)
   - [Installation and dependencies](#installation-and-dependencies)
   - [Usage at CERN](#usage-at-cern)
@@ -70,8 +68,10 @@ Key features:
 - [Further topics](#further-topics)
   - [Auto completion on the command-line](#auto-completion-on-the-command-line)
 - [Development](#development)
-  - [Tests](#tests)
+  - [Linting, type checking \& tests](#linting-type-checking--tests)
+  - [Docker images](#docker-images)
   - [Contributors](#contributors)
+- [Cite law](#cite-law)
 
 <!-- marker-after-contents -->
 
@@ -81,7 +81,7 @@ Key features:
 
 ### Installation and dependencies
 
-Install via [pip](https://pypi.python.org/pypi/law)
+Install via [pip](https://pypi.org/project/law)
 
 ```shell
 pip install law
@@ -89,14 +89,15 @@ pip install law
 
 or [conda / (micro)mamba](https://anaconda.org/conda-forge/law)
 
-```shel
+```shell
 conda install -c conda-forge law
 ```
 
-If you plan to use remote targets, the (default) implementation also requires [gfal2](https://dmc-docs.web.cern.ch/dmc-docs/gfal2/gfal2.html) and [gfal2-python](https://pypi.python.org/pypi/gfal2-python) (optional) to be installed, either via pip or conda / (micro)mamba.
+Remote targets use [gfal2](https://dmc-docs.web.cern.ch/dmc-docs/gfal2/gfal2.html) and its Python bindings [gfal2-python](https://pypi.org/project/gfal2-python), which must be installed separately.
+The [gfal2-util](https://github.com/cern-fts/gfal2-util) command-line tools are useful as well.
 
 ```shell
-conda install -c conda-forge gfal2 gfal2-util
+conda install -c conda-forge gfal2 gfal2-python gfal2-util
 ```
 
 ### Usage at CERN
@@ -109,83 +110,83 @@ See [law.cfg.example](https://github.com/riga/law/tree/master/law.cfg.example).
 
 ## Projects using law
 
-- CMS Di-Higgs Inference Tools:
+- CMS Di-Higgs Inference Tools
   - Basis for statistical analysis for all Di-Higgs searches in CMS, starting at datacard-level
   - [repo](https://gitlab.cern.ch/hh/tools/inference), [docs](https://cms-hh.web.cern.ch/cms-hh/tools/inference/index.html)
-- columnflow ([+ all analyses using it](https://github.com/columnflow/columnflow#projects-using-columnflow)):
-  - Python based, fully automated, columnar framework, including job submission, resolution of systematics and ML pipelines, starting at NanoAOD-level with an optimized multi-threaded column reader
+- columnflow ([+ all analyses using it](https://github.com/columnflow/columnflow#projects-using-columnflow))
+  - Python-based, fully automated, columnar framework, including job submission, resolution of systematics and ML pipelines, starting at NanoAOD-level with an optimized multi-threaded column reader
   - [repo](https://github.com/columnflow/columnflow), [docs](http://columnflow.readthedocs.io), [task structure](https://github.com/columnflow/columnflow/wiki#default-task-graph)
-- CMS B-Tag SF Measurement:
+- CMS B-Tag SF Measurement
   - Automated workflow for deriving shape-calibrating b-tag scale factors, starting at MiniAOD-level
   - [repo](https://github.com/cms-btv-pog/jet-tagging-sf)
-- CMS Tau POG ML Tools:
+- CMS Tau POG ML Tools
   - Preprocessing pipeline for ML trainings in the TAU group
   - [repo](https://github.com/cms-tau-pog/TauMLTools)
-- CMS HLT Config Parser:
-  - Collects information from various databases (HLT, bril, etc.) and shows menus, triggers paths, filter names for configurable MC datasets or data runs
+- CMS HLT Config Parser
+  - Collects information from various databases (HLT, bril, etc.) and shows menus, trigger paths, filter names for configurable MC datasets or data runs
   - [repo](https://github.com/riga/cms-hlt-parser)
-- RWTH-CMS Analysis Framework:
+- RWTH-CMS Analysis Framework
   - Basis for multiple CMS analyses ranging from Di-Higgs, to single Higgs and b-tag SF measurements, starting at NanoAOD-level and based on coffea processors
   - [repo](https://git.rwth-aachen.de/3pia/cms_analyses/common/-/tree/master/)
-- CIEMAT-CMS Analysis Framework:
-  - Python and RDataFrame based framework starting from NanoAOD and targetting multiple CMS analyses
+- CIEMAT-CMS Analysis Framework
+  - Python- and RDataFrame-based framework starting from NanoAOD and targeting multiple CMS analyses
   - [repo](https://gitlab.cern.ch/cms-phys-ciemat/nanoaod_base_analysis/)
-- CMS 3D Z+jet 13TeV analysis
-  - Analysis workflow management from NTuple production to final plots and fits
+- CMS 3D Z+jet 13 TeV analysis
+  - Analysis workflow management from ntuple production to final plots and fits
   - [repo](https://gitlab.etp.kit.edu/cverstege/zjet-analysis)
 - NP-correction derivation tool
   - MC generation with Herwig and analysis of generated events with Rivet
   - [repo](https://github.com/HerrHorizontal/herwig-run)
 - CMS SUSY Searches at DESY
-  - Analysis framework for CMS SUSY searches going from custom NanoAODs -> NTuple production -> DNN-based inference -> final plots and fits
+  - Analysis framework for CMS SUSY searches going from custom NanoAODs -> ntuple production -> DNN-based inference -> final plots and fits
   - [repo](https://github.com/frengelk/Susy1LeptonAnalysis)
-- Kingmaker (CMS Ntuple Production with CROWN)
-  - Ntuple conversion from CMS nanoAOD to analysis Ntuples using the CROWN framework. Also includes the training of an event classifier on those ntuples.
+- Kingmaker (CMS ntuple production with CROWN)
+  - Conversion from CMS NanoAOD to analysis ntuples using the CROWN framework. Also includes the training of an event classifier on those ntuples.
   - [repo](https://github.com/KIT-CMS/KingMaker), [CROWN](https://github.com/KIT-CMS/CROWN)
 
 If your project uses law but is not yet listed here, feel free to open a pull request or mention your project details in a new [issue](https://github.com/riga/law/issues/new?assignees=riga&labels=docs&template=register-project.md) and it will be added.
 
 ## Examples
 
-All examples can be run either in a Jupyter notebook or a dedicated docker container.
-For the latter, do
+Most examples can be run in a dedicated Docker container via
 
 ```shell
 docker run -ti riga/law:example <example_name>
 ```
 
+- [tutorial](https://github.com/riga/law/tree/master/examples/tutorial): Hands-on notebook for newcomers that introduces the most important concepts step by step.
 - [loremipsum](https://github.com/riga/law/tree/master/examples/loremipsum): The *hello world* example of law.
 - [workflows](https://github.com/riga/law/tree/master/examples/workflows): Law workflows.
-- [workflow_parameters](https://github.com/riga/law/tree/master/examples/workflows): Alternative way of parametrizing workflows with explicit branch parameters.
+- [workflow_parameters](https://github.com/riga/law/tree/master/examples/workflow_parameters): Alternative way of parametrizing workflows with explicit branch parameters.
 - [notebooks](https://github.com/riga/law/tree/master/examples/notebooks): Examples showing how to use and work with law in notebooks.
 - [dropbox_targets](https://github.com/riga/law/tree/master/examples/dropbox_targets): Working with targets that are stored on Dropbox.
-- [wlcg_targets](https://github.com/riga/law/tree/master/examples/wlcg_targets): Working with targets that are stored on WLCG storage elements (dCache, EOS, ...). TODO.
+- [wlcg_targets](https://github.com/riga/law/tree/master/examples/wlcg_targets): Working with targets that are stored on WLCG storage elements (dCache, EOS, ...).
 - [htcondor_at_vispa](https://github.com/riga/law/tree/master/examples/htcondor_at_vispa): HTCondor workflows at the [VISPA service](https://vispa.physik.rwth-aachen.de).
 - [htcondor_at_cern](https://github.com/riga/law/tree/master/examples/htcondor_at_cern): HTCondor workflows at the CERN batch infrastructure.
 - [CMS Crab at CERN](https://github.com/riga/law_example_CMSCrabWorkflows): CMS Crab workflows executed from lxplus at CERN.
 - [sequential_htcondor_at_cern](https://github.com/riga/law/tree/master/examples/sequential_htcondor_at_cern): Continuation of the [htcondor_at_cern](https://github.com/riga/law/tree/master/examples/htcondor_at_cern) example, showing sequential jobs that eagerly start once jobs running previous requirements succeeded.
-- [htcondor_at_naf](https://github.com/riga/law/tree/master/examples/htcondor_at_naf): HTCondor workflows at German [National Analysis Facility (NAF)](https://confluence.desy.de/display/IS/NAF+-+National+Analysis+Facility).
-- [slurm_at_maxwell](https://github.com/riga/law/tree/master/examples/slurm_at_maxwell): Slurm workflows at the [Desy Maxwell cluster](https://confluence.desy.de/display/MXW/Maxwell+Cluster).
+- [htcondor_at_naf](https://github.com/riga/law/tree/master/examples/htcondor_at_naf): HTCondor workflows at the German [National Analysis Facility (NAF)](https://confluence.desy.de/display/IS/NAF+-+National+Analysis+Facility).
+- [slurm_at_maxwell](https://github.com/riga/law/tree/master/examples/slurm_at_maxwell): Slurm workflows at the [DESY Maxwell cluster](https://confluence.desy.de/display/MXW/Maxwell+Cluster).
 - [grid_at_cern](https://github.com/riga/law_example_WLCG): Workflows that run jobs and store data on the WLCG.
 - [lsf_at_cern](https://github.com/riga/law/tree/master/examples/lsf_at_cern): LSF workflows at the CERN batch infrastructure.
-- [docker_sandboxes](https://github.com/riga/law/tree/master/examples/docker_sandboxes): Environment sandboxing using Docker. TODO.
-- [singularity_sandboxes](https://github.com/riga/law/tree/master/examples/singularity_sandboxes): Environment sandboxing using Singularity. TODO.
-- [subshell_sandboxes](https://github.com/riga/law/tree/master/examples/subshell_sandboxes): Environment sandboxing using Subshells. TODO.
+- [docker_sandboxes](https://github.com/riga/law/tree/master/examples/docker_sandboxes): Environment sandboxing using Docker.
+- [singularity_sandboxes](https://github.com/riga/law/tree/master/examples/singularity_sandboxes): Environment sandboxing using Singularity.
+- [subshell_sandboxes](https://github.com/riga/law/tree/master/examples/subshell_sandboxes): Environment sandboxing using subshells.
 - [parallel_optimization](https://github.com/riga/law/tree/master/examples/parallel_optimization): Parallel optimization using [scikit optimize](https://scikit-optimize.github.io).
-- [notifications](https://github.com/riga/law/tree/master/examples/notifications): Demonstration of slack and telegram task status notifications..
+- [notifications](https://github.com/riga/law/tree/master/examples/notifications): Demonstration of Slack and Telegram task status notifications.
 - [CMS Single Top Analysis](https://github.com/riga/law_example_CMSSingleTopAnalysis): Simple physics analysis using law.
 
 ## Further topics
 
 ### Auto completion on the command-line
 
-**bash**
+#### bash
 
 ```shell
 source "$( law completion )"
 ```
 
-**zsh**
+#### zsh
 
 zsh is able to load and evaluate bash completion scripts via `bashcompinit`.
 In order for `bashcompinit` to work, you should run `compinstall` to enable completion scripts:
@@ -215,28 +216,52 @@ source "$( law completion )"
 
 - Source hosted at [GitHub](https://github.com/riga/law)
 - Report issues, questions, feature requests on [GitHub Issues](https://github.com/riga/law/issues)
+- The current Python version for development is **3.13**.
 
-### Tests
+### Linting, type checking & tests
 
-To run and test law, there are various docker `riga/law` images available on the [DockerHub](https://cloud.docker.com/u/riga/repository/docker/riga/law), corresponding to different OS and Python versions (based on [micromamba](https://mamba.readthedocs.io/en/latest/user_guide/micromamba.html)).
+The full testing pipeline is based on [pre-commit](https://pre-commit.com).
+Run the following to install development dependencies and set it up:
+
+```shell
+# inside the cloned repository
+git lfs install
+pip install -e .[dev]
+pre-commit install
+```
+
+Now, every time you make a commit, the pre-commit and pre-push hooks will automatically run linting, type checking and unit tests.
+To run them manually, use
+
+```shell
+# for linting, type checking and additional checks on all files
+pre-commit run --all-files
+
+# only for staged files
+pre-commit run
+
+# or run unit tests standalone
+pytest
+```
+
+### Docker images
+
+Various `riga/law` Docker images are available on [Docker Hub](https://hub.docker.com/r/riga/law), corresponding to different OS and Python versions (based on [micromamba](https://mamba.readthedocs.io/en/latest/user_guide/micromamba.html)).
+
+| OS          | Python | Tags                                     |
+| ----------- | ------ | ---------------------------------------- |
+| AlmaLinux 9 | 3.14   | a9-py314, py314                          |
+| AlmaLinux 9 | 3.13   | a9-py313, a9-py3, a9, py313, py3, latest |
+| AlmaLinux 9 | 3.12   | a9-py312, py312                          |
+| AlmaLinux 9 | 3.11   | a9-py311, py311                          |
+| AlmaLinux 9 | 3.10   | a9-py310, py310                          |
+| AlmaLinux 9 | 3.9    | a9-py39, py39                            |
+
 Start them via
 
 ```shell
 docker run -ti riga/law:<the_tag>
 ```
-
-|      OS     | Python |                    Tags                   |
-| ----------- | ------ | ----------------------------------------- |
-| AlmaLinux 9 |   3.11 | a9-py311, a9-py3, a9, py311, py3, latest  |
-| AlmaLinux 9 |   3.10 | a9-py310, py310                           |
-| AlmaLinux 9 |    3.9 | a9-py39, py39                             |
-| AlmaLinux 9 |    3.8 | a9-py38, py38                             |
-| AlmaLinux 9 |    3.7 | a9-py37, py37                             |
-| CentOS 8    |   3.11 | c8-py311, c8-py3, c8                      |
-| CentOS 8    |   3.10 | c8-py310                                  |
-| CentOS 8    |    3.9 | c8-py39                                   |
-| CentOS 8    |    3.8 | c8-py38                                   |
-| CentOS 8    |    3.7 | c8-py37                                   |
 
 ### Contributors
 
@@ -266,6 +291,6 @@ This project follows the [all-contributors](https://github.com/all-contributors/
 
 ## Cite law
 
-M. Rieger, "End-to-End Analysis Automation over Distributed Resources with Luigi Analysis Workflows", *EPJ Web of Conferences* **295** (2024) 05012 , [`arXiv:2402.17949`](https://arxiv.org/abs/2402.17949)
+M. Rieger, "End-to-End Analysis Automation over Distributed Resources with Luigi Analysis Workflows", *EPJ Web of Conferences* **295** (2024) 05012, [`arXiv:2402.17949`](https://arxiv.org/abs/2402.17949)
 
 <!-- marker-after-body -->

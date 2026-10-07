@@ -15,4 +15,4 @@ action() {
     source "/afs/cern.ch/user/m/mrieger/public/law_sw/setup.sh" ""
     source "$( law completion )" ""
 }
-action
+action "$@"

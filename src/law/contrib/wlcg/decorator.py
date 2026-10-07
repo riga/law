@@ -1,0 +1,45 @@
+"""
+Decorators for task methods for convenient working with the WLCG.
+"""
+
+from __future__ import annotations
+
+__all__ = ["ensure_vomsproxy"]
+
+from law._types import Any, Callable
+from law.decorator import factory
+from law.logger import get_logger
+from law.task.base import Task
+
+logger = get_logger(__name__)
+
+from law.contrib.wlcg import check_vomsproxy_validity
+
+
+@factory(accept_generator=True)
+def ensure_vomsproxy(
+    fn: Callable,
+    opts: dict[str, Any],
+    task: Task,
+    *args,
+    **kwargs,
+) -> tuple[Callable, Callable, Callable]:
+    """ ensure_vomsproxy()
+    Decorator for law task methods that checks the validity of the voms proxy and throws an exception in case it is
+    invalid. This can prevent late errors on remote worker nodes that expect voms proxies to be present. Accepts
+    generator functions.
+
+    :raises RuntimeError: When the voms proxy is not valid.
+    """
+    def before_call() -> None:
+        # check the proxy validity
+        if not check_vomsproxy_validity():
+            raise RuntimeError("voms proxy not valid")
+
+    def call(state: None) -> Any:
+        return fn(task, *args, **kwargs)
+
+    def after_call(state: None) -> None:
+        return
+
+    return before_call, call, after_call

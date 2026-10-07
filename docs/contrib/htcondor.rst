@@ -25,3 +25,9 @@ Class ``HTCondorJobFileFactory``
 
 .. autoclass:: HTCondorJobFileFactory
    :members:
+
+
+Functions
+---------
+
+.. autofunction:: get_htcondor_version

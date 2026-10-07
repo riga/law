@@ -46,3 +46,10 @@ Class ``RemoteCache``
 
 .. autoclass:: RemoteCache
    :members:
+
+
+Class ``RetryException``
+------------------------
+
+.. autoclass:: RetryException
+   :members:

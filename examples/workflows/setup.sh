@@ -5,19 +5,19 @@ action() {
     local this_file="$( ${shell_is_zsh} && echo "${(%):-%x}" || echo "${BASH_SOURCE[0]}" )"
     local this_dir="$( cd "$( dirname "${this_file}" )" && pwd )"
 
-    # setup external software once when not in the example image
+    # setup software once in a venv when not in the example image
     if [ -z "${LAW_DOCKER_EXAMPLE}" ]; then
-        local sw_dir="${this_dir}/tmp"
-        if [ ! -d "${sw_dir}" ]; then
-            mkdir -p "${sw_dir}"
-            git clone https://github.com/spotify/luigi.git "${sw_dir}/luigi"
-            ( cd "${sw_dir}/luigi" && git checkout tags/2.8.13 )
-            git clone https://github.com/benjaminp/six.git "${sw_dir}/six"
-        fi
+        export VIRTUAL_ENV_DISABLE_PROMPT="1"
 
         local law_base="$( dirname "$( dirname "${this_dir}" )" )"
-        export PATH="${law_base}/bin:${sw_dir}/luigi/bin:${PATH}"
-        export PYTHONPATH="${law_base}:${sw_dir}/luigi:${sw_dir}/six:${PYTHONPATH}"
+        local sw_dir="${this_dir}/tmp/venv"
+        if [ ! -d "${sw_dir}" ]; then
+            python3 -m venv "${sw_dir}" --upgrade-deps || return "$?"
+            source "${sw_dir}/bin/activate" "" || return "$?"
+            pip install -e "${law_base}" || return "$?"
+        else
+            source "${sw_dir}/bin/activate" "" || return "$?"
+        fi
     fi
 
     export PYTHONPATH="${this_dir}:${PYTHONPATH}"
@@ -27,4 +27,4 @@ action() {
 
     source "$( law completion )" ""
 }
-action
+action "$@"

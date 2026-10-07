@@ -25,3 +25,10 @@ Class ``JobData``
 
 .. autoclass:: JobData
    :members:
+
+
+Class ``PollData``
+------------------
+
+.. autoclass:: PollData
+   :members:

@@ -15,4 +15,3 @@ law.parser
 .. autofunction:: global_cmdline_args
 
 .. autofunction:: global_cmdline_values
-

@@ -1,0 +1,14 @@
+"""
+Location of tasks.
+"""
+
+import law
+
+
+class MyTask(law.Task):
+
+    def output(self) -> law.LocalFileTarget:
+        return law.LocalFileTarget("$QS_DATA/output.txt")
+
+    def run(self) -> None:
+        self.output().dump(f"output of {self!r}")

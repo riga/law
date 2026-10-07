@@ -37,20 +37,30 @@ Class ``WLCGDirectoryTarget``
 Functions
 ---------
 
-.. autofunction:: ensure_voms_proxy
+.. autofunction:: ensure_vomsproxy
 
-.. autofunction:: get_voms_proxy_file
+.. autofunction:: get_vomsproxy_file
 
-.. autofunction:: get_voms_proxy_user
+.. autofunction:: get_vomsproxy_identity
 
-.. autofunction:: get_voms_proxy_lifetime
+.. autofunction:: get_vomsproxy_lifetime
 
-.. autofunction:: get_voms_proxy_vo
+.. autofunction:: get_vomsproxy_vo
 
-.. autofunction:: check_voms_proxy_validity
+.. autofunction:: check_vomsproxy_validity
 
-.. autofunction:: renew_voms_proxy
+.. autofunction:: renew_vomsproxy
 
-.. autofunction:: delegate_voms_proxy_glite
+.. autofunction:: delegate_vomsproxy_glite
+
+.. autofunction:: delegate_myproxy
+
+.. autofunction:: get_myproxy_info
+
+.. autofunction:: get_usercert
+
+.. autofunction:: get_usercert_subject
+
+.. autofunction:: get_userkey
 
 .. autofunction:: get_ce_endpoint

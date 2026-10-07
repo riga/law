@@ -1,0 +1,238 @@
+[build-system]
+requires = ["hatchling~=1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "law"
+description = "Build large-scale task workflows using luigi, remote job submission, remote targets, and environment sandboxing."
+readme = "README.md"
+requires-python = ">=3.9"
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+authors = [
+  {name = "Marcel Rieger", email = "github.riga@icloud.com"},
+]
+keywords = [
+  "luigi",
+  "workflow",
+  "pipeline",
+  "remote",
+  "gfal",
+  "submission",
+  "cluster",
+  "grid",
+  "htcondor",
+  "lsf",
+  "glite",
+  "arc",
+  "slurm",
+  "sandboxing",
+  "docker",
+  "singularity",
+  "apptainer",
+]
+classifiers = [
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Development Status :: 4 - Beta",
+  "Operating System :: OS Independent",
+  "License :: OSI Approved :: BSD License",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "Intended Audience :: Information Technology",
+]
+dynamic = ["version"]
+# pinned to 3.9
+dependencies = [
+  "luigi~=3.6",
+  "typing_extensions~=4.15",
+]
+
+[project.optional-dependencies]
+# pinned to 3.9
+dev = [
+  "build~=1.4;python_version < '3.10'",
+  "build~=1.5;python_version >= '3.10'",
+  "twine~=6.2",
+  "mypy~=1.19;python_version < '3.10'",
+  "mypy~=2.1;python_version >= '3.10'",
+  "pytest~=8.4;python_version < '3.10'",
+  "pytest~=9.1;python_version >= '3.10'",
+  "pytest-cov~=7.1",
+  "coverage>=7.10",
+  "ipykernel~=6.31",
+  "types-docutils~=0.22",
+  "uniplot~=0.22",
+  "pre-commit~=4.3;python_version < '3.10'",
+  "pre-commit~=4.6;python_version >= '3.10'",
+  "pyyaml~=6.0",
+  "types-pyyaml~=6.0",
+  "types-requests~=2.32",
+]
+# pinned to 3.9
+test = [
+  "numpy~=2.0;python_version < '3.10'",
+  "numpy~=2.2;python_version >= '3.10'",
+  "pandas~=2.3;python_version < '3.11'",
+  "pandas~=3.0;python_version >= '3.11'",
+  "pyarrow~=21.0;python_version < '3.10'",
+  "pyarrow~=25.0;python_version >= '3.10'",
+  "awkward~=2.8;python_version < '3.10'",
+  "awkward~=2.14;python_version >= '3.10'",
+  "h5py~=3.14;python_version < '3.10'",
+  "h5py~=3.16;python_version >= '3.10'",
+  "matplotlib~=3.9;python_version < '3.10'",
+  "matplotlib~=3.10;python_version >= '3.10'",
+]
+# pinned to 3.13, see .readthedocs.yaml
+docs = [
+  "sphinx~=9.1",
+  "sphinx-book-theme~=1.2",
+  "sphinx-lfs-content>=1.1.10,!=1.1.11",
+  "autodocsumm~=0.2",
+  "myst-parser~=5.1",
+]
+
+[project.urls]
+Homepage = "https://github.com/riga/law"
+Documentation = "https://law.readthedocs.io"
+Repository = "https://github.com/riga/law.git"
+Issues = "https://github.com/riga/law/issues"
+
+[project.scripts]
+law = "law.__main__:main"
+law_cms_delegate_myproxy = "law.contrib.cms.scripts.delegate_myproxy:main"
+
+[tool.hatch]
+version.path = "src/law/__meta__.py"
+metadata.allow-direct-references = true
+
+[tool.hatch.build]
+exclude = [
+  "/.github",
+  "/docs",
+  "/tests",
+  "/local_tests",
+  "/tmp",
+  "/unused",
+  "/dist",
+  "/build",
+  "/.venv",
+  "*.py[cod]",
+  "__pycache__",
+  ".all-contributorsrc",
+  ".git*",
+  ".readthedocs.yaml",
+  "codecov.yml",
+  ".pre-commit-config.yaml",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/law"]
+
+[tool.ruff]
+line-length = 120
+src = ["src", "tests"]
+exclude = ["docs", "build", "examples", "local_tests"]
+
+[tool.ruff.lint]
+preview = true
+ignore = [
+  "PLR",
+  "return-in-generator",
+  "zip-without-explicit-strict",
+  "module-import-not-at-top-of-file",
+  "logging-f-string",
+  "missing-required-import",
+  "single-line-implicit-string-concatenation",
+  "redefined-loop-name",
+  "lambda-assignment",
+  "raw-string-in-exception",
+  "f-string-in-exception",
+  "needless-bool",
+  "unused-noqa",
+  "noqa-comments",
+  "import-outside-top-level",
+  "global-statement",
+  "bad-dunder-method-name",
+  "too-many-statements-in-try-clause",
+  "mutable-class-default",
+  "quadratic-list-summation",
+  "used-dummy-variable",
+  "non-empty-init-module",
+  "unnecessary-assign",
+  "non-pep695-type-alias",
+]
+select = [
+  "E",
+  "F",
+  "W",  # flake8
+  "B",  # flake8-bugbear
+  "I",  # isort
+  "C4",  # flake8-comprehensions
+  "EM",  # flake8-errmsg
+  "ICN",  # flake8-import-conventions
+  "ISC",  # flake8-implicit-str-concat
+  "G",  # flake8-logging-format
+  "PGH",  # pygrep-hooks
+  "PIE",  # flake8-pie
+  "PL",  # pylint
+  "PT",  # flake8-pytest-style
+  "RET",  # flake8-return
+  "RUF",  # ruff-specific
+  "SIM",  # flake8-simplify
+  "UP",  # pyupgrade
+  "YTT",  # flake8-2020
+  "EXE",  # flake8-executable
+  "missing-trailing-comma",
+  "too-many-blank-lines",
+]
+unfixable = [
+  "unused-variable",
+]
+flake8-unused-arguments.ignore-variadic-names = true
+typing-modules = ["law._types"]
+isort.required-imports = ["from __future__ import annotations"]
+
+[tool.mypy]
+strict = false
+files = ["src/law", "tests"]
+exclude = ["docs", "build", "examples", "local_tests"]
+disable_error_code = ["no-redef", "no-untyped-def", "valid-type", "method-assign"]
+warn_unreachable = true
+warn_redundant_casts = true
+warn_unused_ignores = false
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+ignore_missing_imports = true
+check_untyped_defs = true
+show_error_codes = true
+pretty = true
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+minversion = "8.4"
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.coverage.run]
+source = ["src/law"]
+branch = true
+patch = ["subprocess"]
+
+[tool.coverage.paths]
+source = ["src/law", "*/software/law"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+fail_under = 35

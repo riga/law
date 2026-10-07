@@ -1,14 +1,17 @@
 # Example: HTCondor workflows at NAF
 
-This example demonstrates how to create law task workflows that run on the HTCondor batch system at [NAF](https://confluence.desy.de/display/IS/NAF+-+National+Analysis+Facility).
+This example demonstrates how to create law task workflows that run on the HTCondor batch system at the [National Analysis Facility (NAF)](https://confluence.desy.de/display/IS/NAF+-+National+Analysis+Facility).
 
 The actual payload of the tasks is rather trivial.
-The workflow consists of 26 tasks which convert an integer between 97 and 122 (ascii) into a character. A single task collects the results in the end and writes all characters into a text file.
+The workflow consists of 26 tasks which convert an integer between 97 and 122 (ascii) into a character.
+A single task collects the results in the end and writes all characters into a text file.
 
-Resources: [luigi](http://luigi.readthedocs.io/en/stable), [law](http://law.readthedocs.io/en/latest)
+The tasks are defined in [analysis/tasks.py](analysis/tasks.py).
+The site-specific configuration of the batch system, i.e., the part you would adjust for your own setup, is located in the `HTCondorWorkflow` base class in [analysis/framework.py](analysis/framework.py).
 
+Resources: [luigi](https://luigi.readthedocs.io/en/stable), [law](https://law.readthedocs.io/en/latest)
 
-#### 0. At NAF: copy this example to your user space
+## 0. At NAF: copy this example to your user space
 
 ```shell
 mkdir -p /examplepath
@@ -16,15 +19,13 @@ cd /examplepath
 cp -r /afs/desy.de/user/r/riegerma/public/law_sw/law/examples/htcondor_at_naf/* .
 ```
 
-
-#### 1. Source the setup script (just software and some variables)
+## 1. Source the setup script (just software and some variables)
 
 ```shell
 source setup.sh
 ```
 
-
-#### 2. Let law index your tasks and their parameters (for autocompletion)
+## 2. Let law index your tasks and their parameters (for autocompletion)
 
 ```shell
 law index --verbose
@@ -33,7 +34,7 @@ law index --verbose
 You should see:
 
 ```shell
-loading tasks from 1 module(s)
+indexing tasks in 1 module(s)
 loading module 'analysis.tasks', done
 
 module 'analysis.tasks', 2 task(s):
@@ -43,8 +44,7 @@ module 'analysis.tasks', 2 task(s):
 written 2 task(s) to index file '/examplepath/.law/index'
 ```
 
-
-#### 3. Check the status of the `CreateAlphabet` task
+## 3. Check the status of the `CreateAlphabet` task
 
 ```shell
 law run CreateAlphabet --version v1 --print-status -1
@@ -60,35 +60,30 @@ print task status with max_depth -1 and target_depth 0
 │     LocalFileTarget(fs=local_fs, path=$DATA_PATH/CreateAlphabet/v1/alphabet.txt)
 │       absent
 │
-└──1 > CreateChars(workflow=htcondor, branch=-1, branches=, version=v1)
-         submission: LocalFileTarget(fs=local_fs, path=$DATA_PATH/CreateChars/v1/htcondor_submission_0To26.json, optional)
-           absent
-         status: LocalFileTarget(fs=local_fs, path=$DATA_PATH/CreateChars/v1/htcondor_status_0To26.json, optional)
+└──1 > CreateChars(effective_workflow=htcondor, branch=-1, version=v1, workflow=htcondor)
+         jobs: LocalFileTarget(fs=local_fs, path=$DATA_PATH/CreateChars/v1/htcondor_jobs_0To26.json, optional)
            absent
          collection: TargetCollection(len=26, threshold=26.0)
            absent (0/26)
 ```
 
-
-#### 4. Run the `CreateAlphabet` task
-
+## 4. Run the `CreateAlphabet` task
 
 ```shell
-law run CreateAlphabet --version v1 --CreateChars-transfer-logs --CreateChars-poll-interval 30sec
+law run CreateAlphabet --version v1 --CreateChars-poll-interval 30sec
 ```
 
-The ``CreateChars`` task is a ``HTCondorWorkflow`` by default, but it is also able to run tasks locally.
-To do so, just add ``--CreateChars-workflow local`` to the command above.
+The `CreateChars` task is a `HTCondorWorkflow` by default, but it is also able to run tasks locally.
+To do so, just add `--CreateChars-workflow local` to the command above.
 
 This should take only a few minutes to process, depending on the job queue.
 
 By default, this example uses a local scheduler, which - by definition - offers no visualization tools in the browser.
-If you want to see how the task tree is built and subsequently run, run ``luigid`` in a second terminal.
+If you want to see how the task tree is built and subsequently run, run `luigid` in a second terminal.
 This will start a central scheduler at *localhost:8082* (the default address).
-To inform tasks (or rather *workers*) about the scheduler, either add ``--local-scheduler False`` to the ``law run`` command, or set the ``local-scheduler`` value in the ``[luigi_core]`` config section in the ``law.cfg`` file to ``False``.
+To inform tasks (or rather *workers*) about the scheduler, either add `--local-scheduler False` to the `law run` command, or set the `local_scheduler` value in the `[luigi_core]` config section in the `law.cfg` file to `False`.
 
-
-#### 5. Check the status again
+## 5. Check the status again
 
 ```shell
 law run CreateAlphabet --version v1 --print-status -1
@@ -103,25 +98,21 @@ print task status with max_depth -1 and target_depth 0
 │     LocalFileTarget(fs=local_fs, path=$DATA_PATH/CreateAlphabet/v1/alphabet.txt)
 │       existent
 │
-└──1 > CreateChars(workflow=htcondor, branch=-1, branches=, version=v1)
-         submission: LocalFileTarget(fs=local_fs, path=$DATA_PATH/CreateChars/v1/htcondor_submission_0To26.json, optional)
-           existent
-         status: LocalFileTarget(fs=local_fs, path=$DATA_PATH/CreateChars/v1/htcondor_status_0To26.json, optional)
+└──1 > CreateChars(effective_workflow=htcondor, branch=-1, version=v1, workflow=htcondor)
+         jobs: LocalFileTarget(fs=local_fs, path=$DATA_PATH/CreateChars/v1/htcondor_jobs_0To26.json, optional)
            existent
          collection: TargetCollection(len=26, threshold=26.0)
            existent (26/26)
 ```
 
-
-#### 6. Look at the results
+## 6. Look at the results
 
 ```shell
 cd data
 ls */v1/
 ```
 
-
-#### 7. Cleanup the results
+## 7. Cleanup the results
 
 ```shell
 law run CreateAlphabet --version v1 --remove-output -1

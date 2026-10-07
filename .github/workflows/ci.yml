@@ -1,0 +1,105 @@
+name: CI
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+
+jobs:
+  lint_typecheck:
+    name: Lint${{ matrix.python == '3.14' && '' || ', type check' }}${{ matrix.python == '3.13' && ', release check' || '' }} (${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install
+        run: |
+          pip install -U pip setuptools wheel
+          pip install .[dev]
+
+      - name: Run pre-commit hook 'manual'
+        uses: pre-commit/action@v3.0.1
+        env:
+          SKIP: ${{ matrix.python == '3.14' && 'mypy' || '' }}
+        with:
+          extra_args: --hook-stage manual --all-files
+
+      - name: Check dist
+        if: ${{ matrix.python == '3.13' }}
+        run: |
+          pip install -U pip setuptools wheel build twine
+          python -m build
+          twine check dist/*
+
+  test_coverage:
+    name: Tests, coverage${{ matrix.python == '3.13' && ', upload' || '' }} (${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install
+        run: |
+          pip install -U pip setuptools wheel
+          pip install .[dev,test]
+
+      - name: Test
+        run: pytest --cov=law --cov-report=xml:coverage.xml
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v7
+        if: ${{ matrix.python == '3.13' }}
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.xml
+          flags: unittests
+          fail_ci_if_error: false
+
+  docs:
+    name: Docs (3.13)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install
+        run: |
+          pip install -U pip setuptools wheel
+          pip install .[docs]
+
+      - name: Build docs
+        run: sphinx-build -W --keep-going -b html docs docs/_build/html

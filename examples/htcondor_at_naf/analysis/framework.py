@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Law example tasks to demonstrate HTCondor workflows at NAF.
 
@@ -8,12 +6,14 @@ other tasks to receive the same features. This is usually called "framework"
 and only needs to be defined once per user / group / etc.
 """
 
+from __future__ import annotations
 
+import math
 import os
 
 import luigi
-import law
 
+import law
 
 # the htcondor workflow implementation is part of a law contrib package
 # so we need to explicitly load it
@@ -33,7 +33,7 @@ class Task(law.Task):
 
     def local_path(self, *path):
         # DATA_PATH is defined in setup.sh
-        parts = ("$DATA_PATH",) + self.store_parts() + path
+        parts = ("$DATA_PATH", *self.store_parts(), *path)
         return os.path.join(*parts)
 
     def local_target(self, *path):
@@ -69,6 +69,9 @@ class HTCondorWorkflow(law.htcondor.HTCondorWorkflow):
     def htcondor_job_config(self, config, job_num, branches):
         # render_variables are rendered into all files sent with a job
         config.render_variables["analysis_path"] = os.getenv("ANALYSIS_PATH")
+
+        # maximum runtime in seconds
+        config.custom_content.append(("+RequestRuntime", math.floor(self.max_runtime * 3600) - 1))
 
         # copy the entire environment
         config.custom_content.append(("getenv", "true"))

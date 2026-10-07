@@ -1,0 +1,93 @@
+"""
+Pandas target formatters.
+"""
+
+from __future__ import annotations
+
+__all__ = ["DataFrameFormatter"]
+
+import pathlib
+
+from law._types import Any
+from law.logger import get_logger
+from law.target.file import FileSystemFileTarget, get_path
+from law.target.formatter import Formatter
+from law.util import no_value
+
+logger = get_logger(__name__)
+
+
+class DataFrameFormatter(Formatter):
+    """
+    Formatter for pandas dataframes in csv (``.csv``), json (``.json``), parquet (``.parquet``), hdf5 (``.h5``,
+    ``.hdf5``) or pickle files (``.pickle``, ``.pkl``), using the corresponding ``pandas.read_*`` functions and
+    ``DataFrame.to_*`` methods. Additional arguments are forwarded. When dumping, the file permission can be set via
+    *perm*. Its name is ``"pandas"``, which can be passed as *formatter* to select it explicitly.
+    """
+
+    name = "pandas"
+
+    @classmethod
+    def accepts(cls, path: str | pathlib.Path | FileSystemFileTarget, mode: str) -> bool:
+        # still missing: excel, html, xml, latex, feather, orc, sql, stata, markdown, ...
+        suffixes = (".csv", ".json", ".parquet", ".h5", ".hdf5", ".pickle", ".pkl")
+        return get_path(path).endswith(suffixes)
+
+    @classmethod
+    def load(cls, path: str | pathlib.Path | FileSystemFileTarget, *args, **kwargs) -> Any:
+        import pandas as pd
+
+        path = get_path(path)
+
+        if path.endswith(".csv"):
+            return pd.read_csv(path, *args, **kwargs)
+
+        if path.endswith(".json"):
+            return pd.read_json(path, *args, **kwargs)
+
+        if path.endswith(".parquet"):
+            return pd.read_parquet(path, *args, **kwargs)
+
+        if path.endswith((".h5", ".hdf5")):
+            return pd.read_hdf(path, *args, **kwargs)
+
+        if path.endswith((".pickle", ".pkl")):
+            return pd.read_pickle(path, *args, **kwargs)
+
+        suffix = pathlib.Path(path).suffix
+        raise NotImplementedError(f"suffix \"{suffix}\" not implemented in DataFrameFormatter")
+
+    @classmethod
+    def dump(
+        cls,
+        path: str | pathlib.Path | FileSystemFileTarget,
+        obj: Any,
+        *args,
+        **kwargs,
+    ) -> Any:
+        _path = get_path(path)
+        perm = kwargs.pop("perm", no_value)
+
+        if _path.endswith(".csv"):
+            ret = obj.to_csv(_path, *args, **kwargs)
+
+        elif _path.endswith(".json"):
+            ret = obj.to_json(_path, *args, **kwargs)
+
+        elif _path.endswith(".parquet"):
+            ret = obj.to_parquet(_path, *args, **kwargs)
+
+        elif _path.endswith((".h5", ".hdf5")):
+            ret = obj.to_hdf(_path, *args, **kwargs)
+
+        elif _path.endswith((".pickle", ".pkl")):
+            ret = obj.to_pickle(_path, *args, **kwargs)
+
+        else:
+            suffix = pathlib.Path(_path).suffix
+            raise NotImplementedError(f"suffix \"{suffix}\" not implemented in DataFrameFormatter")
+
+        if perm != no_value:
+            cls.chmod(path, perm)
+
+        return ret

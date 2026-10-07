@@ -9,7 +9,7 @@ action() {
     # setup external software once when not in the example image
     if [ -z "${LAW_DOCKER_EXAMPLE}" ]; then
         export PATH="${law_base}/bin:${PATH}"
-        export PYTHONPATH="${law_base}:${PYTHONPATH}"
+        export PYTHONPATH="${law_base}/src:${PYTHONPATH}"
     fi
 
     export LAW_DROPBOX_EXAMPLE="${this_dir}"
@@ -18,4 +18,4 @@ action() {
 
     source "$( law completion )" ""
 }
-action
+action "$@"

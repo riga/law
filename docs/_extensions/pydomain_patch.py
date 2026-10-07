@@ -7,10 +7,10 @@ Patch for the default sphinx python domain that adds:
 """
 
 from docutils import nodes
-from sphinx import addnodes
-from sphinx.locale import _
-from sphinx.domains import ObjType
-from sphinx.domains.python import PyAttribute
+from sphinx import addnodes  # type: ignore[import-untyped]
+from sphinx.locale import _  # type: ignore[import-untyped]
+from sphinx.domains import ObjType  # type: ignore[import-untyped]
+from sphinx.domains.python import PyAttribute  # type: ignore[import-untyped]
 
 
 class PyClassAttribute(PyAttribute):
@@ -28,14 +28,9 @@ class PyClassAttribute(PyAttribute):
         if "." in name:
             clsname, attrname = name.rsplit(".", 1)
             if modname and add_modules:
-                return _("{} ({}.{} class attribute)").format(attrname, modname, clsname)
-            else:
-                return _("{} ({} class attribute)").format(attrname, clsname)
-        else:
-            if modname:
-                return _("{} (in module {})").format(name, modname)
-            else:
-                return name
+                return _(f"{attrname} ({modname}.{clsname} class attribute)")
+            return _(f"{attrname} ({clsname} class attribute)")
+        return _(f"{name} (in module {modname})") if modname else name
 
 
 def setup(app):

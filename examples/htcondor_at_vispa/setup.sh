@@ -10,9 +10,9 @@ action() {
     export LAW_CONFIG_FILE="${this_dir}/law.cfg"
 
     export ANALYSIS_PATH="${this_dir}"
-    export ANALYSIS_DATA_PATH="${ANALYSIS_PATH}/data"
+    export DATA_PATH="${ANALYSIS_PATH}/data"
 
     source "/home/Marcel/public/law_sw/setup.sh" ""
     source "$( law completion )" ""
 }
-action
+action "$@"

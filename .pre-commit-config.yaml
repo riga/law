@@ -1,0 +1,39 @@
+ci:
+  autoupdate_commit_msg: "chore: update pre-commit hooks"
+  autofix_commit_msg: "style: pre-commit fixes"
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: mixed-line-ending
+      - id: debug-statements
+      - id: check-case-conflict
+      - id: check-added-large-files
+      - id: check-merge-conflict
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.10
+    hooks:
+      - id: ruff-check
+
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        language: system
+        types_or: [python, pyi]
+        entry: mypy
+        pass_filenames: false
+        args: [--config-file=pyproject.toml, --show-error-codes]
+
+      - id: pytest
+        name: pytest
+        entry: pytest
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
