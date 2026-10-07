@@ -590,6 +590,9 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
     - *log*: The name of the log file of the batch system.
     - *stdout*: The name of the file that receives the standard output of jobs.
     - *stderr*: The name of the file that receives the standard error of jobs.
+    - *remap_stdout_stderr*: Whether *stdout* and *stderr* are written to files named after their basenames on the job
+      node and transferred back via ``transfer_output_remaps``, instead of passing their full paths to HTCondor
+      directly. Note that this is incompatible with ``stream_output`` and ``stream_error``.
     - *postfix_output_files*: Whether the job postfix is added to the names of output and log files.
     - *postfix*: The postfix that is added to the job file and, depending on *postfix_output_files*,
       to output files.
@@ -617,6 +620,7 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
         "log",
         "stdout",
         "stderr",
+        "remap_stdout_stderr",
         "postfix_output_files",
         "postfix",
         "universe",
@@ -636,6 +640,7 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
         log: str = "log.txt",
         stdout: str = "stdout.txt",
         stderr: str = "stderr.txt",
+        remap_stdout_stderr: bool = False,
         postfix_output_files: bool = True,
         postfix: str | None = None,
         universe: str = "vanilla",
@@ -673,6 +678,7 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
         self.log = log
         self.stdout = stdout
         self.stderr = stderr
+        self.remap_stdout_stderr = remap_stdout_stderr
         self.postfix_output_files = postfix_output_files
         self.postfix = postfix
         self.universe = universe
@@ -892,16 +898,28 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
             content.append(("log", c.log))
         if c.stdout:
             c.stdout = str(c.stdout)
-            stdout_base = os.path.basename(c.stdout)
-            content.append(("output", stdout_base))
-            if stdout_base != c.stdout:
-                output_remaps[stdout_base] = c.stdout
         if c.stderr:
             c.stderr = str(c.stderr)
-            stderr_base = os.path.basename(c.stderr)
-            content.append(("error", stderr_base))
-            if stderr_base != c.stderr:
-                output_remaps[stderr_base] = c.stderr
+        if c.remap_stdout_stderr:
+            # write to basenames on the job node and remap them to the full paths when transferred back
+            stdout_base = os.path.basename(c.stdout) if c.stdout else None
+            stderr_base = os.path.basename(c.stderr) if c.stderr else None
+            if stdout_base and stdout_base == stderr_base:
+                stdout_base = f"stdout_{stdout_base}"
+                stderr_base = f"stderr_{stderr_base}"
+            if c.stdout:
+                content.append(("output", stdout_base))
+                if stdout_base != c.stdout:
+                    output_remaps[stdout_base] = c.stdout
+            if c.stderr:
+                content.append(("error", stderr_base))
+                if stderr_base != c.stderr:
+                    output_remaps[stderr_base] = c.stderr
+        else:
+            if c.stdout:
+                content.append(("output", c.stdout))
+            if c.stderr:
+                content.append(("error", c.stderr))
         if c.input_files or c.output_files:
             content.append(("should_transfer_files", "YES"))
         if c.input_files:
