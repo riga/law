@@ -155,6 +155,18 @@ class BaseRegister(luigi.task_register.Register):
 
         return h[k]
 
+    def _uncache_instance(cls, inst: BaseTask) -> None:
+        """
+        Removes the task instance *inst* from the instance cache, so that subsequent instantiations with the same
+        parameters create a new instance.
+
+        :param inst: The task instance to remove.
+        """
+        h = cls.__instance_cache
+        for k, v in list(h.items()):
+            if v is inst:
+                del h[k]
+
 
 class BaseTask(luigi.Task, metaclass=BaseRegister):
     """
@@ -618,8 +630,10 @@ class Register(BaseRegister):
         for param in inst.interactive_params:
             value = getattr(inst, param)
             if value:
-                # reset the interactive parameter
+                # reset the interactive parameter, and remove the instance from the cache so that subsequent
+                # instantiations with the same parameters within the same process evaluate the parameter again
                 setattr(inst, param, ())
+                cls._uncache_instance(inst)
 
                 # at this point, inst must be the root task so set the global value
                 root_task(inst)

@@ -13,7 +13,7 @@ import collections
 import os
 import random
 import time
-import urllib
+import urllib.request
 
 import luigi
 
@@ -22,7 +22,7 @@ import law
 law.contrib.load("tasks")  # to have the RunOnceTask
 
 
-URL = "http://www.loremipsum.de/downloads/version{}.txt"
+URL = "https://loremipsum.de/downloads/version{}.txt"
 
 
 def maybe_wait(func):
@@ -42,13 +42,13 @@ def maybe_wait(func):
 class LoremIpsumBase(law.Task):
     """
     Base task that we use to add a *file_index* parameter to all inheriting
-    tasks to define which of the 6 possible lorem ipsumfiles to use. It also
+    tasks to define which of the 6 possible lorem ipsum files to use. It also
     provides some convenience methods to create local file and directory targets
     at the default data path.
     """
 
     file_index = luigi.ChoiceParameter(
-        int,
+        var_type=int,
         choices=list(range(1, 6 + 1)),
         description="the file index ranging from 1 to 6",
     )
@@ -137,7 +137,7 @@ class MergeCounts(LoremIpsumBase):
     @maybe_wait
     def run(self):
         # load the content of all input files, sum up the character counts, and save them again
-        # as we learned the basic mechanisms above, this could is streamlined
+        # as we learned the basic mechanisms above, this code is streamlined
         merged_counts = collections.defaultdict(int)
         for inp in self.input():
             # each *inp* is the output of a CountChars instance
@@ -151,7 +151,7 @@ class ShowFrequencies(LoremIpsumBase, law.tasks.RunOnceTask):
     """
     This task grabs the merged character counts from MergeCounts and prints the results. There is no
     output. Therefore, the task inherits from law.tasks.RunOnceTask which has a custom complete()
-    method. To mark it as complete, mark_complete() is invoked at the and of the run() method.
+    method. To mark it as complete, mark_complete() is invoked at the end of the run() method.
     """
 
     # again, this task has no file_index
@@ -175,7 +175,7 @@ class ShowFrequencies(LoremIpsumBase, law.tasks.RunOnceTask):
             for c, freq in freqs
         )
 
-        # prints the frequences but also sends them as a message to the scheduler (if any)
+        # prints the frequencies but also sends them as a message to the scheduler (if any)
         self.publish_message(text)
 
         # mark this task as complete, so luigi would consider it done without checking for outputs

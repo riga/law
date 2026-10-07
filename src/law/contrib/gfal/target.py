@@ -432,7 +432,8 @@ class GFALFileInterface(RemoteFileInterface):
         with self.context() as ctx:
             try:
                 logger.debug(f"invoking gfal2 listdir({uri})")
-                return ctx.listdir(uri)
+                # some protocols, such as file://, list the special entries "." and ".."
+                return [elem for elem in ctx.listdir(uri) if elem not in (".", "..")]
 
             except gfal2.GError as e:
                 e_custom = GFALError_listdir(uri)

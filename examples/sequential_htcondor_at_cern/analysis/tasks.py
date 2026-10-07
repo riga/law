@@ -61,7 +61,7 @@ class CreatePartialAlphabet(Task, HTCondorWorkflow, law.LocalWorkflow):
     by requiring chunks of 5 CreateChars tasks and simply concatenates their output characters.
 
     However, this concatenation is configured to run inside an HTCondor job as well, resulting in a
-    two-stage job submission. In general, there are two ways to achive this:
+    two-stage job submission. In general, there are two ways to achieve this:
 
         1. Run all 26 CreateChars jobs first, managed by a single CreateChars workflow, and once
            they are all done, run all 6 (5 x 5 + 1) CreatePartialAlphabet jobs.
@@ -120,7 +120,7 @@ class CreatePartialAlphabet(Task, HTCondorWorkflow, law.LocalWorkflow):
 
 class CreateFullAlphabet(Task):
     """
-    This task requires the CreatePartialAlphabet workflow and extracts the particle alphabet chunks
+    This task requires the CreatePartialAlphabet workflow and extracts the partial alphabet chunks
     to form a full alphabet string. To achieve the matching degree of parallelism, the
     CreatePartialAlphabet tasks are required as workflows consisting of a single branch. In this
     scenario, this choice results in a total of 6 CreatePartialAlphabet workflows that can be run in
@@ -128,7 +128,7 @@ class CreateFullAlphabet(Task):
     """
 
     def requires(self):
-        # require multiple CreatePartialAlphabet tasks, starting from it's full branch map
+        # require multiple CreatePartialAlphabet tasks, starting from its full branch map
         all_branches = list(CreatePartialAlphabet.req(self).branch_map.keys())
         return [CreatePartialAlphabet.req(self, branches=((b,),)) for b in all_branches]
 

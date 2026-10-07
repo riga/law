@@ -217,7 +217,7 @@ class TestCLI:
 
     def test_software(self) -> None:
         assert self.law_ok("software", "--location").strip() == self.software_dir
-        assert self.law_ok("software", "--print-deps").strip() == "luigi,law,tenacity,dateutil"
+        assert self.law_ok("software", "--print-deps").strip() == "luigi,law,tenacity,dateutil,six,typing_extensions"
         assert self.law_ok("software", "--print-deps", "--deps", "a, b").strip() == "a,b"
 
         self.law_ok("software")

@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 
 import luigi
+import luigi.util
 
 import law
 
@@ -11,7 +12,7 @@ law.contrib.load("matplotlib")
 
 class Task(law.Task):
     """
-    Base that provides some convenience methods to create local file and
+    Base task that provides some convenience methods to create local file and
     directory targets at the default data path.
     """
 
@@ -29,10 +30,12 @@ class Optimizer(Task, law.LocalWorkflow):
     Workflow that runs optimization.
     """
 
-    iterations = luigi.IntParameter(default=10, description="Number of iterations")
-    n_parallel = luigi.IntParameter(default=4, description="Number of parallel evaluations")
-    n_initial_points = luigi.IntParameter(default=10, description="Number of random sampled values \
-        before starting optimizations")
+    iterations = luigi.IntParameter(default=10, description="number of iterations; default: 10")
+    n_parallel = luigi.IntParameter(default=4, description="number of parallel evaluations; default: 4")
+    n_initial_points = luigi.IntParameter(
+        default=10,
+        description="number of randomly sampled points before starting the optimization; default: 10",
+    )
 
     def create_branch_map(self):
         return list(range(self.iterations))
@@ -73,8 +76,10 @@ class OptimizerPlot(Task, law.LocalWorkflow):
     Workflow that runs optimization and plots results.
     """
 
-    plot_objective = luigi.BoolParameter(default=True, description="Plot objective. \
-        Can be expensive to evaluate for high dimensional input")
+    plot_objective = luigi.BoolParameter(
+        default=True,
+        description="plot the objective, which can be expensive for high dimensional inputs; default: True",
+    )
 
     def create_branch_map(self):
         return list(range(self.iterations))
@@ -112,8 +117,8 @@ class OptimizerPlot(Task, law.LocalWorkflow):
             tmp.dump(plt.gcf(), bbox_inches="tight")
         plt.close()
         if self.has_fitted_model():
-            plot_objective(result)
             with output.targets["objective"].localize("w") as tmp:
+                plot_objective(result)
                 tmp.dump(plt.gcf(), bbox_inches="tight")
             plt.close()
 
@@ -123,7 +128,7 @@ class Objective(Task, law.LocalWorkflow):
     Objective to optimize.
 
     This workflow will evaluate the branin function for given values `x`.
-    In a real world example this will likely be a expensive to compute function like a
+    In a real world example this will likely be an expensive to compute function like a
     neural network training or other computational demanding task.
     The workflow can be easily extended as a remote workflow to submit evaluation jobs
     to a batch system in order to run calculations in parallel.

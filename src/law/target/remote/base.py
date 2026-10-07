@@ -797,9 +797,12 @@ class RemoteTarget(FileSystemTarget):
         dst: str | pathlib.Path | FileSystemTarget | None = None,
         **kwargs,
     ) -> str:
-        if dst is not None:
+        if dst is None:
+            # copy into the cache, which raises an exception if caching is disabled
+            dst = self.fs.copy(self.path, None, **kwargs)  # type: ignore[arg-type]
+        else:
             dst = add_scheme(self.fs.local_fs.abspath(get_path(dst)), "file")  # type: ignore[attr-defined]
-        dst = self.copy_to(dst, **kwargs)  # type: ignore[arg-type]
+            dst = self.copy_to(dst, **kwargs)  # type: ignore[arg-type]
         return remove_scheme(dst)
 
     def copy_from_local(

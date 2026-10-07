@@ -190,6 +190,10 @@ class Sandbox(metaclass=abc.ABCMeta):
 
     variable_cls = SandboxVariables
 
+    # whether the command returned by cmd() is run with the sandbox env, or with the env of the current process when
+    # the command itself starts the sandbox and sets up its env, e.g. "docker run"
+    run_with_sandbox_env = True
+
     # cached envs
     _envs: MutableMapping[Hashable, dict[str, Any]] = {}
 
@@ -417,7 +421,8 @@ class Sandbox(metaclass=abc.ABCMeta):
         stderr: int | TextIO | None = None,
     ) -> tuple[int, str | None, str | None]:
         """
-        Runs the command *cmd* in a bash shell with the sandbox environment.
+        Runs the command *cmd* in a bash shell with the sandbox environment, or with the environment of the current
+        process when :py:attr:`run_with_sandbox_env` is *False*.
 
         :param cmd: The command to run.
         :param stdout: The stdout stream. Set to :py:data:`subprocess.PIPE` to capture it. Forwarded to
@@ -438,7 +443,7 @@ class Sandbox(metaclass=abc.ABCMeta):
             stdout=stdout,
             stderr=stderr,
             stdin=None,
-            env=self.env,
+            env=self.env if self.run_with_sandbox_env else None,
         )
 
     def get_custom_config_section_postfix(self) -> str:

@@ -1,13 +1,20 @@
 """
 Example showing docker sandboxing.
 
-Example status: review
+CreateNumbers runs locally and writes random numbers into a text file. BinNumbers requires these numbers and runs
+inside a docker container to histogram them.
+
+Law forwards itself, its dependencies and the law.cfg file into the container. The code of this example, however, must
+be made available explicitly, which is done by mounting the example directory under the same path and adding it to the
+PYTHONPATH. Since the data directory is located inside the example directory, targets resolve to the same location
+inside and outside the container.
 """
 
 from __future__ import annotations
 
 import os
 import random
+import sys
 
 import luigi
 
@@ -15,53 +22,72 @@ import law
 
 law.contrib.load("docker")
 
-luigi.namespace("example.docker")
+
+class Task(law.Task):
+    """
+    Base task that provides some convenience methods to create local file targets at the default data path.
+    """
+
+    def local_path(self, *path):
+        # DATA_PATH is defined in setup.sh and forwarded into the container via the law.cfg file
+        parts = ("$DATA_PATH", *path)
+        return os.path.join(*map(str, parts))
+
+    def local_target(self, *path):
+        return law.LocalFileTarget(self.local_path(*path))
 
 
-class CreateNumbers(law.SandboxTask):
+class CreateNumbers(Task):
+    """
+    Creates *n_nums* random numbers between 0 and 1 on the local machine.
+    """
 
-    n_nums = luigi.IntParameter(default=100, description="amount of random numbers to be generated")
+    n_nums = luigi.IntParameter(default=100, description="amount of random numbers to be generated; default: 100")
 
     def output(self):
-        return law.LocalFileTarget(f"data/docker/numbers_{self.n_nums}.txt")
+        return self.local_target(f"numbers_{self.n_nums}.txt")
 
     def run(self):
-        with self.output().open("w") as f:
-            for _ in range(self.n_nums):
-                f.write(f"{random.random()}\n")
+        self.output().dump("".join(f"{random.random()}\n" for _ in range(self.n_nums)), formatter="text")
 
 
-class BinNumbers(law.SandboxTask):
+class BinNumbers(Task, law.SandboxTask):
+    """
+    Histograms the numbers created by CreateNumbers into *n_bins* bins inside a docker container.
+    """
 
     n_nums = CreateNumbers.n_nums
-    n_bins = luigi.IntParameter(default=10, description="number of bins")
+    n_bins = luigi.IntParameter(default=10, description="number of bins; default: 10")
 
-    sandbox = "docker::34b598324f19"
-    force_sandbox = True
-    docker_args = [*law.docker.DockerSandbox.default_docker_args, "-v", os.getcwd() + "/data:/notebooks/data"]
+    # the docker image to run in, which only needs to provide python as law and its dependencies are forwarded into
+    # the container, so the python version is chosen to match the one used outside
+    sandbox = f"docker::python:{sys.version_info.major}.{sys.version_info.minor}-slim"
+
+    def sandbox_volumes(self, volumes):
+        # mount the example directory under the same path, which also contains the data directory
+        example_path = os.environ["DOCKEREXAMPLE_PATH"]
+        return {example_path: example_path}
+
+    def sandbox_post_setup_cmds(self):
+        # make the tasks of this example importable inside the container
+        return [f"export PYTHONPATH=\"{os.environ['DOCKEREXAMPLE_PATH']}:$PYTHONPATH\""]
 
     def requires(self):
         return CreateNumbers.req(self)
 
     def output(self):
-        return law.LocalFileTarget(f"data/docker/binned_{self.n_nums}_{self.n_bins}.txt")
+        return self.local_target(f"binned_{self.n_nums}_{self.n_bins}.txt")
 
     def run(self):
-        with self.input().open("r") as f:
-            nums = [float(line.strip()) for line in f.readlines()]
+        # this method is executed inside the container, which can be verified with the LAW_SANDBOX variable
+        self.publish_message(f"running in sandbox '{os.getenv('LAW_SANDBOX')}'")
+
+        nums = [float(line) for line in self.input().load(formatter="text").splitlines() if line.strip()]
 
         bins = [0] * self.n_bins
-        right_edges = [float(i) / self.n_bins for i in range(1, self.n_bins + 1)]
         for n in nums:
-            for i, edge in enumerate(right_edges):
-                if n < edge:
-                    bins[i] += 1
-                    break
+            bins[min(int(n * self.n_bins), self.n_bins - 1)] += 1
 
-        with self.output().open("w") as f:
-            f.write("\n".join(str(b) for b in bins) + "\n")
+        self.output().dump("".join(f"{b}\n" for b in bins), formatter="text")
 
-        self.set_status_message("done")
-
-
-luigi.namespace()
+        self.publish_message(f"binned {len(nums)} numbers into {self.n_bins} bins: {bins}")

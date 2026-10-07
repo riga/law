@@ -31,8 +31,8 @@ class Task(law.Task):
         return (self.__class__.__name__, self.version)
 
     def local_path(self, *path):
-        # ANALYSIS_DATA_PATH is defined in setup.sh
-        parts = (os.getenv("ANALYSIS_DATA_PATH"), *self.store_parts(), *path)
+        # DATA_PATH is defined in setup.sh
+        parts = ("$DATA_PATH", *self.store_parts(), *path)
         return os.path.join(*parts)
 
     def local_target(self, *path):
@@ -48,8 +48,7 @@ class LSFWorkflow(law.lsf.LSFWorkflow):
     """
 
     # internally, the job files required for lsf submission are created in a "job file factory"
-    # here, we can configure the factory to store the job files for subsequent inspection, and also
-    # tell it that law will handle the file stagein and stageout manually
+    # here, we tell it that input and output files are staged in and out by explicit commands in the job file
     lsf_job_file_factory_defaults = {
         "manual_stagein": True,
         "manual_stageout": True,
@@ -66,7 +65,7 @@ class LSFWorkflow(law.lsf.LSFWorkflow):
         return law.JobInputFile(bootstrap_file, share=True, render_job=True)
 
     def lsf_job_config(self, config, job_num, branches):
-        # render_variables is rendered into all files sent with a job
+        # render_variables are rendered into all files sent with a job
         config.render_variables["analysis_path"] = os.getenv("ANALYSIS_PATH")
 
         return config

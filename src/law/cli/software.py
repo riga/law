@@ -18,7 +18,7 @@ from law.logger import get_logger
 logger = get_logger(__name__)
 
 # TODO: auto-detect
-default_dep_names = ["luigi", "law", "tenacity", "dateutil"]
+default_dep_names = ["luigi", "law", "tenacity", "dateutil", "six", "typing_extensions"]
 
 dep_names_str = os.getenv("LAW_SOFTWARE_DEPS", None)
 dep_names = [name.strip() for name in dep_names_str.strip().split(",")] if dep_names_str else default_dep_names

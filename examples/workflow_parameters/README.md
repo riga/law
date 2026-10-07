@@ -46,7 +46,7 @@ To run multiple branches simultaneously, you would usually
 - omit the `--branch` parameter or set it to `--branch -1` to trigger the *workflow* instead of a specific branch, **and optionally**
 - add `--branches SELECTION` to select a subset of possible branches (`SELECTION` can be a comma-separated list of branches or pythonic slices, e.g. `0,3,5:9`).
 
-The workflow then determines which branches it needs to run and handles their execution depending on its workflow type (`law.LocalWorkflow` runs them locally, whereas remote workflows such as `law.htcondor.HTCondorWorlflow` submit them as HTCondor jobs).
+The workflow then determines which branches it needs to run and handles their execution depending on its workflow type (`law.LocalWorkflow` runs them locally, whereas remote workflows such as `law.htcondor.HTCondorWorkflow` submit them as HTCondor jobs).
 
 This mechanism is generic, but in case you are dealing with complex branch maps, triggering a specific single branch or a specific subset of branches requires you to know their branch values which you then use on the command line with either `--branch` or `--branches`.
 
@@ -64,7 +64,7 @@ $ law run MyWorkflow --option-a foo
 $ law run MyWorkflow --option-b 123
 ```
 
-on the command line, and have the task do the lookup of braches itself.
+on the command line, and have the task do the lookup of branches itself.
 To do so, we can change the task above.
 
 ```python
@@ -94,7 +94,7 @@ class MyWorkflow(law.LocalWorkflow):
         pass  # ... implementation
 ```
 
-`option_a` and `option_b` are `law.WorkflowParameter`s that can optionally define a `cls` (or `inst`) of a other parameter object that is used for parameter parsing and serialization (as always).
+`option_a` and `option_b` are `law.WorkflowParameter`s that can optionally define a `cls` (or `inst`) of another parameter object that is used for parameter parsing and serialization (as always).
 
 The second change is that `create_branch_map` is now a `@classmethod` and receives all task parameters in a dictionary *params*.
 This is necessary since the automatic lookup of branches based on the values of workflow parameters, internally, must happen before the task is actually instantiated.
@@ -105,3 +105,31 @@ As a result, parameters can be defined verbosely on the command line, translate 
 - `--option-a foo` → finds `branches=[0, 2]` and runs them as a workflow
 - `--option-b 456` → finds `branches=[1, 2]` and runs them as a workflow
 - `--option-b 123` → finds `branches=[0]` and runs it in a workflow
+
+## Run this example
+
+The tasks in [tasks.py](tasks.py) apply this to the payload of the [workflows](../workflows) example.
+`CreateChars` is a workflow with 52 branches that convert ascii numbers into lower and upper case characters, configured through the two workflow parameters `--num` and `--upper-case`.
+`CreateAlphabet` requires `CreateChars` and forwards its own `--upper-case` value, so that only the 26 matching branches are run.
+
+```shell
+# setup software and variables (creates a virtual environment in tmp/venv on first use)
+source setup.sh
+
+# create the lower and upper case alphabet
+law run CreateAlphabet
+law run CreateAlphabet --upper-case
+
+# check the status of the two branches that create "b" and "B"
+law run CreateChars --num 98 --print-status 0
+```
+
+The last command shows that the workflow selected `branches=1,27`:
+
+```shell
+print task status with max_depth 0 and target_depth 0
+
+0 > CreateChars(effective_workflow=local, branch=-1, branches=1,27, workflow=local)
+      collection: TargetCollection(len=2, threshold=2.0)
+        existent (2/2)
+```

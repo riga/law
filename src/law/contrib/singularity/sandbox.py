@@ -33,6 +33,9 @@ class SingularitySandbox(Sandbox):
 
     config_section_prefix = sandbox_type
 
+    # "singularity exec" is executed on the host and must not see the env of the container, which is set up inside it
+    run_with_sandbox_env = False
+
     @property
     def image(self) -> str:
         """

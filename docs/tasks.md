@@ -149,5 +149,6 @@ They are described in {doc}`practices/run_methods`.
 - {doc}`workflows` describes tasks that process many similar units of work.
 - {doc}`practices/parameters` explains how parameter values are resolved and passed between tasks.
 - {doc}`practices/run_methods` collects patterns for writing robust run methods.
+- The [hands-on tutorial](https://github.com/riga/law/tree/master/examples/tutorial) is a notebook that introduces tasks, dependencies and workflows step by step.
 - The [loremipsum example](https://github.com/riga/law/tree/master/examples/loremipsum) is a small, complete project to start from.
 - {py:class}`law.Task <law.task.base.Task>` lists all attributes and methods.

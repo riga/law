@@ -12,6 +12,7 @@ import functools
 import logging
 import multiprocessing
 import re
+import sys
 
 import luigi
 
@@ -403,9 +404,9 @@ def patch_cmdline_parser() -> None:
 
 def patch_interface_logging() -> None:
     """
-    Patches ``luigi.setup_logging.InterfaceLogging._default`` to avoid adding multiple tty stream handlers to the logger
-    named "luigi-interface" and to preserve any previously set log level. Also, the formatters of its stream handlers
-    are amended in order to colorize parts of luigi log messages.
+    Patches ``luigi.setup_logging.InterfaceLogging._default`` to avoid adding multiple console stream handlers to the
+    logger named "luigi-interface" and to preserve any previously set log level. Also, the formatters of its stream
+    handlers are amended in order to colorize parts of luigi log messages.
     """
     _default_orig = luigi.setup_logging.InterfaceLogging._default
 
@@ -460,23 +461,31 @@ def patch_interface_logging() -> None:
 
         return msg
 
+    # helper to get handlers that log to the console, i.e., to a tty or to stdout / stderr even if they are redirected
+    def get_console_handlers(_logger: logging.Logger) -> list[logging.Handler]:
+        std_streams = (sys.stdout, sys.stderr, sys.__stdout__, sys.__stderr__)
+        return [
+            handler for handler in _logger.handlers
+            if law.logger.is_tty_handler(handler) or getattr(handler, "stream", None) in std_streams
+        ]
+
     @functools.wraps(_default_orig)
     def _default(cls, opts):
         _logger = logging.getLogger("luigi-interface")
 
         level_before = _logger.level
-        tty_handlers_before = law.logger.get_tty_handlers(_logger)
+        console_handlers_before = get_console_handlers(_logger)
 
         ret = _default_orig(opts)
 
         level_after = _logger.level
-        tty_handlers_after = law.logger.get_tty_handlers(_logger)
+        console_handlers_after = get_console_handlers(_logger)
 
         if level_before != logging.NOTSET and level_before != level_after:
             _logger.setLevel(level_before)
 
-        if tty_handlers_before:
-            for handler in tty_handlers_after[len(tty_handlers_before):]:
+        if console_handlers_before:
+            for handler in console_handlers_after[len(console_handlers_before):]:
                 _logger.removeHandler(handler)
 
         # update formatters to colorize messages

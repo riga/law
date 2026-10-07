@@ -4,8 +4,6 @@ This example shows how to work with file and directory targets that are stored i
 
 Resources: [luigi](http://luigi.readthedocs.io/en/stable), [law](http://law.readthedocs.io/en/latest)
 
-There are multiple ways to setup and run this example:
-
 ## Before you start
 
 ### 1. `gfal2`
@@ -18,7 +16,8 @@ docker run -ti riga/law:example dropbox_targets
 
 ### 2. Dropbox API credentials
 
-You need a Dropbox account and credentials to access your files via the Dropbox API. Create your API credentials in the [Dropbox App Console](https://www.dropbox.com/developers/apps) (**note**: select the *Full Dropbox* access type). Once you got them, add them to the [`law.cfg`](https://github.com/riga/law/blob/master/examples/dropbox_targets/law.cfg) file in this example directory:
+You need a Dropbox account and credentials to access your files via the Dropbox API. Create your API credentials in the [Dropbox App Console](https://www.dropbox.com/developers/apps) (**note**: select the *Full Dropbox* access type).
+Once you got them, add them to the [`law.cfg`](https://github.com/riga/law/blob/master/examples/dropbox_targets/law.cfg) file in this example directory:
 
 ```ini
 [dropbox]
@@ -49,7 +48,7 @@ top_dir = law.dropbox.DropboxDirectoryTarget("/")
 top_dir.path
 # => "/"
 
-top_dir.url()
+top_dir.uri()
 # => "dropbox://dropbox.com/lawdev/"
 # base was 'lawdev'
 

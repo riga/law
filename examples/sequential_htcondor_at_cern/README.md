@@ -2,12 +2,11 @@
 
 This example demonstrates how to create sequential law task workflows that run on the HTCondor batch system at CERN.
 
-The actual payload of the tasks is rather trivial, however, the way the jobs are eagerly submitted
-in a sequential fashion is a bit more advanced.
+The actual payload of the tasks is rather trivial, however, the way the jobs are eagerly submitted in a sequential fashion is a bit more advanced.
 If you haven't done so already, go through the [htcondor_at_cern](../htcondor_at_cern) example first for a more streamlined version of the same payload.
 
 The main idea of the task structure below is the following. Oftentimes, a sophisticated workflow might consist of several stages of jobs to process, where the result of jobs *A* is required by some jobs *B*.
-In some cases, it may happen that some jobs in *A* take significantly longer than others, resulting in a potentially unwanted delay, whereas some jobs on *B* could probably already be submitted.
+In some cases, it may happen that some jobs in *A* take significantly longer than others, resulting in a potentially unwanted delay, whereas some jobs in *B* could probably already be submitted.
 This *eager* job submission scenario can be easily modelled with law workflows as demonstrated below with a trivial payload.
 
 A workflow that submits jobs via HTCondor (*A* in the analogy above) consists of 26 tasks which convert an integer between 97 and 122 (ascii) into a character.
@@ -88,11 +87,10 @@ module 'analysis.tasks', 3 task(s):
 written 3 task(s) to index file '/examplepath/.law/index'
 ```
 
-## 3. Check the status a `CreatePartialAlphabet` task
+## 3. Check the status of a `CreatePartialAlphabet` task
 
 Here, we have two choices.
-We can either print the status of a single `CreatePartialAlphabet` branch (shown first), or we can
-print the status of a `CreatePartialAlphabet` workflow that only consists of one branch.
+We can either print the status of a single `CreatePartialAlphabet` branch (shown first), or we can print the status of a `CreatePartialAlphabet` workflow that only consists of one branch.
 Note the subtle but decisive difference between `--branch` and `--branches`.
 
 First with `--branch 0`:
@@ -102,28 +100,28 @@ First with `--branch 0`:
 
 print task status with max_depth -1 and target_depth 0
 
-0 > CreatePartialAlphabet(workflow=htcondor, branch=0, version=v1)
-│     LocalFileTarget(fs=local_fs, path=/examplepath/data/CreatePartialAlphabet/v1/alphabet_part0.txt)
+0 > CreatePartialAlphabet(effective_workflow=htcondor, branch=0, version=v1)
+│     LocalFileTarget(fs=local_fs, path=$DATA_PATH/CreatePartialAlphabet/v1/alphabet_part0.txt)
 │       absent
 │
-├──1 > CreateChars(workflow=htcondor, branch=0, version=v1)
-│        LocalFileTarget(fs=local_fs, path=/examplepath/data/CreateChars/v1/output_0.json)
+├──1 > CreateChars(effective_workflow=htcondor, branch=0, version=v1)
+│        LocalFileTarget(fs=local_fs, path=$DATA_PATH/CreateChars/v1/output_0.json)
 │          absent
 │
-├──1 > CreateChars(workflow=htcondor, branch=1, version=v1)
-│        LocalFileTarget(fs=local_fs, path=/examplepath/data/CreateChars/v1/output_1.json)
+├──1 > CreateChars(effective_workflow=htcondor, branch=1, version=v1)
+│        LocalFileTarget(fs=local_fs, path=$DATA_PATH/CreateChars/v1/output_1.json)
 │          absent
 │
-├──1 > CreateChars(workflow=htcondor, branch=2, version=v1)
-│        LocalFileTarget(fs=local_fs, path=/examplepath/data/CreateChars/v1/output_2.json)
+├──1 > CreateChars(effective_workflow=htcondor, branch=2, version=v1)
+│        LocalFileTarget(fs=local_fs, path=$DATA_PATH/CreateChars/v1/output_2.json)
 │          absent
 │
-├──1 > CreateChars(workflow=htcondor, branch=3, version=v1)
-│        LocalFileTarget(fs=local_fs, path=/examplepath/data/CreateChars/v1/output_3.json)
+├──1 > CreateChars(effective_workflow=htcondor, branch=3, version=v1)
+│        LocalFileTarget(fs=local_fs, path=$DATA_PATH/CreateChars/v1/output_3.json)
 │          absent
 │
-└──1 > CreateChars(workflow=htcondor, branch=4, version=v1)
-         LocalFileTarget(fs=local_fs, path=/examplepath/data/CreateChars/v1/output_4.json)
+└──1 > CreateChars(effective_workflow=htcondor, branch=4, version=v1)
+         LocalFileTarget(fs=local_fs, path=$DATA_PATH/CreateChars/v1/output_4.json)
            absent
 ```
 
@@ -134,18 +132,14 @@ And again with `--branches 0` (choosing a workflow containing only the first bra
 
 print task status with max_depth -1 and target_depth 0
 
-0 > CreatePartialAlphabet(workflow=htcondor, branch=-1, branches=0, version=v1)
-│     submission: LocalFileTarget(fs=local_fs, path=/examplepath/data/CreatePartialAlphabet/v1/htcondor_submission_0.json, optional)
+0 > CreatePartialAlphabet(effective_workflow=htcondor, branch=-1, branches=0, version=v1, workflow=htcondor)
+│     jobs: LocalFileTarget(fs=local_fs, path=$DATA_PATH/CreatePartialAlphabet/v1/htcondor_jobs_0.json, optional)
 │       absent
-│     status: LocalFileTarget(fs=local_fs, path=/examplepath/data/CreatePartialAlphabet/v1/htcondor_status_0.json, optional)
-│       absent
-│     collection: TargetCollection(len=1, threshold=1.0)
+│     collection: TargetCollection(len=1)
 │       absent (0/1)
 │
-└──1 > CreateChars(workflow=htcondor, branch=-1, branches=0:5, version=v1)
-         submission: LocalFileTarget(fs=local_fs, path=/examplepath/data/CreateChars/v1/htcondor_submission_0To6.json, optional)
-           absent
-         status: LocalFileTarget(fs=local_fs, path=/examplepath/data/CreateChars/v1/htcondor_status_0To6.json, optional)
+└──1 > CreateChars(effective_workflow=htcondor, branch=-1, branches=0:5, version=v1, workflow=htcondor)
+         jobs: LocalFileTarget(fs=local_fs, path=$DATA_PATH/CreateChars/v1/htcondor_jobs_0To5.json, optional)
            absent
          collection: TargetCollection(len=5, threshold=5.0)
            absent (0/5)
@@ -164,55 +158,43 @@ For better visibility, we can limit the depth by choosing `--print-status 1` ins
 print task status with max_depth 1 and target_depth 0
 
 0 > CreateFullAlphabet(version=v1)
-│     LocalFileTarget(fs=local_fs, path=/examplepath/data/CreateFullAlphabet/v1/full_alphabet.txt)
+│     LocalFileTarget(fs=local_fs, path=$DATA_PATH/CreateFullAlphabet/v1/full_alphabet.txt)
 │       absent
 │
-├──1 > CreatePartialAlphabet(workflow=htcondor, branch=-1, branches=0, version=v1)
-│        submission: LocalFileTarget(fs=local_fs, path=/examplepath/data/CreatePartialAlphabet/v1/htcondor_submission_0.json, optional)
+├──1 > CreatePartialAlphabet(effective_workflow=htcondor, branch=-1, branches=0, version=v1, workflow=htcondor)
+│        jobs: LocalFileTarget(fs=local_fs, path=$DATA_PATH/CreatePartialAlphabet/v1/htcondor_jobs_0.json, optional)
 │          absent
-│        status: LocalFileTarget(fs=local_fs, path=/examplepath/data/CreatePartialAlphabet/v1/htcondor_status_0.json, optional)
-│          absent
-│        collection: TargetCollection(len=1, threshold=1.0)
+│        collection: TargetCollection(len=1)
 │          absent (0/1)
 │
-├──1 > CreatePartialAlphabet(workflow=htcondor, branch=-1, branches=1, version=v1)
-│        submission: LocalFileTarget(fs=local_fs, path=/examplepath/data/CreatePartialAlphabet/v1/htcondor_submission_1.json, optional)
+├──1 > CreatePartialAlphabet(effective_workflow=htcondor, branch=-1, branches=1, version=v1, workflow=htcondor)
+│        jobs: LocalFileTarget(fs=local_fs, path=$DATA_PATH/CreatePartialAlphabet/v1/htcondor_jobs_1.json, optional)
 │          absent
-│        status: LocalFileTarget(fs=local_fs, path=/examplepath/data/CreatePartialAlphabet/v1/htcondor_status_1.json, optional)
-│          absent
-│        collection: TargetCollection(len=1, threshold=1.0)
+│        collection: TargetCollection(len=1)
 │          absent (0/1)
 │
-├──1 > CreatePartialAlphabet(workflow=htcondor, branch=-1, branches=2, version=v1)
-│        submission: LocalFileTarget(fs=local_fs, path=/examplepath/data/CreatePartialAlphabet/v1/htcondor_submission_2.json, optional)
+├──1 > CreatePartialAlphabet(effective_workflow=htcondor, branch=-1, branches=2, version=v1, workflow=htcondor)
+│        jobs: LocalFileTarget(fs=local_fs, path=$DATA_PATH/CreatePartialAlphabet/v1/htcondor_jobs_2.json, optional)
 │          absent
-│        status: LocalFileTarget(fs=local_fs, path=/examplepath/data/CreatePartialAlphabet/v1/htcondor_status_2.json, optional)
-│          absent
-│        collection: TargetCollection(len=1, threshold=1.0)
+│        collection: TargetCollection(len=1)
 │          absent (0/1)
 │
-├──1 > CreatePartialAlphabet(workflow=htcondor, branch=-1, branches=3, version=v1)
-│        submission: LocalFileTarget(fs=local_fs, path=/examplepath/data/CreatePartialAlphabet/v1/htcondor_submission_3.json, optional)
+├──1 > CreatePartialAlphabet(effective_workflow=htcondor, branch=-1, branches=3, version=v1, workflow=htcondor)
+│        jobs: LocalFileTarget(fs=local_fs, path=$DATA_PATH/CreatePartialAlphabet/v1/htcondor_jobs_3.json, optional)
 │          absent
-│        status: LocalFileTarget(fs=local_fs, path=/examplepath/data/CreatePartialAlphabet/v1/htcondor_status_3.json, optional)
-│          absent
-│        collection: TargetCollection(len=1, threshold=1.0)
+│        collection: TargetCollection(len=1)
 │          absent (0/1)
 │
-├──1 > CreatePartialAlphabet(workflow=htcondor, branch=-1, branches=4, version=v1)
-│        submission: LocalFileTarget(fs=local_fs, path=/examplepath/data/CreatePartialAlphabet/v1/htcondor_submission_4.json, optional)
+├──1 > CreatePartialAlphabet(effective_workflow=htcondor, branch=-1, branches=4, version=v1, workflow=htcondor)
+│        jobs: LocalFileTarget(fs=local_fs, path=$DATA_PATH/CreatePartialAlphabet/v1/htcondor_jobs_4.json, optional)
 │          absent
-│        status: LocalFileTarget(fs=local_fs, path=/examplepath/data/CreatePartialAlphabet/v1/htcondor_status_4.json, optional)
-│          absent
-│        collection: TargetCollection(len=1, threshold=1.0)
+│        collection: TargetCollection(len=1)
 │          absent (0/1)
 │
-└──1 > CreatePartialAlphabet(workflow=htcondor, branch=-1, branches=5, version=v1)
-         submission: LocalFileTarget(fs=local_fs, path=/examplepath/data/CreatePartialAlphabet/v1/htcondor_submission_5.json, optional)
+└──1 > CreatePartialAlphabet(effective_workflow=htcondor, branch=-1, branches=5, version=v1, workflow=htcondor)
+         jobs: LocalFileTarget(fs=local_fs, path=$DATA_PATH/CreatePartialAlphabet/v1/htcondor_jobs_5.json, optional)
            absent
-         status: LocalFileTarget(fs=local_fs, path=/examplepath/data/CreatePartialAlphabet/v1/htcondor_status_5.json, optional)
-           absent
-         collection: TargetCollection(len=1, threshold=1.0)
+         collection: TargetCollection(len=1)
            absent (0/1)
 ```
 
@@ -220,7 +202,7 @@ As you can see, there is a total of six tasks required (`ceil(26 / 5)`).
 
 ## 5. Run the `CreateFullAlphabet` task
 
-As we want to see the eager submission structure in action, we pick six six parallel processes to run (``--workers 6``) which allows starting the six `CreatePartialAlphabet` tasks (that only perform job status polling on your local machine) with maximum concurrency.
+As we want to see the eager submission structure in action, we pick six parallel processes to run (``--workers 6``) which allows starting the six `CreatePartialAlphabet` tasks (that only perform job status polling on your local machine) with maximum concurrency.
 
 ```shell
 law run CreateFullAlphabet --version v1 --workers 6

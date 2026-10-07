@@ -5,23 +5,22 @@ action() {
     local this_file="$( ${shell_is_zsh} && echo "${(%):-%x}" || echo "${BASH_SOURCE[0]}" )"
     local this_dir="$( cd "$( dirname "${this_file}" )" && pwd )"
 
-    export VIRTUAL_ENV_DISABLE_PROMPT="1"
+    # setup software once in a venv when not in the example image
+    if [ -z "${LAW_DOCKER_EXAMPLE}" ]; then
+        export VIRTUAL_ENV_DISABLE_PROMPT="1"
 
-    # setup external software once in a venv
-    local sw_dir="${this_dir}/data/software"
-    if [ ! -d "${sw_dir}" ]; then
-        mkdir -p "${sw_dir}"
-        python -m venv "${sw_dir}" --upgrade-deps || return "$?"
-        source "${sw_dir}/bin/activate" "" || return "$?"
-        pip install -U luigi six
-    else
-        source "${sw_dir}/bin/activate" "" || return "$?"
+        local law_base="$( dirname "$( dirname "${this_dir}" )" )"
+        local sw_dir="${this_dir}/tmp/venv"
+        if [ ! -d "${sw_dir}" ]; then
+            python3 -m venv "${sw_dir}" --upgrade-deps || return "$?"
+            source "${sw_dir}/bin/activate" "" || return "$?"
+            pip install -e "${law_base}" || return "$?"
+        else
+            source "${sw_dir}/bin/activate" "" || return "$?"
+        fi
     fi
 
-    local law_base="$( dirname "$( dirname "${this_dir}" )" )"
-    export PATH="${law_base}/bin:${PATH}"
-    export PYTHONPATH="${this_dir}:${law_base}:${PYTHONPATH}"
-
+    export PYTHONPATH="${this_dir}:${PYTHONPATH}"
     export LAW_HOME="${this_dir}/.law"
     export LAW_CONFIG_FILE="${this_dir}/law.cfg"
     export WORKFLOWEXAMPLE_DATA_PATH="${this_dir}/data/store"

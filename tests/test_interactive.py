@@ -256,6 +256,18 @@ class TestInteractive:
         assert exc_info.value.code == 0
         law.parser._reset()
 
+    def test_interactive_parameter_repeated(self) -> None:
+        # repeating the same interactive instantiation within one process evaluates the parameter again, rather than
+        # returning a cached instance whose interactive parameter was already reset
+        for _ in range(2):
+            with pytest.raises(SystemExit) as exc_info:
+                self.capture(LawTestInteractiveTop, out_dir=self.tmp, print_deps="0")
+            assert exc_info.value.code == 0
+        law.parser._reset()
+
+        # the instance without interactive parameters is still cached
+        assert LawTestInteractiveTop(out_dir=self.tmp) is LawTestInteractiveTop(out_dir=self.tmp)
+
     def test_interactive_parameter_via_cli(self) -> None:
         buf = io.StringIO()
         with pytest.raises(SystemExit), contextlib.redirect_stdout(buf):

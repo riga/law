@@ -4,6 +4,7 @@ Example showing (local) law workflows.
 The actual payload of the tasks is rather trivial.
 """
 
+from __future__ import annotations
 
 import os
 import random
@@ -17,7 +18,7 @@ import law
 def maybe_wait(func):
     """
     Wrapper around run() methods that reads the *slow* flag to decide whether to wait some seconds
-    for illustrative purposes. This is very straight forward, so no need for functools.wraps here.
+    for illustrative purposes. This is very straight forward, so no need for ``functools.wraps`` here.
     """
     def wrapper(self, *args, **kwargs):
         if self.slow:
@@ -40,8 +41,8 @@ class Task(law.Task):
 
     def local_path(self, *path):
         # WORKFLOWEXAMPLE_DATA_PATH is defined in setup.sh
-        parts = (os.getenv("WORKFLOWEXAMPLE_DATA_PATH"), *self.store_parts(), *path)
-        return os.path.join(*parts)
+        parts = ("$WORKFLOWEXAMPLE_DATA_PATH", *self.store_parts(), *path)
+        return os.path.join(*map(str, parts))
 
     def local_target(self, *path):
         return law.LocalFileTarget(self.local_path(*path))

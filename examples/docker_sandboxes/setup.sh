@@ -23,7 +23,8 @@ action() {
     export PYTHONPATH="${this_dir}:${PYTHONPATH}"
     export LAW_HOME="${this_dir}/.law"
     export LAW_CONFIG_FILE="${this_dir}/law.cfg"
-    export WORKFLOWEXAMPLE_DATA_PATH="${this_dir}/data"
+    export DOCKEREXAMPLE_PATH="${this_dir}"
+    export DATA_PATH="${this_dir}/data"
 
     source "$( law completion )" ""
 }

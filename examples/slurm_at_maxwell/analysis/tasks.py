@@ -4,8 +4,7 @@ Law example tasks to demonstrate Slurm workflows at the Desy Maxwell cluster.
 The actual payload of the tasks is rather trivial.
 """
 
-
-import six
+from __future__ import annotations
 
 import law
 
@@ -77,7 +76,7 @@ class CreateAlphabet(Task):
         # loop over all targets in the collection, load the json data, and append the character
         # to the alphabet
         alphabet = ""
-        for inp in six.itervalues(inputs):
+        for inp in inputs.values():
             alphabet += inp.load()["char"]
 
         # again, dump the alphabet string into the output file

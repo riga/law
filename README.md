@@ -154,6 +154,7 @@ Most examples can be run in a dedicated Docker container via
 docker run -ti riga/law:example <example_name>
 ```
 
+- [tutorial](https://github.com/riga/law/tree/master/examples/tutorial): Hands-on notebook for newcomers that introduces the most important concepts step by step.
 - [loremipsum](https://github.com/riga/law/tree/master/examples/loremipsum): The *hello world* example of law.
 - [workflows](https://github.com/riga/law/tree/master/examples/workflows): Law workflows.
 - [workflow_parameters](https://github.com/riga/law/tree/master/examples/workflow_parameters): Alternative way of parametrizing workflows with explicit branch parameters.
