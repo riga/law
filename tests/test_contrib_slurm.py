@@ -149,8 +149,8 @@ class TestSlurmJobManager:
         assert groups == {"200": ["200_0", "200_1"], 123: [123], "201": ["201_0"]}
 
     def test_grouping_defaults(self) -> None:
-        assert SlurmJobManager.job_grouping_submit is False
-        assert SlurmJobManager.job_grouping_query is False
+        assert SlurmJobManager.job_grouping_submit is True
+        assert SlurmJobManager.job_grouping_query is True
         assert SlurmJobManager.job_grouping_cancel is False
         assert SlurmJobManager.job_group_size == 1000
 
