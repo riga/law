@@ -83,13 +83,22 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
 
         # get the actual wrapper file that will be executed by the remote job
         law_job_file = task.slurm_job_file()
+        if not isinstance(law_job_file, JobInputFile):
+            law_job_file = JobInputFile(get_path(law_job_file))
         if grouped_submission:
-            # the job file is shared by all jobs in the array and rendered per job by the group wrapper
-            law_job_file = JobInputFile(get_path(law_job_file), copy=True, share=True, render_job=True)
+            # make sure the actual job file is shared by all jobs in the array and rendered per job by the group wrapper
+            law_job_file.share = True
+            law_job_file.render_job = True
             wrapper_file = task.slurm_group_wrapper_file()
             c.input_files["executable_file"] = wrapper_file
             c.executable = wrapper_file
         else:
+            # make sure the actual job file is rendered locally and copied
+            law_job_file.copy = True
+            law_job_file.share = False
+            law_job_file.postfix = True
+            law_job_file.render_local = True
+            law_job_file.render_job = False
             wrapper_file = task.slurm_wrapper_file()  # type: ignore[assignment]
             if wrapper_file and get_path(wrapper_file) != get_path(law_job_file):
                 c.input_files["executable_file"] = wrapper_file
@@ -471,7 +480,12 @@ class SlurmWorkflow(BaseRemoteWorkflow):
 
         :return: The job file.
         """
-        return JobInputFile(law_src_path("job", "law_job.sh"))
+        return JobInputFile(
+            law_src_path("job", "law_job.sh"),
+            copy=True,
+            share=True,
+            render_job=True,
+        )
 
     def slurm_stageout_file(self) -> str | pathlib.Path | LocalFileTarget | JobInputFile | None:
         """

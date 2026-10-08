@@ -229,10 +229,23 @@ class TestSlurmJobFileFactory:
         self.tmp = os.path.realpath(tmp_path)
         self.factory = SlurmJobFileFactory(dir=os.path.join(self.tmp, "factory"), mkdtemp=False, cleanup=False)
 
-        # dummy job file that records its rendered postfix, job number and arguments
+        # additional input file that is rendered per job and read by the job relative to its directory
+        self.extra_file = os.path.join(self.tmp, "extra.txt")
+        with open(self.extra_file, "w", encoding="utf-8") as f:
+            f.write("extra{{file_postfix}}\n")
+
+        # dummy job file that records its rendered postfix, job number, arguments, the content of the extra file, and
+        # its working directory into a result file outside the (potentially isolated and removed) job directory
+        self.result_dir = os.path.join(self.tmp, "results")
+        os.makedirs(self.result_dir)
         self.job_file = write_executable(os.path.join(self.tmp, "dummy_job.sh"), "\n".join([
             "#!/usr/bin/env bash",
-            "echo \"postfix={{file_postfix}} index=${LAW_SLURM_TASK_ID} args=$*\" > \"result{{file_postfix}}.txt\"",
+            "extra=\"$( cat {{extra_file}} )\"",
+            (
+                "echo \"postfix={{file_postfix}} index=${LAW_SLURM_TASK_ID} args=$* extra=${extra}\" > "
+                f"\"{self.result_dir}/result{{{{file_postfix}}}}.txt\""
+            ),
+            f"basename \"$( /bin/pwd )\" > \"{self.result_dir}/cwd{{{{file_postfix}}}}.txt\"",
             "",
         ]))
 
@@ -245,6 +258,7 @@ class TestSlurmJobFileFactory:
         ))
         kwargs.setdefault("input_files", {
             "job_file": JobInputFile(self.job_file, copy=True, share=True, render_job=True),
+            "extra_file": JobInputFile(self.extra_file, copy=True, share=True, render_job=True),
         })
         kwargs.setdefault("arguments", ["a1 x", "a2 y"])
         kwargs.setdefault("postfix", ["_0To1", "_1To2"])
@@ -295,20 +309,41 @@ class TestSlurmJobFileFactory:
         p = subprocess.run(["bash", job_file], cwd=c.dir, env=env, capture_output=True, text=True, check=False)
         assert p.returncode == 0, p.stderr
 
-        # the job file was rendered for and called with the second job
-        with open(os.path.join(c.dir, "result_1To2.txt"), encoding="utf-8") as f:
-            assert f.read().strip() == "postfix=_1To2 index=1 args=a2 y"
+        # the job file and the extra file were rendered for and called with the second job
+        with open(os.path.join(self.result_dir, "result_1To2.txt"), encoding="utf-8") as f:
+            assert f.read().strip() == "postfix=_1To2 index=1 args=a2 y extra=extra_1To2"
+
+        # the job ran in its isolated directory
+        with open(os.path.join(self.result_dir, "cwd_1To2.txt"), encoding="utf-8") as f:
+            assert f.read().strip().startswith("law_group_job_1_")
 
         # the log was written to the per-job log file
         with open(os.path.join(self.tmp, "logs", "stdall_1To2.txt"), encoding="utf-8") as f:
             assert "Start of law job" in f.read()
 
-        # the job specific render directory was removed and the shared job file is untouched
+        # the isolated job directory was removed and the shared input files are untouched
         assert not [name for name in os.listdir(c.dir) if name.startswith("law_group_job_")]
-        shared_job_files = [name for name in os.listdir(c.dir) if name.startswith("dummy_job")]
-        assert len(shared_job_files) == 1
-        with open(os.path.join(c.dir, shared_job_files[0]), encoding="utf-8") as f:
-            assert "{{file_postfix}}" in f.read()
+        for prefix in ["dummy_job", "extra"]:
+            shared_files = [name for name in os.listdir(c.dir) if name.startswith(prefix)]
+            assert len(shared_files) == 1
+            with open(os.path.join(c.dir, shared_files[0]), encoding="utf-8") as f:
+                assert "{{file_postfix}}" in f.read()
+
+    def test_run_array_task_render_error(self) -> None:
+        job_file, c = self.create_array()
+
+        # remove the shared extra file so that rendering fails after the isolated job directory was created
+        for name in os.listdir(c.dir):
+            if name.startswith("extra"):
+                os.remove(os.path.join(c.dir, name))
+
+        env = dict(os.environ, SLURM_ARRAY_TASK_ID="1")
+        p = subprocess.run(["bash", job_file], cwd=c.dir, env=env, capture_output=True, text=True, check=False)
+        assert p.returncode != 0
+        assert "input file rendering failed" in p.stdout
+
+        # the isolated job directory was removed nonetheless
+        assert not [name for name in os.listdir(c.dir) if name.startswith("law_group_job_")]
 
     def test_run_array_task_invalid_index(self) -> None:
         job_file, c = self.create_array()

@@ -75,6 +75,8 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
 
         # get the actual wrapper and job file that will be executed by the remote job
         law_job_file = task.htcondor_job_file()
+        if not isinstance(law_job_file, JobInputFile):
+            law_job_file = JobInputFile(get_path(law_job_file))
         c.input_files["job_file"] = law_job_file
         if grouped_submission:
             # grouped wrapper file
@@ -82,6 +84,12 @@ class HTCondorWorkflowProxy(BaseRemoteWorkflowProxy):
             c.input_files["executable_file"] = wrapper_file
             c.executable = wrapper_file
         else:
+            # make sure the actual job file is rendered locally and copied
+            law_job_file.copy = True
+            law_job_file.share = False
+            law_job_file.postfix = True
+            law_job_file.render_local = True
+            law_job_file.render_job = False
             # standard wrapper file
             wrapper_file = task.htcondor_wrapper_file()  # type: ignore[assignment]
             if wrapper_file and get_path(wrapper_file) != get_path(law_job_file):

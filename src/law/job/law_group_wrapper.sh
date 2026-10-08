@@ -25,6 +25,17 @@ law_group_wrapper() {
         command -v python &> /dev/null && python "$@" || python3 "$@"
     }
 
+    # helper to print a banner
+    banner() {
+        local msg="$1"
+
+        echo
+        echo "================================================================================"
+        echo "=== ${msg}"
+        echo "================================================================================"
+        echo
+    }
+
     #
     # detect variables
     #
@@ -33,7 +44,14 @@ law_group_wrapper() {
     local this_file="$( ${shell_is_zsh} && echo "${(%):-%x}" || echo "${BASH_SOURCE[0]}" )"
     local this_file_base="$( basename "${this_file}" )"
 
-    echo "running ${this_file_base} for job index ${LAW_GROUP_JOB_INDEX}"
+    local law_group_job_init_dir="$( /bin/pwd )"
+
+    banner "Start of law group job"
+
+    echo "wrapper  : ${this_file_base}"
+    echo "job index: ${LAW_GROUP_JOB_INDEX}"
+    echo "pwd      : ${law_group_job_init_dir}"
+    echo
 
 
     #
@@ -54,62 +72,116 @@ law_group_wrapper() {
 
 
     #
+    # handle per-job isolation
+    #
+
+    local law_group_job_dir="${law_group_job_init_dir}"
+    local law_maybe_linked_input_files_seq=""
+
+    # helper to leave and remove the isolated job directory, to be called before returning
+    cleanup() {
+        if ${law_group_job_isolate} && [ "${law_group_job_dir}" != "${law_group_job_init_dir}" ]; then
+            cd "${law_group_job_init_dir}"
+            rm -rf "${law_group_job_dir}"
+        fi
+    }
+
+    local law_group_job_isolate="{{law_group_job_isolate}}"
+    if [ "${law_group_job_isolate}" = "true" ]; then
+        law_group_job_dir="$( mktemp -d "${law_group_job_dir}/law_group_job_${LAW_GROUP_JOB_INDEX}_XXXXXXXX" )"
+        if [ ! -d "${law_group_job_dir}" ]; then
+            >&2 echo "could not create render directory for job index ${LAW_GROUP_JOB_INDEX}: ${law_group_job_dir}"
+            return "4"
+        fi
+
+        # change into the directory
+        echo "job uses isolation"
+        echo "new pwd  : ${law_group_job_dir}"
+        echo
+        cd "${law_group_job_dir}"
+
+        # link input files
+        local input_files=(
+            {{input_files}}
+        )
+        if [ "${#input_files[@]}" != "0" ]; then
+            local input_file
+            for input_file in ${input_files[@]}; do
+                # ensure absolute path
+                [ "${input_file:0:1}" != "/" ] && input_file="${law_group_job_init_dir}/${input_file}"
+                # skip _this_ file
+                local input_file_base="$( basename "${input_file}" )"
+                [ "${input_file_base}" = "${this_file_base}" ] && continue
+                # link
+                echo "link ${input_file}"
+                ln -s "${input_file}" .
+                # remember for later use
+                law_maybe_linked_input_files_seq="${law_maybe_linked_input_files_seq} ${law_group_job_dir}/${input_file_base}"
+            done
+            unset input_file
+        fi
+    else
+        law_group_job_isolate="false"
+    fi
+
+
+    #
     # variable rendering
     #
 
     # check variables
+    # at least one must be set, otherwise jobs would be identical
     local render_variables="{{render_variables}}"
     if [ -z "${render_variables}" ]; then
-        >&2 echo "empty render variables"
-        return "4"
+        >&2 echo "empty render variables for job index ${LAW_GROUP_JOB_INDEX}"
+        cleanup
+        return "5"
     fi
 
     # decode
     render_variables="$( echo "${render_variables}" | base64 --decode )"
 
     # check files to render
+    # at least one must exist, otherwise jobs would be identical
     local input_files_render=( {{input_files_render}} )
-    if [ "${#input_files_render[@]}" == "0" ]; then
+    if [ "${#input_files_render[@]}" = "0" ]; then
         >&2 echo "received empty input files for rendering for job index ${LAW_GROUP_JOB_INDEX}"
+        cleanup
         return "5"
-    fi
-
-    # directory to render files into
-    local render_dir="."
-    local law_group_job_isolate="{{law_group_job_isolate}}"
-    if [ "${law_group_job_isolate}" = "true" ]; then
-        render_dir="$( mktemp -d "${PWD}/law_group_job_${LAW_GROUP_JOB_INDEX}_XXXXXXXX" )"
-        if [ ! -d "${render_dir}" ]; then
-            >&2 echo "could not create render directory for job index ${LAW_GROUP_JOB_INDEX}"
-            return "8"
-        fi
     fi
 
     # render files
     local input_file_render
     for input_file_render in ${input_files_render[@]}; do
-        # skip if the file refers to _this_ one
+        # ensure absolute path
+        [ "${input_file_render:0:1}" != "/" ] && input_file_render="${law_group_job_init_dir}/${input_file_render}"
+        # skip _this_ file
         local input_file_render_base="$( basename "${input_file_render}" )"
         [ "${input_file_render_base}" = "${this_file_base}" ] && continue
         # render
         echo "render ${input_file_render}"
-        cat > "${render_dir}/_render.py" << EOT
-import re
+        cat > "_render.py" << EOT
+import os, re
 repl = ${render_variables}
+repl['input_files'] = '${law_maybe_linked_input_files_seq}'.strip() or repl.get('input_files', '')
 repl['input_files_render'] = ''
 repl['file_postfix'] = '${file_postfix}' or repl.get('file_postfix', '')
 repl['log_file'] = ''
 content = open('${input_file_render}', 'r').read()
 content = re.sub(r'\{\{(\w+)\}\}', lambda m: repl.get(m.group(1), ''), content)
-open('${render_dir}/${input_file_render_base}', 'w').write(content)
+# unlink first (after reading) to not write into the target of a symlink
+if os.path.islink('${input_file_render_base}'):
+    os.remove('${input_file_render_base}')
+open('${input_file_render_base}', 'w').write(content)
 EOT
-        _law_python "${render_dir}/_render.py"
+        _law_python "_render.py"
         local render_ret="$?"
-        rm -f "${render_dir}/_render.py"
+        rm -f "_render.py"
         # handle rendering errors
         if [ "${render_ret}" != "0" ]; then
             >&2 echo "input file rendering failed with code ${render_ret}"
-            return "6"
+            cleanup
+            return "5"
         fi
     done
 
@@ -118,26 +190,13 @@ EOT
     # run the actual job file
     #
 
-    # check the job file, preferring the rendered version
+    # check the job file
     local job_file="{{job_file}}"
-    if [ -f "${render_dir}/$( basename "${job_file}" )" ]; then
-        job_file="${render_dir}/$( basename "${job_file}" )"
-    fi
     if [ ! -f "${job_file}" ]; then
         >&2 echo "job file '${job_file}' does not exist"
-        return "7"
+        cleanup
+        return "6"
     fi
-
-    # helper to print a banner
-    banner() {
-        local msg="$1"
-
-        echo
-        echo "================================================================================"
-        echo "=== ${msg}"
-        echo "================================================================================"
-        echo
-    }
 
     # debugging: print its contents
     # echo "=== content of job file '${job_file}'"
@@ -155,8 +214,8 @@ EOT
 
     banner "End of law job"
 
-    # remove the render directory
-    [ "${render_dir}" != "." ] && rm -rf "${render_dir}"
+    # remove isolated job directory if necessary
+    cleanup
 
     return "${job_ret}"
 }
@@ -173,7 +232,7 @@ action() {
     # array subscripts are evaluated arithmetically, so ensure the index is a non-negative integer
     if [[ ! "${LAW_GROUP_JOB_INDEX}" =~ ^[0-9]+$ ]]; then
         >&2 echo "invalid job index '${LAW_GROUP_JOB_INDEX}' from variable '${law_group_job_index_var}'"
-        return "1"
+        return "2"
     fi
 
     # optional per-job postfixes and log files

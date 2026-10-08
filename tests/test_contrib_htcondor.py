@@ -145,7 +145,7 @@ class TestHTCondorGroupWrapper:
             text=True,
         )
         assert p.returncode == 0, p.stderr
-        assert "running law_group_wrapper" in p.stdout
+        assert "Start of law group job" in p.stdout
 
         with open(os.path.join(sandbox, "result.txt"), encoding="utf-8") as f:
             assert f.read().strip() == "postfix=_1To2 index=1 args=a2 y"
@@ -202,4 +202,4 @@ class TestHTCondorGroupWrapper:
         with open(os.path.join(sandbox, "result.txt"), encoding="utf-8") as f:
             assert f.read().strip() == "postfix=_1To2"
         with open(os.path.join(sandbox, log), encoding="utf-8") as f:
-            assert "running law_group_wrapper" in f.read()
+            assert "Start of law group job" in f.read()
