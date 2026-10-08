@@ -76,7 +76,8 @@ law_group_wrapper() {
 
     # directory to render files into
     local render_dir="."
-    if [ "{{law_group_job_isolate}}" = "true" ]; then
+    local law_group_job_isolate="{{law_group_job_isolate}}"
+    if [ "${law_group_job_isolate}" = "true" ]; then
         render_dir="$( mktemp -d "${PWD}/law_group_job_${LAW_GROUP_JOB_INDEX}_XXXXXXXX" )"
         if [ ! -d "${render_dir}" ]; then
             >&2 echo "could not create render directory for job index ${LAW_GROUP_JOB_INDEX}"
