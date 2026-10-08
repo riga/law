@@ -11,7 +11,7 @@ def config_defaults(default_config: dict) -> dict[str, dict[str, Any]]:
     return {
         "job": {
             "slurm_job_grouping_submit": False,
-            "slurm_job_array_max_size": 1000,
+            "slurm_job_group_size": 1000,
             "slurm_job_file_dir": None,
             "slurm_job_file_dir_mkdtemp": None,
             "slurm_job_file_dir_cleanup": False,

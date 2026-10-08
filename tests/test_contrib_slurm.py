@@ -58,7 +58,7 @@ class LawTestSlurmJobManager(SlurmJobManager):
 
     job_grouping_submit = True
     job_grouping_query = True
-    job_array_max_size = 2
+    job_group_size = 2
 
 
 class LawTestSlurmWorkflow(SlurmWorkflow):
@@ -152,7 +152,7 @@ class TestSlurmJobManager:
         assert SlurmJobManager.job_grouping_submit is False
         assert SlurmJobManager.job_grouping_query is False
         assert SlurmJobManager.job_grouping_cancel is False
-        assert SlurmJobManager.job_array_max_size == 1000
+        assert SlurmJobManager.job_group_size == 1000
 
     def test_submit(self, fake_slurm: pathlib.Path, tmp_path: pathlib.Path) -> None:
         job_file = tmp_path / "job.sh"

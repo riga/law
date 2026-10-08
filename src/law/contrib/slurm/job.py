@@ -36,7 +36,7 @@ class SlurmJobManager(BaseJobManager):
 
     Whether jobs are submitted in groups as job arrays (see https://slurm.schedmd.com/job_array.html) is configured
     through the ``slurm_job_grouping_submit`` option, and the maximum number of jobs per array through the
-    ``slurm_job_array_max_size`` option, which must not exceed the ``MaxArraySize`` setting of the Slurm cluster. Jobs
+    ``slurm_job_group_size`` option, which must not exceed the ``MaxArraySize`` setting of the Slurm cluster. Jobs
     in arrays are identified by ids in the format ``<array_job_id>_<array_task_id>``, and their status is queried per
     array.
     """
@@ -46,7 +46,7 @@ class SlurmJobManager(BaseJobManager):
     job_grouping_query = job_grouping_submit
 
     # maximum number of jobs per job array
-    job_array_max_size = _cfg.get_expanded_int("job", "slurm_job_array_max_size")
+    job_group_size = _cfg.get_expanded_int("job", "slurm_job_group_size")
 
     # chunking settings
     chunk_size_submit = 0

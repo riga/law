@@ -261,7 +261,7 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
         task: SlurmWorkflow = self.task
 
         # split jobs into arrays with a maximum size
-        max_size = max(int(self.job_manager.job_array_max_size or 0), 1)  # type: ignore[attr-defined]
+        max_size = max(int(self.job_manager.job_group_size or 0), 1)  # type: ignore[attr-defined]
         items = list(submit_jobs.items())
         chunks = [dict(items[i:i + max_size]) for i in range(0, len(items), max_size)]
 
