@@ -69,7 +69,7 @@
 # 80: The stageout command failed.
 
 law_job() {
-    local this_file="$( basename "${BASH_SOURCE[0]}" )"
+    local this_file_base="$( basename "${BASH_SOURCE[0]}" )"
     local _law_job_start_time="$( date +"%d/%m/%Y %T.%N (%Z)" )"
 
     echo "law remote job script"
@@ -117,10 +117,8 @@ law_job() {
     local bootstrap_file="{{bootstrap_file}}"
     local bootstrap_command="{{bootstrap_command}}"
     local dashboard_file="{{dashboard_file}}"
-    local input_files
-    input_files=( {{input_files}} )
-    local input_files_render
-    input_files_render=( {{input_files_render}} )
+    local input_files=( {{input_files}} )
+    local input_files_render=( {{input_files_render}} )
     local render_variables="{{render_variables}}"
     local python_exe="{{python_exe}}"
     local law_exe="{{law_exe}}"
@@ -458,17 +456,16 @@ law_job() {
         _law_job_subsection "link input files"
 
         # symlink relative input files into the job home directory
+        local input_file
         for input_file in ${input_files[@]}; do
-            # skip if the file refers to _this_ one
-            local input_file_base="$( basename "${input_file}" )"
-            [ "${input_file_base}" = "${this_file}" ] && continue
-            # resolve the source location relative to LAW_JOB_INIT_DIR
+            # ensure absolute path
             [ "${input_file:0:1}" != "/" ] && input_file="${LAW_JOB_INIT_DIR}/${input_file}"
+            # skip _this_ file
+            [ "$( basename "${input_file}" )" = "${this_file_base}" ] && continue
             # link
             echo "link ${input_file}"
             ln -s "${input_file}" .
         done
-        unset input_file
     fi
 
     # handle input file rendering
@@ -478,14 +475,15 @@ law_job() {
         _law_job_subsection "render input files"
 
         # render files
+        local input_file_render
         for input_file_render in ${input_files_render[@]}; do
-            # skip if the file refers to _this_ one
-            local input_file_render_base="$( basename "${input_file_render}" )"
-            [ "${input_file_render_base}" = "${this_file}" ] && continue
-            # unlink first when present in the current directory
-            rm -f "${input_file_render_base}"
-            # resolve the source location relative to LAW_JOB_INIT_DIR
+            # ensure absolute path
             [ "${input_file_render:0:1}" != "/" ] && input_file_render="${LAW_JOB_INIT_DIR}/${input_file_render}"
+            # skip _this_ file
+            local input_file_render_base="$( basename "${input_file_render}" )"
+            [ "${input_file_render_base}" = "${this_file_base}" ] && continue
+            # unlink if present
+            [ -L "${input_file_render_base}" ] && rm -f "${input_file_render_base}"
             # render
             echo "render ${input_file_render}"
             cat > _render.py << EOT
@@ -505,7 +503,6 @@ EOT
                 return "$?"
             fi
         done
-        unset input_file_render
     fi
 
     # show files in job home after linking

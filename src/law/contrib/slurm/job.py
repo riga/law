@@ -14,7 +14,7 @@ import stat
 import subprocess
 import time
 
-from law._types import Any, Sequence
+from law._types import Any, Hashable, Sequence
 from law.config import Config
 from law.errors import JobError
 from law.job.base import BaseJobFileFactory, BaseJobManager, JobInputFile
@@ -33,7 +33,20 @@ class SlurmJobManager(BaseJobManager):
     ``sacct``. The exact commands can be configured through the ``slurm_cmd_*`` options of the ``[job]`` config section,
     as well as chunk sizes for batched operations through the ``slurm_chunk_size_*`` options. *partition* selects the
     Slurm partition. *threads* is the default number of threads for batched operations.
+
+    Whether jobs are submitted in groups as job arrays (see https://slurm.schedmd.com/job_array.html) is configured
+    through the ``slurm_job_grouping_submit`` option, and the maximum number of jobs per array through the
+    ``slurm_job_group_size`` option, which must not exceed the ``MaxArraySize`` setting of the Slurm cluster. Jobs
+    in arrays are identified by ids in the format ``<array_job_id>_<array_task_id>``, and their status is queried per
+    array.
     """
+
+    # whether to use job grouping (job arrays) or batched submission
+    job_grouping_submit = _cfg.get_expanded_bool("job", "slurm_job_grouping_submit")
+    job_grouping_query = job_grouping_submit
+
+    # maximum number of jobs per job array
+    job_group_size = _cfg.get_expanded_int("job", "slurm_job_group_size")
 
     # chunking settings
     chunk_size_submit = 0
@@ -42,11 +55,13 @@ class SlurmJobManager(BaseJobManager):
 
     submission_cre = re.compile(r"^Submitted batch job (\d+)$")
 
-    squeue_format = r"JobID,State"
-    squeue_cre = re.compile(r"^\s*(\d+)\s+([^\s]+)$")
+    # job array tasks are shown individually (--array) with their array job and task id, which is "N/A" for normal jobs
+    squeue_format = r"ArrayJobID:32,ArrayTaskID:16,State:32"
+    squeue_cre = re.compile(r"^\s*(\d+)\s+(\d+|N/A)\s+([^\s]+)\s*$")
 
-    sacct_format = r"JobID,State,ExitCode,Reason"
-    sacct_cre = re.compile(r"^\s*(\d+)\s+([^\s]+)\s+(-?\d+):-?\d+\s+(.+)$")
+    # job ids of array tasks are shown as <array_job_id>_<array_task_id>
+    sacct_format = r"JobID%32,State,ExitCode,Reason"
+    sacct_cre = re.compile(r"^\s*(\d+(?:_\d+)?)\s+([^\s]+)\s+(-?\d+):-?\d+\s+(.+)$")
 
     def __init__(self, partition: str | None = None, threads: int = 1) -> None:
         super().__init__()
@@ -63,12 +78,16 @@ class SlurmJobManager(BaseJobManager):
     def submit(  # type: ignore[override]
         self,
         job_file: str | pathlib.Path,
+        job_files: Sequence[str | pathlib.Path] | None = None,
         partition: str | None = None,
         retries: int = 0,
         retry_delay: float | int = 3,
         silent: bool = False,
         _processes: list | None = None,
-    ) -> int | None:
+    ) -> int | list[str] | None:
+        # when job_files is set, job_file is a job array file and job_files contains it once per job in the array
+        # (see BaseJobManager.submit_group), and the returned ids refer to the individual array tasks
+
         # default arguments
         if partition is None:
             partition = self.partition
@@ -114,6 +133,8 @@ class SlurmJobManager(BaseJobManager):
 
             # retry or done?
             if code == 0:
+                if job_files is not None:
+                    return [f"{job_id}_{i}" for i in range(len(job_files))]
                 return job_id
 
             logger.debug(f"submission of slurm job '{job_file}' failed with code {code}:\n{err}")
@@ -130,11 +151,11 @@ class SlurmJobManager(BaseJobManager):
 
     def cancel(  # type: ignore[override]
         self,
-        job_id: int | Sequence[int],
+        job_id: int | str | Sequence[int | str],
         partition: str | None = None,
         silent: bool = False,
         _processes: list | None = None,
-    ) -> dict[int, None] | None:
+    ) -> dict[int | str, None] | None:
         # default arguments
         if partition is None:
             partition = self.partition
@@ -146,7 +167,7 @@ class SlurmJobManager(BaseJobManager):
         cmd = shlex.split(_cfg.get_expanded("job", "slurm_cmd_scancel"))
         if partition:
             cmd += ["--partition", partition]
-        cmd += job_ids
+        cmd += list(map(str, job_ids))
         cmd_str = quote_cmd(cmd)
 
         # run it
@@ -169,24 +190,34 @@ class SlurmJobManager(BaseJobManager):
 
     def query(  # type: ignore[override]
         self,
-        job_id: int | Sequence[int],
+        job_id: int | str | Sequence[int | str],
+        job_ids: Sequence[int | str] | None = None,
         partition: str | None = None,
         silent: bool = False,
         _processes: list | None = None,
-    ) -> dict[int, dict[str, Any]] | dict[str, Any] | None:
+    ) -> dict[int | str, dict[str, Any]] | dict[str, Any] | None:
+        # when job_ids is set, job_id is the id of a job array (see group_job_ids) and job_ids are the ids of its tasks
+        # to query, otherwise job_id refers to one or multiple jobs (or array tasks) to query directly
+
         # default arguments
         if partition is None:
             partition = self.partition
 
-        chunking = isinstance(job_id, (list, tuple))
-        job_ids = make_list(job_id)
+        grouped = job_ids is not None
+        if grouped:
+            chunking = True
+            job_ids = list(job_ids)  # type: ignore[arg-type]
+            query_ids = make_list(job_id)
+        else:
+            chunking = isinstance(job_id, (list, tuple))
+            job_ids = query_ids = make_list(job_id)
 
         # build the squeue command
         cmd = shlex.split(_cfg.get_expanded("job", "slurm_cmd_squeue"))
-        cmd += ["--format", self.squeue_format, "--noheader"]
+        cmd += ["--Format", self.squeue_format, "--noheader", "--array"]
         if partition:
             cmd += ["--partition", partition]
-        cmd += ["--jobs", ",".join(map(str, job_ids))]
+        cmd += ["--jobs", ",".join(map(str, query_ids))]
 
         # optionally prepend timeout
         query_timeout = _cfg.get_expanded(
@@ -232,14 +263,15 @@ class SlurmJobManager(BaseJobManager):
             query_data = self.parse_squeue_output(out)
 
         # some jobs might already be in the accounting history, so query for missing job ids
+        # (when querying a job array, query the full array again rather than listing all missing tasks)
         missing_ids = [_job_id for _job_id in job_ids if _job_id not in query_data]
         if missing_ids:
             # build the sacct command
             cmd = shlex.split(_cfg.get_expanded("job", "slurm_cmd_sacct"))
-            cmd += ["--format", self.sacct_format, "--noheader"]
+            cmd += ["--format", self.sacct_format, "--noheader", "--allocations"]
             if partition:
                 cmd += ["--partition", partition]
-            cmd += ["--jobs", ",".join(map(str, missing_ids))]
+            cmd += ["--jobs", ",".join(map(str, query_ids if grouped else missing_ids))]
             cmd_str = quote_cmd(cmd)
 
             logger.debug(f"query slurm accounting history with command '{cmd_str}'")
@@ -278,22 +310,47 @@ class SlurmJobManager(BaseJobManager):
                     error="job not found in query response",
                 )
 
+        # when grouped, only return data of requested jobs as other tasks of the same array might be contained
+        if grouped:
+            return {_job_id: query_data[_job_id] for _job_id in job_ids}
+
         return query_data if chunking else query_data[job_id]  # type: ignore[index]
 
+    def group_job_ids(self, job_ids: list[int | str]) -> dict[Hashable, list[int | str]]:  # type: ignore[override]
+        groups: dict[Hashable, list[int | str]] = {}
+
+        # group array tasks by their array job id, and normal jobs by themselves
+        for job_id in job_ids:
+            group_id = job_id.split("_", 1)[0] if isinstance(job_id, str) else job_id
+            groups.setdefault(group_id, []).append(job_id)
+
+        return groups
+
     @classmethod
-    def parse_squeue_output(cls, out: str) -> dict[int, dict[str, Any]]:
+    def cast_job_id(cls, job_id: str) -> int | str:
+        """
+        Converts a *job_id* as shown in query outputs into the format used by this job manager, i.e., an integer for
+        normal jobs and a string ``<array_job_id>_<array_task_id>`` for tasks of job arrays.
+
+        :param job_id: The job id.
+        :return: The converted job id.
+        """
+        return job_id if "_" in job_id else int(job_id)
+
+    @classmethod
+    def parse_squeue_output(cls, out: str) -> dict[int | str, dict[str, Any]]:
         # retrieve information per block mapped to the job id
-        query_data = {}
+        query_data: dict[int | str, dict[str, Any]] = {}
         for line in out.strip().split("\n"):
             m = cls.squeue_cre.match(line.strip())
             if not m:
                 continue
 
-            # build the job id
-            job_id = int(m.group(1))
+            # build the job id, considering array tasks
+            job_id = int(m.group(1)) if m.group(2) == "N/A" else f"{m.group(1)}_{m.group(2)}"
 
             # get the job status code
-            status = cls.map_status(m.group(2))
+            status = cls.map_status(m.group(3))
 
             # store it
             query_data[job_id] = cls.job_status_dict(job_id=job_id, status=status)
@@ -301,16 +358,16 @@ class SlurmJobManager(BaseJobManager):
         return query_data
 
     @classmethod
-    def parse_sacct_output(cls, out: str) -> dict[int, dict[str, Any]]:
+    def parse_sacct_output(cls, out: str) -> dict[int | str, dict[str, Any]]:
         # retrieve information per block mapped to the job id
-        query_data = {}
+        query_data: dict[int | str, dict[str, Any]] = {}
         for line in out.strip().split("\n"):
             m = cls.sacct_cre.match(line.strip())
             if not m:
                 continue
 
-            # build the job id
-            job_id = int(m.group(1))
+            # build the job id, considering array tasks
+            job_id = cls.cast_job_id(m.group(1))
 
             # get the job status code
             status = cls.map_status(m.group(2))
@@ -388,6 +445,15 @@ class SlurmJobFileFactory(BaseJobFileFactory):
     taken from the ``slurm_job_file_dir``, ``slurm_job_file_dir_mkdtemp`` and ``slurm_job_file_dir_cleanup`` options of
     the ``[job]`` config section, falling back to the same options without the ``slurm_`` prefix. All other *kwargs* are
     forwarded to :py:class:`~law.job.base.BaseJobFileFactory`.
+
+    When :py:meth:`create` is called with *grouped_submission* set to *True*, a job array file is created, with
+    *arguments* and *postfix* being lists with one entry per array task. The *executable* is expected to be the group
+    wrapper ``law_group_wrapper.sh`` shipped with law, which selects the arguments, postfix and *custom_log_file* per
+    task based on ``LAW_SLURM_TASK_ID``. Since all tasks share the same job directives, *stdout* and *stderr* are
+    postfixed with ``_%A_%a`` (array job id and task id) instead.
+
+    Job files export the variables ``LAW_SLURM_JOB_ID`` (the id of the job, or of the job array for array tasks) and
+    ``LAW_SLURM_TASK_ID`` (the 0-based task id within a job array, or 0 for normal jobs) at the beginning of their body.
     """
 
     config_attrs = [
@@ -461,7 +527,8 @@ class SlurmJobFileFactory(BaseJobFileFactory):
 
     def create(
         self,
-        postfix: str | None = None,
+        postfix: str | Sequence[str] | None = None,
+        grouped_submission: bool = False,
         **kwargs,
     ) -> tuple[str, SlurmJobFileFactory.Config]:
         # merge kwargs and instance attributes
@@ -474,14 +541,37 @@ class SlurmJobFileFactory(BaseJobFileFactory):
             raise ValueError("either command or executable must not be empty")
         if not c.shell:
             raise ValueError("shell must not be empty")
+        if grouped_submission:
+            if not c.executable:
+                raise ValueError("executable must not be empty for grouped submission")
+            if not c.arguments:
+                raise ValueError("arguments must not be empty for grouped submission")
+            c.arguments = make_list(c.arguments)
+            postfixes = make_list(postfix) if postfix else len(c.arguments) * [""]
+            if len(postfixes) != len(c.arguments):
+                raise ValueError("number of postfixes does not match the number of arguments")
+
+        # the postfix of the job file and its inputs, which is done per job in the group wrapper for grouped submission
+        job_postfix: str | None = None if grouped_submission else postfix  # type: ignore[assignment]
 
         # postfix certain output files
+        log_files: list[str] = []
         if c.postfix_output_files:
             skip_postfix_cre = re.compile(r"^(/dev/).*$")
             skip_postfix = lambda s: bool(skip_postfix_cre.match(s))
             for attr in ["stdout", "stderr", "custom_log_file"]:
-                if c[attr] and not skip_postfix(c[attr]):
-                    c[attr] = self.postfix_output_file(c[attr], postfix)
+                if not c[attr] or skip_postfix(c[attr]):
+                    continue
+                if not grouped_submission:
+                    c[attr] = self.postfix_output_file(c[attr], job_postfix)
+                elif attr == "custom_log_file":
+                    # log files per job, written by the group wrapper
+                    log_files = [self.postfix_output_file(c[attr], pf) for pf in postfixes]
+                else:
+                    # array job id and task id
+                    c[attr] = self.postfix_output_file(c[attr], "_%A_%a")
+        if grouped_submission and c.custom_log_file and not log_files:
+            log_files = len(c.arguments) * [c.custom_log_file]
 
         # ensure that all input files are JobInputFile objects
         c.input_files = {
@@ -511,9 +601,10 @@ class SlurmJobFileFactory(BaseJobFileFactory):
             # copy the file
             abs_path = self.provide_input(
                 src=abs_path,
-                postfix=postfix if f.postfix and not f.share else None,
+                postfix=job_postfix if f.postfix and not f.share else None,
                 dir=c.dir,
                 skip_existing=f.share,
+                increment_existing=f.increment and not f.share and grouped_submission,
             )
             return abs_path
 
@@ -565,18 +656,34 @@ class SlurmJobFileFactory(BaseJobFileFactory):
         )
 
         # add the custom log file to render variables
-        if c.custom_log_file:
+        # (this is done in the wrapper script for grouped submission)
+        if c.custom_log_file and not grouped_submission:
             c.render_variables["log_file"] = c.custom_log_file
 
         # add the file postfix to render variables
-        if postfix and "file_postfix" not in c.render_variables:
-            c.render_variables["file_postfix"] = postfix
+        # (this is done in the wrapper script for grouped submission)
+        if job_postfix and "file_postfix" not in c.render_variables:
+            c.render_variables["file_postfix"] = job_postfix
+
+        # inject per-job information into the group wrapper via render variables
+        group_map_keys = [
+            "law_group_job_arguments_map",
+            "law_group_job_postfix_map",
+            "law_group_job_log_file_map",
+        ]
+        if grouped_submission:
+            c.render_variables["law_group_job_arguments_map"] = self.create_group_map(c.arguments)
+            c.render_variables["law_group_job_postfix_map"] = self.create_group_map(postfixes)
+            c.render_variables["law_group_job_log_file_map"] = self.create_group_map(log_files)
+            c.render_variables["law_group_job_index_var"] = "LAW_SLURM_TASK_ID"
+            # array tasks share the working directory, so render files into job specific directories
+            c.render_variables["law_group_job_isolate"] = "true"
 
         # linearize render variables
-        render_variables = self.linearize_render_variables(c.render_variables)
+        render_variables = self.linearize_render_variables(c.render_variables, drop_base64_keys=group_map_keys)
 
         # prepare the job description file
-        job_file = self.postfix_input_file(os.path.join(c.dir, str(c.file_name)), postfix)
+        job_file = self.postfix_input_file(os.path.join(c.dir, str(c.file_name)), job_postfix)
 
         # render copied input files
         for f in c.input_files.values():
@@ -586,7 +693,7 @@ class SlurmJobFileFactory(BaseJobFileFactory):
                 f.path_sub_abs,
                 f.path_sub_abs,
                 render_variables,
-                postfix=postfix if f.postfix else None,
+                postfix=job_postfix if f.postfix else None,
             )
 
         # prepare the executable when given
@@ -606,6 +713,8 @@ class SlurmJobFileFactory(BaseJobFileFactory):
             content.append(("job-name", c.job_name))
         if c.partition:
             content.append(("partition", c.partition))
+        if grouped_submission:
+            content.append(("array", f"0-{len(c.arguments) - 1}"))
         content.append(("output", c.stdout or "NONE"))
         content.append(("error", c.stderr or "NONE"))
 
@@ -619,8 +728,14 @@ class SlurmJobFileFactory(BaseJobFileFactory):
                 line = self.create_line(obj)
                 f.write(f"{line}\n")
 
-            # prepare arguments
-            args = c.arguments or ""
+            # add slurm specific env variables, which cannot be set via the export directive as its values are not
+            # expanded and array task ids are only known at runtime (and after all directives to not end the header)
+            f.write("\n")
+            f.write("export LAW_SLURM_JOB_ID=\"${SLURM_ARRAY_JOB_ID:-${SLURM_JOB_ID}}\"\n")
+            f.write("export LAW_SLURM_TASK_ID=\"${SLURM_ARRAY_TASK_ID:-0}\"\n")
+
+            # prepare arguments, which are selected per job by the wrapper for grouped submission
+            args = "" if grouped_submission else (c.arguments or "")
             if args:
                 args = " " + (quote_cmd(args) if isinstance(args, (list, tuple)) else args)
 
@@ -632,6 +747,9 @@ class SlurmJobFileFactory(BaseJobFileFactory):
             # add the executable
             if c.executable:
                 cmd = c.executable
+                # relative executables are located in the submission directory, which is not part of $PATH
+                if not os.path.isabs(cmd) and os.sep not in cmd:
+                    cmd = f"./{cmd}"
                 f.write(f"\n{cmd}{args}\n")
 
         # make it executable

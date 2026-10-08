@@ -833,17 +833,16 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
         if not grouped_submission and c.postfix and "file_postfix" not in c.render_variables:
             c.render_variables["file_postfix"] = c.postfix
 
-        # inject arguments into the htcondor wrapper via render variables
+        # inject arguments into the group wrapper via render variables
+        # (postfixes and log files are passed as arguments to the wrapper, see the queue statement below)
         if grouped_submission:
-            c.render_variables["htcondor_job_arguments_map"] = ("\n" + 8 * " ").join(
-                f"['{job_num}']=\"{args}\""
-                for job_num, args in enumerate(c.arguments, 1)
-            )
+            c.render_variables["law_group_job_arguments_map"] = self.create_group_map(c.arguments)
+            c.render_variables["law_group_job_index_var"] = "LAW_HTCONDOR_JOB_PROCESS"
 
         # linearize render variables
         render_variables = self.linearize_render_variables(
             c.render_variables,
-            drop_base64_keys=["htcondor_job_arguments_map"],
+            drop_base64_keys=["law_group_job_arguments_map"],
         )
 
         # prepare the job description file
@@ -963,6 +962,7 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
             else:
                 _content.append(obj)
         content = _content
+
         # add new ones and add back to content
         env_vars.append("LAW_HTCONDOR_JOB_CLUSTER=$(Cluster)")
         env_vars.append("LAW_HTCONDOR_JOB_PROCESS=$(Process)")
@@ -970,13 +970,12 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
 
         # queue
         if grouped_submission:
+            # postfixes and log files are always passed to the group wrapper, whereas the log file only contains the
+            # law_job_postfix macro when postfix_output_files is set
             content.append("queue law_job_postfix, arguments from (")
             for i in range(len(c.arguments)):
-                pf = log = "''"
-                if c.postfix_output_files:
-                    pf = c.postfix[i]
-                    if c.custom_log_file:
-                        log = c.custom_log_file
+                pf = c.postfix[i] if c.postfix else "''"
+                log = c.custom_log_file or "''"
                 content.append(f"    {pf}, {pf} {log}")
             content.append(")")
         elif c.arguments:

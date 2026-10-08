@@ -1018,6 +1018,20 @@
 ; Type: ``str``
 ; Default: ``"bjobs"``
 
+; slurm_job_grouping_submit
+; Description: Whether to submit jobs in groups as job arrays (see
+; https://slurm.schedmd.com/job_array.html) or not. When enabled, the status of jobs is also queried
+; per array, which reduces the load on the Slurm scheduler for large numbers of jobs.
+; Type: ``bool``
+; Default: ``True``
+
+; slurm_job_group_size
+; Description: Maximum number of jobs per job array when "slurm_job_grouping_submit" is enabled.
+; More jobs are split into multiple arrays. It must not exceed the "MaxArraySize" setting of the
+; Slurm cluster, which can be checked with "scontrol show config | grep MaxArraySize".
+; Type: ``int``
+; Default: ``1000``
+
 ; slurm_job_file_dir
 ; slurm_job_file_dir_mkdtemp
 ; slurm_job_file_dir_cleanup

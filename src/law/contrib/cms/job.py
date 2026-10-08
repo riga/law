@@ -977,10 +977,8 @@ class CrabJobFileFactory(BaseJobFileFactory):
             c.render_variables["log_file"] = c.custom_log_file
 
         # inject arguments into the crab wrapper via render variables
-        c.render_variables["crab_job_arguments_map"] = ("\n" + 8 * " ").join(
-            f"['{i + 1}']=\"{args}\""
-            for i, args in enumerate(c.arguments)
-        )
+        # (crab job numbers start at 1)
+        c.render_variables["crab_job_arguments_map"] = self.create_group_map(c.arguments, start=1)
 
         # linearize render variables
         render_variables = self.linearize_render_variables(

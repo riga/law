@@ -1071,6 +1071,29 @@ class BaseJobFileFactory(metaclass=abc.ABCMeta):
         return s.replace("{{" + key + "}}", str(value))
 
     @classmethod
+    def create_group_map(cls, values: Sequence[Any], indent: int = 8, start: int = 0) -> str:
+        """
+        Creates the entries of a bash array that maps job indices, starting at *start*, to *values*, which is used to
+        inject per-job information into the wrapper script of grouped job submissions (``law_group_wrapper.sh``).
+        Example:
+
+        .. code-block:: python
+
+            create_group_map(["a", "b"])
+            # -> [0]="a"
+            # -> [1]="b"
+
+        :param values: The values per job.
+        :param indent: The indentation of all but the first entry.
+        :param start: The index of the first entry.
+        :return: The entries as a string.
+        """
+        return ("\n" + indent * " ").join(
+            f"[{index}]=\"{value}\""
+            for index, value in enumerate(values, start)
+        )
+
+    @classmethod
     def linearize_render_variables(
         cls,
         render_variables: dict[str, str],
@@ -1163,7 +1186,7 @@ class BaseJobFileFactory(metaclass=abc.ABCMeta):
         :raises OSError: When *src* does not exist.
         """
         src = str(src)
-        dst = str(src)
+        dst = str(dst)
         if not os.path.isfile(src):
             raise OSError(f"source file for rendering does not exist: {src}")
 
@@ -1475,48 +1498,47 @@ class JobInputFile:  # noqa: PLW1641
 
         type: bool
 
-        Whether this file should be copied into the job submission directory or not.
+        Whether this file should be copied into the job submission directory or not. Defaults to *True*.
 
     .. py:attribute:: share
 
         type: bool
 
-        Whether the file can be shared in the job submission directory. A shared file is copied only
-        once into the submission directory and :py:attr:`render_local` must be *False*.
+        Whether the file can be shared in the job submission directory. A shared file is copied only once into the
+        submission directory and :py:attr:`render_local` must be *False*. Defaults to *False*.
 
     .. py:attribute:: forward
 
         type: bool
 
-        Whether this file should actually not be listed as a normal input file in job description
-        but just passed to the list of inputs for treatment in the law job script itself. Only
-        considered if supported by the submission system (e.g. local ones such as htcondor or
-        slurm).
+        Whether this file should actually not be listed as a normal input file in job description but just passed to the
+        list of inputs for treatment in the law job script itself. Only considered if supported by the submission system
+        (e.g. local ones such as htcondor or slurm). Defaults to *False*.
 
     .. py:attribute:: increment
 
         type: bool
 
-        Whether the file path should be incremented when copied if a file with the same name already
-        exists in the same submission directory.
+        Whether the file path should be incremented when copied if a file with the same name already exists in the same
+        submission directory. Defaults to *False*.
 
     .. py:attribute:: postfix
 
         type: bool
 
-        Whether the file path should be postfixed when copied.
+        Whether the file path should be postfixed when copied. Defaults to *True*.
 
     .. py:attribute:: render_local
 
         type: bool
 
-        Whether render variables should be resolved locally when copied.
+        Whether render variables should be resolved locally when copied. Defaults to *True*.
 
     .. py:attribute:: render_job
 
         type: bool
 
-        Whether render variables should be resolved as part of the job script.
+        Whether render variables should be resolved as part of the job script. Defaults to *False*.
 
     .. py:attribute:: is_remote
 
@@ -1534,26 +1556,26 @@ class JobInputFile:  # noqa: PLW1641
 
         type: str, None
 
-        File path relative to the submission directory if the submission itself is not forced to use
-        absolute paths. Otherwise identical to :py:attr:`path_sub_abs`. Set only during job file
-        creation.
+        File path relative to the submission directory if the submission itself is not forced to use absolute paths.
+        Otherwise identical to :py:attr:`path_sub_abs`. Set only during job file creation.
 
     .. py:attribute:: path_job_pre_render
 
         type: str, None
 
-        File path as seen by the job node, prior to a potential job-side rendering. It is a full,
-        absolute path in case forwarding is supported, and a relative basename otherwise. Set only
-        during job file creation.
+        File path as seen by the job node, prior to a potential job-side rendering. It is a full, absolute path in case
+        forwarding is supported, and a relative basename otherwise. Set only during job file creation.
 
     .. py:attribute:: path_job_post_render
 
         type: str, None
 
-        File path as seen by the job node, after a potential job-side rendering. Therefore, it is
-        identical to :py:attr:`path_job_pre_render` if rendering is disabled, and a relative
-        basename otherwise. Set only during job file creation.
+        File path as seen by the job node, after a potential job-side rendering. Therefore, it is identical to
+        :py:attr:`path_job_pre_render` if rendering is disabled, and a relative basename otherwise. Set only during job
+        file creation.
     """
+
+    _flags = ["copy", "share", "forward", "increment", "postfix", "render_local", "render_job"]
 
     def __init__(
         self,
@@ -1572,121 +1594,107 @@ class JobInputFile:  # noqa: PLW1641
 
         # when path is a job file instance itself, use its values instead
         if isinstance(path, JobInputFile):
-            copy = path.copy
-            share = path.share
-            forward = path.forward
-            increment = path.increment
-            postfix = path.postfix
-            render_local = path.render_local
-            render_job = path.render_job
+            copy = path.copy if copy is None else copy
+            share = path.share if share is None else share
+            forward = path.forward if forward is None else forward
+            increment = path.increment if increment is None else increment
+            postfix = path.postfix if postfix is None else postfix
+            render_local = path.render_local if render_local is None else render_local
+            render_job = path.render_job if render_job is None else render_job
             path = path.path
 
         # path must not be a remote file target
         if isinstance(path, RemoteTarget):
-            raise ValueError(
-                f"{self.__class__.__name__}.path should not point to a remote target: {path}",
-            )
+            raise ValueError(f"{self.__class__.__name__}.path should not point to a remote target: {path}")
+
+        # define path and variants as seen by jobs
+        self.path: str = os.path.abspath(os.path.expandvars(os.path.expanduser(get_path(path))))
+        self.path_sub_abs: str | None = None
+        self.path_sub_rel: str | None = None
+        self.path_job_pre_render: str | None = None
+        self.path_job_post_render: str | None = None
 
         # convenience
         if render is not None and render_local is None and render_job is None:
             render_local = bool(render)
             render_job = False
 
-        # set some attributes if undefined, based on most common use cases
-        def maybe_set(current: bool | None, default: bool) -> bool:
-            return default if current is None else current
+        # sensible defaults when None, resolved in order of precedence so that each flag only depends on previous ones
+        # (explicitly set flags are kept, contradictions between them are reported below)
+        if forward is None:
+            forward = False
+        if copy is None:
+            # forwarded files are not copied
+            copy = not forward
+        if share is None:
+            share = False
+        if render_job is None:
+            render_job = False
+        if render_local is None:
+            # only non-shared copies can be rendered locally, and job-side rendering takes precedence
+            render_local = bool(copy and not share and not forward and not render_job)
+        if postfix is None:
+            # only non-shared copies can be postfixed
+            postfix = bool(copy and not share and not forward)
+        if increment is None:
+            increment = False
 
-        if copy is not None and not copy:
-            share = maybe_set(share, False)
-            postfix = maybe_set(postfix, False)
-            render_local = maybe_set(render_local, False)
-        if share:
-            copy = maybe_set(copy, True)
-            forward = maybe_set(forward, False)
-            render_local = maybe_set(render_local, False)
-            postfix = maybe_set(postfix, False)
-        if forward:
-            copy = maybe_set(copy, False)
-            share = maybe_set(share, False)
-            render_local = maybe_set(render_local, False)
-            postfix = maybe_set(postfix, False)
-        if postfix:
-            copy = maybe_set(copy, True)
-            share = maybe_set(share, False)
-            forward = maybe_set(forward, False)
-        if render_local:
-            copy = maybe_set(copy, True)
-            share = maybe_set(share, False)
-            forward = maybe_set(forward, False)
-            render_job = maybe_set(render_job, False)
-        if render_job:
-            forward = maybe_set(forward, False)
-            render_local = maybe_set(render_local, False)
+        # warn on contradictory configurations
+        if copy is False and postfix is True:
+            logger.warning(
+                f"input file at {self.path} is configured not to be copied into the submission directory, but "
+                "postfixing is enabled which has no effect",
+            )
+        if copy is False and share is True:
+            logger.warning(
+                f"input file at {self.path} is configured not to be copied into the submission directory, but sharing "
+                "is enabled which has no effect",
+            )
+        if copy is True and forward is True:
+            logger.warning(
+                f"input file at {self.path} is configured to be copied into the submission directory, but "
+                "forwarding is enabled which has no effect",
+            )
+        if copy is False and render_local is True:
+            logger.warning(
+                f"input file at {self.path} is configured not to be copied into the submission directory, but "
+                "rendering is enabled which has no effect",
+            )
+        if share is True and render_local is True:
+            logger.warning(
+                f"input file at {self.path} is configured to be shared across jobs, but local rendering is enabled "
+                "which is not supported for shared files and therefore disabled",
+            )
+            render_local = False
+        if render_local is True and render_job is True:
+            logger.warning(
+                f"input file at {self.path} is configured to be rendered locally and within the job, but only one "
+                "is supported, so local rendering is disabled",
+            )
+            render_local = False
 
-        # store attributes, apply residual defaults
-        self.path: str = os.path.abspath(os.path.expandvars(os.path.expanduser(get_path(path))))
-        self.copy: bool = True if copy is None else bool(copy)
-        self.share: bool = False if share is None else bool(share)
-        self.forward: bool = False if forward is None else bool(forward)
-        self.increment: bool = False if increment is None else bool(increment)
-        self.postfix: bool = True if postfix is None else bool(postfix)
-        self.render_local: bool = True if render_local is None else bool(render_local)
-        self.render_job: bool = False if render_job is None else bool(render_job)
-
-        # some residual attribute checks
-        if not self.copy and self.postfix:
-            logger.warning(
-                f"input file at {self.path} is configured not to be copied into the submission "
-                "directory, but postfixing is enabled which has no effect",
-            )
-        if not self.copy and self.share:
-            logger.warning(
-                f"input file at {self.path} is configured not to be copied into the submission "
-                "directory, but sharing is enabled which has no effect",
-            )
-        if self.copy and self.forward:
-            logger.warning(
-                f"input file at {self.path} is configured to be copied into the submission "
-                "directory, but but forwarding is enabled which has no effect",
-            )
-        if not self.copy and self.render_local:
-            logger.warning(
-                f"input file at {self.path} is configured not to be copied into the submission "
-                "directory, but rendering is enabled which has no effect",
-            )
-        if self.share and self.render_local:
-            logger.error(
-                f"input file at {self.path} is configured to be shared across jobs but local "
-                "rendering is active, potentially resulting in wrong file content",
-            )
-        if self.render_local and self.render_job:
-            logger.warning(
-                f"input file at {self.path} is configured to be rendered locally and within the "
-                "job, which is likely unnecessary",
-            )
-
-        # different path variants as seen by jobs
-        self.path_sub_abs: str | None = None
-        self.path_sub_rel: str | None = None
-        self.path_job_pre_render: str | None = None
-        self.path_job_post_render: str | None = None
+        # set attributes
+        self.copy: bool = copy
+        self.share: bool = share
+        self.forward: bool = forward
+        self.increment: bool = increment
+        self.postfix: bool = postfix
+        self.render_local: bool = render_local
+        self.render_job: bool = render_job
 
     def __str__(self) -> str:
         return self.path
 
     def __repr__(self) -> str:
-        attrs = [
-            "path", "copy", "share", "forward", "increment", "postfix", "render_local",
-            "render_job",
-        ]
-        attr_str = ", ".join(f"{attr}={getattr(self, attr)}" for attr in attrs)
+        attrs = ["path", *self._flags]
+        attr_str = ", ".join(f"{attr}={getattr(self, attr, None)}" for attr in attrs)
         return f"<{self.__class__.__name__}({attr_str}) at {hex(id(self))}>"
 
     def __eq__(self, other: Any) -> bool:
         # check equality via path comparison
         if isinstance(other, JobInputFile):
             return self.path == other.path
-        return self.path == str(other)
+        return self.path == get_path(other)
 
     @property
     def is_remote(self) -> bool:
