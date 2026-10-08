@@ -258,6 +258,7 @@ class TestSlurmJobFileFactory:
             content = f.read()
         assert "#SBATCH --output=stdout_0To2.txt" in content
         assert "--array" not in content
+        assert "export LAW_SLURM_JOB_PROCESS=\"${SLURM_ARRAY_TASK_ID:-0}\"" in content
         assert content.strip().endswith(" a b")
 
     def test_create_array(self) -> None:
@@ -278,7 +279,7 @@ class TestSlurmJobFileFactory:
         assert "['1']=\"a1 x\"" in wrapper
         assert "['2']=\"_1To2\"" in wrapper
         assert f"['2']=\"{self.tmp}/logs/stdall_1To2.txt\"" in wrapper
-        assert "SLURM_ARRAY_TASK_ID" in wrapper
+        assert "LAW_SLURM_JOB_PROCESS" in wrapper
         assert "{{" not in wrapper
 
     def test_create_array_errors(self) -> None:

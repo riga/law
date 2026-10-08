@@ -963,6 +963,7 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
             else:
                 _content.append(obj)
         content = _content
+
         # add new ones and add back to content
         env_vars.append("LAW_HTCONDOR_JOB_CLUSTER=$(Cluster)")
         env_vars.append("LAW_HTCONDOR_JOB_PROCESS=$(Process)")
