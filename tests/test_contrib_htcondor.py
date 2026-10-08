@@ -15,7 +15,7 @@ from law.contrib.htcondor import HTCondorJobFileFactory, HTCondorJobManager, HTC
 from law.job.base import JobInputFile
 from law.util import law_src_path
 
-from .job_helpers import has_bash4, write_executable
+from .job_helpers import write_executable
 
 
 class LawTestHTCondorWorkflow(HTCondorWorkflow):
@@ -102,7 +102,6 @@ class TestHTCondorWorkflow:
             self.proxy._create_job_file_impl(submit_jobs={1: [0], 2: [1]}, grouped_submission=False)
 
 
-@pytest.mark.skipif(not has_bash4(), reason="bash >= 4 required for associative arrays")
 class TestHTCondorGroupWrapper:
 
     def test_run_cluster_job(self, tmp_path: pathlib.Path) -> None:
@@ -112,7 +111,7 @@ class TestHTCondorGroupWrapper:
         # dummy job file that records its rendered postfix, job number and arguments
         job_file = write_executable(os.path.join(tmp, "dummy_job.sh"), "\n".join([
             "#!/usr/bin/env bash",
-            "echo \"postfix={{file_postfix}} number=${LAW_HTCONDOR_JOB_NUMBER} args=$*\" > result.txt",
+            "echo \"postfix={{file_postfix}} index=${LAW_HTCONDOR_JOB_PROCESS} args=$*\" > result.txt",
             "",
         ]))
 
@@ -149,7 +148,7 @@ class TestHTCondorGroupWrapper:
         assert "running law_group_wrapper" in p.stdout
 
         with open(os.path.join(sandbox, "result.txt"), encoding="utf-8") as f:
-            assert f.read().strip() == "postfix=_1To2 number=2 args=a2 y"
+            assert f.read().strip() == "postfix=_1To2 index=1 args=a2 y"
 
     @pytest.mark.parametrize("postfix_output_files", [True, False])
     def test_queue_postfix_and_log(self, tmp_path: pathlib.Path, postfix_output_files: bool) -> None:

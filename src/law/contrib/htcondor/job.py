@@ -838,7 +838,6 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
         if grouped_submission:
             c.render_variables["law_group_job_arguments_map"] = self.create_group_map(c.arguments)
             c.render_variables["law_group_job_index_var"] = "LAW_HTCONDOR_JOB_PROCESS"
-            c.render_variables["law_group_job_number_var"] = "LAW_HTCONDOR_JOB_NUMBER"
 
         # linearize render variables
         render_variables = self.linearize_render_variables(

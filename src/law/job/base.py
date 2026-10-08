@@ -1071,25 +1071,26 @@ class BaseJobFileFactory(metaclass=abc.ABCMeta):
         return s.replace("{{" + key + "}}", str(value))
 
     @classmethod
-    def create_group_map(cls, values: Sequence[Any], indent: int = 8) -> str:
+    def create_group_map(cls, values: Sequence[Any], indent: int = 8, start: int = 0) -> str:
         """
-        Creates the entries of a bash associative array that maps 1-based job numbers to *values*, which is used to
+        Creates the entries of a bash array that maps job indices, starting at *start*, to *values*, which is used to
         inject per-job information into the wrapper script of grouped job submissions (``law_group_wrapper.sh``).
         Example:
 
         .. code-block:: python
 
             create_group_map(["a", "b"])
-            # -> ['1']="a"
-            #            ['2']="b"
+            # -> [0]="a"
+            # -> [1]="b"
 
         :param values: The values per job.
         :param indent: The indentation of all but the first entry.
+        :param start: The index of the first entry.
         :return: The entries as a string.
         """
         return ("\n" + indent * " ").join(
-            f"['{job_num}']=\"{value}\""
-            for job_num, value in enumerate(values, 1)
+            f"[{index}]=\"{value}\""
+            for index, value in enumerate(values, start)
         )
 
     @classmethod

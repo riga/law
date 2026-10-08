@@ -10,10 +10,9 @@
 #
 # Render variables:
 # - law_group_job_index_var: Name of the environment variable that holds the 0-based index of the job within its group.
-# - law_group_job_number_var: Optional name of a variable that is exported with the 1-based job number in its group.
-# - law_group_job_arguments_map: Bash associative array entries mapping 1-based job numbers to job arguments.
-# - law_group_job_postfix_map: Bash associative array entries mapping 1-based job numbers to file postfixes.
-# - law_group_job_log_file_map: Bash associative array entries mapping 1-based job numbers to log files.
+# - law_group_job_arguments_map: Bash array entries mapping 0-based job indices to job arguments.
+# - law_group_job_postfix_map: Bash array entries mapping 0-based job indices to file postfixes.
+# - law_group_job_log_file_map: Bash array entries mapping 0-based job indices to log files.
 # - law_group_job_isolate: When "true", input files are rendered into a job specific directory instead of the current
 #     one, which is required when all jobs of a group share the same working directory.
 # - render_variables: Base64 encoded json dictionary with render variables to inject into input_files_render.
@@ -34,24 +33,22 @@ law_group_wrapper() {
     local this_file="$( ${shell_is_zsh} && echo "${(%):-%x}" || echo "${BASH_SOURCE[0]}" )"
     local this_file_base="$( basename "${this_file}" )"
 
-    echo "running ${this_file_base} for job number ${LAW_GROUP_JOB_NUMBER}"
+    echo "running ${this_file_base} for job index ${LAW_GROUP_JOB_INDEX}"
 
 
     #
-    # job argument definitons, depending on LAW_GROUP_JOB_NUMBER
+    # job argument definitons, depending on LAW_GROUP_JOB_INDEX
     #
 
     # definition
-    local law_group_job_arguments_map
-    declare -A law_group_job_arguments_map
-    law_group_job_arguments_map=(
+    local law_group_job_arguments_map=(
         {{law_group_job_arguments_map}}
     )
 
     # pick
-    local law_group_job_arguments="${law_group_job_arguments_map[${LAW_GROUP_JOB_NUMBER}]}"
+    local law_group_job_arguments="${law_group_job_arguments_map[${LAW_GROUP_JOB_INDEX}]}"
     if [ -z "${law_group_job_arguments}" ]; then
-        >&2 echo "empty job arguments for LAW_GROUP_JOB_NUMBER ${LAW_GROUP_JOB_NUMBER}"
+        >&2 echo "empty job arguments for job index ${LAW_GROUP_JOB_INDEX}"
         return "3"
     fi
 
@@ -73,16 +70,16 @@ law_group_wrapper() {
     # check files to render
     local input_files_render=( {{input_files_render}} )
     if [ "${#input_files_render[@]}" == "0" ]; then
-        >&2 echo "received empty input files for rendering for LAW_GROUP_JOB_NUMBER ${LAW_GROUP_JOB_NUMBER}"
+        >&2 echo "received empty input files for rendering for job index ${LAW_GROUP_JOB_INDEX}"
         return "5"
     fi
 
     # directory to render files into
     local render_dir="."
     if [ "{{law_group_job_isolate}}" = "true" ]; then
-        render_dir="$( mktemp -d "${PWD}/law_group_job_${LAW_GROUP_JOB_NUMBER}_XXXXXXXX" )"
+        render_dir="$( mktemp -d "${PWD}/law_group_job_${LAW_GROUP_JOB_INDEX}_XXXXXXXX" )"
         if [ ! -d "${render_dir}" ]; then
-            >&2 echo "could not create render directory for LAW_GROUP_JOB_NUMBER ${LAW_GROUP_JOB_NUMBER}"
+            >&2 echo "could not create render directory for job index ${LAW_GROUP_JOB_INDEX}"
             return "8"
         fi
     fi
@@ -166,32 +163,29 @@ EOT
 action() {
     # get the 0-based index of the job within its group
     local law_group_job_index_var="{{law_group_job_index_var}}"
-    local law_group_job_index="${!law_group_job_index_var}"
-    if [ -z "${law_group_job_index}" ]; then
+    export LAW_GROUP_JOB_INDEX="${!law_group_job_index_var}"
+    if [ -z "${LAW_GROUP_JOB_INDEX}" ]; then
         >&2 echo "could not determine job index from variable '${law_group_job_index_var}'"
         return "1"
     fi
 
-    # job numbers start at 1
-    export LAW_GROUP_JOB_NUMBER="$(( law_group_job_index + 1 ))"
-    local law_group_job_number_var="{{law_group_job_number_var}}"
-    [ ! -z "${law_group_job_number_var}" ] && export "${law_group_job_number_var}=${LAW_GROUP_JOB_NUMBER}"
+    # array subscripts are evaluated arithmetically, so ensure the index is a non-negative integer
+    if [[ ! "${LAW_GROUP_JOB_INDEX}" =~ ^[0-9]+$ ]]; then
+        >&2 echo "invalid job index '${LAW_GROUP_JOB_INDEX}' from variable '${law_group_job_index_var}'"
+        return "1"
+    fi
 
     # optional per-job postfixes and log files
-    local law_group_job_postfix_map
-    declare -A law_group_job_postfix_map
-    law_group_job_postfix_map=(
+    local law_group_job_postfix_map=(
         {{law_group_job_postfix_map}}
     )
-    local law_group_job_log_file_map
-    declare -A law_group_job_log_file_map
-    law_group_job_log_file_map=(
+    local law_group_job_log_file_map=(
         {{law_group_job_log_file_map}}
     )
 
     # arguments: file_postfix, log_file, with fallbacks to the maps above
-    local file_postfix="${1:-${law_group_job_postfix_map[${LAW_GROUP_JOB_NUMBER}]}}"
-    local log_file="${2:-${law_group_job_log_file_map[${LAW_GROUP_JOB_NUMBER}]}}"
+    local file_postfix="${1:-${law_group_job_postfix_map[${LAW_GROUP_JOB_INDEX}]}}"
+    local log_file="${2:-${law_group_job_log_file_map[${LAW_GROUP_JOB_INDEX}]}}"
 
     # create log directory
     if [ ! -z "${log_file}" ]; then
@@ -208,7 +202,7 @@ action() {
         law_group_wrapper "$@" 2>&1 | tee -a "${log_file}"
     else
         echo "---" >> "${log_file}"
-        law_group_wrapper "$@" &>> "${log_file}"
+        law_group_wrapper "$@" >> "${log_file}" 2>&1
     fi
 }
 

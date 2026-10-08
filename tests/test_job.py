@@ -13,8 +13,9 @@ class TestBaseJobFileFactory:
 
     def test_create_group_map(self) -> None:
         assert not BaseJobFileFactory.create_group_map([])
-        assert BaseJobFileFactory.create_group_map(["a"]) == "['1']=\"a\""
-        assert BaseJobFileFactory.create_group_map(["a b", "c"], indent=2) == "['1']=\"a b\"\n  ['2']=\"c\""
+        assert BaseJobFileFactory.create_group_map(["a"]) == "[0]=\"a\""
+        assert BaseJobFileFactory.create_group_map(["a b", "c"], indent=2) == "[0]=\"a b\"\n  [1]=\"c\""
+        assert BaseJobFileFactory.create_group_map(["a", "b"], indent=0, start=1) == "[1]=\"a\"\n[2]=\"b\""
 
     def test_render_file(self, tmp_path: pathlib.Path) -> None:
         src = tmp_path / "src.txt"

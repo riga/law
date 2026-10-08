@@ -449,12 +449,11 @@ class SlurmJobFileFactory(BaseJobFileFactory):
     When :py:meth:`create` is called with *grouped_submission* set to *True*, a job array file is created, with
     *arguments* and *postfix* being lists with one entry per array task. The *executable* is expected to be the group
     wrapper ``law_group_wrapper.sh`` shipped with law, which selects the arguments, postfix and *custom_log_file* per
-    task based on ``LAW_SLURM_JOB_PROCESS``. Since all tasks share the same job directives, *stdout* and *stderr* are
+    task based on ``LAW_SLURM_TASK_ID``. Since all tasks share the same job directives, *stdout* and *stderr* are
     postfixed with ``_%A_%a`` (array job id and task id) instead.
 
     Job files export the variables ``LAW_SLURM_JOB_ID`` (the id of the job, or of the job array for array tasks) and
-    ``LAW_SLURM_JOB_PROCESS`` (the 0-based task id within a job array, or 0 for normal jobs) at the beginning of their
-    body.
+    ``LAW_SLURM_TASK_ID`` (the 0-based task id within a job array, or 0 for normal jobs) at the beginning of their body.
     """
 
     config_attrs = [
@@ -676,8 +675,7 @@ class SlurmJobFileFactory(BaseJobFileFactory):
             c.render_variables["law_group_job_arguments_map"] = self.create_group_map(c.arguments)
             c.render_variables["law_group_job_postfix_map"] = self.create_group_map(postfixes)
             c.render_variables["law_group_job_log_file_map"] = self.create_group_map(log_files)
-            c.render_variables["law_group_job_index_var"] = "LAW_SLURM_JOB_PROCESS"
-            c.render_variables["law_group_job_number_var"] = "LAW_SLURM_JOB_NUMBER"
+            c.render_variables["law_group_job_index_var"] = "LAW_SLURM_TASK_ID"
             # array tasks share the working directory, so render files into job specific directories
             c.render_variables["law_group_job_isolate"] = "true"
 
@@ -734,7 +732,7 @@ class SlurmJobFileFactory(BaseJobFileFactory):
             # expanded and array task ids are only known at runtime (and after all directives to not end the header)
             f.write("\n")
             f.write("export LAW_SLURM_JOB_ID=\"${SLURM_ARRAY_JOB_ID:-${SLURM_JOB_ID}}\"\n")
-            f.write("export LAW_SLURM_JOB_PROCESS=\"${SLURM_ARRAY_TASK_ID:-0}\"\n")
+            f.write("export LAW_SLURM_TASK_ID=\"${SLURM_ARRAY_TASK_ID:-0}\"\n")
 
             # prepare arguments, which are selected per job by the wrapper for grouped submission
             args = "" if grouped_submission else (c.arguments or "")

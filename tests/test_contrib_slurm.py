@@ -16,7 +16,7 @@ from law.contrib.slurm import SlurmJobFileFactory, SlurmJobManager, SlurmWorkflo
 from law.job.base import JobInputFile
 from law.util import law_src_path
 
-from .job_helpers import has_bash4, write_executable
+from .job_helpers import write_executable
 
 
 @pytest.fixture
@@ -222,7 +222,6 @@ class TestSlurmJobManager:
         assert read_args(fake_slurm, "scancel")[-1] == "123 200_1"
 
 
-@pytest.mark.skipif(not has_bash4(), reason="bash >= 4 required for associative arrays")
 class TestSlurmJobFileFactory:
 
     @pytest.fixture(autouse=True)
@@ -233,7 +232,7 @@ class TestSlurmJobFileFactory:
         # dummy job file that records its rendered postfix, job number and arguments
         self.job_file = write_executable(os.path.join(self.tmp, "dummy_job.sh"), "\n".join([
             "#!/usr/bin/env bash",
-            "echo \"postfix={{file_postfix}} number=${LAW_SLURM_JOB_NUMBER} args=$*\" > \"result{{file_postfix}}.txt\"",
+            "echo \"postfix={{file_postfix}} index=${LAW_SLURM_TASK_ID} args=$*\" > \"result{{file_postfix}}.txt\"",
             "",
         ]))
 
@@ -258,7 +257,7 @@ class TestSlurmJobFileFactory:
             content = f.read()
         assert "#SBATCH --output=stdout_0To2.txt" in content
         assert "--array" not in content
-        assert "export LAW_SLURM_JOB_PROCESS=\"${SLURM_ARRAY_TASK_ID:-0}\"" in content
+        assert "export LAW_SLURM_TASK_ID=\"${SLURM_ARRAY_TASK_ID:-0}\"" in content
         assert content.strip().endswith(" a b")
 
     def test_create_array(self) -> None:
@@ -276,10 +275,10 @@ class TestSlurmJobFileFactory:
         # the wrapper contains the per-job maps
         with open(os.path.join(c.dir, last_line), encoding="utf-8") as f:
             wrapper = f.read()
-        assert "['1']=\"a1 x\"" in wrapper
-        assert "['2']=\"_1To2\"" in wrapper
-        assert f"['2']=\"{self.tmp}/logs/stdall_1To2.txt\"" in wrapper
-        assert "LAW_SLURM_JOB_PROCESS" in wrapper
+        assert "[0]=\"a1 x\"" in wrapper
+        assert "[1]=\"_1To2\"" in wrapper
+        assert f"[1]=\"{self.tmp}/logs/stdall_1To2.txt\"" in wrapper
+        assert "LAW_SLURM_TASK_ID" in wrapper
         assert "{{" not in wrapper
 
     def test_create_array_errors(self) -> None:
@@ -298,7 +297,7 @@ class TestSlurmJobFileFactory:
 
         # the job file was rendered for and called with the second job
         with open(os.path.join(c.dir, "result_1To2.txt"), encoding="utf-8") as f:
-            assert f.read().strip() == "postfix=_1To2 number=2 args=a2 y"
+            assert f.read().strip() == "postfix=_1To2 index=1 args=a2 y"
 
         # the log was written to the per-job log file
         with open(os.path.join(self.tmp, "logs", "stdall_1To2.txt"), encoding="utf-8") as f:
@@ -317,6 +316,15 @@ class TestSlurmJobFileFactory:
         p = subprocess.run(["bash", job_file], cwd=c.dir, env=env, capture_output=True, text=True, check=False)
         assert p.returncode != 0
         assert "empty job arguments" in p.stderr
+
+    @pytest.mark.parametrize("index", ["abc", "-1"])
+    def test_run_array_task_non_numeric_index(self, index: str) -> None:
+        job_file, c = self.create_array()
+        env = dict(os.environ, SLURM_ARRAY_TASK_ID=index)
+        p = subprocess.run(["bash", job_file], cwd=c.dir, env=env, capture_output=True, text=True, check=False)
+        assert p.returncode != 0
+        assert f"invalid job index '{index}'" in p.stderr
+        assert not [name for name in os.listdir(c.dir) if name.startswith("result")]
 
 
 class TestSlurmWorkflow:
