@@ -970,13 +970,12 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
 
         # queue
         if grouped_submission:
+            # postfixes and log files are always passed to the group wrapper, whereas the log file only contains the
+            # law_job_postfix macro when postfix_output_files is set
             content.append("queue law_job_postfix, arguments from (")
             for i in range(len(c.arguments)):
-                pf = log = "''"
-                if c.postfix_output_files:
-                    pf = c.postfix[i]
-                    if c.custom_log_file:
-                        log = c.custom_log_file
+                pf = c.postfix[i] if c.postfix else "''"
+                log = c.custom_log_file or "''"
                 content.append(f"    {pf}, {pf} {log}")
             content.append(")")
         elif c.arguments:

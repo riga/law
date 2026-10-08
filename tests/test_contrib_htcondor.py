@@ -150,3 +150,57 @@ class TestHTCondorGroupWrapper:
 
         with open(os.path.join(sandbox, "result.txt"), encoding="utf-8") as f:
             assert f.read().strip() == "postfix=_1To2 number=2 args=a2 y"
+
+    @pytest.mark.parametrize("postfix_output_files", [True, False])
+    def test_queue_postfix_and_log(self, tmp_path: pathlib.Path, postfix_output_files: bool) -> None:
+        tmp = os.path.realpath(tmp_path)
+        factory = HTCondorJobFileFactory(dir=os.path.join(tmp, "factory"), mkdtemp=False, cleanup=False)
+
+        job_file = write_executable(os.path.join(tmp, "dummy_job.sh"), "\n".join([
+            "#!/usr/bin/env bash",
+            "echo \"postfix={{file_postfix}}\" > result.txt",
+            "",
+        ]))
+
+        htcondor_job_file, c = factory(
+            grouped_submission=True,
+            executable=JobInputFile(
+                law_src_path("job", "law_group_wrapper.sh"),
+                copy=True,
+                render_local=True,
+                increment=True,
+            ),
+            input_files={"job_file": JobInputFile(job_file, copy=True, share=True, render_job=True)},
+            arguments=["a1", "a2"],
+            postfix=["_0To1", "_1To2"],
+            custom_log_file="stdall.txt",
+            postfix_output_files=postfix_output_files,
+        )
+
+        # postfixes and log files are passed to the wrapper independent of postfix_output_files
+        log = "stdall$(law_job_postfix).txt" if postfix_output_files else "stdall.txt"
+        with open(htcondor_job_file, encoding="utf-8") as f:
+            content = f.read()
+        assert f"    _0To1, _0To1 {log}\n" in content
+        assert f"    _1To2, _1To2 {log}\n" in content
+
+        # run the second job with the arguments as htcondor would expand them
+        sandbox = os.path.join(tmp, "sandbox")
+        os.makedirs(sandbox)
+        for name in os.listdir(c.dir):
+            os.symlink(os.path.join(c.dir, name), os.path.join(sandbox, name))
+        log = log.replace("$(law_job_postfix)", "_1To2")
+        p = subprocess.run(
+            ["bash", c.executable, "_1To2", log],
+            cwd=sandbox,
+            env=dict(os.environ, LAW_HTCONDOR_JOB_PROCESS="1"),
+            capture_output=True,
+            check=False,
+            text=True,
+        )
+        assert p.returncode == 0, p.stderr
+
+        with open(os.path.join(sandbox, "result.txt"), encoding="utf-8") as f:
+            assert f.read().strip() == "postfix=_1To2"
+        with open(os.path.join(sandbox, log), encoding="utf-8") as f:
+            assert "running law_group_wrapper" in f.read()
