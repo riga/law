@@ -317,21 +317,107 @@ data = target.load()
 
 #### Local representations
 
-External tools that need a local path should use {ref}`localize() <targets-localize>`, which handles the transfers automatically:
+`load()` and `dump()` cover many cases, but external tools usually need a path to a local file.
+There are three ways to provide one, which differ in how much of the transfer logic is handled by law.
+They are described in the following, starting with the most explicit one.
 
-- In `"r"` mode, the remote file is downloaded to a temporary local file first.
+##### Manual copies
+
+{py:meth}`copy_to_local() <law.target.file.FileSystemTarget.copy_to_local>` downloads a remote target to a local path or target, and {py:meth}`copy_from_local() <law.target.file.FileSystemTarget.copy_from_local>` uploads a local file to the location of a remote target.
+Both return the path of the destination.
+The corresponding {py:meth}`move_to_local() <law.target.file.FileSystemTarget.move_to_local>` and {py:meth}`move_from_local() <law.target.file.FileSystemTarget.move_from_local>` methods remove the source afterwards.
+
+```python
+def run(self) -> None:
+    inp = law.LocalFileTarget(is_tmp=".root")
+    outp = law.LocalFileTarget(is_tmp=".root")
+
+    # download the input
+    self.input().copy_to_local(inp)
+
+    some_tool(input_path=inp.abspath, output_path=outp.abspath)
+
+    # upload the output
+    self.output().copy_from_local(outp)
+```
+
+This gives full control over when and where files are transferred, e.g. to download an input once and reuse it for several steps, or to keep a local copy after the upload.
+However, the task is responsible for creating and cleaning up the local files, and for not uploading incomplete outputs when an error occurs.
+For local targets, these methods are identical to {py:meth}`copy_to() <law.target.file.FileSystemTarget.copy_to>` and {py:meth}`copy_from() <law.target.file.FileSystemTarget.copy_from>`, so the same code also works for local inputs and outputs, at the cost of an additional copy.
+
+##### The `localize()` method
+
+{ref}`localize() <targets-localize>` handles the transfers and the cleanup automatically:
+
+- In `"r"` mode, the remote file is downloaded to a temporary local file first, or taken from the {ref}`cache <remote-targets-caching>` if enabled.
 - In `"w"` mode, a temporary local file is provided and uploaded to the remote location when the context is left without an error.
 - In `"a"` mode, the existing remote content is downloaded first, and the result is uploaded afterwards.
 
+Temporary files are removed when the context is left, regardless of whether an error occurred.
+
 ```python
-with self.input().localize("r") as inp, self.output().localize("w") as outp:
-    some_tool(input_path=inp.abspath, output_path=outp.abspath)
+def run(self) -> None:
+    with self.input().localize("r") as inp, self.output().localize("w") as outp:
+        some_tool(input_path=inp.abspath, output_path=outp.abspath)
 ```
 
 Since the same code works for local targets, tasks that use `localize()` can switch between local and remote outputs without any change to their `run()` methods.
-The {py:func}`~law.decorator.localize` decorator does the same for all inputs and outputs of a task at once, and replaces `self.input()` and `self.output()` with their local representations while `run()` is executed.
+Remote directory targets are localized in the same way, with the full directory content being transferred.
+Further options, such as `perm` and `dir_perm` for the uploaded files, or `tmp_dir` for the location of temporary files, are passed as keyword arguments.
 
-Files can also be copied explicitly between local and remote locations with {py:meth}`copy_to_local() <law.target.file.FileSystemTarget.copy_to_local>` and {py:meth}`copy_from_local() <law.target.file.FileSystemTarget.copy_from_local>`, as well as the corresponding `move_*` methods.
+When inputs or outputs are structured, e.g. as dictionaries, {py:meth}`localize_input() <law.task.base.Task.localize_input>` and {py:meth}`localize_output() <law.task.base.Task.localize_output>` localize all targets in the structure at once, and yield their local representations in the same structure:
+
+```python
+def run(self) -> None:
+    with self.localize_input("r") as inp, self.localize_output("w") as outp:
+        some_tool(
+            data_path=inp["data"].abspath,
+            calib_path=inp["calib"].abspath,
+            output_path=outp["result"].abspath,
+        )
+```
+
+Both methods are based on {py:func}`~law.target.file.localize_file_targets`, which also works for arbitrary structures of targets.
+
+##### The `localize` decorator
+
+The {py:func}`~law.decorator.localize` decorator applies the same to the entire `run()` method.
+While `run()` is executed, `self.input()` and `self.output()` return the localized representations of all inputs in `"r"` mode and all outputs in `"w"` mode:
+
+```python
+@law.decorator.localize
+def run(self) -> None:
+    some_tool(input_path=self.input().abspath, output_path=self.output().abspath)
+```
+
+Outputs are only uploaded when `run()` finishes without an error, and the original, unlocalized methods remain accessible as `self.input_unlocalized()` and `self.output_unlocalized()`.
+Note that all inputs are downloaded before `run()` starts, even those that are not used, and that the decorator does not support `run()` methods that yield [dynamic dependencies](https://luigi.readthedocs.io/en/stable/tasks.html#dynamic-dependencies).
+
+The decorator accepts several options to adjust this behavior:
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `input` | `True` | Whether `self.input()` is localized. |
+| `output` | `True` | Whether `self.output()` is localized. |
+| `input_kwargs` | `None` | Keyword arguments passed to `localize()` of each input, e.g. `{"mode": "r"}`. |
+| `output_kwargs` | `None` | Keyword arguments passed to `localize()` of each output, e.g. `{"mode": "a"}` or `{"perm": 0o664}`. |
+
+For example, only outputs can be localized while inputs are read via `load()`, or outputs can be opened in append mode:
+
+```python
+@law.decorator.localize(input=False)
+def run(self) -> None:
+    data = self.input().load()
+    some_tool(data, output_path=self.output().abspath)
+
+@law.decorator.localize(output_kwargs={"mode": "a"})
+def run(self) -> None:
+    some_tool(input_path=self.input().abspath, append_to=self.output().abspath)
+```
+
+Since decorators can be stacked, `localize` is often combined with others, as described in {doc}`practices/run_methods`.
+
+(remote-targets-caching)=
 
 ### Caching
 
