@@ -538,7 +538,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             ("id", job_data["job_id"]),
             ("status", job_data["status"]),
             ("code", job_data["code"]),
-            ("error", job_data.get("error")),
+            ("error", no_value if job_data["code"] == self.job_resubmit_code else job_data.get("error")),
             ("job script error", self.job_error_messages.get(job_data["code"], no_value)),
             ("log", job_data["extra"].get("log", no_value)),
             ("remote host", job_data["extra"].get("remote_host", no_value)),
@@ -606,9 +606,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 summary_pairs = [
                     ("status", status),
                     ("code", f"{code}{code_str}"),
-                    ("example error", stats.get("error")),
                 ]
-                # add an example log file
+                if stats["error"]:
+                    summary_pairs.append(("example error", stats.get("error")))
                 if stats["log"]:
                     summary_pairs.append(("example log", stats["log"]))
                 # print the line
