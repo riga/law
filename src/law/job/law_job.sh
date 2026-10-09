@@ -9,21 +9,20 @@
 # 3. LAW_JOB_TASK_PARAMS: The base64 encoded representation of task parameters.
 # 4. LAW_JOB_TASK_BRANCHES: The base64 encoded list of task branches to run.
 # 5. LAW_JOB_WORKERS: The number of workers to use for processing branches in parallel.
-# 6. LAW_JOB_AUTO_RETRY: Either "yes" or "no" to control whether failed tasks are rerun once within
-#      the job.
-# 7. LAW_JOB_DASHBOARD_DATA: The base64 encoded representation of dashboard data used by dashboard
-#      hooks.
+# 6. LAW_JOB_AUTO_RETRY: Either "yes" or "no" to control whether failed tasks are rerun once within the job.
+# 7. LAW_JOB_DASHBOARD_DATA: The base64 encoded representation of dashboard data used by dashboard hooks.
 #
 # Note that all arguments are exported as environment variables.
 #
 # Additional environment variables (set by the script):
 # - LAW_JOB_INIT_DIR: The initial directory in which the job was executed.
-# - LAW_JOB_HOME: The directory in which all law tasks are executed, and which is cleaned up
-#     afterwards. It is randomly named and placed inside LAW_JOB_INIT_DIR for the purpose of
-#     preventing file collisions on batch systems that spawn multiple jobs in the same directory. It
-#     contains symbolic links to all input files.
+# - LAW_JOB_HOME: The directory in which all law tasks are executed, and which is cleaned up afterwards. It is randomly
+#     named and placed inside LAW_JOB_INIT_DIR for the purpose of preventing file collisions on batch systems that spawn
+#     multiple jobs in the same directory. It contains symbolic links to all input files.
 # - LAW_SRC_PATH: The location of the law package, obtained via "law location".
 # - LAW_JOB_TMP: A directory "tmp" inside LAW_JOB_HOME.
+# - LAW_JOB_RESUBMIT_FILE: A file "law_job_resubmit.ini" inside LAW_JOB_HOME. When it exists after the setup or after
+#     running a task branch, the job stops and exits with code 100.
 # - LAW_TARGET_TMP_DIR: Same as LAW_JOB_TMP.
 # - LAW_JOB_ORIGINAL_TMP: Original value of the TMP variable.
 # - LAW_JOB_ORIGINAL_TEMP: Original value of the TEMP variable.
@@ -37,13 +36,11 @@
 # - law_job_tmp: A custom temporary directory for the job.
 # - bootstrap_file: A file that is sourced before running tasks.
 # - bootstrap_command: A command that is executed before running tasks.
-# - dashboard_file: A file that can contain dashboard functions to be used in hooks. See the
-#     documentation below.
+# - dashboard_file: A file that can contain dashboard functions to be used in hooks. See the documentation below.
 # - input_files: Absolute or job relative paths of all input files, separated by spaces.
-# - input_files_render: Absolute or job relative paths of input files that should be rendered if
-#     render_variables is set.
-# - render_variables: Base64 encoded json dictionary with render variables to inject into
-#     input_files_render.
+# - input_files_render: Absolute or job relative paths of input files that should be rendered if render_variables is
+#     set.
+# - render_variables: Base64 encoded json dictionary with render variables to inject into input_files_render.
 # - stageout_command: A command that is executed after running tasks.
 # - stageout_file: A file that is executed after running tasks.
 # - log_file: A file for logging stdout and stderr simultaneously.
@@ -53,8 +50,8 @@
 # Dashboard hooks (called when found in environment):
 # - law_hook_job_running: A function that is called right before the job setup starts. No arguments.
 # - law_hook_job_finished: A function that is called at the very end of the job. No arguments.
-# - law_hook_job_failed: A function that is called in case of an error with one or two arguments,
-#     i.e., the job exit code and, if the error results from the task itself, the task exit code.
+# - law_hook_job_failed: A function that is called in case of an error with one or two arguments, i.e., the job exit
+#     code and, if the error results from the task itself, the task exit code.
 #
 # Job exit codes:
 #  0: The job succeeded.
@@ -67,6 +64,7 @@
 # 60: One of the tasks itself failed.
 # 70: The stageout file failed.
 # 80: The stageout command failed.
+# 100: The job requested its resubmission via LAW_JOB_RESUBMIT_FILE (not an error).
 
 law_job() {
     local this_file_base="$( basename "${BASH_SOURCE[0]}" )"
@@ -103,6 +101,7 @@ law_job() {
     export LAW_JOB_HOME="$( mktemp -d "${LAW_JOB_BASE}/job_XXXXXXXXXXXX" )"
     export LAW_JOB_TMP="${LAW_JOB_TMP:-{{law_job_tmp}}}"
     export LAW_JOB_TMP="${LAW_JOB_TMP:-${LAW_JOB_HOME}/tmp}"
+    export LAW_JOB_RESUBMIT_FILE="${LAW_JOB_HOME}/law_job_resubmit.ini"
     export LAW_JOB_ORIGINAL_TMP="${TMP}"
     export LAW_JOB_ORIGINAL_TEMP="${TEMP}"
     export LAW_JOB_ORIGINAL_TMPDIR="${TMPDIR}"
@@ -198,6 +197,10 @@ law_job() {
         _law_job_call_func "$@"
     }
 
+    _law_job_resubmission_requested() {
+        [ -f "${LAW_JOB_RESUBMIT_FILE}" ]
+    }
+
     _law_job_stageout() {
         local job_exit_code="${1:-0}"
 
@@ -268,11 +271,23 @@ law_job() {
         local job_exit_code="${1:-0}"
         local task_exit_code="$2"
 
+        # a requested resubmission takes precedence over all other exit codes
+        _law_job_resubmission_requested && job_exit_code="100"
+
         # stageout
         # when the job exit code was zero, replace it by that of stageout
         _law_job_stageout "${job_exit_code}"
         local stageout_ret="$?"
         [ "${job_exit_code}" = "0" ] && job_exit_code="${stageout_ret}"
+
+        # stageout might have requested a resubmission as well
+        _law_job_resubmission_requested && job_exit_code="100"
+
+        # show the resubmission request before its file is removed during cleanup
+        if [ "${job_exit_code}" = "100" ]; then
+            _law_job_section "resubmission request"
+            cat "${LAW_JOB_RESUBMIT_FILE}"
+        fi
 
         # cleanup
         _law_job_cleanup
@@ -528,6 +543,14 @@ EOT
     echo
     _law_job_print_vars || return "$?"
 
+    # stop when the setup requested a resubmission
+    if _law_job_resubmission_requested; then
+        echo
+        echo "resubmission requested during setup, stop job"
+        _law_job_finalize "100"
+        return "$?"
+    fi
+
     # mark the job as running
     _law_job_call_hook law_hook_job_running
 
@@ -563,7 +586,7 @@ EOT
         echo "task exit code: ${law_ret}"
         date +"%d/%m/%Y %T.%N (%Z)"
 
-        if [ "${law_ret}" != "0" ] && [ "${LAW_JOB_AUTO_RETRY}" = "yes" ]; then
+        if [ "${law_ret}" != "0" ] && [ "${LAW_JOB_AUTO_RETRY}" = "yes" ] && ! _law_job_resubmission_requested; then
             echo
             _law_job_subsection "execute attempt 2"
             export LAW_JOB_ATTEMPT="2"
@@ -572,6 +595,12 @@ EOT
             law_ret="$?"
             echo "task exit code: ${law_ret}"
             date +"%d/%m/%Y %T.%N (%Z)"
+        fi
+
+        if _law_job_resubmission_requested; then
+            echo "task branch ${b} requested resubmission (exit code ${law_ret}), stop job"
+            _law_job_finalize "100" "${law_ret}"
+            return "$?"
         fi
 
         if [ "${law_ret}" != "0" ]; then

@@ -215,6 +215,23 @@ Remote workflows are built from a few components that can be customized when nee
 The job script reports failures through exit codes, e.g. 20 when the bootstrap file failed and 60 when one of the tasks failed.
 The full list is documented in the header of `law_job.sh`.
 
+A job can also request its own resubmission without being considered failed, e.g. when it detects that it landed on an unsuitable node.
+To do so, a task calls {py:meth}`~law.task.base.Task.request_job_resubmission` (or {py:func}`law.job.base.request_job_resubmission` from any other code running in the job), optionally passing a reason and further information.
+This writes the request to the file `$LAW_JOB_RESUBMIT_FILE`, which the job script checks after the setup and after each task branch.
+If it exists, the job stops, prints the request and exits with code 100.
+The workflow then resubmits the job without counting it towards `--retries`, and prints a summary of all jobs that requested a resubmission.
+By default, the call does not stop the task itself, so it should return or raise an exception afterwards.
+Passing `abort=True` does this automatically by aborting the process via {py:func}`law.util.abort` right after the request was written.
+
+```python
+class ConvertFiles(MyHTCondorWorkflow, law.LocalWorkflow):
+
+    def run(self):
+        if not node_is_suitable():
+            self.request_job_resubmission("unsuitable node", info={"host": socket.gethostname()}, abort=True)
+        ...
+```
+
 ## Further reading
 
 - {doc}`workflows` describes workflows in general.

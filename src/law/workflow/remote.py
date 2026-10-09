@@ -148,6 +148,14 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         A dictionary containing short error messages mapped to job exit codes as defined in the
         remote job execution script.
 
+    .. py:classattribute:: job_resubmit_code
+
+        type: int
+
+        Job exit code that signals a requested resubmission rather than a failure (see
+        :py:func:`law.job.base.request_job_resubmission`). Jobs exiting with this code are always resubmitted, without
+        counting towards the number of retries.
+
     .. py:attribute:: show_errors
 
         type: int
@@ -195,6 +203,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         Class for instantiating :py:attr:`job_data`.
     """
 
+    # job exit code that signals a requested resubmission rather than a failure
+    job_resubmit_code = 100
+
     # job error messages for errors defined in the remote job script
     job_error_messages = {
         5: "input file rendering failed",
@@ -206,6 +217,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         60: "task execution failed",
         70: "stageout file failed",
         80: "stageout command failed",
+        job_resubmit_code: "job requested resubmission",
     }
 
     # configures how many job errors are fully shown
@@ -526,14 +538,20 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             ("id", job_data["job_id"]),
             ("status", job_data["status"]),
             ("code", job_data["code"]),
-            ("error", job_data.get("error")),
+            ("error", no_value if job_data["code"] == self.job_resubmit_code else job_data.get("error")),
             ("job script error", self.job_error_messages.get(job_data["code"], no_value)),
             ("log", job_data["extra"].get("log", no_value)),
             ("remote host", job_data["extra"].get("remote_host", no_value)),
         ])
 
-    def _print_status_errors(self, failed_jobs: dict[int, JobData]) -> None:
-        err_line = colored(f"{len(failed_jobs)} failed job(s)", color="red", style="bright")
+    def _print_status_errors(
+        self,
+        failed_jobs: dict[int, JobData],
+        title: str = "failed job(s)",
+        summary_title: str = "error summary",
+        color: str = "red",
+    ) -> None:
+        err_line = colored(f"{len(failed_jobs)} {title}", color=color, style="bright")
         print(f"{err_line} in task {self.task.task_id}:")
 
         # prepare the decision for showing the error summary
@@ -578,7 +596,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                     groups[key]["log"] = data["extra"].get("log")
 
             # show the summary
-            print(colored("error summary:", color="red", style="bright"))
+            print(colored(f"{summary_title}:", color=color, style="bright"))
             for (code, status), stats in groups.items():
                 # status messsages of known error codes
                 code_str = ""
@@ -588,9 +606,9 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 summary_pairs = [
                     ("status", status),
                     ("code", f"{code}{code_str}"),
-                    ("example error", stats.get("error")),
                 ]
-                # add an example log file
+                if stats["error"]:
+                    summary_pairs.append(("example error", stats.get("error")))
                 if stats["log"]:
                     summary_pairs.append(("example log", stats["log"]))
                 # print the line
@@ -1400,9 +1418,11 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                     newly_failed_jobs.append(job_num)
                     self.poll_data.n_active -= 1
 
-                    # retry or ultimately failed?
-                    if self._job_retries[job_num] < retries:
-                        self._job_retries[job_num] += 1
+                    # retry or ultimately failed? jobs that requested a resubmission are always retried
+                    resubmit = data["code"] == self.job_resubmit_code
+                    if resubmit or self._job_retries[job_num] < retries:
+                        if not resubmit:
+                            self._job_retries[job_num] += 1
                         self.job_data.attempts.setdefault(job_num, 0)
                         self.job_data.attempts[job_num] += 1
                         data["status"] = self.job_manager.RETRY
@@ -1467,12 +1487,22 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             # inform the scheduler about the progress
             task.publish_progress(100.0 * n_finished / n_jobs)
 
-            # print newly failed jobs
+            # print newly failed jobs, separating those that requested a resubmission
             if newly_failed_jobs:
-                self._print_status_errors({
-                    job_num: self.job_data.jobs[job_num]
-                    for job_num in newly_failed_jobs
-                })
+                resubmit_jobs: dict[int, JobData] = {}
+                error_jobs: dict[int, JobData] = {}
+                for job_num in newly_failed_jobs:
+                    data = self.job_data.jobs[job_num]
+                    (resubmit_jobs if data["code"] == self.job_resubmit_code else error_jobs)[job_num] = data
+                if resubmit_jobs:
+                    self._print_status_errors(
+                        resubmit_jobs,
+                        title="job(s) requested resubmission",
+                        summary_title="resubmission summary",
+                        color="yellow",
+                    )
+                if error_jobs:
+                    self._print_status_errors(error_jobs)
 
             # infer the overall status
             reached_end = n_jobs == n_finished + n_failed
