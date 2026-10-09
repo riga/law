@@ -1030,6 +1030,32 @@ class Task(BaseTask, metaclass=Register):
                 yield val
                 progress_callback(i)
 
+    def request_job_resubmission(
+        self,
+        reason: str | None = None,
+        info: dict[str, Any] | None = None,
+        abort: bool = False,
+    ) -> str | None:
+        """
+        Requests the resubmission of the remote job in which this task is currently executed, without the job being
+        considered failed. The ``task_id`` of this task is added to *info* unless already set. See
+        :py:func:`law.job.base.request_job_resubmission` for more info.
+
+        :param reason: An optional reason for the resubmission request.
+        :param info: Optional additional information to store in the request.
+        :param abort: Whether to abort the process after the request was written, which marks this task as failed.
+        :return: The path of the written file, or *None* when not running in a law remote job.
+        """
+        from law.job.base import request_job_resubmission
+
+        info = {
+            **(info or {}),
+            "task_family": self.task_family,
+            "task_id": self.task_id,
+        }
+
+        return request_job_resubmission(reason=reason, info=info, abort=abort)
+
     def cli_args(
         self,
         exclude: str | Sequence[str] | set[str] | None = None,

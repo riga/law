@@ -4,11 +4,12 @@ Base classes for implementing remote job management and job file creation.
 
 from __future__ import annotations
 
-__all__ = ["BaseJobFileFactory", "BaseJobManager", "JobArguments", "JobInputFile"]
+__all__ = ["BaseJobFileFactory", "BaseJobManager", "JobArguments", "JobInputFile", "request_job_resubmission"]
 
 import abc
 import base64
 import collections
+import configparser
 import copy
 import fnmatch
 import json
@@ -43,6 +44,7 @@ from law.util import (
     no_value,
     which,
 )
+from law.util import abort as abort_process
 
 logger = get_logger(__name__)
 
@@ -67,6 +69,59 @@ def get_timeout_command() -> str | None:
                     break
 
     return _timeout_command  # type: ignore[return-value]
+
+
+def request_job_resubmission(
+    reason: str | None = None,
+    info: dict[str, Any] | None = None,
+    abort: bool = False,
+) -> str | None:
+    """
+    Requests the resubmission of the remote job that is currently executed, without the job being considered failed.
+
+    The request is written to the file referred to by the ``LAW_JOB_RESUBMIT_FILE`` environment variable, which is set
+    by the law job script ``law_job.sh``. When this file exists after the job setup or after running a task branch, the
+    job stops and exits with code 100. Remote workflows interpret this code as a resubmission request (see
+    :py:attr:`law.workflow.remote.BaseRemoteWorkflowProxy.job_resubmit_code`) and resubmit the job without counting it
+    towards the number of retries.
+
+    The file has an ini-like format. Each call adds a new section ``[request_<n>]`` containing the current ``time``, the
+    *reason* and all entries in *info*, converted to strings. The content is printed in the job log.
+
+    Unless *abort* is *True*, this function does not stop the current process. Depending on the use case, the task
+    should return or raise an exception afterwards. When *abort* is *True*, the process is aborted right away via
+    :py:func:`law.util.abort` with exit code 1, which, inside a task, marks the task as failed. Outside of law remote
+    jobs, i.e., when ``LAW_JOB_RESUBMIT_FILE`` is not set, no request is written but the process is still aborted if
+    requested.
+
+    :param reason: An optional reason for the resubmission request.
+    :param info: Optional additional information to store in the request.
+    :param abort: Whether to abort the process after the request was written.
+    :return: The path of the written file, or *None* when not running in a law remote job.
+    """
+    path = os.getenv("LAW_JOB_RESUBMIT_FILE") or None
+    reason_str = f": {reason}" if reason else ""
+
+    if path:
+        # read existing requests and add a new one
+        parser = configparser.ConfigParser(interpolation=None)
+        parser.read(path, encoding="utf-8")
+        parser[f"request_{len(parser.sections()) + 1}"] = {
+            "time": time.strftime("%d/%m/%Y %H:%M:%S (%Z)"),
+            "reason": "" if reason is None else str(reason),
+            **{key: str(value) for key, value in (info or {}).items()},
+        }
+        with open(path, "w", encoding="utf-8") as f:
+            parser.write(f)
+
+        logger.info(f"requested job resubmission in {path}{reason_str}")
+    else:
+        logger.debug("cannot request job resubmission, LAW_JOB_RESUBMIT_FILE not set")
+
+    if abort:
+        abort_process(f"abort after requesting job resubmission{reason_str}")
+
+    return path
 
 
 def get_async_result_silent(result: multiprocessing.pool.AsyncResult, timeout: int | float | None = None) -> Any:
