@@ -93,7 +93,7 @@ __all__ = [  # noqa: RUF022
 import collections
 import contextlib
 import copy
-import datetime
+import datetime as dt
 import fnmatch
 import functools
 import hashlib
@@ -1891,7 +1891,7 @@ def get_subprocess_pids(pid: int, recursive: bool = False, use_psutil: bool = Tr
             line = line.strip()
             if line:
                 pid_str, time_str = line.split(None, 2)[1:]
-                pids_times[int(pid_str)] = datetime.datetime.strptime(time_str, r"%a %b %d %H:%M:%S %Y").timestamp()
+                pids_times[int(pid_str)] = dt.datetime.strptime(time_str, r"%a %b %d %H:%M:%S %Y").timestamp()
         if not pids_times:
             return []
         if pid not in pids_times:
@@ -2456,7 +2456,7 @@ def human_duration(colon_format: bool | str = False, plural: bool = True, **kwar
     """
     _time_units = ["day", "hour", "minute", "second"]
 
-    seconds = float(datetime.timedelta(**kwargs).total_seconds())
+    seconds = float(dt.timedelta(**kwargs).total_seconds())
     sign = 1 if seconds >= 0 else -1
     # round to 2 digits before splitting into units so that rounding carries over to larger units
     seconds = round(abs(seconds), 2)
