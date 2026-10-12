@@ -239,6 +239,32 @@ class TestLocalTarget(TargetTestCase):
         f = law.LocalFileTarget("some/relative/path.txt")
         assert f.abspath == "/some/relative/path.txt"
 
+    def test_from_pwd(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.chdir(self.tmp)
+        monkeypatch.setenv("LAW_TEST_TARGET_VAR", self.tmp)
+
+        # relative paths are resolved against the current working directory
+        f = law.LocalFileTarget.from_pwd("sub/a.txt")
+        assert isinstance(f, law.LocalFileTarget)
+        assert f.abspath == self.path("sub", "a.txt")
+        assert law.LocalFileTarget.from_pwd(pathlib.Path("a.txt")).abspath == self.path("a.txt")
+        assert law.LocalFileTarget.from_pwd("file://a.txt").abspath == self.path("a.txt")
+        d = law.LocalDirectoryTarget.from_pwd("sub")
+        assert isinstance(d, law.LocalDirectoryTarget)
+        assert d.abspath == self.path("sub")
+        assert d.child("a.txt", type="f") == f
+
+        # absolute paths, also after expansion, are kept as is
+        assert law.LocalFileTarget.from_pwd("/x/a.txt").abspath == "/x/a.txt"
+        f = law.LocalFileTarget.from_pwd("$LAW_TEST_TARGET_VAR/a.txt")
+        assert f.abspath == self.path("a.txt")
+        assert f.unexpanded_path == "$LAW_TEST_TARGET_VAR/a.txt"
+        assert law.LocalFileTarget.from_pwd("~/x").abspath == os.path.expanduser("~/x")
+
+        # kwargs are forwarded
+        f = law.LocalFileTarget.from_pwd("a.txt", fs=law.LocalFileSystem(base="/other"))
+        assert f.abspath == self.path("a.txt")
+
     def test_local_file_system(self) -> None:
         fs = law.LocalFileSystem.default_instance
         assert fs.base == "/"

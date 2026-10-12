@@ -15,7 +15,7 @@ import random
 import shutil
 
 import law.target.luigi_shims as shims
-from law._types import IO, AbstractContextManager, Any, Callable, Generator, Iterator, Literal
+from law._types import IO, AbstractContextManager, Any, Callable, Generator, Iterator, Literal, Self
 from law.config import Config
 from law.errors import ConfigError
 from law.logger import get_logger
@@ -43,7 +43,8 @@ class LocalFileSystem(FileSystem, shims.LocalFileSystem):
     Relative paths are resolved against the *base* of the file system and **not** against the current working directory.
     As the base of the default local file system must be ``"/"``, relative paths are interpreted relative to the root
     directory in that case, e.g. ``"a/b.txt"`` refers to ``"/a/b.txt"``. To refer to paths relative to the current
-    directory, use absolute paths or environment variables such as ``"$PWD/a/b.txt"``.
+    directory, use absolute paths, environment variables such as ``"$PWD/a/b.txt"``, or
+    :py:meth:`LocalTarget.from_pwd`.
     """
 
     # set right below the class definition
@@ -423,7 +424,8 @@ class LocalTarget(FileSystemTarget, shims.LocalTarget):
     """
     Base class of local file and directory targets. Paths are interpreted by the underlying :py:class:`LocalFileSystem`
     *fs*, so relative paths are resolved against its base (``"/"`` for the default local file system) and **not**
-    against the current working directory. Environment variables and ``"~"`` in paths are expanded.
+    against the current working directory. Environment variables and ``"~"`` in paths are expanded. To create targets
+    with paths relative to the current working directory, use :py:meth:`from_pwd`.
 
     When no *path* is given, *is_tmp* must be set and a random path in the configured temporary directory (or *tmp_dir*)
     is chosen. *is_tmp* can also be a file extension. Temporary targets are removed when they are garbage collected.
@@ -432,6 +434,32 @@ class LocalTarget(FileSystemTarget, shims.LocalTarget):
     fs = LocalFileSystem.default_instance
 
     open: Callable | None = None  # type: ignore[assignment]
+
+    @classmethod
+    def from_pwd(cls, path: str | pathlib.Path, **kwargs) -> Self:
+        """
+        Creates a new target whose *path* is interpreted relative to the current working directory rather than to the
+        base of the underlying file system. Absolute paths, also after expanding environment variables and ``"~"``,
+        are kept as is. All *kwargs* are forwarded to the constructor. Example:
+
+        .. code-block:: python
+
+            os.chdir("/some/dir")
+            LocalFileTarget.from_pwd("data/a.json").abspath  # -> "/some/dir/data/a.json"
+            LocalFileTarget("data/a.json").abspath  # -> "/data/a.json"
+
+        :param path: The path of the target, either relative to the current working directory or absolute.
+        :return: The new target.
+        """
+        path = get_path(path)
+        if get_scheme(path) == "file":
+            path = remove_scheme(path)
+
+        # prepend the current working directory to relative paths, but keep variables unexpanded
+        if not os.path.isabs(os.path.expandvars(os.path.expanduser(path))):
+            path = os.path.join(os.getcwd(), path)
+
+        return cls(path, **kwargs)
 
     def __init__(
         self,

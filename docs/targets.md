@@ -26,7 +26,8 @@ Environment variables and `~` in paths are expanded.
 ```{important}
 Relative paths are resolved against the base of the underlying file system, which is `/` for the default local file system, and **not** against the current working directory.
 For example, `law.LocalFileTarget("a/b.txt")` refers to `/a/b.txt`.
-Use absolute paths or environment variables such as `$PWD` instead.
+Use absolute paths or environment variables such as `$PWD` instead, or create targets with {py:meth}`~law.target.local.LocalTarget.from_pwd`, which resolves relative paths against the current working directory.
+For example, `law.LocalFileTarget.from_pwd("a/b.txt")` refers to `$PWD/a/b.txt`.
 ```
 
 #### File targets
