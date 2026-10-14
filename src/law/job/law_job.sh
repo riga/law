@@ -625,6 +625,7 @@ start_law_job() {
     # Invokes the law_job function defined above, making sure it is wrapped by a new bash subshell.
 
     local log_file="{{log_file}}"
+    [ "${log_file}" = "''" ] || [ "${log_file}" = '""' ] && log_file=""
 
     if [ "${LAW_JOB_WRAPPED_BASH}" != "1" ]; then
         # not wrapped yet, start a new shell forwarding all arguments

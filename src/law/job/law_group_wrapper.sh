@@ -245,7 +245,10 @@ action() {
 
     # arguments: file_postfix, log_file, with fallbacks to the maps above
     local file_postfix="${1:-${law_group_job_postfix_map[${LAW_GROUP_JOB_INDEX}]}}"
-    local log_file="${2:-${law_group_job_log_file_map[${LAW_GROUP_JOB_INDEX}]}}"
+    local log_file="${2}"
+    [ "${log_file}" = "''" ] || [ "${log_file}" = '""' ] && log_file=""
+    log_file="${log_file:-${law_group_job_log_file_map[${LAW_GROUP_JOB_INDEX}]}}"
+    [ "${log_file}" = "''" ] || [ "${log_file}" = '""' ] && log_file=""
 
     # create log directory
     if [ ! -z "${log_file}" ]; then
