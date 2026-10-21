@@ -998,7 +998,7 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
                     # insert
                     queue_keys.append(q_key)
                     for i in range(len(queue_values)):
-                        queue_values[i] += ((q_values[i] if isinstance(q_values, (list, tuple)) else q_values),)
+                        queue_values[i] += (str(q_values[i] if isinstance(q_values, (list, tuple)) else q_values),)
             # write the queue section
             content.append(f"queue {', '.join(queue_keys)} from (")
             for queue_value in queue_values:
