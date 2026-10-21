@@ -2524,10 +2524,10 @@ def human_duration(colon_format: bool | str = False, plural: bool = True, **kwar
     return human_str
 
 
-def parse_duration(s: int | float | str, input_unit: str = "s", unit: str = "s") -> float:
+def parse_duration(s: int | float | str, unit: str = "s", input_unit: str = "s") -> float:
     """
-    Takes a string *s*, interprets it as a duration with an optional unit, and returns a float that represents that
-    duration in a given *unit*. Multiple input formats are parsed. Example:
+    Takes a string *s*, interprets it as a duration with an optional implicit unit, and returns a float representing
+    it in a given *unit*. Multiple input formats are parsed. Example:
 
     .. code-block:: python
 

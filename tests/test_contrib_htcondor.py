@@ -203,3 +203,54 @@ class TestHTCondorGroupWrapper:
             assert f.read().strip() == "postfix=_1To2"
         with open(os.path.join(sandbox, log), encoding="utf-8") as f:
             assert "Start of law group job" in f.read()
+
+    def test_queue_empty_postfix_and_log(self, tmp_path: pathlib.Path) -> None:
+        tmp = os.path.realpath(tmp_path)
+        factory = HTCondorJobFileFactory(dir=os.path.join(tmp, "factory"), mkdtemp=False, cleanup=False)
+
+        htcondor_job_file, _ = factory(
+            grouped_submission=True,
+            executable=law_src_path("job", "law_group_wrapper.sh"),
+            arguments=["a1", "a2"],
+            postfix_output_files=False,
+        )
+
+        # without postfixes and log file, empty placeholders are passed for each job
+        with open(htcondor_job_file, encoding="utf-8") as f:
+            content = f.read()
+        assert "queue law_job_postfix, arguments from (\n    '', '' ''\n    '', '' ''\n)\n" in content
+
+    def test_queue_custom_arguments(self, tmp_path: pathlib.Path) -> None:
+        tmp = os.path.realpath(tmp_path)
+        factory = HTCondorJobFileFactory(dir=os.path.join(tmp, "factory"), mkdtemp=False, cleanup=False)
+
+        # sequences are distributed over jobs, strings are used for all jobs
+        htcondor_job_file, _ = factory(
+            grouped_submission=True,
+            executable=law_src_path("job", "law_group_wrapper.sh"),
+            arguments=["a1", "a2"],
+            postfix=["_0To1", "_1To2"],
+            custom_log_file="stdall.txt",
+            grouped_queue_arguments={"my_key": ["v1", "v2"], "my_shared": "s"},
+        )
+        with open(htcondor_job_file, encoding="utf-8") as f:
+            content = f.read()
+        assert "".join([
+            "queue law_job_postfix, arguments, my_key, my_shared from (\n",
+            "    _0To1, _0To1 stdall$(law_job_postfix).txt, v1, s\n",
+            "    _1To2, _1To2 stdall$(law_job_postfix).txt, v2, s\n",
+            ")\n",
+        ]) in content
+
+    def test_queue_custom_arguments_errors(self, tmp_path: pathlib.Path) -> None:
+        tmp = os.path.realpath(tmp_path)
+        factory = HTCondorJobFileFactory(dir=os.path.join(tmp, "factory"), mkdtemp=False, cleanup=False)
+
+        with pytest.raises(ValueError, match=r"length of grouped queue argument 'my_key' \(1\) does not match"):
+            factory(
+                grouped_submission=True,
+                executable=law_src_path("job", "law_group_wrapper.sh"),
+                arguments=["a1", "a2"],
+                postfix=["_0To1", "_1To2"],
+                grouped_queue_arguments={"my_key": ["v1"]},
+            )

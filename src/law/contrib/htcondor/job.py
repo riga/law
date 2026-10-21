@@ -593,6 +593,8 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
     - *remap_stdout_stderr*: Whether *stdout* and *stderr* are written to files named after their basenames on the job
       node and transferred back via ``transfer_output_remaps``, instead of passing their full paths to HTCondor
       directly. Note that this is incompatible with ``stream_output`` and ``stream_error``.
+    - *grouped_queue_arguments*: A dictionary mapping queue keys to corresponding arguments that will be added to the
+      `queue` arguments in additional to the standard ones. Grouped submission only.
     - *postfix_output_files*: Whether the job postfix is added to the names of output and log files.
     - *postfix*: The postfix that is added to the job file and, depending on *postfix_output_files*,
       to output files.
@@ -621,6 +623,7 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
         "stdout",
         "stderr",
         "remap_stdout_stderr",
+        "grouped_queue_arguments",
         "postfix_output_files",
         "postfix",
         "universe",
@@ -641,6 +644,7 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
         stdout: str = "stdout.txt",
         stderr: str = "stderr.txt",
         remap_stdout_stderr: bool = False,
+        grouped_queue_arguments: dict[str, str | Sequence[str]] | None = None,
         postfix_output_files: bool = True,
         postfix: str | None = None,
         universe: str = "vanilla",
@@ -679,6 +683,7 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
         self.stdout = stdout
         self.stderr = stderr
         self.remap_stdout_stderr = remap_stdout_stderr
+        self.grouped_queue_arguments = grouped_queue_arguments
         self.postfix_output_files = postfix_output_files
         self.postfix = postfix
         self.universe = universe
@@ -972,11 +977,32 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
         if grouped_submission:
             # postfixes and log files are always passed to the group wrapper, whereas the log file only contains the
             # law_job_postfix macro when postfix_output_files is set
-            content.append("queue law_job_postfix, arguments from (")
-            for i in range(len(c.arguments)):
-                pf = c.postfix[i] if c.postfix else "''"
-                log = c.custom_log_file or "''"
-                content.append(f"    {pf}, {pf} {log}")
+            empty = "''"
+            queue_keys = ["law_job_postfix", "arguments"]
+            queue_values: list[tuple[str, ...]] = [
+                (
+                    (pf := c.postfix[i] if c.postfix else empty),
+                    f"{pf} {c.custom_log_file or empty}",
+                )
+                for i in range(len(c.arguments))
+            ]
+            # insert custom values
+            if c.grouped_queue_arguments:
+                for q_key, q_values in c.grouped_queue_arguments.items():
+                    # check the sequence length
+                    if isinstance(q_values, (list, tuple)) and len(q_values) != len(c.arguments):
+                        raise ValueError(
+                            f"length of grouped queue argument '{q_key}' ({len(q_values)}) does not match the number "
+                            f"of jobs ({len(c.arguments)})",
+                        )
+                    # insert
+                    queue_keys.append(q_key)
+                    for i in range(len(queue_values)):
+                        queue_values[i] += ((q_values[i] if isinstance(q_values, (list, tuple)) else q_values),)
+            # write the queue section
+            content.append(f"queue {', '.join(queue_keys)} from (")
+            for queue_value in queue_values:
+                content.append(f"    {', '.join(queue_value)}")
             content.append(")")
         elif c.arguments:
             for _arguments in c.arguments:
