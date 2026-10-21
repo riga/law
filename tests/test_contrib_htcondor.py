@@ -236,9 +236,9 @@ class TestHTCondorGroupWrapper:
         with open(htcondor_job_file, encoding="utf-8") as f:
             content = f.read()
         assert "".join([
-            "queue law_job_postfix, arguments, my_key, my_shared from (\n",
-            "    _0To1, _0To1 stdall$(law_job_postfix).txt, v1, s\n",
-            "    _1To2, _1To2 stdall$(law_job_postfix).txt, v2, s\n",
+            "queue law_job_postfix, my_key, my_shared, arguments from (\n",
+            "    _0To1, v1, s, _0To1 stdall$(law_job_postfix).txt\n",
+            "    _1To2, v2, s, _1To2 stdall$(law_job_postfix).txt\n",
             ")\n",
         ]) in content
 
@@ -254,3 +254,13 @@ class TestHTCondorGroupWrapper:
                 postfix=["_0To1", "_1To2"],
                 grouped_queue_arguments={"my_key": ["v1"]},
             )
+
+        for q_values, bad_value in [(["v1", "v 2"], "v 2"), (["v1", "v,2"], "v,2"), ("s s", "s s")]:
+            with pytest.raises(ValueError, match=f"must not contain spaces or commas: '{bad_value}'"):
+                factory(
+                    grouped_submission=True,
+                    executable=law_src_path("job", "law_group_wrapper.sh"),
+                    arguments=["a1", "a2"],
+                    postfix=["_0To1", "_1To2"],
+                    grouped_queue_arguments={"my_key": q_values},
+                )

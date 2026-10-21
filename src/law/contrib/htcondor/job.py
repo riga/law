@@ -594,7 +594,8 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
       node and transferred back via ``transfer_output_remaps``, instead of passing their full paths to HTCondor
       directly. Note that this is incompatible with ``stream_output`` and ``stream_error``.
     - *grouped_queue_arguments*: A dictionary mapping queue keys to corresponding arguments that will be added to the
-      `queue` arguments in additional to the standard ones. Grouped submission only.
+      `queue` item list in additional to the standard ones. Note that, by HTCondor convention, values should not contain
+      whitespaces or commas. Grouped submission only.
     - *postfix_output_files*: Whether the job postfix is added to the names of output and log files.
     - *postfix*: The postfix that is added to the job file and, depending on *postfix_output_files*,
       to output files.
@@ -989,16 +990,23 @@ class HTCondorJobFileFactory(BaseJobFileFactory):
             # insert custom values
             if c.grouped_queue_arguments:
                 for q_key, q_values in c.grouped_queue_arguments.items():
+                    if q_key in queue_keys:
+                        raise ValueError(f"grouped queue argument '{q_key}' conflicts with existing queue keys")
                     # check the sequence length
                     if isinstance(q_values, (list, tuple)) and len(q_values) != len(c.arguments):
                         raise ValueError(
                             f"length of grouped queue argument '{q_key}' ({len(q_values)}) does not match the number "
                             f"of jobs ({len(c.arguments)})",
                         )
-                    # insert
-                    queue_keys.append(q_key)
+                    # insert before arguments
+                    queue_keys.insert(-1, q_key)
                     for i in range(len(queue_values)):
-                        queue_values[i] += (str(q_values[i] if isinstance(q_values, (list, tuple)) else q_values),)
+                        q_value = str(q_values[i] if isinstance(q_values, (list, tuple)) else q_values)
+                        if " " in q_value or "," in q_value:
+                            raise ValueError(
+                                f"grouped queue argument '{q_key}' must not contain spaces or commas: '{q_value}'",
+                            )
+                        queue_values[i] = (*queue_values[i][:-1], q_value or "''", *queue_values[i][-1:])
             # write the queue section
             content.append(f"queue {', '.join(queue_keys)} from (")
             for queue_value in queue_values:
