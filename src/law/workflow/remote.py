@@ -1019,10 +1019,10 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 self.dump_job_data()
             return new_submission_data
 
-        # add empty job entries to submission data
+        # add empty job entries to missing jobs in submission data
         for job_num, branches in submit_jobs.items():
-            job_data = self.job_data_cls.job_data(branches=branches)
-            self.job_data.jobs[job_num] = job_data
+            if job_num not in self.job_data.jobs:
+                self.job_data.jobs[job_num] = self.job_data_cls.job_data(branches=branches)
 
         # log some stats
         dst_info = self._destination_info_postfix()
