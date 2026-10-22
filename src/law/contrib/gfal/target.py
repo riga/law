@@ -353,7 +353,7 @@ class GFALFileInterface(RemoteFileInterface):
                 # handle all cases, except when the directory is not empty
                 if e_custom2.reason != e_custom2.NOT_EMPTY:
                     if e_custom2.reason == e_custom2.UNKNOWN:
-                        raise e
+                        raise e_custom2 from e
                     if e_custom2.reason == e_custom2.NOT_FOUND and silent:
                         return False
                     raise e_custom2 from e
@@ -438,7 +438,7 @@ class GFALFileInterface(RemoteFileInterface):
             except gfal2.GError as e:
                 e_custom = GFALError_listdir(uri)
                 # some protocols throw an error upon listdir on empty directories
-                if e_custom.EMPTY:
+                if e_custom.reason == e_custom.EMPTY:
                     return []
                 raise e_custom from e
 
