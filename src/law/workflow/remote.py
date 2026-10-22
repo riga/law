@@ -256,9 +256,6 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         self.job_manager.status_diff_styles["unsubmitted"] = ({"color": "green"}, {}, {})
         self._job_manager_setup_kwargs: dict[str, Any] | NoValue = no_value
 
-        # boolean per job num denoting if a job should be / was skipped
-        self._skip_jobs: dict[int, bool] = {}
-
         # retry counts per job num
         self._job_retries: dict[int, int] = defaultdict(int)
 
@@ -445,13 +442,13 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
     def _get_existing_branches(
         self,
-        sync: bool = False,
+        force: bool = False,
         collection: TargetCollection | None = None,
     ) -> set[int]:
         if self._existing_branches is None:
-            sync = True
+            force = True
 
-        if sync:
+        if force:
             # initialize with set
             self._existing_branches = set()
             # add initial branches existing in output collection
@@ -468,22 +465,24 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         Returns whether a job can be potentially skipped, which is the case when all branch tasks given by *branches*
         are complete.
 
+        The result is potentially chached as per :py:func:`_get_existing_branches`, which might be re-invoked with its
+        *force* argument set to *True*.
+
         :param job_num: The job number.
         :param branches: The branch numbers covered by the job.
         :return: Whether the job can be skipped.
         """
-        if job_num not in self._skip_jobs:
-            existing_branches = self._get_existing_branches()
-            self._skip_jobs[job_num] = all((b in existing_branches) for b in branches)
+        existing_branches = self._get_existing_branches()
+        skip = all((b in existing_branches) for b in branches)
 
-            # when the job is skipped, ensure that a job data entry exists and set the status
-            if self._skip_jobs[job_num]:
-                if job_num not in self.job_data.jobs:
-                    self.job_data.jobs[job_num] = self.job_data_cls.job_data(branches=branches)
-                if not self.job_data.jobs[job_num]["status"]:
-                    self.job_data.jobs[job_num]["status"] = self.job_manager.FINISHED
+        # when the job is skipped, ensure that a job data entry exists and set the status
+        if skip:
+            if job_num not in self.job_data.jobs:
+                self.job_data.jobs[job_num] = self.job_data_cls.job_data(branches=branches)
+            if not self.job_data.jobs[job_num]["status"]:
+                self.job_data.jobs[job_num]["status"] = self.job_manager.FINISHED
 
-        return self._skip_jobs[job_num]
+        return skip
 
     def _get_job_kwargs(self, name: str) -> dict[str, Any]:
         attr = f"{self.workflow_type}_job_kwargs_{name}"
@@ -571,7 +570,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             ])
             print(f"    {status_line}")
 
-            if i >= self.show_errors and len(failed_jobs) > self.show_errors + 1:
+            if i + 1 >= self.show_errors and len(failed_jobs) > self.show_errors + 1:
                 remaining = len(failed_jobs) - self.show_errors
                 if remaining > 0:
                     print(f"    ... and {remaining} more")
@@ -1323,7 +1322,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
             n_poll_fails = 0
 
             # handle active jobs
-            synced_existing_branches = False
+            force_check_existing_branches = False
             for job_num in active_jobs:
                 # update job data with status info
                 data = self.job_data.jobs[job_num]
@@ -1339,10 +1338,10 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                 if self._submitted and i == 0:
                     is_finished = data["status"] == self.job_manager.FINISHED
                     if is_finished:
-                        # sync existing branches once more in case jobs finished since last checked
-                        if not synced_existing_branches:
-                            self._get_existing_branches(sync=True)
-                            synced_existing_branches = True
+                        # force checking existing branches once more in case jobs finished since last checked
+                        if not force_check_existing_branches:
+                            self._get_existing_branches(force=True)
+                            force_check_existing_branches = True
                         if not self._can_skip_job(job_num, data["branches"]):
                             data["status"] = self.job_manager.RETRY
                             data["error"] = "initially missing task outputs"
