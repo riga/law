@@ -669,6 +669,11 @@ class GFALError_listdir(GFALOperationError):
             if lmsg.strip().endswith("invalid response (unknown error 303)"):
                 return cls.EMPTY
 
+        elif scheme in ("dav", "davs"):
+            # davs also responds with an error
+            if "file not found" in lmsg:
+                return cls.EMPTY
+
         else:
             logger.warning(f"scheme '{scheme}' not known to {cls.__name__}, cannot parse '{msg}'")
 
