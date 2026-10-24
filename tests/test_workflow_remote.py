@@ -554,7 +554,7 @@ class TestRemoteWorkflowRun:
         assert luigi.build([wf], local_scheduler=True, log_level="ERROR")
         assert wf.complete()
         assert self.submitted_job_nums(man) == [1, 2, 3, 4, 5]
-        assert all(kwargs == {"queue": "short", "priority": 0, "retries": 3} for kwargs in man.submit_calls)
+        assert all(kwargs == {"queue": "short", "priority": 0} for kwargs in man.submit_calls)
 
         # the jobs file contains the final states
         job_data = JobData()

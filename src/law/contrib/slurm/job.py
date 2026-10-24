@@ -32,7 +32,8 @@ class SlurmJobManager(BaseJobManager):
     Job manager that submits, cancels and queries jobs on a Slurm batch system via ``sbatch``, ``scancel``, ``squeue``,
     ``sacct``. The exact commands can be configured through the ``slurm_cmd_*`` options of the ``[job]`` config section,
     as well as chunk sizes for batched operations through the ``slurm_chunk_size_*`` options. *partition* selects the
-    Slurm partition. *threads* is the default number of threads for batched operations.
+    Slurm partition. *threads* is the default number of threads for batched operations, *retries* is the number of
+    times to retry failed submissions and status queries, and *retry_delay* is the delay between retries.
 
     Whether jobs are submitted in groups as job arrays (see https://slurm.schedmd.com/job_array.html) is configured
     through the ``slurm_job_grouping_submit`` option, and the maximum number of jobs per array through the
@@ -63,11 +64,25 @@ class SlurmJobManager(BaseJobManager):
     sacct_format = r"JobID%32,State,ExitCode,Reason"
     sacct_cre = re.compile(r"^\s*(\d+(?:_\d+)?)\s+([^\s]+)\s+(-?\d+):-?\d+\s+(.+)$")
 
-    def __init__(self, partition: str | None = None, threads: int = 1) -> None:
-        super().__init__()
+    def __init__(
+        self,
+        partition: str | None = None,
+        threads: int | None = None,
+        retries: int | None = None,
+        retry_delay: float | int | None = None,
+    ) -> None:
+        if threads is None:
+            threads = _cfg.get_expanded_int("job", "slurm_manager_threads")
+        if retries is None:
+            retries = _cfg.get_expanded_int("job", "slurm_manager_retries")
+        if retry_delay is None:
+            retry_delay = _cfg.get_expanded_float("job", "slurm_manager_retry_delay")
+
+        super().__init__(threads=threads)
 
         self.partition = partition
-        self.threads = threads
+        self.retries = max(0, retries)
+        self.retry_delay = max(0, retry_delay)
 
     def cleanup(self, *args, **kwargs) -> None:  # type: ignore[override]
         raise NotImplementedError("SlurmJobManager.cleanup is not implemented")
@@ -80,8 +95,8 @@ class SlurmJobManager(BaseJobManager):
         job_file: str | pathlib.Path,
         job_files: Sequence[str | pathlib.Path] | None = None,
         partition: str | None = None,
-        retries: int = 0,
-        retry_delay: float | int = 3,
+        retries: int = -1,
+        retry_delay: float | int = -1,
         silent: bool = False,
         _processes: list | None = None,
     ) -> int | list[str] | None:
@@ -91,6 +106,10 @@ class SlurmJobManager(BaseJobManager):
         # default arguments
         if partition is None:
             partition = self.partition
+        if retries < 0:
+            retries = self.retries
+        if retry_delay < 0:
+            retry_delay = self.retry_delay
 
         # get the job file location as the submission command is run it the same directory
         job_file_dir, job_file_name = os.path.split(os.path.abspath(get_path(job_file)))
@@ -193,6 +212,8 @@ class SlurmJobManager(BaseJobManager):
         job_id: int | str | Sequence[int | str],
         job_ids: Sequence[int | str] | None = None,
         partition: str | None = None,
+        retries: int = -1,
+        retry_delay: float | int = -1,
         silent: bool = False,
         _processes: list | None = None,
     ) -> dict[int | str, dict[str, Any]] | dict[str, Any] | None:
@@ -202,6 +223,39 @@ class SlurmJobManager(BaseJobManager):
         # default arguments
         if partition is None:
             partition = self.partition
+        if retries < 0:
+            retries = self.retries
+        if retry_delay < 0:
+            retry_delay = self.retry_delay
+
+        # helper to run a query command with retries
+        def query(cmd: str, what: str) -> tuple[int, str, str]:
+            _retries = retries
+            while True:
+                out: str
+                err: str
+                code, out, err = interruptable_popen(  # type: ignore[assignment]
+                    cmd,
+                    shell=True,
+                    executable="/bin/bash",
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    kill_timeout=2,
+                    processes=_processes,
+                )
+
+                # retry or done? (invalid job ids are handled by the caller and not worth retrying)
+                if code == 0 or "invalid job id specified" in err.lower():
+                    return code, out, err
+
+                logger.debug(f"{what} query of slurm job(s) '{job_id}' failed with code {code}:\n{err}")
+
+                if _retries > 0:
+                    _retries -= 1
+                    time.sleep(retry_delay)
+                    continue
+
+                return code, out, err
 
         grouped = job_ids is not None
         if grouped:
@@ -231,17 +285,7 @@ class SlurmJobManager(BaseJobManager):
         # run it
         cmd_str = quote_cmd(cmd)
         logger.debug(f"query slurm job(s) with command '{cmd_str}'")
-        out: str
-        err: str
-        code, out, err = interruptable_popen(  # type: ignore[assignment]
-            cmd,
-            shell=True,
-            executable="/bin/bash",
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            kill_timeout=2,
-            processes=_processes,
-        )
+        code, out, err = query(cmd_str, "queue")
 
         # special case: when the id of a single yet expired job is queried, squeue responds with an
         # error (exit code != 0), so as a workaround, consider these cases as an empty result
@@ -275,15 +319,7 @@ class SlurmJobManager(BaseJobManager):
             cmd_str = quote_cmd(cmd)
 
             logger.debug(f"query slurm accounting history with command '{cmd_str}'")
-            code, out, err = interruptable_popen(  # type: ignore[assignment]
-                cmd,
-                shell=True,
-                executable="/bin/bash",
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                kill_timeout=2,
-                processes=_processes,
-            )
+            code, out, err = query(cmd_str, "accounting")
 
             # handle errors
             if code != 0:

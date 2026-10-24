@@ -853,6 +853,22 @@
 ; Type: ``int``
 ; Default: ``25``
 
+; arc_manager_threads
+; Description: The number of threads the arc job manager should use for submission, status queries and cancel
+; requests.
+; Type: ``int``
+; Default: ``4``
+
+; arc_manager_retries
+; Description: The number of retries of the arc job manager after failed submission and status queries.
+; Type: ``int``
+; Default: ``1``
+
+; arc_manager_retry_delay
+; Description: The amount (in seconds) to wait between every job manager retry.
+; Type: ``float``
+; Default: ``5``
+
 ; arc_cmd_arcsub
 ; Description: Custom "arcsub" command.
 ; Type: ``str``
@@ -898,6 +914,22 @@
 ; "law.glite.GLiteJobManager.query", i.e., in a single ``glite-ce-job-status`` command.
 ; Type: ``int``
 ; Default: ``25``
+
+; glite_manager_threads
+; Description: The number of threads the glite job manager should use for submission, status queries and cancel
+; requests.
+; Type: ``int``
+; Default: ``4``
+
+; glite_manager_retries
+; Description: The number of retries of the glite job manager after failed submission and status queries.
+; Type: ``int``
+; Default: ``1``
+
+; glite_manager_retry_delay
+; Description: The amount (in seconds) to wait between every job manager retry.
+; Type: ``float``
+; Default: ``5``
 
 ; glite_cmd_submit
 ; Description: Custom "glite-ce-job-submit" command.
@@ -963,6 +995,22 @@
 ; Type: ``bool``
 ; Default: ``True``
 
+; htcondor_manager_threads
+; Description: The number of threads the htcondor job manager should use for submission, status queries and cancel
+; requests.
+; Type: ``int``
+; Default: ``4``
+
+; htcondor_manager_retries
+; Description: The number of retries of the htcondor job manager after failed submission and status queries.
+; Type: ``int``
+; Default: ``1``
+
+; htcondor_manager_retry_delay
+; Description: The amount (in seconds) to wait between every job manager retry.
+; Type: ``float``
+; Default: ``5``
+
 ; htcondor_cmd_q
 ; Description: Custom "condor_q" command.
 ; Type: ``str``
@@ -1002,6 +1050,22 @@
 ; "law.lsf.LSFJobManager.query", i.e., in a single ``bjobs`` command.
 ; Type: ``int``
 ; Default: ``25``
+
+; lsf_manager_threads
+; Description: The number of threads the lsf job manager should use for submission, status queries and cancel
+; requests.
+; Type: ``int``
+; Default: ``4``
+
+; lsf_manager_retries
+; Description: The number of retries of the lsf job manager after failed submission and status queries.
+; Type: ``int``
+; Default: ``1``
+
+; lsf_manager_retry_delay
+; Description: The amount (in seconds) to wait between every job manager retry.
+; Type: ``float``
+; Default: ``5``
 
 ; lsf_cmd_bsub
 ; Description: Custom "bsub" command.
@@ -1051,6 +1115,22 @@
 ; "law.slurm.SlurmJobManager.query", i.e., in a single ``squeue`` or ``sacct`` command.
 ; Type: ``int``
 ; Default: ``25``
+
+; slurm_manager_threads
+; Description: The number of threads the slurm job manager should use for submission, status queries and cancel
+; requests.
+; Type: ``int``
+; Default: ``4``
+
+; slurm_manager_retries
+; Description: The number of retries of the slurm job manager after failed submission and status queries.
+; Type: ``int``
+; Default: ``1``
+
+; slurm_manager_retry_delay
+; Description: The amount (in seconds) to wait between every job manager retry.
+; Type: ``float``
+; Default: ``5``
 
 ; slurm_cmd_sbatch
 ; Description: Custom "sbatch" command.
@@ -1102,6 +1182,22 @@
 ; the "law.cms.CrabJobManager".
 ; Type: ``str``, ``None``
 ; Default: ``None``
+
+; crab_manager_threads
+; Description: The number of threads the crab job manager should use for submission, status queries and cancel
+; requests.
+; Type: ``int``
+; Default: ``4``
+
+; crab_manager_retries
+; Description: The number of retries of the crab job manager after failed submission and status queries.
+; Type: ``int``
+; Default: ``1``
+
+; crab_manager_retry_delay
+; Description: The amount (in seconds) to wait between every job manager retry.
+; Type: ``float``
+; Default: ``5``
 
 ; crab_cmd_crab
 ; Description: Custom "crab" command.

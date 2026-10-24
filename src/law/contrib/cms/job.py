@@ -58,7 +58,8 @@ class CrabJobManager(BaseJobManager):
     :py:class:`~law.contrib.cms.CMSSWSandbox` with name *sandbox_name*, defaulting to the ``crab_sandbox_name`` option
     of the ``[job]`` config section. *proxy_file* is the voms proxy file to use, *myproxy_username* the user name of the
     delegated proxy on the myproxy server, and *instance* the CRAB server instance. *threads* is the default number of
-    threads for batched operations.
+    threads for batched operations, *retries* is the number of times to retry failed submissions and status queries,
+    and *retry_delay* is the delay between retries.
     """
 
     submission_task_name_cre = re.compile(r"^Task\s+name\s*\:\s+([^\s]+)\s*$")
@@ -90,9 +91,18 @@ class CrabJobManager(BaseJobManager):
         proxy_file: str | None = None,
         myproxy_username: str | None = None,
         instance: str | None = None,
-        threads: int = 1,
+        threads: int | None = None,
+        retries: int | None = None,
+        retry_delay: float | int | None = None,
     ) -> None:
-        super().__init__()
+        if threads is None:
+            threads = _cfg.get_expanded_int("job", "crab_manager_threads")
+        if retries is None:
+            retries = _cfg.get_expanded_int("job", "crab_manager_retries")
+        if retry_delay is None:
+            retry_delay = _cfg.get_expanded_float("job", "crab_manager_retry_delay")
+
+        super().__init__(threads=threads)
 
         # default sandbox name
         if sandbox_name is None:
@@ -109,7 +119,8 @@ class CrabJobManager(BaseJobManager):
         self.proxy_file = proxy_file
         self.myproxy_username = myproxy_username
         self.instance = instance
-        self.threads = threads
+        self.retries = max(0, retries)
+        self.retry_delay = max(0, retry_delay)
 
     @classmethod
     def cast_job_id(cls, job_id: tuple[str] | JobId) -> CrabJobManager.JobId:
@@ -204,8 +215,8 @@ class CrabJobManager(BaseJobManager):
         proxy_file: str | None = None,
         myproxy_username: str | None = None,
         instance: str | None = None,
-        retries: int = 0,
-        retry_delay: int | float = 3,
+        retries: int = -1,
+        retry_delay: float | int = -1,
         silent: bool = False,
         _processes: list | None = None,
     ) -> list[JobId] | None:
@@ -216,6 +227,10 @@ class CrabJobManager(BaseJobManager):
             myproxy_username = self.myproxy_username
         if instance is None:
             instance = self.instance
+        if retries < 0:
+            retries = self.retries
+        if retry_delay < 0:
+            retry_delay = self.retry_delay
 
         # get the job file location as the submission command is run it the same directory
         job_file_dir, job_file_name = os.path.split(os.path.abspath(get_path(job_file)))
@@ -390,6 +405,8 @@ class CrabJobManager(BaseJobManager):
         myproxy_username: str | None = None,
         instance: str | None = None,
         skip_transfers: bool | None = None,
+        retries: int = -1,
+        retry_delay: float | int = -1,
         silent: bool = False,
         _processes: list | None = None,
     ) -> dict[JobId, dict[str, Any]] | None:
@@ -406,6 +423,10 @@ class CrabJobManager(BaseJobManager):
             myproxy_username = self.myproxy_username
         if instance is None:
             instance = self.instance
+        if retries < 0:
+            retries = self.retries
+        if retry_delay < 0:
+            retry_delay = self.retry_delay
 
         # when output collection is disabled, we can consider all "transferring" states as finished
         if skip_transfers is None:
@@ -425,27 +446,39 @@ class CrabJobManager(BaseJobManager):
             query_timeout_sec = parse_duration(query_timeout, input_unit="s")
             cmd = self.prepend_timeout_command(cmd, query_timeout_sec)
 
-        # run it
+        # define the actual query in a loop to simplify retries
         cmd_str = quote_cmd(cmd)
-        logger.debug(f"query crab job(s) with command '{cmd_str}'")
-        out: str
-        code, out, _ = interruptable_popen(  # type: ignore[assignment]
-            cmd_str,
-            shell=True,
-            executable="/bin/bash",
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            stdin=None,
-            env=self.cmssw_env,
-            kill_timeout=2,
-            processes=_processes,
-        )
+        while True:
+            # run it
+            logger.debug(f"query crab job(s) with command '{cmd_str}'")
+            out: str
+            code, out, _ = interruptable_popen(  # type: ignore[assignment]
+                cmd_str,
+                shell=True,
+                executable="/bin/bash",
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                stdin=None,
+                env=self.cmssw_env,
+                kill_timeout=2,
+                processes=_processes,
+            )
 
-        # handle errors
-        if code != 0:
+            # retry or done?
+            if code == 0:
+                break
+
+            # crab prints everything to stdout
+            logger.debug(f"status query of crab jobs from project '{proj_dir}' failed with code {code}:\n{out}")
+
+            if retries > 0:
+                retries -= 1
+                time.sleep(retry_delay)
+                continue
+
             if silent:
                 return None
-            # crab prints everything to stdout
+
             raise JobError(
                 f"status query of crab jobs from project '{proj_dir}' failed with code {code}:\n"
                 f"{out}",

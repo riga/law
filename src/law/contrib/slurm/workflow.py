@@ -267,8 +267,6 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
         submit_jobs: dict[int, list[int]],
         **kwargs,
     ) -> tuple[list[Any], dict[int, dict]]:
-        task: SlurmWorkflow = self.task
-
         # split jobs into arrays with a maximum size
         max_size = max(int(self.job_manager.job_group_size or 0), 1)  # type: ignore[attr-defined]
         items = list(submit_jobs.items())
@@ -292,8 +290,6 @@ class SlurmWorkflowProxy(BaseRemoteWorkflowProxy):
         # submission, with one submit call per job array
         job_ids = self.job_manager.submit_group(
             job_files,
-            retries=3,
-            threads=task.submission_threads,
             **submit_kwargs,
         )
 

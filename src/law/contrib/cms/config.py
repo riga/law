@@ -15,6 +15,9 @@ def config_defaults(default_config: dict) -> dict[str, dict[str, Any]]:
             "crab_job_query_timeout": None,
             "crab_sandbox_name": "CMSSW_14_2_1::arch=el9_amd64_gcc12",
             "crab_password_file": None,
+            "crab_manager_threads": 4,
+            "crab_manager_retries": 1,
+            "crab_manager_retry_delay": 5,
             "crab_cmd_crab": "crab",
         },
         "cmssw_sandbox": {

@@ -34,7 +34,8 @@ class ARCJobManager(BaseJobManager):
     ``arcstat``, ``arcclean``. The exact commands can be configured through the ``arc_cmd_*`` options of the ``[job]``
     config section, as well as chunk sizes for batched operations through the ``arc_chunk_size_*`` options. *ce* selects
     the computing element(s), and *job_list* is the ARC job list file that stores submitted jobs. *threads* is the
-    default number of threads for batched operations. Jobs can also be cleaned up after they finished.
+    default number of threads for batched operations, *retries* is the number of times to retry failed submissions and
+    status queries, and *retry_delay* is the delay between retries. Jobs can also be cleaned up after they finished.
     """
 
     # chunking settings
@@ -52,21 +53,31 @@ class ARCJobManager(BaseJobManager):
         self,
         job_list: str | None = None,
         ce: str | None = None,
-        threads: int = 1,
+        threads: int | None = None,
+        retries: int | None = None,
+        retry_delay: float | int | None = None,
     ) -> None:
-        super().__init__()
+        if threads is None:
+            threads = _cfg.get_expanded_int("job", "arc_manager_threads")
+        if retries is None:
+            retries = _cfg.get_expanded_int("job", "arc_manager_retries")
+        if retry_delay is None:
+            retry_delay = _cfg.get_expanded_float("job", "arc_manager_retry_delay")
+
+        super().__init__(threads=threads)
 
         self.job_list = job_list
         self.ce = ce
-        self.threads = threads
+        self.retries = max(0, retries)
+        self.retry_delay = max(0, retry_delay)
 
     def submit(  # type: ignore[override]
         self,
         job_file: str | pathlib.Path | Sequence[str | pathlib.Path],
         job_list: str | None = None,
         ce: str | None = None,
-        retries: int = 0,
-        retry_delay: float | int = 3,
+        retries: int = -1,
+        retry_delay: float | int = -1,
         silent: bool = False,
         _processes: list | None = None,
     ) -> str | list[str] | None:
@@ -75,6 +86,10 @@ class ARCJobManager(BaseJobManager):
             job_list = self.job_list
         if ce is None:
             ce = self.ce
+        if retries < 0:
+            retries = self.retries
+        if retry_delay < 0:
+            retry_delay = self.retry_delay
 
         # check arguments
         if not ce:
@@ -231,12 +246,18 @@ class ARCJobManager(BaseJobManager):
         self,
         job_id: str | Sequence[str],
         job_list: str | None = None,
+        retries: int = -1,
+        retry_delay: float | int = -1,
         silent: bool = False,
         _processes: list | None = None,
     ) -> dict[int, dict[str, Any]] | dict[str, Any] | None:
         # default arguments
         if job_list is None:
             job_list = self.job_list
+        if retries < 0:
+            retries = self.retries
+        if retry_delay < 0:
+            retry_delay = self.retry_delay
 
         chunking = isinstance(job_id, (list, tuple))
         job_ids = make_list(job_id)
@@ -253,25 +274,37 @@ class ARCJobManager(BaseJobManager):
             query_timeout_sec = parse_duration(query_timeout, input_unit="s")
             cmd = self.prepend_timeout_command(cmd, query_timeout_sec)
 
-        # run it
+        # define the actual query in a loop to simplify retries
         cmd_str = quote_cmd(cmd)
-        logger.debug(f"query arc job(s) with command '{cmd_str}'")
-        out: str
-        code, out, _ = interruptable_popen(  # type: ignore[assignment]
-            cmd_str,
-            shell=True,
-            executable="/bin/bash",
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            kill_timeout=2,
-            processes=_processes,
-        )
+        while True:
+            # run it
+            logger.debug(f"query arc job(s) with command '{cmd_str}'")
+            out: str
+            code, out, _ = interruptable_popen(  # type: ignore[assignment]
+                cmd_str,
+                shell=True,
+                executable="/bin/bash",
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                kill_timeout=2,
+                processes=_processes,
+            )
 
-        # handle errors
-        if code != 0:
+            # retry or done?
+            if code == 0:
+                break
+
+            # arc prints everything to stdout
+            logger.debug(f"status query of arc job(s) '{job_id}' failed with code {code}:\n{out}")
+
+            if retries > 0:
+                retries -= 1
+                time.sleep(retry_delay)
+                continue
+
             if silent:
                 return None
-            # arc prints everything to stdout
+
             raise JobError(f"status query of arc job(s) '{job_id}' failed with code {code}:\n{out}", exit_code=code)
 
         # parse the output and extract the status per job

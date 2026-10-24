@@ -252,7 +252,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         self.job_data = self.job_data_cls(tasks_per_job=task.tasks_per_job)
 
         # setup the job mananger
-        self.job_manager = self.create_job_manager(threads=task.submission_threads)
+        self.job_manager = self.create_job_manager()
         self.job_manager.status_diff_styles["unsubmitted"] = ({"color": "green"}, {}, {})
         self._job_manager_setup_kwargs: dict[str, Any] | NoValue = no_value
 
@@ -1131,8 +1131,6 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         # submit
         job_ids = self.job_manager.submit_batch(
             job_files,
-            retries=3,
-            threads=task.submission_threads,
             callback=progress_callback,
             **submit_kwargs,
         )
@@ -1144,8 +1142,6 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         submit_jobs: dict[int, list[int]],
         **kwargs,
     ) -> tuple[list[Any], dict[int, dict]]:
-        task: BaseRemoteWorkflow = self.task
-
         # create the single multi submission file, passing the job_num -> branches dict
         job_file = self.create_job_file_group(submit_jobs)
 
@@ -1158,8 +1154,6 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         # submission
         job_ids = self.job_manager.submit_group(
             [job_file["job"]] * len(submit_jobs),
-            retries=3,
-            threads=task.submission_threads,
             **submit_kwargs,
         )
 
@@ -1626,12 +1620,6 @@ class BaseRemoteWorkflow(BaseWorkflow):
 
         When *True*, only submit jobs and skip status polling. Defaults to *False*.
 
-    .. py:classattribute:: submission_threads
-
-        type: :py:class:`luigi.IntParameter`
-
-        Number of threads to use for both job submission and job status polling. Defaults to 4.
-
     .. py:classattribute:: walltime
 
         type: :py:class:`law.DurationParameter`
@@ -1707,11 +1695,6 @@ class BaseRemoteWorkflow(BaseWorkflow):
         significant=False,
         description="just submit, do not initiate status polling after submission; default: False",
     )
-    submission_threads = luigi.IntParameter(
-        default=4,
-        significant=False,
-        description="number of threads to use for (re)submission and status queries; default: 4",
-    )
     poll_interval = DurationParameter(
         default=1,
         unit="m",
@@ -1774,9 +1757,8 @@ class BaseRemoteWorkflow(BaseWorkflow):
 
     exclude_params_req_set = {"no_poll"}
     exclude_params_branch = {
-        "retries", "tasks_per_job", "parallel_jobs", "no_poll", "submission_threads", "walltime",
-        "job_workers", "poll_interval", "poll_fails", "shuffle_jobs", "cancel_jobs", "cleanup_jobs",
-        "ignore_submission", "transfer_logs",
+        "retries", "tasks_per_job", "parallel_jobs", "no_poll", "walltime", "job_workers", "poll_interval",
+        "poll_fails", "shuffle_jobs", "cancel_jobs", "cleanup_jobs", "ignore_submission", "transfer_logs",
     }
     exclude_params_repr = {"cancel_jobs", "cleanup_jobs"}
 

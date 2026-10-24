@@ -36,8 +36,9 @@ class HTCondorJobManager(BaseJobManager):
     ``condor_q``, ``condor_history``. The exact commands can be configured through the ``htcondor_cmd_*`` options of the
     ``[job]`` config section, as well as chunk sizes for batched operations through the ``htcondor_chunk_size_*``
     options. *pool* and *scheduler* select the HTCondor pool and scheduler, and *user* restricts status queries to jobs
-    of a certain user. *threads* is the default number of threads for batched operations. Whether jobs are submitted in
-    groups with a single job file is configured through the ``htcondor_job_grouping_submit`` option.
+    of a certain user. *threads* is the default number of threads for batched operations, *retries* is the number of
+    times to retry failed submissions and status queries, and *retry_delay* is the delay between retries. Whether jobs
+    are submitted in groups with a single job file is configured through the ``htcondor_job_grouping_submit`` option.
     """
 
     # whether to use job grouping or batched submission
@@ -69,14 +70,24 @@ class HTCondorJobManager(BaseJobManager):
         pool: str | None = None,
         scheduler: str | None = None,
         user: str | None = None,
-        threads: int = 1,
+        threads: int | None = None,
+        retries: int | None = None,
+        retry_delay: float | int | None = None,
     ) -> None:
-        super().__init__()
+        if threads is None:
+            threads = _cfg.get_expanded_int("job", "htcondor_manager_threads")
+        if retries is None:
+            retries = _cfg.get_expanded_int("job", "htcondor_manager_retries")
+        if retry_delay is None:
+            retry_delay = _cfg.get_expanded_float("job", "htcondor_manager_retry_delay")
+
+        super().__init__(threads=threads)
 
         self.pool = pool
         self.scheduler = scheduler
         self.user = user
-        self.threads = threads
+        self.retries = max(0, retries)
+        self.retry_delay = max(0, retry_delay)
 
         # determine the htcondor version once
         self.htcondor_version = get_htcondor_version()
@@ -98,11 +109,17 @@ class HTCondorJobManager(BaseJobManager):
         pool: str | None = None,
         scheduler: str | None = None,
         spool: bool = False,
-        retries: int = 0,
-        retry_delay: float | int = 3,
+        retries: int = -1,
+        retry_delay: float | int = -1,
         silent: bool = False,
         _processes: list | None = None,
     ) -> str | Sequence[str] | None:
+        # defaults
+        if retries < 0:
+            retries = self.retries
+        if retry_delay < 0:
+            retry_delay = self.retry_delay
+
         # signature is the superset for both grouped and batched submission, and the dispatching to
         # the actual submission implementation is based on the presence of job_files
         kwargs = {
@@ -135,8 +152,8 @@ class HTCondorJobManager(BaseJobManager):
         pool: str | None = None,
         scheduler: str | None = None,
         spool: bool = False,
-        retries: int = 0,
-        retry_delay: float | int = 3,
+        retries: int = -1,
+        retry_delay: float | int = -1,
         silent: bool = False,
         _processes: list | None = None,
     ) -> str | Sequence[str] | None:
@@ -145,6 +162,10 @@ class HTCondorJobManager(BaseJobManager):
             pool = self.pool
         if scheduler is None:
             scheduler = self.scheduler
+        if retries < 0:
+            retries = self.retries
+        if retry_delay < 0:
+            retry_delay = self.retry_delay
 
         # when job_file is a sequence of files, merge them all into one and submit it
         # however, this only for job files being located in the same directory or if they have an
@@ -245,8 +266,8 @@ class HTCondorJobManager(BaseJobManager):
         pool: str | None = None,
         scheduler: str | None = None,
         spool: bool = False,
-        retries: int = 0,
-        retry_delay: float | int = 3,
+        retries: int = -1,
+        retry_delay: float | int = -1,
         silent: bool = False,
         _processes: list | None = None,
     ) -> Sequence[str] | None:
@@ -255,6 +276,10 @@ class HTCondorJobManager(BaseJobManager):
             pool = self.pool
         if scheduler is None:
             scheduler = self.scheduler
+        if retries < 0:
+            retries = self.retries
+        if retry_delay < 0:
+            retry_delay = self.retry_delay
 
         # build the command
         cmd = shlex.split(_cfg.get_expanded("job", "htcondor_cmd_submit"))
@@ -367,6 +392,8 @@ class HTCondorJobManager(BaseJobManager):
         pool: str | None = None,
         scheduler: str | None = None,
         user: str | None = None,
+        retries: int = -1,
+        retry_delay: float | int = -1,
         silent: bool = False,
         _processes: list | None = None,
     ) -> dict[int, dict[str, Any]] | dict[str, Any] | None:
@@ -377,6 +404,39 @@ class HTCondorJobManager(BaseJobManager):
             scheduler = self.scheduler
         if user is None:
             user = self.user
+        if retries < 0:
+            retries = self.retries
+        if retry_delay < 0:
+            retry_delay = self.retry_delay
+
+        # helper to run a query command with retries
+        def query(cmd: str, what: str) -> tuple[int, str, str]:
+            _retries = retries
+            while True:
+                out: str
+                err: str
+                code, out, err = interruptable_popen(  # type: ignore[assignment]
+                    cmd,
+                    shell=True,
+                    executable="/bin/bash",
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    kill_timeout=2,
+                    processes=_processes,
+                )
+
+                # retry or done?
+                if code == 0:
+                    return code, out, err
+
+                logger.debug(f"{what} query of htcondor job(s) '{job_id}' failed with code {code}:\n{err}")
+
+                if _retries > 0:
+                    _retries -= 1
+                    time.sleep(retry_delay)
+                    continue
+
+                return code, out, err
 
         chunking = isinstance(job_id, (list, tuple))
         job_ids = make_list(job_id)
@@ -408,17 +468,7 @@ class HTCondorJobManager(BaseJobManager):
         # run it
         cmd_str = quote_cmd(cmd)
         logger.debug(f"query htcondor job(s) with command '{cmd_str}'")
-        out: str
-        err: str
-        code, out, err = interruptable_popen(  # type: ignore[assignment]
-            cmd_str,
-            shell=True,
-            executable="/bin/bash",
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            kill_timeout=2,
-            processes=_processes,
-        )
+        code, out, err = query(cmd_str, "queue")
 
         # handle errors
         if code != 0:
@@ -457,15 +507,7 @@ class HTCondorJobManager(BaseJobManager):
             # run it
             cmd_str = quote_cmd(cmd)
             logger.debug(f"query htcondor job history with command '{cmd_str}'")
-            code, out, err = interruptable_popen(  # type: ignore[assignment]
-                cmd,
-                shell=True,
-                executable="/bin/bash",
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                kill_timeout=2,
-                processes=_processes,
-            )
+            code, out, err = query(cmd_str, "history")
 
             # handle errors
             if code != 0:
