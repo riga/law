@@ -461,7 +461,7 @@ class CrabJobManager(BaseJobManager):
                 query_data[job_id] = self.job_status_dict(
                     job_id=job_id,
                     status=self.FAILED,
-                    error="job not found in query response",
+                    error=self.job_errors.not_found_in_query,
                 )
 
         return query_data
@@ -539,7 +539,7 @@ class CrabJobManager(BaseJobManager):
                 status = cls.PENDING
             elif server_status in failed_server_states:
                 status = cls.FAILED
-                error = server_failure or "submission failed"
+                error = server_failure or cls.job_errors.submission_failed
             else:
                 s = ",".join(map("'{}'".format, pending_server_states | failed_server_states))
                 raise JobError(

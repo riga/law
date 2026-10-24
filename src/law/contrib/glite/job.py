@@ -263,7 +263,7 @@ class GLiteJobManager(BaseJobManager):
                 query_data[_job_id] = self.job_status_dict(
                     job_id=_job_id,
                     status=self.FAILED,
-                    error="job not found in query response",
+                    error=self.job_errors.not_found_in_query,
                 )
 
         return query_data if chunking else query_data[job_id]  # type: ignore[index]

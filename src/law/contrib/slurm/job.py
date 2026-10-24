@@ -307,7 +307,7 @@ class SlurmJobManager(BaseJobManager):
                 query_data[_job_id] = self.job_status_dict(
                     job_id=_job_id,
                     status=self.FAILED,
-                    error="job not found in query response",
+                    error=self.job_errors.not_found_in_query,
                 )
 
         # when grouped, only return data of requested jobs as other tasks of the same array might be contained
@@ -384,7 +384,7 @@ class SlurmJobManager(BaseJobManager):
             if code != 0 and status != cls.FAILED:
                 status = cls.FAILED
                 if not error:
-                    error = f"job status set to '{cls.FAILED}' due to non-zero exit code {code}"
+                    error = cls.job_errors.failed_non_zero_exit + f" {code}"
             if not error and status == cls.FAILED:
                 error = m.group(2)
 

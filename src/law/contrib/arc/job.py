@@ -287,7 +287,7 @@ class ARCJobManager(BaseJobManager):
                 query_data[_job_id] = self.job_status_dict(
                     job_id=_job_id,
                     status=self.FAILED,
-                    error="job not found in query response",
+                    error=self.job_errors.not_found_in_query,
                 )
 
         return query_data if chunking else query_data[job_id]  # type: ignore[index]
@@ -308,7 +308,7 @@ class ARCJobManager(BaseJobManager):
                     job_id=job_id,
                     status=cls.FAILED,
                     code=1,
-                    error="job not found",
+                    error=cls.job_errors.not_found_in_query,
                 )
                 continue
 

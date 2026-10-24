@@ -490,7 +490,7 @@ class HTCondorJobManager(BaseJobManager):
                 query_data[_job_id] = self.job_status_dict(
                     job_id=_job_id,
                     status=self.FAILED,
-                    error="job not found in query response",
+                    error=self.job_errors.not_found_in_query,
                 )
 
         return query_data if chunking else query_data[job_id]  # type: ignore[index]
@@ -534,7 +534,7 @@ class HTCondorJobManager(BaseJobManager):
             if code != 0 and status != cls.FAILED:
                 status = cls.FAILED
                 if not error:
-                    error = f"job status set to '{cls.FAILED}' due to non-zero exit code {code}"
+                    error = cls.job_errors.failed_non_zero_exit + f" {code}"
 
             # extra info
             extra = {}

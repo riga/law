@@ -30,6 +30,7 @@ from law.target.local import LocalFileTarget
 from law.target.remote.base import RemoteTarget
 from law.task.base import Task
 from law.util import (
+    DotDict,
     NoValue,
     colored,
     create_hash,
@@ -288,6 +289,13 @@ class BaseJobManager(metaclass=abc.ABCMeta):
     chunk_size_cancel = 0
     chunk_size_cleanup = 0
     chunk_size_query = 0
+
+    # common error messages
+    job_errors = DotDict(
+        submit_failed="job submission failed",
+        not_found_in_query="job not found in query response",
+        failed_non_zero_exit=f"job status set to '{FAILED}' due to non-zero exit code",
+    )
 
     @classmethod
     def job_status_dict(
