@@ -212,6 +212,19 @@ Remote workflows are built from a few components that can be customized when nee
 - The *job file factory*, a {py:class}`~law.job.base.BaseJobFileFactory`, creates the job files that are submitted, in a directory configured in the {ref}`[job] <job-section>` config section.
 - The *job dashboard*, a {py:class}`~law.job.dashboard.BaseJobDashboard`, can optionally publish job status updates to external monitoring services.
 
+Commands sent to the batch system by the job manager, such as submissions and status queries, can fail for transient reasons, e.g. when the scheduler is overloaded.
+They are retried a configurable number of times before the operation is considered failed.
+The number of retries, the delay between them and the number of threads used for batched operations are set per batch system through the `<system>_manager_retries`, `<system>_manager_retry_delay` and `<system>_manager_threads` options of the {ref}`[job] <job-section>` config section, where `<system>` is one of `htcondor`, `slurm`, `lsf`, `arc`, `glite` and `crab`:
+
+```ini
+[job]
+htcondor_manager_threads: 8
+htcondor_manager_retries: 3
+htcondor_manager_retry_delay: 10
+```
+
+These retries are independent of `--retries`, which controls how often jobs that ran and failed are resubmitted.
+
 The job script reports failures through exit codes, e.g. 20 when the bootstrap file failed and 60 when one of the tasks failed.
 The full list is documented in the header of `law_job.sh`.
 

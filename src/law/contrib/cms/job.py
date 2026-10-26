@@ -572,7 +572,7 @@ class CrabJobManager(BaseJobManager):
                 status = cls.PENDING
             elif server_status in failed_server_states:
                 status = cls.FAILED
-                error = server_failure or cls.job_errors.submission_failed
+                error = server_failure or cls.job_errors.submit_failed
             else:
                 s = ",".join(map("'{}'".format, pending_server_states | failed_server_states))
                 raise JobError(
