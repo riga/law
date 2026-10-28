@@ -279,6 +279,9 @@ docker run -ti riga/law:<the_tag>
       <td align="center" valign="top" width="14.28%"><a href="http://www.linkedin.com/in/lgeiger"><img src="https://avatars.githubusercontent.com/u/13285808?v=4?s=100" width="100px;" alt="Lukas Geiger"/><br /><sub><b>Lukas Geiger</b></sub></a><br /><a href="https://github.com/riga/law/commits?author=lgeiger" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://too.gy"><img src="https://avatars.githubusercontent.com/u/694873?v=4?s=100" width="100px;" alt="Valentin Iovene"/><br /><sub><b>Valentin Iovene</b></sub></a><br /><a href="https://github.com/riga/law/commits?author=tgy" title="Code">💻</a></td>
     </tr>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/cverstege"><img src="https://avatars.githubusercontent.com/u/6241018?v=4?s=100" width="100px;" alt="Cedric Verstege"/><br /><sub><b>Cedric Verstege</b></sub></a><br /><a href="https://github.com/riga/law/commits?author=cverstege" title="Code">💻</a></td>
+    </tr>
   </tbody>
 </table>
 
