@@ -24,6 +24,7 @@ import os
 import pathlib
 import re
 import sys
+import threading
 
 import law.target.luigi_shims as shims
 from law._types import (
@@ -31,6 +32,7 @@ from law._types import (
     AbstractContextManager,
     Any,
     Callable,
+    ClassVar,
     Generator,
     Iterator,
     Literal,
@@ -53,6 +55,50 @@ class FileSystem(shims.FileSystem):
     the default permissions of new files and directories. *create_file_dir* decides whether missing directories are
     created when files are written, copied or moved.
     """
+
+    # instances returned by shared_instance, per file system class and config section
+    _shared_instances: ClassVar[dict[tuple[type[FileSystem], str], FileSystem]] = {}
+    _shared_instances_lock: ClassVar[threading.RLock] = threading.RLock()
+
+    @classmethod
+    def shared_instance(cls, section: str) -> Self:
+        """
+        Returns an instance of this class configured by the config *section*. Instances are cached per class and
+        section, so that all callers, e.g. targets created with the name of a section as their file system, share the
+        same instance, including its config, connections and cache. Using a section that is also the default returns
+        :py:attr:`default_instance`. Config changes after first use only take effect for instances made with the
+        constructor, or after :py:meth:`clear_instances`.
+
+        :param section: The name of the config section.
+        :return: The file system instance.
+        """
+        key = (cls, section)
+
+        # fast check to avoid locking if the instance exists already
+        inst = cls._shared_instances.get(key)
+        if inst is not None:
+            return inst  # type: ignore[return-value]
+
+        with cls._shared_instances_lock:
+            # check again, another thread might have created it in the meantime
+            if key not in cls._shared_instances:
+                default = cls.__dict__.get("default_instance")
+                if type(default) is cls and getattr(default, "config_section", None) == section:
+                    inst = default
+                else:
+                    inst = cls(section)  # type: ignore[call-arg]
+                cls._shared_instances[key] = inst
+            return cls._shared_instances[key]  # type: ignore[return-value]
+
+    @classmethod
+    def clear_instances(cls) -> None:
+        """
+        Removes all instances of this class cached by :py:meth:`shared_instance`, so that subsequent calls create new
+        instances, e.g. after the config was updated.
+        """
+        with cls._shared_instances_lock:
+            for key in [k for k in cls._shared_instances if k[0] is cls]:
+                del cls._shared_instances[key]
 
     @classmethod
     def parse_config(

@@ -145,7 +145,7 @@ class DropboxTarget(RemoteTarget):
         if fs is None:
             fs = DropboxFileSystem.default_instance  # type: ignore[assignment]
         elif not isinstance(fs, DropboxFileSystem):
-            fs = DropboxFileSystem(str(fs))
+            fs = DropboxFileSystem.shared_instance(str(fs))
 
         super().__init__(path, fs, **kwargs)  # type: ignore[arg-type]
 
