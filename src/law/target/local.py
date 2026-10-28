@@ -464,7 +464,7 @@ class LocalTarget(FileSystemTarget, shims.LocalTarget):
     def __init__(
         self,
         path: str | pathlib.Path | None = None,
-        fs: LocalFileSystem = LocalFileSystem.default_instance,
+        fs: str | LocalFileSystem = LocalFileSystem.default_instance,
         *,
         is_tmp: bool | str = False,
         tmp_dir: str | pathlib.Path | LocalDirectoryTarget | None = None,
