@@ -256,6 +256,13 @@ class TestUtil:
         assert law.util.flatten([1, (2, 3)], flatten_tuple=False) == [1, (2, 3)]
         assert law.util.flatten({"a": 1}, flatten_dict=False) == [{"a": 1}]
         assert law.util.flatten(x for x in [1, [2]]) == [1, 2]
+        assert law.util.flatten(1, 2, flatten_tuple=False) == [(1, 2)]
+        # large and deeply nested structures
+        assert law.util.flatten({i: [i, (i,)] for i in range(10000)}) == [i for i in range(10000) for _ in range(2)]
+        deep: list = [1]
+        for _ in range(500):
+            deep = [deep]
+        assert law.util.flatten(deep) == [1]
 
     def test_merge_dicts(self) -> None:
         a = {"foo": 1, "bar": {"a": 1, "b": 2}}
