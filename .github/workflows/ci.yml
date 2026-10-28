@@ -11,22 +11,28 @@ on:
 
 jobs:
   lint_typecheck:
-    name: Lint${{ matrix.python == '3.14' && '' || ', type check' }}${{ matrix.python == '3.13' && ', release check' || '' }} (${{ matrix.python }})
-    runs-on: ubuntu-latest
+    name: Lint${{ matrix.version.python == '3.14' && '' || ', type check' }}${{ matrix.version.python == '3.13' && ', release check' || '' }} (${{ matrix.version.python }})
+    runs-on: ${{ matrix.version.os }}
     strategy:
       fail-fast: false
       matrix:
-        python: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+        version:
+          - {python: "3.9", os: ubuntu-24.04}
+          - {python: "3.10", os: ubuntu-latest}
+          - {python: "3.11", os: ubuntu-latest}
+          - {python: "3.12", os: ubuntu-latest}
+          - {python: "3.13", os: ubuntu-latest}
+          - {python: "3.14", os: ubuntu-latest}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Setup python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
-          python-version: ${{ matrix.python }}
+          python-version: ${{ matrix.version.python }}
 
       - name: Install
         run: |
@@ -36,34 +42,40 @@ jobs:
       - name: Run pre-commit hook 'manual'
         uses: pre-commit/action@v3.0.1
         env:
-          SKIP: ${{ matrix.python == '3.14' && 'mypy' || '' }}
+          SKIP: ${{ matrix.version.python == '3.14' && 'mypy' || '' }}
         with:
           extra_args: --hook-stage manual --all-files
 
       - name: Check dist
-        if: ${{ matrix.python == '3.13' }}
+        if: ${{ matrix.version.python == '3.13' }}
         run: |
           pip install -U pip setuptools wheel build twine
           python -m build
           twine check dist/*
 
   test_coverage:
-    name: Tests, coverage${{ matrix.python == '3.13' && ', upload' || '' }} (${{ matrix.python }})
-    runs-on: ubuntu-latest
+    name: Tests, coverage${{ matrix.version.python == '3.13' && ', upload' || '' }} (${{ matrix.version.python }})
+    runs-on: ${{ matrix.version.os }}
     strategy:
       fail-fast: false
       matrix:
-        python: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+        version:
+          - {python: "3.9", os: ubuntu-24.04}
+          - {python: "3.10", os: ubuntu-latest}
+          - {python: "3.11", os: ubuntu-latest}
+          - {python: "3.12", os: ubuntu-latest}
+          - {python: "3.13", os: ubuntu-latest}
+          - {python: "3.14", os: ubuntu-latest}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Setup python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
-          python-version: ${{ matrix.python }}
+          python-version: ${{ matrix.version.python }}
 
       - name: Install
         run: |
@@ -75,7 +87,7 @@ jobs:
 
       - name: Upload coverage report
         uses: codecov/codecov-action@v7
-        if: ${{ matrix.python == '3.13' }}
+        if: ${{ matrix.version.python == '3.13' }}
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
@@ -87,12 +99,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Setup python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.13"
 
