@@ -172,6 +172,8 @@ class SlurmJobManager(BaseJobManager):
         self,
         job_id: int | str | Sequence[int | str],
         partition: str | None = None,
+        retries: int = -1,
+        retry_delay: float | int = -1,
         silent: bool = False,
         _processes: list | None = None,
     ) -> dict[int | str, None] | None:

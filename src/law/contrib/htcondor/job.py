@@ -344,6 +344,8 @@ class HTCondorJobManager(BaseJobManager):
         job_id: str | Sequence[str],
         pool: str | None = None,
         scheduler: str | None = None,
+        retries: int = -1,
+        retry_delay: float | int = -1,
         silent: bool = False,
         _processes: list | None = None,
     ) -> dict[str, None] | None:

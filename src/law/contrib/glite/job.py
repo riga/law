@@ -157,6 +157,8 @@ class GLiteJobManager(BaseJobManager):
     def cancel(  # type: ignore[override]
         self,
         job_id: str | Sequence[str],
+        retries: int = -1,
+        retry_delay: float | int = -1,
         silent: bool = False,
         _processes: list | None = None,
     ) -> dict[str, Any] | None:
@@ -193,6 +195,8 @@ class GLiteJobManager(BaseJobManager):
     def cleanup(  # type: ignore[override]
         self,
         job_id: str | Sequence[str],
+        retries: int = -1,
+        retry_delay: float | int = -1,
         silent: bool = False,
         _processes: list | None = None,
     ) -> dict[str, Any] | None:

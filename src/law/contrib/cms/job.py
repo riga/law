@@ -327,6 +327,8 @@ class CrabJobManager(BaseJobManager):
         proxy_file: str | None = None,
         myproxy_username: str | None = None,
         instance: str | None = None,
+        retries: int = -1,
+        retry_delay: float | int = -1,
         silent: bool = False,
         _processes: list | None = None,
     ) -> dict[JobId, None]:
@@ -383,6 +385,8 @@ class CrabJobManager(BaseJobManager):
         proxy_file: str | None = None,
         myproxy_username: str | None = None,
         instance: str | None = None,
+        retries: int = -1,
+        retry_delay: float | int = -1,
         silent: bool = False,
         _processes: list | None = None,
     ) -> dict[JobId, None]:
