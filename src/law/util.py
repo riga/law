@@ -1260,34 +1260,39 @@ def flatten(
     if len(structs) == 0:
         return []
 
-    kwargs = {
-        "flatten_dict": flatten_dict,
-        "flatten_list": flatten_list,
-        "flatten_tuple": flatten_tuple,
-        "flatten_set": flatten_set,
-    }
-    if len(structs) > 1:
-        return flatten(structs, **kwargs)
+    flat: list[Any] = []
 
-    struct = structs[0]
+    def _flatten(struct: Any) -> None:
+        if isinstance(struct, dict):
+            if flatten_dict:
+                for obj in struct.values():
+                    _flatten(obj)
+                return
+        elif isinstance(struct, list):
+            if flatten_list:
+                for obj in struct:
+                    _flatten(obj)
+                return
+        elif isinstance(struct, tuple):
+            if flatten_tuple:
+                for obj in struct:
+                    _flatten(obj)
+                return
+        elif isinstance(struct, set):
+            if flatten_set:
+                for obj in struct:
+                    _flatten(obj)
+                return
+        elif is_lazy_iterable(struct):
+            for obj in struct:
+                _flatten(obj)
+            return
 
-    flatten_seq = lambda seq: sum((flatten(obj, **kwargs) for obj in seq), [])
-    if isinstance(struct, dict):
-        if flatten_dict:
-            return flatten_seq(struct.values())
-    elif isinstance(struct, list):
-        if flatten_list:
-            return flatten_seq(struct)
-    elif isinstance(struct, tuple):
-        if flatten_tuple:
-            return flatten_seq(struct)
-    elif isinstance(struct, set):
-        if flatten_set:
-            return flatten_seq(struct)
-    elif is_lazy_iterable(struct):
-        return flatten_seq(struct)
+        flat.append(struct)
 
-    return [struct]
+    _flatten(structs if len(structs) > 1 else structs[0])
+
+    return flat
 
 
 def merge_dicts(*dicts, **kwargs):
