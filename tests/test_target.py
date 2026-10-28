@@ -2,6 +2,7 @@ from __future__ import annotations
 
 __all__ = ["TestFormatter", "TestLocalTarget", "TestTargetCollection"]
 
+import concurrent.futures
 import gc
 import io
 import os
@@ -281,12 +282,12 @@ class TestLocalTarget(TargetTestCase):
 
     @pytest.fixture
     def fs_section(self) -> Iterator[str]:
-        # temporary local file system config section, also removing its cached instance afterwards
+        # temporary local file system config section, also removing cached instances afterwards
         cfg = law.config.Config.instance()
         section = "law_test_local_fs"
         cfg.update({section: {"base": self.tmp}})
         yield section
-        law.target.file.FileSystem._shared_instances.pop((law.LocalFileSystem, section), None)
+        law.LocalFileSystem.clear_instances()
         cfg.remove_section(section)
 
     def test_file_system_shared_instance(self, fs_section: str) -> None:
@@ -298,6 +299,34 @@ class TestLocalTarget(TargetTestCase):
         assert law.LocalFileSystem.shared_instance("local_fs") is law.LocalFileSystem.default_instance
         # the constructor still creates new instances
         assert law.LocalFileSystem(fs_section) is not fs
+
+    def test_file_system_shared_instance_threads(self, fs_section: str) -> None:
+        # concurrent first calls must still create only one instance
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+            instances = list(pool.map(lambda _: law.LocalFileSystem.shared_instance(fs_section), range(32)))
+        assert all(inst is instances[0] for inst in instances)
+
+    def test_file_system_clear_instances(self, fs_section: str) -> None:
+        cfg = law.config.Config.instance()
+        fs = law.LocalFileSystem.shared_instance(fs_section)
+
+        # instances of other classes, including subclasses, are kept
+        class SubFileSystem(law.LocalFileSystem):
+            pass
+
+        sub_fs = SubFileSystem.shared_instance(fs_section)
+        try:
+            # after a config update, new instances only reflect the change once the cache is cleared
+            other = os.path.join(self.tmp, "other")
+            cfg.update({fs_section: {"base": other}})
+            assert law.LocalFileSystem.shared_instance(fs_section) is fs
+            law.LocalFileSystem.clear_instances()
+            new_fs = law.LocalFileSystem.shared_instance(fs_section)
+            assert new_fs is not fs
+            assert new_fs.base == other
+            assert SubFileSystem.shared_instance(fs_section) is sub_fs
+        finally:
+            SubFileSystem.clear_instances()
 
     def test_targets_share_section_fs(self, fs_section: str) -> None:
         f1 = law.LocalFileTarget("a.txt", fs=fs_section)
