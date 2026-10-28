@@ -114,12 +114,6 @@ class HTCondorJobManager(BaseJobManager):
         silent: bool = False,
         _processes: list | None = None,
     ) -> str | Sequence[str] | None:
-        # defaults
-        if retries < 0:
-            retries = self.retries
-        if retry_delay < 0:
-            retry_delay = self.retry_delay
-
         # signature is the superset for both grouped and batched submission, and the dispatching to
         # the actual submission implementation is based on the presence of job_files
         kwargs = {
