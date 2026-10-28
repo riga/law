@@ -471,7 +471,7 @@ class LocalTarget(FileSystemTarget, shims.LocalTarget):
         **kwargs,
     ) -> None:
         if isinstance(fs, str):
-            fs = LocalFileSystem(fs)
+            fs = LocalFileSystem.shared_instance(fs)
 
         # handle tmp paths manually since luigi uses the env tmp dir
         if not path:

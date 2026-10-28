@@ -69,7 +69,8 @@ except Exception as e:
 class WLCGTarget(RemoteTarget):
     """
     Base class of targets on a :py:class:`WLCGFileSystem` *fs*, which can be an instance or the name of a config
-    section, and defaults to the default instance. All *kwargs* are forwarded to
+    section, and defaults to the default instance. Targets created with the same section share one file system
+    instance, see :py:meth:`~law.target.file.FileSystem.shared_instance`. All *kwargs* are forwarded to
     :py:class:`~law.target.remote.RemoteTarget`.
     """
 
@@ -82,7 +83,7 @@ class WLCGTarget(RemoteTarget):
         if fs is None:
             fs = WLCGFileSystem.default_instance  # type: ignore[assignment]
         elif not isinstance(fs, WLCGFileSystem):
-            fs = WLCGFileSystem(str(fs))
+            fs = WLCGFileSystem.shared_instance(str(fs))
 
         super().__init__(path, fs, **kwargs)  # type: ignore[arg-type]
 

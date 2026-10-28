@@ -222,6 +222,8 @@ base: davs://dcache-cms-webdav-wan.desy.de:2880/pnfs/desy.de/cms/tier2/store/use
 target = law.wlcg.WLCGFileTarget("/results/numbers.json", fs="wlcg_fs_desy")
 ```
 
+All targets created with the same section share one file system instance, which reads the config section once when it is first used (see {py:meth}`~law.target.file.FileSystem.shared_instance`).
+
 All options are documented in the {ref}`[wlcg_fs] <wlcg-fs-section>` section.
 The most relevant ones are described below.
 

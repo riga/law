@@ -12,6 +12,7 @@ import warnings
 import pytest
 
 import law
+from law._types import Iterator
 from law.errors import FormatterNotFoundError
 from law.target.collection import (
     FileCollection,
@@ -277,6 +278,33 @@ class TestLocalTarget(TargetTestCase):
         assert not fs.isfile(self.path("a", "b"))
         with pytest.raises(ValueError, match=r"setting\ both\ 'section'\ and\ 'base'\ as\ LocalFil"):
             law.LocalFileSystem(base=self.tmp, section="local_fs")
+
+    @pytest.fixture
+    def fs_section(self) -> Iterator[str]:
+        # temporary local file system config section, also removing its cached instance afterwards
+        cfg = law.config.Config.instance()
+        section = "law_test_local_fs"
+        cfg.update({section: {"base": self.tmp}})
+        yield section
+        law.target.file.FileSystem._shared_instances.pop((law.LocalFileSystem, section), None)
+        cfg.remove_section(section)
+
+    def test_file_system_shared_instance(self, fs_section: str) -> None:
+        fs = law.LocalFileSystem.shared_instance(fs_section)
+        assert fs.config_section == fs_section
+        assert fs.base == self.tmp
+        assert law.LocalFileSystem.shared_instance(fs_section) is fs
+        # the default section refers to the default instance
+        assert law.LocalFileSystem.shared_instance("local_fs") is law.LocalFileSystem.default_instance
+        # the constructor still creates new instances
+        assert law.LocalFileSystem(fs_section) is not fs
+
+    def test_targets_share_section_fs(self, fs_section: str) -> None:
+        f1 = law.LocalFileTarget("a.txt", fs=fs_section)
+        f2 = law.LocalFileTarget("b.txt", fs=fs_section)
+        assert f1.fs is f2.fs
+        assert f1.fs is law.LocalFileSystem.shared_instance(fs_section)
+        assert f1.abspath == self.path("a.txt")
 
 
 class TestFormatter(TargetTestCase):
