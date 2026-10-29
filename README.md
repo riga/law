@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="https://law.readthedocs.io/en/latest">
-    <img alt="Documentation status" src="https://readthedocs.org/projects/law/badge/?version=latest" />
+    <img alt="Documentation status" src="https://app.readthedocs.org/projects/law/badge/?version=latest" />
   </a>
   <a href="https://github.com/riga/law/actions/workflows/ci.yml">
     <img alt="CI" src="https://github.com/riga/law/actions/workflows/ci.yml/badge.svg" />
