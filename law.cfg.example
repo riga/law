@@ -36,73 +36,66 @@
 ;   - [cmssw_sandbox]
 ;   - [cmssw_sandbox_env]
 ;
-; Please note that configuration options of law contrib packages might also appear in sections of
-; the general law configuration.
+; Please note that configuration options of law contrib packages might also appear in sections of the general law
+; configuration.
 
 
 ; === Features of the law configuration parser =====================================================
 
 ; --- The law home directory -----------------------------------------------------------------------
-; The law home directory is the default location of a small number of files and directories that are
-; created when working with law. Please refer to the particular configuration options below for more
-; information. The law home directory defaults to ``$LAW_HOME`` or ``$HOME/.law``.
+; The law home directory is the default location of a small number of files and directories that are created when
+; working with law. Please refer to the particular configuration options below for more information. The law home
+; directory defaults to ``$LAW_HOME`` or ``$HOME/.law``.
 
 ; --- Configuration file resolution order ----------------------------------------------------------
-; Law configuration files are looked up in a certain order: ``$LAW_CONFIG_FILE``, ``./law.cfg``,
-; ``config`` in the law home directory, or ``etc/law/config``. The config parser only reads the
-; first existing file. Please also note the optional synchronization with environment variables
-; described below.
+; Law configuration files are looked up in a certain order: ``$LAW_CONFIG_FILE``, ``./law.cfg``, ``config`` in the law
+; home directory, or ``etc/law/config``. The config parser only reads the first existing file. Please also note the
+; optional synchronization with environment variables described below.
 
 ; --- Inheritance and extensions -------------------------------------------------------------------
-; The law configuration can inherit from or can be extended by additional configuration files. See
-; the options ``inherit`` and ``extend`` in the ``[core]`` section of the law configuration below.
-; The only difference between the two is that options defined in ``inherit`` do not overwrite those
-; in the actual config, whereas options of ``extend`` do (options of extended config files are added
-; *after* those in the actual config).
+; The law configuration can inherit from or can be extended by additional configuration files. See the options
+; ``inherit`` and ``extend`` in the ``[core]`` section of the law configuration below. The only difference between the
+; two is that options defined in ``inherit`` do not overwrite those in the actual config, whereas options of ``extend``
+; do (options of extended config files are added *after* those in the actual config).
 
 ; --- Option referencing and interpolation ---------------------------------------------------------
-; To avoid that some configurations are copied to other options (which is required in some cases),
-; the law configuration parser supports references. The syntax for references to options in the same
-; section is ``&::other_option``, and ``&::other_section::other_option`` for options in other
-; sections. None is returned in case a reference cannot be resolved. The same applies to circular
-; references.
+; To avoid that some configurations are copied to other options (which is required in some cases), the law configuration
+; parser supports references. The syntax for references to options in the same section is ``&::other_option``, and
+; ``&::other_section::other_option`` for options in other sections. None is returned in case a reference cannot be
+; resolved. The same applies to circular references.
 ;
-; In addition, values can embed other options via interpolation. Both the ``%(other_option)s``
-; syntax of Python's basic interpolation and the ``${other_option}`` and
-; ``${other_section:other_option}`` syntax of its extended interpolation are supported, e.g.
-; ``path: ${base}/files``. Contrary to Python's extended interpolation, ``${...}`` expressions that
-; do not refer to an existing option are kept and therefore subject to environment variable
-; expansion (see below), which means that options take precedence over environment variables with
-; the same name. Use ``\${...}`` to skip the interpolation, and ``%%`` for literal ``%`` characters.
-; Please make sure that your configuration does not contain self-referencing or circular
-; interpolations (e.g. ``a: ${b}`` and ``b: ${a}``), as these, unlike circular references, raise an
-; error already when the configuration is loaded.
+; In addition, values can embed other options via interpolation. Both the ``%(other_option)s`` syntax of Python's basic
+; interpolation and the ``${other_option}`` and ``${other_section:other_option}`` syntax of its extended interpolation
+; are supported, e.g. ``path: ${base}/files``. Contrary to Python's extended interpolation, ``${...}`` expressions that
+; do not refer to an existing option are kept and therefore subject to environment variable expansion (see below), which
+; means that options take precedence over environment variables with the same name. Use ``\${...}`` to skip the
+; interpolation, and ``%%`` for literal ``%`` characters. Please make sure that your configuration does not contain
+; self-referencing or circular interpolations (e.g. ``a: ${b}`` and ``b: ${a}``), as these, unlike circular references,
+; raise an error already when the configuration is loaded.
 
 ; --- Environment variable expansion ---------------------------------------------------------------
-; Configuration values that contain environment variables are automatically expanded by most getters
-; of the law configuration parser, such as ``get_expanded()``, ``get_expanded_int()``, etc. If
-; desired, you can avoid this expansion by backslash-escaping characters such as ``$`` or ``~`` to
-; ``\$`` or ``\~``.
+; Configuration values that contain environment variables are automatically expanded by most getters of the law
+; configuration parser, such as ``get_expanded()``, ``get_expanded_int()``, etc. If desired, you can avoid this
+; expansion by backslash-escaping characters such as ``$`` or ``~`` to ``\$`` or ``\~``.
 
 ; --- The "None" value -----------------------------------------------------------------------------
-; Getters of the law configuration parser such as ``get_default()``, get_expanded()``,
-; ``get_expanded_int()``, etc., are configured to return a default value (which itself defaults to
-; ``None`` (the NoneType)) in case an option is not existing. Sometimes it can be useful to actively
-; declare an option as missing. This can be achieved by setting an option to ``"None"`` (string).
+; Getters of the law configuration parser such as ``get_default()``, ``get_expanded()``, ``get_expanded_int()``, etc.,
+; are configured to return a default value (which itself defaults to ``None`` (the NoneType)) in case an option is not
+; existing. Sometimes it can be useful to actively declare an option as missing. This can be achieved by setting an
+; option to ``"None"`` (string).
 
 ; --- Synchronization with environment variables ---------------------------------------------------
-; In some scenarios it might be useful to control the value of some options via environment
-; variables, for instance, when testing features or prototyping outside of an existing configuration
-; file. For these cases, a synchronization mechanism is implemented that reads variables named
-; ``LAW__the_section__the_option`` and overwrites the respective option with its value. This is
-; enabled by default, but can be configured by the ``sync_env`` option in the ``[core]`` section.
+; In some scenarios it might be useful to control the value of some options via environment variables, for instance,
+; when testing features or prototyping outside of an existing configuration file. For these cases, a synchronization
+; mechanism is implemented that reads variables named ``LAW__the_section__the_option`` and overwrites the respective
+; option with its value. This is enabled by default, but can be configured by the ``sync_env`` option in the ``[core]``
+; section.
 
 ; --- Synchronization with luigi configuration -----------------------------------------------------
-; law is built on top of luigi and does not replace it. Therefore, another luigi-specfic
-; configuration file is actually required. However, law provides a mechanism to define the luigi
-; configuration right within the law configuration file. All sections starting with ``luigi_``, e.g.
-; ``[luigi_worker]`` are forwarded to luigi. Environment variable expansion is performed as well.
-; This behavior is configurable by the ``sync_luigi_config`` option in the ``[core]`` section.
+; law is built on top of luigi and does not replace it. Therefore, another luigi-specific configuration file is actually
+; required. However, law provides a mechanism to define the luigi configuration right within the law configuration file.
+; All sections starting with ``luigi_``, e.g. ``[luigi_worker]`` are forwarded to luigi. Environment variable expansion
+; is performed as well. This behavior is configurable by the ``sync_luigi_config`` option in the ``[core]`` section.
 
 
 ; === law configuration ============================================================================
@@ -111,50 +104,47 @@
 
 [core]
 ; law_home
-; Description: The law home directory is the default location of a small number of files and
-; directories that are created when working with law.
+; Description: The law home directory is the default location of a small number of files and directories that are
+; created when working with law.
 ; Type: ``str``
 ; Default: ``"$LAW_HOME"``, ``"$HOME/.law"``
 
 ; index_file
-; Description: The location of the file that contains a list of all tasks, their module, and their
-; parameters for the purpose of fast autocompletion on the command line.
+; Description: The location of the file that contains a list of all tasks, their module, and their parameters for the
+; purpose of fast autocompletion on the command line.
 ; Type: ``str``
 ; Default: ``"$LAW_INDEX_FILE"``, ``"$LAW_HOME/index"``
 
 ; software_dir
-; Description: The default location where softwar is copied to by the ``law software`` command. This
-; can be especially useful for (e.g.) forwarding law and its dependencies into a container. Type
-; ``law software --help`` for more info.
+; Description: The default location where software is copied to by the ``law software`` command. This can be especially
+; useful for (e.g.) forwarding law and its dependencies into a container. Type ``law software --help`` for more info.
 ; Type: ``str``
 ; Default: ``"$LAW_SOFTWARE_DIR"``, ``"$LAW_HOME/software"``
 
 ; inherit
-; Description: A comma-separated list of files that this config is inheriting, i.e., their options
-; do *not* overwrite the ones defined in *this* file. Relative paths are resolved with respect to
-; *this* file. Brace expansion, such as ``"myfile{1,2}.cfg"`` to ``"myfile1.cfg", "myfile2.cfg"`` is
-; applied.
+; Description: A comma-separated list of files that this config is inheriting, i.e., their options do *not* overwrite
+; the ones defined in *this* file. Relative paths are resolved with respect to *this* file. Brace expansion, such as
+; ``"myfile{1,2}.cfg"`` to ``"myfile1.cfg", "myfile2.cfg"`` is applied.
 ; Type: ``str``, ``list[str]``, ``None``
 ; Default: ``None``
 
 ; extend
-; Description: A comma-separated list of files that this config is extended by, i.e., their options
-; *do* overwrite the ones defined in *this* file. Relative paths are resolved with respect to *this*
-; file. Brace expansion, such as ``"myfile{1,2}.cfg"`` to ``"myfile1.cfg", "myfile2.cfg"`` is
-; applied.
+; Description: A comma-separated list of files that this config is extended by, i.e., their options *do* overwrite the
+; ones defined in *this* file. Relative paths are resolved with respect to *this* file. Brace expansion, such as
+; ``"myfile{1,2}.cfg"`` to ``"myfile1.cfg", "myfile2.cfg"`` is applied.
 ; Type: ``str``, ``list[str]``, ``None``
 ; Default: ``None``
 
 ; sync_env
-; Description: A boolean flag that decides whether the config should be synchronized with
-; environment variables that have the format ``LAW__the_section__the_option``. When ``True``, the
-; synchronization takes place after all defaults and config files were read.
+; Description: A boolean flag that decides whether the config should be synchronized with environment variables that
+; have the format ``LAW__the_section__the_option``. When ``True``, the synchronization takes place after all defaults
+; and config files were read.
 ; Type: ``bool``
 ; Default: ``True``
 
 ; sync_luigi_config
-; Description: A boolean flag that decides whether sections starting with ``"luigi_"`` should be
-; synchronized with the luigi configuration.
+; Description: A boolean flag that decides whether sections starting with ``"luigi_"`` should be synchronized with the
+; luigi configuration.
 ; Type: ``bool``
 ; Default: ``True``
 
@@ -163,15 +153,14 @@
 
 [logging]
 ; law
-; Description: The log level of the law root logger. Accepted values are the default python log
-; levels, i.e., ``"NOTSET"``, ``"DEBUG"``, ``"INFO"``, ``"WARNING"``, ``"ERROR"``, or
-; ``"CRITICAL"``.
+; Description: The log level of the law root logger. Accepted values are the default python log levels, i.e.,
+; ``"NOTSET"``, ``"DEBUG"``, ``"INFO"``, ``"WARNING"``, ``"ERROR"``, or ``"CRITICAL"``.
 ; Type: ``str``
 ; Default: ``"$LAW_LOG_LEVEL"``, ``"WARNING"``
 
 ; gfal2
-; Description: Operations on remote targets are performed using the gfal2 package. This value
-; defines the level of the ``gfal2`` logger.
+; Description: Operations on remote targets are performed using the gfal2 package. This value defines the level of the
+; ``gfal2`` logger.
 ; Type: ``str``
 ; Default: ``"WARNING"``
 
@@ -194,40 +183,38 @@
 
 [task]
 ; colored_repr
-; Description: A boolean flag that decides whether the output of ``task.repr()`` and ``repr(task)``
-; is colorized by default.
+; Description: A boolean flag that decides whether the output of ``task.repr()`` and ``repr(task)`` is colorized by
+; default.
 ; Type: ``bool``
 ; Default: ``False``
 
 ; colored_str
-; Description: A boolean flag that decides whether the output of ``str(task)`` is colorized by
-; default.
+; Description: A boolean flag that decides whether the output of ``str(task)`` is colorized by default.
 ; Type: ``bool``
 ; Default: ``True``
 
 ; interactive_format
-; Description: The style of interactive task outputs, e.g. when adding ``--print-status N`` to a
-; command. Possible values: ``"plain"``, ``"compact"``, ``"fancy"``, ``"fancy_compact"``.
+; Description: The style of interactive task outputs, e.g. when adding ``--print-status N`` to a command. Possible
+; values: ``"plain"``, ``"compact"``, ``"fancy"``, ``"fancy_compact"``.
 ; Type: ``str``
 ; Default: ``"fancy"``
 
 ; interactive_line_breaks
-; Description: A boolean flag that decides whether smart line breaks should be used when printing
-; interactive task outputs to terminal. Automatically disabled when the terminal width cannot be
-; determined.
+; Description: A boolean flag that decides whether smart line breaks should be used when printing interactive task
+; outputs to terminal. Automatically disabled when the terminal width cannot be determined.
 ; Type: ``bool``
 ; Default: ``True``
 
 ; interactive_line_width
-; Description: The width of interactive task output when ``interactive_line_breaks`` is enabled.
-; When zero or negative, the terminal size is obtained dynamically if possible.
+; Description: The width of interactive task output when ``interactive_line_breaks`` is enabled. When zero or negative,
+; the terminal size is obtained dynamically if possible.
 ; Type: ``int``
 ; Default: ``0``
 
 ; interactive_status_skip_seen
-; Description: A boolean flag that decides whether during interactive task status traversal, e.g.
-; when adding ``--print-status N`` to a command, tasks whose status has already been checked are not
-; checked again in case they appear more than once in the dependency tree.
+; Description: A boolean flag that decides whether during interactive task status traversal, e.g. when adding
+; ``--print-status N`` to a command, tasks whose status has already been checked are not checked again in case they
+; appear more than once in the dependency tree.
 ; Type: ``bool``
 ; Default: ``False``
 
@@ -236,32 +223,30 @@
 
 [target]
 ; colored_repr
-; Description: A boolean flag that decides whether the output of ``target.repr()`` and
-; ``repr(target)`` is colorized by default.
+; Description: A boolean flag that decides whether the output of ``target.repr()`` and ``repr(target)`` is colorized by
+; default.
 ; Type: ``bool``
 ; Default: ``False``
 
 ; colored_str
-; Description: A boolean flag that decides whether the output of ``str(target)`` is colorized by
-; default.
+; Description: A boolean flag that decides whether the output of ``str(target)`` is colorized by default.
 ; Type: ``bool``
 ; Default: ``True``
 
 ; expand_path_repr
-; Description: A boolean flag that decides whether environment variables in paths of file targets
-; are expanded in ``repr(target)`` and ``str(target)``.
+; Description: A boolean flag that decides whether environment variables in paths of file targets are expanded in
+; ``repr(target)`` and ``str(target)``.
 ; Type: ``bool``
 ; Default: ``False``
 
 ; filesize_repr
-; Description: A boolean flag that decides whether the file size is part of the representation for
-; targets inheriting from "law.FileSystemTarget".
+; Description: A boolean flag that decides whether the file size is part of the representation for targets inheriting
+; from "law.FileSystemTarget".
 ; Type: ``bool``
 ; Default: ``False``
 
 ; default_local_fs
-; Description: The name of the section to lookup for getting the configuration of a
-; "law.target.local.LocalFileSystem".
+; Description: The name of the section to lookup for getting the configuration of a "law.target.local.LocalFileSystem".
 ; Type: ``str``
 ; Default: ``"local_fs"``
 
@@ -271,21 +256,20 @@
 ; Default: ``"$LAW_TARGET_TMP_DIR"``, ``"tempfile.gettempdir()"``
 
 ; tmp_dir_perm
-; Description: When the tmp_dir does not exist, it is created with this permission. When ``None`` or
-; when ``has_permissions`` is ``False``, the current umask is used. The value can be expressed by an
-; octal number.
+; Description: When the tmp_dir does not exist, it is created with this permission. When ``None`` or when
+; ``has_permissions`` is ``False``, the current umask is used. The value can be expressed by an octal number.
 ; Type: ``int``, ``None``
 ; Default: ``0o0770``
 
 ; collection_remove_threads
-; Desciption: Number of threads to use for removing targets in "TargetCollection"'s in parallel. No
-; multi-threading is used when the number is 0.
+; Description: Number of threads to use for removing targets in "TargetCollection"'s in parallel. No multi-threading is
+; used when the number is 0.
 ; Type: ``int``
 ; Default: ``0``
 
 ; interactive_removal_local_sync
-; Description: Whether the interactive removal via "--remove-output" of "MirroredTarget"'s should
-; enforce synchronization with the local representation.
+; Description: Whether the interactive removal via "--remove-output" of "MirroredTarget"'s should enforce
+; synchronization with the local representation.
 ; Type: ``bool``
 ; Default: ``True``
 
@@ -293,14 +277,12 @@
 ; --- Options of contrib packages
 
 ; default_wlcg_fs
-; Description: The name of the section to lookup for getting the configuration of a
-; "law.wlcg.WLCGFileSystem".
+; Description: The name of the section to lookup for getting the configuration of a "law.wlcg.WLCGFileSystem".
 ; Type: ``str``
 ; Default: ``"wlcg_fs"``
 
 ; default_dropbox_fs
-; Description: The name of the section to lookup for getting the configuration of a
-; "law.dropbox.DropboxFileSystem".
+; Description: The name of the section to lookup for getting the configuration of a "law.dropbox.DropboxFileSystem".
 ; Type: ``str``
 ; Default: ``"dropbox_fs"``
 
@@ -309,10 +291,9 @@
 
 [local_fs]
 ; base
-; Description: The base path for accessing files on this file system. Its default refers to the root
-; of the file system which should serve most uses cases where local file targets assigned to it
-; define absolute paths on their own. However, setting a different value will prepend it to the
-; paths used in all its operations.
+; Description: The base path for accessing files on this file system. Its default refers to the root of the file system
+; which should serve most uses cases where local file targets assigned to it define absolute paths on their own.
+; However, setting a different value will prepend it to the paths used in all its operations.
 ; Type: ``str``
 ; Default: ``"/"``
 
@@ -320,37 +301,35 @@
 ; --- Options defined by "law.target.file.FileSystem"
 
 ; has_permissions
-; Description: A boolean flag that signifies whether the file system should handle permissions,
-; i.e., whether ``chmod`` operations should be evaluated. When ``False``, the current umask is used.
+; Description: A boolean flag that signifies whether the file system should handle permissions, i.e., whether ``chmod``
+; operations should be evaluated. When ``False``, the current umask is used.
 ; Type: ``bool``
 ; Default: ``True``
 
 ; default_file_perm
-; Description: The default permission of newly created files. When ``None``, or when
-; ``has_permissions`` is ``False``, the current umask is used. The value can be expressed by an
-; octal number.
+; Description: The default permission of newly created files. When ``None``, or when ``has_permissions`` is ``False``,
+; the current umask is used. The value can be expressed by an octal number.
 ; Type: ``int``, ``None``
 ; Default: ``None``
 
 ; default_dir_perm
-; Description: The default permission of newly created directories. When ``None`` or when
-; ``has_permissions`` is ``False``, the current umask is used. The value can be expressed by an octal
-; number.
+; Description: The default permission of newly created directories. When ``None`` or when ``has_permissions`` is
+; ``False``, the current umask is used. The value can be expressed by an octal number.
 ; Type: ``int``, ``None``
 ; Default: ``None``
 
 ; create_file_dir
-; Description: A boolean flag that signifies whether directories should be created when a file is
-; created via open, copy, move or dump operations.
+; Description: A boolean flag that signifies whether directories should be created when a file is created via open,
+; copy, move or dump operations.
 ; Type: ``bool``
 ; Default: ``True``
 
 
 ; --- Options defined by "law.target.local.LocalFileSystem"
 ; local_root_depth
-; Description: Number of fragments of the absolute local path to check when local targets are used
-; in "law.MirroredTarget"'s. The check is done pre-emptively on the local file system to ensure that
-; a mount point with a path of the configured depth exists.
+; Description: Number of fragments of the absolute local path to check when local targets are used in
+; "law.MirroredTarget"'s. The check is done pre-emptively on the local file system to ensure that a mount point with a
+; path of the configured depth exists.
 ; Type: ``int``
 ; Default: ``1``
 
@@ -365,30 +344,27 @@
 ; --- Options defined by "law.target.file.FileSystem"
 
 ; has_permissions
-; Description: A boolean flag that signifies whether the file system should handle permissions,
-; i.e., whether ``chmod`` operations should be evaluated. When ``False``, the current umask is used.
+; Description: A boolean flag that signifies whether the file system should handle permissions, i.e., whether ``chmod``
+; operations should be evaluated. When ``False``, the current umask is used.
 ; Type: ``bool``
 ; Default: ``True``
 
 ; default_file_perm
-; Description: The default permission of newly created files. When ``None`` or when
-; ``has_permissions` is ``False``, the current umask is used. The value can be expressed by an octal
-; number.
+; Description: The default permission of newly created files. When ``None`` or when ``has_permissions` is ``False``, the
+; current umask is used. The value can be expressed by an octal number.
 ; Type: ``int``, ``None``
 ; Default: ``None``
 
 ; default_dir_perm
-; Description: The default permission of newly created directories. When ``None`` or when
-; ``has_permissions`` is ``False``, the current umask is used. The value can be expressed by an
-; octal number.
+; Description: The default permission of newly created directories. When ``None`` or when ``has_permissions`` is
+; ``False``, the current umask is used. The value can be expressed by an octal number.
 ; Type: ``int``, ``None``
 ; Default: ``None``
 
 ; create_file_dir
-; Description: A boolean flag that signifies whether directories should be created when a file is
-; created via open, copy, move or dump operations. When ``False``, the
-; ``gfal_transfer_create_parent`` options should be set to ``True`` to ensure that intermediate
-; directories are created.
+; Description: A boolean flag that signifies whether directories should be created when a file is created via open,
+; copy, move or dump operations. When ``False``, the ``gfal_transfer_create_parent`` options should be set to ``True``
+; to ensure that intermediate directories are created.
 ; Type: ``bool``
 ; Default: ``False``
 
@@ -396,10 +372,9 @@
 ; --- Options defined by "law.target.remote.RemoteFileInterface"
 
 ; base
-; Description: The base path for accessing files on a WLCG storage element. It should with a
-; protocol, such as ``"root://"`` or ``"gsiftp://"``, that can be handled by gfal. This value is
-; required for the "law.wlcg.WLCGFileSystem" to work. Brace expansion into a list of paths is
-; applied.
+; Description: The base path for accessing files on a WLCG storage element. It should with a protocol, such as
+; ``"root://"`` or ``"gsiftp://"``, that can be handled by gfal. This value is required for the
+; "law.wlcg.WLCGFileSystem" to work. Brace expansion into a list of paths is applied.
 ; Type: ``str``, ``list[str]``, ``None``
 ; Default: ``None``
 
@@ -411,31 +386,29 @@
 ; base_mkdir
 ; base_listdir
 ; base_filecopy
-; Description: Different base paths for certain file or directory operations. When empty, the value
-; of ``base`` is used for that operation. As an example, if you use a base path starting with
-; ``"srm://..."``, you might want to choose a different protocol for listdir operations as SRM is
-; too inefficient for directory listings (runtime linear to number of items). Brace expansion into a
-; list of paths is applied.
+; Description: Different base paths for certain file or directory operations. When empty, the value of ``base`` is used
+; for that operation. As an example, if you use a base path starting with ``"srm://..."``, you might want to choose a
+; different protocol for listdir operations as SRM is too inefficient for directory listings (runtime linear to number
+; of items). Brace expansion into a list of paths is applied.
 ; Type: ``str``, ``list[str]``, ``None``
 ; Default: ``None``
 
 ; retries
-; Description: The default number of retries to perform when a file operation fails. The value can
-; also be set per operation.
+; Description: The default number of retries to perform when a file operation fails. The value can also be set per
+; operation.
 ; Type: ``int``
 ; Default: ``1``
 
 ; retry_delay
-; Description: The default amount of time to wait before retrying a failed file operation. The
-; default unit is seconds. The value can also be set per operation.
+; Description: The default amount of time to wait before retrying a failed file operation. The default unit is seconds.
+; The value can also be set per operation.
 ; Type: ``int``, ``str``
 ; Default: ``"5s"``
 
 ; random_base
-; Desciption: A boolean flag that, if a base path above is given as a list of paths, decides
-; whether, by default, a random path should be chosen per file operation. When ``True`` and a file
-; operation fails, the next attempt is made with a different yet still random base path. The exact
-; behavior can also be set per operation.
+; Description: A boolean flag that, if a base path above is given as a list of paths, decides whether, by default, a
+; random path should be chosen per file operation. When ``True`` and a file operation fails, the next attempt is made
+; with a different yet still random base path. The exact behavior can also be set per operation.
 ; Type: ``bool``
 ; Default: ``True``
 
@@ -443,15 +416,14 @@
 ; --- Options defined by "law.target.remote.RemoteFileSystem"
 
 ; validate_copy
-; Description: A boolean flag that decides whether, by default, a validation should be performed
-; after each file copy (or move) operation. The exact behavior can also be set per operation.
+; Description: A boolean flag that decides whether, by default, a validation should be performed after each file copy
+; (or move) operation. The exact behavior can also be set per operation.
 ; Type: ``bool``
 ; Default: ``False``
 
 ; use_cache
-; Description: A boolean flag that decides whether, by default, certain operations (copy, move,
-; open, etc.) should use the local cache (when existing). The exact behavior can also be set per
-; operation.
+; Description: A boolean flag that decides whether, by default, certain operations (copy, move, open, etc.) should use
+; the local cache (when existing). The exact behavior can also be set per operation.
 ; Type: ``bool``
 ; Default: ``False``
 
@@ -459,63 +431,58 @@
 ; --- Options defined by "law.target.remote.RemoteCache"
 
 ; cache_root
-; Description: The directory in which cached files from remote file operation should be stored. When
-; ``None`` or empty, file caching is disabled. When ``"__TMP__"``, a temporary directory is created.
+; Description: The directory in which cached files from remote file operation should be stored. When ``None`` or empty,
+; file caching is disabled. When ``"__TMP__"``, a temporary directory is created.
 ; Type: ``str``, ``None``
 ; Default: ``None``
 
 ; cache_cleanup
-; Description: A boolean flag that decides whether the cache should be removed when the program
-; terminates.
+; Description: A boolean flag that decides whether the cache should be removed when the program terminates.
 ; Type: ``bool``
 ; Default: ``False``
 
 ; cache_max_size
-; Description: The maximum size of the cache directory. When a file should be cached, but the
-; maximum size is reached, files are deleted from the cache in order of their smallest modification
-; time until enough disk space is freed. The default unit is MB. When zero or negative, the maximum
-; cache size is equal to 90% of the available disk space.
+; Description: The maximum size of the cache directory. When a file should be cached, but the maximum size is reached,
+; files are deleted from the cache in order of their smallest modification time until enough disk space is freed. The
+; default unit is MB. When zero or negative, the maximum cache size is equal to 90% of the available disk space.
 ; Type: ``int``, ``str``
 ; Default: ``"0MB"``
 
 ; cache_mtime_patience
-; Description: The maximum amount of seconds that the modification time of remote of cached files
-; can differ before considering a file invalid. A negative value means causes all files to be
-; considered valid, independent of modification times. This feature might only be useful for file
-; systems that are accessible via multiple protocols that might respond to stat requests with
-; different timestamps for files that are known to be identical (e.g. large, identical files that
-; are provided simultaneously by multiple central storage sites).
+; Description: The maximum amount of seconds that the modification time of remote of cached files can differ before
+; considering a file invalid. A negative value means causes all files to be considered valid, independent of
+; modification times. This feature might only be useful for file systems that are accessible via multiple protocols that
+; might respond to stat requests with different timestamps for files that are known to be identical (e.g. large,
+; identical files that are provided simultaneously by multiple central storage sites).
 ; Type: ``float``
 ; Default: ``1.0``
 
 ; cache_file_perm
-; Description: The permission of files in the cache. When ``None`` or empty, the current umask is
-; used. The value can be expressed by an octal number.
+; Description: The permission of files in the cache. When ``None`` or empty, the current umask is used. The value can be
+; expressed by an octal number.
 ; Type: ``int``
 ; Default: ``0o0660``
 
 ; cache_dir_perm
-; Description: The permission of the cache root directory in case it is not existing yet and has to
-; be created. When ``None`` or empty, the current umask is used. The value can be expressed by an
-; octal number.
+; Description: The permission of the cache root directory in case it is not existing yet and has to be created. When
+; ``None`` or empty, the current umask is used. The value can be expressed by an octal number.
 ; Type: ``int``
 ; Default: ``0o0770``
 
 ; cache_wait_delay
-; Description: The amount of time to wait for a file in the cache to be unlocked. The default unit
-; is seconds.
+; Description: The amount of time to wait for a file in the cache to be unlocked. The default unit is seconds.
 ; Type: ``int``, ``str``
 ; Default: ``"5s"``
 
 ; cache_max_waits
-; Description: The maximum number of times to wait for a duration of ``cache_wait_delay`` for a file
-; in the cache to be unlocked before an error is thrown that the file is unavailable.
+; Description: The maximum number of times to wait for a duration of ``cache_wait_delay`` for a file in the cache to be
+; unlocked before an error is thrown that the file is unavailable.
 ; Type: ``int``
 ; Default: ``120``
 
 ; cache_global_lock
-; Description: A boolean flag that decides whether each cache operation is locked by a global
-; locking mechanism that prevents simultaneous cache access.
+; Description: A boolean flag that decides whether each cache operation is locked by a global locking mechanism that
+; prevents simultaneous cache access.
 ; Type: ``bool``
 ; Default: ``False``
 
@@ -523,10 +490,9 @@
 ; --- Options defined by "law.gfal.GFALFileInterface"
 
 ; gfal_atomic_contexts
-; Description: A boolean flag that decides whether each operation of the gfal2 interface should be
-; placed in its own gfal2 context. For the "law.wlcg.WLCGFileSystem" it is highly recommended to set
-; this option to ``True`` to enfore that FTP connections are closed as soon as possible and remote
-; resources are freed properly.
+; Description: A boolean flag that decides whether each operation of the gfal2 interface should be placed in its own
+; gfal2 context. For the "law.wlcg.WLCGFileSystem" it is highly recommended to set this option to ``True`` to enfore
+; that FTP connections are closed as soon as possible and remote resources are freed properly.
 ; Type: ``bool``
 ; Default: ``True``
 
@@ -536,8 +502,7 @@
 ; Default: ``3600``
 
 ; gfal_transfer_checksum_check
-; Description: A boolean flag that decides whether checksums should be checked after operations that
-; create new files.
+; Description: A boolean flag that decides whether checksums should be checked after operations that create new files.
 ; Type: ``bool``
 ; Default: ``False``
 
@@ -547,20 +512,19 @@
 ; Default: ``1``
 
 ; gfal_transfer_overwrite
-; Description: A boolean flag that decides whether existing files should by overwritten by
-; operations that would recreate them.
+; Description: A boolean flag that decides whether existing files should by overwritten by operations that would
+; recreate them.
 ; Type: ``bool``
 ; Default: ``True``
 
 ; gfal_transfer_create_parent
-; Description: A boolean flag that decides whether intermediate, missing directories should be
-; created automatically in certan file operations.
+; Description: A boolean flag that decides whether intermediate, missing directories should be created automatically in
+; certan file operations.
 ; Type: ``bool``
 ; Default: ``True``
 
 ; gfal_transfer_strict_copy
-; Description: A boolean flag that decides whether file copying should be done without source and
-; destination checks.
+; Description: A boolean flag that decides whether file copying should be done without source and destination checks.
 ; Type: ``bool``
 ; Default: ``False``
 
@@ -577,20 +541,17 @@
 ; --- Options defined by "law.dropbox.DropboxFileSystem"
 
 ; app_key
-; Description: The Dropbox app key. This value is required for the "law.dropbox.DropboxFileSystem"
-; to work.
+; Description: The Dropbox app key. This value is required for the "law.dropbox.DropboxFileSystem" to work.
 ; Type: ``str``, ``None``
 ; Default: ``None``
 
 ; app_secret
-; Description: The Dropbox app secret. This value is required for the
-; "law.dropbox.DropboxFileSystem" to work.
+; Description: The Dropbox app secret. This value is required for the "law.dropbox.DropboxFileSystem" to work.
 ; Type: ``str``, ``None``
 ; Default: ``None``
 
 ; access_token
-; Description: The Dropbox app access token. This value is required for the
-; "law.dropbox.DropboxFileSystem" to work.
+; Description: The Dropbox app access token. This value is required for the "law.dropbox.DropboxFileSystem" to work.
 ; Type: ``str``, ``None``
 ; Default: ``None``
 
@@ -598,30 +559,27 @@
 ; --- Options defined by "law.target.file.FileSystem"
 
 ; has_permissions
-; Description: A boolean flag that signifies whether the file system should handle permissions,
-; i.e., whether ``chmod`` operations should be evaluated. When ``False``, the current umask is used.
+; Description: A boolean flag that signifies whether the file system should handle permissions, i.e., whether ``chmod``
+; operations should be evaluated. When ``False``, the current umask is used.
 ; Type: ``bool``
 ; Default: ``True``
 
 ; default_file_perm
-; Description: The default permission of newly created files. When ``None`` or empty, or when
-; ``has_permissions`` is ``False``, the current umask is used. The value can be expressed by an
-; octal number.
+; Description: The default permission of newly created files. When ``None`` or empty, or when ``has_permissions`` is
+; ``False``, the current umask is used. The value can be expressed by an octal number.
 ; Type: ``int``, ``None``
 ; Default: ``None``
 
 ; default_dir_perm
-; Description: The default permission of newly created directories. When ``None`` or empty, or when
-; ``has_permissions`` is ``False``, the current umask is used. The value can be expressed by an
-; octal number.
+; Description: The default permission of newly created directories. When ``None`` or empty, or when ``has_permissions``
+; is ``False``, the current umask is used. The value can be expressed by an octal number.
 ; Type: ``int``, ``None``
 ; Default: ``None``
 
 ; create_file_dir
-; Description: A boolean flag that signifies whether directories should be created when a file is
-; created via open, copy, move or dump operations. When ``False``, the
-; ``gfal_transfer_create_parent`` options should be set to ``True`` to ensure that intermediate
-; directories are created.
+; Description: A boolean flag that signifies whether directories should be created when a file is created via open,
+; copy, move or dump operations. When ``False``, the ``gfal_transfer_create_parent`` options should be set to ``True``
+; to ensure that intermediate directories are created.
 ; Type: ``bool``
 ; Default: ``False``
 
@@ -630,8 +588,7 @@
 
 ; base
 ; Description: The base path for accessing files on your Dropbox. Normally, it should with
-; ``"dropbox://dropbox.com/..."``. This value is required for the "law.dropbox.DropboxFileSystem" to
-; work.
+; ``"dropbox://dropbox.com/..."``. This value is required for the "law.dropbox.DropboxFileSystem" to work.
 ; Type: ``str``, ``list[str]``, ``None``
 ; Default: ``None``
 
@@ -644,30 +601,28 @@
 ; base_mkdir_rec
 ; base_listdir
 ; base_filecopy
-; Description: Different base paths for certain file or directory operations. When empty, the value
-; of ``base`` is used for that operation. For the "law.dropbox.DropboxFileSystem", setting different
-; base paths is usually not required as Dropbox does not provide different entry points per
-; operation type.
+; Description: Different base paths for certain file or directory operations. When empty, the value of ``base`` is used
+; for that operation. For the "law.dropbox.DropboxFileSystem", setting different base paths is usually not required as
+; Dropbox does not provide different entry points per operation type.
 ; Type: ``str``, ``list[str]``, ``None``
 ; Default: ``None``
 
 ; retries
-; Description: The default number of retries to perform when a file operation fails. The value can
-; also be set per operation.
+; Description: The default number of retries to perform when a file operation fails. The value can also be set per
+; operation.
 ; Type: ``int``
 ; Default: ``1``
 
 ; retry_delay
-; Description: The default amount of time to wait before retrying a failed file operation. The
-; default unit is seconds. The value can also be set per operation.
+; Description: The default amount of time to wait before retrying a failed file operation. The default unit is seconds.
+; The value can also be set per operation.
 ; Type: ``int``, ``str``
 ; Default: ``"5s"``
 
 ; random_base
-; Desciption: A boolean flag that, if a base path above is given as a list of paths, decides
-; whether, by default, a random path should be chosen per file operation. When ``True`` and a file
-; operation fails, the next attempt is made with a different yet still random base path. The exact
-; behavior can also be set per operation.
+; Description: A boolean flag that, if a base path above is given as a list of paths, decides whether, by default, a
+; random path should be chosen per file operation. When ``True`` and a file operation fails, the next attempt is made
+; with a different yet still random base path. The exact behavior can also be set per operation.
 ; Type: ``bool``
 ; Default: ``True``
 
@@ -675,15 +630,14 @@
 ; --- Options defined by "law.target.remote.RemoteFileSystem"
 
 ; validate_copy
-; Description: A boolean flag that decides whether, by default, a validation should be performed
-; after each file copy (or move) operation. The exact behavior can also be set per operation.
+; Description: A boolean flag that decides whether, by default, a validation should be performed after each file copy
+; (or move) operation. The exact behavior can also be set per operation.
 ; Type: ``bool``
 ; Default: ``False``
 
 ; use_cache
-; Description: A boolean flag that decides whether, by default, certain operations (copy, move,
-; open, etc.) should use the local cache (when existing). The exact behavior can also be set per
-; operation.
+; Description: A boolean flag that decides whether, by default, certain operations (copy, move, open, etc.) should use
+; the local cache (when existing). The exact behavior can also be set per operation.
 ; Type: ``bool``
 ; Default: ``False``
 
@@ -691,53 +645,49 @@
 ; --- Options defined by "law.target.remote.RemoteCache"
 
 ; cache_root
-; Description: The directory in which cached files from remote file operation should be stored. When
-; ``None`` or empty, file caching is disabled. When ``"__TMP__"``, a temporary directory is created.
+; Description: The directory in which cached files from remote file operation should be stored. When ``None`` or empty,
+; file caching is disabled. When ``"__TMP__"``, a temporary directory is created.
 ; Type: ``str``, ``None``
 ; Default: ``None``
 
 ; cache_cleanup
-; Description: A boolean flag that decides whether the cache should be removed when the program
-; terminates.
+; Description: A boolean flag that decides whether the cache should be removed when the program terminates.
 ; Type: ``bool``
 ; Default: ``False``
 
 ; cache_max_size
-; Description: The maximum size of the cache directory. When a file should be cached, but the
-; maximum size is reached, files are deleted from the cache in order of their smallest modification
-; time until enough disk space is freed. The default unit is MB. When zero or negative, the maximum
-; cache size is equal to 90% of the available disk space.
+; Description: The maximum size of the cache directory. When a file should be cached, but the maximum size is reached,
+; files are deleted from the cache in order of their smallest modification time until enough disk space is freed. The
+; default unit is MB. When zero or negative, the maximum cache size is equal to 90% of the available disk space.
 ; Type: ``int``, ``str``
 ; Default: ``"0MB"``
 
 ; cache_file_perm
-; Description: The permission of files in the cache. When ``None`` or empty, the current umask is
-; used. The value can be expressed by an octal number.
+; Description: The permission of files in the cache. When ``None`` or empty, the current umask is used. The value can be
+; expressed by an octal number.
 ; Type: ``int``, ``None``
 ; Default: ``0o0660``
 
 ; cache_dir_perm
-; Description: The permission of the cache root directory in case it is not existing yet and has to
-; be created. When ``None`` or empty, the current umask is used. The value can be expressed by an
-; octal number.
+; Description: The permission of the cache root directory in case it is not existing yet and has to be created. When
+; ``None`` or empty, the current umask is used. The value can be expressed by an octal number.
 ; Type: ``int``, ``None``
 ; Default: ``0o0770``
 
 ; cache_wait_delay
-; Description: The amount of time to wait for a file in the cache to be unlocked. The default unit
-; is seconds.
+; Description: The amount of time to wait for a file in the cache to be unlocked. The default unit is seconds.
 ; Type: ``int``, ``str``
 ; Default: ``"5s"``
 
 ; cache_max_waits
-; Description: The maximum number of times to wait for a duration of ``cache_wait_delay`` for a file
-; in the cache to be unlocked before an error is thrown that the file is unavailable.
+; Description: The maximum number of times to wait for a duration of ``cache_wait_delay`` for a file in the cache to be
+; unlocked before an error is thrown that the file is unavailable.
 ; Type: ``int``
 ; Default: ``120``
 
 ; cache_global_lock
-; Description: A boolean flag that decides whether each cache operation is locked by a global
-; locking mechanism that prevents simultaneous cache access.
+; Description: A boolean flag that decides whether each cache operation is locked by a global locking mechanism that
+; prevents simultaneous cache access.
 ; Type: ``bool``
 ; Default: ``False``
 
@@ -745,8 +695,8 @@
 ; --- Options defined by "law.gfal.GFALFileInterface"
 
 ; gfal_atomic_contexts
-; Description: A boolean flag that decides whether each operation of the gfal2 interface should be
-; placed in its own gfal2 context.
+; Description: A boolean flag that decides whether each operation of the gfal2 interface should be placed in its own
+; gfal2 context.
 ; Type: ``bool``
 ; Default: ``True``
 
@@ -756,8 +706,7 @@
 ; Default: ``3600``
 
 ; gfal_transfer_checksum_check
-; Description: A boolean flag that decides whether checksums should be checked after operations that
-; create new files.
+; Description: A boolean flag that decides whether checksums should be checked after operations that create new files.
 ; Type: ``bool``
 ; Default: ``False``
 
@@ -767,20 +716,19 @@
 ; Default: ``1``
 
 ; gfal_transfer_overwrite
-; Description: A boolean flag that decides whether existing files should by overwritten by
-; operations that would recreate them.
+; Description: A boolean flag that decides whether existing files should by overwritten by operations that would
+; recreate them.
 ; Type: ``bool``
 ; Default: ``True``
 
 ; gfal_transfer_create_parent
-; Description: A boolean flag that decides whether intermediate, missing directories should be
-; created automatically in certan file operations.
+; Description: A boolean flag that decides whether intermediate, missing directories should be created automatically in
+; certan file operations.
 ; Type: ``bool``
 ; Default: ``True``
 
 ; gfal_transfer_strict_copy
-; Description: A boolean flag that decides whether file copying should be done without source and
-; destination checks.
+; Description: A boolean flag that decides whether file copying should be done without source and destination checks.
 ; Type: ``bool``
 ; Default: ``False``
 
@@ -789,32 +737,30 @@
 
 [job]
 ; job_file_dir
-; Description: The location of the directory in which a job file factory saves temporary files that
-; are used for job submission.
+; Description: The location of the directory in which a job file factory saves temporary files that are used for job
+; submission.
 ; Type: ``str``
 ; Default: ``"$LAW_JOB_FILE_DIR"``, ``tempfile.gettempdir()``
 
 ; job_file_dir_mkdtemp
-; Description: A boolean flag or string that decides if a temporary directory inside job_file_dir
-; should be created in which the actual job files are stored. It is discouraged to set this option
-; to ``False`` in order to have a clear separation between files created by different job file
-; factories. When a string is used it serves as a prefix for name of the temporary directory. More
-; than three X's will be replaced with random characters and template variables "{{task_id}}" and
-; "{{task_family}}" will be expanded with task values.
+; Description: A boolean flag or string that decides if a temporary directory inside job_file_dir should be created in
+; which the actual job files are stored. It is discouraged to set this option to ``False`` in order to have a clear
+; separation between files created by different job file factories. When a string is used it serves as a prefix for name
+; of the temporary directory. More than three X's will be replaced with random characters and template variables
+; "{{task_id}}" and "{{task_family}}" will be expanded with task values.
 ; Type: ``bool``, ``str``
 ; Default: ``True``
 
 ; job_file_dir_cleanup
-; Description: A boolean flag that decides whether a job file factory should remove its file
-; diretory once it is destructed. Set this option to ``False`` when the job submission system
-; requires all jobs files to be present as long as jobs are running, or in case you want to debug
-; the files later on.
+; Description: A boolean flag that decides whether a job file factory should remove its file diretory once it is
+; destructed. Set this option to ``False`` when the job submission system requires all jobs files to be present as long
+; as jobs are running, or in case you want to debug the files later on.
 ; Type: ``bool``
 ; Default: ``False``
 
 ; job_query_timeout
-; Description: If set, this option controls the maximum duration a job status query can take until
-; it is deemed hanging and terminated consequently. The default unit is seconds.
+; Description: If set, this option controls the maximum duration a job status query can take until it is deemed hanging
+; and terminated consequently. The default unit is seconds.
 ; Type: ``int``, ``str``
 ; Default: ``None``
 
@@ -825,25 +771,24 @@
 ; arc_job_file_dir_mkdtemp
 ; arc_job_file_dir_cleanup
 ; arc_job_query_timeout
-; Description: These three options are identical to the ones above without the ``"arc"`` prefix, but
-; only apply to the "law.arc.ARCJobFileFactory". When ``None`` or not existing, the values above are
-; used.
+; Description: These three options are identical to the ones above without the ``"arc"`` prefix, but only apply to the
+; "law.arc.ARCJobFileFactory". When ``None`` or not existing, the values above are used.
 
 ; arc_chunk_size_submit
-; Description: Number of jobs that can be submitted in parallel inside a single call to
-; "law.arc.ARCJobManager.submit", i.e., in a single ``arcsub`` command.
+; Description: Number of jobs that can be submitted in parallel inside a single call to "law.arc.ARCJobManager.submit",
+; i.e., in a single ``arcsub`` command.
 ; Type: ``int``
 ; Default: ``25``
 
 ; arc_chunk_size_cancel
-; Description: Number of jobs that can be cancelled in parallel inside a single call to
-; "law.arc.ARCJobManager.cancel", i.e., in a single ``arckill`` command.
+; Description: Number of jobs that can be cancelled in parallel inside a single call to "law.arc.ARCJobManager.cancel",
+; i.e., in a single ``arckill`` command.
 ; Type: ``int``
 ; Default: ``25``
 
 ; arc_chunk_size_cleanup
-; Description: Number of jobs that can be cancelled in parallel inside a single call to
-; "law.arc.ARCJobManager.cleanup", i.e., in a single ``arcclean`` command.
+; Description: Number of jobs that can be cancelled in parallel inside a single call to "law.arc.ARCJobManager.cleanup",
+; i.e., in a single ``arcclean`` command.
 ; Type: ``int``
 ; Default: ``25``
 
@@ -854,8 +799,7 @@
 ; Default: ``25``
 
 ; arc_manager_threads
-; Description: The number of threads the arc job manager should use for submission, status queries and cancel
-; requests.
+; Description: The number of threads the arc job manager should use for submission, status queries and cancel requests.
 ; Type: ``int``
 ; Default: ``4``
 
@@ -893,9 +837,8 @@
 ; glite_job_file_dir_mkdtemp
 ; glite_job_file_dir_cleanup
 ; glite_job_query_timeout
-; Description: These three options are identical to the ones above without the ``"glite"`` prefix,
-; but only apply to the "law.glite.GLiteJobFileFactory". When ``None`` or not existing, the values
-; above are used.
+; Description: These three options are identical to the ones above without the ``"glite"`` prefix, but only apply to the
+; "law.glite.GLiteJobFileFactory". When ``None`` or not existing, the values above are used.
 
 ; glite_chunk_size_cancel
 ; Description: Number of jobs that can be cancelled in parallel inside a single call to
@@ -955,22 +898,21 @@
 ; htcondor_job_file_dir_mkdtemp
 ; htcondor_job_file_dir_cleanup
 ; htcondor_job_query_timeout
-; Description: These three options are identical to the ones above without the ``"htcondor"``
-; prefix, but only apply to the "law.htcondor.HTCondorJobFileFactory". When ``None`` or not
-; existing, the values above are used. The only exception is ``htcondor_job_file_dir_cleanup`` whose
-; default value is ``False``.
+; Description: These three options are identical to the ones above without the ``"htcondor"`` prefix, but only apply to
+; the "law.htcondor.HTCondorJobFileFactory". When ``None`` or not existing, the values above are used. The only
+; exception is ``htcondor_job_file_dir_cleanup`` whose default value is ``False``.
 
 ; htcondor_job_grouping_submit
-; Description: Whether to use job grouping (cluster submission in HTCondor nomenclature) or not. If
-; not, the standard batched submission is used and settings such as "htcondor_chunk_size_submit" and
-; "htcondor_merge_job_files" are considered.
+; Description: Whether to use job grouping (cluster submission in HTCondor nomenclature) or not. If not, the standard
+; batched submission is used and settings such as "htcondor_chunk_size_submit" and "htcondor_merge_job_files" are
+; considered.
 ; Type: ``bool``
 ; Default: ``True``
 
 ; htcondor_chunk_size_submit
 ; Description: Number of jobs that can be submitted in parallel inside a single call to
-; "law.htcondor.HTCondorJobManager.submit", i.e., in a single "condor_submit" command. Ignored when
-; job grouping is enabled in "htcondor_job_grouping_submit".
+; "law.htcondor.HTCondorJobManager.submit", i.e., in a single "condor_submit" command. Ignored when job grouping is
+; enabled in "htcondor_job_grouping_submit".
 ; Type: ``int``
 ; Default: ``25``
 
@@ -982,16 +924,14 @@
 
 ; htcondor_chunk_size_query
 ; Description: Number of jobs whose status can be queried in parallel inside a single call to
-; "law.htcondor.HTCondorJobManager.query", i.e., in a single ``condor_q`` or ``condor_history``
-; command.
+; "law.htcondor.HTCondorJobManager.query", i.e., in a single ``condor_q`` or ``condor_history`` command.
 ; Type: ``int``
 ; Default: ``25``
 
 ; htcondor_merge_job_files
-; Description: A boolean flag that decides whether multiple job description files should be merged
-; into a single file before submission. Ignored when job grouping is enabled in
-; "htcondor_job_grouping_submit". When "False", the "htcondor_chunk_size_submit" option is not
-; considered either.
+; Description: A boolean flag that decides whether multiple job description files should be merged into a single file
+; before submission. Ignored when job grouping is enabled in "htcondor_job_grouping_submit". When "False", the
+; "htcondor_chunk_size_submit" option is not considered either.
 ; Type: ``bool``
 ; Default: ``True``
 
@@ -1035,13 +975,13 @@
 ; lsf_job_file_dir_mkdtemp
 ; lsf_job_file_dir_cleanup
 ; lsf_job_query_timeout
-; Description: These three options are identical to the ones above without the ``"lsf"`` prefix, but
-; only apply to the "law.lsf.LSFJobFileFactory". When ``None`` or not existing, the values above are
-; used. The only exception is ``lsf_job_file_dir_cleanup`` whose default value is ``False``.
+; Description: These three options are identical to the ones above without the ``"lsf"`` prefix, but only apply to the
+; "law.lsf.LSFJobFileFactory". When ``None`` or not existing, the values above are used. The only exception is
+; ``lsf_job_file_dir_cleanup`` whose default value is ``False``.
 
 ; lsf_chunk_size_cancel
-; Description: Number of jobs that can be cancelled in parallel inside a single call to
-; "law.lsf.LSFJobManager.cancel", i.e., in a single ``bkill`` command.
+; Description: Number of jobs that can be cancelled in parallel inside a single call to "law.lsf.LSFJobManager.cancel",
+; i.e., in a single ``bkill`` command.
 ; Type: ``int``
 ; Default: ``25``
 
@@ -1052,8 +992,7 @@
 ; Default: ``25``
 
 ; lsf_manager_threads
-; Description: The number of threads the lsf job manager should use for submission, status queries and cancel
-; requests.
+; Description: The number of threads the lsf job manager should use for submission, status queries and cancel requests.
 ; Type: ``int``
 ; Default: ``4``
 
@@ -1083,16 +1022,16 @@
 ; Default: ``"bjobs"``
 
 ; slurm_job_grouping_submit
-; Description: Whether to submit jobs in groups as job arrays (see
-; https://slurm.schedmd.com/job_array.html) or not. When enabled, the status of jobs is also queried
-; per array, which reduces the load on the Slurm scheduler for large numbers of jobs.
+; Description: Whether to submit jobs in groups as job arrays (see https://slurm.schedmd.com/job_array.html) or not.
+; When enabled, the status of jobs is also queried per array, which reduces the load on the Slurm scheduler for large
+; numbers of jobs.
 ; Type: ``bool``
 ; Default: ``True``
 
 ; slurm_job_group_size
-; Description: Maximum number of jobs per job array when "slurm_job_grouping_submit" is enabled.
-; More jobs are split into multiple arrays. It must not exceed the "MaxArraySize" setting of the
-; Slurm cluster, which can be checked with "scontrol show config | grep MaxArraySize".
+; Description: Maximum number of jobs per job array when "slurm_job_grouping_submit" is enabled. More jobs are split
+; into multiple arrays. It must not exceed the "MaxArraySize" setting of the Slurm cluster, which can be checked with
+; "scontrol show config | grep MaxArraySize".
 ; Type: ``int``
 ; Default: ``1000``
 
@@ -1100,9 +1039,9 @@
 ; slurm_job_file_dir_mkdtemp
 ; slurm_job_file_dir_cleanup
 ; slurm_job_query_timeout
-; Description: These three options are identical to the ones above without the ``"slurm"`` prefix,
-; but only apply to the "law.slurm.SlurmJobFileFactory". When ``None`` or not existing, the values
-; above are used. The only exception is ``slurm_job_file_dir_cleanup`` whose default value is False.
+; Description: These three options are identical to the ones above without the ``"slurm"`` prefix, but only apply to the
+; "law.slurm.SlurmJobFileFactory". When ``None`` or not existing, the values above are used. The only exception is
+; ``slurm_job_file_dir_cleanup`` whose default value is False.
 
 ; slurm_chunk_size_cancel
 ; Description: Number of jobs that can be cancelled in parallel inside a single call to
@@ -1156,36 +1095,32 @@
 ; crab_job_file_dir_mkdtemp
 ; crab_job_file_dir_cleanup
 ; crab_job_query_timeout
-; Description: These three options are identical to the ones above without the ``"crab"`` prefix,
-; but only apply to the "law.cms.CrabJobFileFactory". When ``None`` or not existing, the values
-; above are used.
+; Description: These three options are identical to the ones above without the ``"crab"`` prefix, but only apply to the
+; "law.cms.CrabJobFileFactory". When ``None`` or not existing, the values above are used.
 
 ; crab_work_area
-; Description: The directory in which the "law.cms.CrabJobManager" will create crab project
-; directories upon submission.
+; Description: The directory in which the "law.cms.CrabJobManager" will create crab project directories upon submission.
 ; Type: ``str``
 ; Default: ``job.crab_job_file_dir``
 
 ; crab_sandbox_name
-; Description: The name of the ``cmssw`` sandbox to use which provides the crab executable. In its
-; simplest form, this is just the version string of the CMSSW release to use. However, additional
-; settings can be appended with the ``"::"`` delimiter in the format
-; ``"cmssw_version::setting=value::setting=value"`` for more configurablity. Supported settings are
-; ``"setup"``, an additional setup script that is executed inside the src directory during
-; installation, ``"dir"``, a custom install directory, ``"arch"``, a custom scram architecture, and
-; ``"cores"``, the number of CPU cores to use for installation.
+; Description: The name of the ``cmssw`` sandbox to use which provides the crab executable. In its simplest form, this
+; is just the version string of the CMSSW release to use. However, additional settings can be appended with the ``"::"``
+; delimiter in the format ``"cmssw_version::setting=value::setting=value"`` for more configurablity. Supported settings
+; are ``"setup"``, an additional setup script that is executed inside the src directory during installation, ``"dir"``,
+; a custom install directory, ``"arch"``, a custom scram architecture, and ``"cores"``, the number of CPU cores to use
+; for installation.
 ; Type: ``str``
 ; Default: ``"CMSSW_14_2_1::arch=el9_amd64_gcc12"``
 
 ; crab_password_file
-; Description: A file containing the X509 certificate password for automatic proxy delegations by
-; the "law.cms.CrabJobManager".
+; Description: A file containing the X509 certificate password for automatic proxy delegations by the
+; "law.cms.CrabJobManager".
 ; Type: ``str``, ``None``
 ; Default: ``None``
 
 ; crab_manager_threads
-; Description: The number of threads the crab job manager should use for submission, status queries and cancel
-; requests.
+; Description: The number of threads the crab job manager should use for submission, status queries and cancel requests.
 ; Type: ``int``
 ; Default: ``4``
 
@@ -1209,8 +1144,7 @@
 
 [notifications]
 ; mail_recipient
-; Description: The address of the recipient for notifications sent by
-; "law.notification.notify_mail".
+; Description: The address of the recipient for notifications sent by "law.notification.notify_mail".
 ; Type: ``str``, ``None``
 ; Default: ``None``
 
@@ -1243,8 +1177,7 @@
 ; Default: ``None``
 
 ; slack_mention_user
-; Description: When set, notifications sent by ``law.slack.notify_slack`` mention this user
-; explicitly.
+; Description: When set, notifications sent by ``law.slack.notify_slack`` mention this user explicitly.
 ; Type: ``str``, ``None``
 ; Default: ``None``
 
@@ -1259,57 +1192,55 @@
 ; Default: ``None``
 
 ; telegram_mention_user
-; Description: When set, notifications sent by ``law.telegram.notify_telegram`` mention this user
-; explicitly.
+; Description: When set, notifications sent by ``law.telegram.notify_telegram`` mention this user explicitly.
 ; Type: ``str``, ``None``
 ; Default: ``None``
 
 ; mattermost_hook_url
-; Desciption: Address of the mattermost webhook to use. For more info, see
+; Description: Address of the mattermost webhook to use. For more info, see
 ; https://developers.mattermost.com/integrate/webhooks/incoming.
 ; Type: ``str``, ``None``
 ; Default: ``None``
 
 ; mattermost_header
-; Desciption: A custom header to add to mattermost notifications. Not used when empty.
+; Description: A custom header to add to mattermost notifications. Not used when empty.
 ; Type: ``str``, ``None``
 ; Default: ``None``
 
 ; mattermost_channel
-; Desciption: A custom channel name to send the notification to. When empty, the default configured
-; for the webhook is used.
+; Description: A custom channel name to send the notification to. When empty, the default configured for the webhook is
+; used.
 ; Type: ``str``, ``None``
 ; Default: ``None``
 
 ; mattermost_user
-; Desciption: A custom user name to send the notification with. When empty, the default configured
-; for the webhook is used.
+; Description: A custom user name to send the notification with. When empty, the default configured for the webhook is
+; used.
 ; Type: ``str``, ``None``
 ; Default: ``None``
 
 ; mattermost_mention_user
-; Desciption: If set, the user with that name is mentioned.
+; Description: If set, the user with that name is mentioned.
 ; Type: ``str``, ``None``
 ; Default: ``None``
 
 ; mattermost_icon_url
-; Desciption: The address of a custom icon to use. When empty, the default configured for the
-; webhook is used.
+; Description: The address of a custom icon to use. When empty, the default configured for the webhook is used.
 ; Type: ``str``, ``None``
 ; Default: ``"https://media.githubusercontent.com/media/riga/law/refs/heads/master/assets/logo_profile.png"``
 
 ; mattermost_icon_emoji
-; Desciption: Name of a custom emoji to use instead of the icon url.
+; Description: Name of a custom emoji to use instead of the icon url.
 ; Type: ``str``, ``None``
 ; Default: ``None``
 
 ; mattermost_success_emoji
-; Desciption: Emoji to append to the status text in case of success.
+; Description: Emoji to append to the status text in case of success.
 ; Type: ``str``, ``None``
 ; Default: ``":tada:"``
 
 ; mattermost_failure_emoji
-; Desciption: Emoji to append to the status text in case of a failure.
+; Description: Emoji to append to the status text in case of a failure.
 ; Type: ``str``, ``None``
 ; Default: ``":rotating_light:"``
 
@@ -1323,18 +1254,16 @@
 
 
 ; stagein_dir_name
-; Description: Name of a directory which is placed automatically inside a temporary directory and to
-; which input files are staged-in outside of the sandbox and provided to the sandboxed task. When
-; ``None``, no stage-in is performed and the task is assumed to be able to access inputs directly
-; from within the sandbox.
+; Description: Name of a directory which is placed automatically inside a temporary directory and to which input files
+; are staged-in outside of the sandbox and provided to the sandboxed task. When ``None``, no stage-in is performed and
+; the task is assumed to be able to access inputs directly from within the sandbox.
 ; Type: ``str``, ``None``
 ; Default: ``"stagein"``
 
 ; stageout_dir_name
-; Description: Name of a directory which is placed automatically inside a temporary directory and
-; provided to sandboxed tasks to store outputs and from which those files are staged-out outside the
-; sandbox. When ``None``, no stage-out is performed and the task is assumed to be able to store
-; outputs directly from within the sandbox.
+; Description: Name of a directory which is placed automatically inside a temporary directory and provided to sandboxed
+; tasks to store outputs and from which those files are staged-out outside the sandbox. When ``None``, no stage-out is
+; performed and the task is assumed to be able to store outputs directly from within the sandbox.
 ; Type: ``str``, ``None``
 ; Default: ``"stageout"``
 
@@ -1344,8 +1273,7 @@
 ; Default: ``"law"``
 
 ; login
-; Description: A boolean flag that decides whether the bash sandbox should be invoked as a login
-; shell.
+; Description: A boolean flag that decides whether the bash sandbox should be invoked as a login shell.
 ; Type: ``bool``
 ; Default: ``False``
 
@@ -1372,18 +1300,16 @@
 
 
 ; stagein_dir_name
-; Description: Name of a directory which is placed automatically inside a temporary directory and to
-; which input files are staged-in outside of the sandbox and provided to the sandboxed task. When
-; ``None``, no stage-in is performed and the task is assumed to be able to access inputs directly
-; from within the sandbox.
+; Description: Name of a directory which is placed automatically inside a temporary directory and to which input files
+; are staged-in outside of the sandbox and provided to the sandboxed task. When ``None``, no stage-in is performed and
+; the task is assumed to be able to access inputs directly from within the sandbox.
 ; Type: ``str``, ``None``
 ; Default: ``"stagein"``
 
 ; stageout_dir_name
-; Description: Name of a directory which is placed automatically inside a temporary directory and
-; provided to sandboxed tasks to store outputs and from which those files are staged-out outside the
-; sandbox. When ``None``, no stage-out is performed and the task is assumed to be able to store
-; outputs directly from within the sandbox.
+; Description: Name of a directory which is placed automatically inside a temporary directory and provided to sandboxed
+; tasks to store outputs and from which those files are staged-out outside the sandbox. When ``None``, no stage-out is
+; performed and the task is assumed to be able to store outputs directly from within the sandbox.
 ; Type: ``str``, ``None``
 ; Default: ``"stageout"``
 
@@ -1415,18 +1341,16 @@
 
 
 ; stagein_dir_name
-; Description: Name of a directory which is placed automatically inside a temporary directory and to
-; which input files are staged-in outside of the sandbox and provided to the sandboxed task. When
-; ``None``, no stage-in is performed and the task is assumed to be able to access inputs directly
-; from within the sandbox.
+; Description: Name of a directory which is placed automatically inside a temporary directory and to which input files
+; are staged-in outside of the sandbox and provided to the sandboxed task. When ``None``, no stage-in is performed and
+; the task is assumed to be able to access inputs directly from within the sandbox.
 ; Type: ``str``, ``None``
 ; Default: ``"stagein"``
 
 ; stageout_dir_name
-; Description: Name of a directory which is placed automatically inside a temporary directory and
-; provided to sandboxed tasks to store outputs and from which those files are staged-out outside the
-; sandbox. When ``None``, no stage-out is performed and the task is assumed to be able to store
-; outputs directly from within the sandbox.
+; Description: Name of a directory which is placed automatically inside a temporary directory and provided to sandboxed
+; tasks to store outputs and from which those files are staged-out outside the sandbox. When ``None``, no stage-out is
+; performed and the task is assumed to be able to store outputs directly from within the sandbox.
 ; Type: ``str``, ``None``
 ; Default: ``"stageout"``
 
@@ -1436,14 +1360,14 @@
 ; Default: ``"law"``
 
 ; uid
-; Description: The user id of the account inside the docker container. When ``None``, the container
-; is started with its default value.
+; Description: The user id of the account inside the docker container. When ``None``, the container is started with its
+; default value.
 ; Type: ``int``, ``None``
 ; Default: ``None``
 
 ; gid
-; Description: The grouo id of the account inside the docker container. When ``None``, the container
-; is started with its default value.
+; Description: The grouo id of the account inside the docker container. When ``None``, the container is started with its
+; default value.
 ; Type: ``int``, ``None``
 ; Default: ``None``
 
@@ -1453,14 +1377,12 @@
 ; Default: ``"/law_forward"``
 
 ; python_dir
-; Description: The container directory in which forwarded python modules are located, relative to
-; ``forward_dir``.
+; Description: The container directory in which forwarded python modules are located, relative to ``forward_dir``.
 ; Type: ``str``
 ; Default: ``"py"``
 
 ; bin_dir
-; Description: The container directory in which forwarded executables are located, relative to
-; ``forward_dir``.
+; Description: The container directory in which forwarded executables are located, relative to ``forward_dir``.
 ; Type: ``str``
 ; Default: ``"bin"``
 
@@ -1497,18 +1419,16 @@
 
 
 ; stagein_dir_name
-; Description: Name of a directory which is placed automatically inside a temporary directory and to
-; which input files are staged-in outside of the sandbox and provided to the sandboxed task. When
-; ``None``, no stage-in is performed and the task is assumed to be able to access inputs directly
-; from within the sandbox.
+; Description: Name of a directory which is placed automatically inside a temporary directory and to which input files
+; are staged-in outside of the sandbox and provided to the sandboxed task. When ``None``, no stage-in is performed and
+; the task is assumed to be able to access inputs directly from within the sandbox.
 ; Type: ``str``, ``None``
 ; Default: ``"stagein"``
 
 ; stageout_dir_name
-; Description: Name of a directory which is placed automatically inside a temporary directory and
-; provided to sandboxed tasks to store outputs and from which those files are staged-out outside the
-; sandbox. When ``None``, no stage-out is performed and the task is assumed to be able to store
-; outputs directly from within the sandbox.
+; Description: Name of a directory which is placed automatically inside a temporary directory and provided to sandboxed
+; tasks to store outputs and from which those files are staged-out outside the sandbox. When ``None``, no stage-out is
+; performed and the task is assumed to be able to store outputs directly from within the sandbox.
 ; Type: ``str``, ``None``
 ; Default: ``"stageout"``
 
@@ -1518,14 +1438,14 @@
 ; Default: ``"law"``
 
 ; uid
-; Description: The user id of the account inside the docker container. When ``None``, the container
-; is started with its default value.
+; Description: The user id of the account inside the docker container. When ``None``, the container is started with its
+; default value.
 ; Type: ``int``, ``None``
 ; Default: ``None``
 
 ; gid
-; Description: The group id of the account inside the docker container. When ``None``, the container
-; is started with its default value.
+; Description: The group id of the account inside the docker container. When ``None``, the container is started with its
+; default value.
 ; Type: ``int``, ``None``
 ; Default: ``None``
 
@@ -1535,14 +1455,12 @@
 ; Default: ``"/law_forward"``
 
 ; python_dir
-; Description: The container directory in which forwarded python modules are located, relative to
-; ``forward_dir``.
+; Description: The container directory in which forwarded python modules are located, relative to ``forward_dir``.
 ; Type: ``str``
 ; Default: ``"py"``
 
 ; bin_dir
-; Description: The container directory in which forwarded executables are located, relative to
-; ``forward_dir``.
+; Description: The container directory in which forwarded executables are located, relative to ``forward_dir``.
 ; Type: ``str``
 ; Default: ``"bin"``
 
@@ -1552,8 +1470,8 @@
 ; Default: ``True``
 
 ; forward_law
-; Description: A boolean flag that decides whether the law python package and executable should be
-; forwarded into the conatiner. When ``False``, the container is assumed to have law accessible.
+; Description: A boolean flag that decides whether the law python package and executable should be forwarded into the
+; conatiner. When ``False``, the container is assumed to have law accessible.
 ; Type: ``bool``
 ; Default: ``True``
 
@@ -1591,18 +1509,16 @@
 
 
 ; stagein_dir_name
-; Description: Name of a directory which is placed automatically inside a temporary directory and to
-; which input files are staged-in outside of the sandbox and provided to the sandboxed task. When
-; ``None``, no stage-in is performed and the task is assumed to be able to access inputs directly
-; from within the sandbox.
+; Description: Name of a directory which is placed automatically inside a temporary directory and to which input files
+; are staged-in outside of the sandbox and provided to the sandboxed task. When ``None``, no stage-in is performed and
+; the task is assumed to be able to access inputs directly from within the sandbox.
 ; Type: ``str``, ``None``
 ; Default: ``"stagein"``
 
 ; stageout_dir_name
-; Description: Name of a directory which is placed automatically inside a temporary directory and
-; provided to sandboxed tasks to store outputs and from which those files are staged-out outside the
-; sandbox. When ``None``, no stage-out is performed and the task is assumed to be able to store
-; outputs directly from within the sandbox.
+; Description: Name of a directory which is placed automatically inside a temporary directory and provided to sandboxed
+; tasks to store outputs and from which those files are staged-out outside the sandbox. When ``None``, no stage-out is
+; performed and the task is assumed to be able to store outputs directly from within the sandbox.
 ; Type: ``str``, ``None``
 ; Default: ``"stageout"``
 
@@ -1612,8 +1528,7 @@
 ; Default: ``"law"``
 
 ; login
-; Description: A boolean flag that decides whether the bash beneath the sandbox should be invoked as
-; a login shell.
+; Description: A boolean flag that decides whether the bash beneath the sandbox should be invoked as a login shell.
 ; Type: ``bool``
 ; Default: ``False``
 
