@@ -406,6 +406,17 @@ class BaseJobManager(metaclass=abc.ABCMeta):
         """
         ...
 
+    def inspect(self, job_id: Any, **kwargs: Any) -> DotDict:
+        """
+        Hook that returns detailed, structured information about a single job with id *job_id*. Unlike
+        :py:meth:`query`, it is meant to be called for one job at a time, so no batching or grouping is applied. The
+        content of the returned dictionary depends on the job manager implementation.
+
+        :param job_id: The job id.
+        :return: A :py:class:`~law.util.DotDict` with information about the job.
+        """
+        return DotDict()
+
     def group_job_ids(self, job_ids: list[Any]) -> dict[Hashable, list[Any]]:
         """
         Hook that needs to be implemented if the job manager supports grouping of jobs, i.e., when

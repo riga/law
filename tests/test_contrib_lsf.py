@@ -11,6 +11,7 @@ import pytest
 
 import law
 from law.contrib.lsf import LSFJobManager, LSFWorkflow
+from law.util import DotDict
 
 
 class LawTestLSFWorkflow(LSFWorkflow):
@@ -31,6 +32,12 @@ class LawTestLSFWorkflow(LSFWorkflow):
 
 
 class TestLSFJobManager:
+
+    def test_inspect(self) -> None:
+        # inspection is not implemented yet and returns an empty DotDict, skip the constructor for this check
+        info = LSFJobManager.__new__(LSFJobManager).inspect("1")
+        assert isinstance(info, DotDict)
+        assert info == {}
 
     def test_map_status(self) -> None:
         m = LSFJobManager
@@ -68,3 +75,14 @@ class TestLSFWorkflow:
             content = f.read()
         assert "#BSUB" in content
         assert "_0To2" in os.path.basename(data["job"])
+
+    def test_job_inspection_hook(self) -> None:
+        wf = LawTestLSFWorkflow(out_dir=self.tmp)
+        assert wf.job_inspection is None
+        assert wf.lsf_job_inspection() is False  # type: ignore[unreachable]
+        assert wf.workflow_proxy._get_job_kwargs("inspect") == wf.workflow_proxy._get_job_kwargs("query")
+        luigi.task_register.Register.clear_instance_cache()
+        try:
+            assert LawTestLSFWorkflow(out_dir=self.tmp, job_inspection=True).lsf_job_inspection() is True
+        finally:
+            luigi.task_register.Register.clear_instance_cache()

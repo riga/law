@@ -25,7 +25,7 @@ from law.errors import JobError, JobsFailedError
 from law.job.base import BaseJobFileFactory, BaseJobManager
 from law.job.dashboard import BaseJobDashboard, NoJobDashboard
 from law.logger import get_logger
-from law.parameter import NO_FLOAT, NO_INT, DurationParameter, get_param
+from law.parameter import NO_FLOAT, NO_INT, DurationParameter, OptionalBoolParameter, get_param
 from law.target.collection import TargetCollection
 from law.util import (
     DotDict,
@@ -36,6 +36,7 @@ from law.util import (
     human_duration,
     is_number,
     iter_chunks,
+    make_list,
     merge_dicts,
     no_value,
 )
@@ -259,7 +260,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
         # retry counts per job num
         self._job_retries: dict[int, int] = defaultdict(int)
 
-        # flag that denotes whether a submission was done befire, set in run()
+        # flag that denotes whether a submission was done before, set in run()
         self._submitted = False
 
         # set of existing branches that is kept track of during processing
@@ -620,6 +621,17 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                         summary_line=summary_line, **stats),
                 )
 
+    def _print_inspection_info(self, job_id: str, info: DotDict) -> None:
+        # prints warnings and errors contained in the inspection info
+        print_ = lambda msg, **kwargs: self.task.publish_message(colored(msg, **kwargs))
+        spec = {"warnings": "yellow", "errors": "red"}
+        for key, color in spec.items():
+            if info.get(key):
+                print_(f"\n{key} during inspection of job '{job_id}':", color=color, style="bright")
+                for msg in make_list(info[key]):
+                    print_(f"    - {msg}", color=color)
+                print_("", color=color)
+
     @classmethod
     def merge_resources(
         cls,
@@ -858,6 +870,25 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
                     logger.debug(f"sleep for {post_submit_delay} second(s) due to post_submit_delay")
                     time.sleep(post_submit_delay)
 
+            # if desired, inspect the first successfully submitted job once after a fresh submission
+            if not self._submitted and self._get_task_attribute("job_inspection")():
+                first_job_num = next(
+                    (
+                        job_num
+                        for job_num, job_data in self.job_data.jobs.items()
+                        if job_data["job_id"] not in (self.job_data.dummy_job_id, None)
+                    ),
+                    None,
+                )
+                if first_job_num is not None:
+                    job_id = self.job_data.jobs[first_job_num]["job_id"]
+                    inspect_kwargs = merge_dicts(self._setup_job_manager(), self._get_job_kwargs("inspect"))
+                    try:
+                        info = self.job_manager.inspect(job_id, **inspect_kwargs)
+                        self._print_inspection_info(job_id, info)
+                    except Exception as e:
+                        logger.warning(f"inspection of job '{job_id}' failed: {e}")
+
             # start status polling when a) no_poll is not set, or b) the jobs were already
             # submitted so that failed jobs are resubmitted after a single polling iteration
             if not task.no_poll or self._submitted:
@@ -1026,9 +1057,7 @@ class BaseRemoteWorkflowProxy(BaseWorkflowProxy):
 
         # log some stats
         dst_info = self._destination_info_postfix()
-        task.publish_message(
-            f"going to submit {len(submit_jobs)} {self.workflow_type} job(s){dst_info}",
-        )
+        task.publish_message(f"going to submit {len(submit_jobs)} {self.workflow_type} job(s){dst_info}")
 
         # job file preparation and submission
         submission_data: dict[int, dict]
@@ -1747,6 +1776,12 @@ class BaseRemoteWorkflow(BaseWorkflow):
         significant=False,
         description="when --transfer-logs is set, remove logs of successful jobs; default: False",
     )
+    job_inspection = OptionalBoolParameter(
+        default=None,  # type: ignore[arg-type]
+        significant=False,
+        description="whether job inspection should be performed; the final decision might be subject to the workflow "
+        "implementation and configuration settings; default: None",
+    )
 
     check_unreachable_acceptance = False
     align_polling_status_line = False
@@ -1759,6 +1794,7 @@ class BaseRemoteWorkflow(BaseWorkflow):
     exclude_params_branch = {
         "retries", "tasks_per_job", "parallel_jobs", "no_poll", "walltime", "job_workers", "poll_interval",
         "poll_fails", "shuffle_jobs", "cancel_jobs", "cleanup_jobs", "ignore_submission", "transfer_logs",
+        "job_inspection",
     }
     exclude_params_repr = {"cancel_jobs", "cleanup_jobs"}
 

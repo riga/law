@@ -21,7 +21,7 @@ from law.errors import JobError
 from law.job.base import BaseJobFileFactory, BaseJobManager, JobInputFile
 from law.logger import get_logger
 from law.target.file import get_path
-from law.util import interruptable_popen, make_list, make_unique, parse_duration, quote_cmd
+from law.util import DotDict, interruptable_popen, make_list, make_unique, parse_duration, quote_cmd
 
 logger = get_logger(__name__)
 
@@ -64,6 +64,7 @@ class HTCondorJobManager(BaseJobManager):
 
     submission_job_id_cre = re.compile(r"^(\d+) job\(s\) submitted to cluster (\d+)\.$")
     long_block_cre = re.compile(r"(\w+) \= \"?([^\"\n]*)\"?\n")
+    inspection_cre = re.compile(r"^\d+\.\d+\s+[^\s]+\s+(\d+)\s.*$")
 
     def __init__(
         self,
@@ -532,6 +533,78 @@ class HTCondorJobManager(BaseJobManager):
                 )
 
         return query_data if chunking else query_data[job_id]  # type: ignore[index]
+
+    def inspect(
+        self,
+        job_id: str,
+        pool: str | None = None,
+        scheduler: str | None = None,
+        **kwargs: Any,
+    ) -> DotDict:
+        """
+        Inspects the job with ``condor_q -better-analyze`` to detect requirement matching issues. The number of matching
+        slots is return in the ``matching_slots`` field of the returned :py:class:`~law.util.DotDict`. When zero, a
+        field ``warnings`` will contain information about the issue.
+        """
+        inspect_data = DotDict(warnings=[], errors=[], matching_slots=None)
+
+        if pool is None:
+            pool = self.pool
+        if scheduler is None:
+            scheduler = self.scheduler
+
+        # run better-analyze in summary mode and parse the output
+        cmd = shlex.split(_cfg.get_expanded("job", "htcondor_cmd_q"))
+        cmd += [job_id]
+        if pool:
+            cmd += ["-pool", pool]
+        if scheduler:
+            cmd += ["-name", scheduler]
+        cmd += ["-better-analyze:summary"]
+
+        # optionally prepend timeout
+        query_timeout = _cfg.get_expanded(
+            "job",
+            _cfg.find_option("job", "htcondor_job_query_timeout", "job_query_timeout"),
+        )
+        if query_timeout:
+            query_timeout_sec = parse_duration(query_timeout, input_unit="s")
+            cmd = self.prepend_timeout_command(cmd, query_timeout_sec)
+
+        # run it
+        cmd_str = quote_cmd(cmd)
+        logger.debug(f"inspect htcondor job with command '{cmd_str}'")
+        code, out, err = interruptable_popen(  # type: ignore[assignment]
+            cmd,
+            shell=True,
+            executable="/bin/bash",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            kill_timeout=2,
+        )
+
+        # handle errors
+        hint = f"consider inspecting the job manually via '{cmd_str}'"
+        if code != 0:
+            inspect_data.errors.append(f"inspection of job '{job_id}' failed: {err or 'empty error message'}; {hint}")
+            return inspect_data
+
+        # parse output
+        for line in (out or "").strip().split("\n"):
+            line = line.strip()
+            if line.startswith(job_id) and (m := self.inspection_cre.match(line)):
+                inspect_data.matching_slots = int(m.group(1))
+                break
+
+        if inspect_data.matching_slots is None:
+            inspect_data.errors.append(f"could not determine matching slots for job '{job_id}'; {hint}")
+        elif inspect_data.matching_slots == 0:
+            inspect_data.warnings.append(
+                f"job '{job_id}' has no matching slots on your batch system and might not run; please validate the "
+                f"requirements of your job; {hint}",
+            )
+
+        return inspect_data
 
     @classmethod
     def parse_long_output(cls, out: str) -> dict[str, dict[str, Any]]:

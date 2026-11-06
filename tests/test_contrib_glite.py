@@ -8,9 +8,16 @@ import pathlib
 import pytest
 
 from law.contrib.glite import GLiteJobFileFactory, GLiteJobManager
+from law.util import DotDict
 
 
 class TestGLiteJobManager:
+
+    def test_inspect(self) -> None:
+        # inspection is not implemented yet and returns an empty DotDict, skip the constructor for this check
+        info = GLiteJobManager.__new__(GLiteJobManager).inspect("1")
+        assert isinstance(info, DotDict)
+        assert info == {}
 
     def test_map_status(self) -> None:
         m = GLiteJobManager

@@ -9,9 +9,16 @@ import pathlib
 import pytest
 
 from law.contrib.cms import CrabJobFileFactory, CrabJobManager
+from law.util import DotDict
 
 
 class TestCrabJobManager:
+
+    def test_inspect(self) -> None:
+        # inspection is not implemented yet and returns an empty DotDict, skip the constructor for this check
+        info = CrabJobManager.__new__(CrabJobManager).inspect("1")
+        assert isinstance(info, DotDict)
+        assert info == {}
 
     def test_map_status(self) -> None:
         m = CrabJobManager

@@ -330,11 +330,10 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
 
         type: list, dict
 
-        Keyword arguments that are passed to all methods of the job manager. When a list, its
-        elements are names of task attributes whose values are passed with the ``htcondor_`` prefix
-        removed. Operation-specific arguments can be defined in ``htcondor_job_kwargs_submit``,
-        ``htcondor_job_kwargs_cancel`` and ``htcondor_job_kwargs_query``, which take precedence when
-        set.
+        Keyword arguments that are passed to all methods of the job manager. When a list, its elements are names of task
+        attributes whose values are passed with the ``htcondor_`` prefix removed. Operation-specific arguments can be
+        defined in ``htcondor_job_kwargs_submit``, ``htcondor_job_kwargs_cancel``, ``htcondor_job_kwargs_query`` and
+        ``htcondor_job_kwargs_inspect``, which take precedence when set.
 
     .. py:classattribute:: exclude_params_htcondor_workflow
 
@@ -364,6 +363,7 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
     htcondor_job_kwargs_submit: dict | None = None
     htcondor_job_kwargs_cancel: dict | None = None
     htcondor_job_kwargs_query: dict | None = None
+    htcondor_job_kwargs_inspect: dict | None = None
 
     exclude_params_branch = {"htcondor_pool", "htcondor_scheduler"}
 
@@ -419,6 +419,17 @@ class HTCondorWorkflow(BaseRemoteWorkflow):
         :return: A dictionary mapping resource names to counts.
         """
         return {}
+
+    def htcondor_job_inspection(self) -> bool:
+        """
+        Hook to define whether job inspection should be performed (if implemented by the underlying job manager).
+
+        :return: *True* if job inspection should be performed, *False* otherwise.
+        """
+        # when the --job-inspection setting is given, use it, otherwise defer to the config
+        if isinstance(self.job_inspection, bool):
+            return self.job_inspection
+        return Config.instance().get_expanded_bool("job", "htcondor_job_inspection")  # type: ignore[unreachable]
 
     def htcondor_bootstrap_file(self) -> str | pathlib.Path | LocalFileTarget | JobInputFile | None:
         """

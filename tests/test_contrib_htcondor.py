@@ -1,7 +1,7 @@
 # mypy: disable-error-code="call-arg, attr-defined"
 from __future__ import annotations
 
-__all__ = ["TestHTCondorGroupWrapper", "TestHTCondorJobManager", "TestHTCondorWorkflow"]
+__all__ = ["TestHTCondorGroupWrapper", "TestHTCondorJobInspection", "TestHTCondorJobManager", "TestHTCondorWorkflow"]
 
 import os
 import pathlib
@@ -11,9 +11,10 @@ import luigi
 import pytest
 
 import law
+from law._types import Callable, Iterator
 from law.contrib.htcondor import HTCondorJobFileFactory, HTCondorJobManager, HTCondorWorkflow
 from law.job.base import JobInputFile
-from law.util import law_src_path
+from law.util import DotDict, law_src_path, uncolored
 
 from .job_helpers import write_executable
 
@@ -100,6 +101,78 @@ class TestHTCondorWorkflow:
             self.proxy.create_job_file_group({})
         with pytest.raises(ValueError, match=r"more than one job for non-grouped submission"):
             self.proxy._create_job_file_impl(submit_jobs={1: [0], 2: [1]}, grouped_submission=False)
+
+
+class TestHTCondorJobInspection:
+
+    @pytest.fixture(autouse=True)
+    def setup_tmp(self, tmp_path: pathlib.Path) -> Iterator[None]:
+        self.tmp = os.path.realpath(tmp_path)
+        # job_inspection is insignificant and does not change task ids, so clear cached instances
+        luigi.task_register.Register.clear_instance_cache()
+        yield
+        luigi.task_register.Register.clear_instance_cache()
+
+    @pytest.fixture
+    def set_config(self) -> Iterator[Callable[[str], None]]:
+        cfg = law.config.Config.instance()
+        orig = cfg.get("job", "htcondor_job_inspection")
+        yield lambda value: cfg.set("job", "htcondor_job_inspection", value)
+        cfg.set("job", "htcondor_job_inspection", orig)
+
+    def test_manager_inspect(self) -> None:
+        assert isinstance(HTCondorJobManager().inspect("1234.0"), DotDict)
+
+    def test_hook_default(self) -> None:
+        wf = LawTestHTCondorWorkflow(out_dir=self.tmp)
+        assert wf.job_inspection is None
+        assert wf.htcondor_job_inspection() is False  # type: ignore[unreachable]
+
+    def test_hook_config(self, set_config: Callable[[str], None]) -> None:
+        set_config("True")
+        assert LawTestHTCondorWorkflow(out_dir=self.tmp).htcondor_job_inspection() is True
+
+    @pytest.mark.parametrize("value", [True, False])
+    def test_hook_parameter_overrides_config(self, set_config: Callable[[str], None], value: bool) -> None:
+        set_config(str(not value))
+        wf = LawTestHTCondorWorkflow(out_dir=self.tmp, job_inspection=value)
+        assert wf.htcondor_job_inspection() is value
+
+    @pytest.mark.parametrize(("value", "expected"), [("True", True), ("False", False)])
+    def test_hook_parameter_from_str(self, set_config: Callable[[str], None], value: str, expected: bool) -> None:
+        set_config(str(not expected))
+        wf = LawTestHTCondorWorkflow.from_str_params({"out_dir": self.tmp, "job_inspection": value})
+        assert wf.job_inspection is expected
+        assert wf.htcondor_job_inspection() is expected
+
+    def test_job_kwargs_inspect(self) -> None:
+        wf = LawTestHTCondorWorkflow(out_dir=self.tmp, htcondor_pool="my_pool")
+        proxy = wf.workflow_proxy
+        # falls back to htcondor_job_kwargs
+        assert proxy._get_job_kwargs("inspect") == {"pool": "my_pool", "scheduler": None}
+        wf.htcondor_job_kwargs_inspect = {"foo": "bar"}
+        assert proxy._get_job_kwargs("inspect") == {"foo": "bar"}
+
+    def test_print_inspection_info(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        wf = LawTestHTCondorWorkflow(out_dir=self.tmp)
+        messages: list[str] = []
+        monkeypatch.setattr(wf, "publish_message", lambda msg, *args, **kwargs: messages.append(uncolored(msg)))
+
+        wf.workflow_proxy._print_inspection_info("1234.0", DotDict(warnings=["w1", "w2"], errors="e1", other="x"))
+        assert messages == [
+            "\nwarnings during inspection of job '1234.0':",
+            "    - w1",
+            "    - w2",
+            "",
+            "\nerrors during inspection of job '1234.0':",
+            "    - e1",
+            "",
+        ]
+
+        # nothing is printed for empty info
+        messages.clear()
+        wf.workflow_proxy._print_inspection_info("1234.0", DotDict(warnings=[]))
+        assert messages == []
 
 
 class TestHTCondorGroupWrapper:

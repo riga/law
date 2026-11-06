@@ -227,11 +227,10 @@ class CrabWorkflow(BaseRemoteWorkflow):
 
         type: list, dict
 
-        Keyword arguments that are passed to all methods of the job manager. When a list, its
-        elements are names of task attributes whose values are passed with the ``crab_`` prefix
-        removed. Operation-specific arguments can be defined in ``crab_job_kwargs_submit``,
-        ``crab_job_kwargs_cancel``, ``crab_job_kwargs_cleanup`` and ``crab_job_kwargs_query``, which
-        take precedence when set.
+        Keyword arguments that are passed to all methods of the job manager. When a list, its elements are names of task
+        attributes whose values are passed with the ``crab_`` prefix removed. Operation-specific arguments can be
+        defined in ``crab_job_kwargs_submit``, ``crab_job_kwargs_cancel``, ``crab_job_kwargs_cleanup``,
+        ``crab_job_kwargs_query`` and ``crab_job_kwargs_inspect``, which take precedence when set.
 
     .. py:classattribute:: exclude_params_crab_workflow
 
@@ -251,6 +250,7 @@ class CrabWorkflow(BaseRemoteWorkflow):
     crab_job_kwargs_cancel: dict | None = None
     crab_job_kwargs_cleanup: dict | None = None
     crab_job_kwargs_query: dict | None = None
+    crab_job_kwargs_inspect: dict | None = None
 
     exclude_params_branch = set()
     exclude_params_crab_workflow: set[str] = set()
@@ -382,6 +382,17 @@ class CrabWorkflow(BaseRemoteWorkflow):
         :return: A dictionary mapping resource names to counts.
         """
         return {}
+
+    def crab_job_inspection(self) -> bool:
+        """
+        Hook to define whether job inspection should be performed (if implemented by the underlying job manager).
+
+        :return: *True* if job inspection should be performed, *False* otherwise.
+        """
+        # when the --job-inspection setting is given, use it, otherwise defer to the config
+        if isinstance(self.job_inspection, bool):
+            return self.job_inspection
+        return Config.instance().get_expanded_bool("job", "crab_job_inspection")  # type: ignore[unreachable]
 
     def crab_job_manager_cls(self) -> type[CrabJobManager]:
         """

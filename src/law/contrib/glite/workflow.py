@@ -229,11 +229,10 @@ class GLiteWorkflow(BaseRemoteWorkflow):
 
         type: list, dict
 
-        Keyword arguments that are passed to all methods of the job manager. When a list, its
-        elements are names of task attributes whose values are passed with the ``glite_`` prefix
-        removed. Operation-specific arguments can be defined in ``glite_job_kwargs_submit``,
-        ``glite_job_kwargs_cancel``, ``glite_job_kwargs_cleanup`` and ``glite_job_kwargs_query``,
-        which take precedence when set.
+        Keyword arguments that are passed to all methods of the job manager. When a list, its elements are names of task
+        attributes whose values are passed with the ``glite_`` prefix removed. Operation-specific arguments can be
+        defined in ``glite_job_kwargs_submit``, ``glite_job_kwargs_cancel``, ``glite_job_kwargs_cleanup``,
+        ``glite_job_kwargs_query`` and ``glite_job_kwargs_inspect``, which take precedence when set.
 
     .. py:classattribute:: exclude_params_glite_workflow
 
@@ -259,6 +258,7 @@ class GLiteWorkflow(BaseRemoteWorkflow):
     glite_job_kwargs_cancel: dict | None = None
     glite_job_kwargs_cleanup: dict | None = None
     glite_job_kwargs_query: dict | None = None
+    glite_job_kwargs_inspect: dict | None = None
 
     exclude_params_branch = {"glite_ce"}
 
@@ -359,6 +359,17 @@ class GLiteWorkflow(BaseRemoteWorkflow):
         :return: A dictionary mapping resource names to counts.
         """
         return {}
+
+    def glite_job_inspection(self) -> bool:
+        """
+        Hook to define whether job inspection should be performed (if implemented by the underlying job manager).
+
+        :return: *True* if job inspection should be performed, *False* otherwise.
+        """
+        # when the --job-inspection setting is given, use it, otherwise defer to the config
+        if isinstance(self.job_inspection, bool):
+            return self.job_inspection
+        return Config.instance().get_expanded_bool("job", "glite_job_inspection")  # type: ignore[unreachable]
 
     def glite_delegate_proxy(self, endpoint: str) -> str:
         """

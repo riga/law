@@ -774,6 +774,13 @@
 ; Description: These three options are identical to the ones above without the ``"arc"`` prefix, but only apply to the
 ; "law.arc.ARCJobFileFactory". When ``None`` or not existing, the values above are used.
 
+; arc_job_inspection
+; Description: Whether job inspection should be invoked after the first submission using the id of the first job. Job
+; inspection is implementation specific and can entail the validation of requirement matching criteria, performance
+; metrics, etc.
+; Type: ``bool``
+; Default: ``False``
+
 ; arc_chunk_size_submit
 ; Description: Number of jobs that can be submitted in parallel inside a single call to "law.arc.ARCJobManager.submit",
 ; i.e., in a single ``arcsub`` command.
@@ -839,6 +846,13 @@
 ; glite_job_query_timeout
 ; Description: These three options are identical to the ones above without the ``"glite"`` prefix, but only apply to the
 ; "law.glite.GLiteJobFileFactory". When ``None`` or not existing, the values above are used.
+
+; glite_job_inspection
+; Description: Whether job inspection should be invoked after the first submission using the id of the first job. Job
+; inspection is implementation specific and can entail the validation of requirement matching criteria, performance
+; metrics, etc.
+; Type: ``bool``
+; Default: ``False``
 
 ; glite_chunk_size_cancel
 ; Description: Number of jobs that can be cancelled in parallel inside a single call to
@@ -908,6 +922,13 @@
 ; considered.
 ; Type: ``bool``
 ; Default: ``True``
+
+; htcondor_job_inspection
+; Description: Whether job inspection should be invoked after the first submission using the id of the first job. Job
+; inspection is implementation specific and can entail the validation of requirement matching criteria, performance
+; metrics, etc.
+; Type: ``bool``
+; Default: ``False``
 
 ; htcondor_chunk_size_submit
 ; Description: Number of jobs that can be submitted in parallel inside a single call to
@@ -979,6 +1000,13 @@
 ; "law.lsf.LSFJobFileFactory". When ``None`` or not existing, the values above are used. The only exception is
 ; ``lsf_job_file_dir_cleanup`` whose default value is ``False``.
 
+; lsf_job_inspection
+; Description: Whether job inspection should be invoked after the first submission using the id of the first job. Job
+; inspection is implementation specific and can entail the validation of requirement matching criteria, performance
+; metrics, etc.
+; Type: ``bool``
+; Default: ``False``
+
 ; lsf_chunk_size_cancel
 ; Description: Number of jobs that can be cancelled in parallel inside a single call to "law.lsf.LSFJobManager.cancel",
 ; i.e., in a single ``bkill`` command.
@@ -1042,6 +1070,13 @@
 ; Description: These three options are identical to the ones above without the ``"slurm"`` prefix, but only apply to the
 ; "law.slurm.SlurmJobFileFactory". When ``None`` or not existing, the values above are used. The only exception is
 ; ``slurm_job_file_dir_cleanup`` whose default value is False.
+
+; slurm_job_inspection
+; Description: Whether job inspection should be invoked after the first submission using the id of the first job. Job
+; inspection is implementation specific and can entail the validation of requirement matching criteria, performance
+; metrics, etc.
+; Type: ``bool``
+; Default: ``False``
 
 ; slurm_chunk_size_cancel
 ; Description: Number of jobs that can be cancelled in parallel inside a single call to
@@ -1118,6 +1153,13 @@
 ; "law.cms.CrabJobManager".
 ; Type: ``str``, ``None``
 ; Default: ``None``
+
+; crab_job_inspection
+; Description: Whether job inspection should be invoked after the first submission using the id of the first job. Job
+; inspection is implementation specific and can entail the validation of requirement matching criteria, performance
+; metrics, etc.
+; Type: ``bool``
+; Default: ``False``
 
 ; crab_manager_threads
 ; Description: The number of threads the crab job manager should use for submission, status queries and cancel requests.

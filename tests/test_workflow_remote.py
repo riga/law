@@ -17,7 +17,7 @@ import law
 from law._types import Any, Callable, Hashable, Iterator
 from law.errors import JobError, JobsFailedError
 from law.job.base import BaseJobManager
-from law.util import DotDict, no_value
+from law.util import DotDict, no_value, uncolored
 from law.workflow.remote import BaseRemoteWorkflow, BaseRemoteWorkflowProxy, JobData
 
 #
@@ -55,6 +55,8 @@ class LawTestJobManager(BaseJobManager):
         self.max_active = 0
         self.cancelled: list[str] = []
         self.cleaned_up: list[str] = []
+        self.inspect_calls: list[tuple[str, dict]] = []
+        self.inspect_handler: Callable[[str], DotDict] = lambda job_id: DotDict()
         self._lock = threading.Lock()
 
     @classmethod
@@ -132,6 +134,10 @@ class LawTestJobManager(BaseJobManager):
             return dict.fromkeys(job_ids)
         self.cleaned_up.append(job_id)
         return None
+
+    def inspect(self, job_id: Any, **kwargs: Any) -> DotDict:
+        self.inspect_calls.append((job_id, kwargs))
+        return self.inspect_handler(job_id)
 
 
 class LawTestGroupJobManager(LawTestJobManager):
@@ -215,6 +221,9 @@ class LawTestRemoteWorkflow(BaseRemoteWorkflow):
 
     def dummy_post_submit_delay(self) -> int:
         return 0
+
+    def dummy_job_inspection(self) -> bool:
+        return self.job_inspection is True
 
     def dummy_dump_intermediate_job_data(self) -> bool:
         return True
@@ -601,6 +610,86 @@ class TestRemoteWorkflowRun:
         assert proxy._job_retries[1] == 1
         assert proxy.job_data.attempts == {1: 1}
         assert proxy.job_data.jobs[1]["status"] == man.FINISHED
+
+    def test_job_inspection_disabled(self) -> None:
+        wf = self.make()
+        man = wf.workflow_proxy.job_manager
+
+        self.run(wf)
+        assert wf.complete()
+        assert man.inspect_calls == []
+
+    def test_job_inspection_first_job(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        wf = self.make(job_inspection=True)
+        man = wf.workflow_proxy.job_manager
+        man.inspect_handler = lambda job_id: DotDict(warnings=["w1"], errors=["e1"])
+        messages: list[str] = []
+        monkeypatch.setattr(wf, "publish_message", lambda msg, *args, **kwargs: messages.append(uncolored(msg)))
+
+        self.run(wf)
+        assert wf.complete()
+        # only the first submitted job is inspected, with the generic job kwargs as a fallback
+        assert man.inspect_calls == [("job1", {"queue": "short", "priority": 0})]
+        assert man.jobs["job1"]["job_num"] == 1
+        assert "\nwarnings during inspection of job 'job1':" in messages
+        assert "\nerrors during inspection of job 'job1':" in messages
+        assert "    - w1" in messages
+        assert "    - e1" in messages
+
+    def test_job_inspection_kwargs(self) -> None:
+        wf = self.make(job_inspection=True)
+        wf.dummy_job_kwargs_inspect = {"foo": "bar"}
+        man = wf.workflow_proxy.job_manager
+
+        self.run(wf)
+        assert man.inspect_calls == [("job1", {"foo": "bar"})]
+
+    def test_job_inspection_skips_failed_submissions(self) -> None:
+        wf = self.make(job_inspection=True)
+        man = wf.workflow_proxy.job_manager
+        man.submit_errors = {(1, 1)}
+
+        self.run(wf)
+        assert wf.complete()
+        # job 1 failed to submit and is not inspected, neither initially nor after resubmission
+        assert len(man.inspect_calls) == 1
+        job_id = man.inspect_calls[0][0]
+        assert man.jobs[job_id]["job_num"] == 2
+
+    def test_job_inspection_group_submission(self) -> None:
+        wf = self.make(LawTestGroupRemoteWorkflow, job_inspection=True)
+        man = wf.workflow_proxy.job_manager
+
+        self.run(wf)
+        assert wf.complete()
+        assert [job_id for job_id, _ in man.inspect_calls] == ["job1"]
+
+    def test_job_inspection_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        wf = self.make(job_inspection=True)
+        man = wf.workflow_proxy.job_manager
+
+        def handler(job_id: str) -> DotDict:
+            raise RuntimeError("inspection broken")
+        man.inspect_handler = handler
+
+        # law loggers might not propagate, so capture warnings directly
+        warnings: list[str] = []
+        monkeypatch.setattr(law.workflow.remote.logger, "warning", lambda msg, *args, **kwargs: warnings.append(msg))
+
+        # failing inspections do not affect the workflow
+        self.run(wf)
+        assert wf.complete()
+        assert len(man.inspect_calls) == 1
+        assert warnings == ["inspection of job 'job1' failed: inspection broken"]
+
+    def test_job_inspection_not_after_previous_submission(self) -> None:
+        wf = self.make(job_inspection=True)
+        man = wf.workflow_proxy.job_manager
+        self.write_jobs_file(wf, {1: "job1", 2: "job2", 3: "job3", 4: "job4", 5: "job5"})
+
+        self.run(wf)
+        assert wf.complete()
+        assert man.inspect_calls == []
 
     def test_retries_exhausted(self) -> None:
         wf = self.make(retries=1)

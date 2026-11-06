@@ -211,11 +211,10 @@ class ARCWorkflow(BaseRemoteWorkflow):
 
         type: list, dict
 
-        Keyword arguments that are passed to all methods of the job manager. When a list, its
-        elements are names of task attributes whose values are passed with the ``arc_`` prefix
-        removed. Operation-specific arguments can be defined in ``arc_job_kwargs_submit``,
-        ``arc_job_kwargs_cancel``, ``arc_job_kwargs_cleanup`` and ``arc_job_kwargs_query``, which
-        take precedence when set.
+        Keyword arguments that are passed to all methods of the job manager. When a list, its elements are names of task
+        attributes whose values are passed with the ``arc_`` prefix removed. Operation-specific arguments can be defined
+        in ``arc_job_kwargs_submit``, ``arc_job_kwargs_cancel``, ``arc_job_kwargs_cleanup``, ``arc_job_kwargs_query``
+        and ``arc_job_kwargs_inspect``, which take precedence when set.
 
     .. py:classattribute:: exclude_params_arc_workflow
 
@@ -241,6 +240,7 @@ class ARCWorkflow(BaseRemoteWorkflow):
     arc_job_kwargs_cancel: dict | None = None
     arc_job_kwargs_cleanup: dict | None = None
     arc_job_kwargs_query: dict | None = None
+    arc_job_kwargs_inspect: dict | None = None
 
     exclude_params_branch = {"arc_ce"}
 
@@ -340,6 +340,17 @@ class ARCWorkflow(BaseRemoteWorkflow):
         :return: A dictionary mapping resource names to counts.
         """
         return {}
+
+    def arc_job_inspection(self) -> bool:
+        """
+        Hook to define whether job inspection should be performed (if implemented by the underlying job manager).
+
+        :return: *True* if job inspection should be performed, *False* otherwise.
+        """
+        # when the --job-inspection setting is given, use it, otherwise defer to the config
+        if isinstance(self.job_inspection, bool):
+            return self.job_inspection
+        return Config.instance().get_expanded_bool("job", "arc_job_inspection")  # type: ignore[unreachable]
 
     def arc_job_manager_cls(self) -> type[ARCJobManager]:
         """

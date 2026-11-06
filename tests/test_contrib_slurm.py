@@ -14,7 +14,7 @@ import law
 from law.config import Config
 from law.contrib.slurm import SlurmJobFileFactory, SlurmJobManager, SlurmWorkflow
 from law.job.base import JobInputFile
-from law.util import law_src_path
+from law.util import DotDict, law_src_path
 
 from .job_helpers import write_executable
 
@@ -85,6 +85,12 @@ class LawTestSlurmArrayWorkflow(LawTestSlurmWorkflow):
 
 
 class TestSlurmJobManager:
+
+    def test_inspect(self) -> None:
+        # inspection is not implemented yet and returns an empty DotDict, skip the constructor for this check
+        info = SlurmJobManager.__new__(SlurmJobManager).inspect("1")
+        assert isinstance(info, DotDict)
+        assert info == {}
 
     def test_map_status(self) -> None:
         m = SlurmJobManager
@@ -418,3 +424,14 @@ class TestSlurmWorkflow:
         assert job_ids == ["4242_0", "4242_1", "4242_0", "4242_1", "4242_0"]
         assert [proxy.job_data.jobs[job_num]["job_id"] for job_num in submit_jobs] == job_ids
         assert list(submission_data) == list(submit_jobs)
+
+    def test_job_inspection_hook(self) -> None:
+        wf = LawTestSlurmWorkflow(out_dir=self.tmp)
+        assert wf.job_inspection is None
+        assert wf.slurm_job_inspection() is False  # type: ignore[unreachable]
+        assert wf.workflow_proxy._get_job_kwargs("inspect") == wf.workflow_proxy._get_job_kwargs("query")
+        luigi.task_register.Register.clear_instance_cache()
+        try:
+            assert LawTestSlurmWorkflow(out_dir=self.tmp, job_inspection=True).slurm_job_inspection() is True
+        finally:
+            luigi.task_register.Register.clear_instance_cache()

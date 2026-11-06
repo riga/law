@@ -503,6 +503,12 @@ class CrabJobManager(BaseJobManager):
 
         return query_data
 
+    def inspect(self, job_id: str, **kwargs: Any) -> DotDict:
+        """
+        Job inspection is not implemented yet, so an empty :py:class:`~law.util.DotDict` is returned.
+        """
+        return DotDict()
+
     @classmethod
     def parse_query_output(
         cls,

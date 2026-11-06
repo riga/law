@@ -20,7 +20,7 @@ from law.errors import JobError
 from law.job.base import BaseJobFileFactory, BaseJobManager, JobInputFile
 from law.logger import get_logger
 from law.target.file import get_path
-from law.util import interruptable_popen, make_list, parse_duration, quote_cmd
+from law.util import DotDict, interruptable_popen, make_list, parse_duration, quote_cmd
 
 logger = get_logger(__name__)
 
@@ -353,6 +353,12 @@ class SlurmJobManager(BaseJobManager):
             return {_job_id: query_data[_job_id] for _job_id in job_ids}
 
         return query_data if chunking else query_data[job_id]  # type: ignore[index]
+
+    def inspect(self, job_id: str, **kwargs: Any) -> DotDict:
+        """
+        Job inspection is not implemented yet, so an empty :py:class:`~law.util.DotDict` is returned.
+        """
+        return DotDict()
 
     def group_job_ids(self, job_ids: list[int | str]) -> dict[Hashable, list[int | str]]:  # type: ignore[override]
         groups: dict[Hashable, list[int | str]] = {}

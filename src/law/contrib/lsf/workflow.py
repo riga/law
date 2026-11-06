@@ -228,10 +228,10 @@ class LSFWorkflow(BaseRemoteWorkflow):
 
         type: list, dict
 
-        Keyword arguments that are passed to all methods of the job manager. When a list, its
-        elements are names of task attributes whose values are passed with the ``lsf_`` prefix
-        removed. Operation-specific arguments can be defined in ``lsf_job_kwargs_submit``,
-        ``lsf_job_kwargs_cancel`` and ``lsf_job_kwargs_query``, which take precedence when set.
+        Keyword arguments that are passed to all methods of the job manager. When a list, its elements are names of task
+        attributes whose values are passed with the ``lsf_`` prefix removed. Operation-specific arguments can be defined
+        in ``lsf_job_kwargs_submit``, ``lsf_job_kwargs_cancel``, ``lsf_job_kwargs_query`` and
+        ``lsf_job_kwargs_inspect``, which take precedence when set.
 
     .. py:classattribute:: exclude_params_lsf_workflow
 
@@ -256,6 +256,7 @@ class LSFWorkflow(BaseRemoteWorkflow):
     lsf_job_kwargs_submit: dict | None = None
     lsf_job_kwargs_cancel: dict | None = None
     lsf_job_kwargs_query: dict | None = None
+    lsf_job_kwargs_inspect: dict | None = None
 
     exclude_params_branch = {"lsf_queue"}
 
@@ -346,6 +347,17 @@ class LSFWorkflow(BaseRemoteWorkflow):
         :return: A dictionary mapping resource names to counts.
         """
         return {}
+
+    def lsf_job_inspection(self) -> bool:
+        """
+        Hook to define whether job inspection should be performed (if implemented by the underlying job manager).
+
+        :return: *True* if job inspection should be performed, *False* otherwise.
+        """
+        # when the --job-inspection setting is given, use it, otherwise defer to the config
+        if isinstance(self.job_inspection, bool):
+            return self.job_inspection
+        return Config.instance().get_expanded_bool("job", "lsf_job_inspection")  # type: ignore[unreachable]
 
     def lsf_job_manager_cls(self) -> type[LSFJobManager]:
         """

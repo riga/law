@@ -13,6 +13,7 @@ def config_defaults(default_config: dict) -> dict[str, dict[str, Any]]:
             "crab_job_file_dir": None,
             "crab_job_file_dir_cleanup": False,
             "crab_job_query_timeout": None,
+            "crab_job_inspection": False,
             "crab_sandbox_name": "CMSSW_14_2_1::arch=el9_amd64_gcc12",
             "crab_password_file": None,
             "crab_manager_threads": 4,

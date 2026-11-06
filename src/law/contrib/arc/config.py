@@ -14,6 +14,7 @@ def config_defaults(default_config: dict) -> dict[str, dict[str, Any]]:
             "arc_job_file_dir_mkdtemp": None,
             "arc_job_file_dir_cleanup": None,
             "arc_job_query_timeout": None,
+            "arc_job_inspection": False,
             "arc_chunk_size_submit": 25,
             "arc_chunk_size_cancel": 25,
             "arc_chunk_size_cleanup": 25,
