@@ -8,7 +8,7 @@
 # 2. the path where the bundle should be stored, should end with .tgz
 # 3. (optional) space-separated list of files or directories to force-add, supports globbing
 # 4. (optional) space-separated list of files or directories to ignore, supports globbing
-# 5. (optional) commit message, defaults to "[tmp] Commit before bundling."
+# 5. (optional) unused, only kept for backwards compatibility (was the temporary commit message)
 
 action() {
     # handle arguments
@@ -33,11 +33,11 @@ action() {
         >&2 echo "please provide the path where the bundle should be stored"
         return "4"
     fi
+    # the bundle is created from within the repository, so make the destination path absolute
+    [[ "${dst_path}" != /* ]] && dst_path="${PWD}/${dst_path}"
 
     local include_files="$3"
     local ignore_files="$4"
-    local commit_msg="$5"
-    [ -z "${commit_msg}" ] && commit_msg="[tmp] Commit before bundling."
 
     local repo_name="$( basename "${repo_path}" )"
     local tmp_dir="$( mktemp -d )"
@@ -48,6 +48,7 @@ action() {
         read -r -a _include_files <<<"${include_files}"
         for i in "${!_include_files[@]}"; do
             _include_files[i]="${_include_files[i]#${repo_path}}"
+            _include_files[i]="${_include_files[i]#/}"
         done
         include_files="${_include_files[*]}"
         unset _include_files
@@ -62,7 +63,7 @@ action() {
     fi
 
     # build rsync args containing --exclude statements built from files to ignore
-    local rsync_args="-a"
+    local rsync_args="-a --dry-run --out-format=%n --exclude .git"
     if [ ! -z "${ignore_files}" ]; then
         local files
         IFS=" " read -ra files <<< "${ignore_files}"
@@ -72,34 +73,32 @@ action() {
         done
     fi
 
-    # on nfs systems the .git/index.lock might be re-appear due to sync issues
-    sgit() {
-        rm -f .git/index.lock
-        git "$@"
-    }
-    [ ! -z "${BASH_VERSION}" ] && export -f sgit
-
-    # strategy: add and commit everything recursively to take into account rules defined in
-    # .gitignore files, then create a list of files currently under source control and run tar -c
+    # strategy: list all tracked and untracked but not ignored files of the repository and all
+    # submodules recursively without modifying them, add files to force-include and run tar -c on
+    # those that are not ignored, as listed by an rsync dry run
+    # - rsync --dry-run --out-format=%n prints the paths of all files that pass the exclude rules
+    # - git ls-files --cached lists tracked files (including modified and deleted ones), --others
+    #   adds untracked files and --exclude-standard skips ignored files
+    # - sed prefixes the paths listed inside a submodule with its path relative to the repository
+    #   root (${displaypath}, which also covers nested submodules)
+    # - files to force-include are expanded by find, non-existing paths are skipped
     (
         mkdir -p "${tmp_dir}/${repo_name}" && \
-        cd "${tmp_dir}/${repo_name}" && \
-        eval rsync ${rsync_args} "${repo_path%/}/" . && \
-        sgit add -A . &> /dev/null && \
-        ( [ -z "${include_files}" ] || sgit add -f ${include_files} &> /dev/null ) && \
-        sgit commit -m "${commit_msg}" &> /dev/null
-        for elem in $( sgit ls-files ); do echo "${elem}" >> "${tmp_list}"; done && \
-        sgit submodule foreach --recursive --quiet "\
-            git add -A . &> /dev/null && \
-            git commit -m \"$commit_msg\" &> /dev/null; \
-            for elem in \$( git ls-files ); do echo \"\$path/\$elem\" >> \"$tmp_list\"; done" && \
+        eval rsync ${rsync_args} "${repo_path%/}/" "${tmp_dir}/${repo_name}/" > "${tmp_list}.rsync" && \
+        cd "${repo_path}" && \
+        ( git ls-files --cached --others --exclude-standard && \
+            git submodule foreach --recursive --quiet "\
+                git ls-files --cached --others --exclude-standard | sed \"s|^|\${displaypath}/|\"" \
+        ) > "${tmp_list}" && \
+        for f in ${include_files}; do \
+            [ ! -e "${f}" ] || find "${f}" \( -type f -o -type l \) || exit "$?"; \
+        done >> "${tmp_list}" && \
         mkdir -p "$( dirname "${dst_path}" )" && \
-        tar -czf "${dst_path}" -T <( for l in $( cat "${tmp_list}" ); do [ -e "${l}" ] && echo "${l}"; done )
+        tar -czf "${dst_path}" --no-recursion -T <( sort -u "${tmp_list}" | grep -Fx -f "${tmp_list}.rsync" )
     )
     local ret="$?"
 
     rm -rf "${tmp_dir}"
-    unset sgit
 
     return "${ret}"
 }
