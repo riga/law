@@ -2743,6 +2743,17 @@ class DotDict(collections.OrderedDict):
         wrap = lambda d: cls((k, wrap(v)) for k, v in d.items()) if isinstance(d, dict) else d
         return wrap(dict(*args, **kwargs))
 
+    def unwrap(self) -> dict[Any, Any]:
+        """
+        Inverse of :py:meth:`wrap` that returns a new :py:class:`dict` with this dictionary and all nested dictionary
+        types recursively converted to plain dictionaries. Values are not copied.
+
+        :return: The unwrapped dictionary.
+        """
+        unwrap: Callable[[Any], Any]
+        unwrap = lambda d: {k: unwrap(v) for k, v in d.items()} if isinstance(d, dict) else d
+        return unwrap(self)
+
     def __getattr__(self, attr: str) -> Any:
         try:
             return self[attr]

@@ -559,6 +559,27 @@ class TestUtil:
         c.a.b = 5
         assert w.a.b == 1
 
+    def test_dot_dict_unwrap(self) -> None:
+        lst = [DotDict(x=1)]
+        w = DotDict.wrap({"a": {"b": {"c": 1}}, "d": lst, "e": 2})
+        u = w.unwrap()
+        assert u == {"a": {"b": {"c": 1}}, "d": [{"x": 1}], "e": 2}
+        assert type(u) is dict
+        assert type(u["a"]) is dict
+        assert type(u["a"]["b"]) is dict
+        # order is preserved
+        assert list(DotDict([("z", 1), ("a", 2)]).unwrap()) == ["z", "a"]
+        # non-dict values are neither converted nor copied
+        assert u["d"] is lst
+        assert type(u["d"][0]) is DotDict
+        # roundtrip
+        assert DotDict.wrap(u) == w
+        # the original is left untouched
+        u["a"]["b"]["c"] = 5
+        assert isinstance(w.a.b, DotDict)
+        assert w.a.b.c == 1
+        assert DotDict().unwrap() == {}
+
     def test_shorthand_dict(self) -> None:
         class MyDict(ShorthandDict):
             attributes = {"foo": 1, "bar": []}
