@@ -2,6 +2,7 @@ from __future__ import annotations
 
 __all__ = ["TestGFALErrorReasons", "TestGFALParseConfig"]
 
+import contextlib
 import pytest
 
 from law._types import Any, Iterator
@@ -13,6 +14,7 @@ from law.contrib.gfal.target import (
     GFALError_listdir,
     GFALError_mkdir,
     GFALError_rmdir,
+    GFALError_stat,
     GFALError_unlink,
     GFALFileInterface,
     GFALOperationError,
@@ -52,6 +54,16 @@ class TestGFALErrorReasons:
         return msgs
 
     @pytest.mark.parametrize(("cls", "scheme", "msg", "reason"), [
+        # stat
+        (GFALError_stat, "root", "[3011] No such file or directory", GFALError_stat.NOT_FOUND),
+        (GFALError_stat, "gsiftp", "No such file or directory", GFALError_stat.NOT_FOUND),
+        (GFALError_stat, "srm", "No such file", GFALError_stat.NOT_FOUND),
+        (GFALError_stat, "dav", "File not found", GFALError_stat.NOT_FOUND),
+        (GFALError_stat, "davs", "File not found", GFALError_stat.NOT_FOUND),
+        (GFALError_stat, "dropbox", "path_lookup/not_found/", GFALError_stat.NOT_FOUND),
+        (GFALError_stat, "file", "No such file or directory", GFALError_stat.NOT_FOUND),
+        (GFALError_stat, "root", "Permission denied", GFALError_stat.UNKNOWN),
+        (GFALError_stat, "davs", "HTTP 500 : Unexpected server error: 500", GFALError_stat.UNKNOWN),
         # chmod
         (GFALError_chmod, "root", "[ERROR] Server responded with an error: [3011] No such file or directory",
             GFALError_chmod.NOT_FOUND),
@@ -314,3 +326,39 @@ class TestGFALParseConfig:
         assert iface.atomic_contexts is True
         assert iface.transfer_config["nbstreams"] == 4
         assert iface.gfal_options == {}
+
+    def test_exists_not_found(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        iface = GFALFileInterface(**GFALFileInterface.parse_config(self.section))
+        monkeypatch.setattr(gfal_target, "HAS_GFAL2", True)
+        mock_gfal2 = type("MockGfal2", (), {"GError": GError})()
+        monkeypatch.setattr(gfal_target, "gfal2", mock_gfal2)
+
+        class MockCtx:
+            def stat(self, uri):
+                raise GError("Result HTTP 404 : File not found after 1 attempts")
+
+        @contextlib.contextmanager
+        def mock_context():
+            yield MockCtx()
+
+        monkeypatch.setattr(iface, "context", mock_context)
+        assert iface.exists("some/file.txt", retries=0) is False
+
+    def test_exists_server_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        iface = GFALFileInterface(**GFALFileInterface.parse_config(self.section))
+        monkeypatch.setattr(gfal_target, "HAS_GFAL2", True)
+        mock_gfal2 = type("MockGfal2", (), {"GError": GError})()
+        monkeypatch.setattr(gfal_target, "gfal2", mock_gfal2)
+
+        class MockCtx:
+            def stat(self, uri):
+                raise GError("HTTP 500 : Unexpected server error: 500")
+
+        @contextlib.contextmanager
+        def mock_context():
+            yield MockCtx()
+
+        monkeypatch.setattr(iface, "context", mock_context)
+        with pytest.raises(GFALError_stat) as exc_info:
+            iface.exists("some/file.txt", retries=0)
+        assert exc_info.value.reason == GFALError_stat.UNKNOWN
