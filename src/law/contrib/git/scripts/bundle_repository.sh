@@ -49,6 +49,9 @@ action() {
         for i in "${!_include_files[@]}"; do
             _include_files[i]="${_include_files[i]#${repo_path}}"
             _include_files[i]="${_include_files[i]#/}"
+            while [[ "${_include_files[i]}" == ./* ]]; do
+                _include_files[i]="${_include_files[i]#./}"
+            done
         done
         include_files="${_include_files[*]}"
         unset _include_files
@@ -63,7 +66,7 @@ action() {
     fi
 
     # build rsync args containing --exclude statements built from files to ignore
-    local rsync_args="-a --dry-run --out-format=%n --exclude .git"
+    local rsync_args="-a -8 --dry-run --out-format=%n --exclude .git"
     if [ ! -z "${ignore_files}" ]; then
         local files
         IFS=" " read -ra files <<< "${ignore_files}"
@@ -72,6 +75,9 @@ action() {
             rsync_args="${rsync_args} --exclude \"${f}\""
         done
     fi
+
+    # list files with special characters unquoted, so that they match the rsync output (-8)
+    local ls_files="git -c core.quotePath=false ls-files --cached --others --exclude-standard"
 
     # strategy: list all tracked and untracked but not ignored files of the repository and all
     # submodules recursively without modifying them, add files to force-include and run tar -c on
@@ -86,9 +92,9 @@ action() {
         mkdir -p "${tmp_dir}/${repo_name}" && \
         eval rsync ${rsync_args} "${repo_path%/}/" "${tmp_dir}/${repo_name}/" > "${tmp_list}.rsync" && \
         cd "${repo_path}" && \
-        ( git ls-files --cached --others --exclude-standard && \
+        ( ${ls_files} && \
             git submodule foreach --recursive --quiet "\
-                git ls-files --cached --others --exclude-standard | sed \"s|^|\${displaypath}/|\"" \
+                ${ls_files} | sed \"s|^|\${displaypath}/|\"" \
         ) > "${tmp_list}" && \
         for f in ${include_files}; do \
             [ ! -e "${f}" ] || find "${f}" \( -type f -o -type l \) || exit "$?"; \
