@@ -110,15 +110,19 @@ class BundleGitRepository(Task):
         :param dst_path: The path of the tarball.
         :raises RuntimeError: When the bundling failed.
         """
-        # helper to filter out files that are not actually present in the repository
-        repo_path = os.path.abspath(os.path.expandvars(os.path.expanduser(str(self.get_repo_path()))))
-        is_in_repo = lambda p: not os.path.relpath(os.path.join(str(p)), repo_path).startswith("..")
+        repo_path = os.path.abspath(os.path.expandvars(os.path.expanduser(get_path(self.get_repo_path()))))
+
+        # helper to filter out patterns pointing outside the repository, relative patterns are interpreted relative to
+        # the repository (as done by the bundle script) and not to the current working directory
+        def is_in_repo(p: str) -> bool:
+            rel = os.path.relpath(os.path.join(repo_path, str(p)), repo_path)
+            return rel != os.pardir and not rel.startswith(os.pardir + os.sep)
 
         # build the command
         cmd: list | str
         cmd = [
             rel_path(__file__, "scripts", "bundle_repository.sh"),
-            get_path(repo_path),
+            repo_path,
             get_path(dst_path),
             " ".join(filter(is_in_repo, self.include_files)),
             " ".join(filter(is_in_repo, self.exclude_files)),
