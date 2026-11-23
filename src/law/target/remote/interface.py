@@ -307,6 +307,35 @@ class RemoteFileInterface(metaclass=abc.ABCMeta):
 
         return uri(base)
 
+    def uri_single(
+        self,
+        path: str | pathlib.Path,
+        *,
+        base: str | Sequence[str] | None = None,
+        scheme: bool = True,
+        **kwargs,
+    ) -> str:
+        """
+        Returns the full uri of *path* joined with a single base uri, to be used by operations that require exactly one
+        uri. Same as :py:meth:`uri` with *return_all* set to *False*, but also accepts a sequence of base uris with a
+        single element.
+
+        :param path: The path.
+        :param base: The base uri to use. When *None*, it is determined via :py:meth:`get_base`.
+        :param scheme: When *False*, the scheme is removed.
+        :param kwargs: Keyword arguments forwarded to :py:meth:`get_base`.
+        :raises ValueError: When *base* is a sequence of more than one base uri.
+        :return: The uri.
+        """
+        uri = self.uri(path, base=base, return_all=False, scheme=scheme, **kwargs)
+        if isinstance(uri, str):
+            return uri
+
+        if len(uri) == 1:
+            return uri[0]
+
+        raise ValueError(f"cannot build a single uri for path '{path}' from {len(uri)} base uris: {base}")
+
     @abc.abstractmethod
     def exists(
         self,

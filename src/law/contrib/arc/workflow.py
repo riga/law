@@ -329,7 +329,7 @@ class ARCWorkflow(BaseRemoteWorkflow):
 
         :return: The uri.
         """
-        return self.arc_output_directory().uri(return_all=False)  # type: ignore[return-value]
+        return self.arc_output_directory().uri_single()
 
     def arc_job_resources(self, job_num: int, branches: list[int]) -> dict[str, int]:
         """

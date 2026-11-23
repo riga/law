@@ -532,7 +532,7 @@ class LocalTarget(FileSystemTarget, shims.LocalTarget):
 
     @property
     def abspath(self) -> str:
-        return self.uri(scheme=False, return_all=False)  # type: ignore[return-value]
+        return self.uri_single(scheme=False)
 
     def uri(self, *, scheme: bool = True, return_all: bool = False, **kwargs) -> str | list[str]:
         uri = self.fs.abspath(self.path)

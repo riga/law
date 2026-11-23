@@ -371,7 +371,7 @@ class CrabWorkflow(BaseRemoteWorkflow):
 
         :return: The uri.
         """
-        return self.crab_output_directory().uri(return_all=False)  # type: ignore[union-attr,return-value]
+        return self.crab_output_directory().uri_single()  # type: ignore[union-attr]
 
     def crab_job_resources(self, job_num: int, branches: list[int]) -> dict[str, int]:
         """

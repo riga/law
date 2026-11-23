@@ -23,7 +23,7 @@ class LawTestFileInterface(RemoteFileInterface):
         # converts a remote path (or an uri with any scheme) to the local path behind it
         if has_scheme(path):
             return remove_scheme(path)
-        return remove_scheme(self.uri(path, base=base, return_all=False))  # type: ignore[arg-type]
+        return remove_scheme(self.uri_single(path, base=base))
 
     def exists(self, path, *, base=None, stat=False, **kwargs):
         p = self.local_path(path, base=base)
@@ -102,8 +102,8 @@ class LawTestFileInterface(RemoteFileInterface):
         return os.listdir(self.local_path(path, base=base))
 
     def filecopy(self, src, dst, *, base=None, **kwargs):
-        src_uri = src if has_scheme(src) else self.uri(src, base=base, return_all=False)
-        dst_uri = dst if has_scheme(dst) else self.uri(dst, base=base, return_all=False)
+        src_uri = src if has_scheme(src) else self.uri_single(src, base=base)
+        dst_uri = dst if has_scheme(dst) else self.uri_single(dst, base=base)
         shutil.copy2(self.local_path(src_uri), self.local_path(dst_uri))
         return src_uri, dst_uri
 

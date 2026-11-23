@@ -787,7 +787,7 @@ class RemoteTarget(FileSystemTarget):
 
     @property
     def abspath(self) -> str:
-        return self.uri(return_all=False)  # type: ignore[return-value]
+        return self.uri_single()
 
     def uri(self, **kwargs) -> str | list[str]:
         return self.fs.uri(self.path, **kwargs)  # type: ignore[attr-defined]

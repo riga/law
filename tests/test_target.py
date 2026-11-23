@@ -60,6 +60,9 @@ class TestLocalTarget(TargetTestCase):
         f = law.LocalFileTarget(self.path("a.txt"))
         assert f.uri() == "file://" + self.path("a.txt")
         assert f.uri(scheme=False) == self.path("a.txt")
+        assert f.uri(return_all=True) == ["file://" + self.path("a.txt")]
+        assert f.uri_single() == "file://" + self.path("a.txt")
+        assert f.uri_single(scheme=False) == self.path("a.txt") == f.abspath
         assert law.LocalFileTarget("file://" + self.path("a.txt")).path == self.path("a.txt")
 
     def test_path_expansion(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -490,6 +493,8 @@ class TestTargetCollection(TargetTestCase):
         assert col.first_target is self.targets[0]
         assert col.random_target() in self.targets
         assert len(col.uri()) == 4
+        with pytest.raises(TypeError, match=r"does not support uri_single\(\), use uri\(\) instead"):
+            col.uri_single()
         with pytest.raises(TypeError, match=r"'TargetCollection'\ object\ is\ not\ iterable"):
             iter(col)
         with pytest.raises(TypeError, match=r"invalid\ targets,\ must\ be\ of\ type:\ list,\ tuple"):

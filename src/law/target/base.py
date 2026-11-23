@@ -178,3 +178,21 @@ class Target(shims.Target):
         :return: The uri, or a list of all uris when *return_all* is *True*.
         """
         ...
+
+    def uri_single(self, **kwargs) -> str:
+        """
+        Returns a single uri of this target, to be used in cases where exactly one uri is required. Same as
+        :py:meth:`uri` with *return_all* set to *False*, but always returns a string.
+
+        :param kwargs: Keyword arguments forwarded to :py:meth:`uri`.
+        :raises ValueError: When :py:meth:`uri` returns more than one uri.
+        :return: The uri.
+        """
+        uri = self.uri(return_all=False, **kwargs)
+        if isinstance(uri, str):
+            return uri
+
+        if len(uri) == 1:
+            return uri[0]
+
+        raise ValueError(f"cannot determine a single uri of {self!r}, found {len(uri)}: {uri}")

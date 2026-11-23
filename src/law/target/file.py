@@ -634,7 +634,7 @@ class FileSystemTarget(Target, shims.FileSystemTarget):
     @abc.abstractmethod
     def abspath(self) -> str:
         """
-        The absolute path of this target within its file system, without scheme.
+        The absolute path of this target within its file system.
         """
         ...
 

@@ -160,7 +160,7 @@ class GFALFileInterface(RemoteFileInterface):
         base: str | Sequence[str] | None = None,
         **kwargs,
     ) -> bool | os.stat_result | None:
-        uri = self.uri(path, base_name="stat" if stat else ("exists", "stat"), base=base)
+        uri = self.uri_single(path, base_name="stat" if stat else ("exists", "stat"), base=base)
         with self.context() as ctx:
             try:
                 logger.debug(f"invoking gfal2 exists({uri})")
@@ -180,7 +180,7 @@ class GFALFileInterface(RemoteFileInterface):
         base: str | Sequence[str] | None = None,
         **kwargs,
     ) -> os.stat_result:
-        uri = self.uri(path, base_name="stat", base=base)
+        uri = self.uri_single(path, base_name="stat", base=base)
         with self.context() as ctx:
             try:
                 logger.debug(f"invoking gfal2 stat({uri})")
@@ -238,7 +238,7 @@ class GFALFileInterface(RemoteFileInterface):
         if perm is None:
             return True
 
-        uri: str = self.uri(path, base_name="chmod", base=base, return_all=False)  # type: ignore[assignment]
+        uri = self.uri_single(path, base_name="chmod", base=base)
         with self.context() as ctx:
             try:
                 logger.debug(f"invoking gfal2 chmod({uri}, {perm})")
@@ -263,7 +263,7 @@ class GFALFileInterface(RemoteFileInterface):
         silent: bool = True,
         **kwargs,
     ) -> bool:
-        uri: str = self.uri(path, base_name="unlink", base=base, return_all=False)  # type: ignore[assignment]
+        uri = self.uri_single(path, base_name="unlink", base=base)
         with self.context() as ctx:
             try:
                 logger.debug(f"invoking gfal2 unlink({uri})")
@@ -288,7 +288,7 @@ class GFALFileInterface(RemoteFileInterface):
         silent: bool = True,
         **kwargs,
     ) -> bool:
-        uri: str = self.uri(path, base_name="rmdir", base=base, return_all=False)  # type: ignore[assignment]
+        uri = self.uri_single(path, base_name="rmdir", base=base)
         with self.context() as ctx:
             try:
                 logger.debug(f"invoking gfal2 rmdir({uri})")
@@ -327,7 +327,7 @@ class GFALFileInterface(RemoteFileInterface):
         """
         # most common use case is file removal, so try this first and in case there is an error
         # interpret its message to get more info on the object without further operations
-        uri: str = self.uri(path, base_name="unlink", base=base, return_all=False)  # type: ignore[assignment]
+        uri = self.uri_single(path, base_name="unlink", base=base)
         with self.context() as ctx:
             try:
                 logger.debug(f"invoking gfal2 unlink({uri})")
@@ -345,7 +345,7 @@ class GFALFileInterface(RemoteFileInterface):
                     raise e_custom from e
 
         # at this point, we are dealing with a directory so try to delete it right away
-        uri = self.uri(path, base_name="rmdir", base=base, return_all=False)  # type: ignore[assignment]
+        uri = self.uri_single(path, base_name="rmdir", base=base)
         with self.context() as ctx:
             try:
                 logger.debug(f"invoking gfal2 rmdir({uri})")
@@ -380,7 +380,7 @@ class GFALFileInterface(RemoteFileInterface):
         silent: bool = True,
         **kwargs,
     ) -> bool:
-        uri: str = self.uri(path, base_name="mkdir", base=base, return_all=False)  # type: ignore[assignment]
+        uri = self.uri_single(path, base_name="mkdir", base=base)
         with self.context() as ctx:
             try:
                 logger.debug(f"invoking gfal2 mkdir({uri}, {perm})")
@@ -407,7 +407,7 @@ class GFALFileInterface(RemoteFileInterface):
         silent: bool = True,
         **kwargs,
     ) -> bool:
-        uri: str = self.uri(path, base_name=["mkdir_rec", "mkdir"], base=base, return_all=False)  # type: ignore[assignment]
+        uri = self.uri_single(path, base_name=["mkdir_rec", "mkdir"], base=base)
         with self.context() as ctx:
             try:
                 logger.debug(f"invoking gfal2 mkdir_rec({uri}, {perm})")
@@ -432,7 +432,7 @@ class GFALFileInterface(RemoteFileInterface):
         base: str | Sequence[str] | None = None,
         **kwargs,
     ) -> list[str]:
-        uri: str = self.uri(path, base_name="listdir", base=base, return_all=False)  # type: ignore[assignment]
+        uri = self.uri_single(path, base_name="listdir", base=base)
         with self.context() as ctx:
             try:
                 logger.debug(f"invoking gfal2 listdir({uri})")
@@ -454,15 +454,8 @@ class GFALFileInterface(RemoteFileInterface):
         base: str | Sequence[str] | None = None,
         **kwargs,
     ) -> tuple[str, str]:
-        if has_scheme(src):
-            src_uri = self.sanitize_path(src)
-        else:
-            src_uri = self.uri(src, base_name="filecopy", base=base, return_all=False)  # type: ignore[assignment]
-
-        if has_scheme(dst):
-            dst_uri = self.sanitize_path(dst)
-        else:
-            dst_uri = self.uri(dst, base_name="filecopy", base=base, return_all=False)  # type: ignore[assignment]
+        src_uri = self.sanitize_path(src) if has_scheme(src) else self.uri_single(src, base_name="filecopy", base=base)
+        dst_uri = self.sanitize_path(dst) if has_scheme(dst) else self.uri_single(dst, base_name="filecopy", base=base)
 
         with self.context() as ctx, self.transfer_parameters(ctx) as params:
             try:

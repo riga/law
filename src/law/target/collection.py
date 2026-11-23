@@ -235,6 +235,14 @@ class TargetCollection(Target):
         """
         return flatten(t.uri(*args, **kwargs) for t in self._flat_target_list)
 
+    def uri_single(self, **kwargs) -> str:
+        """
+        Not supported by collections, which always refer to multiple uris. Use :py:meth:`uri` instead.
+
+        :raises TypeError: Always.
+        """
+        raise TypeError(f"'{self.__class__.__name__}' object does not support uri_single(), use uri() instead")
+
     @property
     def first_target(self) -> Target | None:
         """

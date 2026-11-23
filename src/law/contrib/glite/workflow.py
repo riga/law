@@ -348,7 +348,7 @@ class GLiteWorkflow(BaseRemoteWorkflow):
 
         :return: The uri.
         """
-        return self.glite_output_directory().uri(return_all=False)  # type: ignore[return-value]
+        return self.glite_output_directory().uri_single()
 
     def glite_job_resources(self, job_num: int, branches: list[int]) -> dict[str, int]:
         """

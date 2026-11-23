@@ -37,11 +37,38 @@ class TestRemoteTarget(RemoteTestCase):
         assert t.basename == "x.json"
         assert t.uri() == f"fake://{self.remote_path('a', 'x.json')}"
         assert t.uri(scheme=False) == self.remote_path("a", "x.json")
+        assert t.uri_single() == f"fake://{self.remote_path('a', 'x.json')}"
+        assert t.uri_single(scheme=False) == self.remote_path("a", "x.json")
         assert isinstance(t.parent, RemoteDirectoryTarget)
         assert t.parent.path == "/a"
         assert t == RemoteFileTarget("/a/x.json", fs=self.fs)
         with pytest.raises(TypeError, match=r"fs must be a"):
             RemoteFileTarget("/a/x.json", fs=law.LocalFileSystem.default_instance)  # type: ignore[arg-type]
+
+    def test_uri_single(self) -> None:
+        fi = self.fs.file_interface
+        base = fi.base[0]
+        uri = f"fake://{self.remote_path('a', 'x.json')}"
+
+        # default base, explicit base and a sequence with a single base
+        assert fi.uri_single("/a/x.json") == uri
+        assert fi.uri_single("/a/x.json", base=base) == uri
+        assert fi.uri_single("/a/x.json", base=[base]) == uri
+        assert fi.uri_single("/a/x.json", scheme=False) == self.remote_path("a", "x.json")
+
+        # compared to uri, which returns lists in these cases
+        assert fi.uri("/a/x.json", base=[base]) == [uri]
+        assert fi.uri("/a/x.json", return_all=True) == [uri]
+
+        # multiple bases are ambiguous
+        with pytest.raises(ValueError, match=r"from 2 base uris"):
+            fi.uri_single("/a/x.json", base=[base, "fake:///other"])
+
+        # same on target level
+        t = RemoteFileTarget("/a/x.json", fs=self.fs)
+        assert t.uri_single(base=[base]) == uri
+        with pytest.raises(ValueError, match=r"cannot determine a single uri of .*, found 2"):
+            t.uri_single(base=[base, "fake:///other"])
 
     def test_dump_load(self) -> None:
         t = RemoteFileTarget("/a/x.json", fs=self.fs)
@@ -173,7 +200,7 @@ class TestMirroredTarget(RemoteTestCase):
         t = self.file_target("/m/r.txt", local_fs=local_fs, local_sync=False)
         assert t.exists()
         assert t.fs is self.fs
-        assert t.uri().startswith("fake://")  # type: ignore[union-attr]
+        assert t.uri_single().startswith("fake://")
         assert t.load(formatter="text") == "remote"
 
     def test_directory(self) -> None:
