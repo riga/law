@@ -3,6 +3,7 @@ from __future__ import annotations
 __all__ = ["TestGFALErrorReasons", "TestGFALParseConfig"]
 
 import contextlib
+
 import pytest
 
 from law._types import Any, Iterator

@@ -506,7 +506,7 @@ class GFALError_stat(GFALOperationError):
     @classmethod
     def _get_reason(cls, msg: str, uri: str, scheme: str) -> str:
         lmsg = msg.lower()
-        if scheme == "root":
+        if scheme == "root":  # noqa: SIM114
             if "no such file or directory" in lmsg or "file not found" in lmsg:
                 return cls.NOT_FOUND
 
@@ -518,7 +518,7 @@ class GFALError_stat(GFALOperationError):
             if "no such file" in lmsg or "file not found" in lmsg:
                 return cls.NOT_FOUND
 
-        elif scheme in ("dav", "davs"):
+        elif scheme in ("dav", "davs", "http", "https"):
             if "file not found" in lmsg or "no such file or directory" in lmsg:
                 return cls.NOT_FOUND
 
