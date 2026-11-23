@@ -20,6 +20,7 @@ def delegate(
     import law
 
     law.contrib.load("cms", "wlcg")
+    from law.contrib.cms.util import _default_crab_receivers
 
     # settings
     encode_username = False
@@ -30,7 +31,7 @@ def delegate(
         encode_username = True
         voms_proxy = True
         username = None
-        retrievers = law.cms.util._default_crab_receivers
+        retrievers = _default_crab_receivers
 
     # when not renewing, check if a previous delegation exists
     if not renew:
@@ -64,6 +65,7 @@ def main() -> int:
     from argparse import ArgumentParser
 
     import law
+    from law.contrib.cms.util import _default_vo
 
     cfg = law.config.Config.instance()
 
@@ -97,7 +99,7 @@ def main() -> int:
     parser.add_argument(
         "--vo",
         "-m",
-        default=law.cms.util._default_vo(),
+        default=_default_vo(),
         help="virtual organization to use; default: %(default)s",
     )
     parser.add_argument(
