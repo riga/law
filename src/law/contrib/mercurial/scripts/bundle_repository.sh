@@ -86,6 +86,7 @@ action() {
     # - hg status lists existing tracked files (removed and missing ones are skipped) and untracked files, while ignored
     #   files are skipped
     # - files to force-include are expanded by find, non-existing paths are skipped
+    # - COPYFILE_DISABLE prevents bsdtar on macOS from adding AppleDouble (._*) files for extended attributes
     # - as previously done by hg archive, all paths in the archive are prefixed with the repository name
     (
         mkdir -p "${tmp_dir}/${repo_name}" && \
@@ -97,7 +98,7 @@ action() {
         done >> "${tmp_list}" && \
         mkdir -p "$( dirname "${dst_path}" )" && \
         cd .. && \
-        tar -czf "${dst_path}" --no-recursion -T <( \
+        COPYFILE_DISABLE="1" tar -czf "${dst_path}" --no-recursion -T <( \
             sort -u "${tmp_list}" | grep -Fx -f "${tmp_list}.rsync" | sed "s|^|${repo_name}/|" \
         )
     )

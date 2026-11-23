@@ -88,6 +88,7 @@ action() {
     # - sed prefixes the paths listed inside a submodule with its path relative to the repository
     #   root (${displaypath}, which also covers nested submodules)
     # - files to force-include are expanded by find, non-existing paths are skipped
+    # - COPYFILE_DISABLE prevents bsdtar on macOS from adding AppleDouble (._*) files for extended attributes
     (
         mkdir -p "${tmp_dir}/${repo_name}" && \
         eval rsync ${rsync_args} "${repo_path%/}/" "${tmp_dir}/${repo_name}/" > "${tmp_list}.rsync" && \
@@ -100,7 +101,9 @@ action() {
             [ ! -e "${f}" ] || find "${f}" \( -type f -o -type l \) || exit "$?"; \
         done >> "${tmp_list}" && \
         mkdir -p "$( dirname "${dst_path}" )" && \
-        tar -czf "${dst_path}" --no-recursion -T <( sort -u "${tmp_list}" | grep -Fx -f "${tmp_list}.rsync" )
+        COPYFILE_DISABLE="1" tar -czf "${dst_path}" --no-recursion -T <( \
+            sort -u "${tmp_list}" | grep -Fx -f "${tmp_list}.rsync" \
+        )
     )
     local ret="$?"
 
