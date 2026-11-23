@@ -151,6 +151,7 @@ class GFALFileInterface(RemoteFileInterface):
             if self.atomic_contexts and pid in self._transfer_parameters:
                 del self._transfer_parameters[pid]
 
+    @RemoteFileInterface.retry(uri_base_name=["exists", "stat"])
     def exists(
         self,
         path: str | pathlib.Path,
@@ -165,8 +166,11 @@ class GFALFileInterface(RemoteFileInterface):
                 logger.debug(f"invoking gfal2 exists({uri})")
                 rstat = ctx.stat(uri)
                 return rstat if stat else True
-            except gfal2.GError:
-                return None if stat else False
+            except gfal2.GError as e:
+                e_custom = GFALError_stat(uri)
+                if e_custom.reason == e_custom.NOT_FOUND:
+                    return None if stat else False
+                raise e_custom from e
 
     @RemoteFileInterface.retry(uri_base_name="stat")
     def stat(
@@ -183,7 +187,7 @@ class GFALFileInterface(RemoteFileInterface):
                 return ctx.stat(uri)
 
             except gfal2.GError as e:
-                raise RetryException() from e
+                raise GFALError_stat(uri) from e
 
     def isdir(
         self,
@@ -500,6 +504,43 @@ class GFALOperationError(RetryException):
     @classmethod
     def _get_reason(cls, msg: str, uri: str, scheme: str) -> str:
         raise NotImplementedError()
+
+
+class GFALError_stat(GFALOperationError):
+
+    NOT_FOUND = "target not found"
+
+    @classmethod
+    def _get_reason(cls, msg: str, uri: str, scheme: str) -> str:
+        lmsg = msg.lower()
+        if scheme == "root":
+            if "no such file or directory" in lmsg or "file not found" in lmsg:
+                return cls.NOT_FOUND
+
+        elif scheme == "gsiftp":
+            if "no such file or directory" in lmsg or "file not found" in lmsg:
+                return cls.NOT_FOUND
+
+        elif scheme == "srm":
+            if "no such file" in lmsg or "file not found" in lmsg:
+                return cls.NOT_FOUND
+
+        elif scheme in ("dav", "davs"):
+            if "file not found" in lmsg or "no such file or directory" in lmsg:
+                return cls.NOT_FOUND
+
+        elif scheme == "dropbox":
+            if "not_found" in lmsg:
+                return cls.NOT_FOUND
+
+        elif scheme == "file":
+            if "no such file or directory" in lmsg or "file not found" in lmsg:
+                return cls.NOT_FOUND
+
+        else:
+            logger.warning(f"scheme '{scheme}' not known to {cls.__name__}, cannot parse '{msg}'")
+
+        return cls.UNKNOWN
 
 
 class GFALError_chmod(GFALOperationError):
