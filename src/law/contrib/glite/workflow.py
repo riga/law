@@ -53,7 +53,7 @@ class GLiteWorkflowProxy(BaseRemoteWorkflowProxy):
         if callable(task.glite_delegate_proxy):
             delegation_ids = []
             for ce in task.glite_ce:
-                endpoint = law.wlcg.get_ce_endpoint(ce)  # type: ignore[attr-defined]
+                endpoint = law.wlcg.get_ce_endpoint(ce)
                 delegation_ids.append(task.glite_delegate_proxy(endpoint))
             kwargs["delegation_id"] = delegation_ids
 

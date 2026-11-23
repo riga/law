@@ -59,7 +59,7 @@ class RemoteFileSystem(FileSystem):
     default_instance: RemoteFileSystem = None  # type: ignore[assignment]
 
     # to be set by inheriting classes
-    file_interface_cls: RemoteFileInterface
+    file_interface_cls: type[RemoteFileInterface]
 
     local_fs = _local_fs
     _updated_sections: set[str] = set()

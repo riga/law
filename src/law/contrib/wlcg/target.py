@@ -29,7 +29,7 @@ class WLCGFileSystem(RemoteFileSystem):
     option, i.e., the base uri(s) of the file system, is mandatory. Permissions are not supported.
     """
 
-    file_interface_cls = law.gfal.GFALFileInterface  # type: ignore[attr-defined]
+    file_interface_cls = law.gfal.GFALFileInterface
 
     def __init__(self, section: str | None = None, **kwargs) -> None:
         # read configs from section and combine them with kwargs to get the file system and

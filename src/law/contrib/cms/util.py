@@ -185,7 +185,7 @@ def renew_vomsproxy(**kwargs) -> str | None:
     """
     if "vo" not in kwargs:
         kwargs["vo"] = _default_vo()
-    return law.wlcg.renew_vomsproxy(**kwargs)  # type: ignore[attr-defined]
+    return law.wlcg.renew_vomsproxy(**kwargs)
 
 
 def delegate_myproxy(**kwargs) -> str | None:
@@ -198,7 +198,7 @@ def delegate_myproxy(**kwargs) -> str | None:
     """
     if "vo" not in kwargs:
         kwargs["vo"] = _default_vo()
-    return law.wlcg.delegate_myproxy(**kwargs)  # type: ignore[attr-defined]
+    return law.wlcg.delegate_myproxy(**kwargs)
 
 
 def _get_crab_receivers() -> None:

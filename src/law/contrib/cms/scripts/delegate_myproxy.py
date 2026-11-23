@@ -30,11 +30,11 @@ def delegate(
         encode_username = True
         voms_proxy = True
         username = None
-        retrievers = law.cms.util._default_crab_receivers  # type: ignore[attr-defined]
+        retrievers = law.cms.util._default_crab_receivers
 
     # when not renewing, check if a previous delegation exists
     if not renew:
-        info = law.wlcg.get_myproxy_info(  # type: ignore[attr-defined]
+        info = law.wlcg.get_myproxy_info(
             endpoint=endpoint,
             username=username,
             encode_username=encode_username,
@@ -44,13 +44,13 @@ def delegate(
             print(f"existing myproxy delegation found for username {info['username']}")
             return
 
-    if voms_proxy and (renew or not law.wlcg.check_vomsproxy_validity()):  # type: ignore[attr-defined]
+    if voms_proxy and (renew or not law.wlcg.check_vomsproxy_validity()):
         print("\nrenewing voms-proxy")
-        law.cms.renew_vomsproxy(vo=vo, password_file=password_file)  # type: ignore[attr-defined]
+        law.cms.renew_vomsproxy(vo=vo, password_file=password_file)
 
     # create a new delegation
     print(f"\ndelegating to {endpoint}")
-    law.cms.delegate_myproxy(  # type: ignore[attr-defined]
+    law.cms.delegate_myproxy(
         endpoint=endpoint,
         username=username,
         encode_username=encode_username,
@@ -97,7 +97,7 @@ def main() -> int:
     parser.add_argument(
         "--vo",
         "-m",
-        default=law.cms.util._default_vo(),  # type: ignore[attr-defined]
+        default=law.cms.util._default_vo(),
         help="virtual organization to use; default: %(default)s",
     )
     parser.add_argument(

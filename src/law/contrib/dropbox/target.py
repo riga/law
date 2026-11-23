@@ -33,7 +33,7 @@ class DropboxFileSystem(RemoteFileSystem):
     (``dropbox_*`` options in the config) are mandatory. Permissions are not supported.
     """
 
-    file_interface_cls = law.gfal.GFALFileInterface  # type: ignore[attr-defined]
+    file_interface_cls = law.gfal.GFALFileInterface
 
     @classmethod
     def parse_config(

@@ -145,3 +145,40 @@ from law.job.base import BaseJobManager, BaseJobFileFactory, JobInputFile, JobAr
 import law.job.dashboard
 import law.workflow.remote
 import law.contrib
+
+# contrib packages are added to the law namespace at runtime by law.contrib.load, so make them visible to type
+# checkers (they must still be loaded before use)
+from law._types import TYPE_CHECKING
+if TYPE_CHECKING:
+    from law.contrib import (
+        arc as arc,
+        awkward as awkward,
+        cms as cms,
+        coffea as coffea,
+        docker as docker,
+        dropbox as dropbox,
+        gfal as gfal,
+        git as git,
+        glite as glite,
+        hdf5 as hdf5,
+        htcondor as htcondor,
+        ipython as ipython,
+        keras as keras,
+        lsf as lsf,
+        matplotlib as matplotlib,
+        mattermost as mattermost,
+        mercurial as mercurial,
+        numpy as numpy,
+        pandas as pandas,
+        profiling as profiling,
+        pyarrow as pyarrow,
+        rich as rich,
+        root as root,
+        singularity as singularity,
+        slack as slack,
+        slurm as slurm,
+        tasks as tasks,
+        telegram as telegram,
+        tensorflow as tensorflow,
+        wlcg as wlcg,
+    )
