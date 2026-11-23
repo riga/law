@@ -43,7 +43,6 @@ from law.util import (
     makedirs,
     multi_match,
     no_value,
-    which,
 )
 from law.util import abort as abort_process
 
@@ -65,7 +64,7 @@ def get_timeout_command() -> str | None:
         if _timeout_command == no_value:
             _timeout_command = None
             for cmd in ["timeout", "gtimeout"]:
-                if which(cmd):
+                if shutil.which(cmd):
                     _timeout_command = cmd
                     break
 

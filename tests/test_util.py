@@ -295,13 +295,6 @@ class TestUtil:
         with pytest.raises(ValueError, match=r"insufficient length 1 of sequence at index 1 to unzip, expected 2"):
             law.util.unzip([(1, 2), (3,)])
 
-    def test_which(self) -> None:
-        sh = law.util.which("sh")
-        assert sh
-        assert os.path.isabs(sh)
-        assert law.util.which("/bin/sh") == "/bin/sh"
-        assert law.util.which("surely_not_an_existing_executable_42") is None
-
     def test_map_verbose(self) -> None:
         calls: list[int] = []
         res = law.util.map_verbose(lambda x: x ** 2, range(7), every=3, callback=calls.append)

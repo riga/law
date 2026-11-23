@@ -33,7 +33,6 @@ __all__ = [  # noqa: RUF022
     "patch_object",
     "quote_cmd",
     "send_mail",
-    "which",
     # value identification and conversion
     "colored",
     "flag_to_bool",
@@ -1406,30 +1405,6 @@ def unzip(struct: Iterable, fill_none: bool = False) -> tuple[list[Any], ...] | 
                 )
 
     return lists
-
-
-def which(prog: str) -> str | None:
-    """
-    Pythonic ``which`` implementation that searches for an executable *prog* in *PATH*.
-
-    :param prog: The name of the executable.
-    :return: The path to the executable, or *None* when it could not be found.
-    """
-    executable = lambda path: os.path.isfile(path) and os.access(path, os.X_OK)
-
-    # prog can also be a path
-    dirname, _ = os.path.split(str(prog))
-    if dirname:
-        if executable(str(prog)):
-            return prog
-
-    elif "PATH" in os.environ:
-        for search_path in os.environ["PATH"].split(os.pathsep):
-            path = os.path.join(search_path.strip('"'), prog)
-            if executable(path):
-                return path
-
-    return None
 
 
 def map_verbose(
