@@ -20,6 +20,8 @@ action() {
 
     # handle arguments
     local repo_path="$1"
+    local include_files="$2"
+    local exclude_files="$3"
     if [ -z "${repo_path}" ]; then
         >&2 echo "please provide the path to the repository to bundle"
         return "1"
@@ -72,7 +74,7 @@ EOF
     ( \
         cd "${repo_path}" && \
         hg identify -i && \
-        hg diff | cat && \
+        hg diff --nodates | cat && \
         echo "${include_checksum}" && \
         ( hg status --unknown --no-status | xargs cat ) \
     ) | shasum | cut -d " " -f 1
