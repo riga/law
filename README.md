@@ -226,7 +226,7 @@ Run the following to install development dependencies and set it up:
 ```shell
 # inside the cloned repository
 git lfs install
-pip install -e .[dev]
+pip install -e .[dev,test]
 pre-commit install
 ```
 
